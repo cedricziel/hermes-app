@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<!-- REST calls to the configured Hermes dashboard. -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<!-- The native OAuth loopback listener (see NativeLoginFlow) binds a
+	     127.0.0.1 socket to catch the system browser's redirect. -->
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>

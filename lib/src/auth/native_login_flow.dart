@@ -1,0 +1,201 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../models/hermes_session.dart';
+import 'pkce.dart';
+
+/// Raised when the native login flow fails for a reason the user should see
+/// (timeout, state mismatch, IdP error, browser launch failure, ...).
+class NativeLoginException implements Exception {
+  NativeLoginException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+const _loginTimeout = Duration(minutes: 5);
+
+// No tokens, no secrets — just a close affordance for the tab the system
+// browser opened. Matches Hermes Desktop's DONE_HTML.
+const _doneHtml = '''
+<!doctype html><meta charset="utf-8"><title>Signed in</title>
+<body style="font:15px system-ui;margin:3rem;text-align:center">
+<h2>&#10003; Signed in to Hermes</h2>
+<p>You can close this tab and return to the app.</p>
+</body>
+''';
+
+/// Runs a full RFC 8252 (OAuth 2.0 for Native Apps) login against a Hermes
+/// dashboard: opens the system browser at `/auth/native/authorize` with a
+/// fresh PKCE challenge and a loopback `redirect_uri`, waits for the
+/// authorization redirect on a local HTTP listener, then redeems the code at
+/// `/auth/native/token`. Works identically for every registered provider —
+/// OIDC providers redirect through their IdP, and the bundled
+/// username/password provider instead renders Hermes's own `/login` form in
+/// the system browser (so the OS password manager can autofill it), but
+/// either way this app only ever sees the final bearer token set.
+///
+/// [baseUrl] is the dashboard's base URL (e.g. `http://192.168.1.20:9119`).
+/// [provider] selects a specific registered provider by name; leave it null
+/// to let the gateway auto-select when exactly one is eligible.
+Future<HermesSession> runNativeLogin(
+  String baseUrl, {
+  String? provider,
+  Dio? httpClient,
+}) async {
+  final dio = httpClient ?? Dio();
+  final pkce = PkcePair.generate();
+  final state = generatePkceState();
+
+  HttpServer server;
+  try {
+    server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  } on SocketException catch (e) {
+    throw NativeLoginException('Could not start local sign-in listener: $e');
+  }
+
+  try {
+    final redirectUri = 'http://127.0.0.1:${server.port}/callback';
+    final authorizeUrl = _buildAuthorizeUrl(
+      baseUrl,
+      challenge: pkce.challenge,
+      redirectUri: redirectUri,
+      state: state,
+      provider: provider,
+    );
+
+    final launched = await launchUrl(
+      Uri.parse(authorizeUrl),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      throw NativeLoginException(
+        'Could not open the system browser for sign-in.',
+      );
+    }
+
+    final code = await _awaitCallback(server, expectedState: state)
+        .timeout(_loginTimeout, onTimeout: () {
+      throw NativeLoginException(
+        'Sign-in timed out. Please try again.',
+      );
+    });
+
+    final tokenResponse = await dio.post<Map<String, dynamic>>(
+      _joinUrl(baseUrl, '/auth/native/token'),
+      data: {'code': code, 'code_verifier': pkce.verifier},
+    );
+    final data = tokenResponse.data;
+    if (data == null) {
+      throw NativeLoginException('Empty token response from server.');
+    }
+    return HermesSession.fromTokenResponse(data);
+  } on DioException catch (e) {
+    throw NativeLoginException(_describeDioError(e));
+  } finally {
+    unawaited(server.close(force: true));
+  }
+}
+
+/// Rotates a stored session's tokens via `/auth/native/refresh`.
+Future<HermesSession> refreshNativeSession(
+  String baseUrl,
+  HermesSession session, {
+  Dio? httpClient,
+}) async {
+  final dio = httpClient ?? Dio();
+  try {
+    final response = await dio.post<Map<String, dynamic>>(
+      _joinUrl(baseUrl, '/auth/native/refresh'),
+      data: {
+        'refresh_token': session.refreshToken,
+        'provider': session.provider,
+      },
+    );
+    final data = response.data;
+    if (data == null) {
+      throw NativeLoginException('Empty refresh response from server.');
+    }
+    return HermesSession.fromTokenResponse(data);
+  } on DioException catch (e) {
+    throw NativeLoginException(_describeDioError(e));
+  }
+}
+
+Future<String> _awaitCallback(
+  HttpServer server, {
+  required String expectedState,
+}) async {
+  await for (final request in server) {
+    final params = request.uri.queryParameters;
+    request.response
+      ..statusCode = 200
+      ..headers.contentType = ContentType.html
+      ..write(_doneHtml);
+    await request.response.close();
+
+    // Ignore stray requests (favicon probes, etc.) that carry neither.
+    if (!params.containsKey('code') && !params.containsKey('error')) {
+      continue;
+    }
+
+    final error = params['error'];
+    if (error != null) {
+      final description = params['error_description'] ?? '';
+      throw NativeLoginException(
+        'Sign-in was rejected: $error${description.isEmpty ? '' : ' ($description)'}',
+      );
+    }
+
+    final code = params['code'];
+    if (code == null || code.isEmpty) {
+      throw NativeLoginException('Sign-in callback missing authorization code.');
+    }
+
+    final returnedState = params['state'];
+    if (expectedState.isEmpty || returnedState != expectedState) {
+      throw NativeLoginException(
+        'Sign-in callback state mismatch (possible CSRF); please try again.',
+      );
+    }
+
+    return code;
+  }
+  throw NativeLoginException('Sign-in listener closed unexpectedly.');
+}
+
+String _buildAuthorizeUrl(
+  String baseUrl, {
+  required String challenge,
+  required String redirectUri,
+  required String state,
+  String? provider,
+}) {
+  final uri = Uri.parse(_joinUrl(baseUrl, '/auth/native/authorize'));
+  final query = <String, String>{
+    'code_challenge': challenge,
+    'code_challenge_method': 'S256',
+    'redirect_uri': redirectUri,
+    'state': state,
+    if (provider != null && provider.isNotEmpty) 'provider': provider,
+  };
+  return uri.replace(queryParameters: query).toString();
+}
+
+String _joinUrl(String baseUrl, String path) {
+  final trimmedBase = baseUrl.replaceAll(RegExp(r'/+$'), '');
+  final trimmedPath = path.startsWith('/') ? path : '/$path';
+  return '$trimmedBase$trimmedPath';
+}
+
+String _describeDioError(DioException e) {
+  final data = e.response?.data;
+  if (data is Map && data['detail'] is String) {
+    return data['detail'] as String;
+  }
+  return e.message ?? 'Network error during sign-in.';
+}
