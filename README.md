@@ -99,3 +99,14 @@ flutter run
   `com.apple.security.network.client` (REST calls) and
   `com.apple.security.network.server` (the loopback OAuth callback
   listener).
+
+## Contributing
+
+This project uses [cedricziel/claude-plugins](https://github.com/cedricziel/claude-plugins)'
+`oss` plugin (commit discipline, stacked PRs, test-writing, technical
+writing, etc.) for anyone working on it with Claude Code:
+
+```
+/plugin marketplace add cedricziel/claude-plugins
+/plugin install oss@cedricziel
+```
