@@ -59,7 +59,9 @@ class LoginScreen extends StatelessWidget {
                       ),
                     )
                   else if (auth.providers.isEmpty)
-                    const Text('No sign-in providers are registered on this server.')
+                    const Text(
+                      'No sign-in providers are registered on this server.',
+                    )
                   else
                     ...auth.providers.map(
                       (provider) => Padding(
@@ -71,7 +73,9 @@ class LoginScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     Text(
                       auth.errorMessage!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -97,7 +101,9 @@ class _ProviderButton extends StatelessWidget {
         ? 'Sign in with username & password'
         : 'Sign in with ${provider.displayName}';
     return FilledButton.icon(
-      icon: Icon(provider.supportsPassword ? Icons.password : Icons.open_in_browser),
+      icon: Icon(
+        provider.supportsPassword ? Icons.password : Icons.open_in_browser,
+      ),
       label: Text(label),
       onPressed: () => auth.signInWithProvider(provider),
     );

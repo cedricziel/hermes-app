@@ -12,11 +12,13 @@ class HermesStatus {
   factory HermesStatus.fromJson(Map<String, dynamic> json) {
     return HermesStatus(
       authRequired: json['auth_required'] as bool? ?? false,
-      authProviders: (json['auth_providers'] as List<dynamic>?)
+      authProviders:
+          (json['auth_providers'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
-      authFlows: (json['auth_flows'] as List<dynamic>?)
+      authFlows:
+          (json['auth_flows'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],

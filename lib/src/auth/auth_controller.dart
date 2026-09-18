@@ -43,8 +43,8 @@ const _prefsBaseUrlKey = 'hermes.server_base_url';
 /// semantics on the server side) and the [TokenStore].
 class AuthController extends ChangeNotifier {
   AuthController({TokenStore? tokenStore, SharedPreferencesAsync? prefs})
-      : _tokenStore = tokenStore ?? TokenStore(),
-        _prefs = prefs ?? SharedPreferencesAsync();
+    : _tokenStore = tokenStore ?? TokenStore(),
+      _prefs = prefs ?? SharedPreferencesAsync();
 
   final TokenStore _tokenStore;
   final SharedPreferencesAsync _prefs;
@@ -86,7 +86,8 @@ class AuthController extends ChangeNotifier {
   Future<void> connect(String rawUrl) async {
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
-      _errorMessage = 'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
+      _errorMessage =
+          'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
       _setState(HermesConnectionState.connectionError);
       return;
     }
@@ -94,19 +95,23 @@ class AuthController extends ChangeNotifier {
     _errorMessage = null;
     _setState(HermesConnectionState.connecting);
 
-    final probeDio = Dio(BaseOptions(
-      baseUrl: normalized,
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 8),
-    ));
+    final probeDio = Dio(
+      BaseOptions(
+        baseUrl: normalized,
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 8),
+      ),
+    );
 
     final HermesStatus status;
     try {
-      final response =
-          await probeDio.get<Map<String, dynamic>>('/api/status');
+      final response = await probeDio.get<Map<String, dynamic>>('/api/status');
       status = HermesStatus.fromJson(response.data ?? const {});
     } on DioException catch (e) {
-      _errorMessage = _describeDioError(e, fallback: 'Could not reach $normalized');
+      _errorMessage = _describeDioError(
+        e,
+        fallback: 'Could not reach $normalized',
+      );
       _setState(HermesConnectionState.connectionError);
       return;
     }
@@ -128,7 +133,10 @@ class AuthController extends ChangeNotifier {
     try {
       _providers = await _api!.fetchAuthProviders();
     } on DioException catch (e) {
-      _errorMessage = _describeDioError(e, fallback: 'Could not load sign-in options');
+      _errorMessage = _describeDioError(
+        e,
+        fallback: 'Could not load sign-in options',
+      );
       _setState(HermesConnectionState.connectionError);
       return;
     }
@@ -169,7 +177,10 @@ class AuthController extends ChangeNotifier {
       _errorMessage = e.message;
       _setState(HermesConnectionState.needsLogin);
     } on DioException catch (e) {
-      _errorMessage = _describeDioError(e, fallback: 'Sign-in succeeded but loading your profile failed');
+      _errorMessage = _describeDioError(
+        e,
+        fallback: 'Sign-in succeeded but loading your profile failed',
+      );
       _setState(HermesConnectionState.needsLogin);
     }
   }
@@ -200,47 +211,51 @@ class AuthController extends ChangeNotifier {
   }
 
   Dio _buildAuthenticatedDio(String baseUrl) {
-    final dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-    ));
-    dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final session = _session;
-        if (session != null) {
-          final token = await _ensureFreshAccessToken();
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final session = _session;
+          if (session != null) {
+            final token = await _ensureFreshAccessToken();
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
           }
-        }
-        handler.next(options);
-      },
-      onError: (error, handler) async {
-        final session = _session;
-        final alreadyRetried =
-            error.requestOptions.extra['hermes_retried'] == true;
-        if (error.response?.statusCode == 401 &&
-            session != null &&
-            session.refreshToken.isNotEmpty &&
-            !alreadyRetried) {
-          try {
-            final refreshed = await _refreshSession(session);
-            final retryOptions = error.requestOptions
-              ..headers['Authorization'] = 'Bearer ${refreshed.accessToken}'
-              ..extra['hermes_retried'] = true;
-            final response = await dio.fetch(retryOptions);
-            handler.resolve(response);
-            return;
-          } catch (_) {
+          handler.next(options);
+        },
+        onError: (error, handler) async {
+          final session = _session;
+          final alreadyRetried =
+              error.requestOptions.extra['hermes_retried'] == true;
+          if (error.response?.statusCode == 401 &&
+              session != null &&
+              session.refreshToken.isNotEmpty &&
+              !alreadyRetried) {
+            try {
+              final refreshed = await _refreshSession(session);
+              final retryOptions = error.requestOptions
+                ..headers['Authorization'] = 'Bearer ${refreshed.accessToken}'
+                ..extra['hermes_retried'] = true;
+              final response = await dio.fetch(retryOptions);
+              handler.resolve(response);
+              return;
+            } catch (_) {
+              await _handleSessionExpired();
+            }
+          } else if (error.response?.statusCode == 401) {
             await _handleSessionExpired();
           }
-        } else if (error.response?.statusCode == 401) {
-          await _handleSessionExpired();
-        }
-        handler.next(error);
-      },
-    ));
+          handler.next(error);
+        },
+      ),
+    );
     return dio;
   }
 
@@ -270,13 +285,15 @@ class AuthController extends ChangeNotifier {
       return Future.error(StateError('No server configured'));
     }
 
-    final future = refreshNativeSession(url, current).then((refreshed) async {
-      _session = refreshed;
-      await _tokenStore.write(refreshed);
-      return refreshed;
-    }).whenComplete(() {
-      _refreshInFlight = null;
-    });
+    final future = refreshNativeSession(url, current)
+        .then((refreshed) async {
+          _session = refreshed;
+          await _tokenStore.write(refreshed);
+          return refreshed;
+        })
+        .whenComplete(() {
+          _refreshInFlight = null;
+        });
     _refreshInFlight = future;
     return future;
   }

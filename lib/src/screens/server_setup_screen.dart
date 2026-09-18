@@ -65,7 +65,8 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                         hintText: 'http://192.168.1.20:9119',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => (value == null || value.trim().isEmpty)
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
                           ? 'Enter a URL'
                           : null,
                       onFieldSubmitted: (_) => _submit(auth),
@@ -75,7 +76,9 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                       const SizedBox(height: 12),
                       Text(
                         auth.errorMessage!,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ],

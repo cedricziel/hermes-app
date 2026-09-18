@@ -9,10 +9,11 @@ import '../models/hermes_session.dart';
 /// Hermes Desktop uses for its own token store, and never a browser cookie.
 class TokenStore {
   TokenStore({FlutterSecureStorage? storage})
-      : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            );
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(encryptedSharedPreferences: true),
+          );
 
   static const _sessionKey = 'hermes.session.v1';
 

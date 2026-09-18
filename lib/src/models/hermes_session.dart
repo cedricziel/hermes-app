@@ -43,12 +43,12 @@ class HermesSession {
   final String userId;
 
   Map<String, dynamic> toStorageJson() => {
-        'accessToken': accessToken,
-        'refreshToken': refreshToken,
-        'expiresAt': expiresAt,
-        'provider': provider,
-        'userId': userId,
-      };
+    'accessToken': accessToken,
+    'refreshToken': refreshToken,
+    'expiresAt': expiresAt,
+    'provider': provider,
+    'userId': userId,
+  };
 
   /// True when the access token is at or near expiry and should be refreshed
   /// before use. Mirrors the server's own 60s floor on cookie Max-Age.

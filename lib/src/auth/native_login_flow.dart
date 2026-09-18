@@ -78,12 +78,12 @@ Future<HermesSession> runNativeLogin(
       );
     }
 
-    final code = await _awaitCallback(server, expectedState: state)
-        .timeout(_loginTimeout, onTimeout: () {
-      throw NativeLoginException(
-        'Sign-in timed out. Please try again.',
-      );
-    });
+    final code = await _awaitCallback(server, expectedState: state).timeout(
+      _loginTimeout,
+      onTimeout: () {
+        throw NativeLoginException('Sign-in timed out. Please try again.');
+      },
+    );
 
     final tokenResponse = await dio.post<Map<String, dynamic>>(
       _joinUrl(baseUrl, '/auth/native/token'),
@@ -153,7 +153,9 @@ Future<String> _awaitCallback(
 
     final code = params['code'];
     if (code == null || code.isEmpty) {
-      throw NativeLoginException('Sign-in callback missing authorization code.');
+      throw NativeLoginException(
+        'Sign-in callback missing authorization code.',
+      );
     }
 
     final returnedState = params['state'];

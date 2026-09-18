@@ -76,8 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     identity.displayName.isNotEmpty
                         ? identity.displayName
                         : identity.email.isNotEmpty
-                            ? identity.email
-                            : identity.userId,
+                        ? identity.email
+                        : identity.userId,
                   ),
                   subtitle: Text('via ${identity.provider}'),
                 ),
@@ -94,8 +94,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.hasError) {
                   return Card(
                     child: ListTile(
-                      leading: Icon(Icons.error_outline,
-                          color: Theme.of(context).colorScheme.error),
+                      leading: Icon(
+                        Icons.error_outline,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       title: const Text('Could not load status'),
                       subtitle: Text('${snapshot.error}'),
                     ),

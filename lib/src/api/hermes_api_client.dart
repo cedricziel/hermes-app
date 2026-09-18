@@ -26,8 +26,9 @@ class HermesApiClient {
   /// `GET /api/auth/providers` — public. Lists the registered sign-in
   /// options for the login screen.
   Future<List<AuthProviderInfo>> fetchAuthProviders() async {
-    final response =
-        await _dio.get<Map<String, dynamic>>('/api/auth/providers');
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/auth/providers',
+    );
     final raw = response.data?['providers'] as List<dynamic>? ?? const [];
     return raw
         .map((e) => AuthProviderInfo.fromJson(e as Map<String, dynamic>))

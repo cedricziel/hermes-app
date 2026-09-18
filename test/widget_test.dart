@@ -7,9 +7,11 @@ import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 
 void main() {
-  testWidgets('shows the server setup screen with no saved server',
-      (WidgetTester tester) async {
-    SharedPreferencesAsyncPlatform.instance = InMemorySharedPreferencesAsync.empty();
+  testWidgets('shows the server setup screen with no saved server', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
 
     await tester.pumpWidget(
       ChangeNotifierProvider(

@@ -11,7 +11,8 @@ class AuthProviderInfo {
   factory AuthProviderInfo.fromJson(Map<String, dynamic> json) {
     return AuthProviderInfo(
       name: json['name'] as String? ?? '',
-      displayName: json['display_name'] as String? ?? json['name'] as String? ?? '',
+      displayName:
+          json['display_name'] as String? ?? json['name'] as String? ?? '',
       supportsPassword: json['supports_password'] as bool? ?? false,
     );
   }

@@ -1,8 +1,9 @@
 # hermes-app
 
-A Flutter client for [Hermes Agent](https://github.com/cedricziel/hermes-agent)'s
-web dashboard — connect to a self-hosted `hermes dashboard` instance and sign
-in with either an OIDC identity provider or a username/password.
+A Flutter client for [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+(by [Nous Research](https://nousresearch.com))'s web dashboard — connect to a
+self-hosted `hermes dashboard` instance and sign in with either an OIDC
+identity provider or a username/password.
 
 ## Status
 
