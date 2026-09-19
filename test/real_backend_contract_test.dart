@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_api/hermes_api.dart' show SessionRename;
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -20,11 +21,13 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 ///       test/real_backend_contract_test.dart
 ///
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
-/// profile test switches the active profile back to `default`, and the setup
-/// test writes and then clears a Telegram token (skipped if one is set). The
-/// gateway test makes two real model calls, which cost money. The Telegram
-/// pairing test contacts the hosted setup service, so it also needs
-/// `HERMES_DEV_TELEGRAM_PAIRING=1`.
+/// profile test switches the active profile back to `default`, the setup
+/// test writes and then clears a Telegram token (skipped if one is set), and
+/// the session tests rename, pin and archive the newest session, then undo it
+/// (a title the session had not set is left as its displayed one). Deleting
+/// is not tried. The gateway test makes two real model calls, which cost
+/// money. The Telegram pairing test contacts the hosted setup service, so it
+/// also needs `HERMES_DEV_TELEGRAM_PAIRING=1`.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -94,6 +97,85 @@ void main() {
       repository.loadThreads(profile: 'no-such-profile'),
       throwsA(isA<DioException>()),
     );
+  }, skip: skip);
+
+  test('session pages follow each other without gaps', () async {
+    final repository = HermesChatRepository(client.raw);
+    final first = await repository.loadThreadPage(limit: 2);
+    if (!first.hasMore) return;
+
+    final second = await repository.loadThreadPage(
+      limit: 2,
+      offset: first.nextOffset,
+    );
+
+    final pinnedIds = {
+      for (final t in [...first.threads, ...second.threads])
+        if (t.pinned) t.id,
+    };
+    final ids = {for (final t in first.threads) t.id};
+    expect(
+      second.threads.where(
+        (t) => ids.contains(t.id) && !pinnedIds.contains(t.id),
+      ),
+      isEmpty,
+    );
+  }, skip: skip);
+
+  test('a session can be renamed and renamed back', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+    final thread = threads.first;
+    final renamed = 'contract check ${DateTime.now().microsecondsSinceEpoch}';
+
+    try {
+      expect(await repository.renameThread(thread.id, renamed), renamed);
+      final reloaded = await repository.loadThreads();
+      expect(reloaded.firstWhere((t) => t.id == thread.id).title, renamed);
+    } finally {
+      await repository.renameThread(thread.id, thread.title);
+    }
+  }, skip: skip);
+
+  test('a session can be pinned and unpinned', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+    final thread = threads.firstWhere(
+      (t) => !t.pinned,
+      orElse: () => threads.first,
+    );
+
+    try {
+      await repository.setPinned(thread.id, !thread.pinned);
+      final flipped = (await repository.loadThreads()).firstWhere(
+        (t) => t.id == thread.id,
+      );
+      expect(flipped.pinned, !thread.pinned);
+    } finally {
+      await repository.setPinned(thread.id, thread.pinned);
+    }
+  }, skip: skip);
+
+  test('an archived session leaves the list and comes back', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+    final thread = threads.first;
+
+    try {
+      await repository.archiveThread(thread.id);
+      final after = await repository.loadThreads();
+      expect(after.map((t) => t.id), isNot(contains(thread.id)));
+    } finally {
+      await client.raw.renameSessionEndpointApiSessionsSessionIdPatch(
+        sessionId: thread.id,
+        sessionRename: SessionRename(archived: false),
+      );
+    }
+    final restored = await repository.loadThreads();
+    expect(restored.map((t) => t.id), contains(thread.id));
   }, skip: skip);
 
   test('profiles load and the active one can be set', () async {
