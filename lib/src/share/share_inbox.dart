@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 
+import 'macos_share_inbox.dart';
 import 'plugin_share_inbox.dart';
 import 'shared_item.dart';
 
@@ -36,5 +37,6 @@ class NoopShareInbox implements ShareInbox {
 ShareInbox createPlatformShareInbox() {
   if (kIsWeb) return const NoopShareInbox();
   if (Platform.isIOS || Platform.isAndroid) return PluginShareInbox();
+  if (Platform.isMacOS) return MacosShareInbox();
   return const NoopShareInbox();
 }
