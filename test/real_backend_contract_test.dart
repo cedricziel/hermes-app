@@ -26,11 +26,17 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 /// the session tests rename, pin and archive the newest session, then undo it
 /// (a title the session had not set is left as its displayed one). Deleting
 /// is not tried. The gateway test makes two real model calls, which cost
-/// money. The Telegram pairing test contacts the hosted setup service, so it
-/// also needs `HERMES_DEV_TELEGRAM_PAIRING=1`.
+/// money and need a provider configured in the backend, so it also needs
+/// `HERMES_DEV_MODEL_CALLS=1`. The Telegram pairing test contacts the hosted
+/// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
+  final modelSkip =
+      skip ??
+      (Platform.environment['HERMES_DEV_MODEL_CALLS'] == '1'
+          ? null
+          : 'set HERMES_DEV_MODEL_CALLS=1 to make real model calls');
 
   late HermesApiClient client;
 
@@ -227,7 +233,7 @@ void main() {
       expect(second.whereType<ThreadBound>(), isEmpty);
       expect((second.last as ReplyCompleted).failed, isFalse);
     },
-    skip: skip,
+    skip: modelSkip,
     timeout: const Timeout(Duration(minutes: 3)),
   );
 
