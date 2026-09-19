@@ -12,6 +12,12 @@ same native flow — see below), token storage/refresh, and a minimal
 authenticated home screen that reads `/api/status` and `/api/auth/me`. It is
 the foundation for the real chat/session UI, not that UI itself.
 
+## Try the beta
+
+Join the TestFlight beta for iPhone, iPad and Mac: <https://testflight.apple.com/join/NahPgSAB>
+
+You need your own Hermes Agent dashboard to sign in (see [Getting started](#getting-started)). This is an independent app and is not affiliated with Nous Research.
+
 ## How auth works
 
 Hermes Agent's dashboard (`hermes_cli/dashboard_auth/`) gates the API behind
