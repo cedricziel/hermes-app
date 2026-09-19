@@ -21,6 +21,8 @@ import 'chat_models.dart';
 import 'chat_reply.dart';
 import 'chat_theme.dart';
 import 'chat_transport.dart';
+import 'gateway/gateway_connection.dart';
+import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'widgets/chat_builders.dart';
@@ -61,6 +63,8 @@ class _ChatScreenState extends State<ChatScreen> {
   HermesChatRepository? _repository;
   HermesProfilesRepository? _profiles;
   HermesBotsRepository? _bots;
+  ChatTransport? _transport;
+  HermesGatewayTransport? _ownedTransport;
   bool _loadingThreads = false;
   bool _threadsFailed = false;
   final _unloaded = <String>{};
@@ -88,6 +92,17 @@ class _ChatScreenState extends State<ChatScreen> {
         widget.profiles ??
         (api == null ? null : HermesProfilesRepository(api.raw));
     _bots = widget.bots ?? (api == null ? null : HermesBotsRepository(api.raw));
+    _transport = widget.transport;
+    if (_transport == null && api != null) {
+      final auth = context.read<AuthController>();
+      _transport = _ownedTransport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: auth.baseUrl!,
+          authRequired: auth.status?.authRequired ?? true,
+          api: api,
+        ),
+      );
+    }
     if (_repository == null) {
       _threads = buildMockThreads();
       _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
@@ -170,6 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
     for (final reply in _replies) {
       reply.cancel();
     }
+    _ownedTransport?.close();
     _composerController.dispose();
     _emptyController.dispose();
     for (final controller in _chatControllers.values) {
@@ -290,7 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _composerController.clear();
       _attachments.clear();
     });
-    final transport = widget.transport;
+    final transport = _transport;
     if (transport == null) {
       Future.delayed(const Duration(milliseconds: 900), () {
         if (!mounted) return;
