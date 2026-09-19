@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'src/app.dart';
 import 'src/auth/auth_controller.dart';
+import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
 import 'src/telemetry/telemetry.dart';
@@ -23,6 +24,7 @@ Future<void> main() async {
           create: (_) =>
               AuthController(interceptors: [?httpInterceptor])..bootstrap(),
         ),
+        ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(
           create: (_) => ShareController(createPlatformShareInbox())..start(),
         ),

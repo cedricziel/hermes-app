@@ -5,6 +5,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/settings/theme_controller.dart';
 
 void main() {
   testWidgets('shows the server setup screen with no saved server', (
@@ -14,8 +15,11 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
 
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => AuthController()..bootstrap(),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => AuthController()..bootstrap()),
+          ChangeNotifierProvider(create: (_) => ThemeController()),
+        ],
         child: const HermesApp(),
       ),
     );
