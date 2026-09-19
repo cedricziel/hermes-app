@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -56,3 +56,24 @@ jobs:
 
       - name: Build debug APK
         run: flutter build apk --debug
+
+  # Builds the app together with its share extension. The extension links the
+  # receive_sharing_intent package by a version-pinned path in project.pbxproj,
+  # so a plugin upgrade that isn't mirrored there breaks only this build.
+  build-ios:
+    name: Build iOS (simulator)
+    runs-on: macos-26
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Build simulator app with share extension
+        run: flutter build ios --simulator --debug --no-codesign
