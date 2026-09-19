@@ -63,6 +63,10 @@ class _ChatScreenState extends State<ChatScreen> {
   HermesBotsRepository? _bots;
   bool _loadingThreads = false;
   bool _threadsFailed = false;
+
+  /// The profile whose sessions are listed; null leaves it to the dashboard.
+  String? _profile;
+  int _loadGeneration = 0;
   final _unloaded = <String>{};
 
   /// Threads the dashboard knows by their [ChatThread.id]; a thread created
@@ -99,15 +103,26 @@ class _ChatScreenState extends State<ChatScreen> {
     _absorbShared();
   }
 
-  Future<void> _loadThreads() async {
+  /// Lists the threads of [profile], or of the sticky active profile when
+  /// none is given. The dashboard does not scope sessions to that profile by
+  /// itself, so it is passed on every read.
+  Future<void> _loadThreads([String? profile]) async {
+    final generation = ++_loadGeneration;
     setState(() {
       _loadingThreads = true;
       _threadsFailed = false;
     });
     try {
-      final threads = await _repository!.loadThreads();
-      if (!mounted) return;
+      profile ??= await _activeProfile();
+      final threads = await _repository!.loadThreads(profile: profile);
+      if (!mounted || generation != _loadGeneration) return;
+      // Another profile can hold a different session under the same id.
+      for (final controller in _chatControllers.values) {
+        controller.dispose();
+      }
+      _chatControllers.clear();
       setState(() {
+        _profile = profile;
         _threads = threads;
         _unloaded
           ..clear()
@@ -120,7 +135,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loadingThreads = false;
         _threadsFailed = true;
@@ -128,16 +143,26 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<String?> _activeProfile() async {
+    try {
+      return (await _profiles?.loadActive())?.active;
+    } on Object {
+      return null;
+    }
+  }
+
   Future<void> _loadMessages(String id) async {
     if (!_unloaded.remove(id)) return;
+    final generation = _loadGeneration;
     try {
-      final messages = await _repository!.loadMessages(id);
-      if (!mounted) return;
+      final messages = await _repository!.loadMessages(id, profile: _profile);
+      if (!mounted || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
       setState(() => thread.messages.addAll(messages));
       await _controllerFor(thread).setMessages(chatThreadToFlyer(thread));
     } on Object {
+      if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -215,7 +240,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void _openProfiles() {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProfilesScreen(repository: _profiles)),
+      MaterialPageRoute(
+        builder: (_) => ProfilesScreen(
+          repository: _profiles,
+          chatProfile: _profile,
+          onSwitched: _repository == null ? null : _loadThreads,
+        ),
+      ),
     );
   }
 
@@ -493,7 +524,7 @@ class _ThreadView extends StatelessWidget {
                 child: FlyerMaterialScope(
                   child: SelectionArea(
                     child: Chat(
-                      key: ValueKey(thread?.id),
+                      key: ObjectKey(chatController),
                       chatController: chatController,
                       currentUserId: kUserAuthorId,
                       resolveUser: (id) async => User(id: id),

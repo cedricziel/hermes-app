@@ -1,0 +1,185 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/fake_hermes_server.dart';
+import 'support/fake_share_inbox.dart';
+
+/// The chat follows the selected Hermes profile. Each profile keeps its own
+/// sessions, so two profiles can hold different sessions under one id.
+void main() {
+  late FakeHermesServer server;
+
+  /// One session, id `shared` in every profile, as [profile] serves it.
+  void seedProfile(String profile, String title, String greeting) {
+    server
+      ..on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 'shared', title: title)]),
+        query: {'profile': profile},
+      )
+      ..on(
+        'GET',
+        '/api/sessions/shared/messages',
+        messageListBody('shared', [
+          messageRow(id: 1, role: 'user', content: greeting),
+        ]),
+        query: {'profile': profile},
+      );
+  }
+
+  void activate(String active, {String? current}) => server.on(
+    'GET',
+    '/api/profiles/active',
+    activeProfileBody(active: active, current: current),
+  );
+
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    server = FakeHermesServer()
+      ..on(
+        'GET',
+        '/api/profiles',
+        profileListBody([
+          profileRow(name: 'default', isDefault: true),
+          profileRow(name: 'work', displayName: 'Work assistant'),
+        ]),
+      )
+      ..on('POST', '/api/profiles/active', {'ok': true});
+    activate('default');
+    seedProfile('default', 'Personal notes', 'hello from default');
+    seedProfile('work', 'Sprint planning', 'hello from work');
+  });
+
+  Future<void> pumpChat(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthController>(
+            create: (_) => AuthController(),
+          ),
+          ChangeNotifierProvider<ShareController>(
+            create: (_) => ShareController(FakeShareInbox()),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: ChatScreen(
+            repository: HermesChatRepository(server.client().raw),
+            profiles: HermesProfilesRepository(server.client().raw),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Finder inTranscript(String text) => find.descendant(
+    of: find.byType(Chat),
+    matching: find.textContaining(text, findRichText: true),
+  );
+
+  Future<void> switchProfile(WidgetTester tester, String name) async {
+    activate(name);
+    await tester.tap(find.text('Profiles'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(name == 'work' ? 'Work assistant' : name));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('lists the sessions of the active profile', (tester) async {
+    activate('work', current: 'default');
+    await pumpChat(tester);
+
+    expect(find.text('Sprint planning'), findsWidgets);
+    expect(find.text('Personal notes'), findsNothing);
+    final request = server.requestsTo('GET', '/api/sessions').single;
+    expect(request.queryParameters['profile'], 'work');
+  });
+
+  testWidgets('reads the open session from the active profile', (tester) async {
+    activate('work', current: 'default');
+    await pumpChat(tester);
+
+    final request = server
+        .requestsTo('GET', '/api/sessions/shared/messages')
+        .single;
+    expect(request.queryParameters['profile'], 'work');
+    expect(inTranscript('hello from work'), findsOneWidget);
+  });
+
+  testWidgets(
+    'asks the dashboard unscoped when the active profile is unknown',
+    (tester) async {
+      server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's1', title: 'Whatever')]),
+      );
+      await pumpChat(tester);
+
+      expect(find.text('Whatever'), findsWidgets);
+      final request = server.requestsTo('GET', '/api/sessions').single;
+      expect(request.queryParameters.containsKey('profile'), isFalse);
+    },
+  );
+
+  testWidgets('switching profile reloads the threads of the new profile', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    expect(find.text('Personal notes'), findsWidgets);
+
+    await switchProfile(tester, 'work');
+
+    expect(find.text('Sprint planning'), findsWidgets);
+    expect(find.text('Personal notes'), findsNothing);
+    final lists = server.requestsTo('GET', '/api/sessions');
+    expect(lists.map((r) => r.queryParameters['profile']), ['default', 'work']);
+  });
+
+  testWidgets('a session id shared by two profiles shows the new transcript', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    expect(inTranscript('hello from default'), findsOneWidget);
+
+    await switchProfile(tester, 'work');
+
+    expect(inTranscript('hello from work'), findsOneWidget);
+    expect(inTranscript('hello from default'), findsNothing);
+    final reads = server.requestsTo('GET', '/api/sessions/shared/messages');
+    expect(reads.map((r) => r.queryParameters['profile']), ['default', 'work']);
+  });
+
+  testWidgets('switching back to a profile loads its transcript again', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await switchProfile(tester, 'work');
+
+    await switchProfile(tester, 'default');
+
+    expect(inTranscript('hello from default'), findsOneWidget);
+    expect(inTranscript('hello from work'), findsNothing);
+  });
+}
