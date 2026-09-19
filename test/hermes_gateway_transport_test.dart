@@ -531,6 +531,56 @@ void main() {
       expect(accepted, isFalse);
     });
 
+    test('an approval answered after its turn ended sends nothing', () async {
+      gateway.turn = (g, sid) {
+        g.event('approval.request', sid, approvalPayload);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+      await reply();
+
+      expect(await transport.answerApproval('r1', 'once'), isFalse);
+      expect(gateway.methods, isNot(contains('approval.respond')));
+    });
+
+    test('a turn ending keeps the requests of a turn still open', () async {
+      Map<String, Object?> approval(String id) => {
+        ...approvalPayload,
+        'request_id': id,
+      };
+      final sawFirst = Completer<void>();
+      final sawSecond = Completer<void>();
+      late final StreamSubscription<ChatEvent> first;
+      first = transport.send(threadId: 'stored-2', text: 'a').listen((e) {
+        if (e is ApprovalRequested && !sawFirst.isCompleted) {
+          first.pause();
+          sawFirst.complete();
+        }
+      });
+      transport.send(threadId: 'stored-2', text: 'b').listen((e) {
+        if (e is ApprovalRequested && e.request.requestId == 'r2') {
+          sawSecond.complete();
+        }
+      }, onError: (_) {}); // the still-open turn ends with the teardown
+      while (gateway.methods.where((m) => m == 'prompt.submit').length < 2) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Both turns share the runtime session; the first has taken r1 and is
+      // paused, so r2 reaches only the second turn's registrations.
+      gateway.event('approval.request', 'rt-2', approval('r1'));
+      await sawFirst.future;
+      gateway.event('approval.request', 'rt-2', approval('r2'));
+      await sawSecond.future;
+      await first.cancel();
+
+      expect(await transport.answerApproval('r2', 'once'), isTrue);
+      expect(gateway.requestOf('approval.respond')['params'], {
+        'session_id': 'rt-2',
+        'request_id': 'r2',
+        'choice': 'once',
+      });
+    });
+
     test('an approval for an unknown request sends nothing', () async {
       expect(await transport.answerApproval('nope', 'once'), isFalse);
       expect(gateway.requests, isEmpty);

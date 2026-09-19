@@ -34,6 +34,7 @@ class HermesGatewayTransport implements ChatTransport {
     final subscription = client.events
         .where((event) => event.sessionId == runtimeId)
         .listen(inbox.add, onDone: inbox.close);
+    final mine = <String>{};
     try {
       if (threadId == null) {
         yield ThreadBound(session['stored_session_id'] as String);
@@ -46,6 +47,7 @@ class HermesGatewayTransport implements ChatTransport {
         final mapped = _toChatEvent(event);
         if (mapped == null) continue;
         if (mapped is ApprovalRequested) {
+          mine.add(mapped.request.requestId);
           _requestSessions[mapped.request.requestId] = runtimeId;
         }
         yield mapped;
@@ -53,7 +55,7 @@ class HermesGatewayTransport implements ChatTransport {
       }
       throw const GatewayConnectionClosed();
     } finally {
-      _requestSessions.removeWhere((_, sid) => sid == runtimeId);
+      _requestSessions.removeWhere((id, _) => mine.contains(id));
       await subscription.cancel();
       unawaited(inbox.close());
     }
