@@ -46,3 +46,10 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# fastlane: local env, generated docs, run reports, build output
+fastlane/.env
+fastlane/README.md
+fastlane/report.xml
+/vendor/bundle/
+/.bundle/
