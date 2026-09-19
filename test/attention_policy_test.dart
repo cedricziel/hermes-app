@@ -32,6 +32,24 @@ AttentionNotification? _for(
   enabled: enabled,
 );
 
+bool _wellFormed(String text) {
+  final units = text.codeUnits;
+  for (var i = 0; i < units.length; i++) {
+    final unit = units[i];
+    final high = unit >= 0xd800 && unit <= 0xdbff;
+    final low = unit >= 0xdc00 && unit <= 0xdfff;
+    if (high) {
+      if (i + 1 >= units.length) return false;
+      final next = units[i + 1];
+      if (next < 0xdc00 || next > 0xdfff) return false;
+      i++;
+    } else if (low || unit == 0xfffd) {
+      return false;
+    }
+  }
+  return true;
+}
+
 void main() {
   group('replyPreview', () {
     test('keeps a short reply as it is', () {
@@ -48,6 +66,27 @@ void main() {
 
     test('does not add an ellipsis at exactly 120 characters', () {
       expect(replyPreview('x' * 120), 'x' * 120);
+    });
+
+    test('does not split an emoji at the limit', () {
+      final preview = replyPreview('${'x' * 119}😀 and more');
+
+      expect(preview, '${'x' * 119}😀…');
+      expect(_wellFormed(preview), isTrue);
+    });
+
+    test('does not cut a joined emoji in the middle', () {
+      const family = '👨‍👩‍👧‍👦';
+      final preview = replyPreview('${'x' * 119}$family and more');
+
+      expect(preview, '${'x' * 119}$family…');
+      expect(_wellFormed(preview), isTrue);
+    });
+
+    test('counts a joined emoji as one character', () {
+      const family = '👨‍👩‍👧‍👦';
+
+      expect(replyPreview(family * 120), family * 120);
     });
   });
 

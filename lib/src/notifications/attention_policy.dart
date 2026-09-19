@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 
@@ -23,8 +25,9 @@ class AttentionNotification {
 /// The start of [text] on one line, for a notification body.
 String replyPreview(String text) {
   final flat = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-  if (flat.length <= kPreviewLength) return flat;
-  return '${flat.substring(0, kPreviewLength).trimRight()}…';
+  final characters = flat.characters;
+  if (characters.length <= kPreviewLength) return flat;
+  return '${characters.take(kPreviewLength).toString().trimRight()}…';
 }
 
 /// The notification [event] on [thread] deserves, or null. Nothing is said
