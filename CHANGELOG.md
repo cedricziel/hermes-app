@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.7](https://github.com/cedricziel/hermes-app/compare/v0.1.6...v0.1.7) (2026-09-19)
+
+
+### Features
+
+* **bots:** set a bot up from the app ([#50](https://github.com/cedricziel/hermes-app/issues/50)) ([37f309e](https://github.com/cedricziel/hermes-app/commit/37f309e0503b3b8176349fb32428ef0b715c9ae9))
+* **chat:** rename, pin, archive and delete threads, and page the thread list ([#52](https://github.com/cedricziel/hermes-app/issues/52)) ([10e70ab](https://github.com/cedricziel/hermes-app/commit/10e70abac2d570420d50dc3e0d816bd5791c3a6d))
+* **chat:** send messages through the dashboard gateway ([#48](https://github.com/cedricziel/hermes-app/issues/48)) ([1cbc1be](https://github.com/cedricziel/hermes-app/commit/1cbc1be38d67bafd61f97e9ba99563dd59e9a95e))
+* **chat:** show the threads of the selected profile ([#46](https://github.com/cedricziel/hermes-app/issues/46)) ([a7cdce8](https://github.com/cedricziel/hermes-app/commit/a7cdce81f0917e7ceadc458bac689a93a69d25b6))
+* **chat:** stream replies from the Hermes dashboard gateway ([#47](https://github.com/cedricziel/hermes-app/issues/47)) ([dc57ee1](https://github.com/cedricziel/hermes-app/commit/dc57ee1b00f1efcf4134c0919c652891b45d0602))
+* **chat:** stream the reply from a transport into the chat screen ([#45](https://github.com/cedricziel/hermes-app/issues/45)) ([a6c4606](https://github.com/cedricziel/hermes-app/commit/a6c4606bd836317c5aac8fa267f40241add745cb))
+* **telemetry:** emit logs for HTTP requests and uncaught errors ([#43](https://github.com/cedricziel/hermes-app/issues/43)) ([2a5fef0](https://github.com/cedricziel/hermes-app/commit/2a5fef0918fc2c62778580edf107efadc1b1a6ad))
+
+
+### Bug Fixes
+
+* **auth:** send the page session token to a dashboard without the gate ([#51](https://github.com/cedricziel/hermes-app/issues/51)) ([1c570cc](https://github.com/cedricziel/hermes-app/commit/1c570cc4d33017b47a1a34a302897c223b21afd7))
+
 ## [0.1.6](https://github.com/cedricziel/hermes-app/compare/v0.1.5...v0.1.6) (2026-09-19)
 
 
