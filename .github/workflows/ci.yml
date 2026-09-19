@@ -77,3 +77,21 @@ jobs:
 
       - name: Build simulator app with share extension
         run: flutter build ios --simulator --debug --no-codesign
+
+  build-macos:
+    name: Build macOS (debug)
+    runs-on: macos-26
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Build debug app with share extension
+        run: flutter build macos --debug
