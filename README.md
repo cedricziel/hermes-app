@@ -161,6 +161,10 @@ Once installed, `git commit` runs both checks against staged Dart files; you
 can also run them on demand with `pre-commit run --all-files`. See
 `.pre-commit-config.yaml` for the hook definitions.
 
+Claude Code sessions on the web run this install automatically
+(`.claude/hooks/session-start.sh`), so the git hook is already wired up
+there.
+
 ## Contributing
 
 This project uses [cedricziel/claude-plugins](https://github.com/cedricziel/claude-plugins)'
