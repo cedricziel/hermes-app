@@ -62,6 +62,44 @@ void main() {
     expect(notified, 1);
   });
 
+  test('a pick made while the saved value is loading wins', () async {
+    await ThemeController().setMode(ThemeMode.dark);
+
+    final controller = ThemeController();
+    final loading = controller.load();
+    await controller.setMode(ThemeMode.light);
+    await loading;
+
+    expect(controller.mode, ThemeMode.light);
+  });
+
+  test('choosing system while loading beats a saved choice', () async {
+    await ThemeController().setMode(ThemeMode.dark);
+
+    final controller = ThemeController();
+    final loading = controller.load();
+    await controller.setMode(ThemeMode.system);
+    await loading;
+
+    expect(controller.mode, ThemeMode.system);
+    final relaunched = ThemeController();
+    await relaunched.load();
+    expect(relaunched.mode, ThemeMode.system);
+  });
+
+  test('quick successive picks leave the last one saved', () async {
+    final controller = ThemeController();
+    controller.setMode(ThemeMode.dark);
+    controller.setMode(ThemeMode.light);
+    await controller.setMode(ThemeMode.system);
+    controller.setMode(ThemeMode.dark);
+    await controller.setMode(ThemeMode.light);
+
+    final relaunched = ThemeController();
+    await relaunched.load();
+    expect(relaunched.mode, ThemeMode.light);
+  });
+
   testWidgets('HermesApp follows the controller', (tester) async {
     final theme = ThemeController();
     await tester.pumpWidget(

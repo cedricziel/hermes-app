@@ -12,21 +12,29 @@ class ThemeController extends ChangeNotifier {
   final SharedPreferencesAsync _prefs;
 
   ThemeMode _mode = ThemeMode.system;
+  int _picks = 0;
+  Future<void> _lastWrite = Future.value();
 
   ThemeMode get mode => _mode;
 
   Future<void> load() async {
+    final picksBefore = _picks;
     final saved = await _prefs.getString(_prefsThemeModeKey);
+    if (_picks != picksBefore) return;
     final mode = ThemeMode.values.asNameMap()[saved] ?? ThemeMode.system;
     if (mode == _mode) return;
     _mode = mode;
     notifyListeners();
   }
 
-  Future<void> setMode(ThemeMode mode) async {
-    if (mode == _mode) return;
-    _mode = mode;
-    notifyListeners();
-    await _prefs.setString(_prefsThemeModeKey, mode.name);
+  Future<void> setMode(ThemeMode mode) {
+    _picks++;
+    if (mode != _mode) {
+      _mode = mode;
+      notifyListeners();
+    }
+    return _lastWrite = _lastWrite
+        .catchError((_) {})
+        .then((_) => _prefs.setString(_prefsThemeModeKey, mode.name));
   }
 }
