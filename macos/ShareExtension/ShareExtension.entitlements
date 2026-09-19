@@ -8,12 +8,5 @@
 	<array>
 		<string>$(TeamIdentifierPrefix)group.com.cedricziel.hermesApp</string>
 	</array>
-	<!-- REST calls to the configured Hermes dashboard. -->
-	<key>com.apple.security.network.client</key>
-	<true/>
-	<!-- The native OAuth loopback listener (see NativeLoginFlow) binds a
-	     127.0.0.1 socket to catch the system browser's redirect. -->
-	<key>com.apple.security.network.server</key>
-	<true/>
 </dict>
 </plist>
