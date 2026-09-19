@@ -524,7 +524,9 @@ class _ThreadView extends StatelessWidget {
                 child: FlyerMaterialScope(
                   child: SelectionArea(
                     child: Chat(
-                      key: ObjectKey(chatController),
+                      // The controller too: after a profile switch the same
+                      // id names another thread.
+                      key: ValueKey((thread?.id, chatController)),
                       chatController: chatController,
                       currentUserId: kUserAuthorId,
                       resolveUser: (id) async => User(id: id),
