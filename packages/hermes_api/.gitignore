@@ -23,9 +23,11 @@ build/
 # Directory created by dartdoc
 doc/api/
 
-# Don't commit pubspec lock file
-# (Library packages only! Remove pattern if developing an application package)
-pubspec.lock
+# pubspec.lock IS committed here, unlike the usual library-package advice:
+# CI's drift check (.github/workflows/verify-hermes-api-client.yml)
+# regenerates this package and diffs it against what's committed, and an
+# unpinned lockfile would let unrelated transitive dependency upgrades
+# (e.g. a new json_serializable patch release) fail that check.
 
 # Don’t commit files and directories created by other development environments.
 # For example, if your development environment creates any of the following files,

@@ -106,6 +106,14 @@ runs `pub get` + `build_runner` + `dart analyze` inside
 `packages/hermes_api`. Review the diff before committing — a spec change can
 rename or retype generated methods.
 
+`.github/workflows/verify-hermes-api-client.yml` runs the same script in CI
+(on any push/PR touching `openapi/`, `scripts/`, or `packages/hermes_api/`)
+and fails if it produces a diff — so a spec update that lands without a
+regenerated client gets caught instead of silently drifting.
+`packages/hermes_api/pubspec.lock` is committed (unlike the usual
+library-package advice) so that check isn't at the mercy of an unrelated
+transitive dependency picking up a new version between two runs.
+
 ## Getting started
 
 Point the app at a running dashboard:
