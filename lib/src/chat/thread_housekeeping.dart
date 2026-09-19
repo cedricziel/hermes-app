@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'chat_models.dart';
 import 'hermes_chat_repository.dart';
 
-/// Rename, pin, archive and delete for the sidebar's server-backed threads.
+/// Rename, pin, archive and delete for the sidebar's server-backed threads,
+/// plus loading further pages of the list.
 ///
 /// It edits the thread list [threads] returns in place and calls [changed]
 /// after each edit. Renames and pins show at once and are undone if the
@@ -34,14 +35,55 @@ class ThreadHousekeeping {
   final ValueChanged<ChatThread> removed;
 
   final _busy = <String>{};
+  int _nextOffset = 0;
+  bool _hasMore = false;
+  bool _loadingMore = false;
   int _generation = 0;
 
-  /// Starts over from [threads]: returns them in sidebar order and forgets
-  /// any action still in flight.
-  List<ChatThread> begin(List<ChatThread> threads) {
+  bool get hasMore => _hasMore;
+  bool get loadingMore => _loadingMore;
+
+  /// Starts over from [first]: returns its threads in sidebar order and
+  /// forgets any earlier paging.
+  List<ChatThread> begin(ThreadPage first) {
     _generation++;
     _busy.clear();
-    return _sidebarOrder(threads);
+    _loadingMore = false;
+    _nextOffset = first.nextOffset;
+    _hasMore = first.hasMore;
+    return _sidebarOrder(first.threads);
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || _loadingMore) return;
+    final generation = _generation;
+    _loadingMore = true;
+    changed();
+    try {
+      final page = await repository.loadThreadPage(
+        offset: _nextOffset,
+        profile: profile(),
+      );
+      if (generation != _generation) return;
+      final list = threads();
+      final known = {for (final thread in list) thread.id};
+      _nextOffset = page.nextOffset;
+      _hasMore = page.hasMore;
+      list.replaceRange(
+        0,
+        list.length,
+        _sidebarOrder([
+          ...list,
+          for (final thread in page.threads)
+            if (known.add(thread.id)) thread,
+        ]),
+      );
+    } on Object catch (error) {
+      if (generation != _generation) return;
+      report(_failure('Could not load more chats', error));
+    }
+    _loadingMore = false;
+    changed();
   }
 
   Future<void> rename(ChatThread thread, String title) =>

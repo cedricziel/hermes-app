@@ -141,9 +141,9 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     try {
       profile ??= await _activeProfile();
-      final loaded = await _repository!.loadThreads(profile: profile);
+      final first = await _repository!.loadThreadPage(profile: profile);
       if (!mounted || generation != _loadGeneration) return;
-      final threads = _housekeeping!.begin(loaded);
+      final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       for (final controller in _chatControllers.values) {
         controller.dispose();

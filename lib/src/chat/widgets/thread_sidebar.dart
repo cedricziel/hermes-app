@@ -12,7 +12,8 @@ import 'relative_time.dart';
 /// out by a filled row instead of a border or shadow.
 ///
 /// With [housekeeping], each server-backed thread gets a rename / pin /
-/// archive / delete menu (from its button, a long press or a secondary click).
+/// archive / delete menu (from its button, a long press or a secondary click)
+/// and the list asks for its next page when it scrolls to the end.
 class ThreadSidebar extends StatelessWidget {
   const ThreadSidebar({
     super.key,
@@ -36,6 +37,8 @@ class ThreadSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.hermesColors;
+    final housekeeping = this.housekeeping;
+    final showMore = housekeeping != null && housekeeping.hasMore;
     return Container(
       color: colors.sidebar,
       child: SafeArea(
@@ -77,8 +80,15 @@ class ThreadSidebar extends StatelessWidget {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: threads.length,
+                itemCount: threads.length + (showMore ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index == threads.length) {
+                    return _ShowMoreRow(
+                      key: ValueKey(threads.length),
+                      loading: housekeeping!.loadingMore,
+                      onLoad: housekeeping.loadMore,
+                    );
+                  }
                   final thread = threads[index];
                   return _ThreadRow(
                     key: ValueKey('thread-${thread.id}'),
@@ -331,6 +341,46 @@ class _DeleteDialog extends StatelessWidget {
           child: const Text('Delete'),
         ),
       ],
+    );
+  }
+}
+
+/// The end of a list with more pages. It loads the next one as soon as it
+/// scrolls into view; the button is for when that fails. Keyed by the list's
+/// length so each page gets a fresh row that loads again if it is still in
+/// view.
+class _ShowMoreRow extends StatefulWidget {
+  const _ShowMoreRow({super.key, required this.loading, required this.onLoad});
+
+  final bool loading;
+  final VoidCallback onLoad;
+
+  @override
+  State<_ShowMoreRow> createState() => _ShowMoreRowState();
+}
+
+class _ShowMoreRowState extends State<_ShowMoreRow> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => widget.onLoad());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Center(
+        child: widget.loading
+            ? const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : TextButton(
+                onPressed: widget.onLoad,
+                child: const Text('Show more'),
+              ),
+      ),
     );
   }
 }
