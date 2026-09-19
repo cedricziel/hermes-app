@@ -66,7 +66,7 @@ class ChatThread {
 
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.
-  final bool remote;
+  bool remote;
   final List<ChatMessage> messages;
 
   String get preview =>

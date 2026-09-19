@@ -421,6 +421,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       if (_selectedId == thread.id) _selectedId = id;
       thread.id = id;
+      thread.remote = true;
       _bound.add(thread);
     });
     if (controller != null) _chatControllers[id] = controller;

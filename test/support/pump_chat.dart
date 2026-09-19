@@ -6,6 +6,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -20,6 +21,7 @@ Future<void> pumpChatScreen(
   WidgetTester tester, {
   FakeHermesServer? server,
   bool withProfiles = false,
+  ChatTransport? transport,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -44,6 +46,7 @@ Future<void> pumpChatScreen(
           profiles: withProfiles
               ? HermesProfilesRepository(server!.client().raw)
               : null,
+          transport: transport,
         ),
       ),
     ),

@@ -4,8 +4,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 
+import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
 
@@ -103,6 +105,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('Chat actions'), findsNWidgets(3));
+    });
+
+    testWidgets('a draft gets them once the dashboard stores it', (
+      tester,
+    ) async {
+      final transport = FakeChatTransport();
+      await pumpChatScreen(tester, server: server, transport: transport);
+      await tester.tap(find.text('New chat'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(EditableText), 'Fresh start');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+
+      transport.sends.single.emit(const ThreadBound('dash-1'));
+      await tester.pump();
+
+      expect(inRow('dash-1', find.byTooltip('Chat actions')), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
     });
 
     testWidgets('mock threads have no actions', (tester) async {
