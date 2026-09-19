@@ -10,10 +10,10 @@ Release builds send diagnostic logs and traces to a server run by the developer.
 
 - the app version and platform
 - a random ID that changes on every launch
-- for each request the app makes: the HTTP method, the server address and path (without query strings), the status code and how long it took
-- error types and messages when a request fails
+- for each request the app makes: the HTTP method, the API path (for example `/api/status`), the status code and how long it took
+- the type of error when a request fails
 
-They never contain your session tokens, your messages or the responses from your server. The app also adds a `traceparent` header to its requests, which your server can ignore.
+They never contain your server address, your session tokens, your messages or the responses from your server. The app does not add tracing headers to the requests it sends to your server.
 
 Builds made from source without the diagnostics settings send nothing.
 
