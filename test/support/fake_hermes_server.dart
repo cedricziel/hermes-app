@@ -13,6 +13,7 @@ class FakeHermesServer implements HttpClientAdapter {
   /// Every request the client sent, in order.
   final List<RequestOptions> requests = [];
 
+  /// A [String] body is served as is (an HTML page); anything else as JSON.
   void on(String method, String path, Object? body, {int status = 200}) {
     _routes['$method $path'] = (status: status, body: body);
   }
@@ -35,11 +36,14 @@ class FakeHermesServer implements HttpClientAdapter {
     final route = _routes['${options.method} ${options.path}'];
     final status = route?.status ?? 404;
     final body = route == null ? {'detail': 'Not Found'} : route.body;
+    final page = body is String;
     return ResponseBody.fromString(
-      jsonEncode(body),
+      page ? body : jsonEncode(body),
       status,
       headers: {
-        Headers.contentTypeHeader: [Headers.jsonContentType],
+        Headers.contentTypeHeader: [
+          page ? Headers.textPlainContentType : Headers.jsonContentType,
+        ],
       },
     );
   }

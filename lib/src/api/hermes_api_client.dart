@@ -15,7 +15,8 @@ import '../models/hermes_status.dart';
 /// [fetchStatus], [fetchAuthProviders] and [fetchMe] are hand-parsed because
 /// the backend's OpenAPI spec doesn't declare response schemas for those
 /// three routes (see `openapi/hermes-agent.openapi.json`), so codegen has
-/// nothing to build a typed model from. Every other endpoint has a
+/// nothing to build a typed model from. [fetchSessionToken] reads a page, not
+/// an API route, and needs the same [Dio]. Every other endpoint has a
 /// generated, typed method on [raw] — see
 /// `scripts/generate_hermes_api_client.sh` to regenerate it from a newer
 /// spec, and prefer adding to [raw]'s call sites over hand-rolling another
@@ -47,6 +48,19 @@ class HermesApiClient {
     return raw
         .map((e) => AuthProviderInfo.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// `GET /` — the dashboard page embeds the session token that opens
+  /// `/api/ws` on a server without the auth gate (there is no REST route
+  /// for it). Null when the page carries none.
+  Future<String?> fetchSessionToken() async {
+    final response = await _dio.get<String>(
+      '/',
+      options: Options(responseType: ResponseType.plain),
+    );
+    return RegExp(r'__HERMES_SESSION_TOKEN__="([^"]+)"')
+        .firstMatch(response.data ?? '')
+        ?.group(1);
   }
 
   /// `GET /api/auth/me` — auth-required. The verified session for the

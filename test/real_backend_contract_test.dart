@@ -5,18 +5,23 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
+import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 /// Runs the repositories against a real Hermes dashboard, to check the
-/// response shapes they parse (the spec declares none for these routes).
+/// response shapes they parse (the spec declares none for these routes), and
+/// the chat gateway over its websocket.
 ///
 ///     scripts/dev-backend.sh start
 ///     HERMES_DEV_URL=$(scripts/dev-backend.sh url) flutter test \
 ///       test/real_backend_contract_test.dart
 ///
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
-/// profile test switches the active profile back to `default`.
+/// profile test switches the active profile back to `default`. The gateway
+/// test makes two real model calls, which cost money.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -67,4 +72,41 @@ void main() {
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
   }, skip: skip);
+
+  test(
+    'the gateway streams a reply and continues the thread it created',
+    () async {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+
+      final first = await transport
+          .send(text: 'Reply with the single word: pong. Use no tools.')
+          .toList();
+
+      final bound = first.first as ThreadBound;
+      expect(first.whereType<ReplyStarted>(), isNotEmpty);
+      final completed = first.last as ReplyCompleted;
+      expect(completed.failed, isFalse);
+      expect(completed.text.toLowerCase(), contains('pong'));
+      expect(first.whereType<ReplyDelta>(), isNotEmpty);
+
+      final threads = await HermesChatRepository(client.raw).loadThreads();
+      expect(threads.map((t) => t.id), contains(bound.threadId));
+
+      final second = await transport
+          .send(threadId: bound.threadId, text: 'Now say: ping')
+          .toList();
+
+      expect(second.whereType<ThreadBound>(), isEmpty);
+      expect((second.last as ReplyCompleted).failed, isFalse);
+    },
+    skip: skip,
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 }
