@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/cedricziel/hermes-app/compare/v0.1.1...v0.1.2) (2026-09-19)
+
+
+### Bug Fixes
+
+* set signing before flutter build so CI needs no development cert ([#12](https://github.com/cedricziel/hermes-app/issues/12)) ([25e90db](https://github.com/cedricziel/hermes-app/commit/25e90db8451b81b1e9c1961fc848e4077f5dd38f))
+
 ## [0.1.1](https://github.com/cedricziel/hermes-app/compare/v0.1.0...v0.1.1) (2026-09-19)
 
 
