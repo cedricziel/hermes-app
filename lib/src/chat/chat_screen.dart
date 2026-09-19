@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
@@ -12,10 +14,13 @@ import '../profiles/profiles_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import 'chat_controller_sync.dart';
 import 'chat_message_kinds.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
+import 'chat_reply.dart';
 import 'chat_theme.dart';
+import 'chat_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'widgets/chat_builders.dart';
@@ -27,13 +32,21 @@ import 'widgets/thread_sidebar.dart';
 /// centered message column.
 ///
 /// Threads and messages are read from the dashboard through [repository]
-/// (defaulting to the signed-in [AuthController.api]). Sending is still a
-/// canned reply, since the dashboard has no route for it yet. Without any
-/// repository the screen shows mock data (see `mock_chat_data.dart`).
+/// (defaulting to the signed-in [AuthController.api]). Messages go out
+/// through [transport] and its reply streams into the thread; without one
+/// the reply is a canned placeholder. Without any repository the screen shows
+/// mock data (see `mock_chat_data.dart`).
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.repository, this.profiles, this.bots});
+  const ChatScreen({
+    super.key,
+    this.repository,
+    this.transport,
+    this.profiles,
+    this.bots,
+  });
 
   final HermesChatRepository? repository;
+  final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesBotsRepository? bots;
 
@@ -51,6 +64,12 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _loadingThreads = false;
   bool _threadsFailed = false;
   final _unloaded = <String>{};
+
+  /// Threads the dashboard knows by their [ChatThread.id]; a thread created
+  /// here is not one until the transport reports its id.
+  final _bound = <ChatThread>{};
+  var _sentMessages = 0;
+  final _replies = <StreamSubscription<ChatEvent>>{};
   String? _selectedId;
   final _composerController = TextEditingController();
   final _emptyController = InMemoryChatController();
@@ -93,6 +112,9 @@ class _ChatScreenState extends State<ChatScreen> {
         _unloaded
           ..clear()
           ..addAll(threads.map((t) => t.id));
+        _bound
+          ..clear()
+          ..addAll(threads);
         _loadingThreads = false;
         _selectedId = threads.isNotEmpty ? threads.first.id : null;
       });
@@ -145,6 +167,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _share.removeListener(_onShared);
+    for (final reply in _replies) {
+      reply.cancel();
+    }
     _composerController.dispose();
     _emptyController.dispose();
     for (final controller in _chatControllers.values) {
@@ -206,6 +231,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Loaded messages are keyed `<session>-<row id>`, so a count of the
+  /// thread's messages would collide with them.
+  String _newMessageId(ChatThread thread) =>
+      '${thread.id}-local-${_sentMessages++}';
+
   /// The package composer reports attachments-only sends as an empty [text].
   void _send(String text) {
     final typed = text.trim();
@@ -233,14 +263,15 @@ class _ChatScreenState extends State<ChatScreen> {
           : content;
     }
 
+    final threadId = _bound.contains(thread) ? thread.id : null;
     final userMessage = ChatMessage(
-      id: '${thread.id}-${thread.messages.length}',
+      id: _newMessageId(thread),
       role: ChatRole.user,
       content: content,
       createdAt: DateTime.now(),
     );
     final placeholder = ChatMessage(
-      id: '${thread.id}-${thread.messages.length + 1}',
+      id: _newMessageId(thread),
       role: ChatRole.assistant,
       content: '',
       createdAt: DateTime.now(),
@@ -259,27 +290,78 @@ class _ChatScreenState extends State<ChatScreen> {
       _composerController.clear();
       _attachments.clear();
     });
-
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (!mounted) return;
-      // The reply takes the placeholder's slot, not the end of the list, so
-      // overlapping sends keep each reply beside its prompt.
-      final pending = chatMessageToFlyer(placeholder);
-      final slot = chatController.messages.indexWhere(
-        (m) => m.id == pending.first.id,
-      );
-      for (final flyer in pending) {
-        chatController.removeMessage(flyer);
-      }
-      setState(() {
-        placeholder.status = MessageStatus.sent;
-        placeholder.content = buildMockReply(content);
+    final transport = widget.transport;
+    if (transport == null) {
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        _updateReply(thread, placeholder, () {
+          placeholder.status = MessageStatus.sent;
+          placeholder.content = buildMockReply(content);
+        });
       });
-      final reply = chatMessageToFlyer(placeholder);
-      for (final (i, flyer) in reply.indexed) {
-        chatController.insertMessage(flyer, index: slot < 0 ? null : slot + i);
-      }
+    } else {
+      _streamReply(transport, thread, placeholder, content, threadId);
+    }
+  }
+
+  void _streamReply(
+    ChatTransport transport,
+    ChatThread thread,
+    ChatMessage reply,
+    String text,
+    String? threadId,
+  ) {
+    late final StreamSubscription<ChatEvent> subscription;
+    void end() {
+      _replies.remove(subscription);
+      if (reply.isPending) _updateReply(thread, reply, () => failReply(reply));
+    }
+
+    subscription = transport
+        .send(threadId: threadId, text: text)
+        .listen(
+          (event) => _onReplyEvent(thread, reply, event),
+          onError: (Object _) => end(),
+          onDone: end,
+          cancelOnError: true,
+        );
+    _replies.add(subscription);
+  }
+
+  void _onReplyEvent(ChatThread thread, ChatMessage reply, ChatEvent event) {
+    switch (event) {
+      case ThreadBound(:final threadId):
+        _bindThread(thread, threadId);
+      case ThreadTitled(:final title):
+        setState(() => thread.title = title);
+      case ReplyStarted():
+        break;
+      case ReplyDelta() || ToolStarted() || ToolFinished() || ReplyCompleted():
+        _updateReply(thread, reply, () => applyReplyEvent(reply, event));
+    }
+  }
+
+  /// Gives a thread created here the id the dashboard stored it under, so it
+  /// stays one row and later sends continue that session.
+  void _bindThread(ChatThread thread, String id) {
+    if (_bound.contains(thread)) return;
+    final controller = _chatControllers.remove(thread.id);
+    setState(() {
+      if (_selectedId == thread.id) _selectedId = id;
+      thread.id = id;
+      _bound.add(thread);
     });
+    if (controller != null) _chatControllers[id] = controller;
+  }
+
+  void _updateReply(
+    ChatThread thread,
+    ChatMessage reply,
+    void Function() edit,
+  ) {
+    final before = chatMessageToFlyer(reply);
+    setState(edit);
+    syncMessage(_controllerFor(thread), before, chatMessageToFlyer(reply));
   }
 
   @override

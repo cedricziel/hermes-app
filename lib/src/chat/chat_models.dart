@@ -23,6 +23,9 @@ class ToolCall {
   final String name;
   final String summary;
   final ToolCallStatus status;
+
+  ToolCall withStatus(ToolCallStatus status) =>
+      ToolCall(name: name, summary: summary, status: status);
 }
 
 class ChatMessage {
@@ -41,6 +44,9 @@ class ChatMessage {
   final DateTime createdAt;
   MessageStatus status;
   List<ToolCall> toolCalls;
+
+  bool get isPending =>
+      status == MessageStatus.thinking || status == MessageStatus.streaming;
 }
 
 class ChatThread {
@@ -51,7 +57,7 @@ class ChatThread {
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
 
-  final String id;
+  String id;
   String title;
   DateTime updatedAt;
   final List<ChatMessage> messages;
