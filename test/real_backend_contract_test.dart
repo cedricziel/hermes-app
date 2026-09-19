@@ -57,6 +57,42 @@ void main() {
     expect(messages.every((m) => m.id.startsWith(threads.first.id)), isTrue);
   }, skip: skip);
 
+  test(
+    'the active profile reports both the CLI default and the scope',
+    () async {
+      final active = await HermesProfilesRepository(client.raw).loadActive();
+
+      expect(active.active, isNotEmpty);
+      expect(active.current, isNotEmpty);
+    },
+    skip: skip,
+  );
+
+  test('sessions and their messages load per profile', () async {
+    final active = (await HermesProfilesRepository(
+      client.raw,
+    ).loadActive()).active;
+    final repository = HermesChatRepository(client.raw);
+
+    final threads = await repository.loadThreads(profile: active);
+    if (threads.isEmpty) return;
+    final messages = await repository.loadMessages(
+      threads.first.id,
+      profile: active,
+    );
+
+    expect(messages.every((m) => m.id.startsWith(threads.first.id)), isTrue);
+  }, skip: skip);
+
+  test('an unknown profile is refused rather than read as empty', () async {
+    final repository = HermesChatRepository(client.raw);
+
+    expect(
+      repository.loadThreads(profile: 'no-such-profile'),
+      throwsA(isA<DioException>()),
+    );
+  }, skip: skip);
+
   test('profiles load and the active one can be set', () async {
     final repository = HermesProfilesRepository(client.raw);
 
