@@ -6,7 +6,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>$(TeamIdentifierPrefix)group.com.cedricziel.hermesApp</string>
+		<string>group.com.cedricziel.hermesApp</string>
 	</array>
 </dict>
 </plist>
