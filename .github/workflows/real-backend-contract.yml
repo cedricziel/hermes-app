@@ -1,0 +1,120 @@
+name: Real backend contract
+
+# Runs test/real_backend_contract_test.dart against a throwaway Hermes Agent
+# dashboard, to catch response shapes that drift from what the repositories
+# parse. It needs no secrets and makes no model calls: the backend runs in an
+# empty HERMES_HOME with no provider configured, and the tests that need a
+# model stay skipped because HERMES_DEV_MODEL_CALLS is not set.
+#
+# Not a required check. To move to a newer Hermes, bump HERMES_REF below.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "scripts/dev-backend.sh"
+      - ".github/workflows/real-backend-contract.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "test/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "scripts/dev-backend.sh"
+      - ".github/workflows/real-backend-contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Hermes Agent v2026.9.7 (0.21.1). Pinned to the commit so a Hermes release,
+  # or a moved tag, cannot change this job.
+  HERMES_REF: 2237be355906fbe6065ce1815711eee52b2d646e
+  UV_NO_CONFIG: "1"
+
+jobs:
+  contract:
+    name: Contract test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Download Hermes Agent
+        run: |
+          mkdir -p "$HOME/hermes-agent"
+          curl -fsSL --retry 3 --retry-all-errors \
+            "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$HERMES_REF" |
+            tar xz -C "$HOME/hermes-agent" --strip-components=1
+
+      # The dashboard serves a Vite build that is not in the source tree, and
+      # its session token is injected into the built index.html.
+      - name: Restore the web UI build
+        id: web
+        uses: actions/cache@v6
+        with:
+          path: ~/hermes-agent/hermes_cli/web_dist
+          key: hermes-web-${{ env.HERMES_REF }}
+
+      - uses: actions/setup-node@v7
+        if: steps.web.outputs.cache-hit != 'true'
+        with:
+          node-version: "24"
+
+      - name: Build the web UI
+        if: steps.web.outputs.cache-hit != 'true'
+        run: |
+          cd "$HOME/hermes-agent"
+          npm ci --workspace web --include=dev --no-audit --no-fund
+          npm run build --workspace web
+
+      - uses: astral-sh/setup-uv@v10.1.0
+
+      - name: Restore uv downloads
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv/python
+          key: uv-${{ runner.os }}-${{ env.HERMES_REF }}
+
+      - name: Install Hermes Agent
+        run: |
+          uv venv --python 3.11 "$HOME/hermes-agent/.venv"
+          uv pip install --python "$HOME/hermes-agent/.venv/bin/python" -e "$HOME/hermes-agent"
+          echo "$HOME/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
+          echo "HERMES_WEB_DIST=$HOME/hermes-agent/hermes_cli/web_dist" >> "$GITHUB_ENV"
+
+      # dev-backend.sh uses lsof to find the port the dashboard picked.
+      - name: Start the dev backend
+        run: |
+          command -v lsof >/dev/null || sudo apt-get install -y --no-install-recommends lsof
+          scripts/dev-backend.sh start
+
+      - name: Run the contract test
+        run: HERMES_DEV_URL="$(scripts/dev-backend.sh url)" flutter test test/real_backend_contract_test.dart
+
+      - name: Show the backend log
+        if: failure()
+        run: cat .dart_tool/hermes-dev/dashboard.log
+
+      - name: Stop the dev backend
+        if: always()
+        run: scripts/dev-backend.sh stop
