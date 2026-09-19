@@ -37,7 +37,7 @@ Follow the pattern of the dark-mode setting: a `ChangeNotifier` backed by `Share
 
 - **`NotificationService`** (interface): request permission, `show(threadId, title, body)`, and a stream of taps carrying a thread id. `LocalNotificationService` implements it with `flutter_local_notifications` on macOS, iOS and Android and does nothing elsewhere. Tests use a fake.
 - **`NotificationSettings`** (`ChangeNotifier`): an `enabled` switch, default on, and a `permissionAsked` flag, both persisted.
-- **`AttentionPolicy`** (pure Dart): given an event, whether the app is focused, the thread on screen and the switch, returns the notification to show or nothing.
+- **`AttentionPolicy`** (pure Dart, a single function `attentionFor`): given an event, whether the app is focused, the thread on screen and the switch, returns the notification to show or nothing.
 - **Focus:** a `WidgetsBindingObserver` on the chat screen. Only `AppLifecycleState.resumed` counts as focused.
 - **Hook:** `_onReplyEvent` in `chat_screen.dart` asks the policy about `ReplyCompleted`, `ApprovalRequested` and `ClarifyRequested`, and passes the result to the service.
 - **Tap:** the tap stream selects that thread, the same way clicking it in the sidebar does.
@@ -72,5 +72,5 @@ Notify when the app is not focused, or when the event's thread is not the select
 - Unit: `AttentionPolicy` for every combination of focused or not, same or different thread, and switch on or off; preview trimming; failed reply text.
 - Unit: `NotificationSettings` persistence, in the style of `theme_controller_test.dart`.
 - Widget: with the fake service, a finished reply while unfocused, a request in another thread, no notification while focused on the same thread, permission asked once after the first send, and a tap selecting the thread.
-- Plugin wrapper: a thin test with a mocked method channel for the payload round trip.
+- Plugin wrapper: only its pure helpers are unit tested (payload to thread id, notification id per thread). A method-channel mock of the plugin itself would pass on a macOS host and fail on the Linux CI host, where the plugin does not use a channel, so the plugin calls are covered by the manual pass and the platform builds.
 - Manual: one pass on macOS, since real notifications cannot be shown from tests. PRIVACY.md is checked for wording that a notification preview might affect.
