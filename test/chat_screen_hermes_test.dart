@@ -10,6 +10,8 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/profiles/profiles_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -76,6 +78,7 @@ void main() {
           theme: buildHermesLightTheme(),
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
+            profiles: HermesProfilesRepository(server.client().raw),
           ),
         ),
       ),
@@ -225,5 +228,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(inTranscript('Draft the release notes.'), findsOneWidget);
+  });
+
+  testWidgets('the sidebar opens the profiles of the connected dashboard', (
+    tester,
+  ) async {
+    server
+      ..on(
+        'GET',
+        '/api/profiles',
+        profileListBody([profileRow(name: 'work', displayName: 'Work')]),
+      )
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'));
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Profiles'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ProfilesScreen), findsOneWidget);
+    expect(find.text('Work'), findsOneWidget);
   });
 }
