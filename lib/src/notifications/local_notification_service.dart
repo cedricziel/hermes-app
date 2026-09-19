@@ -46,17 +46,25 @@ class LocalNotificationService implements NotificationService {
   static bool get _supported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS || Platform.isMacOS);
 
-  Future<void> _initialize() => _initialized ??= _plugin.initialize(
-    settings: const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: _darwinSettings,
-      macOS: _darwinSettings,
-    ),
-    onDidReceiveNotificationResponse: (response) {
-      final threadId = threadIdFromResponse(response);
-      if (threadId != null) _taps.add(threadId);
-    },
-  );
+  Future<void> _initialize() => _initialized ??= _plugin
+      .initialize(
+        settings: const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: _darwinSettings,
+          macOS: _darwinSettings,
+        ),
+        onDidReceiveNotificationResponse: (response) {
+          final threadId = threadIdFromResponse(response);
+          if (threadId != null) _taps.add(threadId);
+        },
+      )
+      .then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) {
+          _initialized = null;
+          Error.throwWithStackTrace(error, stack);
+        },
+      );
 
   @override
   Stream<String> get taps => _taps.stream;
