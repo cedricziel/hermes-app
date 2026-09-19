@@ -5,6 +5,8 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../bots/bots_screen.dart';
+import '../bots/hermes_bots_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
 import '../screens/home_screen.dart';
@@ -29,10 +31,11 @@ import 'widgets/thread_sidebar.dart';
 /// canned reply, since the dashboard has no route for it yet. Without any
 /// repository the screen shows mock data (see `mock_chat_data.dart`).
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.repository, this.profiles});
+  const ChatScreen({super.key, this.repository, this.profiles, this.bots});
 
   final HermesChatRepository? repository;
   final HermesProfilesRepository? profiles;
+  final HermesBotsRepository? bots;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -44,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   late List<ChatThread> _threads;
   HermesChatRepository? _repository;
   HermesProfilesRepository? _profiles;
+  HermesBotsRepository? _bots;
   bool _loadingThreads = false;
   bool _threadsFailed = false;
   final _unloaded = <String>{};
@@ -64,6 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _profiles =
         widget.profiles ??
         (api == null ? null : HermesProfilesRepository(api.raw));
+    _bots = widget.bots ?? (api == null ? null : HermesBotsRepository(api.raw));
     if (_repository == null) {
       _threads = buildMockThreads();
       _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
@@ -189,6 +194,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _openBots() {
+    _closeDrawerIfNarrow();
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => BotsScreen(repository: _bots)));
+  }
+
   void _closeDrawerIfNarrow() {
     if (MediaQuery.sizeOf(context).width < _wideBreakpoint) {
       Navigator.of(context).maybePop();
@@ -300,6 +311,7 @@ class _ChatScreenState extends State<ChatScreen> {
           onSelect: _selectThread,
           onNewThread: _newThread,
           onOpenProfiles: _profiles == null ? null : _openProfiles,
+          onOpenBots: _bots == null ? null : _openBots,
         );
 
         return Scaffold(
