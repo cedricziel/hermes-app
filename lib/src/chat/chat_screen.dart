@@ -408,7 +408,13 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => thread.title = title);
       case ReplyStarted():
         break;
-      case ReplyDelta() || ToolStarted() || ToolFinished() || ReplyCompleted():
+      case ReplyDelta() ||
+          ToolStarted() ||
+          ToolFinished() ||
+          ReplyCompleted() ||
+          ApprovalRequested() ||
+          ClarifyRequested() ||
+          InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
   }
@@ -435,6 +441,71 @@ class _ChatScreenState extends State<ChatScreen> {
     final before = chatMessageToFlyer(reply);
     setState(edit);
     syncMessage(_controllerFor(thread), before, chatMessageToFlyer(reply));
+  }
+
+  ChatMessage? _replyAwaiting(ChatThread thread, String requestId) {
+    for (final message in thread.messages.reversed) {
+      if (message.inputRequests.any((r) => r.requestId == requestId)) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _answerApproval(
+    ChatThread thread,
+    String requestId,
+    String choice,
+  ) async {
+    final transport = _transport;
+    final reply = _replyAwaiting(thread, requestId);
+    if (transport == null || reply == null) return;
+    final accepted = await transport.answerApproval(requestId, choice);
+    if (!mounted) return;
+    _updateReply(
+      thread,
+      reply,
+      () => accepted
+          ? recordApproval(reply, requestId, choice)
+          : expireInputRequests(reply, requestId: requestId),
+    );
+  }
+
+  Future<void> _answerClarify(
+    ChatThread thread,
+    String requestId,
+    Map<String, List<String>> answers,
+  ) async {
+    final transport = _transport;
+    final reply = _replyAwaiting(thread, requestId);
+    if (transport == null || reply == null) return;
+    final request = reply.inputRequests.firstWhere(
+      (r) => r.requestId == requestId,
+    );
+    if (request is! ClarifyRequest) return;
+
+    var accepted = true;
+    if (answers.isEmpty) {
+      accepted = await transport.answerClarify(requestId, const []);
+    } else {
+      for (final q in request.questions) {
+        accepted = await transport.answerClarify(
+          requestId,
+          answers[q.qid] ?? const [],
+          questionId: request.batch ? q.qid : null,
+          multiSelect: q.multiSelect,
+        );
+        if (!accepted) break;
+      }
+    }
+    if (!mounted) return;
+    _updateReply(
+      thread,
+      reply,
+      () => accepted
+          ? recordClarifyAnswers(reply, requestId, answers)
+          : expireInputRequests(reply, requestId: requestId),
+    );
   }
 
   @override
@@ -492,6 +563,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
                   showTopBar: isWide,
+                  onAnswerApproval: selected == null
+                      ? null
+                      : (id, choice) => _answerApproval(selected, id, choice),
+                  onAnswerClarify: selected == null
+                      ? null
+                      : (id, answers) => _answerClarify(selected, id, answers),
                 ),
               ),
             ],
@@ -511,6 +588,8 @@ class _ThreadView extends StatelessWidget {
     required this.onRemoveAttachment,
     required this.onSend,
     required this.showTopBar,
+    this.onAnswerApproval,
+    this.onAnswerClarify,
   });
 
   final ChatThread? thread;
@@ -520,6 +599,13 @@ class _ThreadView extends StatelessWidget {
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
   final bool showTopBar;
+  final Future<void> Function(String requestId, String choice)?
+  onAnswerApproval;
+  final Future<void> Function(
+    String requestId,
+    Map<String, List<String>> answers,
+  )?
+  onAnswerClarify;
 
   @override
   Widget build(BuildContext context) {
@@ -528,6 +614,8 @@ class _ThreadView extends StatelessWidget {
         buildChatBuilders(
           onPickPrompt: onSend,
           greetingName: identity?.displayName,
+          onAnswerApproval: onAnswerApproval,
+          onAnswerClarify: onAnswerClarify,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

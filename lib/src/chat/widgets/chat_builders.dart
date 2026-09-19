@@ -4,7 +4,10 @@ import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../chat_message_kinds.dart';
-import '../chat_models.dart' show ToolCall, ToolCallStatus;
+import '../chat_models.dart'
+    show ApprovalRequest, ClarifyRequest, ToolCall, ToolCallStatus;
+import 'approval_card.dart';
+import 'clarify_card.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
 import 'welcome_view.dart';
@@ -22,10 +25,23 @@ import 'welcome_view.dart';
 Builders buildChatBuilders({
   required void Function(String prompt) onPickPrompt,
   String? greetingName,
+  Future<void> Function(String requestId, String choice)? onAnswerApproval,
+  Future<void> Function(String requestId, Map<String, List<String>> answers)?
+  onAnswerClarify,
 }) {
   return Builders(
     textMessageBuilder: _buildText,
-    customMessageBuilder: _buildCustom,
+    customMessageBuilder:
+        (context, message, index, {required isSentByMe, groupStatus}) =>
+            _buildCustom(
+              context,
+              message,
+              index,
+              isSentByMe: isSentByMe,
+              groupStatus: groupStatus,
+              onAnswerApproval: onAnswerApproval,
+              onAnswerClarify: onAnswerClarify,
+            ),
     emptyChatListBuilder: (_) =>
         WelcomeView(greetingName: greetingName, onPick: onPickPrompt),
   );
@@ -68,6 +84,9 @@ Widget _buildCustom(
   int index, {
   required bool isSentByMe,
   MessageGroupStatus? groupStatus,
+  Future<void> Function(String requestId, String choice)? onAnswerApproval,
+  Future<void> Function(String requestId, Map<String, List<String>> answers)?
+  onAnswerClarify,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -83,6 +102,22 @@ Widget _buildCustom(
       );
     case kKindThinking:
       return const ThinkingIndicator();
+    case kKindInputRequest:
+      return switch (metadata![kMetaInputRequest]) {
+        ApprovalRequest request => ApprovalCard(
+          request: request,
+          onAnswer: onAnswerApproval == null
+              ? null
+              : (choice) => onAnswerApproval(request.requestId, choice),
+        ),
+        ClarifyRequest request => ClarifyCard(
+          request: request,
+          onAnswer: onAnswerClarify == null
+              ? null
+              : (answers) => onAnswerClarify(request.requestId, answers),
+        ),
+        _ => const SizedBox.shrink(),
+      };
     default:
       return const SizedBox.shrink();
   }

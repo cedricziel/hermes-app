@@ -4,9 +4,12 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
-import 'package:hermes_app/src/chat/chat_models.dart' show ToolCallStatus;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show ApprovalRequest, ClarifyQuestion, ClarifyRequest, ToolCallStatus;
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
+import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
+import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
@@ -30,6 +33,9 @@ Future<void> _pumpChat(
   List<Message> messages = const [],
   void Function(String prompt)? onPickPrompt,
   String? greetingName,
+  Future<void> Function(String requestId, String choice)? onAnswerApproval,
+  Future<void> Function(String requestId, Map<String, List<String>> answers)?
+  onAnswerClarify,
 }) async {
   final controller = InMemoryChatController(messages: messages);
   addTearDown(controller.dispose);
@@ -46,6 +52,8 @@ Future<void> _pumpChat(
           builders: buildChatBuilders(
             onPickPrompt: onPickPrompt ?? (_) {},
             greetingName: greetingName,
+            onAnswerApproval: onAnswerApproval,
+            onAnswerClarify: onAnswerClarify,
           ).copyWith(composerBuilder: (_) => const SizedBox.shrink()),
         ),
       ),
@@ -156,6 +164,68 @@ void main() {
       expect(find.byType(ThinkingIndicator), findsOneWidget);
       expect(find.byType(ToolCallCard), findsNothing);
     });
+
+    testWidgets('an approval request renders as an ApprovalCard', (
+      tester,
+    ) async {
+      const request = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      );
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({kMetaKind: kKindInputRequest, kMetaInputRequest: request}),
+        ],
+      );
+
+      final card = tester.widget<ApprovalCard>(find.byType(ApprovalCard));
+      expect(card.request, same(request));
+    });
+
+    testWidgets('a clarify request renders as a ClarifyCard', (tester) async {
+      const request = ClarifyRequest(
+        requestId: 'r2',
+        questions: [
+          ClarifyQuestion(qid: '', question: 'Which?', choices: ['a']),
+        ],
+      );
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({kMetaKind: kKindInputRequest, kMetaInputRequest: request}),
+        ],
+      );
+
+      expect(find.byType(ClarifyCard), findsOneWidget);
+    });
+
+    testWidgets(
+      'a card answer reaches the screen callback with its request id',
+      (tester) async {
+        const request = ApprovalRequest(
+          requestId: 'r1',
+          command: 'ls',
+          description: 'list',
+          choices: ['once', 'deny'],
+        );
+        final answers = <(String, String)>[];
+        await _pumpChat(
+          tester,
+          messages: [
+            _custom({kMetaKind: kKindInputRequest, kMetaInputRequest: request}),
+          ],
+          onAnswerApproval: (id, choice) async => answers.add((id, choice)),
+        );
+
+        await tester.tap(find.text('Allow once'));
+        await tester.pump();
+
+        expect(answers, [('r1', 'once')]);
+      },
+    );
 
     testWidgets('unknown kind renders nothing and does not throw', (
       tester,

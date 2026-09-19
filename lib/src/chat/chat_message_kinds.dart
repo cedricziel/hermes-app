@@ -10,10 +10,13 @@ const String kAssistantAuthorId = 'hermes';
 /// `metadata['kind']` values on a `CustomMessage`.
 const String kKindToolCall = 'tool_call';
 const String kKindThinking = 'thinking';
+const String kKindInputRequest = 'input_request';
 
 /// Metadata keys. A `kKindToolCall` message carries `name` (String),
-/// `summary` (String) and `status` (`ToolCallStatus.name`).
+/// `summary` (String) and `status` (`ToolCallStatus.name`). A
+/// `kKindInputRequest` message carries `request` (the `InputRequest`).
 const String kMetaKind = 'kind';
 const String kMetaToolName = 'name';
 const String kMetaToolSummary = 'summary';
 const String kMetaToolStatus = 'status';
+const String kMetaInputRequest = 'request';

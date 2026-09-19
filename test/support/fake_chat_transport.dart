@@ -15,6 +15,59 @@ class FakeChatTransport implements ChatTransport {
     return send._events.stream;
   }
 
+  final approvalAnswers = <(String, String)>[];
+  final clarifyAnswers =
+      <
+        ({
+          String requestId,
+          List<String> values,
+          String? questionId,
+          bool multiSelect,
+        })
+      >[];
+
+  /// What the answer calls report; false means the request is gone.
+  bool accepts = true;
+
+  /// When set, the answer calls throw it.
+  Object? answerError;
+
+  /// When set, the Nth clarify call (1-based, counted across the whole
+  /// transport) throws; the others go through.
+  int? failClarifyCallNumber;
+  var _clarifyCalls = 0;
+
+  /// When set, approval answers wait on it before reporting.
+  Completer<void>? answerGate;
+
+  @override
+  Future<bool> answerApproval(String requestId, String choice) async {
+    if (answerError case final error?) throw error;
+    await answerGate?.future;
+    approvalAnswers.add((requestId, choice));
+    return accepts;
+  }
+
+  @override
+  Future<bool> answerClarify(
+    String requestId,
+    List<String> values, {
+    String? questionId,
+    bool multiSelect = false,
+  }) async {
+    if (answerError case final error?) throw error;
+    if (++_clarifyCalls == failClarifyCallNumber) {
+      throw Exception('socket closed');
+    }
+    clarifyAnswers.add((
+      requestId: requestId,
+      values: values,
+      questionId: questionId,
+      multiSelect: multiSelect,
+    ));
+    return accepts;
+  }
+
   @override
   Future<void> close() async => closed = true;
 }

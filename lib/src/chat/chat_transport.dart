@@ -3,6 +3,8 @@
 /// its `/api/ws` JSON-RPC socket (`prompt.submit` → `message.delta` ...).
 library;
 
+import 'chat_models.dart';
+
 sealed class ChatEvent {
   const ChatEvent();
 }
@@ -47,6 +49,27 @@ final class ThreadTitled extends ChatEvent {
   final String title;
 }
 
+/// The agent is waiting for the user's consent to run something.
+final class ApprovalRequested extends ChatEvent {
+  const ApprovalRequested(this.request);
+
+  final ApprovalRequest request;
+}
+
+/// The agent is waiting for the user to answer one or more questions.
+final class ClarifyRequested extends ChatEvent {
+  const ClarifyRequested(this.request);
+
+  final ClarifyRequest request;
+}
+
+/// The gateway gave up waiting on request [requestId].
+final class InputRequestExpired extends ChatEvent {
+  const InputRequestExpired(this.requestId);
+
+  final String requestId;
+}
+
 /// Last event of a reply. [text] is the full final text; [failed] is true when
 /// the turn ended in an error and [text] carries the message.
 final class ReplyCompleted extends ChatEvent {
@@ -61,6 +84,22 @@ abstract interface class ChatTransport {
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
   /// with an error if the connection or the request fails.
   Stream<ChatEvent> send({String? threadId, required String text});
+
+  /// Answers an approval the agent is waiting on with one of its choices.
+  /// Returns false when the request is no longer pending, and throws when the
+  /// call itself fails.
+  Future<bool> answerApproval(String requestId, String choice);
+
+  /// Answers a clarify request, or one question of a batch when [questionId]
+  /// is given. An empty [values] skips: without a [questionId] that cancels the
+  /// whole request. Returns false when the request is no longer pending, and
+  /// throws when the call itself fails.
+  Future<bool> answerClarify(
+    String requestId,
+    List<String> values, {
+    String? questionId,
+    bool multiSelect = false,
+  });
 
   Future<void> close();
 }
