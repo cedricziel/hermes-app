@@ -63,6 +63,9 @@ dependencies:
       url: https://github.com/cedricziel/flutter-otel.git
       ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
       path: packages/flutter_otel
+  # The dashboard's /api/ws JSON-RPC socket the chat streams over.
+  web_socket_channel: ^3.0.3
+  stream_channel: ^2.1.4
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
