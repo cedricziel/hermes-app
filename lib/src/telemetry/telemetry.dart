@@ -38,10 +38,10 @@ class Telemetry {
     return Telemetry._(sdk);
   }
 
-  /// Traces every request on the Dio client it is added to.
+  /// Traces and logs every request on the Dio client it is added to.
   Interceptor? dioInterceptor() {
     final sdk = _sdk;
     if (sdk == null) return null;
-    return HttpTelemetryInterceptor(sdk.getTracer());
+    return HttpTelemetryInterceptor(sdk.getTracer(), sdk.getLogger());
   }
 }

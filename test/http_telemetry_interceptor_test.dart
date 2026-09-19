@@ -5,6 +5,8 @@ import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/http_telemetry_interceptor.dart';
 
+import 'support/fake_logger.dart';
+
 const _host = 'secret-hermes.example.org';
 
 class _RecordingSpan implements Span {
@@ -123,18 +125,25 @@ class _FakeAdapter implements HttpClientAdapter {
 
 void main() {
   late _RecordingTracer tracer;
+  late RecordingLogger logger;
 
   Dio buildDio(
     Future<ResponseBody> Function(RequestOptions) respond, {
     Tracer? withTracer,
+    Logger? withLogger,
   }) {
     final dio = Dio(BaseOptions(baseUrl: 'https://$_host'));
     dio.httpClientAdapter = _FakeAdapter(respond);
-    dio.interceptors.add(HttpTelemetryInterceptor(withTracer ?? tracer));
+    dio.interceptors.add(
+      HttpTelemetryInterceptor(withTracer ?? tracer, withLogger ?? logger),
+    );
     return dio;
   }
 
-  setUp(() => tracer = _RecordingTracer());
+  setUp(() {
+    tracer = _RecordingTracer();
+    logger = RecordingLogger();
+  });
 
   test('records a client span with method, route and status', () async {
     final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
@@ -207,7 +216,7 @@ void main() {
     final adapter = _FakeAdapter((_) async => ResponseBody.fromString('', 200));
     final dio = Dio(BaseOptions(baseUrl: 'https://$_host'))
       ..httpClientAdapter = adapter
-      ..interceptors.add(HttpTelemetryInterceptor(tracer));
+      ..interceptors.add(HttpTelemetryInterceptor(tracer, logger));
 
     await dio.get<dynamic>('/api/status');
 
@@ -226,5 +235,133 @@ void main() {
     final response = await dio.get<dynamic>('/api/status');
 
     expect(response.statusCode, 200);
+  });
+
+  group('logs', () {
+    test(
+      'records an info log with method, route, status and duration',
+      () async {
+        final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
+
+        await dio.get<dynamic>('/api/status');
+
+        final record = logger.records.single;
+        expect(record.severity, LogSeverity.info);
+        expect(record.body, 'HTTP GET /api/status 200');
+        expect(record.attributes['http.method'], 'GET');
+        expect(record.attributes['http.route'], '/api/status');
+        expect(record.attributes['http.status_code'], 200);
+        expect(record.attributes['http.duration_ms'], isA<int>());
+        expect(record.attributes.containsKey('error.type'), isFalse);
+      },
+    );
+
+    test('links the log to the request span', () async {
+      final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
+
+      await dio.get<dynamic>('/api/status');
+
+      final context = tracer.spans.single.spanContext;
+      expect(logger.records.single.traceId, context.traceId);
+      expect(logger.records.single.spanId, context.spanId);
+    });
+
+    test('logs a non-2xx response as an error with its status', () async {
+      final dio = buildDio((_) async => ResponseBody.fromString('', 500));
+
+      await expectLater(
+        dio.get<dynamic>('/api/x'),
+        throwsA(isA<DioException>()),
+      );
+
+      final record = logger.records.single;
+      expect(record.severity, LogSeverity.error);
+      expect(record.body, 'HTTP GET /api/x 500');
+      expect(record.attributes['http.status_code'], 500);
+      expect(record.attributes['error.type'], 'badResponse');
+    });
+
+    test('logs a failure without a response as an error', () async {
+      final dio = buildDio(
+        (options) async => throw DioException.connectionError(
+          requestOptions: options,
+          reason: 'Failed host lookup: $_host',
+        ),
+      );
+
+      await expectLater(
+        dio.get<dynamic>('/api/x'),
+        throwsA(isA<DioException>()),
+      );
+
+      final record = logger.records.single;
+      expect(record.severity, LogSeverity.error);
+      expect(record.body, 'HTTP GET /api/x connectionError');
+      expect(record.attributes['error.type'], 'connectionError');
+      expect(record.attributes.containsKey('http.status_code'), isFalse);
+    });
+
+    test('never logs the host, query string or request data', () async {
+      final dio = buildDio(
+        (options) async => throw DioException.connectionError(
+          requestOptions: options,
+          reason: 'Failed host lookup: $_host',
+        ),
+      );
+
+      await expectLater(
+        dio.post<dynamic>(
+          '/api/x?token=hunter2#frag',
+          data: {'message': 'my secret prompt'},
+          options: Options(headers: {'Authorization': 'Bearer hunter2'}),
+        ),
+        throwsA(isA<DioException>()),
+      );
+
+      final record = logger.records.single;
+      final everything = '${record.body} ${record.attributes}';
+      expect(record.attributes['http.route'], '/api/x');
+      for (final secret in [_host, 'hunter2', 'frag', 'secret prompt']) {
+        expect(everything, isNot(contains(secret)));
+      }
+    });
+
+    test(
+      'leaves out the route when the request path is an absolute URL',
+      () async {
+        final dio = buildDio((_) async => ResponseBody.fromString('', 200));
+
+        await dio.get<dynamic>('https://$_host/auth/native/refresh?code=abc');
+
+        final record = logger.records.single;
+        expect(record.body, 'HTTP GET 200');
+        expect(record.attributes.containsKey('http.route'), isFalse);
+        expect('${record.body} ${record.attributes}', isNot(contains(_host)));
+      },
+    );
+
+    test('a failing logger never breaks the request or the span', () async {
+      final dio = buildDio(
+        (_) async => ResponseBody.fromString('{}', 200),
+        withLogger: ThrowingLogger(),
+      );
+
+      final response = await dio.get<dynamic>('/api/status');
+
+      expect(response.statusCode, 200);
+      expect(tracer.spans.single.ended, isTrue);
+    });
+
+    test('a failing tracer still logs the request', () async {
+      final dio = buildDio(
+        (_) async => ResponseBody.fromString('{}', 200),
+        withTracer: _ThrowingTracer(),
+      );
+
+      await dio.get<dynamic>('/api/status');
+
+      expect(logger.records.single.body, 'HTTP GET /api/status 200');
+      expect(logger.records.single.traceId, isNull);
+    });
   });
 }
