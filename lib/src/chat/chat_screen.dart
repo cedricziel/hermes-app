@@ -25,6 +25,7 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
+import 'thread_housekeeping.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
@@ -65,6 +66,7 @@ class _ChatScreenState extends State<ChatScreen> {
   HermesBotsRepository? _bots;
   ChatTransport? _transport;
   HermesGatewayTransport? _ownedTransport;
+  ThreadHousekeeping? _housekeeping;
   bool _loadingThreads = false;
   bool _threadsFailed = false;
 
@@ -112,6 +114,16 @@ class _ChatScreenState extends State<ChatScreen> {
       _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
     } else {
       _threads = [];
+      _housekeeping = ThreadHousekeeping(
+        repository: _repository!,
+        threads: () => _threads,
+        profile: () => _profile,
+        changed: () {
+          if (mounted) setState(() {});
+        },
+        report: _showMessage,
+        removed: _threadRemoved,
+      );
       _loadThreads();
     }
     _share = context.read<ShareController>()..addListener(_onShared);
@@ -129,8 +141,9 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     try {
       profile ??= await _activeProfile();
-      final threads = await _repository!.loadThreads(profile: profile);
+      final loaded = await _repository!.loadThreads(profile: profile);
       if (!mounted || generation != _loadGeneration) return;
+      final threads = _housekeeping!.begin(loaded);
       // Another profile can hold a different session under the same id.
       for (final controller in _chatControllers.values) {
         controller.dispose();
@@ -180,10 +193,22 @@ class _ChatScreenState extends State<ChatScreen> {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not load this chat')));
+      _showMessage('Could not load this chat');
     }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Moves on to the first remaining thread when the open one is archived or
+  /// deleted.
+  void _threadRemoved(ChatThread thread) {
+    if (_selectedId != thread.id) return;
+    _selectedId = _threads.firstOrNull?.id;
+    if (_selectedId != null) _loadMessages(_selectedId!);
   }
 
   void _onShared() => setState(_absorbShared);
@@ -439,6 +464,7 @@ class _ChatScreenState extends State<ChatScreen> {
           selectedId: _selectedId,
           onSelect: _selectThread,
           onNewThread: _newThread,
+          housekeeping: _housekeeping,
           onOpenProfiles: _profiles == null ? null : _openProfiles,
           onOpenBots: _bots == null ? null : _openBots,
         );

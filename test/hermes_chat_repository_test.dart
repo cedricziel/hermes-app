@@ -269,6 +269,50 @@ void main() {
     });
   });
 
+  group('under a profile', () {
+    setUp(() {
+      server
+        ..on('GET', '/api/sessions', sessionListBody([]))
+        ..on('PATCH', '/api/sessions/s1', sessionPatchBody())
+        ..on('DELETE', '/api/sessions/s1', {'ok': true});
+    });
+
+    test('a page is listed from that profile', () async {
+      await repository.loadThreadPage(profile: 'work');
+
+      final request = server.requestsTo('GET', '/api/sessions').single;
+      expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('renaming names it in the body', () async {
+      await repository.renameThread('s1', 'New', profile: 'work');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'title': 'New', 'profile': 'work'});
+    });
+
+    test('pinning names it in the body', () async {
+      await repository.setPinned('s1', true, profile: 'work');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'pinned': true, 'profile': 'work'});
+    });
+
+    test('archiving names it in the body', () async {
+      await repository.archiveThread('s1', profile: 'work');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'archived': true, 'profile': 'work'});
+    });
+
+    test('deleting names it in the query', () async {
+      await repository.deleteThread('s1', profile: 'work');
+
+      final request = server.requestsTo('DELETE', '/api/sessions/s1').single;
+      expect(request.queryParameters['profile'], 'work');
+    });
+  });
+
   group('loadMessages', () {
     Future<List<ChatMessage>> load(List<Map<String, Object?>> rows) {
       server.on(
