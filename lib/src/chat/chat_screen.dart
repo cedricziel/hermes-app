@@ -12,17 +12,24 @@ import 'chat_message_kinds.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
 import 'chat_theme.dart';
+import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
-/// in. A design preview of the assistant-ui-style thread UI: a persistent
-/// thread rail beside a centered message column, backed by mock data until
-/// the dashboard's session API is wired in (see `mock_chat_data.dart`).
+/// in: an assistant-ui-style thread UI with a persistent thread rail beside a
+/// centered message column.
+///
+/// Threads and messages are read from the dashboard through [repository]
+/// (defaulting to the signed-in [AuthController.api]). Sending is still a
+/// canned reply, since the dashboard has no route for it yet. Without any
+/// repository the screen shows mock data (see `mock_chat_data.dart`).
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.repository});
+
+  final HermesChatRepository? repository;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -32,6 +39,10 @@ class _ChatScreenState extends State<ChatScreen> {
   static const double _wideBreakpoint = 900;
 
   late List<ChatThread> _threads;
+  HermesChatRepository? _repository;
+  bool _loadingThreads = false;
+  bool _threadsFailed = false;
+  final _unloaded = <String>{};
   String? _selectedId;
   final _composerController = TextEditingController();
   final _emptyController = InMemoryChatController();
@@ -42,10 +53,63 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _threads = buildMockThreads();
-    _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
+    final api = context.read<AuthController>().api;
+    _repository =
+        widget.repository ??
+        (api == null ? null : HermesChatRepository(api.raw));
+    if (_repository == null) {
+      _threads = buildMockThreads();
+      _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
+    } else {
+      _threads = [];
+      _loadThreads();
+    }
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared();
+  }
+
+  Future<void> _loadThreads() async {
+    setState(() {
+      _loadingThreads = true;
+      _threadsFailed = false;
+    });
+    try {
+      final threads = await _repository!.loadThreads();
+      if (!mounted) return;
+      setState(() {
+        _threads = threads;
+        _unloaded
+          ..clear()
+          ..addAll(threads.map((t) => t.id));
+        _loadingThreads = false;
+        _selectedId = threads.isNotEmpty ? threads.first.id : null;
+      });
+      if (_selectedId != null) _loadMessages(_selectedId!);
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _loadingThreads = false;
+        _threadsFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadMessages(String id) async {
+    if (!_unloaded.remove(id)) return;
+    try {
+      final messages = await _repository!.loadMessages(id);
+      if (!mounted) return;
+      final thread = _threads.where((t) => t.id == id).firstOrNull;
+      if (thread == null) return;
+      setState(() => thread.messages.addAll(messages));
+      await _controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    } on Object {
+      _unloaded.add(id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not load this chat')));
+    }
   }
 
   void _onShared() => setState(_absorbShared);
@@ -108,6 +172,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _selectThread(String id) {
     setState(() => _selectedId = id);
     _closeDrawerIfNarrow();
+    if (_repository != null) _loadMessages(id);
   }
 
   void _closeDrawerIfNarrow() {
@@ -194,6 +259,23 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingThreads) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_threadsFailed) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Could not load your chats'),
+              const SizedBox(height: 12),
+              FilledButton(onPressed: _loadThreads, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= _wideBreakpoint;

@@ -1,0 +1,229 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/mock_chat_data.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'support/fake_hermes_server.dart';
+import 'support/fake_share_inbox.dart';
+
+/// The chat screen against a fake Hermes dashboard, through the real
+/// generated client: HTTP → `DefaultApi` → [HermesChatRepository] → mapper →
+/// `flutter_chat_ui`.
+void main() {
+  late FakeHermesServer server;
+
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    server = FakeHermesServer();
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(id: 's1', title: 'Run failure', lastActive: 1780000600),
+        sessionRow(id: 's2', title: 'Release notes', lastActive: 1780000100),
+      ]),
+    );
+    server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        messageRow(id: 1, role: 'user', content: 'Why did the run fail?'),
+        messageRow(
+          id: 2,
+          role: 'assistant',
+          content: 'A connection reset during upload.',
+          toolCalls: [functionCall('search_logs', '{"window":"02:10"}')],
+        ),
+      ]),
+    );
+    server.on(
+      'GET',
+      '/api/sessions/s2/messages',
+      messageListBody('s2', [
+        messageRow(id: 3, role: 'user', content: 'Draft the release notes.'),
+        messageRow(id: 4, role: 'assistant', content: 'Here is a first pass.'),
+      ]),
+    );
+  });
+
+  Future<void> pumpChat(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthController>(
+            create: (_) => AuthController(),
+          ),
+          ChangeNotifierProvider<ShareController>(
+            create: (_) => ShareController(FakeShareInbox()),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: ChatScreen(
+            repository: HermesChatRepository(server.client().raw),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Finder inTranscript(String text) => find.descendant(
+    of: find.byType(Chat),
+    matching: find.textContaining(text, findRichText: true),
+  );
+
+  testWidgets('shows a spinner while the session list loads', (tester) async {
+    await pumpChat(tester);
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('lists the sessions the dashboard returned', (tester) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run failure'), findsWidgets);
+    expect(find.text('Release notes'), findsOneWidget);
+  });
+
+  testWidgets('does not show the mock threads', (tester) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text(buildMockThreads().first.title), findsNothing);
+  });
+
+  testWidgets('opens the most recent session and renders its messages', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(inTranscript('Why did the run fail?'), findsOneWidget);
+    expect(inTranscript('A connection reset during upload.'), findsOneWidget);
+  });
+
+  testWidgets('renders a tool call from the API as a ToolCallCard', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    final card = tester.widget<ToolCallCard>(find.byType(ToolCallCard));
+    expect(card.call.name, 'search_logs');
+  });
+
+  testWidgets('does not fetch a session\'s messages until it is opened', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('GET', '/api/sessions/s2/messages'), isEmpty);
+  });
+
+  testWidgets('opening another session fetches and shows its messages', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
+
+    expect(inTranscript('Draft the release notes.'), findsOneWidget);
+    expect(inTranscript('Why did the run fail?'), findsNothing);
+  });
+
+  testWidgets('reopening a session does not fetch its messages again', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Run failure'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('GET', '/api/sessions/s2/messages'), hasLength(1));
+    expect(inTranscript('Draft the release notes.'), findsOneWidget);
+  });
+
+  testWidgets('a failed session list shows an error with a working retry', (
+    tester,
+  ) async {
+    server.on('GET', '/api/sessions', {'detail': 'boom'}, status: 500);
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load your chats'), findsOneWidget);
+
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([sessionRow(id: 's1', title: 'Run failure')]),
+    );
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Could not load your chats'), findsNothing);
+    expect(find.text('Run failure'), findsWidgets);
+  });
+
+  testWidgets('an account with no sessions lands on the welcome view', (
+    tester,
+  ) async {
+    server.on('GET', '/api/sessions', sessionListBody([]));
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text(kStarterPrompts.first), findsOneWidget);
+  });
+
+  testWidgets('a failed message fetch tells the user and retries on reopen', (
+    tester,
+  ) async {
+    server.on('GET', '/api/sessions/s2/messages', {'detail': 'x'}, status: 500);
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Could not load this chat'), findsOneWidget);
+
+    server.on(
+      'GET',
+      '/api/sessions/s2/messages',
+      messageListBody('s2', [
+        messageRow(id: 3, role: 'user', content: 'Draft the release notes.'),
+      ]),
+    );
+    await tester.tap(find.text('Run failure'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
+
+    expect(inTranscript('Draft the release notes.'), findsOneWidget);
+  });
+}
