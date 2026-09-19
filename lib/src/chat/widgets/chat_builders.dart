@@ -14,9 +14,9 @@ import 'welcome_view.dart';
 ///
 /// Text goes through [FlyerChatTextMessage] for both roles: it renders
 /// markdown (headings, lists, tables, links, inline code, and fenced code
-/// blocks with a language label and copy button) via `gpt_markdown`, a
-/// superset of what `MessageContent` handled. Only the surface differs —
-/// the user's turn is a rounded chip, the assistant's is bare prose.
+/// blocks with a language label and copy button) via `gpt_markdown`. Only the
+/// surface differs — the user's turn is a rounded chip, the assistant's is
+/// bare prose.
 ///
 /// Widths are left to the caller: nothing here hard-codes a max width.
 Builders buildChatBuilders({

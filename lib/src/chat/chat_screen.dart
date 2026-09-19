@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chat_core/flutter_chat_core.dart'
+    show InMemoryChatController, User;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import 'chat_message_kinds.dart';
+import 'chat_message_mapper.dart';
 import 'chat_models.dart';
+import 'chat_theme.dart';
 import 'mock_chat_data.dart';
-import 'widgets/chat_composer.dart';
-import 'widgets/message_bubble.dart';
+import 'widgets/chat_builders.dart';
+import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
-import 'widgets/welcome_view.dart';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in. A design preview of the assistant-ui-style thread UI: a persistent
@@ -29,8 +34,8 @@ class _ChatScreenState extends State<ChatScreen> {
   late List<ChatThread> _threads;
   String? _selectedId;
   final _composerController = TextEditingController();
-  final _composerFocus = FocusNode();
-  final _scrollController = ScrollController();
+  final _emptyController = InMemoryChatController();
+  final _chatControllers = <String, InMemoryChatController>{};
   final List<SharedFile> _attachments = [];
   late final ShareController _share;
 
@@ -65,8 +70,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _share.removeListener(_onShared);
     _composerController.dispose();
-    _composerFocus.dispose();
-    _scrollController.dispose();
+    _emptyController.dispose();
+    for (final controller in _chatControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -75,6 +82,14 @@ class _ChatScreenState extends State<ChatScreen> {
       if (thread.id == _selectedId) return thread;
     }
     return null;
+  }
+
+  InMemoryChatController _controllerFor(ChatThread? thread) {
+    if (thread == null) return _emptyController;
+    return _chatControllers.putIfAbsent(
+      thread.id,
+      () => InMemoryChatController(messages: chatThreadToFlyer(thread)),
+    );
   }
 
   void _newThread() {
@@ -101,22 +116,24 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _send([String? text]) {
-    final typed = (text ?? _composerController.text).trim();
+  /// The package composer reports attachments-only sends as an empty [text].
+  void _send(String text) {
+    final typed = text.trim();
     final attached = _attachments.isEmpty
         ? ''
         : 'Attached: ${_attachments.map((f) => f.name).join(', ')}';
     final content = [typed, attached].where((s) => s.isNotEmpty).join('\n\n');
     if (content.isEmpty) return;
 
+    final selected = _selectedThread;
     final thread =
-        _selectedThread ??
+        selected ??
         ChatThread(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           title: content,
           updatedAt: DateTime.now(),
         );
-    if (_selectedThread == null) {
+    if (selected == null) {
       _threads.insert(0, thread);
       _selectedId = thread.id;
     }
@@ -140,33 +157,31 @@ class _ChatScreenState extends State<ChatScreen> {
       status: MessageStatus.thinking,
     );
 
+    final chatController = _controllerFor(thread);
+    for (final message in [userMessage, placeholder]) {
+      thread.messages.add(message);
+      for (final flyer in chatMessageToFlyer(message)) {
+        chatController.insertMessage(flyer);
+      }
+    }
     setState(() {
-      thread.messages.add(userMessage);
-      thread.messages.add(placeholder);
       thread.updatedAt = DateTime.now();
       _composerController.clear();
       _attachments.clear();
     });
-    _scrollToBottom();
 
     Future.delayed(const Duration(milliseconds: 900), () {
       if (!mounted) return;
+      for (final flyer in chatMessageToFlyer(placeholder)) {
+        chatController.removeMessage(flyer);
+      }
       setState(() {
         placeholder.status = MessageStatus.sent;
         placeholder.content = buildMockReply(content);
       });
-      _scrollToBottom();
-    });
-  }
-
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 120,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
+      for (final flyer in chatMessageToFlyer(placeholder)) {
+        chatController.insertMessage(flyer);
+      }
     });
   }
 
@@ -175,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= _wideBreakpoint;
+        final selected = _selectedThread;
         final sidebar = ThreadSidebar(
           threads: _threads,
           selectedId: _selectedId,
@@ -187,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
           appBar: isWide
               ? null
               : AppBar(
-                  title: Text(_selectedThread?.title ?? 'Hermes'),
+                  title: Text(selected?.title ?? 'Hermes'),
                   actions: [const _ConnectionInfoButton()],
                 ),
           body: Row(
@@ -196,10 +212,9 @@ class _ChatScreenState extends State<ChatScreen> {
               if (isWide) const VerticalDivider(width: 1),
               Expanded(
                 child: _ThreadView(
-                  thread: _selectedThread,
-                  scrollController: _scrollController,
+                  thread: selected,
+                  chatController: _controllerFor(selected),
                   composerController: _composerController,
-                  composerFocus: _composerFocus,
                   attachments: _attachments,
                   onRemoveAttachment: (file) =>
                       setState(() => _attachments.remove(file)),
@@ -218,9 +233,8 @@ class _ChatScreenState extends State<ChatScreen> {
 class _ThreadView extends StatelessWidget {
   const _ThreadView({
     required this.thread,
-    required this.scrollController,
+    required this.chatController,
     required this.composerController,
-    required this.composerFocus,
     required this.attachments,
     required this.onRemoveAttachment,
     required this.onSend,
@@ -228,18 +242,27 @@ class _ThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
-  final ScrollController scrollController;
+  final InMemoryChatController chatController;
   final TextEditingController composerController;
-  final FocusNode composerFocus;
   final List<SharedFile> attachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
-  final void Function([String?]) onSend;
+  final ValueChanged<String> onSend;
   final bool showTopBar;
 
   @override
   Widget build(BuildContext context) {
     final identity = context.watch<AuthController>().identity;
-    final hasMessages = thread != null && thread!.messages.isNotEmpty;
+    final builders =
+        buildChatBuilders(
+          onPickPrompt: onSend,
+          greetingName: identity?.displayName,
+        ).copyWith(
+          composerBuilder: buildChatComposer(
+            controller: composerController,
+            attachments: attachments,
+            onRemoveAttachment: onRemoveAttachment,
+          ),
+        );
 
     return Column(
       children: [
@@ -265,42 +288,22 @@ class _ThreadView extends StatelessWidget {
           ),
         if (showTopBar) const Divider(height: 1),
         Expanded(
-          child: hasMessages
-              ? ListView.builder(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                  itemCount: thread!.messages.length,
-                  itemBuilder: (context, index) {
-                    return Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 760),
-                        child: MessageBubble(message: thread!.messages[index]),
-                      ),
-                    );
-                  },
-                )
-              : WelcomeView(
-                  greetingName: identity?.displayName,
-                  onPick: (prompt) => onSend(prompt),
-                ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 760),
-              child: ListenableBuilder(
-                listenable: composerController,
-                builder: (context, _) => ChatComposer(
-                  controller: composerController,
-                  focusNode: composerFocus,
-                  canSend:
-                      composerController.text.trim().isNotEmpty ||
-                      attachments.isNotEmpty,
-                  attachments: attachments,
-                  onRemoveAttachment: onRemoveAttachment,
-                  onSend: onSend,
+              child: SizedBox.expand(
+                child: FlyerMaterialScope(
+                  child: SelectionArea(
+                    child: Chat(
+                      key: ValueKey(thread?.id),
+                      chatController: chatController,
+                      currentUserId: kUserAuthorId,
+                      resolveUser: (id) async => User(id: id),
+                      onMessageSend: onSend,
+                      theme: buildChatTheme(Theme.of(context)),
+                      builders: builders,
+                    ),
+                  ),
                 ),
               ),
             ),
