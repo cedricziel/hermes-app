@@ -201,8 +201,9 @@ def build_target(key, options)
   # settings so Flutter sees a team and skips its development-cert lookup,
   # which fails on a runner that only has the distribution cert.
   flutter_flags = key == :ios ? " --no-codesign" : ""
+  telemetry_flags = telemetry_dart_defines(version).map { |flag| " #{flag.shellescape}" }.join
   sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only#{flutter_flags} " \
-     "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}")
+     "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}#{telemetry_flags}")
 
   build_app(
     workspace: t[:workspace],
@@ -240,6 +241,29 @@ def release_target(key, options)
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
 
   upload_to_testflight(**params)
+end
+
+# --dart-define flags that point the app's OpenTelemetry export at SignalDB.
+# Empty when OTLP_INGEST_URL / OTLP_INGEST_KEY are unset, which builds the app
+# with telemetry off instead of failing the build.
+def telemetry_dart_defines(version)
+  url = ENV["OTLP_INGEST_URL"].to_s.strip
+  key = ENV["OTLP_INGEST_KEY"].to_s.strip
+
+  if url.empty? || key.empty?
+    UI.important("Telemetry disabled: OTLP_INGEST_URL and/or OTLP_INGEST_KEY not set")
+    return []
+  end
+
+  # Log the endpoint, never the key.
+  UI.message("Telemetry enabled: exporting OTLP to #{url}")
+  [
+    "--dart-define=OTEL_EXPORTER_OTLP_ENDPOINT=#{url}",
+    "--dart-define=OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer #{key},x-tenant-id=homelab,x-dataset-id=apps",
+    "--dart-define=OTEL_SERVICE_NAME=hermes-app",
+    "--dart-define=OTEL_SERVICE_VERSION=#{version}",
+    "--dart-define=OTEL_DEPLOYMENT_ENVIRONMENT=production",
+  ]
 end
 
 def load_app_store_connect_api_key
