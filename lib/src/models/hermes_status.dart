@@ -40,4 +40,9 @@ class HermesStatus {
   final String? version;
 
   bool get supportsNativePkce => authFlows.contains('native_pkce');
+
+  /// True only when the server names its flows and `native_pkce` isn't one of
+  /// them. A server that advertises nothing is treated as unknown, not
+  /// unsupported, so it isn't locked out.
+  bool get lacksNativePkce => authFlows.isNotEmpty && !supportsNativePkce;
 }

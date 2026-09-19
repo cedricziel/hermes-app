@@ -58,6 +58,12 @@ class LoginScreen extends StatelessWidget {
                         ],
                       ),
                     )
+                  else if (auth.status?.lacksNativePkce ?? false)
+                    const Text(
+                      "This server doesn't support app sign-in. Update the "
+                      'Hermes dashboard, or sign in from its web UI.',
+                      textAlign: TextAlign.center,
+                    )
                   else if (auth.providers.isEmpty)
                     const Text(
                       'No sign-in providers are registered on this server.',
