@@ -28,7 +28,7 @@ TARGETS = {
     workspace: "macos/Runner.xcworkspace",
     destination: "generic/platform=macOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.pkg",
-    extension_targets: [],
+    extension_targets: ["ShareExtension"],
   },
 }.freeze
 
