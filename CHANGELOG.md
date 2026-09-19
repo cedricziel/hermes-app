@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.5](https://github.com/cedricziel/hermes-app/compare/v0.1.4...v0.1.5) (2026-09-19)
+
+
+### Features
+
+* **android:** accept shares of text, links and files ([#23](https://github.com/cedricziel/hermes-app/issues/23)) ([c93334e](https://github.com/cedricziel/hermes-app/commit/c93334e5119e24b9017eb95ee9beb990c4b6318a))
+* **chat:** render the thread with flutter_chat_ui ([#26](https://github.com/cedricziel/hermes-app/issues/26)) ([d96203f](https://github.com/cedricziel/hermes-app/commit/d96203f6caf09368e21f9b0003a3064008bbd735))
+* **ios:** add share extension that hands content to the app ([#21](https://github.com/cedricziel/hermes-app/issues/21)) ([42c4fea](https://github.com/cedricziel/hermes-app/commit/42c4feae42d511ec806ad679cf055ef186760ea0))
+* **macos:** add share extension that hands content to the app ([#25](https://github.com/cedricziel/hermes-app/issues/25)) ([6a6727e](https://github.com/cedricziel/hermes-app/commit/6a6727e1497cb0c48ef8e0f8092ab97a2e870124))
+* **share:** receive shared text and files in the chat composer ([#19](https://github.com/cedricziel/hermes-app/issues/19)) ([f0ff09f](https://github.com/cedricziel/hermes-app/commit/f0ff09ff527fe65a7a563a036c08234224498963))
+* **telemetry:** export logs and traces to SignalDB via flutter_otel ([#30](https://github.com/cedricziel/hermes-app/issues/30)) ([09576da](https://github.com/cedricziel/hermes-app/commit/09576da533fb80d40c897a3e1c742226b0f643c2))
+
+
+### Bug Fixes
+
+* **auth:** explain when the server lacks native app sign-in ([#24](https://github.com/cedricziel/hermes-app/issues/24)) ([3da66ac](https://github.com/cedricziel/hermes-app/commit/3da66aca29687d8653e10fd8a0fb05579470c046))
+
+
+### Documentation
+
+* link the TestFlight beta in the README ([#28](https://github.com/cedricziel/hermes-app/issues/28)) ([46a55af](https://github.com/cedricziel/hermes-app/commit/46a55afd5472b9eaa331a02eb45ec0fc088ded0b))
+
 ## [0.1.4](https://github.com/cedricziel/hermes-app/compare/v0.1.3...v0.1.4) (2026-09-19)
 
 
