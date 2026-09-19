@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/notifications/local_notification_service.dart';
+import 'package:hermes_app/src/notifications/notification_service.dart';
 
 NotificationResponse _response(String? payload) => NotificationResponse(
   notificationResponseType: NotificationResponseType.selectedNotification,
@@ -47,6 +48,18 @@ void main() {
 
     test('differs between threads', () {
       expect(notificationIdFor('s1'), isNot(notificationIdFor('s2')));
+    });
+  });
+
+  group('requestPermission', () {
+    test('is unavailable, not denied, when the plugin cannot answer', () async {
+      final service = LocalNotificationService();
+      addTearDown(service.dispose);
+
+      expect(
+        await service.requestPermission(),
+        NotificationPermission.unavailable,
+      );
     });
   });
 }

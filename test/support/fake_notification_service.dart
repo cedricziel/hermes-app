@@ -6,10 +6,13 @@ import 'package:hermes_app/src/notifications/notification_service.dart';
 /// A [NotificationService] the test drives by hand: every notification is
 /// recorded, and a tap is simulated with [tap].
 class FakeNotificationService implements NotificationService {
-  FakeNotificationService({this.permission = true, this.launchThread});
+  FakeNotificationService({
+    this.permission = NotificationPermission.granted,
+    this.launchThread,
+  });
 
   /// What [requestPermission] answers.
-  bool permission;
+  NotificationPermission permission;
 
   /// The thread whose notification started the app, if any.
   String? launchThread;
@@ -24,7 +27,7 @@ class FakeNotificationService implements NotificationService {
   Stream<String> get taps => _taps.stream;
 
   @override
-  Future<bool> requestPermission() async {
+  Future<NotificationPermission> requestPermission() async {
     permissionRequests++;
     return permission;
   }

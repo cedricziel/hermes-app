@@ -69,13 +69,19 @@ class LocalNotificationService implements NotificationService {
   @override
   Stream<String> get taps => _taps.stream;
 
-  static Future<bool> _askDarwin(
+  static Future<NotificationPermission> _askDarwin(
     Future<bool?> Function({bool alert, bool badge, bool sound}) request,
-  ) async => await request(alert: true, badge: true, sound: true) ?? false;
+  ) async => _answer(await request(alert: true, badge: true, sound: true));
+
+  static NotificationPermission _answer(bool? granted) => switch (granted) {
+    true => NotificationPermission.granted,
+    false => NotificationPermission.denied,
+    null => NotificationPermission.unavailable,
+  };
 
   @override
-  Future<bool> requestPermission() async {
-    if (!_supported) return false;
+  Future<NotificationPermission> requestPermission() async {
+    if (!_supported) return NotificationPermission.unavailable;
     try {
       await _initialize();
       final ios = _plugin
@@ -92,9 +98,9 @@ class LocalNotificationService implements NotificationService {
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
           >();
-      return await android?.requestNotificationsPermission() ?? false;
+      return _answer(await android?.requestNotificationsPermission());
     } on Object {
-      return false;
+      return NotificationPermission.unavailable;
     }
   }
 

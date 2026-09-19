@@ -486,8 +486,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _askingPermission = true;
     try {
-      final granted = await service.requestPermission();
-      await settings.recordPermission(granted: granted);
+      final answer = await service.requestPermission();
+      if (answer != NotificationPermission.unavailable) {
+        await settings.recordPermission(
+          granted: answer == NotificationPermission.granted,
+        );
+      }
     } finally {
       _askingPermission = false;
     }

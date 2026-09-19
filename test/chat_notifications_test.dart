@@ -226,13 +226,45 @@ void main() {
   });
 
   testWidgets('a refusal is remembered', (tester) async {
-    service.permission = false;
+    service.permission = NotificationPermission.denied;
     await pump(tester);
 
     await send(tester, 'One');
     await tester.pump();
 
     expect(settings.permissionDenied, isTrue);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a grant is remembered', (tester) async {
+    await pump(tester);
+
+    await send(tester, 'One');
+    await tester.pump();
+
+    expect(settings.permissionAsked, isTrue);
+    expect(settings.permissionDenied, isFalse);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('an unavailable answer records nothing and asks again', (
+    tester,
+  ) async {
+    service.permission = NotificationPermission.unavailable;
+    await pump(tester);
+
+    await send(tester, 'One');
+    await tester.pump();
+
+    expect(settings.permissionAsked, isFalse);
+    expect(settings.permissionDenied, isFalse);
+
+    service.permission = NotificationPermission.granted;
+    await send(tester, 'Two');
+    await tester.pump();
+
+    expect(service.permissionRequests, 2);
+    expect(settings.permissionAsked, isTrue);
     await tester.pump(const Duration(seconds: 1));
   });
 
