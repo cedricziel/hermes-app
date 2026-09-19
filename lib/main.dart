@@ -5,12 +5,23 @@ import 'src/app.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
+import 'src/telemetry/telemetry.dart';
+import 'src/telemetry/telemetry_config.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final telemetry = await Telemetry.initialize(
+    TelemetryConfig.fromEnvironment(),
+  );
+  final httpInterceptor = telemetry.dioInterceptor();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthController()..bootstrap()),
+        ChangeNotifierProvider(
+          create: (_) =>
+              AuthController(interceptors: [?httpInterceptor])..bootstrap(),
+        ),
         ChangeNotifierProvider(
           create: (_) => ShareController(createPlatformShareInbox())..start(),
         ),

@@ -49,6 +49,7 @@ class AuthController extends ChangeNotifier {
     TokenStore? tokenStore,
     SharedPreferencesAsync? prefs,
     String? devServerUrl,
+    this._interceptors = const [],
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _prefs = prefs ?? SharedPreferencesAsync(),
        _devServerUrl = devServerUrl ?? _devServerUrlDefine;
@@ -60,6 +61,9 @@ class AuthController extends ChangeNotifier {
   /// saved, so parallel runs on one machine can't overwrite each other's
   /// (or the developer's own) saved server.
   final String _devServerUrl;
+
+  /// Added to every [Dio] client this controller builds.
+  final List<Interceptor> _interceptors;
 
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
@@ -117,7 +121,7 @@ class AuthController extends ChangeNotifier {
         connectTimeout: const Duration(seconds: 8),
         receiveTimeout: const Duration(seconds: 8),
       ),
-    );
+    )..interceptors.addAll(_interceptors);
 
     final HermesStatus status;
     try {
@@ -234,6 +238,7 @@ class AuthController extends ChangeNotifier {
         receiveTimeout: const Duration(seconds: 30),
       ),
     );
+    dio.interceptors.addAll(_interceptors);
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

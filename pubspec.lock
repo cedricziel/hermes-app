@@ -121,6 +121,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
+  fixnum:
+    dependency: transitive
+    description:
+      name: fixnum
+      sha256: b6dc7065e46c974bc7c5f143080a6764ec7a4be6da1285ececdc37be96de53be
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.1"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -134,6 +142,51 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
+  flutter_otel:
+    dependency: "direct main"
+    description:
+      path: "packages/flutter_otel"
+      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      url: "https://github.com/cedricziel/flutter-otel.git"
+    source: git
+    version: "0.1.0"
+  flutter_otel_api:
+    dependency: "direct overridden"
+    description:
+      path: "packages/flutter_otel_api"
+      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      url: "https://github.com/cedricziel/flutter-otel.git"
+    source: git
+    version: "0.1.0"
+  flutter_otel_exporter_otlp_http:
+    dependency: "direct overridden"
+    description:
+      path: "packages/flutter_otel_exporter_otlp_http"
+      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      url: "https://github.com/cedricziel/flutter-otel.git"
+    source: git
+    version: "0.1.0"
+  flutter_otel_instrumentation_dio:
+    dependency: "direct main"
+    description:
+      path: "packages/flutter_otel_instrumentation_dio"
+      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      url: "https://github.com/cedricziel/flutter-otel.git"
+    source: git
+    version: "0.1.0"
+  flutter_otel_sdk:
+    dependency: "direct overridden"
+    description:
+      path: "packages/flutter_otel_sdk"
+      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
+      url: "https://github.com/cedricziel/flutter-otel.git"
+    source: git
+    version: "0.1.0"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -207,6 +260,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.2"
+  http:
+    dependency: transitive
+    description:
+      name: http
+      sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.0"
   http_parser:
     dependency: transitive
     description:
@@ -636,6 +697,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.6"
+  uuid:
+    dependency: transitive
+    description:
+      name: uuid
+      sha256: "9b129329f58692f6e6578329498a8fe9fbe98f090beb764ffbb8ee2eadd01dcd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.6.0"
   vector_math:
     dependency: transitive
     description:
