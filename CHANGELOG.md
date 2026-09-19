@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/cedricziel/hermes-app/compare/v0.1.3...v0.1.4) (2026-09-19)
+
+
+### Bug Fixes
+
+* **auth:** keep app foregrounded during iOS OIDC login ([#17](https://github.com/cedricziel/hermes-app/issues/17)) ([6347a75](https://github.com/cedricziel/hermes-app/commit/6347a7577d6b22ad39a8859e7e61baf06339979e))
+
 ## [0.1.3](https://github.com/cedricziel/hermes-app/compare/v0.1.2...v0.1.3) (2026-09-19)
 
 
