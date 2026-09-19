@@ -95,6 +95,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   Future<String?>? _launchLookup;
   var _focused = true;
   var _askingPermission = false;
+  Future<void>? _permissionRequest;
 
   @override
   void initState() {
@@ -471,7 +472,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       selectedThreadId: _selectedId,
       enabled: settings == null || (settings.loaded && settings.enabled),
     );
-    if (notification != null) unawaited(service.show(notification));
+    if (notification == null) return;
+    final pending = _permissionRequest;
+    unawaited(
+      pending == null
+          ? service.show(notification)
+          : pending.then((_) => service.show(notification)),
+    );
   }
 
   Future<void> _askForNotificationPermission() async {
@@ -486,7 +493,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _askingPermission = true;
     try {
-      final answer = await service.requestPermission();
+      final request = service.requestPermission();
+      _permissionRequest = request
+          .then<void>((_) {}, onError: (Object _) {})
+          .whenComplete(() => _permissionRequest = null);
+      final answer = await request;
       if (answer != NotificationPermission.unavailable) {
         await settings.recordPermission(
           granted: answer == NotificationPermission.granted,

@@ -14,6 +14,10 @@ class FakeNotificationService implements NotificationService {
   /// What [requestPermission] answers.
   NotificationPermission permission;
 
+  /// When set, [requestPermission] waits for it and answers what it completes
+  /// with, instead of answering [permission] at once.
+  Completer<NotificationPermission>? permissionGate;
+
   /// The thread whose notification started the app, if any.
   String? launchThread;
 
@@ -29,7 +33,7 @@ class FakeNotificationService implements NotificationService {
   @override
   Future<NotificationPermission> requestPermission() async {
     permissionRequests++;
-    return permission;
+    return permissionGate?.future ?? permission;
   }
 
   @override

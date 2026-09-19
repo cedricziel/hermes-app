@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -209,6 +211,25 @@ void main() {
     expect(service.permissionRequests, 0);
     expect(settings.permissionAsked, isFalse);
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a reply is shown only once the permission request resolves', (
+    tester,
+  ) async {
+    final gate = service.permissionGate = Completer<NotificationPermission>();
+    await pump(tester);
+    final turn = await send(tester, 'Any news?');
+    leaveTheApp(tester);
+
+    await finish(tester, turn, 'Nothing new.');
+    expect(service.permissionRequests, 1);
+    expect(service.shown, isEmpty);
+
+    gate.complete(NotificationPermission.granted);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(service.shown.single.body, 'Nothing new.');
   });
 
   testWidgets('permission is asked once, after the first send', (tester) async {
