@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 
 import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
+import 'uncaught_error_logging.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
 ///
@@ -38,10 +39,16 @@ class Telemetry {
     return Telemetry._(sdk);
   }
 
-  /// Traces every request on the Dio client it is added to.
+  /// Traces and logs every request on the Dio client it is added to.
   Interceptor? dioInterceptor() {
     final sdk = _sdk;
     if (sdk == null) return null;
-    return HttpTelemetryInterceptor(sdk.getTracer());
+    return HttpTelemetryInterceptor(sdk.getTracer(), sdk.getLogger());
+  }
+
+  /// Logs uncaught Flutter and async errors; does nothing when disabled.
+  void logUncaughtErrors() {
+    final sdk = _sdk;
+    if (sdk != null) installUncaughtErrorLogging(sdk.getLogger());
   }
 }
