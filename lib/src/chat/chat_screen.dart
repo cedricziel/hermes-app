@@ -463,12 +463,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _announce(ChatThread thread, ChatEvent event) {
     final service = _notifications;
     if (service == null) return;
+    final settings = _notificationSettings;
     final notification = attentionFor(
       event: event,
       thread: thread,
       appFocused: _focused,
       selectedThreadId: _selectedId,
-      enabled: _notificationSettings?.enabled ?? true,
+      enabled: settings == null || (settings.loaded && settings.enabled),
     );
     if (notification != null) unawaited(service.show(notification));
   }
@@ -477,7 +478,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final service = _notifications;
     final settings = _notificationSettings;
     if (service == null || settings == null) return;
-    if (!settings.enabled || settings.permissionAsked || _askingPermission) {
+    if (!settings.loaded ||
+        !settings.enabled ||
+        settings.permissionAsked ||
+        _askingPermission) {
       return;
     }
     _askingPermission = true;

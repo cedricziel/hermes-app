@@ -16,10 +16,14 @@ class NotificationSettings extends ChangeNotifier {
   bool _enabled = true;
   bool _asked = false;
   bool _denied = false;
+  bool _loaded = false;
   int _enabledEdits = 0;
   int _permissionEdits = 0;
   Future<void> _lastWrite = Future.value();
 
+  /// False until [load] has read the saved values; [enabled] and the
+  /// permission flags are only defaults before that.
+  bool get loaded => _loaded;
   bool get enabled => _enabled;
   bool get permissionAsked => _asked;
   bool get permissionDenied => _denied;
@@ -35,6 +39,7 @@ class NotificationSettings extends ChangeNotifier {
       _asked = asked ?? false;
       _denied = denied ?? false;
     }
+    _loaded = true;
     notifyListeners();
   }
 

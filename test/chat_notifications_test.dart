@@ -60,15 +60,18 @@ void main() {
       );
   });
 
-  Future<void> pump(WidgetTester tester) => pumpChatScreen(
-    tester,
-    server: server,
-    transport: transport,
-    providers: [
-      ChangeNotifierProvider<NotificationSettings>.value(value: settings),
-      Provider<NotificationService>.value(value: service),
-    ],
-  );
+  Future<void> pump(WidgetTester tester, {bool load = true}) async {
+    if (load) await tester.runAsync(settings.load);
+    await pumpChatScreen(
+      tester,
+      server: server,
+      transport: transport,
+      providers: [
+        ChangeNotifierProvider<NotificationSettings>.value(value: settings),
+        Provider<NotificationService>.value(value: service),
+      ],
+    );
+  }
 
   Future<FakeSend> send(WidgetTester tester, String text) async {
     await tester.enterText(find.byType(EditableText), text);
@@ -181,6 +184,31 @@ void main() {
     await finish(tester, turn, 'Nothing new.');
 
     expect(service.shown, isEmpty);
+  });
+
+  testWidgets('nothing is said before the saved settings are known', (
+    tester,
+  ) async {
+    await pump(tester, load: false);
+    final turn = await send(tester, 'Any news?');
+    leaveTheApp(tester);
+
+    await finish(tester, turn, 'Nothing new.');
+
+    expect(service.shown, isEmpty);
+  });
+
+  testWidgets('permission is not asked before the saved settings are known', (
+    tester,
+  ) async {
+    await pump(tester, load: false);
+
+    await send(tester, 'One');
+    await tester.pump();
+
+    expect(service.permissionRequests, 0);
+    expect(settings.permissionAsked, isFalse);
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('permission is asked once, after the first send', (tester) async {

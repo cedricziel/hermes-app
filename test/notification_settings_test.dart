@@ -16,6 +16,38 @@ void main() {
     return settings;
   }
 
+  test('is not loaded until load completes', () async {
+    final settings = NotificationSettings();
+    expect(settings.loaded, isFalse);
+
+    final loading = settings.load();
+    expect(settings.loaded, isFalse);
+    await loading;
+
+    expect(settings.loaded, isTrue);
+  });
+
+  test('load tells listeners it finished', () async {
+    final settings = NotificationSettings();
+    var heard = 0;
+    settings.addListener(() => heard++);
+
+    await settings.load();
+
+    expect(heard, 1);
+  });
+
+  test('is loaded after a load that lost every race to an edit', () async {
+    final settings = NotificationSettings();
+
+    final loading = settings.load();
+    await settings.setEnabled(false);
+    await settings.recordPermission(granted: false);
+    await loading;
+
+    expect(settings.loaded, isTrue);
+  });
+
   test('starts on, not asked, not denied', () async {
     final settings = await relaunch();
 
