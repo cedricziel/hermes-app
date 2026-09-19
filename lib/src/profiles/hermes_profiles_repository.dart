@@ -50,15 +50,20 @@ class HermesProfilesRepository {
 
   final DefaultApi _api;
 
+  Future<({String active, String current})> loadActive() async {
+    final response = await _api.getActiveProfileEndpointApiProfilesActiveGet();
+    final body = response.data is Map ? response.data as Map : const {};
+    final active = body['active'] as String? ?? '';
+    return (active: active, current: body['current'] as String? ?? active);
+  }
+
   Future<ProfilesOverview> load() async {
     final list = await _api.listProfilesEndpointApiProfilesGet();
-    final active = await _api.getActiveProfileEndpointApiProfilesActiveGet();
+    final (:active, :current) = await loadActive();
     final rows = switch (list.data) {
       {'profiles': final List<dynamic> rows} => rows,
       _ => const <dynamic>[],
     };
-    final activeBody = active.data is Map ? active.data as Map : const {};
-    final activeName = activeBody['active'] as String? ?? '';
     return ProfilesOverview(
       profiles: [
         for (final row in rows.whereType<Map<String, dynamic>>())
@@ -74,8 +79,8 @@ class HermesProfilesRepository {
               gatewayRunning: row['gateway_running'] as bool? ?? false,
             ),
       ],
-      active: activeName,
-      current: activeBody['current'] as String? ?? activeName,
+      active: active,
+      current: current,
     );
   }
 
