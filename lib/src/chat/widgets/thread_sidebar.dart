@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../auth/auth_controller.dart';
+import '../../settings/appearance_dialog.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
@@ -407,6 +408,7 @@ class _AccountFooter extends StatelessWidget {
         onSelected: (value) {
           if (value == 'sign-out') auth.signOut();
           if (value == 'change-server') auth.changeServer();
+          if (value == 'appearance') showAppearanceDialog(context);
         },
         itemBuilder: (context) => [
           PopupMenuItem(
@@ -417,6 +419,7 @@ class _AccountFooter extends StatelessWidget {
             ),
           ),
           const PopupMenuDivider(),
+          const PopupMenuItem(value: 'appearance', child: Text('Appearance')),
           if (auth.status?.authRequired ?? false)
             const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
           const PopupMenuItem(
