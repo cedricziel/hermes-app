@@ -121,6 +121,30 @@ void main() {
     );
   });
 
+  testWidgets('an archived thread does not make the next page skip one', (
+    tester,
+  ) async {
+    server.on(
+      'PATCH',
+      '/api/sessions/r0',
+      sessionPatchBody(flags: {'archived': true}),
+    );
+    await pumpChatScreen(tester, server: server);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('thread-r0')),
+        matching: find.byTooltip('Chat actions'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+
+    await scrollToEnd(tester);
+
+    expect(sessionListRequests().last.queryParameters['offset'], 49);
+  });
+
   testWidgets('later pages come from the profile of the first', (tester) async {
     server.on('GET', '/api/profiles/active', activeProfileBody(active: 'work'));
     await pumpChatScreen(tester, server: server, withProfiles: true);

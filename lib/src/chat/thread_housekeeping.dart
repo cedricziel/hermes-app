@@ -146,6 +146,8 @@ class ThreadHousekeeping {
       return;
     }
     threads().remove(thread);
+    // Everything after it moved up a place, so the next page starts sooner.
+    if (_nextOffset > 0) _nextOffset--;
     removed(thread);
   });
 
