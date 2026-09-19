@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.cedricziel.hermes_app"
-    compileSdk = flutter.compileSdkVersion
+    // receive_sharing_intent needs API 37 to compile, ahead of Flutter's default.
+    compileSdk = maxOf(flutter.compileSdkVersion, 37)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
