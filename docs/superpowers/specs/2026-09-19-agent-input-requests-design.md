@@ -37,9 +37,9 @@ Events, all carrying the gateway session id and a `request_id` in the payload:
 Answers, as JSON-RPC requests:
 
 - `approval.respond {session_id, request_id, choice}`
-- `clarify.respond {session_id, request_id, answer, question_id?}`
+- `clarify.respond {request_id, answer, question_id?}` (no session id). A multi-select answer is a JSON array in a string.
 
-A batch clarify is answered one question at a time with `question_id`. Answers stay editable until every `qid` has one. Responding without a `question_id` cancels the whole request. A late `clarify.respond` for a request that already timed out returns `{status: "expired"}` rather than an error.
+A batch clarify is answered one question at a time with `question_id`, and stays editable until every `qid` has an answer. Responding without a `question_id` cancels the whole request. A late `clarify.respond` for a request that already timed out returns `{status: "expired"}` rather than an error.
 
 ## Approach
 
@@ -53,11 +53,13 @@ New `ChatEvent` types in `chat_transport.dart`:
 - `ClarifyRequested`: `requestId` and a list of `ClarifyQuestion` (`qid`, `question`, `choices`, `multiSelect`). A single-question payload becomes a one-item list, so the UI has one code path.
 - `InputRequestExpired`: `requestId`.
 
-`HermesGatewayTransport._toChatEvent` maps the four gateway events. The transport records the live gateway session id per thread, so the UI never handles it.
+The events carry the request model itself (`ApprovalRequest`, `ClarifyRequest`, defined in `chat_models.dart`).
 
-`ChatMessage` gets a nullable `inputRequest` with a status of `pending`, `answered` or `expired`, plus the submitted answer. `applyReplyEvent` sets and settles it. `ReplyCompleted` and `failReply` mark a still-pending request `expired`, so a card for a dead request cannot be answered.
+`HermesGatewayTransport._toChatEvent` maps the four gateway events. The transport remembers which gateway session each approval belongs to, so the UI never handles session ids.
 
-`chatMessageToFlyer` emits one extra `CustomMessage` per request with a new `kKindInputRequest` and the id `<message id>-input`.
+`ChatMessage` gets a list `inputRequests`, because one turn can raise several approvals. Each request has a status of `pending`, `answered` or `expired`, plus the submitted answer. `applyReplyEvent` adds and expires them. `ReplyCompleted` and `failReply` mark every still-pending request `expired`, so a card for a dead request cannot be answered. While a request is pending, the thinking indicator is hidden: the agent is waiting on the user, not working.
+
+`chatMessageToFlyer` emits one `CustomMessage` per request with a new `kKindInputRequest` and the id `<message id>-input-<n>`.
 
 ### Cards
 
@@ -69,16 +71,16 @@ Approval card:
 
 Clarify card:
 
-- Each question shows its text and either a radio group (single choice), checkboxes (`multi_select`) or a text field (no choices).
-- A single question submits with one button.
-- A batch locks each answer as it is made. A Confirm button stays disabled until every `qid` has an answer.
-- Skip sends an empty answer, which the backend treats as a cancel.
+- Each question shows its text and either choice chips (one selectable, or several when `multi_select` is set) or a text field (no choices).
+- A single question submits with a Send button.
+- A batch keeps the answers on the card. A Confirm button stays disabled until every `qid` has an answer, then sends them one `question_id` at a time. Sending on each tap would make Confirm meaningless, because the last answer already ends the request.
+- Skip cancels the whole request (a response with no `question_id` and an empty answer).
 
 Controls disable on the first tap, before the RPC returns, so a double tap cannot send two answers.
 
 ### Transport
 
-`ChatTransport` gains `answerApproval(threadId, requestId, choice)` and `answerClarify(threadId, requestId, answer, {questionId})`. The gateway implementation sends the RPCs on the open client. The fake transports in tests get the same two methods.
+`ChatTransport` gains `answerApproval(requestId, choice)` and `answerClarify(requestId, values, {questionId, multiSelect})`. Both return `false` when the backend says the request is no longer pending, and throw when the call fails. Requests are keyed by `requestId` alone, because a new thread's id changes when it is bound. The gateway implementation sends the RPCs on the open client. The fake transport in tests gets the same two methods.
 
 ### Errors and expiry
 
@@ -90,7 +92,7 @@ Controls disable on the first tap, before the RPC returns, so a double tap canno
 
 - Unit: `_toChatEvent` for each new event, including single and batch clarify payloads. `applyReplyEvent` transitions: requested, answered, expired, failed turn. Same style as `test/hermes_gateway_transport_test.dart`.
 - Widget: both cards render their choices, send the right RPC, lock after a tap, keep Confirm disabled until every `qid` is answered, and return to pending on error.
-- Contract: extend `test/real_backend_contract_test.dart` to check the shape of `approval.request` and `clarify.request` against the pinned Hermes. Provoking a real request costs a model call, so it sits behind `HERMES_DEV_MODEL_CALLS=1`.
+- Payload shapes: the unit tests use payloads copied from the Hermes source (`tui_gateway/server.py`). There is no real-backend contract test: getting a real model to raise an approval or a clarify question on demand is nondeterministic, and each try costs a model call.
 
 ## Follow-up
 
