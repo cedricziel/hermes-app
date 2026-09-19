@@ -2,8 +2,9 @@ require "yaml"
 
 opt_out_usage
 
-APP_IDENTIFIER = "com.cedricziel.hermesApp"
-APP_NAME       = "Hermes App"
+APP_IDENTIFIER       = "com.cedricziel.hermesApp"
+EXTENSION_IDENTIFIER = "#{APP_IDENTIFIER}.ShareExtension"
+APP_NAME             = "Hermes App"
 TEAM_ID        = "WPW3QSLZ2F"
 OUTPUT_DIR     = "build/fastlane"
 OUTPUT_NAME    = "HermesApp"
@@ -17,6 +18,7 @@ TARGETS = {
     workspace: "ios/Runner.xcworkspace",
     destination: "generic/platform=iOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.ipa",
+    extension_targets: ["ShareExtension"],
   },
   mac: {
     flutter_platform: "macos",
@@ -26,6 +28,7 @@ TARGETS = {
     workspace: "macos/Runner.xcworkspace",
     destination: "generic/platform=macOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.pkg",
+    extension_targets: [],
   },
 }.freeze
 
@@ -80,18 +83,29 @@ desc "Register the bundle ID and check for the App Store Connect app record"
 lane :bootstrap_app do
   load_app_store_connect_api_key
 
-  bundle = Spaceship::ConnectAPI::BundleId.all(filter: { identifier: APP_IDENTIFIER })
-                                          .find { |b| b.identifier == APP_IDENTIFIER }
-  if bundle
-    UI.message("Bundle ID #{APP_IDENTIFIER} already registered (#{bundle.platform})")
-  else
-    bundle = Spaceship::ConnectAPI::BundleId.create(
-      name: APP_NAME,
-      identifier: APP_IDENTIFIER,
-      platform: "UNIVERSAL"
-    )
-    UI.success("Registered bundle ID #{APP_IDENTIFIER} (#{bundle.platform})")
+  { APP_IDENTIFIER => APP_NAME, EXTENSION_IDENTIFIER => "#{APP_NAME} Share Extension" }.each do |identifier, name|
+    bundle = Spaceship::ConnectAPI::BundleId.all(filter: { identifier: identifier })
+                                            .find { |b| b.identifier == identifier }
+    if bundle
+      UI.message("Bundle ID #{identifier} already registered (#{bundle.platform})")
+    else
+      bundle = Spaceship::ConnectAPI::BundleId.create(
+        name: name,
+        identifier: identifier,
+        platform: "UNIVERSAL"
+      )
+      UI.success("Registered bundle ID #{identifier} (#{bundle.platform})")
+    end
   end
+
+  # The App Groups capability and the group container can't be set up through
+  # the public API; without them the share extension can't hand content to
+  # the app.
+  UI.important(<<~MSG)
+    In the developer portal (Identifiers), enable "App Groups" on #{APP_IDENTIFIER} and
+    #{EXTENSION_IDENTIFIER} and assign both to group.#{APP_IDENTIFIER}, then run
+    `fastlane bootstrap_signing force:true` to regenerate the profiles.
+  MSG
 
   # The public API refuses to create app records, so that step stays manual.
   app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
@@ -167,6 +181,19 @@ def build_target(key, options)
     bundle_identifier: APP_IDENTIFIER,
     profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
   )
+
+  t[:extension_targets].each do |extension_target|
+    update_code_signing_settings(
+      path: t[:project],
+      targets: [extension_target],
+      build_configurations: ["Release"],
+      use_automatic_signing: false,
+      team_id: TEAM_ID,
+      code_sign_identity: "Apple Distribution",
+      bundle_identifier: EXTENSION_IDENTIFIER,
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(EXTENSION_IDENTIFIER)
+    )
+  end
 
   # Writes Flutter/Generated.xcconfig and runs pod install without compiling;
   # the archive below does the single real build. Runs after the signing

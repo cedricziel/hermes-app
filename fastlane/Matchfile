@@ -4,7 +4,7 @@ storage_mode("git")
 
 type("appstore")
 
-app_identifier(["com.cedricziel.hermesApp"])
+app_identifier(["com.cedricziel.hermesApp", "com.cedricziel.hermesApp.ShareExtension"])
 
 git_branch(ENV["MATCH_GIT_BRANCH"]) if ENV["MATCH_GIT_BRANCH"]
 
