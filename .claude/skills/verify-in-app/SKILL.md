@@ -58,6 +58,9 @@ Say plainly what you could not check.
 - The macOS build rewrites tracked `ios/` and `macos/` Xcode/xcconfig files
   and adds `Podfile`s. Don't commit them: stage files by name, never
   `git add -A`, and `git restore` the tracked ones afterwards.
+- Debug builds use bundle ID `com.cedricziel.hermesApp.dev`. Any macOS app
+  extension needs a Debug ID that starts with it (`…dev.ShareExtension`), or
+  the build fails with "not prefixed with the parent app's bundle identifier".
 - Capturing needs Screen Recording permission for the terminal app.
 
 ## Hermes Agent setup
