@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.3](https://github.com/cedricziel/hermes-app/compare/v0.1.2...v0.1.3) (2026-09-19)
+
+
+### Features
+
+* Add assistant-ui-style chat screen design preview ([#10](https://github.com/cedricziel/hermes-app/issues/10)) ([9315699](https://github.com/cedricziel/hermes-app/commit/9315699eca3c0ab7953c70eaa78b85b0d8024265))
+* app icons and App Store listing text ([#16](https://github.com/cedricziel/hermes-app/issues/16)) ([95a553b](https://github.com/cedricziel/hermes-app/commit/95a553b444921f2aa9dcf084a6c7277f8a4f35e0))
+* Hook up pre-commit for Flutter ([#14](https://github.com/cedricziel/hermes-app/issues/14)) ([74c428e](https://github.com/cedricziel/hermes-app/commit/74c428e3177a9e19323de7cddf9a88a9f2321e38))
+
 ## [0.1.2](https://github.com/cedricziel/hermes-app/compare/v0.1.1...v0.1.2) (2026-09-19)
 
 
