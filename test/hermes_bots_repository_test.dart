@@ -147,6 +147,54 @@ void main() {
     });
   });
 
+  group('saveSetup', () {
+    test('puts the values and the keys to clear, and nothing else', () async {
+      server.on('PUT', '/api/messaging/platforms/telegram', {'ok': true});
+
+      await repository.saveSetup(
+        'telegram',
+        env: {'TELEGRAM_BOT_TOKEN': '123456789:abc'},
+        clear: ['TELEGRAM_ALLOWED_USERS'],
+      );
+
+      final request = server
+          .requestsTo('PUT', '/api/messaging/platforms/telegram')
+          .single;
+      expect(jsonBody(request), {
+        'env': {'TELEGRAM_BOT_TOKEN': '123456789:abc'},
+        'clear_env': ['TELEGRAM_ALLOWED_USERS'],
+      });
+    });
+
+    test('reports the reason the dashboard rejects a value', () async {
+      server.on('PUT', '/api/messaging/platforms/telegram', {
+        'detail': 'Telegram bot token must be the complete token',
+      }, status: 400);
+
+      expect(
+        repository.saveSetup('telegram', env: {'TELEGRAM_BOT_TOKEN': 'abc'}),
+        throwsA(
+          isA<BotSetupRejected>().having(
+            (e) => e.message,
+            'message',
+            'Telegram bot token must be the complete token',
+          ),
+        ),
+      );
+    });
+
+    test('surfaces any other failure as a DioException', () async {
+      server.on('PUT', '/api/messaging/platforms/telegram', {
+        'detail': 'boom',
+      }, status: 500);
+
+      expect(
+        repository.saveSetup('telegram', env: {'TELEGRAM_BOT_TOKEN': 'x'}),
+        throwsA(isA<DioException>()),
+      );
+    });
+  });
+
   group('setEnabled', () {
     test('puts the new enabled flag on that platform', () async {
       server.on('PUT', '/api/messaging/platforms/telegram', {'ok': true});

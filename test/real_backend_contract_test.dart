@@ -20,8 +20,9 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 ///       test/real_backend_contract_test.dart
 ///
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
-/// profile test switches the active profile back to `default`. The gateway
-/// test makes two real model calls, which cost money.
+/// profile test switches the active profile back to `default`, and the setup
+/// test writes and then clears a Telegram token (skipped if one is set). The
+/// gateway test makes two real model calls, which cost money.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -145,6 +146,48 @@ void main() {
     skip: skip,
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  test('a platform\'s setup can be saved, shows as set without its value, '
+      'and cleared again', () async {
+    final repository = HermesBotsRepository(client.raw);
+    Future<HermesBotEnvVar> tokenVar() async => (await repository.load())
+        .firstWhere((b) => b.id == 'telegram')
+        .envVars
+        .firstWhere((v) => v.key == 'TELEGRAM_BOT_TOKEN');
+    if ((await tokenVar()).isSet) {
+      markTestSkipped('a Telegram token is already set on this backend');
+      return;
+    }
+    final value = '123456789:${'a' * 35}';
+
+    try {
+      await repository.saveSetup(
+        'telegram',
+        env: {'TELEGRAM_BOT_TOKEN': value},
+      );
+      final saved = await tokenVar();
+      expect(saved.isSet, isTrue);
+      expect(saved.redactedValue, isNot(value));
+    } finally {
+      await repository.saveSetup('telegram', clear: ['TELEGRAM_BOT_TOKEN']);
+    }
+    expect((await tokenVar()).isSet, isFalse);
+  }, skip: skip);
+
+  test('a value the dashboard refuses comes back with the reason', () async {
+    final repository = HermesBotsRepository(client.raw);
+
+    await expectLater(
+      repository.saveSetup('telegram', env: {'TELEGRAM_BOT_TOKEN': 'abc'}),
+      throwsA(
+        isA<BotSetupRejected>().having(
+          (e) => e.message,
+          'message',
+          contains('bot token'),
+        ),
+      ),
+    );
+  }, skip: skip);
 
   test('platforms describe their setup variables', () async {
     final bots = await HermesBotsRepository(client.raw).load();

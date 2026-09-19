@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 /// One credential or setting a platform reads from its environment.
@@ -52,6 +53,14 @@ class HermesBot {
   final List<HermesBotEnvVar> envVars;
 }
 
+/// The dashboard refused a setup value and said why. The message names the
+/// key at fault, never the value.
+class BotSetupRejected implements Exception {
+  const BotSetupRejected(this.message);
+
+  final String message;
+}
+
 /// Reads and toggles the dashboard's messaging platforms through the
 /// generated [DefaultApi].
 ///
@@ -101,6 +110,32 @@ class HermesBotsRepository {
             advanced: row['advanced'] as bool? ?? false,
           ),
   ];
+
+  /// Writes [env] and removes the [clear] keys, leaving the platform switched
+  /// as it was. Throws [BotSetupRejected] when the dashboard refuses a value.
+  Future<void> saveSetup(
+    String id, {
+    Map<String, String> env = const {},
+    List<String> clear = const [],
+  }) async {
+    try {
+      await _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
+        platformId: id,
+        messagingPlatformUpdate: MessagingPlatformUpdate(
+          env: env,
+          clearEnv: clear,
+        ),
+      );
+    } on DioException catch (e) {
+      if (e.response case Response(
+        statusCode: 400,
+        data: {'detail': final String detail},
+      )) {
+        throw BotSetupRejected(detail);
+      }
+      rethrow;
+    }
+  }
 
   Future<void> setEnabled(String id, bool enabled) async {
     await _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
