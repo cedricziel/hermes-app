@@ -135,11 +135,6 @@ def build_target(key, options)
   match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
   sync_code_signing(**match_params)
 
-  # Writes Flutter/Generated.xcconfig and runs pod install without compiling;
-  # the archive below does the single real build.
-  sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only " \
-     "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}")
-
   update_code_signing_settings(
     path: t[:project],
     targets: ["Runner"],
@@ -150,6 +145,14 @@ def build_target(key, options)
     bundle_identifier: APP_IDENTIFIER,
     profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
   )
+
+  # Writes Flutter/Generated.xcconfig and runs pod install without compiling;
+  # the archive below does the single real build. Runs after the signing
+  # settings so Flutter sees a team and skips its development-cert lookup,
+  # which fails on a runner that only has the distribution cert.
+  flutter_flags = key == :ios ? " --no-codesign" : ""
+  sh("cd #{FLUTTER_ROOT.shellescape} && flutter build #{t[:flutter_platform]} --release --config-only#{flutter_flags} " \
+     "--build-name=#{version.shellescape} --build-number=#{build_number.shellescape}")
 
   build_app(
     workspace: t[:workspace],
