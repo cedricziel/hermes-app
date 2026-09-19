@@ -98,18 +98,23 @@ def drop_unused_model_imports(text: str, model_dir: Path) -> str:
     return text
 
 
-_UNTYPED_CASE = "    case 'Object':\n      return value as ReturnType;\n"
-_DESERIALIZE_DEFAULT = "    default:\n      RegExpMatch? match;\n"
+_UNTYPED_CASE = re.compile(r"case\s+'Object'\s*:")
+_DESERIALIZE_DEFAULT = re.compile(
+    r"^(?P<indent>[ \t]*)default:\s*RegExpMatch\? match;", re.MULTILINE
+)
 
 
 def accept_untyped_objects(package_dir: Path) -> None:
     path = package_dir / "lib" / "src" / "deserialize.dart"
     text = path.read_text()
-    if _UNTYPED_CASE in text:
+    if _UNTYPED_CASE.search(text):
         return
-    if _DESERIALIZE_DEFAULT not in text:
+    match = _DESERIALIZE_DEFAULT.search(text)
+    if match is None:
         raise SystemExit(f"{path}: could not find the deserialize default case")
-    path.write_text(text.replace(_DESERIALIZE_DEFAULT, _UNTYPED_CASE + _DESERIALIZE_DEFAULT, 1))
+    indent = match.group("indent")
+    case = f"{indent}case 'Object':\n{indent}  return value as ReturnType;\n"
+    path.write_text(text[: match.start()] + case + text[match.start() :])
     print(f"patched {path}")
 
 
