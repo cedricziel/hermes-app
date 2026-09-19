@@ -85,5 +85,21 @@ abstract interface class ChatTransport {
   /// with an error if the connection or the request fails.
   Stream<ChatEvent> send({String? threadId, required String text});
 
+  /// Answers an approval the agent is waiting on with one of its choices.
+  /// Returns false when the request is no longer pending, and throws when the
+  /// call itself fails.
+  Future<bool> answerApproval(String requestId, String choice);
+
+  /// Answers a clarify request, or one question of a batch when [questionId]
+  /// is given. An empty [values] skips: without a [questionId] that cancels the
+  /// whole request. Returns false when the request is no longer pending, and
+  /// throws when the call itself fails.
+  Future<bool> answerClarify(
+    String requestId,
+    List<String> values, {
+    String? questionId,
+    bool multiSelect = false,
+  });
+
   Future<void> close();
 }

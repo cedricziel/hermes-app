@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:stream_channel/stream_channel.dart';
 
+import '../chat_models.dart';
 import '../chat_transport.dart';
 import 'gateway_rpc_client.dart';
 
@@ -16,6 +18,7 @@ class HermesGatewayTransport implements ChatTransport {
   final GatewayConnect _connect;
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
+  final _requestSessions = <String, String>{};
 
   @override
   Stream<ChatEvent> send({String? threadId, required String text}) async* {
@@ -42,14 +45,49 @@ class HermesGatewayTransport implements ChatTransport {
       await for (final event in inbox.stream) {
         final mapped = _toChatEvent(event);
         if (mapped == null) continue;
+        if (mapped is ApprovalRequested) {
+          _requestSessions[mapped.request.requestId] = runtimeId;
+        }
         yield mapped;
         if (mapped is ReplyCompleted) return;
       }
       throw const GatewayConnectionClosed();
     } finally {
+      _requestSessions.removeWhere((_, sid) => sid == runtimeId);
       await subscription.cancel();
       unawaited(inbox.close());
     }
+  }
+
+  @override
+  Future<bool> answerApproval(String requestId, String choice) async {
+    final sessionId = _requestSessions[requestId];
+    if (sessionId == null) return false;
+    final client = await _client();
+    final result = await client.request('approval.respond', {
+      'session_id': sessionId,
+      'request_id': requestId,
+      'choice': choice,
+    });
+    return ((result['resolved'] as num?) ?? 0) > 0;
+  }
+
+  @override
+  Future<bool> answerClarify(
+    String requestId,
+    List<String> values, {
+    String? questionId,
+    bool multiSelect = false,
+  }) async {
+    final client = await _client();
+    final result = await client.request('clarify.respond', {
+      'request_id': requestId,
+      'answer': multiSelect
+          ? jsonEncode(values)
+          : (values.isEmpty ? '' : values.first),
+      'question_id': ?questionId,
+    });
+    return result['status'] != 'expired';
   }
 
   @override
@@ -86,6 +124,17 @@ class HermesGatewayTransport implements ChatTransport {
         text('text'),
         failed: payload['status'] == 'error',
       ),
+      'approval.request' => ApprovalRequested(
+        ApprovalRequest(
+          requestId: text('request_id'),
+          command: text('command'),
+          description: text('description'),
+          choices: _strings(payload['choices']),
+        ),
+      ),
+      'clarify.request' => ClarifyRequested(_toClarify(payload)),
+      'approval.expire' ||
+      'clarify.expire' => InputRequestExpired(text('request_id')),
       _ => null,
     };
   }
@@ -97,4 +146,37 @@ class HermesGatewayTransport implements ChatTransport {
     final error = result['error'];
     return error != null && error != '';
   }
+
+  ClarifyRequest _toClarify(Map<String, Object?> payload) {
+    final requestId = payload['request_id'] as String? ?? '';
+    final batch = payload['questions'];
+    if (batch is List) {
+      return ClarifyRequest(
+        requestId: requestId,
+        batch: true,
+        questions: [
+          for (final q in batch.whereType<Map<String, Object?>>())
+            _toQuestion(q),
+        ],
+      );
+    }
+    return ClarifyRequest(
+      requestId: requestId,
+      questions: [_toQuestion(payload)],
+    );
+  }
+
+  ClarifyQuestion _toQuestion(Map<String, Object?> q) => ClarifyQuestion(
+    qid: q['qid'] as String? ?? '',
+    question: q['question'] as String? ?? '',
+    choices: _strings(q['choices']),
+    multiSelect: q['multi_select'] == true,
+  );
+
+  List<String> _strings(Object? value) => value is List
+      ? [
+          for (final item in value)
+            if (item is String) item,
+        ]
+      : const [];
 }

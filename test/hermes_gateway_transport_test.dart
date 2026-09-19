@@ -37,6 +37,12 @@ class FakeGateway {
 
   bool rejectSubmit = false;
 
+  /// How many approvals `approval.respond` reports resolved.
+  int approvalsResolved = 1;
+
+  /// The `status` `clarify.respond` reports.
+  String clarifyStatus = 'ok';
+
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
 
   Iterable<String> get methods => requests.map((r) => r['method'] as String);
@@ -76,6 +82,16 @@ class FakeGateway {
                   'error': {'code': 4007, 'message': 'session not found'},
                 },
         );
+      case 'approval.respond':
+        _send({
+          'id': id,
+          'result': {'resolved': approvalsResolved},
+        });
+      case 'clarify.respond':
+        _send({
+          'id': id,
+          'result': {'status': clarifyStatus},
+        });
       case 'prompt.submit' when rejectSubmit:
         _send({
           'id': id,
@@ -378,5 +394,208 @@ void main() {
     await transport.close();
 
     await expectLater(gateway.closedByClient, completes);
+  });
+
+  group('agent input requests', () {
+    const approvalPayload = {
+      'request_id': 'r1',
+      'command': 'rm -rf build',
+      'description': 'delete files',
+      'choices': ['once', 'session', 'deny'],
+    };
+
+    test('an approval request becomes an event', () async {
+      gateway.turn = (g, sid) {
+        g.event('approval.request', sid, approvalPayload);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<ApprovalRequested>().single.request;
+      expect(request.requestId, 'r1');
+      expect(request.command, 'rm -rf build');
+      expect(request.description, 'delete files');
+      expect(request.choices, ['once', 'session', 'deny']);
+    });
+
+    test('a single clarify question becomes a one-question request', () async {
+      gateway.turn = (g, sid) {
+        g.event('clarify.request', sid, {
+          'request_id': 'r2',
+          'question': 'Which colour?',
+          'choices': ['red', 'blue'],
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<ClarifyRequested>().single.request;
+      expect(request.batch, isFalse);
+      expect(request.questions.single.qid, '');
+      expect(request.questions.single.question, 'Which colour?');
+      expect(request.questions.single.choices, ['red', 'blue']);
+      expect(request.questions.single.multiSelect, isFalse);
+    });
+
+    test('an open-ended multi-select batch keeps each question', () async {
+      gateway.turn = (g, sid) {
+        g.event('clarify.request', sid, {
+          'request_id': 'r3',
+          'questions': [
+            {
+              'qid': 'a',
+              'question': 'Name?',
+              'choices': null,
+              'multi_select': false,
+            },
+            {
+              'qid': 'b',
+              'question': 'Toppings?',
+              'choices': ['ham', 'olives'],
+              'multi_select': true,
+            },
+          ],
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<ClarifyRequested>().single.request;
+      expect(request.batch, isTrue);
+      expect(request.questions.map((q) => q.qid), ['a', 'b']);
+      expect(request.questions[0].choices, isEmpty);
+      expect(request.questions[1].multiSelect, isTrue);
+    });
+
+    test('an expire event becomes InputRequestExpired', () async {
+      gateway.turn = (g, sid) {
+        g.event('clarify.expire', sid, {'request_id': 'r2'});
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(events.whereType<InputRequestExpired>().single.requestId, 'r2');
+    });
+
+    /// Runs a turn that raises [payload] as [event], calls [answer] on the
+    /// transport while the turn waits, then completes the turn.
+    Future<T> answerWhileWaiting<T>(
+      String event,
+      Map<String, Object?> payload,
+      Future<T> Function() answer,
+    ) async {
+      gateway.turn = (g, sid) => g.event(event, sid, payload);
+      final done = Completer<void>();
+      late T result;
+      transport.send(text: 'hi').listen((e) async {
+        if (e is ApprovalRequested || e is ClarifyRequested) {
+          result = await answer();
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'ok',
+            'status': 'complete',
+          });
+        }
+      }, onDone: done.complete);
+      await done.future;
+      return result;
+    }
+
+    test('an approval is answered on the runtime session', () async {
+      final accepted = await answerWhileWaiting(
+        'approval.request',
+        approvalPayload,
+        () => transport.answerApproval('r1', 'once'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.requestOf('approval.respond')['params'], {
+        'session_id': 'rt-1',
+        'request_id': 'r1',
+        'choice': 'once',
+      });
+    });
+
+    test('an approval nothing is waiting on reports not accepted', () async {
+      gateway.approvalsResolved = 0;
+
+      final accepted = await answerWhileWaiting(
+        'approval.request',
+        approvalPayload,
+        () => transport.answerApproval('r1', 'once'),
+      );
+
+      expect(accepted, isFalse);
+    });
+
+    test('an approval for an unknown request sends nothing', () async {
+      expect(await transport.answerApproval('nope', 'once'), isFalse);
+      expect(gateway.requests, isEmpty);
+    });
+
+    test('a clarify answer carries the request id and no session', () async {
+      final accepted = await answerWhileWaiting('clarify.request', {
+        'request_id': 'r2',
+        'question': 'Which colour?',
+      }, () => transport.answerClarify('r2', ['blue']));
+
+      expect(accepted, isTrue);
+      expect(gateway.requestOf('clarify.respond')['params'], {
+        'request_id': 'r2',
+        'answer': 'blue',
+      });
+    });
+
+    test('a batch answer names its question', () async {
+      await answerWhileWaiting('clarify.request', {
+        'request_id': 'r3',
+        'questions': <Object?>[],
+      }, () => transport.answerClarify('r3', ['ham'], questionId: 'b'));
+
+      expect(
+        (gateway.requestOf('clarify.respond')['params'] as Map)['question_id'],
+        'b',
+      );
+    });
+
+    test('a multi-select answer is a JSON array in a string', () async {
+      await answerWhileWaiting(
+        'clarify.request',
+        {'request_id': 'r2', 'question': 'Toppings?', 'multi_select': true},
+        () =>
+            transport.answerClarify('r2', ['ham', 'olives'], multiSelect: true),
+      );
+
+      expect(
+        (gateway.requestOf('clarify.respond')['params'] as Map)['answer'],
+        '["ham","olives"]',
+      );
+    });
+
+    test('skipping sends an empty answer', () async {
+      await answerWhileWaiting('clarify.request', {
+        'request_id': 'r2',
+        'question': 'Which colour?',
+      }, () => transport.answerClarify('r2', const []));
+
+      expect(
+        (gateway.requestOf('clarify.respond')['params'] as Map)['answer'],
+        '',
+      );
+    });
+
+    test('an expired clarify request reports not accepted', () async {
+      gateway.clarifyStatus = 'expired';
+
+      final accepted = await answerWhileWaiting('clarify.request', {
+        'request_id': 'r2',
+        'question': 'Which colour?',
+      }, () => transport.answerClarify('r2', ['blue']));
+
+      expect(accepted, isFalse);
+    });
   });
 }

@@ -15,6 +15,47 @@ class FakeChatTransport implements ChatTransport {
     return send._events.stream;
   }
 
+  final approvalAnswers = <(String, String)>[];
+  final clarifyAnswers =
+      <
+        ({
+          String requestId,
+          List<String> values,
+          String? questionId,
+          bool multiSelect,
+        })
+      >[];
+
+  /// What the answer calls report; false means the request is gone.
+  bool accepts = true;
+
+  /// When set, the answer calls throw it.
+  Object? answerError;
+
+  @override
+  Future<bool> answerApproval(String requestId, String choice) async {
+    if (answerError case final error?) throw error;
+    approvalAnswers.add((requestId, choice));
+    return accepts;
+  }
+
+  @override
+  Future<bool> answerClarify(
+    String requestId,
+    List<String> values, {
+    String? questionId,
+    bool multiSelect = false,
+  }) async {
+    if (answerError case final error?) throw error;
+    clarifyAnswers.add((
+      requestId: requestId,
+      values: values,
+      questionId: questionId,
+      multiSelect: multiSelect,
+    ));
+    return accepts;
+  }
+
   @override
   Future<void> close() async => closed = true;
 }
