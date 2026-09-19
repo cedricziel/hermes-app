@@ -121,6 +121,10 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          # Both must be set for the build to enable telemetry; if either is
+          # missing the build still succeeds with telemetry off.
+          OTLP_INGEST_URL: ${{ secrets.OTLP_INGEST_URL }}
+          OTLP_INGEST_KEY: ${{ secrets.OTLP_INGEST_KEY }}
           RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
           FASTLANE_HIDE_CHANGELOG: "true"
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"

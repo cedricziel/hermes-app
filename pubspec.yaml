@@ -2,7 +2,7 @@ name: hermes_app
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -52,6 +52,32 @@ dependencies:
   # PKCE code_challenge (SHA-256) for the native OAuth flow.
   crypto: ^3.0.6
   receive_sharing_intent: ^1.9.0
+  # OpenTelemetry logs and traces, exported to SignalDB. Not on pub.dev, so
+  # the siblings it depends on are pinned in dependency_overrides below.
+  flutter_otel:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      path: packages/flutter_otel
+
+# flutter_otel declares its siblings as plain version constraints that only
+# resolve inside its own workspace, so pin them to the same commit.
+dependency_overrides:
+  flutter_otel_api:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      path: packages/flutter_otel_api
+  flutter_otel_sdk:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      path: packages/flutter_otel_sdk
+  flutter_otel_exporter_otlp_http:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      path: packages/flutter_otel_exporter_otlp_http
 
 dev_dependencies:
   flutter_test:
@@ -71,7 +97,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
