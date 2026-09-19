@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -186,6 +188,57 @@ void main() {
     await tester.pump();
 
     expect(find.text('This request timed out'), findsOneWidget);
+    await settle(tester);
+  });
+
+  testWidgets('a batch retries after a partial failure', (tester) async {
+    transport.failClarifyCallNumber = 2;
+    await raise(tester, const ClarifyRequested(_batch));
+
+    await tester.enterText(inCard(find.byType(TextField)), 'Ada');
+    await tester.tap(find.text('y'));
+    await tester.pump();
+    await tester.tap(inCard(find.widgetWithText(FilledButton, 'Confirm')));
+    await tester.pump();
+
+    expect(find.text('Could not send your answer. Try again.'), findsOneWidget);
+    expect(
+      inCard(find.widgetWithText(FilledButton, 'Confirm')),
+      findsOneWidget,
+    );
+    expect(transport.clarifyAnswers.map((a) => a.questionId), ['a']);
+
+    transport.failClarifyCallNumber = null;
+    await tester.tap(inCard(find.widgetWithText(FilledButton, 'Confirm')));
+    await tester.pump();
+
+    expect(transport.clarifyAnswers.map((a) => a.questionId), ['a', 'a', 'b']);
+    expect(transport.clarifyAnswers.map((a) => a.values), [
+      ['Ada'],
+      ['Ada'],
+      ['y'],
+    ]);
+    expect(inCard(find.widgetWithText(FilledButton, 'Confirm')), findsNothing);
+    expect(find.text('This request timed out'), findsNothing);
+    await settle(tester);
+  });
+
+  testWidgets('an expiry during the answer is not overwritten by it', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    transport.answerGate = gate;
+    final turn = await raise(tester, const ApprovalRequested(_approval));
+
+    await tester.tap(find.text('Allow once'));
+    await tester.pump();
+    turn.emit(const InputRequestExpired('r1'));
+    await tester.pump();
+    gate.complete();
+    await tester.pump();
+
+    expect(find.text('This request timed out'), findsOneWidget);
+    expect(find.text('Allowed once'), findsNothing);
     await settle(tester);
   });
 }
