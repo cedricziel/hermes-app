@@ -24,6 +24,9 @@ The app stores:
 
 - the server address you entered and your sign-in preferences, in app preferences
 - your session tokens, in the system keychain (iOS and macOS) or keystore (Android)
+- whether notifications are on, and whether you have been asked for permission, in app preferences
+
+When a reply finishes while Hermes is in the background, the notification can show the first part of the reply, and so on a lock screen. The text is made and shown on your device and is not sent anywhere. Turn notifications off in the account menu if you do not want that.
 
 Removing the app deletes this data. Signing out clears the stored tokens.
 
