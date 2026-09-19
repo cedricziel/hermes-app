@@ -87,14 +87,6 @@ jobs:
 
       - uses: astral-sh/setup-uv@v10.1.0
 
-      - name: Restore uv downloads
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/uv
-            ~/.local/share/uv/python
-          key: uv-${{ runner.os }}-${{ env.HERMES_REF }}
-
       - name: Install Hermes Agent
         run: |
           uv venv --python 3.11 "$HOME/hermes-agent/.venv"
