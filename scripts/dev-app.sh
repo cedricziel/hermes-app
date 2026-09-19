@@ -77,9 +77,11 @@ cmd_start() {
   sleep 2147483647 <>"$FIFO" >/dev/null 2>&1 &
   echo $! >"$HOLDER_PID_FILE"
 
-  (cd "$ROOT_DIR" && nohup flutter run -d macos \
-    --dart-define=HERMES_SERVER_URL="$url" <"$FIFO" >>"$LOG_FILE" 2>&1 &
-    echo $! >"$FLUTTER_PID_FILE")
+  # exec so the recorded pid is flutter itself, not a wrapper subshell that
+  # would hold the caller's stdout open (and hang `start | tail`) until exit.
+  (cd "$ROOT_DIR" && exec nohup flutter run -d macos \
+    --dart-define=HERMES_SERVER_URL="$url" <"$FIFO" >>"$LOG_FILE" 2>&1) &
+  echo $! >"$FLUTTER_PID_FILE"
 
   local waited=0
   until grep -q "Flutter run key commands" "$LOG_FILE"; do
