@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../screens/home_screen.dart';
+import '../share/share_controller.dart';
+import '../share/shared_item.dart';
 import 'chat_models.dart';
 import 'mock_chat_data.dart';
 import 'widgets/chat_composer.dart';
@@ -29,16 +31,39 @@ class _ChatScreenState extends State<ChatScreen> {
   final _composerController = TextEditingController();
   final _composerFocus = FocusNode();
   final _scrollController = ScrollController();
+  final List<SharedFile> _attachments = [];
+  late final ShareController _share;
 
   @override
   void initState() {
     super.initState();
     _threads = buildMockThreads();
     _selectedId = _threads.isNotEmpty ? _threads.first.id : null;
+    _share = context.read<ShareController>()..addListener(_onShared);
+    _absorbShared();
+  }
+
+  void _onShared() => setState(_absorbShared);
+
+  void _absorbShared() {
+    final items = _share.take();
+    if (items.isEmpty) return;
+
+    final shared = items.whereType<SharedText>().map((i) => i.text).join('\n');
+    if (shared.isNotEmpty) {
+      final draft = _composerController.text;
+      final text = draft.isEmpty ? shared : '$draft\n$shared';
+      _composerController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    _attachments.addAll(items.whereType<SharedFile>());
   }
 
   @override
   void dispose() {
+    _share.removeListener(_onShared);
     _composerController.dispose();
     _composerFocus.dispose();
     _scrollController.dispose();
@@ -77,7 +102,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _send([String? text]) {
-    final content = (text ?? _composerController.text).trim();
+    final typed = (text ?? _composerController.text).trim();
+    final attached = _attachments.isEmpty
+        ? ''
+        : 'Attached: ${_attachments.map((f) => f.name).join(', ')}';
+    final content = [typed, attached].where((s) => s.isNotEmpty).join('\n\n');
     if (content.isEmpty) return;
 
     final thread =
@@ -116,6 +145,7 @@ class _ChatScreenState extends State<ChatScreen> {
       thread.messages.add(placeholder);
       thread.updatedAt = DateTime.now();
       _composerController.clear();
+      _attachments.clear();
     });
     _scrollToBottom();
 
@@ -170,6 +200,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   scrollController: _scrollController,
                   composerController: _composerController,
                   composerFocus: _composerFocus,
+                  attachments: _attachments,
+                  onRemoveAttachment: (file) =>
+                      setState(() => _attachments.remove(file)),
                   onSend: _send,
                   showTopBar: isWide,
                 ),
@@ -188,6 +221,8 @@ class _ThreadView extends StatelessWidget {
     required this.scrollController,
     required this.composerController,
     required this.composerFocus,
+    required this.attachments,
+    required this.onRemoveAttachment,
     required this.onSend,
     required this.showTopBar,
   });
@@ -196,6 +231,8 @@ class _ThreadView extends StatelessWidget {
   final ScrollController scrollController;
   final TextEditingController composerController;
   final FocusNode composerFocus;
+  final List<SharedFile> attachments;
+  final ValueChanged<SharedFile> onRemoveAttachment;
   final void Function([String?]) onSend;
   final bool showTopBar;
 
@@ -258,7 +295,11 @@ class _ThreadView extends StatelessWidget {
                 builder: (context, _) => ChatComposer(
                   controller: composerController,
                   focusNode: composerFocus,
-                  canSend: composerController.text.trim().isNotEmpty,
+                  canSend:
+                      composerController.text.trim().isNotEmpty ||
+                      attachments.isNotEmpty,
+                  attachments: attachments,
+                  onRemoveAttachment: onRemoveAttachment,
                   onSend: onSend,
                 ),
               ),

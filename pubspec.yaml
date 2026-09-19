@@ -51,6 +51,7 @@ dependencies:
   provider: ^6.1.2
   # PKCE code_challenge (SHA-256) for the native OAuth flow.
   crypto: ^3.0.6
+  receive_sharing_intent: ^1.9.0
 
 dev_dependencies:
   flutter_test:
