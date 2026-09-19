@@ -118,6 +118,157 @@ void main() {
     });
   });
 
+  group('loadThreadPage', () {
+    test('asks for the first page without archived sessions', () async {
+      server.on('GET', '/api/sessions', sessionListBody([]));
+
+      await repository.loadThreadPage();
+
+      final query = server
+          .requestsTo('GET', '/api/sessions')
+          .single
+          .queryParameters;
+      expect(query['limit'], 50);
+      expect(query['offset'], 0);
+      expect(query['archived'], 'exclude');
+    });
+
+    test('reports whether more sessions follow and where they start', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's1')], total: 120, limit: 1),
+      );
+
+      final page = await repository.loadThreadPage(limit: 1);
+
+      expect(page.hasMore, isTrue);
+      expect(page.nextOffset, 1);
+    });
+
+    test('has no more sessions once the page reaches the total', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's2')], total: 2, limit: 1, offset: 1),
+      );
+
+      final page = await repository.loadThreadPage(limit: 1, offset: 1);
+
+      expect(server.requests.single.queryParameters['offset'], 1);
+      expect(page.hasMore, isFalse);
+    });
+
+    test('marks pinned sessions and every thread as server-backed', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          sessionRow(id: 's1', pinned: true),
+          sessionRow(id: 's2'),
+        ]),
+      );
+
+      final page = await repository.loadThreadPage();
+
+      expect(page.threads.map((t) => t.pinned), [true, false]);
+      expect(page.threads.every((t) => t.remote), isTrue);
+    });
+
+    test('guesses from the row count when the total is missing', () async {
+      server.on('GET', '/api/sessions', {
+        'sessions': [sessionRow(id: 's1'), sessionRow(id: 's2')],
+      });
+
+      final page = await repository.loadThreadPage(limit: 2);
+
+      expect(page.hasMore, isTrue);
+    });
+  });
+
+  group('renameThread', () {
+    test('patches the title and returns the stored one', () async {
+      server.on(
+        'PATCH',
+        '/api/sessions/s1',
+        sessionPatchBody(title: 'Release notes'),
+      );
+
+      final stored = await repository.renameThread('s1', 'Release notes');
+
+      expect(stored, 'Release notes');
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'title': 'Release notes'});
+    });
+
+    test('surfaces a rejected title as a DioException', () async {
+      server.on('PATCH', '/api/sessions/s1', {
+        'detail': 'Title already in use',
+      }, status: 400);
+
+      expect(
+        repository.renameThread('s1', 'Taken'),
+        throwsA(isA<DioException>()),
+      );
+    });
+  });
+
+  group('setPinned', () {
+    for (final pinned in [true, false]) {
+      test('patches only the pinned flag to $pinned', () async {
+        server.on(
+          'PATCH',
+          '/api/sessions/s1',
+          sessionPatchBody(flags: {'pinned': pinned}),
+        );
+
+        await repository.setPinned('s1', pinned);
+
+        final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+        expect(jsonBody(request), {'pinned': pinned});
+      });
+    }
+  });
+
+  group('archiveThread', () {
+    test('patches only the archived flag', () async {
+      server.on(
+        'PATCH',
+        '/api/sessions/s1',
+        sessionPatchBody(flags: {'archived': true}),
+      );
+
+      await repository.archiveThread('s1');
+
+      final request = server.requestsTo('PATCH', '/api/sessions/s1').single;
+      expect(jsonBody(request), {'archived': true});
+    });
+
+    test('surfaces a missing session as a DioException', () async {
+      server.on('PATCH', '/api/sessions/s1', {
+        'detail': 'Session not found',
+      }, status: 404);
+
+      expect(repository.archiveThread('s1'), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('deleteThread', () {
+    test('deletes the session', () async {
+      server.on('DELETE', '/api/sessions/s1', {'ok': true});
+
+      await repository.deleteThread('s1');
+
+      expect(server.requestsTo('DELETE', '/api/sessions/s1'), hasLength(1));
+    });
+
+    test('surfaces a server error as a DioException', () async {
+      server.on('DELETE', '/api/sessions/s1', {'detail': 'boom'}, status: 500);
+
+      expect(repository.deleteThread('s1'), throwsA(isA<DioException>()));
+    });
+  });
+
   group('loadMessages', () {
     Future<List<ChatMessage>> load(List<Map<String, Object?>> rows) {
       server.on(
