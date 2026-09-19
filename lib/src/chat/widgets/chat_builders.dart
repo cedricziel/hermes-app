@@ -39,7 +39,12 @@ Widget _buildText(
   MessageGroupStatus? groupStatus,
 }) {
   final scheme = Theme.of(context).colorScheme;
-  final style = TextStyle(color: scheme.onSurface, fontSize: 14.5, height: 1.5);
+  final failed = message.metadata?['error'] == true;
+  final style = TextStyle(
+    color: failed ? scheme.error : scheme.onSurface,
+    fontSize: 14.5,
+    height: 1.5,
+  );
   return FlyerChatTextMessage(
     message: message,
     index: index,
