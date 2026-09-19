@@ -1,0 +1,136 @@
+name: release-please
+
+# 1. `release-please` keeps a release PR in sync with conventional commits on
+#    main. Merging it cuts a `vX.Y.Z` tag and GitHub release.
+# 2. `testflight` then builds that tag on a macOS runner, signs it via fastlane
+#    match and uploads it to TestFlight, for iOS and macOS in parallel.
+#
+# `workflow_dispatch` with a `tag` re-runs the TestFlight job for an existing
+# tag (e.g. after a failed upload). Without a tag it runs release-please.
+#
+# RELEASE_PLEASE_TOKEN must be a PAT: a PR opened with GITHUB_TOKEN does not
+# trigger ci.yml, which would leave the release PR ungated.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (e.g. v0.1.0) to rebuild and upload. Leave blank to run release-please.
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.tag == '' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  testflight:
+    name: TestFlight (${{ matrix.platform }})
+    needs: [release-please]
+    # release-please is skipped on a tag dispatch, so `always()` is needed for
+    # this job to be evaluated at all.
+    if: |
+      always() && (
+        inputs.tag != '' ||
+        needs.release-please.outputs.release_created == 'true'
+      )
+    runs-on: macos-26
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ios
+            lane_platform: ios
+            artifact_glob: build/fastlane/*.ipa
+          - platform: macos
+            lane_platform: mac
+            artifact_glob: build/fastlane/*.pkg
+    env:
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+    steps:
+      # fetch-depth: 0 so the commit-count build number is the real one.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+          fetch-depth: 0
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # Flutter shells out to `pod`; after setup-ruby the runner's
+      # preinstalled CocoaPods is broken, so use the bundled one.
+      - name: Put the bundled CocoaPods on the PATH
+        run: |
+          bundle binstubs cocoapods
+          echo "$PWD/bin" >> "$GITHUB_PATH"
+          bin/pod --version
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Fetch release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          file="$RUNNER_TEMP/release_notes.md"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$file" || : > "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Configure SSH for match repo
+        env:
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$MATCH_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Build and upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.MATCH_KEYCHAIN_PASSWORD }}
+          RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
+          FASTLANE_HIDE_CHANGELOG: "true"
+          FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
+          FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "5"
+        run: bundle exec fastlane ${{ matrix.lane_platform }} release version:"${TAG#v}"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: hermes-app-${{ matrix.platform }}-${{ env.TAG }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: ignore
+          retention-days: 30
