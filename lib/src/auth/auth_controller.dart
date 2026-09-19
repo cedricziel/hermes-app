@@ -37,17 +37,29 @@ enum HermesConnectionState {
 
 const _prefsBaseUrlKey = 'hermes.server_base_url';
 
+/// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
+const _devServerUrlDefine = String.fromEnvironment('HERMES_SERVER_URL');
+
 /// App-wide auth/connection state machine. Owns the authenticated [Dio]
 /// client (token attach + transparent refresh via
 /// `POST /auth/native/refresh`, mirroring the gate's own cookie-refresh
 /// semantics on the server side) and the [TokenStore].
 class AuthController extends ChangeNotifier {
-  AuthController({TokenStore? tokenStore, SharedPreferencesAsync? prefs})
-    : _tokenStore = tokenStore ?? TokenStore(),
-      _prefs = prefs ?? SharedPreferencesAsync();
+  AuthController({
+    TokenStore? tokenStore,
+    SharedPreferencesAsync? prefs,
+    String? devServerUrl,
+  }) : _tokenStore = tokenStore ?? TokenStore(),
+       _prefs = prefs ?? SharedPreferencesAsync(),
+       _devServerUrl = devServerUrl ?? _devServerUrlDefine;
 
   final TokenStore _tokenStore;
   final SharedPreferencesAsync _prefs;
+
+  /// Set only in dev/test runs. Wins over the saved address and is never
+  /// saved, so parallel runs on one machine can't overwrite each other's
+  /// (or the developer's own) saved server.
+  final String _devServerUrl;
 
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
@@ -73,6 +85,10 @@ class AuthController extends ChangeNotifier {
   HermesApiClient? get api => _api;
 
   Future<void> bootstrap() async {
+    if (_devServerUrl.isNotEmpty) {
+      await connect(_devServerUrl, remember: false);
+      return;
+    }
     final savedUrl = await _prefs.getString(_prefsBaseUrlKey);
     if (savedUrl == null || savedUrl.isEmpty) {
       _setState(HermesConnectionState.needsServerUrl);
@@ -83,7 +99,7 @@ class AuthController extends ChangeNotifier {
 
   /// Normalizes and connects to a dashboard base URL, then figures out
   /// whether sign-in is needed.
-  Future<void> connect(String rawUrl) async {
+  Future<void> connect(String rawUrl, {bool remember = true}) async {
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
       _errorMessage =
@@ -118,7 +134,7 @@ class AuthController extends ChangeNotifier {
 
     _baseUrl = normalized;
     _status = status;
-    await _prefs.setString(_prefsBaseUrlKey, normalized);
+    if (remember) await _prefs.setString(_prefsBaseUrlKey, normalized);
 
     _dio = _buildAuthenticatedDio(normalized);
     _api = HermesApiClient(_dio!);
