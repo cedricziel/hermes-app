@@ -48,6 +48,10 @@ class FakeHermesServer implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+/// The JSON body a request carried (the generated client sends it encoded).
+Object? jsonBody(RequestOptions request) =>
+    request.data is String ? jsonDecode(request.data as String) : request.data;
+
 /// A `GET /api/sessions` row as the dashboard serialises it.
 Map<String, Object?> sessionRow({
   required String id,
@@ -107,3 +111,36 @@ Map<String, Object?> functionCall(String name, String arguments) => {
   'type': 'function',
   'function': {'name': name, 'arguments': arguments},
 };
+
+/// A `GET /api/profiles` row as the dashboard serialises it.
+Map<String, Object?> profileRow({
+  required String name,
+  bool isDefault = false,
+  String? model,
+  String? provider,
+  String description = '',
+  String displayName = '',
+  int skillCount = 58,
+  bool gatewayRunning = false,
+}) => {
+  'name': name,
+  'path': '/home/hermes/$name',
+  'is_default': isDefault,
+  'model': model,
+  'provider': provider,
+  'has_env': false,
+  'skill_count': skillCount,
+  'gateway_running': gatewayRunning,
+  'description': description,
+  'description_auto': false,
+  'display_name': displayName,
+};
+
+Map<String, Object?> profileListBody(List<Map<String, Object?>> rows) => {
+  'profiles': rows,
+};
+
+Map<String, Object?> activeProfileBody({
+  required String active,
+  String? current,
+}) => {'active': active, 'current': current ?? active};
