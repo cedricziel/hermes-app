@@ -26,7 +26,7 @@ The app stores:
 - your session tokens, in the system keychain (iOS and macOS) or keystore (Android)
 - whether notifications are on, and whether the system allowed them, in app preferences
 
-When a reply finishes while Hermes is in the background, the notification can show the chat's title and the first part of the reply, so both can appear on a lock screen. For a new chat the title is the start of your own message. The text is made and shown on your device and is not sent anywhere. Turn notifications off in the account menu if you do not want that.
+Notifications appear when a reply finishes and when Hermes needs you (an approval or a question), while Hermes is in the background or you are looking at another chat. Every notification shows the chat's title, and a finished reply also shows the first part of the reply, so both can appear on a lock screen. A request that needs you only says that Hermes is waiting. For a new chat the title is the start of your own message. The text is made and shown on your device and is not sent anywhere. Turn notifications off in the account menu if you do not want that.
 
 Removing the app deletes this data. Signing out clears the stored tokens.
 

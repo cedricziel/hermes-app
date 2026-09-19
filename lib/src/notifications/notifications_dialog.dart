@@ -30,7 +30,8 @@ class _NotificationsDialog extends StatelessWidget {
           title: const Text('Notify me'),
           subtitle: const Text(
             'When a reply finishes or Hermes needs you, while the app is not '
-            'in front.',
+            'in front. Replies show a preview; requests only say that Hermes '
+            'is waiting.',
           ),
           value: settings.enabled,
           onChanged: (value) => settings.setEnabled(value),
