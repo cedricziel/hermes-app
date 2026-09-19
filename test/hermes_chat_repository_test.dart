@@ -25,6 +25,24 @@ void main() {
       expect(request.queryParameters['order'], 'recent');
     });
 
+    test('lists the sessions of the profile it was asked for', () async {
+      server.on('GET', '/api/sessions', sessionListBody([]));
+
+      await repository.loadThreads(profile: 'work');
+
+      final request = server.requestsTo('GET', '/api/sessions').single;
+      expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('leaves the profile to the dashboard when none is given', () async {
+      server.on('GET', '/api/sessions', sessionListBody([]));
+
+      await repository.loadThreads();
+
+      final request = server.requestsTo('GET', '/api/sessions').single;
+      expect(request.queryParameters.containsKey('profile'), isFalse);
+    });
+
     test(
       'maps each session row to a thread, keeping the server order',
       () async {
@@ -151,6 +169,26 @@ void main() {
         server.requestsTo('GET', '/api/sessions/s1/messages'),
         hasLength(1),
       );
+    });
+
+    test('reads the session from the profile it was asked for', () async {
+      server.on('GET', '/api/sessions/s1/messages', messageListBody('s1', []));
+
+      await repository.loadMessages('s1', profile: 'work');
+
+      final request = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single;
+      expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('leaves the profile to the dashboard when none is given', () async {
+      await load([]);
+
+      final request = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single;
+      expect(request.queryParameters.containsKey('profile'), isFalse);
     });
 
     test('omits system rows from the transcript', () async {

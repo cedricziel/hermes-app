@@ -17,10 +17,18 @@ class HermesChatRepository {
 
   /// Most recently active sessions first. Threads come back without
   /// messages; fetch them with [loadMessages] when a thread is opened.
-  Future<List<ChatThread>> loadThreads({int limit = 50}) async {
+  ///
+  /// Each profile keeps its sessions in its own database, so a session id is
+  /// only unique within one. Without [profile] the dashboard answers for the
+  /// profile it is scoped to, whatever the sticky active profile is.
+  Future<List<ChatThread>> loadThreads({
+    int limit = 50,
+    String? profile,
+  }) async {
     final response = await _api.getSessionsApiSessionsGet(
       limit: limit,
       order: 'recent',
+      profile: profile,
     );
     final rows = _rows(response.data, 'sessions');
     return [
@@ -34,10 +42,16 @@ class HermesChatRepository {
     ];
   }
 
-  Future<List<ChatMessage>> loadMessages(String sessionId) async {
+  /// [profile] must be the one [sessionId] was listed under: another profile
+  /// may hold a different session with the same id.
+  Future<List<ChatMessage>> loadMessages(
+    String sessionId, {
+    String? profile,
+  }) async {
     final response = await _api
         .getSessionMessagesApiSessionsSessionIdMessagesGet(
           sessionId: sessionId,
+          profile: profile,
         );
     final messages = <ChatMessage>[];
     for (final row in _rows(response.data, 'messages')) {
