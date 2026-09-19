@@ -16,8 +16,22 @@ String? threadIdFromResponse(NotificationResponse response) {
   return payload == null || payload.isEmpty ? null : payload;
 }
 
-/// One id per thread, so a new notification replaces the earlier one.
-int notificationIdFor(String threadId) => threadId.hashCode & 0x7fffffff;
+/// One id per thread, so a new notification replaces the earlier one. FNV-1a
+/// rather than `hashCode`, which Dart does not keep stable between releases.
+/// Masked to 31 bits: non-negative, and a signed 32-bit int as Android needs.
+int notificationIdFor(String threadId) {
+  var hash = 0x811c9dc5;
+  for (final unit in threadId.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
+  }
+  return hash & 0x7fffffff;
+}
+
+const _darwinSettings = DarwinInitializationSettings(
+  requestAlertPermission: false,
+  requestBadgePermission: false,
+  requestSoundPermission: false,
+);
 
 /// [NotificationService] on `flutter_local_notifications`. On platforms other
 /// than macOS, iOS and Android it does nothing.
@@ -35,16 +49,8 @@ class LocalNotificationService implements NotificationService {
   Future<void> _initialize() => _initialized ??= _plugin.initialize(
     settings: const InitializationSettings(
       android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      ),
-      macOS: DarwinInitializationSettings(
-        requestAlertPermission: false,
-        requestBadgePermission: false,
-        requestSoundPermission: false,
-      ),
+      iOS: _darwinSettings,
+      macOS: _darwinSettings,
     ),
     onDidReceiveNotificationResponse: (response) {
       final threadId = threadIdFromResponse(response);
@@ -55,6 +61,10 @@ class LocalNotificationService implements NotificationService {
   @override
   Stream<String> get taps => _taps.stream;
 
+  static Future<bool> _askDarwin(
+    Future<bool?> Function({bool alert, bool badge, bool sound}) request,
+  ) async => await request(alert: true, badge: true, sound: true) ?? false;
+
   @override
   Future<bool> requestPermission() async {
     if (!_supported) return false;
@@ -64,26 +74,12 @@ class LocalNotificationService implements NotificationService {
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
           >();
-      if (ios != null) {
-        return await ios.requestPermissions(
-              alert: true,
-              badge: true,
-              sound: true,
-            ) ??
-            false;
-      }
       final mac = _plugin
           .resolvePlatformSpecificImplementation<
             MacOSFlutterLocalNotificationsPlugin
           >();
-      if (mac != null) {
-        return await mac.requestPermissions(
-              alert: true,
-              badge: true,
-              sound: true,
-            ) ??
-            false;
-      }
+      if (ios != null) return await _askDarwin(ios.requestPermissions);
+      if (mac != null) return await _askDarwin(mac.requestPermissions);
       final android = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
