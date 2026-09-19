@@ -107,6 +107,64 @@ void main() {
     expect(field('Discord proxy'), findsOneWidget);
   });
 
+  testWidgets('only Telegram offers to pair a bot', (tester) async {
+    await openSetup(tester);
+
+    expect(find.text('Set up with Telegram'), findsNothing);
+  });
+
+  testWidgets('Telegram offers pairing a bot, and a finished pairing returns '
+      'to a refreshed list', (tester) async {
+    server
+      ..on(
+        'GET',
+        '/api/messaging/platforms',
+        platformListBody([
+          platformRow(
+            id: 'telegram',
+            name: 'Telegram',
+            envVars: [
+              envVarRow(
+                key: 'TELEGRAM_BOT_TOKEN',
+                prompt: 'Telegram bot token',
+                required: true,
+                isPassword: true,
+              ),
+            ],
+          ),
+        ]),
+      )
+      ..on(
+        'POST',
+        '/api/messaging/telegram/onboarding/start',
+        telegramPairingStartBody(),
+      )
+      ..on('GET', '/api/messaging/telegram/onboarding/p1', {
+        'status': 'ready',
+        'bot_username': 'hermes_1_bot',
+        'owner_user_id': '4711',
+      })
+      ..on('POST', '/api/messaging/telegram/onboarding/p1/apply', {'ok': true});
+    await openSetup(tester, 'Telegram');
+
+    await tester.tap(find.text('Set up with Telegram'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(seconds: 1));
+    server.on(
+      'GET',
+      '/api/messaging/platforms',
+      platformListBody([
+        platformRow(id: 'telegram', name: 'Telegram', configured: true),
+      ]),
+    );
+    await tester.tap(find.text('Finish setup'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set up Telegram'), findsNothing);
+    expect(find.text('Needs setup'), findsNothing);
+  });
+
   testWidgets('a platform with nothing to set up says so', (tester) async {
     await openSetup(tester, 'Yuanbao');
 

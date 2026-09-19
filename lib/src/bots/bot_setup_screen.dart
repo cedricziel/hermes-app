@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'hermes_bots_repository.dart';
+import 'telegram_pairing_screen.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only
@@ -53,27 +54,30 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
       _saving = true;
       _error = null;
     });
-    String? error;
     try {
       await widget.repository.saveSetup(
         widget.bot.id,
         env: env,
         clear: _cleared.toList(),
       );
-    } on BotSetupRejected catch (e) {
-      error = e.message;
-    } on Object {
-      error = 'Could not save the setup';
-    }
-    if (!mounted) return;
-    if (error == null) {
-      Navigator.pop(context, true);
-    } else {
+      if (mounted) Navigator.pop(context, true);
+    } on Object catch (e) {
+      if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = error;
+        _error = explainSetupError(e, 'Could not save the setup');
       });
     }
+  }
+
+  Future<void> _pairTelegram() async {
+    final paired = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TelegramPairingScreen(repository: widget.repository),
+      ),
+    );
+    if (paired == true && mounted) Navigator.pop(context, true);
   }
 
   void _toggleCleared(String key) {
@@ -97,6 +101,17 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (widget.bot.id == 'telegram') ...[
+                    OutlinedButton.icon(
+                      onPressed: _pairTelegram,
+                      icon: const Icon(Icons.auto_fix_high),
+                      label: const Text('Set up with Telegram'),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Or enter the details yourself.'),
+                    ),
+                  ],
                   for (final v in basic) _field(v),
                   if (advanced.isNotEmpty)
                     ExpansionTile(
