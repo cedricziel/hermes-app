@@ -19,6 +19,23 @@ class NativeLoginException implements Exception {
 
 const _loginTimeout = Duration(minutes: 5);
 
+typedef BrowserLauncher = Future<bool> Function(Uri url);
+typedef BrowserCloser = Future<void> Function();
+
+// iOS suspends the app as soon as Safari takes the foreground, which freezes
+// the loopback listener before the IdP redirects back to it. An in-app
+// SFSafariViewController keeps the app active so the listener stays alive.
+Future<bool> _defaultLaunchBrowser(Uri url) => launchUrl(
+  url,
+  mode: Platform.isIOS
+      ? LaunchMode.inAppBrowserView
+      : LaunchMode.externalApplication,
+);
+
+Future<void> _defaultCloseBrowser() async {
+  if (Platform.isIOS) await closeInAppWebView();
+}
+
 // No tokens, no secrets — just a close affordance for the tab the system
 // browser opened. Matches Hermes Desktop's DONE_HTML.
 const _doneHtml = '''
@@ -42,10 +59,15 @@ const _doneHtml = '''
 /// [baseUrl] is the dashboard's base URL (e.g. `http://192.168.1.20:9119`).
 /// [provider] selects a specific registered provider by name; leave it null
 /// to let the gateway auto-select when exactly one is eligible.
+///
+/// [launchBrowser] and [closeBrowser] default to `url_launcher`; tests
+/// override them to play the browser's part.
 Future<HermesSession> runNativeLogin(
   String baseUrl, {
   String? provider,
   Dio? httpClient,
+  BrowserLauncher launchBrowser = _defaultLaunchBrowser,
+  BrowserCloser closeBrowser = _defaultCloseBrowser,
 }) async {
   final dio = httpClient ?? Dio();
   final pkce = PkcePair.generate();
@@ -68,10 +90,7 @@ Future<HermesSession> runNativeLogin(
       provider: provider,
     );
 
-    final launched = await launchUrl(
-      Uri.parse(authorizeUrl),
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchBrowser(Uri.parse(authorizeUrl));
     if (!launched) {
       throw NativeLoginException(
         'Could not open the system browser for sign-in.',
@@ -98,6 +117,7 @@ Future<HermesSession> runNativeLogin(
     throw NativeLoginException(_describeDioError(e));
   } finally {
     unawaited(server.close(force: true));
+    await closeBrowser();
   }
 }
 
