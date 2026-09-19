@@ -198,6 +198,50 @@ void main() {
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 
+  testWidgets('replies stay beside their prompt when sends overlap', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const ChatScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New chat'));
+    await tester.pumpAndSettle();
+
+    Future<void> send(String text) async {
+      await tester.enterText(find.byType(EditableText), text);
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+    }
+
+    await send('FIRSTQ');
+    await tester.pump(const Duration(milliseconds: 500));
+    // The second prompt goes out while the first reply is still pending.
+    await send('SECONDQ');
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pumpAndSettle();
+
+    // The thread title (sidebar, top bar) repeats the first prompt, so only
+    // look inside the transcript.
+    double top(Finder finder) {
+      final inChat = find.descendant(of: find.byType(Chat), matching: finder);
+      expect(inChat, findsOneWidget);
+      return tester.getTopLeft(inChat).dy;
+    }
+
+    final ordered = [
+      top(find.text('FIRSTQ', findRichText: true)),
+      top(find.textContaining('standing in for "FIRSTQ"', findRichText: true)),
+      top(find.text('SECONDQ', findRichText: true)),
+      top(find.textContaining('standing in for "SECONDQ"', findRichText: true)),
+    ];
+    expect(ordered, orderedEquals([...ordered]..sort()));
+    expect(find.byType(ThinkingIndicator), findsNothing);
+  });
+
   testWidgets('typing enables the composer and sending clears it', (
     tester,
   ) async {

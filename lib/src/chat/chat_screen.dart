@@ -172,15 +172,22 @@ class _ChatScreenState extends State<ChatScreen> {
 
     Future.delayed(const Duration(milliseconds: 900), () {
       if (!mounted) return;
-      for (final flyer in chatMessageToFlyer(placeholder)) {
+      // The reply takes the placeholder's slot, not the end of the list, so
+      // overlapping sends keep each reply beside its prompt.
+      final pending = chatMessageToFlyer(placeholder);
+      final slot = chatController.messages.indexWhere(
+        (m) => m.id == pending.first.id,
+      );
+      for (final flyer in pending) {
         chatController.removeMessage(flyer);
       }
       setState(() {
         placeholder.status = MessageStatus.sent;
         placeholder.content = buildMockReply(content);
       });
-      for (final flyer in chatMessageToFlyer(placeholder)) {
-        chatController.insertMessage(flyer);
+      final reply = chatMessageToFlyer(placeholder);
+      for (final (i, flyer) in reply.indexed) {
+        chatController.insertMessage(flyer, index: slot < 0 ? null : slot + i);
       }
     });
   }
