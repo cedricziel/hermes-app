@@ -107,6 +107,28 @@ lane :bootstrap_app do
   end
 end
 
+desc "Upload App Store metadata (listing text, category, age rating) without a binary"
+lane :sync_metadata do
+  api_key = load_app_store_connect_api_key
+  %w[ios osx].each do |platform|
+    upload_to_app_store(
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      platform: platform,
+      app_version: marketing_version({}),
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      run_precheck_before_submit: false,
+      app_rating_config_path: "fastlane/metadata/age_rating.json"
+    )
+  end
+end
+
 desc "Create App Store signing certs and profiles for iOS and macOS via match (writes to the certificates repo)"
 desc "  force:true regenerates the profiles"
 lane :bootstrap_signing do |options|

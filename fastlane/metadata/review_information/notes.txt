@@ -1,0 +1,1 @@
+This app is a client for a self-hosted Hermes Agent dashboard. It needs a reachable dashboard to sign in. It is currently distributed through TestFlight only.
