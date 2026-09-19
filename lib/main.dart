@@ -13,6 +13,7 @@ Future<void> main() async {
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
   );
+  telemetry.logUncaughtErrors();
   final httpInterceptor = telemetry.dioInterceptor();
 
   runApp(
