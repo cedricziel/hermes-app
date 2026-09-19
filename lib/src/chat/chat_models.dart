@@ -54,12 +54,19 @@ class ChatThread {
     required this.id,
     required this.title,
     required this.updatedAt,
+    this.pinned = false,
+    this.remote = false,
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
 
   String id;
   String title;
   DateTime updatedAt;
+  bool pinned;
+
+  /// Whether the Hermes dashboard holds this thread, as opposed to a local
+  /// draft or mock data.
+  bool remote;
   final List<ChatMessage> messages;
 
   String get preview =>

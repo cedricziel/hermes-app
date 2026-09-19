@@ -1,6 +1,21 @@
+import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import 'chat_models.dart';
+
+/// One page of the session list. Ask for the next one at [nextOffset] while
+/// [hasMore].
+class ThreadPage {
+  const ThreadPage({
+    required this.threads,
+    required this.nextOffset,
+    required this.hasMore,
+  });
+
+  final List<ChatThread> threads;
+  final int nextOffset;
+  final bool hasMore;
+}
 
 /// Loads chat threads and their messages from the Hermes dashboard through
 /// the generated [DefaultApi].
@@ -24,23 +39,83 @@ class HermesChatRepository {
   Future<List<ChatThread>> loadThreads({
     int limit = 50,
     String? profile,
+  }) async => (await loadThreadPage(limit: limit, profile: profile)).threads;
+
+  /// One page of the session list, archived sessions left out. The dashboard
+  /// appends every pinned session it did not otherwise reach to each page, so
+  /// pages can repeat rows; callers de-duplicate by id.
+  Future<ThreadPage> loadThreadPage({
+    int limit = 50,
+    int offset = 0,
+    String? profile,
   }) async {
     final response = await _api.getSessionsApiSessionsGet(
       limit: limit,
+      offset: offset,
       order: 'recent',
+      archived: 'exclude',
       profile: profile,
     );
     final rows = _rows(response.data, 'sessions');
-    return [
-      for (final row in rows)
-        if (row['id'] case final String id when id.isNotEmpty)
-          ChatThread(
-            id: id,
-            title: _title(row),
-            updatedAt: _time(row['last_active'] ?? row['started_at']),
-          ),
-    ];
+    final total = switch (response.data) {
+      {'total': final int total} => total,
+      _ => null,
+    };
+    return ThreadPage(
+      threads: [
+        for (final row in rows)
+          if (row['id'] case final String id when id.isNotEmpty)
+            ChatThread(
+              id: id,
+              title: _title(row),
+              updatedAt: _time(row['last_active'] ?? row['started_at']),
+              pinned: row['pinned'] == true,
+              remote: true,
+            ),
+      ],
+      nextOffset: offset + limit,
+      hasMore: total == null ? rows.length >= limit : offset + limit < total,
+    );
   }
+
+  /// The session-changing calls take the [profile] the session was listed
+  /// under, like [loadMessages].
+  ///
+  /// Sets the title and returns the one the dashboard stored. An empty title
+  /// clears it.
+  Future<String> renameThread(
+    String id,
+    String title, {
+    String? profile,
+  }) async {
+    final response = await _patch(
+      id,
+      SessionRename(title: title, profile: profile),
+    );
+    return switch (response.data) {
+      {'title': final String stored} => stored,
+      _ => title,
+    };
+  }
+
+  Future<void> setPinned(String id, bool pinned, {String? profile}) =>
+      _patch(id, SessionRename(pinned: pinned, profile: profile));
+
+  Future<void> archiveThread(String id, {String? profile}) =>
+      _patch(id, SessionRename(archived: true, profile: profile));
+
+  /// Deleting a session the dashboard no longer has counts as success.
+  Future<void> deleteThread(String id, {String? profile}) =>
+      _api.deleteSessionEndpointApiSessionsSessionIdDelete(
+        sessionId: id,
+        profile: profile,
+      );
+
+  Future<Response<Object>> _patch(String id, SessionRename update) =>
+      _api.renameSessionEndpointApiSessionsSessionIdPatch(
+        sessionId: id,
+        sessionRename: update,
+      );
 
   /// [profile] must be the one [sessionId] was listed under: another profile
   /// may hold a different session with the same id.

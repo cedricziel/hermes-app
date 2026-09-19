@@ -6,6 +6,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 
+typedef FakeResponse = ({int status, Object? body});
+
 /// Stands in for the Hermes dashboard at the HTTP layer, so tests drive the
 /// real generated client and the real Dio pipeline rather than a mock of it.
 class FakeHermesServer implements HttpClientAdapter {
@@ -23,21 +25,27 @@ class FakeHermesServer implements HttpClientAdapter {
     Object? body, {
     int status = 200,
     Map<String, String> query = const {},
+  }) => onRequest(
+    method,
+    path,
+    (_) => (status: status, body: body),
+    query: query,
+  );
+
+  /// Answers by looking at the request, and may hold the answer back to let a
+  /// test observe the app while a call is in flight.
+  void onRequest(
+    String method,
+    String path,
+    FutureOr<FakeResponse> Function(RequestOptions request) respond, {
+    Map<String, String> query = const {},
   }) {
     _routes
       ..removeWhere(
         (r) =>
             r.method == method && r.path == path && mapEquals(r.query, query),
       )
-      ..add(
-        _Route(
-          method: method,
-          path: path,
-          query: query,
-          status: status,
-          body: body,
-        ),
-      );
+      ..add(_Route(method, path, query, respond));
   }
 
   _Route? _match(RequestOptions options) {
@@ -72,8 +80,9 @@ class FakeHermesServer implements HttpClientAdapter {
   ) async {
     requests.add(options);
     final route = _match(options);
-    final status = route?.status ?? 404;
-    final body = route == null ? {'detail': 'Not Found'} : route.body;
+    final (:status, :body) = route == null
+        ? (status: 404, body: {'detail': 'Not Found'})
+        : await route.respond(options);
     final page = body is String;
     return ResponseBody.fromString(
       page ? body : jsonEncode(body),
@@ -91,19 +100,12 @@ class FakeHermesServer implements HttpClientAdapter {
 }
 
 class _Route {
-  const _Route({
-    required this.method,
-    required this.path,
-    required this.query,
-    required this.status,
-    required this.body,
-  });
+  const _Route(this.method, this.path, this.query, this.respond);
 
   final String method;
   final String path;
   final Map<String, String> query;
-  final int status;
-  final Object? body;
+  final FutureOr<FakeResponse> Function(RequestOptions) respond;
 }
 
 /// The JSON body a request carried (the generated client sends it encoded).
@@ -117,6 +119,8 @@ Map<String, Object?> sessionRow({
   String? preview,
   double startedAt = 1780000000,
   double? lastActive,
+  bool pinned = false,
+  bool archived = false,
 }) => {
   'id': id,
   'source': 'cli',
@@ -126,8 +130,8 @@ Map<String, Object?> sessionRow({
   'ended_at': null,
   'message_count': 2,
   'preview': preview,
-  'archived': false,
-  'pinned': false,
+  'archived': archived,
+  'pinned': pinned,
   'last_active': lastActive ?? startedAt,
 };
 
@@ -148,12 +152,24 @@ Map<String, Object?> messageRow({
   'timestamp': timestamp,
 };
 
-Map<String, Object?> sessionListBody(List<Map<String, Object?>> rows) => {
+Map<String, Object?> sessionListBody(
+  List<Map<String, Object?>> rows, {
+  int? total,
+  int limit = 50,
+  int offset = 0,
+}) => {
   'sessions': rows,
-  'total': rows.length,
-  'limit': 50,
-  'offset': 0,
+  'total': total ?? rows.length,
+  'limit': limit,
+  'offset': offset,
 };
+
+/// What `PATCH /api/sessions/{id}` answers: `ok`, the stored title and an echo
+/// of each flag that was set.
+Map<String, Object?> sessionPatchBody({
+  String title = '',
+  Map<String, bool> flags = const {},
+}) => {'ok': true, 'title': title, ...flags};
 
 Map<String, Object?> messageListBody(
   String sessionId,

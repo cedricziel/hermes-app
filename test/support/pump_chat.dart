@@ -1,0 +1,55 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+
+import 'fake_hermes_server.dart';
+import 'fake_share_inbox.dart';
+
+/// Mounts the chat screen at desktop width. Without a [server] the screen
+/// falls back to its mock data.
+Future<void> pumpChatScreen(
+  WidgetTester tester, {
+  FakeHermesServer? server,
+  bool withProfiles = false,
+  ChatTransport? transport,
+}) async {
+  SharedPreferencesAsyncPlatform.instance =
+      InMemorySharedPreferencesAsync.empty();
+  tester.view.physicalSize = const Size(1400, 900);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthController>(create: (_) => AuthController()),
+        ChangeNotifierProvider<ShareController>(
+          create: (_) => ShareController(FakeShareInbox()),
+        ),
+      ],
+      child: MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: ChatScreen(
+          repository: server == null
+              ? null
+              : HermesChatRepository(server.client().raw),
+          profiles: withProfiles
+              ? HermesProfilesRepository(server!.client().raw)
+              : null,
+          transport: transport,
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
