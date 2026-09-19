@@ -13,6 +13,7 @@ void main() {
     String content = 'hello',
     MessageStatus status = MessageStatus.sent,
     List<ToolCall> toolCalls = const [],
+    List<InputRequest> inputRequests = const [],
   }) => ChatMessage(
     id: 'm1',
     role: role,
@@ -20,6 +21,7 @@ void main() {
     createdAt: createdAt,
     status: status,
     toolCalls: toolCalls,
+    inputRequests: inputRequests,
   );
 
   group('chatMessageToFlyer', () {
@@ -112,6 +114,68 @@ void main() {
       );
 
       expect(out.map((m) => m.id), ['m1-tool-0', 'm1-thinking']);
+    });
+
+    test('emits a custom message per input request, after tool calls', () {
+      const approval = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      );
+
+      final out = chatMessageToFlyer(
+        message(
+          content: '',
+          toolCalls: const [ToolCall(name: 'shell', summary: 'ls')],
+          inputRequests: const [approval],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-input-0']);
+      final card = out.last as CustomMessage;
+      expect(card.metadata, {
+        kMetaKind: kKindInputRequest,
+        kMetaInputRequest: approval,
+      });
+    });
+
+    test('hides the thinking indicator while a request is pending', () {
+      const approval = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      );
+
+      final out = chatMessageToFlyer(
+        message(
+          content: '',
+          status: MessageStatus.thinking,
+          inputRequests: const [approval],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-input-0']);
+    });
+
+    test('shows the thinking indicator again once the request is answered', () {
+      const approval = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      );
+
+      final out = chatMessageToFlyer(
+        message(
+          content: '',
+          status: MessageStatus.thinking,
+          inputRequests: [approval.answered('once')],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-input-0', 'm1-thinking']);
     });
 
     test('keeps streaming content as text', () {
