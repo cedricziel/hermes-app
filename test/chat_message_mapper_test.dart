@@ -42,7 +42,7 @@ void main() {
       expect(out.single.authorId, kUserAuthorId);
     });
 
-    test('emits one CustomMessage per tool call after the text', () {
+    test('emits one CustomMessage per tool call before the text', () {
       final out = chatMessageToFlyer(
         message(
           toolCalls: const [
@@ -56,11 +56,10 @@ void main() {
         ),
       );
 
-      expect(out, hasLength(3));
-      expect(out[0], isA<TextMessage>());
-      final first = out[1] as CustomMessage;
-      final second = out[2] as CustomMessage;
-      expect(first.id, 'm1-tool-0');
+      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-tool-1', 'm1']);
+      expect(out[2], isA<TextMessage>());
+      final first = out[0] as CustomMessage;
+      final second = out[1] as CustomMessage;
       expect(first.authorId, kAssistantAuthorId);
       expect(first.createdAt, createdAt.toUtc());
       expect(first.metadata, {
@@ -69,7 +68,6 @@ void main() {
         kMetaToolSummary: 'ls -la',
         kMetaToolStatus: 'completed',
       });
-      expect(second.id, 'm1-tool-1');
       expect(second.metadata![kMetaToolStatus], 'running');
     });
 
@@ -178,8 +176,8 @@ void main() {
 
       expect(chatThreadToFlyer(thread).map((m) => m.id), [
         'a',
-        'b',
         'b-tool-0',
+        'b',
       ]);
     });
 

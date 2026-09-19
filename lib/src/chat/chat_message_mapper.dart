@@ -4,6 +4,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 
+/// Tool calls come first, then the text, then the thinking indicator.
+///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-tool-N`, `id-thinking`),
 /// so a streaming reply that mutates content or status maps to ids the
 /// controller can match with `updateMessage`.
@@ -13,14 +15,6 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   final thinking = m.status == MessageStatus.thinking;
 
   return [
-    if (!thinking && m.content.isNotEmpty)
-      TextMessage(
-        id: m.id,
-        authorId: authorId,
-        createdAt: createdAt,
-        text: m.content,
-        metadata: m.status == MessageStatus.error ? {'error': true} : null,
-      ),
     for (final (i, call) in m.toolCalls.indexed)
       CustomMessage(
         id: '${m.id}-tool-$i',
@@ -32,6 +26,14 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
           kMetaToolSummary: call.summary,
           kMetaToolStatus: call.status.name,
         },
+      ),
+    if (!thinking && m.content.isNotEmpty)
+      TextMessage(
+        id: m.id,
+        authorId: authorId,
+        createdAt: createdAt,
+        text: m.content,
+        metadata: m.status == MessageStatus.error ? {'error': true} : null,
       ),
     if (thinking)
       CustomMessage(
