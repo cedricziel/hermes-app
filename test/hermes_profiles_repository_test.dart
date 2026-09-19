@@ -61,6 +61,20 @@ void main() {
       expect(overview.current, 'default');
     });
 
+    test('reads the active profile without listing them', () async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work', current: 'default'),
+      );
+
+      final active = await repository.loadActive();
+
+      expect(active.active, 'work');
+      expect(active.current, 'default');
+      expect(server.requestsTo('GET', '/api/profiles'), isEmpty);
+    });
+
     test('labels a profile with its display name when it has one', () async {
       server
         ..on(

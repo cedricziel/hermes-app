@@ -30,11 +30,17 @@ void main() {
       ..on('POST', '/api/profiles/active', {'active': 'work'});
   });
 
-  Future<void> pumpProfiles(WidgetTester tester) async {
+  Future<void> pumpProfiles(
+    WidgetTester tester, {
+    String? chatProfile,
+    ValueChanged<String>? onSwitched,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         home: ProfilesScreen(
           repository: HermesProfilesRepository(server.client().raw),
+          chatProfile: chatProfile,
+          onSwitched: onSwitched,
         ),
       ),
     );
@@ -123,6 +129,110 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  group('the profile shown in the chat', () {
+    final notice = find.textContaining('CLI default');
+
+    testWidgets('is not remarked on while it is the CLI default', (
+      tester,
+    ) async {
+      await pumpProfiles(tester, chatProfile: 'default');
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('is named next to the CLI default when they differ', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+
+      await pumpProfiles(tester, chatProfile: 'default');
+
+      expect(notice, findsOneWidget);
+      expect(
+        tester.widget<Text>(notice).data,
+        'The chat shows default. The CLI default is work.',
+      );
+    });
+
+    testWidgets('is the dashboard\'s own profile when the chat has none', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work', current: 'default'),
+      );
+
+      await pumpProfiles(tester);
+
+      expect(
+        tester.widget<Text>(notice).data,
+        'The chat shows default. The CLI default is work.',
+      );
+    });
+
+    testWidgets('follows a profile chosen here', (tester) async {
+      final switched = <String>[];
+      await pumpProfiles(
+        tester,
+        chatProfile: 'default',
+        onSwitched: switched.add,
+      );
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+
+      await tester.tap(find.text('Work assistant'));
+      await tester.pumpAndSettle();
+
+      expect(switched, ['work']);
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('can be switched to the profile that is already active', (
+      tester,
+    ) async {
+      final switched = <String>[];
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+      await pumpProfiles(
+        tester,
+        chatProfile: 'default',
+        onSwitched: switched.add,
+      );
+
+      await tester.tap(find.text('Work assistant'));
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+      expect(switched, ['work']);
+    });
+
+    testWidgets('stays put when the switch is rejected', (tester) async {
+      final switched = <String>[];
+      await pumpProfiles(
+        tester,
+        chatProfile: 'default',
+        onSwitched: switched.add,
+      );
+      server.on('POST', '/api/profiles/active', {'detail': 'x'}, status: 500);
+
+      await tester.tap(find.text('Work assistant'));
+      await tester.pumpAndSettle();
+
+      expect(switched, isEmpty);
+    });
   });
 
   testWidgets('a failed load shows an error with a working retry', (
