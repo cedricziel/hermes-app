@@ -16,9 +16,13 @@ its own `HERMES_HOME`, and the app is told its server by a build flag.
 ## The loop
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
-2. `scripts/dev-backend.sh start` (prints the URL; needs `hermes` on PATH).
-3. `scripts/dev-app.sh start` (first build takes minutes).
-4. `scripts/dev-app.sh screenshot`, then read the PNG it prints.
+   Analyze and test print a long dependency-update block; read the last lines.
+2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on PATH.
+3. `scripts/dev-app.sh start`. Prints `app up against <url>` when the app is
+   running, and the app window stays open. A cold first build takes minutes,
+   a cached one under a minute. Don't close the window: closing it quits the app.
+4. `scripts/dev-app.sh screenshot` prints the path of a PNG under
+   `.dart_tool/hermes-dev/shots/`; read that file.
 5. Compare with what the change was meant to do. Wrong or unclear?
    Edit, `scripts/dev-app.sh reload` (or `restart` after state/initializer
    changes), screenshot again. `scripts/dev-app.sh logs` shows Flutter errors.
