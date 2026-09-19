@@ -12,6 +12,24 @@ ChatMessage _placeholder() => ChatMessage(
   status: MessageStatus.thinking,
 );
 
+const _approval = ApprovalRequest(
+  requestId: 'r1',
+  command: 'rm -rf build',
+  description: 'delete files',
+  choices: ['once', 'session', 'deny'],
+);
+
+const _clarify = ClarifyRequest(
+  requestId: 'r2',
+  questions: [
+    ClarifyQuestion(
+      qid: '',
+      question: 'Which colour?',
+      choices: ['red', 'blue'],
+    ),
+  ],
+);
+
 void main() {
   test('stays thinking until the first text arrives', () {
     final reply = _placeholder();
@@ -126,6 +144,91 @@ void main() {
 
     expect(reply.content, isEmpty);
     expect(reply.status, MessageStatus.thinking);
+  });
+
+  test('an approval request is added to the reply, pending', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+    expect(reply.inputRequests.single, same(_approval));
+    expect(reply.inputRequests.single.status, InputRequestStatus.pending);
+    expect(reply.awaitingInput, isTrue);
+  });
+
+  test('requests stack in the order they arrive', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+    applyReplyEvent(reply, const ClarifyRequested(_clarify));
+
+    expect(reply.inputRequests.map((r) => r.requestId), ['r1', 'r2']);
+  });
+
+  test('an expire event ends only the matching pending request', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+    applyReplyEvent(reply, const ClarifyRequested(_clarify));
+
+    applyReplyEvent(reply, const InputRequestExpired('r1'));
+
+    expect(reply.inputRequests[0].status, InputRequestStatus.expired);
+    expect(reply.inputRequests[1].status, InputRequestStatus.pending);
+  });
+
+  test('completion expires a request nobody answered', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+    applyReplyEvent(reply, const ReplyCompleted('Done'));
+
+    expect(reply.inputRequests.single.status, InputRequestStatus.expired);
+    expect(reply.awaitingInput, isFalse);
+  });
+
+  test('a broken stream expires a request nobody answered', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ClarifyRequested(_clarify));
+
+    failReply(reply);
+
+    expect(reply.inputRequests.single.status, InputRequestStatus.expired);
+  });
+
+  test('recording an approval settles it with the choice', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+    recordApproval(reply, 'r1', 'once');
+
+    final request = reply.inputRequests.single as ApprovalRequest;
+    expect(request.status, InputRequestStatus.answered);
+    expect(request.choice, 'once');
+  });
+
+  test('recording clarify answers settles it with the answers', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ClarifyRequested(_clarify));
+
+    recordClarifyAnswers(reply, 'r2', {
+      '': ['blue'],
+    });
+
+    final request = reply.inputRequests.single as ClarifyRequest;
+    expect(request.status, InputRequestStatus.answered);
+    expect(request.answers, {
+      '': ['blue'],
+    });
+  });
+
+  test('an answered request is not expired later', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+    recordApproval(reply, 'r1', 'deny');
+
+    applyReplyEvent(reply, const ReplyCompleted('Done'));
+
+    expect(reply.inputRequests.single.status, InputRequestStatus.answered);
   });
 
   group('failReply', () {

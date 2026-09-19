@@ -3,6 +3,8 @@
 /// its `/api/ws` JSON-RPC socket (`prompt.submit` → `message.delta` ...).
 library;
 
+import 'chat_models.dart';
+
 sealed class ChatEvent {
   const ChatEvent();
 }
@@ -45,6 +47,27 @@ final class ThreadTitled extends ChatEvent {
   const ThreadTitled(this.title);
 
   final String title;
+}
+
+/// The agent is waiting for the user's consent to run something.
+final class ApprovalRequested extends ChatEvent {
+  const ApprovalRequested(this.request);
+
+  final ApprovalRequest request;
+}
+
+/// The agent is waiting for the user to answer one or more questions.
+final class ClarifyRequested extends ChatEvent {
+  const ClarifyRequested(this.request);
+
+  final ClarifyRequest request;
+}
+
+/// The gateway gave up waiting on request [requestId].
+final class InputRequestExpired extends ChatEvent {
+  const InputRequestExpired(this.requestId);
+
+  final String requestId;
 }
 
 /// Last event of a reply. [text] is the full final text; [failed] is true when

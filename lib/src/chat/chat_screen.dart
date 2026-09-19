@@ -408,7 +408,13 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => thread.title = title);
       case ReplyStarted():
         break;
-      case ReplyDelta() || ToolStarted() || ToolFinished() || ReplyCompleted():
+      case ReplyDelta() ||
+          ToolStarted() ||
+          ToolFinished() ||
+          ReplyCompleted() ||
+          ApprovalRequested() ||
+          ClarifyRequested() ||
+          InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
   }

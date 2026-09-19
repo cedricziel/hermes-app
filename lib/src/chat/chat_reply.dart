@@ -21,6 +21,12 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         name,
         failed ? ToolCallStatus.error : ToolCallStatus.completed,
       );
+    case ApprovalRequested(:final request):
+      reply.inputRequests = [...reply.inputRequests, request];
+    case ClarifyRequested(:final request):
+      reply.inputRequests = [...reply.inputRequests, request];
+    case InputRequestExpired(:final requestId):
+      expireInputRequests(reply, requestId: requestId);
     case ReplyCompleted(:final text, :final failed):
       if (text.isNotEmpty) reply.content = text;
       reply.status = failed ? MessageStatus.error : MessageStatus.sent;
@@ -28,6 +34,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         reply,
         failed ? ToolCallStatus.error : ToolCallStatus.completed,
       );
+      expireInputRequests(reply);
     case ReplyStarted() || ThreadBound() || ThreadTitled():
       break;
   }
@@ -38,6 +45,7 @@ void failReply(ChatMessage reply) {
   if (reply.content.isEmpty) reply.content = kReplyFailedMessage;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);
+  expireInputRequests(reply);
 }
 
 void _settleTool(ChatMessage reply, String name, ToolCallStatus status) {
@@ -53,5 +61,44 @@ void _settleRunningTools(ChatMessage reply, ToolCallStatus status) {
   reply.toolCalls = [
     for (final call in reply.toolCalls)
       call.status == ToolCallStatus.running ? call.withStatus(status) : call,
+  ];
+}
+
+void recordApproval(ChatMessage reply, String requestId, String choice) =>
+    _editPending(
+      reply,
+      requestId,
+      (r) => r is ApprovalRequest ? r.answered(choice) : r,
+    );
+
+void recordClarifyAnswers(
+  ChatMessage reply,
+  String requestId,
+  Map<String, List<String>> answers,
+) => _editPending(
+  reply,
+  requestId,
+  (r) => r is ClarifyRequest ? r.answeredWith(answers) : r,
+);
+
+/// Ends the pending requests of [reply], or only [requestId] when given.
+void expireInputRequests(ChatMessage reply, {String? requestId}) =>
+    _editPending(
+      reply,
+      requestId,
+      (r) => r.withStatus(InputRequestStatus.expired),
+    );
+
+void _editPending(
+  ChatMessage reply,
+  String? requestId,
+  InputRequest Function(InputRequest) edit,
+) {
+  reply.inputRequests = [
+    for (final r in reply.inputRequests)
+      r.status == InputRequestStatus.pending &&
+              (requestId == null || r.requestId == requestId)
+          ? edit(r)
+          : r,
   ];
 }
