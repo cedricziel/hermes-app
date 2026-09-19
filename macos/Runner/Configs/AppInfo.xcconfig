@@ -10,5 +10,10 @@ PRODUCT_NAME = hermes_app
 // The application's bundle identifier
 PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp
 
+// Debug builds get their own identity so a dev run never shares a sandbox
+// container, keychain or Launch Services entry with the installed
+// (TestFlight/App Store) app, and its updates can't close a dev run.
+PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = com.cedricziel.hermesApp.dev
+
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.cedricziel. All rights reserved.
