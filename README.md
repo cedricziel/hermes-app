@@ -181,3 +181,7 @@ writing, etc.) for anyone working on it with Claude Code:
 /plugin marketplace add cedricziel/claude-plugins
 /plugin install oss@cedricziel
 ```
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
