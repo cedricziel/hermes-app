@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import 'bot_setup_screen.dart';
 import 'hermes_bots_repository.dart';
 
 /// Lists the messaging platforms Hermes can run as bots and switches them
-/// on or off. Credentials are set up on the dashboard itself; a platform
-/// that lacks them shows "Needs setup" and can't be switched on here.
+/// on or off. A platform that lacks credentials shows "Needs setup" and
+/// can't be switched on until its row is opened and they are saved.
 class BotsScreen extends StatefulWidget {
   const BotsScreen({super.key, this.repository});
 
@@ -65,6 +66,16 @@ class _BotsScreenState extends State<BotsScreen> {
     if (mounted) await _load();
   }
 
+  Future<void> _setUp(HermesBot bot) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BotSetupScreen(bot: bot, repository: _repository),
+      ),
+    );
+    if (saved == true && mounted) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,6 +108,7 @@ class _BotsScreenState extends State<BotsScreen> {
             leading: const Icon(Icons.smart_toy_outlined),
             title: Text(bot.name),
             subtitle: _subtitle(bot),
+            onTap: () => _setUp(bot),
             trailing: Switch(
               value: bot.enabled,
               onChanged: bot.configured ? (v) => _toggle(bot, v) : null,
