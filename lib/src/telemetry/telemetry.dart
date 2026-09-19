@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
-import 'package:flutter_otel_instrumentation_dio/flutter_otel_instrumentation_dio.dart';
 
+import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
@@ -38,10 +38,10 @@ class Telemetry {
     return Telemetry._(sdk);
   }
 
-  /// Logs and traces every request on the Dio client it is added to.
+  /// Traces every request on the Dio client it is added to.
   Interceptor? dioInterceptor() {
     final sdk = _sdk;
     if (sdk == null) return null;
-    return DioOTelInterceptor(sdk.getLogger(), tracer: sdk.getTracer());
+    return HttpTelemetryInterceptor(sdk.getTracer());
   }
 }

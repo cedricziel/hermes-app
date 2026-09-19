@@ -169,15 +169,6 @@ packages:
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
-  flutter_otel_instrumentation_dio:
-    dependency: "direct main"
-    description:
-      path: "packages/flutter_otel_instrumentation_dio"
-      ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
-      resolved-ref: "5b7af474d13c9aad4bb1e5b5c6df8e445233eea6"
-      url: "https://github.com/cedricziel/flutter-otel.git"
-    source: git
-    version: "0.1.0"
   flutter_otel_sdk:
     dependency: "direct overridden"
     description:

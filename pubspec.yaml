@@ -59,11 +59,6 @@ dependencies:
       url: https://github.com/cedricziel/flutter-otel.git
       ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
       path: packages/flutter_otel
-  flutter_otel_instrumentation_dio:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
-      path: packages/flutter_otel_instrumentation_dio
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
