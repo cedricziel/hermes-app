@@ -40,13 +40,13 @@ class _ApprovalCardState extends State<ApprovalCard> {
 
   Future<void> _choose(String choice) async {
     if (_busy) return;
-    if (choice == 'always' && !await _confirmAlways()) return;
-    if (!mounted) return;
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
+      if (choice == 'always' && !await _confirmAlways()) return;
+      if (!mounted) return;
       await widget.onAnswer!(choice);
     } catch (_) {
       if (mounted) setState(() => _error = kAnswerFailedMessage);

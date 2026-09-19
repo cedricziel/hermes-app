@@ -12,6 +12,13 @@ const _request = ApprovalRequest(
   choices: ['once', 'session', 'always', 'deny'],
 );
 
+class _RouteCounter extends NavigatorObserver {
+  var pushed = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => pushed++;
+}
+
 Future<void> _pump(
   WidgetTester tester,
   ApprovalRequest request, {
@@ -79,6 +86,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sent, isEmpty);
+  });
+
+  testWidgets('a double tap on always allow opens one confirmation', (
+    tester,
+  ) async {
+    final sent = <String>[];
+    final routes = _RouteCounter();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        navigatorObservers: [routes],
+        home: Scaffold(
+          body: ApprovalCard(
+            request: _request,
+            onAnswer: (c) async => sent.add(c),
+          ),
+        ),
+      ),
+    );
+
+    final always = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Always allow'),
+    );
+    always.onPressed!();
+    always.onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(routes.pushed, 2, reason: 'the page and one confirmation');
+
+    await tester.tap(find.text('Yes, always allow'));
+    await tester.pumpAndSettle();
+
+    expect(sent, ['always']);
+  });
+
+  testWidgets('always allow can be tried again after cancelling', (
+    tester,
+  ) async {
+    final sent = <String>[];
+    await _pump(tester, _request, onAnswer: (c) async => sent.add(c));
+
+    await tester.tap(find.text('Always allow'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Always allow'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Yes, always allow'));
+    await tester.pumpAndSettle();
+
+    expect(sent, ['always']);
   });
 
   testWidgets('always allow sends once confirmed', (tester) async {
