@@ -82,4 +82,30 @@ void main() {
 
     expect(settings.enabled, isFalse);
   });
+
+  test('a permission recorded while loading keeps the saved switch', () async {
+    await NotificationSettings().setEnabled(false);
+    final settings = NotificationSettings();
+
+    final loading = settings.load();
+    await settings.recordPermission(granted: true);
+    await loading;
+
+    expect(settings.enabled, isFalse);
+    expect(settings.permissionAsked, isTrue);
+    expect(settings.permissionDenied, isFalse);
+  });
+
+  test('a switch flipped while loading keeps the saved permission', () async {
+    await NotificationSettings().recordPermission(granted: false);
+    final settings = NotificationSettings();
+
+    final loading = settings.load();
+    await settings.setEnabled(false);
+    await loading;
+
+    expect(settings.enabled, isFalse);
+    expect(settings.permissionAsked, isTrue);
+    expect(settings.permissionDenied, isTrue);
+  });
 }

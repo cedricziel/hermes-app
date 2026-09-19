@@ -16,7 +16,8 @@ class NotificationSettings extends ChangeNotifier {
   bool _enabled = true;
   bool _asked = false;
   bool _denied = false;
-  int _edits = 0;
+  int _enabledEdits = 0;
+  int _permissionEdits = 0;
   Future<void> _lastWrite = Future.value();
 
   bool get enabled => _enabled;
@@ -24,27 +25,31 @@ class NotificationSettings extends ChangeNotifier {
   bool get permissionDenied => _denied;
 
   Future<void> load() async {
-    final editsBefore = _edits;
+    final enabledEditsBefore = _enabledEdits;
+    final permissionEditsBefore = _permissionEdits;
     final enabled = await _prefs.getBool(_prefsEnabledKey);
     final asked = await _prefs.getBool(_prefsAskedKey);
     final denied = await _prefs.getBool(_prefsDeniedKey);
-    if (_edits != editsBefore) return;
-    _enabled = enabled ?? true;
-    _asked = asked ?? false;
-    _denied = denied ?? false;
+    if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
+    if (_permissionEdits == permissionEditsBefore) {
+      _asked = asked ?? false;
+      _denied = denied ?? false;
+    }
     notifyListeners();
   }
 
-  Future<void> setEnabled(bool value) =>
-      _change(() => _enabled = value, {_prefsEnabledKey: value});
+  Future<void> setEnabled(bool value) => _change(() {
+    _enabledEdits++;
+    _enabled = value;
+  }, {_prefsEnabledKey: value});
 
   Future<void> recordPermission({required bool granted}) => _change(() {
+    _permissionEdits++;
     _asked = true;
     _denied = !granted;
   }, {_prefsAskedKey: true, _prefsDeniedKey: !granted});
 
   Future<void> _change(void Function() apply, Map<String, bool> values) {
-    _edits++;
     apply();
     notifyListeners();
     return _lastWrite = _lastWrite.catchError((_) {}).then((_) async {
