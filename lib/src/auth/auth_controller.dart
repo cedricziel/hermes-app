@@ -37,6 +37,8 @@ enum HermesConnectionState {
 
 const _prefsBaseUrlKey = 'hermes.server_base_url';
 
+const _sessionTokenHeader = 'X-Hermes-Session-Token';
+
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
 const _devServerUrlDefine = String.fromEnvironment('HERMES_SERVER_URL');
 
@@ -140,7 +142,7 @@ class AuthController extends ChangeNotifier {
     _status = status;
     if (remember) await _prefs.setString(_prefsBaseUrlKey, normalized);
 
-    _dio = _buildAuthenticatedDio(normalized);
+    _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
     _api = HermesApiClient(_dio!);
 
     if (!status.authRequired) {
@@ -230,7 +232,48 @@ class AuthController extends ChangeNotifier {
     _setState(HermesConnectionState.needsServerUrl);
   }
 
-  Dio _buildAuthenticatedDio(String baseUrl) {
+  /// A dashboard without the auth gate still guards every route but
+  /// `/api/status` with the session token its page embeds. The token dies with
+  /// the server process, so a 401 re-reads it once and retries.
+  Interceptor _pageTokenInterceptor(Dio dio, String baseUrl) {
+    final page = HermesApiClient(
+      Dio(BaseOptions(baseUrl: baseUrl))..interceptors.addAll(_interceptors),
+    );
+    Future<String?>? cached;
+    Future<String?> token() async {
+      final pending = cached ??= page.fetchSessionToken();
+      try {
+        return await pending;
+      } on Object {
+        cached = null;
+        return null;
+      }
+    }
+
+    return InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final value = await token();
+        if (value != null) options.headers[_sessionTokenHeader] = value;
+        handler.next(options);
+      },
+      onError: (error, handler) async {
+        final options = error.requestOptions;
+        if (error.response?.statusCode != 401 ||
+            options.extra['hermes_token_retried'] == true) {
+          return handler.next(error);
+        }
+        cached = null;
+        options.extra['hermes_token_retried'] = true;
+        try {
+          handler.resolve(await dio.fetch<dynamic>(options));
+        } on DioException catch (e) {
+          handler.next(e);
+        }
+      },
+    );
+  }
+
+  Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
     final dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -239,6 +282,7 @@ class AuthController extends ChangeNotifier {
       ),
     );
     dio.interceptors.addAll(_interceptors);
+    if (!gated) dio.interceptors.add(_pageTokenInterceptor(dio, baseUrl));
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
