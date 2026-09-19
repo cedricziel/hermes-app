@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.6](https://github.com/cedricziel/hermes-app/compare/v0.1.5...v0.1.6) (2026-09-19)
+
+
+### Features
+
+* **bots:** list messaging platforms and switch them on or off ([#40](https://github.com/cedricziel/hermes-app/issues/40)) ([71b8a8b](https://github.com/cedricziel/hermes-app/commit/71b8a8b9e531d8a5beb615121fbfbfe3acb5d2dd))
+* **chat:** load threads and messages from the Hermes dashboard ([#35](https://github.com/cedricziel/hermes-app/issues/35)) ([92f1c71](https://github.com/cedricziel/hermes-app/commit/92f1c7117f31132fe1eacaa6f7dcce098ec4b52d))
+* **profiles:** list Hermes profiles and switch the active one ([#39](https://github.com/cedricziel/hermes-app/issues/39)) ([736a4ba](https://github.com/cedricziel/hermes-app/commit/736a4bacff19bc7a2b447f9c6648cddf302284f9))
+
+
+### Bug Fixes
+
+* **api-client:** decode JSON bodies for routes without a response schema ([#34](https://github.com/cedricziel/hermes-app/issues/34)) ([ddee478](https://github.com/cedricziel/hermes-app/commit/ddee4785a987916d9fae87f967a485fc3fabd473))
+* **api-client:** find the deserialize default case regardless of whitespace ([#38](https://github.com/cedricziel/hermes-app/issues/38)) ([c057b7f](https://github.com/cedricziel/hermes-app/commit/c057b7f03de5cc109f0342b99ef5f82c0a8269ef))
+
 ## [0.1.5](https://github.com/cedricziel/hermes-app/compare/v0.1.4...v0.1.5) (2026-09-19)
 
 
