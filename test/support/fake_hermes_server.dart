@@ -198,6 +198,30 @@ Map<String, Object?> profileListBody(List<Map<String, Object?>> rows) => {
   'profiles': rows,
 };
 
+/// One of a platform's `env_vars`, as the dashboard serialises it.
+Map<String, Object?> envVarRow({
+  required String key,
+  String? prompt,
+  bool required = false,
+  bool isSet = false,
+  String? redactedValue,
+  String description = '',
+  String help = '',
+  bool isPassword = false,
+  bool advanced = false,
+}) => {
+  'key': key,
+  'required': required,
+  'is_set': isSet,
+  'redacted_value': isSet ? redactedValue ?? '***' : null,
+  'description': description,
+  'prompt': prompt ?? key,
+  'help': help,
+  'url': null,
+  'is_password': isPassword,
+  'advanced': advanced,
+};
+
 /// A `GET /api/messaging/platforms` entry as the dashboard serialises it.
 Map<String, Object?> platformRow({
   required String id,
@@ -207,6 +231,7 @@ Map<String, Object?> platformRow({
   bool configured = false,
   String state = 'disabled',
   String? errorMessage,
+  List<Map<String, Object?>> envVars = const [],
 }) => {
   'id': id,
   'name': name,
@@ -220,7 +245,7 @@ Map<String, Object?> platformRow({
   'error_message': errorMessage,
   'updated_at': null,
   'home_channel': null,
-  'env_vars': <Object?>[],
+  'env_vars': envVars,
 };
 
 Map<String, Object?> platformListBody(List<Map<String, Object?>> rows) => {

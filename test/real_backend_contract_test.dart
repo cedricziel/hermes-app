@@ -145,4 +145,18 @@ void main() {
     skip: skip,
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  test('platforms describe their setup variables', () async {
+    final bots = await HermesBotsRepository(client.raw).load();
+
+    final token = bots
+        .firstWhere((b) => b.id == 'telegram')
+        .envVars
+        .firstWhere((v) => v.key == 'TELEGRAM_BOT_TOKEN');
+    expect(token.label, isNotEmpty);
+    expect(token.required, isTrue);
+    expect(token.isPassword, isTrue);
+    final vars = bots.expand((b) => b.envVars);
+    expect(vars.every((v) => v.isSet || v.redactedValue == null), isTrue);
+  }, skip: skip);
 }

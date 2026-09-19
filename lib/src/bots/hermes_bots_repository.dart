@@ -1,5 +1,32 @@
 import 'package:hermes_api/hermes_api.dart';
 
+/// One credential or setting a platform reads from its environment.
+///
+/// The dashboard only ever sends [redactedValue], never the value itself.
+class HermesBotEnvVar {
+  const HermesBotEnvVar({
+    required this.key,
+    required this.label,
+    this.description = '',
+    this.help = '',
+    this.required = false,
+    this.isSet = false,
+    this.redactedValue,
+    this.isPassword = false,
+    this.advanced = false,
+  });
+
+  final String key;
+  final String label;
+  final String description;
+  final String help;
+  final bool required;
+  final bool isSet;
+  final String? redactedValue;
+  final bool isPassword;
+  final bool advanced;
+}
+
 /// A messaging platform Hermes can run as a bot (Telegram, Discord, ...).
 class HermesBot {
   const HermesBot({
@@ -10,6 +37,7 @@ class HermesBot {
     this.configured = false,
     this.state = '',
     this.errorMessage,
+    this.envVars = const [],
   });
 
   final String id;
@@ -21,6 +49,7 @@ class HermesBot {
   final bool configured;
   final String state;
   final String? errorMessage;
+  final List<HermesBotEnvVar> envVars;
 }
 
 /// Reads and toggles the dashboard's messaging platforms through the
@@ -51,9 +80,27 @@ class HermesBotsRepository {
             configured: row['configured'] as bool? ?? false,
             state: row['state'] as String? ?? '',
             errorMessage: row['error_message'] as String?,
+            envVars: _envVars(row['env_vars']),
           ),
     ];
   }
+
+  static List<HermesBotEnvVar> _envVars(Object? rows) => [
+    if (rows is List)
+      for (final row in rows.whereType<Map<String, dynamic>>())
+        if (row case {'key': final String key})
+          HermesBotEnvVar(
+            key: key,
+            label: row['prompt'] as String? ?? key,
+            description: row['description'] as String? ?? '',
+            help: row['help'] as String? ?? '',
+            required: row['required'] as bool? ?? false,
+            isSet: row['is_set'] as bool? ?? false,
+            redactedValue: row['redacted_value'] as String?,
+            isPassword: row['is_password'] as bool? ?? false,
+            advanced: row['advanced'] as bool? ?? false,
+          ),
+  ];
 
   Future<void> setEnabled(String id, bool enabled) async {
     await _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
