@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_controller.dart';
-import 'screens/home_screen.dart';
+import 'chat/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
+import 'theme/hermes_theme.dart';
 
 class HermesApp extends StatelessWidget {
   const HermesApp({super.key});
@@ -13,12 +14,8 @@ class HermesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hermes',
-      theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
-      darkTheme: ThemeData(
-        colorSchemeSeed: Colors.deepPurple,
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      theme: buildHermesLightTheme(),
+      darkTheme: buildHermesDarkTheme(),
       home: const _RootRouter(),
     );
   }
@@ -44,7 +41,7 @@ class _RootRouter extends StatelessWidget {
       case HermesConnectionState.signingIn:
         return const LoginScreen();
       case HermesConnectionState.ready:
-        return const HomeScreen();
+        return const ChatScreen();
     }
   }
 }
