@@ -3,19 +3,7 @@ name: Verify generated Hermes API client
 on:
   push:
     branches: [main]
-    paths:
-      - "openapi/**"
-      - "scripts/**"
-      - "packages/hermes_api/**"
-      - "openapitools.json"
-      - ".github/workflows/verify-hermes-api-client.yml"
   pull_request:
-    paths:
-      - "openapi/**"
-      - "scripts/**"
-      - "packages/hermes_api/**"
-      - "openapitools.json"
-      - ".github/workflows/verify-hermes-api-client.yml"
   workflow_dispatch:
 
 concurrency:
