@@ -3,19 +3,57 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 
 /// Stands in for the Hermes dashboard at the HTTP layer, so tests drive the
 /// real generated client and the real Dio pipeline rather than a mock of it.
 class FakeHermesServer implements HttpClientAdapter {
-  final _routes = <String, ({int status, Object? body})>{};
+  final _routes = <_Route>[];
 
   /// Every request the client sent, in order.
   final List<RequestOptions> requests = [];
 
-  /// A [String] body is served as is (an HTML page); anything else as JSON.
-  void on(String method, String path, Object? body, {int status = 200}) {
-    _routes['$method $path'] = (status: status, body: body);
+  /// Answers [method] [path] with [body]: a [String] is served as is (an HTML
+  /// page), anything else as JSON. With [query], only requests carrying those
+  /// parameters match, and they win over a route without.
+  void on(
+    String method,
+    String path,
+    Object? body, {
+    int status = 200,
+    Map<String, String> query = const {},
+  }) {
+    _routes
+      ..removeWhere(
+        (r) =>
+            r.method == method && r.path == path && mapEquals(r.query, query),
+      )
+      ..add(
+        _Route(
+          method: method,
+          path: path,
+          query: query,
+          status: status,
+          body: body,
+        ),
+      );
+  }
+
+  _Route? _match(RequestOptions options) {
+    _Route? best;
+    for (final route in _routes) {
+      if (route.method != options.method || route.path != options.path) {
+        continue;
+      }
+      final matches = route.query.entries.every(
+        (e) => options.queryParameters[e.key]?.toString() == e.value,
+      );
+      if (matches && (best == null || route.query.length > best.query.length)) {
+        best = route;
+      }
+    }
+    return best;
   }
 
   Iterable<RequestOptions> requestsTo(String method, String path) =>
@@ -33,7 +71,7 @@ class FakeHermesServer implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     requests.add(options);
-    final route = _routes['${options.method} ${options.path}'];
+    final route = _match(options);
     final status = route?.status ?? 404;
     final body = route == null ? {'detail': 'Not Found'} : route.body;
     final page = body is String;
@@ -50,6 +88,22 @@ class FakeHermesServer implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {}
+}
+
+class _Route {
+  const _Route({
+    required this.method,
+    required this.path,
+    required this.query,
+    required this.status,
+    required this.body,
+  });
+
+  final String method;
+  final String path;
+  final Map<String, String> query;
+  final int status;
+  final Object? body;
 }
 
 /// The JSON body a request carried (the generated client sends it encoded).
