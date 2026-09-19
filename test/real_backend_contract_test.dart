@@ -22,7 +22,9 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
 /// profile test switches the active profile back to `default`, and the setup
 /// test writes and then clears a Telegram token (skipped if one is set). The
-/// gateway test makes two real model calls, which cost money.
+/// gateway test makes two real model calls, which cost money. The Telegram
+/// pairing test contacts the hosted setup service, so it also needs
+/// `HERMES_DEV_TELEGRAM_PAIRING=1`.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -188,6 +190,49 @@ void main() {
       ),
     );
   }, skip: skip);
+
+  test('an unknown Telegram pairing is reported as such', () async {
+    final repository = HermesBotsRepository(client.raw);
+
+    await expectLater(
+      repository.telegramPairingStatus('no-such-pairing'),
+      throwsA(isA<BotSetupRejected>()),
+    );
+  }, skip: skip);
+
+  test('Telegram user ids that are not numeric are refused before anything is '
+      'saved', () async {
+    final repository = HermesBotsRepository(client.raw);
+
+    await expectLater(
+      repository.applyTelegramPairing('no-such-pairing', ['abc']),
+      throwsA(
+        isA<BotSetupRejected>().having(
+          (e) => e.message,
+          'message',
+          contains('numeric'),
+        ),
+      ),
+    );
+  }, skip: skip);
+
+  test(
+    'a Telegram pairing starts, waits for the user and can be cancelled',
+    () async {
+      final repository = HermesBotsRepository(client.raw);
+
+      final pairing = await repository.startTelegramPairing();
+      final status = await repository.telegramPairingStatus(pairing.id);
+      await repository.cancelTelegramPairing(pairing.id);
+
+      expect(Uri.parse(pairing.deepLink).host, 't.me');
+      expect(status.ready, isFalse);
+    },
+    skip: Platform.environment['HERMES_DEV_TELEGRAM_PAIRING'] == null
+        ? 'set HERMES_DEV_TELEGRAM_PAIRING to run (contacts the hosted setup '
+              'service)'
+        : skip,
+  );
 
   test('platforms describe their setup variables', () async {
     final bots = await HermesBotsRepository(client.raw).load();

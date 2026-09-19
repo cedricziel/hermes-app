@@ -53,12 +53,41 @@ class HermesBot {
   final List<HermesBotEnvVar> envVars;
 }
 
-/// The dashboard refused a setup value and said why. The message names the
+/// The dashboard refused a setup request and said why. The message names the
 /// key at fault, never the value.
 class BotSetupRejected implements Exception {
   const BotSetupRejected(this.message);
 
   final String message;
+}
+
+/// The reason to show for a failed setup request: the dashboard's own when it
+/// gave one, otherwise [fallback].
+String explainSetupError(Object error, String fallback) =>
+    error is BotSetupRejected ? error.message : fallback;
+
+/// A Telegram bot the dashboard's setup service created for this user, to be
+/// claimed by opening [deepLink] in Telegram.
+class TelegramPairing {
+  const TelegramPairing({required this.id, required this.deepLink});
+
+  final String id;
+  final String deepLink;
+}
+
+class TelegramPairingStatus {
+  const TelegramPairingStatus({
+    required this.ready,
+    this.botUsername,
+    this.ownerUserId,
+  });
+
+  /// Whether the user has claimed the bot in Telegram.
+  final bool ready;
+  final String? botUsername;
+
+  /// The Telegram account that claimed it, as a numeric user id.
+  final String? ownerUserId;
 }
 
 /// Reads and toggles the dashboard's messaging platforms through the
@@ -117,18 +146,77 @@ class HermesBotsRepository {
     String id, {
     Map<String, String> env = const {},
     List<String> clear = const [],
-  }) async {
-    try {
-      await _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
-        platformId: id,
-        messagingPlatformUpdate: MessagingPlatformUpdate(
-          env: env,
-          clearEnv: clear,
+  }) => _explaining(
+    () => _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
+      platformId: id,
+      messagingPlatformUpdate: MessagingPlatformUpdate(
+        env: env,
+        clearEnv: clear,
+      ),
+    ),
+  );
+
+  /// Asks the dashboard's setup service for a Telegram bot to pair with.
+  Future<TelegramPairing> startTelegramPairing() async {
+    final response = await _explaining(
+      () => _api.startTelegramOnboardingApiMessagingTelegramOnboardingStartPost(
+        telegramOnboardingStart: TelegramOnboardingStart(),
+      ),
+    );
+    if (response.data case {
+      'pairing_id': final String id,
+      'deep_link': final String deepLink,
+    }) {
+      return TelegramPairing(id: id, deepLink: deepLink);
+    }
+    throw const FormatException('Incomplete Telegram pairing response');
+  }
+
+  Future<TelegramPairingStatus> telegramPairingStatus(String id) async {
+    final response = await _explaining(
+      () => _api
+          .getTelegramOnboardingStatusApiMessagingTelegramOnboardingPairingIdGet(
+            pairingId: id,
+          ),
+    );
+    final body = response.data is Map ? response.data! as Map : const {};
+    return TelegramPairingStatus(
+      ready: body['status'] == 'ready',
+      botUsername: body['bot_username'] as String?,
+      ownerUserId: body['owner_user_id'] as String?,
+    );
+  }
+
+  /// Saves the paired bot's token and the [allowedUserIds] on the dashboard
+  /// and switches Telegram on. The token itself never reaches the app.
+  Future<void> applyTelegramPairing(
+    String id,
+    List<String> allowedUserIds,
+  ) => _explaining(
+    () => _api
+        .applyTelegramOnboardingApiMessagingTelegramOnboardingPairingIdApplyPost(
+          pairingId: id,
+          telegramOnboardingApply: TelegramOnboardingApply(
+            allowedUserIds: allowedUserIds,
+          ),
         ),
-      );
+  );
+
+  Future<void> cancelTelegramPairing(String id) async {
+    await _api
+        .cancelTelegramOnboardingApiMessagingTelegramOnboardingPairingIdDelete(
+          pairingId: id,
+        );
+  }
+
+  /// The dashboard answers a refused request with a `detail` fit to show a
+  /// user; a failure of any other kind stays a [DioException].
+  static Future<T> _explaining<T>(Future<T> Function() request) async {
+    try {
+      return await request();
     } on DioException catch (e) {
       if (e.response case Response(
-        statusCode: 400,
+        statusCode: 400 || 404 || 409 || 410 || 502,
         data: {'detail': final String detail},
       )) {
         throw BotSetupRejected(detail);

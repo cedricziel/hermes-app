@@ -195,6 +195,120 @@ void main() {
     });
   });
 
+  group('Telegram pairing', () {
+    const start = '/api/messaging/telegram/onboarding/start';
+    const pairing = '/api/messaging/telegram/onboarding/p1';
+
+    test('starts a pairing and returns the link to open', () async {
+      server.on('POST', start, telegramPairingStartBody());
+
+      final started = await repository.startTelegramPairing();
+
+      expect(started.id, 'p1');
+      expect(started.deepLink, 'https://t.me/HermesBot?start=pair_p1');
+      expect(jsonBody(server.requestsTo('POST', start).single), isEmpty);
+    });
+
+    test('refuses a start response without a pairing id or link', () async {
+      server.on('POST', start, {'suggested_username': 'x'});
+
+      expect(
+        repository.startTelegramPairing(),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('reports the setup service being unavailable', () async {
+      server.on('POST', start, {
+        'detail': 'Telegram setup service is unavailable. Try again shortly.',
+      }, status: 502);
+
+      expect(
+        repository.startTelegramPairing(),
+        throwsA(
+          isA<BotSetupRejected>().having(
+            (e) => e.message,
+            'message',
+            contains('unavailable'),
+          ),
+        ),
+      );
+    });
+
+    test('a pairing nobody claimed yet is not ready', () async {
+      server.on('GET', pairing, {
+        'status': 'waiting',
+        'expires_at': '2026-09-19T10:57:52.075Z',
+      });
+
+      final status = await repository.telegramPairingStatus('p1');
+
+      expect(status.ready, isFalse);
+      expect(status.botUsername, isNull);
+    });
+
+    test('a claimed pairing carries the bot and its owner', () async {
+      server.on('GET', pairing, {
+        'status': 'ready',
+        'bot_username': 'hermes_1_bot',
+        'owner_user_id': '4711',
+        'expires_at': '2026-09-19T10:57:52.075Z',
+      });
+
+      final status = await repository.telegramPairingStatus('p1');
+
+      expect(status.ready, isTrue);
+      expect(status.botUsername, 'hermes_1_bot');
+      expect(status.ownerUserId, '4711');
+    });
+
+    test('an expired pairing says so', () async {
+      server.on('GET', pairing, {
+        'detail': 'Telegram setup expired. Start a new setup.',
+      }, status: 410);
+
+      expect(
+        repository.telegramPairingStatus('p1'),
+        throwsA(
+          isA<BotSetupRejected>().having(
+            (e) => e.message,
+            'message',
+            contains('expired'),
+          ),
+        ),
+      );
+    });
+
+    test('applying sends the allowed user ids', () async {
+      server.on('POST', '$pairing/apply', {'ok': true});
+
+      await repository.applyTelegramPairing('p1', ['4711', '42']);
+
+      expect(jsonBody(server.requestsTo('POST', '$pairing/apply').single), {
+        'allowed_user_ids': ['4711', '42'],
+      });
+    });
+
+    test('applying reports why the dashboard refuses', () async {
+      server.on('POST', '$pairing/apply', {
+        'detail': 'Allowed Telegram user IDs must be numeric.',
+      }, status: 400);
+
+      expect(
+        repository.applyTelegramPairing('p1', ['abc']),
+        throwsA(isA<BotSetupRejected>()),
+      );
+    });
+
+    test('cancelling drops the pairing', () async {
+      server.on('DELETE', pairing, {'ok': true});
+
+      await repository.cancelTelegramPairing('p1');
+
+      expect(server.requestsTo('DELETE', pairing), hasLength(1));
+    });
+  });
+
   group('setEnabled', () {
     test('puts the new enabled flag on that platform', () async {
       server.on('PUT', '/api/messaging/platforms/telegram', {'ok': true});

@@ -254,6 +254,15 @@ Map<String, Object?> platformListBody(List<Map<String, Object?>> rows) => {
   'platforms': rows,
 };
 
+/// The reply to `POST /api/messaging/telegram/onboarding/start`.
+Map<String, Object?> telegramPairingStartBody({String id = 'p1'}) => {
+  'pairing_id': id,
+  'suggested_username': 'hermes_1_bot',
+  'deep_link': 'https://t.me/HermesBot?start=pair_$id',
+  'qr_payload': 'https://t.me/HermesBot?start=pair_$id',
+  'expires_at': '2026-09-19T10:57:52.075Z',
+};
+
 Map<String, Object?> activeProfileBody({
   required String active,
   String? current,
