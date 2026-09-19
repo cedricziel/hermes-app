@@ -468,6 +468,8 @@ ReturnType deserialize<ReturnType, BaseType>(
     case 'WhatsAppOnboardingStart':
       return WhatsAppOnboardingStart.fromJson(value as Map<String, dynamic>)
           as ReturnType;
+    case 'Object':
+      return value as ReturnType;
     default:
       RegExpMatch? match;
 
