@@ -72,8 +72,9 @@ cmd_start() {
   mkfifo "$FIFO"
   : >"$LOG_FILE"
   # Holds the fifo open for writing so flutter's stdin never sees EOF between
-  # the keys we send.
-  sleep 2147483647 <>"$FIFO" &
+  # the keys we send. Its output must be detached: a background process that
+  # keeps the caller's stdout open makes `dev-app.sh start | tail` wait for it.
+  sleep 2147483647 <>"$FIFO" >/dev/null 2>&1 &
   echo $! >"$HOLDER_PID_FILE"
 
   (cd "$ROOT_DIR" && nohup flutter run -d macos \
