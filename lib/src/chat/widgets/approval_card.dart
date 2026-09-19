@@ -133,7 +133,8 @@ class _ApprovalCardState extends State<ApprovalCard> {
               'This request timed out',
             ),
           },
-          if (_error != null) InputCardNote(_error!, error: true),
+          if (_error != null && request.status == InputRequestStatus.pending)
+            InputCardNote(_error!, error: true),
         ],
       ),
     );

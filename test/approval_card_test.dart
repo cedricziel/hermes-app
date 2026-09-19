@@ -160,6 +160,38 @@ void main() {
     expect(find.text('Allow once'), findsNothing);
   });
 
+  for (final (name, settled) in [
+    ('expired', _request.withStatus(InputRequestStatus.expired)),
+    ('answered', _request.answered('once')),
+  ]) {
+    testWidgets('a stale error is hidden once the request is $name', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _request,
+        onAnswer: (_) async => throw Exception('x'),
+      );
+
+      await tester.tap(find.text('Allow once'));
+      await tester.pump();
+      expect(
+        find.text('Could not send your answer. Try again.'),
+        findsOneWidget,
+      );
+
+      await _pump(tester, settled, onAnswer: (_) async {});
+
+      expect(find.text('Could not send your answer. Try again.'), findsNothing);
+      expect(
+        find.text(
+          name == 'expired' ? 'This request timed out' : 'Allowed once',
+        ),
+        findsOneWidget,
+      );
+    });
+  }
+
   testWidgets('without a handler the buttons are disabled', (tester) async {
     await _pump(tester, _request);
 
