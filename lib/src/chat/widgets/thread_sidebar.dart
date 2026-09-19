@@ -17,6 +17,7 @@ class ThreadSidebar extends StatelessWidget {
     required this.onSelect,
     required this.onNewThread,
     this.onOpenProfiles,
+    this.onOpenBots,
   });
 
   final List<ChatThread> threads;
@@ -24,6 +25,7 @@ class ThreadSidebar extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onNewThread;
   final VoidCallback? onOpenProfiles;
+  final VoidCallback? onOpenBots;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +91,16 @@ class ThreadSidebar extends StatelessWidget {
                   leading: const Icon(Icons.person_outline, size: 18),
                   title: const Text('Profiles'),
                   onTap: onOpenProfiles,
+                ),
+              ),
+            if (onOpenBots != null)
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.smart_toy_outlined, size: 18),
+                  title: const Text('Bots'),
+                  onTap: onOpenBots,
                 ),
               ),
             const _AccountFooter(),

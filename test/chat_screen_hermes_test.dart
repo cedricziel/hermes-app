@@ -6,6 +6,8 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/bots/bots_screen.dart';
+import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
@@ -79,6 +81,7 @@ void main() {
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
             profiles: HermesProfilesRepository(server.client().raw),
+            bots: HermesBotsRepository(server.client().raw),
           ),
         ),
       ),
@@ -248,5 +251,23 @@ void main() {
 
     expect(find.byType(ProfilesScreen), findsOneWidget);
     expect(find.text('Work'), findsOneWidget);
+  });
+
+  testWidgets('the sidebar opens the bots of the connected dashboard', (
+    tester,
+  ) async {
+    server.on(
+      'GET',
+      '/api/messaging/platforms',
+      platformListBody([platformRow(id: 'telegram', name: 'Telegram')]),
+    );
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Bots'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BotsScreen), findsOneWidget);
+    expect(find.text('Telegram'), findsOneWidget);
   });
 }

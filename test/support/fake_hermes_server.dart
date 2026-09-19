@@ -140,6 +140,37 @@ Map<String, Object?> profileListBody(List<Map<String, Object?>> rows) => {
   'profiles': rows,
 };
 
+/// A `GET /api/messaging/platforms` entry as the dashboard serialises it.
+Map<String, Object?> platformRow({
+  required String id,
+  required String name,
+  String description = '',
+  bool enabled = false,
+  bool configured = false,
+  String state = 'disabled',
+  String? errorMessage,
+}) => {
+  'id': id,
+  'name': name,
+  'description': description,
+  'docs_url': 'https://example.com/$id',
+  'enabled': enabled,
+  'configured': configured,
+  'gateway_running': false,
+  'state': state,
+  'error_code': errorMessage == null ? null : 'error',
+  'error_message': errorMessage,
+  'updated_at': null,
+  'home_channel': null,
+  'env_vars': <Object?>[],
+};
+
+Map<String, Object?> platformListBody(List<Map<String, Object?>> rows) => {
+  'env_path': '/home/hermes/.env',
+  'gateway_start_command': 'hermes gateway start',
+  'platforms': rows,
+};
+
 Map<String, Object?> activeProfileBody({
   required String active,
   String? current,
