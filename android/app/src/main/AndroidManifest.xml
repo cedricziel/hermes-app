@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Talks to the Hermes dashboard's REST/WS API. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local notifications; a runtime prompt on Android 13 and newer. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="hermes_app"
         android:name="${applicationName}"
