@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fixes two dart-dio + json_serializable template bugs in the freshly
+"""Fixes dart-dio + json_serializable template bugs in the freshly
 generated `packages/hermes_api` sources (run between `openapi-generator-cli
 generate` and `dart analyze` in scripts/generate_hermes_api_client.sh):
 
@@ -32,6 +32,11 @@ generate` and `dart analyze` in scripts/generate_hermes_api_client.sh):
    deliberately, so CI's drift check (regenerate and diff) isn't at the
    mercy of an unrelated transitive dependency picking up a new version
    between two runs — see the comment left in its place.
+6. Routes whose spec declares an empty response schema (`{}`, e.g. every
+   `/api/sessions*` route) get `deserialize<Object, Object>(data, 'Object')`
+   calls, but the generated `deserialize` has no `'Object'` case and throws
+   `Cannot deserialize` on any real body. An `'Object'` case that passes the
+   decoded JSON through is added.
 """
 
 import re
@@ -93,6 +98,21 @@ def drop_unused_model_imports(text: str, model_dir: Path) -> str:
     return text
 
 
+_UNTYPED_CASE = "    case 'Object':\n      return value as ReturnType;\n"
+_DESERIALIZE_DEFAULT = "    default:\n      RegExpMatch? match;\n"
+
+
+def accept_untyped_objects(package_dir: Path) -> None:
+    path = package_dir / "lib" / "src" / "deserialize.dart"
+    text = path.read_text()
+    if _UNTYPED_CASE in text:
+        return
+    if _DESERIALIZE_DEFAULT not in text:
+        raise SystemExit(f"{path}: could not find the deserialize default case")
+    path.write_text(text.replace(_DESERIALIZE_DEFAULT, _UNTYPED_CASE + _DESERIALIZE_DEFAULT, 1))
+    print(f"patched {path}")
+
+
 def keep_pubspec_lock(package_dir: Path) -> None:
     gitignore = package_dir / ".gitignore"
     text = gitignore.read_text()
@@ -135,6 +155,7 @@ def main() -> None:
             path.write_text(patched)
             print(f"patched {path}")
 
+    accept_untyped_objects(package_dir)
     keep_pubspec_lock(package_dir)
 
 
