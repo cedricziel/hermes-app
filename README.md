@@ -25,7 +25,7 @@ non-browser clients like this one:
    `native_pkce` flow is available.
 2. `GET /api/auth/providers` (public) lists the registered providers
    (`name`, `display_name`, `supports_password`).
-3. Signing in to *any* provider — OIDC or password — opens the **system
+3. Signing in to _any_ provider — OIDC or password — opens the **system
    browser** at `GET /auth/native/authorize` with a fresh PKCE
    (`code_challenge`/`S256`), a `redirect_uri` pointing at a loopback HTTP
    server this app binds on an ephemeral port, and a CSRF `state`. An OIDC
@@ -145,6 +145,25 @@ flutter run
   `com.apple.security.network.client` (REST calls) and
   `com.apple.security.network.server` (the loopback OAuth callback
   listener).
+
+## Development
+
+This repo uses [pre-commit](https://pre-commit.com) to run the same `dart
+format` and `flutter analyze` checks CI does, before you commit rather than
+after you push:
+
+```bash
+pip install pre-commit   # or: brew install pre-commit / pipx install pre-commit
+pre-commit install
+```
+
+Once installed, `git commit` runs both checks against staged Dart files; you
+can also run them on demand with `pre-commit run --all-files`. See
+`.pre-commit-config.yaml` for the hook definitions.
+
+Claude Code sessions on the web run this install automatically
+(`.claude/hooks/session-start.sh`), so the git hook is already wired up
+there.
 
 ## Contributing
 

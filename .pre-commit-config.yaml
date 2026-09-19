@@ -1,0 +1,17 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dart-format
+        name: dart format
+        description: Fails on staged Dart files that dart format would reformat (mirrors CI).
+        entry: dart format --output=none --set-exit-if-changed
+        language: system
+        files: \.dart$
+
+      - id: flutter-analyze
+        name: flutter analyze
+        description: Statically analyzes the project when staged Dart files change.
+        entry: flutter analyze
+        language: system
+        files: \.dart$
+        pass_filenames: false
