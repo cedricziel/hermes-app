@@ -6,10 +6,22 @@ import 'hermes_profiles_repository.dart';
 
 /// Lists the Hermes profiles on the connected dashboard and lets the user
 /// pick the active one (the sticky default `hermes profile use` sets).
+///
+/// The chat lists the sessions of one profile, [chatProfile] (null: whichever
+/// the dashboard is scoped to). Picking a profile here moves the chat to it
+/// through [onSwitched]; the CLI default can change behind the chat's back
+/// (`hermes profile use`), so the screen says when the two differ.
 class ProfilesScreen extends StatefulWidget {
-  const ProfilesScreen({super.key, this.repository});
+  const ProfilesScreen({
+    super.key,
+    this.repository,
+    this.chatProfile,
+    this.onSwitched,
+  });
 
   final HermesProfilesRepository? repository;
+  final String? chatProfile;
+  final ValueChanged<String>? onSwitched;
 
   @override
   State<ProfilesScreen> createState() => _ProfilesScreenState();
@@ -18,6 +30,7 @@ class ProfilesScreen extends StatefulWidget {
 class _ProfilesScreenState extends State<ProfilesScreen> {
   late final HermesProfilesRepository _repository;
   ProfilesOverview? _overview;
+  late String? _chatProfile = widget.chatProfile;
   bool _loading = true;
   bool _failed = false;
 
@@ -51,18 +64,29 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     }
   }
 
+  String? get _shownInChat => _chatProfile ?? _overview?.current;
+
   Future<void> _choose(HermesProfile profile) async {
-    if (profile.name == _overview?.active) return;
-    try {
-      await _repository.setActive(profile.name);
-    } on Object {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not switch profile')));
-      return;
+    final name = profile.name;
+    final isActive = name == _overview?.active;
+    if (isActive && name == _shownInChat) return;
+    if (!isActive) {
+      try {
+        await _repository.setActive(name);
+      } on Object {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not switch profile')),
+        );
+        return;
+      }
     }
-    if (mounted) await _load();
+    if (!mounted) return;
+    if (name != _shownInChat) {
+      _chatProfile = name;
+      widget.onSwitched?.call(name);
+    }
+    await _load();
   }
 
   @override
@@ -90,8 +114,16 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         ),
       );
     }
+    final shown = _shownInChat;
     return ListView(
       children: [
+        if (shown != overview.active)
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: Text(
+              'The chat shows $shown. The CLI default is ${overview.active}.',
+            ),
+          ),
         for (final profile in overview.profiles)
           ListTile(
             leading: const Icon(Icons.person_outline),
