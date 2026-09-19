@@ -27,6 +27,11 @@ generate` and `dart analyze` in scripts/generate_hermes_api_client.sh):
    passes the raw string straight through next to the enum decode's `??`,
    which the analyzer accepts (dynamic) but the compiler rejects (`Object`
    isn't `EnumType?`). Rewritten to `defaultValue: EnumType.memberName`.
+5. The generator always writes a fresh `.gitignore` that excludes
+   `pubspec.lock` (its "library package" default). This repo commits it
+   deliberately, so CI's drift check (regenerate and diff) isn't at the
+   mercy of an unrelated transitive dependency picking up a new version
+   between two runs — see the comment left in its place.
 """
 
 import re
@@ -88,6 +93,24 @@ def drop_unused_model_imports(text: str, model_dir: Path) -> str:
     return text
 
 
+def keep_pubspec_lock(package_dir: Path) -> None:
+    gitignore = package_dir / ".gitignore"
+    text = gitignore.read_text()
+    patched = text.replace(
+        "# Don't commit pubspec lock file\n"
+        "# (Library packages only! Remove pattern if developing an application package)\n"
+        "pubspec.lock\n",
+        "# pubspec.lock IS committed here, unlike the usual library-package advice:\n"
+        "# CI's drift check (.github/workflows/verify-hermes-api-client.yml)\n"
+        "# regenerates this package and diffs it against what's committed, and an\n"
+        "# unpinned lockfile would let unrelated transitive dependency upgrades\n"
+        "# (e.g. a new json_serializable patch release) fail that check.\n",
+    )
+    if patched != text:
+        gitignore.write_text(patched)
+        print(f"patched {gitignore}")
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         print(f"usage: {sys.argv[0]} <generated-package-dir>", file=sys.stderr)
@@ -111,6 +134,8 @@ def main() -> None:
         if patched != original:
             path.write_text(patched)
             print(f"patched {path}")
+
+    keep_pubspec_lock(package_dir)
 
 
 if __name__ == "__main__":
