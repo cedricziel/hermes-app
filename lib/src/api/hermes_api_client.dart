@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hermes_api/hermes_api.dart';
 
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
@@ -10,10 +11,23 @@ import '../models/hermes_status.dart';
 /// This client only issues requests; it does not attach auth headers or
 /// handle 401/refresh itself — [AuthController] owns the [Dio] instance and
 /// its interceptors so token refresh and sign-out can update app state.
+///
+/// [fetchStatus], [fetchAuthProviders] and [fetchMe] are hand-parsed because
+/// the backend's OpenAPI spec doesn't declare response schemas for those
+/// three routes (see `openapi/hermes-agent.openapi.json`), so codegen has
+/// nothing to build a typed model from. Every other endpoint has a
+/// generated, typed method on [raw] — see
+/// `scripts/generate_hermes_api_client.sh` to regenerate it from a newer
+/// spec, and prefer adding to [raw]'s call sites over hand-rolling another
+/// `_dio.get`/`.post` for new features.
 class HermesApiClient {
-  HermesApiClient(this._dio);
+  HermesApiClient(this._dio) : raw = DefaultApi(_dio);
 
   final Dio _dio;
+
+  /// The generated client, covering every endpoint the spec declares a
+  /// response or request schema for.
+  final DefaultApi raw;
 
   /// `GET /api/status` — public, unauthenticated. Used to discover whether
   /// the auth gate is engaged and which flows are supported before any

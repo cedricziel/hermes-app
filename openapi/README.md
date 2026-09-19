@@ -26,3 +26,7 @@ would serve, generated in-process instead of over the network.
   json.dump(ws.app.openapi(), open('openapi.json', 'w'), indent=2)
   "
   ```
+
+After updating this file, regenerate `packages/hermes_api` (the generated
+Dart client) from it with `../scripts/generate_hermes_api_client.sh` — see
+the "The generated API client" section in the repo's top-level README.

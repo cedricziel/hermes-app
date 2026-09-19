@@ -63,10 +63,48 @@ lib/
       pkce.dart                   # PKCE verifier/challenge/state generation
       token_store.dart            # flutter_secure_storage wrapper
     api/
-      hermes_api_client.dart      # typed REST calls (status/providers/me)
+      hermes_api_client.dart      # status/providers/me + HermesApiClient.raw (see below)
     models/                       # HermesStatus, AuthProviderInfo, HermesSession, HermesIdentity
     screens/                      # server setup, login, home
+packages/
+  hermes_api/                      # generated dio client for the rest of the REST API
+openapi/
+  hermes-agent.openapi.json        # the backend's OpenAPI spec (see openapi/README.md)
+scripts/
+  generate_hermes_api_client.sh    # regenerates packages/hermes_api from the spec
 ```
+
+## The generated API client
+
+`hermes_cli.web_server:app` (the dashboard backend) has ~300 routes, and
+hand-writing a Dio call and model class for each one doesn't scale.
+`packages/hermes_api` is a `dart-dio`-flavored [OpenAPI Generator](https://openapi-generator.tech/)
+client generated straight from `openapi/hermes-agent.openapi.json`, covering
+every route the spec declares a request/response schema for.
+`HermesApiClient.raw` (`lib/src/api/hermes_api_client.dart`) exposes it on
+the same authenticated `Dio` instance `AuthController` already manages, so
+new features should call `authController.api!.raw.<operation>(...)` instead
+of adding another hand-rolled REST call.
+
+`fetchStatus`/`fetchAuthProviders`/`fetchMe` on `HermesApiClient` stay
+hand-written: `/api/status`, `/api/auth/providers` and `/api/auth/me` don't
+declare response schemas in the spec (FastAPI only emits one for a route
+with a Pydantic `response_model`), so there's nothing for codegen to build a
+typed model from.
+
+To regenerate after pulling a newer spec:
+
+```bash
+./scripts/generate_hermes_api_client.sh
+```
+
+This needs a JDK (to run `openapi-generator-cli` via `npx`) and the Dart SDK
+on `PATH`. It patches a few spec constructs the `dart-dio` template can't
+render (see `scripts/patch_openapi_for_dart.py`), a couple of its own
+codegen bugs in the result (`scripts/patch_generated_dart_client.py`), then
+runs `pub get` + `build_runner` + `dart analyze` inside
+`packages/hermes_api`. Review the diff before committing — a spec change can
+rename or retype generated methods.
 
 ## Getting started
 

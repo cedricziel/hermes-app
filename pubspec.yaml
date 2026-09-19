@@ -37,6 +37,10 @@ dependencies:
 
   # HTTP client for the Hermes dashboard REST API.
   dio: ^5.7.0
+  # Generated dio-based client for the Hermes Agent REST API (see
+  # openapi/hermes-agent.openapi.json and scripts/generate_hermes_api_client.sh).
+  hermes_api:
+    path: packages/hermes_api
   # OS keychain / keystore for the native OAuth token set.
   flutter_secure_storage: ^9.2.2
   # Opens the system browser for the RFC 8252 native login flow.

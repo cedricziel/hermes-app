@@ -1,0 +1,5 @@
+pubName: hermes_api
+pubDescription: Generated Dart client for the Hermes Agent REST API.
+pubAuthor: Hermes App
+serializationLibrary: json_serializable
+enumUnknownDefaultCase: true
