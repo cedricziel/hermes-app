@@ -118,12 +118,6 @@ class _AssistantMessage extends StatelessWidget {
                           ClipboardData(text: message.content),
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      _ActionIcon(
-                        icon: Icons.refresh,
-                        tooltip: 'Regenerate',
-                        onTap: () {},
-                      ),
                     ],
                   ),
                 ] else if (message.status == MessageStatus.streaming)

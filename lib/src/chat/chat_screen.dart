@@ -62,10 +62,15 @@ class _ChatScreenState extends State<ChatScreen> {
       _threads.insert(0, thread);
       _selectedId = thread.id;
     });
+    _closeDrawerIfNarrow();
   }
 
   void _selectThread(String id) {
     setState(() => _selectedId = id);
+    _closeDrawerIfNarrow();
+  }
+
+  void _closeDrawerIfNarrow() {
     if (MediaQuery.sizeOf(context).width < _wideBreakpoint) {
       Navigator.of(context).maybePop();
     }
@@ -229,9 +234,12 @@ class _ThreadView extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
                   itemCount: thread!.messages.length,
                   itemBuilder: (context, index) {
-                    return ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 760),
-                      child: MessageBubble(message: thread!.messages[index]),
+                    return Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: MessageBubble(message: thread!.messages[index]),
+                      ),
                     );
                   },
                 )
