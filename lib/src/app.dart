@@ -5,6 +5,7 @@ import 'auth/auth_controller.dart';
 import 'chat/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
+import 'settings/theme_controller.dart';
 import 'theme/hermes_theme.dart';
 
 class HermesApp extends StatelessWidget {
@@ -16,6 +17,7 @@ class HermesApp extends StatelessWidget {
       title: 'Hermes',
       theme: buildHermesLightTheme(),
       darkTheme: buildHermesDarkTheme(),
+      themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
       home: const _RootRouter(),
     );
   }
