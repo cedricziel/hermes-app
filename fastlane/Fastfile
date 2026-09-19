@@ -8,6 +8,7 @@ APP_NAME             = "Hermes App"
 TEAM_ID        = "WPW3QSLZ2F"
 OUTPUT_DIR     = "build/fastlane"
 OUTPUT_NAME    = "HermesApp"
+PUBLIC_BETA_GROUP    = "Public beta"
 
 TARGETS = {
   ios: {
@@ -229,8 +230,11 @@ def release_target(key, options)
     api_key: load_app_store_connect_api_key,
     app_identifier: APP_IDENTIFIER,
     app_platform: t[:deliver_platform],
-    skip_waiting_for_build_processing: true,
-    distribute_external: false,
+    # Distributing to an external group needs the build processed first.
+    skip_waiting_for_build_processing: false,
+    distribute_external: true,
+    groups: [PUBLIC_BETA_GROUP],
+    notify_external_testers: true,
     changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes,
   }
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
