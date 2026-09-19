@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><g transform="translate(512 512) scale(0.86) translate(-512 -512)"><!-- chat bubble with a three-feather wing cut into it -->
+<path d="M512 232 C 690 232 810 336 810 494 C 810 652 690 756 512 756 C 470 756 432 750 398 738 L 286 800 C 270 809 252 795 258 777 L 292 690 C 236 645 214 574 214 494 C 214 336 334 232 512 232 Z" fill="#FFFFFF"/>
+<g fill="#4338CA">
+  <path d="M338 578 C 372 470 470 392 610 368 C 592 396 566 420 536 436 C 590 430 636 414 676 388 C 646 452 578 502 500 522 C 552 526 596 520 636 502 C 596 552 522 588 338 578 Z"/>
+</g>
+</g></svg>

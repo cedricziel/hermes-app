@@ -1,0 +1,15 @@
+Hermes Agent Companion is a client for your own Hermes Agent dashboard. Point it at your self-hosted server, sign in, and check on your agent from your iPhone, iPad or Mac.
+
+This is an independent app. It is not affiliated with or endorsed by Nous Research, and it needs a Hermes Agent server that you run yourself.
+
+WHAT YOU GET
+
+• Connect to any self-hosted Hermes Agent dashboard by its address
+• Sign in with OpenID Connect or a username and password. Sign-in happens in your system browser, so your password manager works
+• Session tokens are kept in the system keychain and refreshed automatically
+• See your server's status and the account you are signed in with
+• Works on a dashboard with sign-in turned off, such as a local development setup
+
+PRIVACY
+
+No account with us, no analytics, no tracking. The app only talks to the server address you enter.
