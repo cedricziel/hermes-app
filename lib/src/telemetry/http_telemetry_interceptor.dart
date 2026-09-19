@@ -4,14 +4,15 @@ import 'package:flutter_otel/flutter_otel.dart';
 /// Records one client span per request.
 ///
 /// Requests go to a server address the user typed in, so this deliberately
-/// leaves out anything that could identify it: no URL or host, no exception
-/// messages (Dio puts the host in them), and no `traceparent` header. What
-/// it keeps is the method, the status, the error type and, for relative
-/// request paths such as `/api/status`, the path.
+/// leaves out anything that could identify it: no URL or host, no query
+/// string, no exception messages (Dio puts the host in them), and no
+/// `traceparent` header. What it keeps is the method, the status, the error
+/// type and, for relative request paths such as `/api/status`, the path.
 class HttpTelemetryInterceptor extends Interceptor {
   HttpTelemetryInterceptor(this._tracer);
 
   static const _spanKey = 'hermes.telemetry.span';
+  static final _routeEnd = RegExp('[?#]');
 
   final Tracer _tracer;
 
@@ -23,7 +24,7 @@ class HttpTelemetryInterceptor extends Interceptor {
         kind: SpanKind.client,
         attributes: {
           'http.method': options.method,
-          if (options.path.startsWith('/')) 'http.route': options.path,
+          'http.route': ?_route(options.path),
         },
       );
     });
@@ -60,6 +61,13 @@ class HttpTelemetryInterceptor extends Interceptor {
       span.end();
     });
     handler.next(err);
+  }
+
+  /// The request path for relative paths only, without query or fragment.
+  static String? _route(String path) {
+    if (!path.startsWith('/')) return null;
+    final end = path.indexOf(_routeEnd);
+    return end < 0 ? path : path.substring(0, end);
   }
 
   Span? _take(RequestOptions options) =>

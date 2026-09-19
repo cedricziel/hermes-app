@@ -165,6 +165,14 @@ void main() {
     expect(span.ended, isTrue);
   });
 
+  test('keeps the query string out of the span route', () async {
+    final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
+
+    await dio.get<dynamic>('/api/x?token=hunter2');
+
+    expect(tracer.spans.single.attributes['http.route'], '/api/x');
+  });
+
   test('never exports the server host or exception details', () async {
     final dio = buildDio(
       (options) async => throw DioException.connectionError(
