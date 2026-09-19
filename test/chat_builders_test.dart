@@ -56,7 +56,52 @@ Future<void> _pumpChat(
   await tester.pump(const Duration(milliseconds: 500));
 }
 
+Message _errorText(String text) => Message.text(
+  id: 'error-text',
+  authorId: kAssistantAuthorId,
+  text: text,
+  createdAt: DateTime.utc(2026, 1, 1, 14, 30),
+  metadata: const {'error': true},
+);
+
+Color? _textColor(WidgetTester tester, String text) {
+  final rich = tester.widget<RichText>(
+    find.byWidgetPredicate(
+      (w) => w is RichText && w.text.toPlainText().contains(text),
+    ),
+  );
+  Color? color;
+  rich.text.visitChildren((span) {
+    if (color == null &&
+        span is TextSpan &&
+        (span.text?.contains(text) ?? false)) {
+      color = span.style?.color;
+    }
+    return true;
+  });
+  return color;
+}
+
 void main() {
+  group('textMessageBuilder', () {
+    testWidgets('a failed reply is drawn in the error colour', (tester) async {
+      await _pumpChat(tester, messages: [_errorText('Lost the connection')]);
+
+      final scheme = Theme.of(tester.element(find.byType(Chat))).colorScheme;
+      expect(_textColor(tester, 'Lost the connection'), scheme.error);
+    });
+
+    testWidgets('a normal reply keeps the regular text colour', (tester) async {
+      await _pumpChat(
+        tester,
+        messages: [_text(kAssistantAuthorId, 'All good')],
+      );
+
+      final scheme = Theme.of(tester.element(find.byType(Chat))).colorScheme;
+      expect(_textColor(tester, 'All good'), scheme.onSurface);
+    });
+  });
+
   group('customMessageBuilder', () {
     testWidgets('tool_call renders a ToolCallCard from metadata', (
       tester,
