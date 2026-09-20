@@ -57,6 +57,22 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+  # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
+  # be tested on the Mac without a watch simulator.
+  test-watch:
+    name: Test watch core
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: swift test
+        working-directory: ios/HermesWatch
+        run: swift test
+
   # Builds the app together with its share extension and watch app. The extension links the
   # receive_sharing_intent package by a version-pinned path in project.pbxproj,
   # so a plugin upgrade that isn't mirrored there breaks only this build.
