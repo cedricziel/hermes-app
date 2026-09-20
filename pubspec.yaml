@@ -94,6 +94,9 @@ dependency_overrides:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # Drives the real app for the store screenshots (integration_test/).
+  integration_test:
+    sdk: flutter
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.1
 
