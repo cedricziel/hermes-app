@@ -458,3 +458,74 @@ Map<String, Object?> mcpTestFailureBody(String error) => {
   'error': error,
   'tools': <Object?>[],
 };
+
+/// A `GET /api/mcp/catalog` entry as Hermes serialises it.
+Map<String, Object?> mcpCatalogEntry({
+  required String name,
+  String description = '',
+  String source = 'https://example.test/docs',
+  String? url,
+  String? command,
+  List<String> args = const [],
+  String authType = 'none',
+  List<Map<String, Object?>> requiredEnv = const [],
+  String? installUrl,
+  String? installRef,
+  List<String> bootstrap = const [],
+  bool installed = false,
+  bool enabled = false,
+}) => {
+  'name': name,
+  'description': description,
+  'source': source,
+  'transport': url != null ? 'http' : 'stdio',
+  'auth_type': authType,
+  'required_env': requiredEnv,
+  'command': command,
+  'args': args,
+  'url': url,
+  'install_url': installUrl,
+  'install_ref': installRef,
+  'bootstrap': bootstrap,
+  'default_enabled': null,
+  'post_install': '',
+  'suggest': null,
+  'needs_install': installUrl != null,
+  'installed': installed,
+  'enabled': enabled,
+};
+
+Map<String, Object?> mcpCredentialRow({
+  required String name,
+  String? prompt,
+  bool required = true,
+}) => {'name': name, 'prompt': prompt ?? name, 'required': required};
+
+Map<String, Object?> mcpCatalogBody(
+  List<Map<String, Object?>> entries, {
+  List<Map<String, Object?>> diagnostics = const [],
+}) => {'entries': entries, 'diagnostics': diagnostics};
+
+/// What `POST /api/mcp/catalog/install` answers.
+Map<String, Object?> mcpInstallBody({required String name, String? action}) => {
+  'ok': true,
+  'name': name,
+  'background': action != null,
+  'action': ?action,
+};
+
+/// A snapshot of a dashboard OAuth flow, as the sign-in and status routes
+/// answer it (the status route adds `tools`).
+Map<String, Object?> mcpFlowBody({
+  String flowId = 'flow-1',
+  String server = 'asana',
+  String status = 'authorization_required',
+  String? authorizationUrl = 'https://auth.example/authorize?state=s1',
+  String? error,
+}) => {
+  'flow_id': flowId,
+  'server_name': server,
+  'status': status,
+  'authorization_url': authorizationUrl,
+  'error': error,
+};
