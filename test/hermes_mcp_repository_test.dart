@@ -341,6 +341,297 @@ void main() {
     });
   });
 
+  group('addServer', () {
+    const path = '/api/mcp/servers';
+
+    Object? sentBody() => jsonBody(server.requestsTo('POST', path).single);
+
+    setUp(() => server.on('POST', path, mcpServerRow(name: 'x')));
+
+    test(
+      'sends a remote server without sign-in as url and auth none',
+      () async {
+        await repository.addServer(
+          const McpNewRemoteServer(
+            name: 'linear',
+            url: 'https://mcp.linear.app',
+          ),
+          profile: 'work',
+        );
+
+        expect(sentBody(), {
+          'name': 'linear',
+          'url': 'https://mcp.linear.app',
+          'auth': 'none',
+        });
+        expect(
+          server.requestsTo('POST', path).single.queryParameters['profile'],
+          'work',
+        );
+      },
+    );
+
+    test('sends a bearer token as auth header and the token', () async {
+      await repository.addServer(
+        const McpNewRemoteServer(
+          name: 'linear',
+          url: 'https://mcp.linear.app',
+          auth: McpRemoteAuth.bearerToken,
+          bearerToken: 'lin_secret',
+        ),
+      );
+
+      expect(sentBody(), {
+        'name': 'linear',
+        'url': 'https://mcp.linear.app',
+        'auth': 'header',
+        'bearer_token': 'lin_secret',
+      });
+    });
+
+    test('sends OAuth as auth oauth and no token', () async {
+      await repository.addServer(
+        const McpNewRemoteServer(
+          name: 'linear',
+          url: 'https://mcp.linear.app',
+          auth: McpRemoteAuth.oauth,
+          bearerToken: 'ignored',
+        ),
+      );
+
+      expect(sentBody(), {
+        'name': 'linear',
+        'url': 'https://mcp.linear.app',
+        'auth': 'oauth',
+      });
+    });
+
+    test('sends a command server without url, auth or token', () async {
+      await repository.addServer(
+        const McpNewCommandServer(
+          name: 'notes-fs',
+          command: 'npx',
+          args: ['-y', '/srv/my notes'],
+          env: {'NOTES_TOKEN': 'abc'},
+        ),
+      );
+
+      expect(sentBody(), {
+        'name': 'notes-fs',
+        'command': 'npx',
+        'args': ['-y', '/srv/my notes'],
+        'env': {'NOTES_TOKEN': 'abc'},
+      });
+    });
+
+    test('leaves out empty arguments and environment', () async {
+      await repository.addServer(
+        const McpNewCommandServer(name: 'true', command: 'true'),
+      );
+
+      expect(sentBody(), {'name': 'true', 'command': 'true'});
+    });
+
+    test('leaves the profile to the dashboard when none is known', () async {
+      await repository.addServer(
+        const McpNewCommandServer(name: 'true', command: 'true'),
+      );
+
+      expect(
+        server
+            .requestsTo('POST', path)
+            .single
+            .queryParameters
+            .containsKey('profile'),
+        isFalse,
+      );
+    });
+
+    test('reports a duplicate name as a 409 refusal', () {
+      server.on('POST', path, {
+        'detail': "Server 'linear' already exists",
+      }, status: 409);
+
+      expect(
+        repository.addServer(
+          const McpNewRemoteServer(name: 'linear', url: 'https://a.test'),
+        ),
+        throwsA(
+          isA<McpRefused>()
+              .having((e) => e.status, 'status', 409)
+              .having((e) => e.reason, 'reason', contains('already exists')),
+        ),
+      );
+    });
+
+    test('reports a 400 with Hermes reason', () {
+      server.on('POST', path, {
+        'detail': "Server 'x' rejected: suspicious command/args configuration",
+      }, status: 400);
+
+      expect(
+        repository.addServer(
+          const McpNewCommandServer(name: 'x', command: 'bash'),
+        ),
+        throwsA(
+          isA<McpRefused>()
+              .having((e) => e.status, 'status', 400)
+              .having((e) => e.reason, 'reason', contains('suspicious')),
+        ),
+      );
+    });
+
+    test('surfaces any other failure as a DioException', () {
+      server.on('POST', path, {'detail': 'boom'}, status: 500);
+
+      expect(
+        repository.addServer(
+          const McpNewCommandServer(name: 'x', command: 'true'),
+        ),
+        throwsA(isA<DioException>()),
+      );
+    });
+  });
+
+  group('replaceServers', () {
+    const path = '/api/mcp/servers';
+
+    test('puts the whole map with the profile', () async {
+      server.on('PUT', path, {'ok': true});
+
+      await repository.replaceServers({
+        'grafana': {
+          'url': 'https://mcp.grafana.com/mcp',
+          'headers': {'Authorization': 'Bearer \${TOKEN}'},
+          'timeout': 30,
+        },
+      }, profile: 'work');
+
+      final request = server.requestsTo('PUT', path).single;
+      expect(jsonBody(request), {
+        'servers': {
+          'grafana': {
+            'url': 'https://mcp.grafana.com/mcp',
+            'headers': {'Authorization': 'Bearer \${TOKEN}'},
+            'timeout': 30,
+          },
+        },
+        'profile': 'work',
+      });
+      expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('sends an empty map to remove every server', () async {
+      server.on('PUT', path, {'ok': true});
+
+      await repository.replaceServers({});
+
+      expect(jsonBody(server.requestsTo('PUT', path).single), {'servers': {}});
+    });
+
+    test('leaves out a field that is null', () async {
+      server.on('PUT', path, {'ok': true});
+
+      await repository.replaceServers({
+        'a': {'url': 'https://a.test', 'timeout': null},
+      });
+
+      expect(jsonBody(server.requestsTo('PUT', path).single), {
+        'servers': {
+          'a': {'url': 'https://a.test'},
+        },
+      });
+    });
+
+    test('splits a refusal into its problems', () {
+      server.on('PUT', path, {
+        'detail': "Server 'filesystem': expected an object; Server 'x': bad",
+      }, status: 400);
+
+      expect(
+        repository.replaceServers({'x': <String, Object?>{}}),
+        throwsA(
+          isA<McpRefused>().having((e) => e.status, 'status', 400).having(
+            (e) => e.problems,
+            'problems',
+            ["Server 'filesystem': expected an object", "Server 'x': bad"],
+          ),
+        ),
+      );
+    });
+
+    test('surfaces any other failure as a DioException', () {
+      server.on('PUT', path, {'detail': 'boom'}, status: 500);
+
+      expect(repository.replaceServers({}), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('loadRawServers', () {
+    const path = '/api/config';
+
+    test('returns the stored map with every field', () async {
+      server.on('GET', path, {
+        'model': 'x',
+        'mcp_servers': {
+          'grafana': {
+            'url': 'https://mcp.grafana.com/mcp',
+            'headers': {'Authorization': 'Bearer \${T}'},
+            'timeout': 30,
+          },
+          'fs': {
+            'command': 'npx',
+            'args': ['-y'],
+            'env': {'K': 'v'},
+            'enabled': false,
+          },
+        },
+      });
+
+      final servers = await repository.loadRawServers(profile: 'work');
+
+      expect(servers.keys, ['grafana', 'fs']);
+      expect((servers['grafana'] as Map)['timeout'], 30);
+      expect((servers['fs'] as Map)['env'], {'K': 'v'});
+      expect(
+        server.requestsTo('GET', path).single.queryParameters['profile'],
+        'work',
+      );
+    });
+
+    test('is empty when the config has no mcp_servers', () async {
+      server.on('GET', path, {'model': 'x'});
+
+      expect(await repository.loadRawServers(), isEmpty);
+    });
+
+    test('keeps an entry that is not an object, so the user sees it', () async {
+      server.on('GET', path, {
+        'mcp_servers': {'odd': 'text'},
+      });
+
+      expect(await repository.loadRawServers(), {'odd': 'text'});
+    });
+
+    test('throws when mcp_servers is not a map', () {
+      server.on('GET', path, {'mcp_servers': []});
+
+      expect(repository.loadRawServers(), throwsA(isA<FormatException>()));
+    });
+
+    test('throws when the answer is not an object', () {
+      server.on('GET', path, ['nope']);
+
+      expect(repository.loadRawServers(), throwsA(isA<FormatException>()));
+    });
+
+    test('surfaces a server error as a DioException', () {
+      server.on('GET', path, {'detail': 'boom'}, status: 500);
+
+      expect(repository.loadRawServers(), throwsA(isA<DioException>()));
+    });
+  });
+
   group('server names in paths', () {
     const awkward = {'a b?c': 'a%20b%3Fc', 'a#b': 'a%23b', 'a/b': 'a%2Fb'};
 

@@ -230,8 +230,57 @@ class McpRefused implements Exception {
   final int status;
   final String reason;
 
+  /// Hermes joins the problems of a rejected replace with "; ".
+  List<String> get problems => [
+    for (final part in reason.split('; '))
+      if (part.trim().isNotEmpty) part.trim(),
+  ];
+
   @override
   String toString() => 'McpRefused($status)';
+}
+
+/// How a remote server signs in when it is added.
+enum McpRemoteAuth { none, bearerToken, oauth }
+
+/// A server to add. Each shape can only carry what Hermes accepts for it: a
+/// remote server takes no arguments or environment, a command server no
+/// sign-in.
+sealed class McpNewServer {
+  const McpNewServer({required this.name});
+
+  final String name;
+}
+
+class McpNewRemoteServer extends McpNewServer {
+  const McpNewRemoteServer({
+    required super.name,
+    required this.url,
+    this.auth = McpRemoteAuth.none,
+    this.bearerToken,
+  });
+
+  final String url;
+  final McpRemoteAuth auth;
+
+  /// Sent only with [McpRemoteAuth.bearerToken]. Hermes keeps it in the
+  /// profile's `.env` and never returns it.
+  final String? bearerToken;
+}
+
+class McpNewCommandServer extends McpNewServer {
+  const McpNewCommandServer({
+    required super.name,
+    required this.command,
+    this.args = const [],
+    this.env = const {},
+  });
+
+  final String command;
+  final List<String> args;
+
+  /// Environment values, which can be secrets.
+  final Map<String, String> env;
 }
 
 /// Whether [error] is the dashboard saying the named server does not exist.
@@ -311,6 +360,85 @@ class HermesMcpRepository {
             enabled: row['enabled'] != false,
           ),
     ];
+  }
+
+  /// Adds [server] to the profile. Refusals (409 for a name that exists, 400
+  /// with Hermes' reason, including a command it finds suspicious) surface as
+  /// [McpRefused]. The request body can hold a token or environment values and
+  /// is not kept.
+  Future<void> addServer(McpNewServer server, {String? profile}) async {
+    final body = switch (server) {
+      // args and env are null on purpose: the model's default is an empty
+      // list or map, which would be sent.
+      McpNewRemoteServer() => MCPServerCreate(
+        name: server.name,
+        url: server.url,
+        args: null,
+        env: null,
+        auth: switch (server.auth) {
+          McpRemoteAuth.none => 'none',
+          McpRemoteAuth.bearerToken => 'header',
+          McpRemoteAuth.oauth => 'oauth',
+        },
+        bearerToken: server.auth == McpRemoteAuth.bearerToken
+            ? server.bearerToken
+            : null,
+      ),
+      McpNewCommandServer() => MCPServerCreate(
+        name: server.name,
+        command: server.command,
+        args: server.args.isEmpty ? null : server.args,
+        env: server.env.isEmpty ? null : server.env,
+      ),
+    };
+    await _refusing(
+      () => _api.addMcpServerApiMcpServersPost(
+        mCPServerCreate: body,
+        profile: profile,
+      ),
+    );
+  }
+
+  /// Replaces the profile's whole `mcp_servers` map with [servers]. Hermes
+  /// checks every entry and refuses the save as a whole ([McpRefused], see
+  /// [McpRefused.problems]). A field that is null is left out: Hermes reads it
+  /// as unset and the request model cannot carry one.
+  Future<void> replaceServers(
+    Map<String, Map<String, Object?>> servers, {
+    String? profile,
+  }) async {
+    await _refusing(
+      () => _api.replaceMcpServersApiMcpServersPut(
+        mCPServersReplace: MCPServersReplace(
+          servers: {
+            for (final server in servers.entries)
+              server.key: {
+                for (final field in server.value.entries)
+                  if (field.value case final Object value) field.key: value,
+              },
+          },
+          profile: profile,
+        ),
+        profile: profile,
+      ),
+    );
+  }
+
+  /// The profile's whole `mcp_servers` map as stored, from `GET /api/config`;
+  /// empty when there is none. The servers route leaves out headers, OAuth
+  /// settings and timeouts, so it cannot stand in for this. Entries that are
+  /// not objects are kept so the user can see them.
+  Future<Map<String, Object?>> loadRawServers({String? profile}) async {
+    final response = await _api.getConfigApiConfigGet(profile: profile);
+    final body = response.data;
+    if (body is! Map) throw const FormatException('Unexpected config response');
+    return switch (body['mcp_servers']) {
+      null => <String, Object?>{},
+      final Map<dynamic, dynamic> servers => {
+        for (final entry in servers.entries) '${entry.key}': entry.value,
+      },
+      _ => throw const FormatException('Unexpected mcp_servers in config'),
+    };
   }
 
   Future<void> setEnabled(String name, bool enabled, {String? profile}) async {

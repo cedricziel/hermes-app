@@ -93,6 +93,8 @@ void main() {
     await pumpServers(tester, size: size);
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Browse the catalog'));
+    await tester.pumpAndSettle();
   }
 
   Finder row(String name) => find.byKey(ValueKey('mcp-catalog-row-$name'));
@@ -146,8 +148,11 @@ void main() {
       await pumpServers(tester);
 
       await tester.tap(find.text('Add'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Browse the catalog'));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       answer.complete((status: 200, body: mcpCatalogBody([asana])));
