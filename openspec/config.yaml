@@ -1,35 +1,59 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Flutter/Dart app (iOS, Android, macOS, Windows, Linux), provider for state,
-  dio for HTTP, flutter_chat_ui for the chat UI.
+  Tech stack: Flutter/Dart app (iOS, Android, macOS, Windows, Linux, plus an empty watchOS app),
+  provider for state, dio for HTTP, flutter_chat_ui for the chat UI.
   Domain: client for the Hermes Agent web dashboard (`hermes dashboard`). The user enters a
   self-hosted server URL, signs in (OIDC or password, both via the RFC 8252 native flow),
   and chats with the agent over the dashboard's /api/ws JSON-RPC socket.
-  The REST API client in packages/hermes_api is generated from openapi/hermes-agent.openapi.json
-  and must never be hand-edited.
-  We use conventional commits (release-please builds the changelog from them).
-  Before commit: dart format, flutter analyze, flutter test.
+  Language: artifacts are written in English.
+  Conventions: conventional commits (release-please builds the changelog from them).
   See CLAUDE.md for commands and architecture.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Invariants every spec and design must respect:
+  - Auth: concurrent 401s must not sign the user out; sign-in is never left spinning;
+    tokens live only in secure storage, never in a cookie or preferences.
+  - API layering: new REST calls go through `authController.api!.raw` (the generated client),
+    never a hand-rolled Dio call. `packages/hermes_api` is generated from
+    openapi/hermes-agent.openapi.json and is never hand-edited. Only routes without a response
+    schema in the spec are hand-written.
+  - Telemetry is opt-in via `--dart-define` and must never break the app; failures are swallowed.
+  - Tests run the real generated client against `FakeHermesServer` at the HTTP layer,
+    not against mocks of the client.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+rules:
+  proposal:
+    - State non-goals, meaning what the change deliberately does not do.
+    - List the platforms affected (iOS, Android, macOS, Windows, Linux, watchOS) and any
+      native entitlement, manifest or Xcode project change.
+    - Name the Hermes Agent routes or RPC methods the change relies on and the minimum
+      Hermes version.
+    - State the security and privacy impact (tokens, secure storage, telemetry data), or
+      say "None".
+  design:
+    - Cover platform differences and the backend contract where they shape the design.
+    - Call out any invariant from the project context the design touches.
+  specs:
+    - Describe user-visible or protocol behaviour, not implementation classes.
+  tasks:
+    - Group tasks so each group is one PR of roughly 500 changed lines or fewer, and give
+      each group a conventional-commit type and scope.
+    - Start every behaviour task with a failing test; pure refactors are exempt.
+    - If the change needs new or changed API routes, include a task to update
+      openapi/hermes-agent.openapi.json and run scripts/generate_hermes_api_client.sh.
+    - End with a verify task covering dart format, flutter analyze, flutter test, and a
+      verify-in-app check when the change affects UI, connection or API behaviour.
+
+operations:
+  apply:
+    guidance:
+      - Commit after each task or small group of tasks with a semantic commit message.
+      - Tick each task's checkbox in tasks.md in the same commit that completes it.
+      - If the code has to deviate from the specs or design, update the change's artifacts
+        first (/opsx:update) instead of diverging silently.
+      - For UI, connection or API behaviour, run the verify-in-app loop before calling a
+        task done.
+  archive:
+    guidance:
+      - Sync the delta specs into openspec/specs/ before archiving.
+      - Archive in the same PR that completes the last task, so main never carries stale specs.
