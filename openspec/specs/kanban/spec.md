@@ -309,7 +309,7 @@ The board menu SHALL list the boards and a "Manage boards…" entry that opens a
 
 ### Requirement: Runs, worker log and attachments
 
-The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments as described under "Attachments can be added and saved". It SHALL list the plugin's warnings for the task under "Needs attention". The fleet-wide active-worker list and board export and import are not offered.
+The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments as described under "Attachments can be added and saved". It SHALL list the plugin's warnings for the task under "Needs attention".
 
 #### Scenario: Terminate an active run
 
@@ -358,9 +358,27 @@ The task detail SHALL list the messengers that have a home channel (`GET /api/pl
 - **WHEN** the server lists no home channels
 - **THEN** the task detail has no Notify section
 
+### Requirement: Active workers can be listed, inspected and stopped
+
+The board menu SHALL offer "Active workers…", a screen listing the workers the dispatcher has running (`GET /api/plugins/kanban/workers/active` for the selected board), each with its task title, task id, run number, profile, start time and last heartbeat. Tapping a worker SHALL open its task. Each worker SHALL offer "Inspect process" (`GET /api/plugins/kanban/runs/{id}/inspect`), showing the process id, status, memory and thread count when the server can read them (CPU is not shown: the plugin reads it from a fresh process handle, so its first reading is always zero) and otherwise saying the process is not running with the given reason, and "Terminate" (`POST /api/plugins/kanban/runs/{id}/terminate`) after a confirmation, after which the list and the board refresh. A refusal SHALL show the plugin's reason. The screen SHALL show "No workers are running" for an empty list and, when the first load fails, the plugin's reason (or "Could not load the workers") with a Retry. A refresh that fails while a list is shown SHALL keep the list and say "Could not refresh" with the reason. Only the newest of overlapping loads SHALL apply, and the list SHALL be read again after a task opened from it is closed, since that task's own panel can stop the same run.
+
+#### Scenario: Stop a worker
+
+- **WHEN** the user confirms Terminate on a listed worker
+- **THEN** the run is terminated, the worker list is fetched again and the board is refreshed
+
+### Requirement: Boards can be exported and imported through the server
+
+The Boards screen SHALL offer "Export…" for each board and "Import a board" for the whole list. Export SHALL ask for an optional output path, whether to include attachments (on by default) and worker logs (off by default), call `POST /api/plugins/kanban/boards/{slug}/export`, and then show the archive's path and size. Import SHALL require a path and SHALL offer an optional new slug and "Open it afterwards" (on by default), call `POST /api/plugins/kanban/boards/import` without asking the server to switch to the new board (that would also change the board current for the CLI and other clients), reload the board list, and, when the plugin gave the board a different slug because the requested one was taken, say what the board is now called. When asked to open the board, the app SHALL close the Boards list and select the new board itself. Both dialogs SHALL say that the paths are on the server, not on this device, because the plugin reads and writes archives on its own filesystem; the app SHALL NOT offer to move an archive between the device and the server. The plugin's refusal (for example an archive that is not found) SHALL be shown.
+
+#### Scenario: Import under a taken name
+
+- **WHEN** the plugin answers an import with a board slug that differs from the one requested
+- **THEN** the user is told the board's new name and the board list shows it
+
 ### Requirement: Kanban works against Hermes Agent 0.21.1 and later
 
-The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, an attachment's upload, byte-exact download and removal, estimates and home channels, refusal messages, the orchestration settings and the live event stream against a real dashboard.
+The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, an attachment's upload, byte-exact download and removal, estimates and home channels, the active workers, a board's export and import, refusal messages, the orchestration settings and the live event stream against a real dashboard.
 
 #### Scenario: Contract check against a real dashboard
 
