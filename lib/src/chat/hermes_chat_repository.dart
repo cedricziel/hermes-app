@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
@@ -15,6 +17,23 @@ class ThreadPage {
 
   final List<ChatThread> threads;
   final int nextOffset;
+  final bool hasMore;
+}
+
+/// One page of a session's transcript, counted back from its newest row. Ask
+/// for the next, older one with an offset of the [rows] read so far while
+/// [hasMore].
+class MessagePage {
+  const MessagePage({
+    required this.messages,
+    required this.rows,
+    required this.hasMore,
+  });
+
+  final List<ChatMessage> messages;
+
+  /// Server rows this page added, without the ones it read again.
+  final int rows;
   final bool hasMore;
 }
 
@@ -137,6 +156,8 @@ class HermesChatRepository {
         sessionRename: update,
       );
 
+  /// The newest rows of a session; the dashboard caps this at 500.
+  ///
   /// [profile] must be the one [sessionId] was listed under: another profile
   /// may hold a different session with the same id.
   Future<List<ChatMessage>> loadMessages(
@@ -148,7 +169,42 @@ class HermesChatRepository {
           sessionId: sessionId,
           profile: profile,
         );
+    return _toMessages(sessionId, _rows(response.data, 'messages'));
+  }
+
+  /// [limit] rows of the session, skipping the [offset] newest ones. A tool's
+  /// result is a row of its own after the call, so a page that starts at a
+  /// call would lose it: each older page reads [_overlap] newer rows again,
+  /// and callers drop the messages they already hold.
+  Future<MessagePage> loadMessagePage(
+    String sessionId, {
+    String? profile,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final reread = min(offset, _overlap);
+    final response = await _api
+        .getSessionMessagesApiSessionsSessionIdMessagesGet(
+          sessionId: sessionId,
+          profile: profile,
+          limit: limit + reread,
+          offset: offset - reread,
+          order: 'latest',
+        );
     final rows = _rows(response.data, 'messages');
+    return MessagePage(
+      messages: _toMessages(sessionId, rows),
+      rows: max(0, rows.length - reread),
+      hasMore: rows.length >= limit + reread,
+    );
+  }
+
+  static const _overlap = 20;
+
+  static List<ChatMessage> _toMessages(
+    String sessionId,
+    List<Map<String, dynamic>> rows,
+  ) {
     final results = {
       for (final row in rows)
         if (row case {

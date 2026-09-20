@@ -313,6 +313,104 @@ void main() {
     });
   });
 
+  group('loadMessagePage', () {
+    List<Map<String, Object?>> rows(int from, int to) => [
+      for (var id = from; id <= to; id++)
+        messageRow(id: id, role: 'user', content: 'm$id'),
+    ];
+
+    test('asks for the latest rows, newest end first', () async {
+      server.on('GET', '/api/sessions/s1/messages', messageListBody('s1', []));
+
+      await repository.loadMessagePage('s1', limit: 40);
+
+      final query = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single
+          .queryParameters;
+      expect(query['order'], 'latest');
+      expect(query['limit'], 40);
+      expect(query['offset'], 0);
+    });
+
+    test('says more remain when the page came back full', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', rows(61, 100)),
+      );
+
+      final page = await repository.loadMessagePage('s1', limit: 40);
+
+      expect(page.messages, hasLength(40));
+      expect(page.rows, 40);
+      expect(page.hasMore, isTrue);
+    });
+
+    test('says nothing remains when the page came back short', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', rows(1, 10)),
+      );
+
+      final page = await repository.loadMessagePage('s1', limit: 40);
+
+      expect(page.hasMore, isFalse);
+    });
+
+    test('rereads a few newer rows so a call keeps its result', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(
+            id: 40,
+            role: 'assistant',
+            toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+          ),
+          messageRow(
+            id: 41,
+            role: 'tool',
+            toolCallId: 'call_terminal',
+            content: 'a.txt',
+          ),
+        ]),
+      );
+
+      final page = await repository.loadMessagePage(
+        's1',
+        limit: 40,
+        offset: 40,
+      );
+
+      final query = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single
+          .queryParameters;
+      expect(query['offset'], lessThan(40));
+      expect(query['limit'], greaterThan(40));
+      expect(page.messages.single.toolCalls.single.result, 'a.txt');
+    });
+
+    test('counts only the rows beyond the reread', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', rows(1, 60)),
+      );
+
+      final page = await repository.loadMessagePage(
+        's1',
+        limit: 40,
+        offset: 40,
+      );
+
+      expect(page.rows, 40);
+      expect(page.hasMore, isTrue);
+    });
+  });
+
   group('loadMessages', () {
     Future<List<ChatMessage>> load(List<Map<String, Object?>> rows) {
       server.on(
