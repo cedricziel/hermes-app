@@ -237,6 +237,59 @@ void main() {
     });
   });
 
+  group('an entry whose transport Hermes did not name', () {
+    Finder warning() =>
+        find.text('Hermes did not say how this server connects.');
+
+    testWidgets('still shows the command it would run', (tester) async {
+      catalogRows = [
+        {
+          ...mcpCatalogEntry(name: 'odd', command: 'npx', args: ['-y', 'pkg']),
+          'transport': 'sse',
+        },
+      ];
+      await openEntry(tester, 'odd');
+
+      expect(inPanel('npx'), findsOneWidget);
+      expect(inPanel('-y pkg'), findsOneWidget);
+      expect(warning(), findsOneWidget);
+      expect(installEnabled(tester), isTrue);
+    });
+
+    testWidgets('still shows the address it would connect to', (tester) async {
+      catalogRows = [
+        {
+          ...mcpCatalogEntry(name: 'odd', url: 'https://odd.test/mcp'),
+          'transport': 'sse',
+        },
+      ];
+      await openEntry(tester, 'odd');
+
+      expect(inPanel('https://odd.test/mcp'), findsOneWidget);
+      expect(warning(), findsOneWidget);
+    });
+
+    testWidgets('cannot be installed when it shows neither', (tester) async {
+      catalogRows = [
+        {...mcpCatalogEntry(name: 'odd'), 'transport': 'sse'},
+        mcpCatalogEntry(name: 'bare'),
+      ];
+      await openEntry(tester, 'odd');
+
+      expect(warning(), findsOneWidget);
+      expect(installEnabled(tester), isFalse);
+    });
+
+    testWidgets('a named transport with neither is not installable either', (
+      tester,
+    ) async {
+      catalogRows = [mcpCatalogEntry(name: 'bare')];
+      await openEntry(tester, 'bare');
+
+      expect(installEnabled(tester), isFalse);
+    });
+  });
+
   group('credentials', () {
     testWidgets('are obscured fields labelled with their name and prompt', (
       tester,

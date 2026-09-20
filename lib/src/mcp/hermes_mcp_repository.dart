@@ -144,6 +144,11 @@ class HermesMcpCatalogEntry {
 
   bool get buildsLocally => installUrl != null;
 
+  /// Whether the entry names an address or a command, so the user can see
+  /// what installing it would run.
+  bool get hasTarget =>
+      (url?.isNotEmpty ?? false) || (command?.isNotEmpty ?? false);
+
   HermesMcpCatalogEntry withInstalled({required bool enabled}) =>
       HermesMcpCatalogEntry(
         name: name,

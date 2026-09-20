@@ -151,7 +151,9 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
             const SizedBox(height: 8),
             FilledButton(
               key: const ValueKey('mcp-install-button'),
-              onPressed: _install.busy || !_filled ? null : _submit,
+              onPressed: _install.busy || !_filled || !widget.entry.hasTarget
+                  ? null
+                  : _submit,
               child: state is McpInstalling
                   ? const SizedBox.square(
                       dimension: 18,
@@ -212,10 +214,8 @@ class _RunBlock extends StatelessWidget {
                   ),
                   McpTransport.unknown => const SizedBox.shrink(),
                 },
-                if (entry.transport == McpTransport.remote && entry.url != null)
-                  _Fact('url', entry.url!),
-                if (entry.transport == McpTransport.command &&
-                    entry.command != null)
+                if (entry.url?.isNotEmpty ?? false) _Fact('url', entry.url!),
+                if (entry.command?.isNotEmpty ?? false)
                   _Fact('command', entry.command!),
                 if (args.isNotEmpty) _Fact('args', args),
                 if (auth != null) _Fact('auth', auth),
@@ -229,6 +229,14 @@ class _RunBlock extends StatelessWidget {
             ),
           ),
         ),
+        if (entry.transport == McpTransport.unknown) ...[
+          const SizedBox(height: 8),
+          const McpBanner(
+            tone: McpTone.warning,
+            icon: Icons.warning_amber_outlined,
+            title: 'Hermes did not say how this server connects.',
+          ),
+        ],
         if (entry.buildsLocally) ...[
           const SizedBox(height: 8),
           Text(
