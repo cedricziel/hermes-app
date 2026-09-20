@@ -3,10 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:hermes_app/main.dart' as app;
+import 'package:hermes_app/src/settings/theme_controller.dart';
 
 const _shotPort = String.fromEnvironment('SHOT_PORT');
+
+/// `light` or `dark` sets the app's own theme; empty follows the system, which
+/// is what the simulators are set to.
+const _shotTheme = String.fromEnvironment('SHOT_THEME');
 
 /// Walks the real app through the screens shown on the store listing and in
 /// the README. It needs a Hermes dashboard seeded by
@@ -27,6 +33,14 @@ void main() {
     WidgetController.hitTestWarningShouldBeFatal = true;
     await app.main();
     await settle(tester, 4);
+    if (_shotTheme.isNotEmpty) {
+      final context = tester.element(find.byType(MaterialApp));
+      await Provider.of<ThemeController>(
+        context,
+        listen: false,
+      ).setMode(ThemeMode.values.byName(_shotTheme));
+      await settle(tester);
+    }
 
     final width = tester.view.physicalSize.width / tester.view.devicePixelRatio;
     final wide = width >= 900;
