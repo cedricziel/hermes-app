@@ -832,7 +832,11 @@ void main() {
       expect(find.byType(McpAddServerScreen), findsOneWidget);
     });
 
-    Future<void> addLinear(WidgetTester tester, {bool oauth = false}) async {
+    Future<void> addLinear(
+      WidgetTester tester, {
+      bool oauth = false,
+      bool fromEmptyState = false,
+    }) async {
       server.onRequest('POST', '/api/mcp/servers', (request) {
         listServers([
           grafana,
@@ -845,7 +849,7 @@ void main() {
         ]);
         return (status: 200, body: mcpServerRow(name: 'linear'));
       });
-      await tapAdd(tester);
+      if (!fromEmptyState) await tapAdd(tester);
       await tester.tap(find.text('Add a custom server'));
       await tester.pumpAndSettle();
       await tester.enterText(find.widgetWithText(TextField, 'Name'), 'linear');
@@ -897,6 +901,25 @@ void main() {
         findsOneWidget,
       );
       expect(row('linear'), findsOneWidget);
+    });
+
+    testWidgets('the first server of an empty profile is selected on a wide '
+        'layout, not opened as a page', (tester) async {
+      listServers([]);
+      await pumpScreen(tester, size: const Size(1200, 800));
+
+      await addLinear(tester, fromEmptyState: true);
+
+      expect(find.byType(McpAddServerScreen), findsNothing);
+      expect(find.byType(McpServerPage), findsNothing);
+      expect(row('linear'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(McpServerDetail),
+          matching: find.text('https://mcp.linear.app/mcp'),
+        ),
+        findsOneWidget,
+      );
     });
   });
 

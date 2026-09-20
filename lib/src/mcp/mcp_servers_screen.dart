@@ -46,7 +46,6 @@ enum _MoreChoice { editAsJson }
 class _McpServersScreenState extends State<McpServersScreen> {
   late final McpServersController _controller;
   String? _selected;
-  bool _wide = false;
 
   @override
   void initState() {
@@ -64,8 +63,14 @@ class _McpServersScreenState extends State<McpServersScreen> {
     super.dispose();
   }
 
-  void _open(HermesMcpServer server, {required bool wide}) {
-    if (wide) {
+  /// Whether the screen is laid out with the detail beside the list. Read
+  /// from the media instead of the body's layout, which the empty state
+  /// never builds.
+  bool _isWide(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= McpServersScreen.wideBreakpoint;
+
+  void _open(HermesMcpServer server) {
+    if (_isWide(context)) {
       setState(() => _selected = server.name);
       return;
     }
@@ -101,7 +106,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     );
     if (!mounted || name == null) return;
     if (_controller.serverNamed(name) case final added?) {
-      _open(added, wide: _wide);
+      _open(added);
     }
   }
 
@@ -203,13 +208,12 @@ class _McpServersScreenState extends State<McpServersScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
-        _wide = wide;
         final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,
           servers: servers,
           selected: wide ? selected.name : null,
-          onOpen: (server) => _open(server, wide: wide),
+          onOpen: _open,
         );
         if (!wide) return list;
         return Row(
