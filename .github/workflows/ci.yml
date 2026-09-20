@@ -62,8 +62,12 @@ jobs:
   test-watch:
     name: Test watch core
     runs-on: macos-26
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: swift test
         working-directory: ios/HermesWatch
