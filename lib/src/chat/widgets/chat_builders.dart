@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
@@ -16,6 +17,7 @@ import '../chat_models.dart'
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
+import 'message_actions.dart';
 import 'reasoning_block.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
@@ -32,9 +34,15 @@ import 'welcome_view.dart';
 /// bare prose.
 ///
 /// Widths are left to the caller: nothing here hard-codes a max width.
+///
+/// A finished reply gets an action bar. [latestReplyId] names the one reply
+/// that can be asked again, and [onRetry] does it; while it is null nothing
+/// can.
 Builders buildChatBuilders({
   required void Function(String prompt) onPickPrompt,
   String? greetingName,
+  ValueListenable<String?>? latestReplyId,
+  VoidCallback? onRetry,
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
@@ -42,7 +50,17 @@ Builders buildChatBuilders({
   onSkipUnsupported,
 }) {
   return Builders(
-    textMessageBuilder: _buildText,
+    textMessageBuilder:
+        (context, message, index, {required isSentByMe, groupStatus}) =>
+            _buildText(
+              context,
+              message,
+              index,
+              isSentByMe: isSentByMe,
+              groupStatus: groupStatus,
+              latestReplyId: latestReplyId,
+              onRetry: onRetry,
+            ),
     imageMessageBuilder: (
       context,
       message,
@@ -80,6 +98,8 @@ Widget _buildText(
   int index, {
   required bool isSentByMe,
   MessageGroupStatus? groupStatus,
+  ValueListenable<String?>? latestReplyId,
+  VoidCallback? onRetry,
 }) {
   final scheme = Theme.of(context).colorScheme;
   final failed = message.metadata?[kMetaError] == true;
@@ -88,7 +108,7 @@ Widget _buildText(
     fontSize: 14.5,
     height: 1.5,
   );
-  return FlyerChatTextMessage(
+  final bubble = FlyerChatTextMessage(
     message: message,
     index: index,
     showTime: false,
@@ -102,6 +122,27 @@ Widget _buildText(
     padding: isSentByMe
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
         : EdgeInsets.zero,
+  );
+  if (isSentByMe || message.metadata?[kMetaStreaming] == true) return bubble;
+
+  Widget actions(bool canRetry) => MessageActions(
+    text: message.text,
+    showCopy: !failed,
+    onRetry: canRetry ? onRetry : null,
+  );
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      bubble,
+      if (latestReplyId == null)
+        actions(false)
+      else
+        ValueListenableBuilder<String?>(
+          valueListenable: latestReplyId,
+          builder: (_, latest, _) =>
+              actions(onRetry != null && latest == message.id),
+        ),
+    ],
   );
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart' show DioException;
+import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
@@ -131,6 +132,10 @@ class _ChatScreenState extends State<ChatScreen> {
   late final AttentionNotifier _attention;
   NotificationTarget? _pendingTap;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// The reply of the open thread that can be asked again: its last message,
+  /// once that is a finished reply.
+  final _latestReplyId = ValueNotifier<String?>(null);
 
   @override
   void initState() {
@@ -356,6 +361,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     _ownedTransport?.close();
     _composerController.dispose();
+    _latestReplyId.dispose();
     _emptyController.dispose();
     for (final controller in _chatControllers.values) {
       controller.dispose();
@@ -464,7 +470,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
+    _submit(typed, files, fromComposer: true);
+  }
 
+  /// Sends the text of the last prompt of the open thread again as a new turn.
+  /// Its files are not sent again.
+  void _retry(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.user) continue;
+      if (message.content.isNotEmpty) {
+        _submit(message.content, const [], fromComposer: false);
+      }
+      return;
+    }
+  }
+
+  void _submit(
+    String typed,
+    List<SharedFile> files, {
+    required bool fromComposer,
+  }) {
     final selected = _selectedThread;
     if (selected != null && selected.isReplying) {
       _showMessage(_stillReplying);
@@ -535,8 +560,10 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     setState(() {
       thread.updatedAt = DateTime.now();
-      _composerController.clear();
-      _attachments.clear();
+      if (fromComposer) {
+        _composerController.clear();
+        _attachments.clear();
+      }
     });
     final transport = _transport;
     if (transport == null) {
@@ -761,6 +788,20 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  /// The notifier changes after the frame: the action bars listening to it
+  /// are built in this one.
+  void _followLatestReply(ChatThread? thread) {
+    final last = thread?.messages.lastOrNull;
+    final id =
+        last != null && last.role == ChatRole.assistant && !last.isPending
+        ? last.id
+        : null;
+    if (_latestReplyId.value == id) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _latestReplyId.value = id;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loadingThreads) {
@@ -784,6 +825,7 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= _wideBreakpoint;
         final selected = _selectedThread;
+        _followLatestReply(selected);
         final sidebar = ThreadSidebar(
           threads: _threads,
           selectedId: _selectedId,
@@ -821,6 +863,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   onRemoveAttachment: (file) =>
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
+                  latestReplyId: _latestReplyId,
+                  onRetry: selected == null ? null : () => _retry(selected),
                   showTopBar: isWide,
                   onAnswerApproval: selected == null
                       ? null
@@ -854,7 +898,9 @@ class _ThreadView extends StatelessWidget {
     required this.onAddAttachments,
     required this.onRemoveAttachment,
     required this.onSend,
+    required this.latestReplyId,
     required this.showTopBar,
+    this.onRetry,
     this.onAnswerApproval,
     this.onAnswerClarify,
     this.onSkipUnsupported,
@@ -869,6 +915,8 @@ class _ThreadView extends StatelessWidget {
   final ValueChanged<List<SharedFile>> onAddAttachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
+  final ValueListenable<String?> latestReplyId;
+  final VoidCallback? onRetry;
   final bool showTopBar;
   final Future<void> Function(String requestId, String choice)?
   onAnswerApproval;
@@ -888,6 +936,8 @@ class _ThreadView extends StatelessWidget {
         buildChatBuilders(
           onPickPrompt: onSend,
           greetingName: identity?.displayName,
+          latestReplyId: latestReplyId,
+          onRetry: onRetry,
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,
           onSkipUnsupported: onSkipUnsupported,
