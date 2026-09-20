@@ -3,16 +3,14 @@
 ## Purpose
 
 Describes how the app surfaces the Hermes dashboard's optional Kanban plugin: when the Kanban tab is offered, how the Chat and Kanban destinations are laid out on narrow and wide screens, how the board is displayed and filtered, how it stays current, and how tasks are opened, created, changed, commented on, triaged and dispatched, how several are changed at once, how boards, runs, logs and attachments are handled, and which backend routes it relies on.
-
 ## Requirements
-
 ### Requirement: Plugin detection gates the Kanban tab
 
-The system SHALL offer the Kanban destination only while the server reports the Kanban plugin as on. It SHALL ask `GET /api/dashboard/plugins` and treat the plugin as on when the returned list contains an entry named `kanban`. Any failure to get a usable answer (network error, an error status, a body that is not a list, a server too old to have the route) SHALL count as off. While the plugin is off, the signed-in home screen SHALL be the chat alone, without any navigation bar or rail.
+The system SHALL offer the Kanban destination only while the server reports the Kanban plugin as on. It SHALL ask `GET /api/dashboard/plugins` and treat the plugin as on when the returned list contains an entry named `kanban`. Any failure to get a usable answer (network error, an error status, a body that is not a list, a server too old to have the route) SHALL count as off. While the plugin is off and no other destination is offered, the signed-in home screen SHALL be the chat alone, without any navigation bar or rail.
 
 #### Scenario: Plugin is off
 
-- **WHEN** the server lists no plugin named `kanban`
+- **WHEN** the server lists no plugin named `kanban` and offers no other destination
 - **THEN** the app shows only the chat and no navigation bar or navigation rail
 
 #### Scenario: Plugin is on
@@ -41,7 +39,7 @@ The system SHALL run the plugin check when the signed-in home screen is first sh
 
 ### Requirement: Chat and Kanban navigation adapts to screen width
 
-While the plugin is on, the system SHALL show the Chat and Kanban destinations in a bottom navigation bar when the available width is below 900 logical pixels and in a side navigation rail with labels when it is 900 logical pixels or wider. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
+While more than one destination is offered, the system SHALL show them (Chat, Kanban when the plugin is on, and any other) in a bottom navigation bar when the available width is below 900 logical pixels and in a side navigation rail with labels when it is 900 logical pixels or wider. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
 
 #### Scenario: Phone-width layout
 
@@ -384,3 +382,4 @@ The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Ag
 
 - **WHEN** the contract test runs with `HERMES_DEV_URL` pointing at a Hermes Agent dashboard
 - **THEN** the plugin is reported as on, a task can be created, commented on, blocked and deleted, and the event stream announces a new task
+
