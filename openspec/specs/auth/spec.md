@@ -53,7 +53,7 @@ When the `HERMES_SERVER_URL` compile-time define is non-empty, the system SHALL 
 
 ### Requirement: Server URL entry and normalization
 
-The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network. The address field SHALL start as the saved server address when one exists, and as `http://` otherwise.
+The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network. The address field SHALL start as the saved server address when one exists, whether or not that server could be reached, and as `http://` otherwise.
 
 #### Scenario: Scheme is added
 
@@ -80,6 +80,12 @@ The server setup screen SHALL require a non-empty URL before it submits. The sys
 
 - **WHEN** the stored-session check fails on a network error or a server error, so the app is in the connection error state with the tokens kept
 - **THEN** the setup screen shows the saved server address in the address field
+
+#### Scenario: Field is prefilled when the saved server cannot be reached
+
+- **WHEN** the app launches with a saved address and the status request fails because the server is unreachable or answers with an error
+- **THEN** the state is connection error
+- **AND** the setup screen shows the saved server address in the address field
 
 #### Scenario: Empty field
 
