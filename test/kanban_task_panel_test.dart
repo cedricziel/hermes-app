@@ -1,11 +1,17 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/kanban/kanban_files.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/fake_kanban_files.dart';
 import 'support/kanban_fixtures.dart';
 
 void main() {
@@ -52,7 +58,7 @@ void main() {
         theme: buildHermesLightTheme(),
         home: Scaffold(
           body: KanbanTaskPanel(
-            repository: KanbanRepository(server.client().raw),
+            repository: KanbanRepository(server.client()),
             taskId: 't1',
             board: 'ops',
             onChanged: () => changes++,
@@ -375,4 +381,174 @@ void main() {
       expect(find.widgetWithText(TextButton, 'Terminate'), findsNothing);
     },
   );
+
+  group('attachments', () {
+    late FakeKanbanFiles files;
+
+    Future<void> pumpWithFiles(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(500, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: Scaffold(
+            body: KanbanTaskPanel(
+              repository: KanbanRepository(server.client()),
+              files: files,
+              taskId: 't1',
+              board: 'ops',
+              onChanged: () => changes++,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    setUp(() {
+      files = FakeKanbanFiles();
+      server.on('POST', '/api/plugins/kanban/tasks/t1/attachments', {
+        'attachment': {'id': 4},
+      });
+    });
+
+    testWidgets('offers to attach a file even when there are none', (
+      tester,
+    ) async {
+      await pumpWithFiles(tester);
+
+      expect(find.text('Attach file'), findsOneWidget);
+    });
+
+    testWidgets('uploads the chosen file and tells the board', (tester) async {
+      files.next = KanbanPickedFile(
+        name: 'notes.txt',
+        bytes: Uint8List.fromList([104, 105]),
+      );
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.text('Attach file'));
+      await tester.tap(find.text('Attach file'));
+      await tester.pumpAndSettle();
+
+      final request = server
+          .requestsTo('POST', '/api/plugins/kanban/tasks/t1/attachments')
+          .single;
+      expect(
+        (request.data as FormData).files.single.value.filename,
+        'notes.txt',
+      );
+      expect(changes, 1);
+    });
+
+    testWidgets('says so when the picker fails', (tester) async {
+      files.pickError = const KanbanException(
+        'notes.txt is over the 25 MB limit for attachments.',
+      );
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.text('Attach file'));
+      await tester.tap(find.text('Attach file'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('over the 25 MB limit'), findsOneWidget);
+      expect(
+        server.requestsTo('POST', '/api/plugins/kanban/tasks/t1/attachments'),
+        isEmpty,
+      );
+    });
+
+    testWidgets(
+      'a second tap while the dialog is open opens no second dialog',
+      (tester) async {
+        files.pickGate = Completer<void>();
+        await pumpWithFiles(tester);
+
+        await tester.ensureVisible(find.text('Attach file'));
+        await tester.tap(find.text('Attach file'));
+        await tester.pump();
+        await tester.tap(find.text('Attach file'), warnIfMissed: false);
+        await tester.pump();
+
+        expect(files.pickCalls, 1);
+        files.pickGate!.complete();
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets('sends nothing when the user cancels the picker', (
+      tester,
+    ) async {
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.text('Attach file'));
+      await tester.tap(find.text('Attach file'));
+      await tester.pumpAndSettle();
+
+      expect(
+        server.requestsTo('POST', '/api/plugins/kanban/tasks/t1/attachments'),
+        isEmpty,
+      );
+      expect(changes, 0);
+    });
+
+    testWidgets('says why the plugin refused a file', (tester) async {
+      server.on('POST', '/api/plugins/kanban/tasks/t1/attachments', {
+        'detail': 'attachment exceeds 25 MB limit',
+      }, status: 413);
+      files.next = KanbanPickedFile(name: 'big.bin', bytes: Uint8List(1));
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.text('Attach file'));
+      await tester.tap(find.text('Attach file'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('attachment exceeds 25 MB limit'), findsOneWidget);
+      expect(changes, 0);
+    });
+
+    testWidgets('saves a downloaded attachment under its name', (tester) async {
+      serveRich();
+      final bytes = Uint8List.fromList([0, 255, 128, 7]);
+      server.on('GET', '/api/plugins/kanban/attachments/3', bytes);
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.byTooltip('Save attachment'));
+      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.pumpAndSettle();
+
+      expect(files.saved.single.name, 'spec.pdf');
+      expect(files.saved.single.bytes, bytes);
+      expect(find.text('Saved spec.pdf'), findsOneWidget);
+    });
+
+    testWidgets('says nothing when the user cancels the save', (tester) async {
+      serveRich();
+      server.on('GET', '/api/plugins/kanban/attachments/3', Uint8List(2));
+      files.saves = false;
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.byTooltip('Save attachment'));
+      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Saved'), findsNothing);
+    });
+
+    testWidgets('says why a download failed', (tester) async {
+      serveRich();
+      server.on('GET', '/api/plugins/kanban/attachments/3', {
+        'detail': 'attachment file missing on disk',
+      }, status: 404);
+      await pumpWithFiles(tester);
+
+      await tester.ensureVisible(find.byTooltip('Save attachment'));
+      await tester.tap(find.byTooltip('Save attachment'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('attachment file missing on disk'), findsOneWidget);
+      expect(files.saved, isEmpty);
+    });
+  });
 }

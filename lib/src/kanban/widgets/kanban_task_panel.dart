@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../chat/widgets/relative_time.dart';
 import '../kanban_errors.dart';
+import '../kanban_files.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
 import 'kanban_task_log_dialog.dart';
@@ -11,11 +12,13 @@ Future<void> showKanbanTask(
   BuildContext context, {
   required KanbanRepository repository,
   required String taskId,
+  KanbanFiles files = const PlatformKanbanFiles(),
   String? board,
   VoidCallback? onChanged,
 }) {
   final panel = KanbanTaskPanel(
     repository: repository,
+    files: files,
     taskId: taskId,
     board: board,
     onChanged: onChanged,
@@ -47,11 +50,15 @@ class KanbanTaskPanel extends StatefulWidget {
     super.key,
     required this.repository,
     required this.taskId,
+    this.files = const PlatformKanbanFiles(),
     this.board,
     this.onChanged,
   });
 
   final KanbanRepository repository;
+
+  /// The file dialogs used to attach and save attachments.
+  final KanbanFiles files;
   final String taskId;
   final String? board;
 
@@ -65,6 +72,7 @@ class KanbanTaskPanel extends StatefulWidget {
 class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   KanbanTaskDetail? _detail;
   bool _failed = false;
+  bool _transferring = false;
   final _comment = TextEditingController();
 
   KanbanRepository get _repo => widget.repository;
@@ -174,6 +182,44 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
       return;
     }
     await _do(() => _repo.terminateRun(run.id, board: widget.board));
+  }
+
+  Future<void> _attach() async {
+    if (_transferring) return;
+    setState(() => _transferring = true);
+    try {
+      KanbanPickedFile? file;
+      final picked = await runKanbanAction(
+        context,
+        () async => file = await widget.files.pick(),
+      );
+      if (!picked || file == null || !mounted) return;
+      final chosen = file!;
+      await _do(
+        () => _repo.uploadAttachment(
+          widget.taskId,
+          chosen.name,
+          chosen.bytes,
+          board: widget.board,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _transferring = false);
+    }
+  }
+
+  Future<void> _download(KanbanAttachment a) async {
+    setState(() => _transferring = true);
+    final messenger = ScaffoldMessenger.of(context);
+    var saved = false;
+    final ok = await runKanbanAction(context, () async {
+      final bytes = await _repo.downloadAttachment(a.id, board: widget.board);
+      saved = await widget.files.save(a.filename, bytes);
+    });
+    if (mounted) setState(() => _transferring = false);
+    if (ok && saved) {
+      messenger.showSnackBar(SnackBar(content: Text('Saved ${a.filename}')));
+    }
   }
 
   Future<void> _removeAttachment(KanbanAttachment a) async {
@@ -560,22 +606,39 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             ),
           ],
         ),
-        if (detail.attachments.isNotEmpty) ...[
-          const _Heading('Attachments'),
-          for (final a in detail.attachments)
-            ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.attach_file),
-              title: Text(a.filename),
-              subtitle: Text(_size(a.size)),
-              trailing: IconButton(
-                tooltip: 'Remove attachment',
-                icon: const Icon(Icons.close),
-                onPressed: () => _removeAttachment(a),
-              ),
+        const _Heading('Attachments'),
+        if (_transferring) const LinearProgressIndicator(),
+        for (final a in detail.attachments)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.attach_file),
+            title: Text(a.filename),
+            subtitle: Text(_size(a.size)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Save attachment',
+                  icon: const Icon(Icons.download_outlined),
+                  onPressed: _transferring ? null : () => _download(a),
+                ),
+                IconButton(
+                  tooltip: 'Remove attachment',
+                  icon: const Icon(Icons.close),
+                  onPressed: _transferring ? null : () => _removeAttachment(a),
+                ),
+              ],
             ),
-        ],
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _transferring ? null : _attach,
+            icon: const Icon(Icons.attach_file),
+            label: const Text('Attach file'),
+          ),
+        ),
         if (detail.runs.isNotEmpty)
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
