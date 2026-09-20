@@ -104,6 +104,26 @@ void main() {
     expect(messages.every((m) => m.id.startsWith(threads.first.id)), isTrue);
   }, skip: skip);
 
+  test('a session pages back from its newest rows', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+
+    final newest = await repository.loadMessagePage(threads.first.id, limit: 2);
+    final older = await repository.loadMessagePage(
+      threads.first.id,
+      limit: 2,
+      offset: newest.rows,
+    );
+
+    expect(newest.rows, lessThanOrEqualTo(2));
+    expect(older.rows, lessThanOrEqualTo(2));
+    expect(
+      older.messages.every((m) => m.id.startsWith(threads.first.id)),
+      isTrue,
+    );
+  }, skip: skip);
+
   test(
     'the active profile reports both the CLI default and the scope',
     () async {

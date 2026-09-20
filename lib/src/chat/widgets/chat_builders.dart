@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
-import 'package:flutter_chat_ui/flutter_chat_ui.dart' show ChatMessage;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show ChatAnimatedList, ChatMessage;
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../theme/hermes_theme.dart';
@@ -47,12 +48,14 @@ const double kChatItemGap = 8;
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
 /// can. That reply also gets follow-up chips, which send through
-/// [onPickPrompt].
+/// [onPickPrompt]. While [onLoadOlder] is set, scrolling to the top of the
+/// thread calls it.
 Builders buildChatBuilders({
   required void Function(String prompt) onPickPrompt,
   String? greetingName,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
+  Future<void> Function()? onLoadOlder,
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
@@ -60,6 +63,12 @@ Builders buildChatBuilders({
   onSkipUnsupported,
 }) {
   return Builders(
+    chatAnimatedListBuilder: onLoadOlder == null
+        ? null
+        : (context, itemBuilder) => ChatAnimatedList(
+            itemBuilder: itemBuilder,
+            onEndReached: onLoadOlder,
+          ),
     textMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildText(
