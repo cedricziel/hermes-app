@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.25](https://github.com/cedricziel/hermes-app/compare/v0.1.24...v0.1.25) (2026-09-20)
+
+
+### Features
+
+* **auth:** help users who reach Hermes over Tailscale or WireGuard ([#221](https://github.com/cedricziel/hermes-app/issues/221)) ([d3cd22b](https://github.com/cedricziel/hermes-app/commit/d3cd22b39a3f6a0e76ed7333ea5ac2d4283298a9))
+* **chat:** expand tool calls and give messages room ([#216](https://github.com/cedricziel/hermes-app/issues/216)) ([facd672](https://github.com/cedricziel/hermes-app/commit/facd672262b0cd05a6ff49e9f4fd1f9920bef9c9))
+
+
+### Bug Fixes
+
+* **chat:** keep reasoning in order with tool calls and send on Enter ([#218](https://github.com/cedricziel/hermes-app/issues/218)) ([726c95e](https://github.com/cedricziel/hermes-app/commit/726c95e0cd5cc554abb9839044b9564165c4063c))
+* **chat:** stretch the sections of an expanded tool card ([#217](https://github.com/cedricziel/hermes-app/issues/217)) ([07c4f1f](https://github.com/cedricziel/hermes-app/commit/07c4f1fbb5eadb0e8f2ab32f6d7628465c363c25))
+* rendering problems found by the workflow screenshots ([#219](https://github.com/cedricziel/hermes-app/issues/219)) ([f3b9da2](https://github.com/cedricziel/hermes-app/commit/f3b9da2a83dfea4b9dc70f211eeec2ce0d72e07a))
+
+
+### Documentation
+
+* **openspec:** archive assistant-message-ui and plugins-providers ([#215](https://github.com/cedricziel/hermes-app/issues/215)) ([cf4694c](https://github.com/cedricziel/hermes-app/commit/cf4694c5c507866854e6b997697ff0183794d25d))
+* **openspec:** archive the scheduled tasks changes ([#213](https://github.com/cedricziel/hermes-app/issues/213)) ([797942d](https://github.com/cedricziel/hermes-app/commit/797942d49dda4833596f3510d16b85a04fccd6a3))
+
 ## [0.1.24](https://github.com/cedricziel/hermes-app/compare/v0.1.23...v0.1.24) (2026-09-20)
 
 
