@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hermes app: MCP servers, static mockups</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute">
+      <defs>
+        <symbol
+          id="i-menu"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </symbol>
+        <symbol
+          id="i-back"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M15 5l-7 7 7 7" />
+        </symbol>
+        <symbol
+          id="i-close"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M6 6l12 12M18 6L6 18" />
+        </symbol>
+        <symbol id="i-more" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+        </symbol>
+        <symbol
+          id="i-plus"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol
+          id="i-plug"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4" />
+        </symbol>
+        <symbol
+          id="i-search"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M16 16l5 5" />
+        </symbol>
+        <symbol
+          id="i-user"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c1-4 4-6 8-6s7 2 8 6" />
+        </symbol>
+        <symbol
+          id="i-bot"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="4" y="8" width="16" height="12" rx="3" />
+          <path d="M12 4v4M9 14h.01M15 14h.01" />
+        </symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 5h16v11H9l-5 4V5z" />
+        </symbol>
+        <symbol
+          id="i-kanban"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <path d="M9 8v8M15 8v5" />
+        </symbol>
+        <symbol
+          id="i-test"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M5 12l4 4 10-10" />
+        </symbol>
+        <symbol
+          id="i-warn"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M12 4l9 16H3L12 4zM12 10v4M12 17h.01" />
+        </symbol>
+        <symbol
+          id="i-info"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v6M12 7.5h.01" />
+        </symbol>
+        <symbol
+          id="i-ext"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M14 4h6v6M20 4l-9 9M18 14v5H5V6h5" />
+        </symbol>
+        <symbol
+          id="i-trash"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" />
+        </symbol>
+        <symbol
+          id="i-code"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M9 8l-5 4 5 4M15 8l5 4-5 4" />
+        </symbol>
+        <symbol
+          id="i-hermes"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="2.2" />
+          <circle cx="12" cy="4" r="1.6" />
+          <circle cx="19" cy="9" r="1.6" />
+          <circle cx="17" cy="19" r="1.6" />
+          <circle cx="7" cy="19" r="1.6" />
+          <circle cx="5" cy="9" r="1.6" />
+          <path
+            d="M12 5.6v4.2M17.6 9.6l-3.4 1.6M15.8 17.6l-2.4-4M8.2 17.6l2.4-4M6.4 9.6l3.4 1.6"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
+    <h1>MCP servers in the Hermes app</h1>
+    <p class="lede">
+      Static mockups for the three planned changes. They use the app's zinc
+      palette, 14&nbsp;px radius and 1&nbsp;px borders. Phone screens are light,
+      the Mac screens show the two-pane layout. Everything acts on the
+      <b>active profile</b>, named in the header. These are design references,
+      not pixel specs.
+    </p>
+    <p class="lede">
+      <span class="tag">1 mcp-servers</span> list, on/off, test and tools,
+      remove <span class="tag c2">2 mcp-catalog</span> browse, install with env
+      prompts, OAuth sign-in
+      <span class="tag c3">3 mcp-custom-servers</span> add form with review
+      step, JSON editor
+    </p>
+
+    <!-- =================================================== PHONE =================================================== -->
+    <h2>Phone</h2>
+
+    <div class="row">
+      <figure>
+        <div class="phone">
+          <div class="body" style="background: #0002">
+            <div
+              class="status"
+              style="position: absolute; top: 0; left: 0; right: 0; z-index: 2"
+            >
+              <span style="margin-left: 0">09:41</span><span>5G ▮</span>
+            </div>
+            <div class="drawer">
+              <div class="brand">
+                <svg width="22" height="22"><use href="#i-hermes" /></svg>
+                Hermes
+              </div>
+              <div class="newchat">+ New chat</div>
+              <div class="th">
+                <b>Draft release notes for 0.1.11</b><small>2h ago</small>
+              </div>
+              <div class="th sel">
+                <b>Why did last night's backup…</b><small>6m ago</small>
+              </div>
+              <div class="th">
+                <b>Rotate the staging TLS certifi…</b><small>5h ago</small>
+              </div>
+              <div class="foot">
+                <div>
+                  <svg><use href="#i-user" /></svg>Profiles
+                </div>
+                <div>
+                  <svg><use href="#i-bot" /></svg>Bots
+                </div>
+                <div class="new">
+                  <svg><use href="#i-plug" /></svg>MCP servers
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="tabbar">
+            <div class="on">
+              <span class="pill"
+                ><svg><use href="#i-chat" /></svg></span
+              >Chat
+            </div>
+            <div>
+              <span class="pill"
+                ><svg><use href="#i-kanban" /></svg></span
+              >Kanban
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><b>Entry point.</b> A third row under
+          Profiles and Bots in the chat drawer. Shown only when the server has
+          the MCP routes (same rule as the other two rows).
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>MCP servers</b
+              ><small
+                ><span class="profile-chip"
+                  ><span class="dot"></span>Profile: default</span
+                ></small
+              >
+            </div>
+            <span class="ib"
+              ><svg><use href="#i-more" /></svg
+            ></span>
+          </div>
+          <div class="body pad">
+            <div class="banner info" style="margin: 6px 0 4px">
+              <svg><use href="#i-info" /></svg
+              ><span
+                >Changes apply to the next chat, not one that is already
+                running.</span
+              >
+            </div>
+            <div class="sect">Installed · 4</div>
+            <div class="card list">
+              <div class="item">
+                <div class="avatar">g</div>
+                <div class="main">
+                  <b>grafana</b><small>https://mcp.grafana.com/mcp</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">OAuth</span>
+                  </div>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="item">
+                <div class="avatar">c</div>
+                <div class="main">
+                  <b>context7</b><small>https://mcp.context7.com/mcp</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">No auth</span>
+                  </div>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="item">
+                <div class="avatar">a</div>
+                <div class="main">
+                  <b>asana</b><small>https://mcp.asana.com/sse</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">OAuth</span
+                    ><span class="chip warn">Sign in needed</span>
+                  </div>
+                </div>
+                <div class="switch on"></div>
+              </div>
+              <div class="item">
+                <div class="avatar">f</div>
+                <div class="main">
+                  <b>filesystem</b
+                  ><small class="mono"
+                    >npx -y @modelcontextprotocol/server-filesystem
+                    /srv/notes</small
+                  >
+                  <div class="chips">
+                    <span class="chip">Command</span
+                    ><span class="chip">Off</span>
+                  </div>
+                </div>
+                <div class="switch"></div>
+              </div>
+            </div>
+            <div class="hint" style="margin: 10px 4px">
+              A row only knows "Sign in needed" or its tool count after you tap
+              it and run a test. Hermes does not report health in the list.
+            </div>
+          </div>
+          <div
+            style="
+              position: absolute;
+              right: 20px;
+              bottom: 24px;
+              display: flex;
+              flex-direction: column;
+              gap: 10px;
+              align-items: flex-end;
+            "
+          >
+            <span
+              class="btn primary"
+              style="border-radius: 16px; height: 52px; padding: 0 20px"
+              ><svg><use href="#i-plus" /></svg>Add</span
+            >
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><b>Installed servers.</b> Transport and auth
+          are chips. The switch calls <code>PUT …/enabled</code>. Tap a row for
+          detail. The "Add" button is a menu: Browse catalog (change 2), Add
+          custom server (change 3).
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>grafana</b><small>Remote · OAuth · default profile</small>
+            </div>
+            <span class="ib"
+              ><svg><use href="#i-more" /></svg
+            ></span>
+          </div>
+          <div class="body pad">
+            <div
+              class="card"
+              style="
+                padding: 12px 14px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-top: 6px;
+              "
+            >
+              <div style="flex: 1">
+                <b>Enabled</b>
+                <div class="hint" style="margin: 0">
+                  Used from the next chat
+                </div>
+              </div>
+              <div class="switch on"></div>
+            </div>
+            <div style="display: flex; gap: 8px; margin: 12px 0">
+              <span class="btn" style="flex: 1"
+                ><svg><use href="#i-test" /></svg>Test connection</span
+              ><span class="btn danger"
+                ><svg><use href="#i-trash" /></svg
+              ></span>
+            </div>
+            <div
+              class="banner"
+              style="
+                background: #f0fdf4;
+                border: 1px solid #bbf7d0;
+                color: #14532d;
+                margin-bottom: 6px;
+              "
+            >
+              <svg><use href="#i-test" /></svg
+              ><span><b>Connected.</b> 35 tools · 2 prompts · 0 resources</span>
+            </div>
+            <div class="sect">Tools · 35</div>
+            <div class="card">
+              <div class="tool">
+                <span class="sz">1.2k chars</span><b>query_prometheus</b
+                ><small>Run a PromQL query against a datasource.</small>
+              </div>
+              <div class="tool">
+                <span class="sz">0.9k</span><b>query_loki_logs</b
+                ><small>Run a LogQL query and return matching lines.</small>
+              </div>
+              <div class="tool">
+                <span class="sz">0.6k</span><b>search_dashboards</b
+                ><small>Find dashboards by title, tag or folder.</small>
+              </div>
+              <div class="tool">
+                <span class="sz">1.4k</span><b>get_dashboard_by_uid</b
+                ><small>Fetch a full dashboard model.</small>
+              </div>
+            </div>
+            <div class="hint" style="margin: 8px 4px">
+              The size next to a tool is what its schema costs in the model's
+              context. Hermes sends it with a test.
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><b>Server detail after a test.</b> The test
+          calls <code>POST …/test</code>. Tools show name, description and
+          schema size.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>asana</b><small>Remote · OAuth · default profile</small>
+            </div>
+            <span class="ib"
+              ><svg><use href="#i-more" /></svg
+            ></span>
+          </div>
+          <div class="body pad">
+            <div
+              class="card"
+              style="
+                padding: 12px 14px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-top: 6px;
+              "
+            >
+              <div style="flex: 1"><b>Enabled</b></div>
+              <div class="switch on"></div>
+            </div>
+            <div class="banner warn" style="margin: 12px 0">
+              <svg><use href="#i-warn" /></svg
+              ><span
+                ><b>Sign in needed.</b> Hermes has no OAuth token for this
+                server yet, so it cannot list tools.</span
+              >
+            </div>
+            <span class="btn primary block"
+              ><svg><use href="#i-ext" /></svg>Sign in with Asana</span
+            >
+            <div class="hint" style="margin: 8px 4px">
+              Opens your browser. You approve there, and your Hermes server
+              receives the token. Nothing is stored on this device.
+            </div>
+            <div style="display: flex; gap: 8px; margin: 14px 0">
+              <span class="btn" style="flex: 1"
+                ><svg><use href="#i-test" /></svg>Test again</span
+              ><span class="btn danger"
+                ><svg><use href="#i-trash" /></svg
+              ></span>
+            </div>
+            <div class="sect" style="margin-top: 26px">When a test fails</div>
+            <div class="banner bad">
+              <svg><use href="#i-warn" /></svg
+              ><span
+                ><b>Could not connect.</b><br /><span class="mono"
+                  >connection refused (127.0.0.1:8931)</span
+                ></span
+              >
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><span class="tag c2">2</span
+          ><b>Failure states.</b> Test errors are shown as Hermes words them.
+          "Sign in needed" is the test's own "OAuth authentication required"
+          answer. The button is the OAuth flow from change 2.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>MCP servers</b
+              ><small
+                ><span class="profile-chip"
+                  ><span class="dot"></span>Profile: work</span
+                ></small
+              >
+            </div>
+          </div>
+          <div class="body center" style="align-content: center">
+            <div>
+              <div
+                class="avatar"
+                style="
+                  margin: 0 auto 14px;
+                  width: 64px;
+                  height: 64px;
+                  border-radius: 18px;
+                "
+              >
+                <svg width="30" height="30"><use href="#i-plug" /></svg>
+              </div>
+              <b style="font-size: 17px; color: var(--z900)"
+                >No MCP servers on "work"</b
+              >
+              <p style="margin: 6px 0 18px">
+                MCP servers give the agent extra tools, such as your dashboards,
+                tickets or files.
+              </p>
+              <span class="btn primary block">Browse the catalog</span>
+              <span class="btn block" style="margin-top: 8px"
+                >Add a custom server</span
+              >
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><b>Empty state.</b> Also where the catalog
+          and custom paths are first offered. "work" is a different profile than
+          the other screens, to show the header follows the active one.
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="row">
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>Catalog</b
+              ><small
+                ><span class="profile-chip"
+                  ><span class="dot"></span>Installing into: default</span
+                ></small
+              >
+            </div>
+          </div>
+          <div class="body pad">
+            <div class="search" style="margin: 6px 0 10px">
+              <svg><use href="#i-search" /></svg>Search 65 servers
+            </div>
+            <div class="filters">
+              <span class="chip on">All</span><span class="chip">Remote</span
+              ><span class="chip">Command</span><span class="chip">OAuth</span>
+            </div>
+            <div class="card list">
+              <div class="item">
+                <div class="avatar">a</div>
+                <div class="main">
+                  <b>airtable</b><small>Read and write Airtable bases.</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">API key</span>
+                  </div>
+                </div>
+                <span class="btn" style="height: 34px; padding: 0 12px"
+                  >Install</span
+                >
+              </div>
+              <div class="item">
+                <div class="avatar">a</div>
+                <div class="main">
+                  <b>asana</b><small>Tasks, projects and workspaces.</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">OAuth</span>
+                  </div>
+                </div>
+                <span class="chip ok">Installed</span>
+              </div>
+              <div class="item">
+                <div class="avatar">b</div>
+                <div class="main">
+                  <b>betterstack</b><small>Uptime, incidents and logs.</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">OAuth</span>
+                  </div>
+                </div>
+                <span class="btn" style="height: 34px; padding: 0 12px"
+                  >Install</span
+                >
+              </div>
+              <div class="item">
+                <div class="avatar">b</div>
+                <div class="main">
+                  <b>buildkite</b><small>Pipelines and builds.</small>
+                  <div class="chips">
+                    <span class="chip">Command</span
+                    ><span class="chip">Builds locally</span>
+                  </div>
+                </div>
+                <span class="btn" style="height: 34px; padding: 0 12px"
+                  >Install</span
+                >
+              </div>
+              <div class="item">
+                <div class="avatar">c</div>
+                <div class="main">
+                  <b>context7</b><small>Up-to-date library docs.</small>
+                  <div class="chips">
+                    <span class="chip">Remote</span
+                    ><span class="chip">No auth</span>
+                  </div>
+                </div>
+                <span class="chip ok">Installed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c2">2</span><b>Catalog.</b> From
+          <code>GET /api/mcp/catalog</code>. Installed entries show a chip
+          instead of a button. "Builds locally" marks entries the server has to
+          clone and build. If the catalog cannot load, the screen says so and
+          offers Retry.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t"><b>Catalog</b></div>
+          </div>
+          <div class="body pad" style="opacity: 0.35"></div>
+          <div class="scrim"></div>
+          <div class="sheet" style="top: 130px; overflow: hidden">
+            <div class="grab"></div>
+            <h3>Install airtable</h3>
+            <div class="hint" style="margin: 0 0 12px">
+              Read and write Airtable bases.
+              <span style="text-decoration: underline"
+                >airtable.com/developers</span
+              >
+            </div>
+            <div class="sect" style="margin-top: 6px">What Hermes will run</div>
+            <div class="code"><div class="ln"><span class="k">type</span> remote (http)</div><div class="ln"><span class="k">url</span> https://mcp.airtable.com/mcp</div><div class="ln"><span class="k">auth</span> API key</div></div>
+            <div class="sect">Credentials</div>
+            <div class="field">
+              <label
+                >AIRTABLE_API_KEY
+                <span style="color: var(--err)">required</span></label
+              >
+              <div class="input mono">
+                <span class="ph">Personal access token</span>
+              </div>
+              <div class="hint">
+                Saved on your Hermes server. It is never shown again.
+              </div>
+            </div>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin: 2px 0 14px;
+              "
+            >
+              <div class="switch on"></div>
+              <span>Turn on after installing</span>
+            </div>
+            <span class="btn primary block">Install</span>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c2">2</span><b>Install sheet.</b> Command, args, URL
+          and any bootstrap steps are always visible (the catalog's trust model
+          asks the user to inspect them). Only the env keys the entry declares
+          are asked for. Values are write-only. A git-based entry says "Building
+          on your server…" and the app keeps polling.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-close" /></svg
+            ></span>
+            <div class="t"><b>Sign in to Asana</b></div>
+          </div>
+          <div class="body center" style="align-content: center">
+            <div>
+              <div class="spinner"></div>
+              <b style="font-size: 17px; color: var(--z900)"
+                >Waiting for you to approve</b
+              >
+              <p style="margin: 6px 0 18px">
+                Finish signing in in your browser. This screen updates by
+                itself. The request expires after a few minutes.
+              </p>
+              <span class="btn block"
+                ><svg><use href="#i-ext" /></svg>Open the browser again</span
+              >
+              <span
+                class="btn block danger"
+                style="margin-top: 8px; border-color: transparent"
+                >Cancel</span
+              >
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c2">2</span><b>OAuth in progress.</b>
+          <code>POST …/auth</code> returns an <code>authorization_url</code>.
+          The app opens it and polls <code>GET /oauth/flows/{id}</code>. Cancel
+          calls <code>DELETE</code>, which frees the server's "already in
+          progress" slot. On success the screen closes and runs a test, so the
+          tool list appears straight away.
+        </figcaption>
+      </figure>
+    </div>
+
+    <div class="row">
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-close" /></svg
+            ></span>
+            <div class="t">
+              <b>Add server</b
+              ><small
+                ><span class="profile-chip"
+                  ><span class="dot"></span>default</span
+                ></small
+              >
+            </div>
+            <span class="btn primary" style="height: 36px">Add</span>
+          </div>
+          <div class="body pad">
+            <div class="seg" style="margin: 8px 0 16px">
+              <div class="on">Remote (URL)</div>
+              <div>Command</div>
+            </div>
+            <div class="field">
+              <label>Name</label>
+              <div class="input">linear</div>
+            </div>
+            <div class="field">
+              <label>URL</label>
+              <div class="input mono">https://mcp.linear.app/mcp</div>
+            </div>
+            <div class="field">
+              <label>Authentication</label>
+              <div class="seg">
+                <div>None</div>
+                <div>Bearer token</div>
+                <div class="on">OAuth</div>
+              </div>
+              <div class="hint">
+                After adding, you sign in from the server's page.
+              </div>
+            </div>
+            <div class="field">
+              <label>Bearer token</label>
+              <div class="input mono" style="opacity: 0.5">
+                <span class="ph">Only for "Bearer token"</span>
+              </div>
+              <div class="hint">
+                Write-only. Hermes keeps it and never returns it.
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c3">3</span><b>Add: remote.</b> Maps to
+          <code>POST /api/mcp/servers</code> (<code>url</code>,
+          <code>auth</code>, <code>bearer_token</code>). A name that already
+          exists comes back as a 409 and is shown under the Name field.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-close" /></svg
+            ></span>
+            <div class="t"><b>Add server</b></div>
+            <span class="btn primary" style="height: 36px">Add</span>
+          </div>
+          <div class="body pad" style="opacity: 0.4">
+            <div class="seg" style="margin: 8px 0 16px">
+              <div>Remote (URL)</div>
+              <div class="on">Command</div>
+            </div>
+            <div class="field">
+              <label>Name</label>
+              <div class="input">notes-fs</div>
+            </div>
+            <div class="field">
+              <label>Command</label>
+              <div class="input mono">npx</div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" style="top: 150px">
+            <div class="grab"></div>
+            <h3>Run this on your server?</h3>
+            <div class="hint" style="margin: 0 0 12px">
+              A command server is a program that runs on
+              <b>your Hermes host</b>, with that machine's permissions, every
+              time a chat uses it.
+            </div>
+            <div class="code"><div class="ln"><span class="k">command</span> npx</div><div class="ln"><span class="k">args</span> -y</div><div class="ln">&nbsp;&nbsp;@modelcontextprotocol/server-filesystem</div><div class="ln">&nbsp;&nbsp;/srv/notes</div><div class="ln"><span class="k">env</span> NOTES_TOKEN=<span class="hl">••••••</span></div></div>
+            <div class="banner warn" style="margin: 12px 0">
+              <svg><use href="#i-warn" /></svg
+              ><span
+                >Only add commands you recognise. This cannot be undone from the
+                app, but you can remove the server afterwards.</span
+              >
+            </div>
+            <span class="btn primary block">Add and run on server</span>
+            <span
+              class="btn block"
+              style="margin-top: 8px; border-color: transparent"
+              >Back to edit</span
+            >
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c3">3</span><b>Review step (guardrail).</b> Required
+          before saving a command server, showing the exact command, args and
+          env <i>key names</i> (values hidden). Remote servers skip it. If
+          Hermes rejects the config as suspicious, its message replaces this
+          sheet.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>5G ▮</span></div>
+          <div class="appbar">
+            <span class="ib"
+              ><svg><use href="#i-back" /></svg
+            ></span>
+            <div class="t">
+              <b>Edit as JSON</b><small>default profile · mcp_servers</small>
+            </div>
+            <span class="btn primary" style="height: 36px">Save</span>
+          </div>
+          <div class="body pad">
+            <div class="banner warn" style="margin: 6px 0 10px">
+              <svg><use href="#i-warn" /></svg
+              ><span
+                ><b>Replaces all servers.</b> Anything you remove here is
+                deleted, not just switched off.</span
+              >
+            </div>
+            <div class="code" style="height:400px"><div class="ln">{</div><div class="ln">&nbsp;&nbsp;<span class="k">"grafana"</span>: {</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"url"</span>: "https://mcp.grafana.com/mcp",</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"auth"</span>: "oauth"</div><div class="ln">&nbsp;&nbsp;},</div><div class="ln">&nbsp;&nbsp;<span class="k">"filesystem"</span>: {</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"command"</span>: "npx",</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"args"</span>: ["-y",</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"@modelcontextprotocol/server-filesystem",</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"/srv/notes"],</div><div class="ln">&nbsp;&nbsp;&nbsp;&nbsp;<span class="k">"enabled"</span>: false</div><div class="ln">&nbsp;&nbsp;}</div><div class="ln">}</div></div>
+            <div class="banner bad" style="margin-top: 10px">
+              <svg><use href="#i-warn" /></svg
+              ><span>Line 6: "filesystem" needs a "url" or a "command".</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c3">3</span><b>JSON editor.</b> Loads the current
+          map, saves with <code>PUT /api/mcp/servers</code> (whole-map replace).
+          Hermes' validation issues are shown as a list. A command server added
+          here goes through the same review sheet. Secret values arrive
+          redacted, so saving them back unchanged must not overwrite the stored
+          ones (see design).
+        </figcaption>
+      </figure>
+    </div>
+
+    <!-- =================================================== MAC =================================================== -->
+    <h2>Mac (and other wide windows)</h2>
+
+    <div class="row">
+      <figure class="wide">
+        <div class="mac">
+          <div class="titlebar">
+            <i></i><i></i><i></i><span style="margin-left: 8px">Hermes</span>
+          </div>
+          <div class="macbody">
+            <div class="rail">
+              <div class="on">
+                <span class="pill"
+                  ><svg><use href="#i-chat" /></svg></span
+                >Chat
+              </div>
+              <div>
+                <span class="pill"
+                  ><svg><use href="#i-kanban" /></svg></span
+                >Kanban
+              </div>
+            </div>
+            <div class="pane">
+              <div class="appbar">
+                <span class="ib"
+                  ><svg><use href="#i-back" /></svg
+                ></span>
+                <div class="t"><b>MCP servers</b></div>
+                <span class="profile-chip"
+                  ><span class="dot"></span>Profile: default</span
+                ><span class="btn" style="margin-left: 10px; height: 34px"
+                  ><svg><use href="#i-plus" /></svg>Add</span
+                >
+              </div>
+              <div class="split">
+                <div class="left">
+                  <div class="list">
+                    <div class="item sel">
+                      <div class="avatar">g</div>
+                      <div class="main">
+                        <b>grafana</b><small>https://mcp.grafana.com/mcp</small>
+                        <div class="chips">
+                          <span class="chip">Remote</span
+                          ><span class="chip">OAuth</span
+                          ><span class="chip ok">35 tools</span>
+                        </div>
+                      </div>
+                      <div class="switch on"></div>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">c</div>
+                      <div class="main">
+                        <b>context7</b
+                        ><small>https://mcp.context7.com/mcp</small>
+                        <div class="chips">
+                          <span class="chip">Remote</span
+                          ><span class="chip">No auth</span>
+                        </div>
+                      </div>
+                      <div class="switch on"></div>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">a</div>
+                      <div class="main">
+                        <b>asana</b><small>https://mcp.asana.com/sse</small>
+                        <div class="chips">
+                          <span class="chip">Remote</span
+                          ><span class="chip warn">Sign in needed</span>
+                        </div>
+                      </div>
+                      <div class="switch on"></div>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">f</div>
+                      <div class="main">
+                        <b>filesystem</b
+                        ><small class="mono"
+                          >npx -y @modelcontextprotocol/server-fs…</small
+                        >
+                        <div class="chips">
+                          <span class="chip">Command</span
+                          ><span class="chip">Off</span>
+                        </div>
+                      </div>
+                      <div class="switch"></div>
+                    </div>
+                  </div>
+                  <div class="hint" style="margin: 10px 4px">
+                    Changes apply to the next chat.
+                  </div>
+                </div>
+                <div class="right">
+                  <h3>grafana</h3>
+                  <div class="sub">
+                    Query metrics, logs, dashboards and alerts from Grafana
+                    Cloud.
+                  </div>
+                  <dl class="kv">
+                    <dt>Transport</dt>
+                    <dd>Remote (streamable HTTP)</dd>
+                    <dt>URL</dt>
+                    <dd class="mono">https://mcp.grafana.com/mcp</dd>
+                    <dt>Sign-in</dt>
+                    <dd>OAuth · signed in</dd>
+                    <dt>Enabled</dt>
+                    <dd>
+                      <span
+                        class="switch on"
+                        style="display: inline-block; vertical-align: middle"
+                      ></span>
+                    </dd>
+                  </dl>
+                  <div class="actions">
+                    <span class="btn"
+                      ><svg><use href="#i-test" /></svg>Test connection</span
+                    ><span class="btn"
+                      ><svg><use href="#i-code" /></svg>Edit as JSON</span
+                    ><span class="btn danger"
+                      ><svg><use href="#i-trash" /></svg>Remove</span
+                    >
+                  </div>
+                  <div
+                    class="banner"
+                    style="
+                      background: #f0fdf4;
+                      border: 1px solid #bbf7d0;
+                      color: #14532d;
+                      margin-bottom: 6px;
+                    "
+                  >
+                    <svg><use href="#i-test" /></svg
+                    ><span
+                      ><b>Connected.</b> 35 tools · 2 prompts · 0
+                      resources</span
+                    >
+                  </div>
+                  <div class="sect">Tools</div>
+                  <div class="card">
+                    <div class="tool">
+                      <span class="sz">1.2k chars</span><b>query_prometheus</b
+                      ><small>Run a PromQL query against a datasource.</small>
+                    </div>
+                    <div class="tool">
+                      <span class="sz">0.9k</span><b>query_loki_logs</b
+                      ><small
+                        >Run a LogQL query and return matching lines.</small
+                      >
+                    </div>
+                    <div class="tool">
+                      <span class="sz">0.6k</span><b>search_dashboards</b
+                      ><small>Find dashboards by title, tag or folder.</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag">1</span><b>Installed servers, two panes.</b> Same
+          data as the phone list and detail, shown side by side from about
+          900&nbsp;px wide. The tool count on a row appears once that server has
+          been tested in this session.
+        </figcaption>
+      </figure>
+
+      <figure class="wide">
+        <div class="mac">
+          <div class="titlebar">
+            <i></i><i></i><i></i><span style="margin-left: 8px">Hermes</span>
+          </div>
+          <div class="macbody">
+            <div class="rail">
+              <div class="on">
+                <span class="pill"
+                  ><svg><use href="#i-chat" /></svg></span
+                >Chat
+              </div>
+              <div>
+                <span class="pill"
+                  ><svg><use href="#i-kanban" /></svg></span
+                >Kanban
+              </div>
+            </div>
+            <div class="pane">
+              <div class="appbar">
+                <span class="ib"
+                  ><svg><use href="#i-back" /></svg
+                ></span>
+                <div class="t"><b>Catalog</b></div>
+                <span class="profile-chip"
+                  ><span class="dot"></span>Installing into: default</span
+                >
+              </div>
+              <div class="split" style="position: relative">
+                <div class="left" style="width: 460px">
+                  <div class="search" style="margin-bottom: 10px">
+                    <svg><use href="#i-search" /></svg>Search 65 servers
+                  </div>
+                  <div class="filters">
+                    <span class="chip on">All</span
+                    ><span class="chip">Remote</span
+                    ><span class="chip">Command</span
+                    ><span class="chip">OAuth</span>
+                  </div>
+                  <div class="list">
+                    <div class="item">
+                      <div class="avatar">a</div>
+                      <div class="main">
+                        <b>airtable</b
+                        ><small>Read and write Airtable bases.</small>
+                      </div>
+                      <span class="chip">API key</span>
+                    </div>
+                    <div class="item sel">
+                      <div class="avatar">a</div>
+                      <div class="main">
+                        <b>asana</b
+                        ><small>Tasks, projects and workspaces.</small>
+                      </div>
+                      <span class="chip ok">Installed</span>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">b</div>
+                      <div class="main">
+                        <b>betterstack</b
+                        ><small>Uptime, incidents and logs.</small>
+                      </div>
+                      <span class="chip">OAuth</span>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">b</div>
+                      <div class="main">
+                        <b>buildkite</b><small>Pipelines and builds.</small>
+                      </div>
+                      <span class="chip">Builds locally</span>
+                    </div>
+                    <div class="item">
+                      <div class="avatar">c</div>
+                      <div class="main">
+                        <b>context7</b><small>Up-to-date library docs.</small>
+                      </div>
+                      <span class="chip ok">Installed</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="right">
+                  <h3>airtable</h3>
+                  <div class="sub">
+                    Read and write Airtable bases. · airtable.com/developers
+                  </div>
+                  <div class="sect" style="margin-top: 6px">
+                    What Hermes will run
+                  </div>
+                  <div class="code"><div class="ln"><span class="k">type</span> remote (http)</div><div class="ln"><span class="k">url</span> https://mcp.airtable.com/mcp</div><div class="ln"><span class="k">auth</span> API key</div></div>
+                  <div class="sect">Credentials</div>
+                  <div class="field">
+                    <label
+                      >AIRTABLE_API_KEY
+                      <span style="color: var(--err)">required</span></label
+                    >
+                    <div class="input mono">
+                      <span class="ph">Personal access token</span>
+                    </div>
+                    <div class="hint">
+                      Saved on your Hermes server. It is never shown again.
+                    </div>
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 12px;
+                      margin: 2px 0 14px;
+                    "
+                  >
+                    <div class="switch on"></div>
+                    <span>Turn on after installing</span>
+                  </div>
+                  <span class="btn primary">Install on "default"</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c2">2</span><b>Catalog, two panes.</b> The install
+          form lives in the right pane instead of a sheet.
+        </figcaption>
+      </figure>
+
+      <figure class="wide">
+        <div class="mac">
+          <div class="titlebar">
+            <i></i><i></i><i></i><span style="margin-left: 8px">Hermes</span>
+          </div>
+          <div class="macbody">
+            <div class="rail">
+              <div class="on">
+                <span class="pill"
+                  ><svg><use href="#i-chat" /></svg></span
+                >Chat
+              </div>
+              <div>
+                <span class="pill"
+                  ><svg><use href="#i-kanban" /></svg></span
+                >Kanban
+              </div>
+            </div>
+            <div class="pane">
+              <div class="appbar">
+                <span class="ib"
+                  ><svg><use href="#i-back" /></svg
+                ></span>
+                <div class="t"><b>Add server</b></div>
+                <span class="profile-chip"
+                  ><span class="dot"></span>default</span
+                >
+              </div>
+              <div
+                class="body"
+                style="padding: 22px 40px; max-width: 640px; opacity: 0.45"
+              >
+                <div class="seg" style="margin-bottom: 16px; width: 280px">
+                  <div>Remote (URL)</div>
+                  <div class="on">Command</div>
+                </div>
+                <div class="field">
+                  <label>Name</label>
+                  <div class="input">notes-fs</div>
+                </div>
+                <div class="field">
+                  <label>Command</label>
+                  <div class="input mono">npx</div>
+                </div>
+                <div class="field">
+                  <label>Arguments</label>
+                  <div class="input mono">
+                    -y @modelcontextprotocol/server-filesystem /srv/notes
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Environment</label>
+                  <div class="input mono">NOTES_TOKEN = ••••••</div>
+                </div>
+              </div>
+              <div class="scrim"></div>
+              <div class="dialog">
+                <h3>Run this on your server?</h3>
+                <div class="hint" style="margin: 0 0 12px">
+                  A command server is a program that runs on
+                  <b>your Hermes host</b>, with that machine's permissions,
+                  every time a chat uses it.
+                </div>
+                <div class="code"><div class="ln"><span class="k">command</span> npx</div><div class="ln"><span class="k">args</span> -y @modelcontextprotocol/server-filesystem /srv/notes</div><div class="ln"><span class="k">env</span> NOTES_TOKEN=<span class="hl">••••••</span></div></div>
+                <div class="btns">
+                  <span class="btn">Back to edit</span
+                  ><span class="btn primary">Add and run on server</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <span class="tag c3">3</span><b>Review step on desktop.</b> A centred
+          dialog over the add form. Same wording and same rule as the phone
+          sheet. The JSON editor uses the full window with the same warning
+          banner and error list as the phone.
+        </figcaption>
+      </figure>
+    </div>
+  </body>
+</html>
