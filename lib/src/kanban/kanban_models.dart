@@ -450,3 +450,76 @@ class KanbanOrchestration {
   final bool autoPromoteChildren;
   final String activeProfile;
 }
+
+/// A rough size for a task, from the plugin's language-model helper. Not a
+/// cost in money: a token count and a small/medium/large read.
+class KanbanEstimate {
+  const KanbanEstimate({
+    required this.ok,
+    this.tokens,
+    this.complexity,
+    this.rationale,
+    this.reason,
+  });
+
+  factory KanbanEstimate.fromJson(Map<String, dynamic> json) => KanbanEstimate(
+    ok: json['ok'] == true,
+    tokens: json['est_tokens'] is num
+        ? (json['est_tokens'] as num).toInt()
+        : null,
+    complexity: _text(json['complexity']),
+    rationale: _text(json['rationale']),
+    reason: _text(json['reason']),
+  );
+
+  /// False when the helper could not answer (no model configured, a provider
+  /// error); [reason] then says why. That is an answer, not an HTTP error.
+  final bool ok;
+  final int? tokens;
+  final String? complexity;
+  final String? rationale;
+  final String? reason;
+
+  /// `about 12k tokens · medium`, or the reason when there is no estimate.
+  String get summary {
+    if (!ok) return reason ?? 'No estimate available.';
+    final size = tokens == null
+        ? null
+        : tokens! >= 1000
+        ? 'about ${(tokens! / 1000).round()}k tokens'
+        : 'about $tokens tokens';
+    final read = switch (complexity?.toUpperCase()) {
+      'S' => 'small',
+      'M' => 'medium',
+      'L' => 'large',
+      final other => other,
+    };
+    final text = [?size, ?read].join(' · ');
+    return text.isEmpty ? 'No estimate available.' : text;
+  }
+}
+
+/// A messenger's home channel a task can post updates to.
+class KanbanHomeChannel {
+  const KanbanHomeChannel({
+    required this.platform,
+    required this.name,
+    this.subscribed = false,
+  });
+
+  factory KanbanHomeChannel.fromJson(Map<String, dynamic> json) =>
+      KanbanHomeChannel(
+        platform: json['platform'] is String ? json['platform'] as String : '',
+        name:
+            _text(json['name']) ??
+            (json['platform'] is String ? json['platform'] as String : ''),
+        subscribed: json['subscribed'] == true,
+      );
+
+  final String platform;
+  final String name;
+  final bool subscribed;
+
+  KanbanHomeChannel withSubscribed(bool value) =>
+      KanbanHomeChannel(platform: platform, name: name, subscribed: value);
+}

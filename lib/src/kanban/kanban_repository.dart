@@ -278,6 +278,66 @@ class KanbanRepository {
   Future<Uint8List> downloadAttachment(int id, {String? board}) =>
       _guard(() => client.fetchKanbanAttachment(id, board: board));
 
+  /// Sizes up an existing task.
+  Future<KanbanEstimate> estimateTask(String id, {String? board}) =>
+      _guard(() async {
+        final response = await _api
+            .estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(
+              taskId: id,
+              board: board,
+            );
+        return KanbanEstimate.fromJson(_map(response.data));
+      });
+
+  /// Sizes up a task that does not exist yet, from its title and description.
+  Future<KanbanEstimate> estimateText(String title, {String? body}) =>
+      _guard(() async {
+        final response = await _api
+            .estimateTextEndpointApiPluginsKanbanEstimatePost(
+              estimateBody: EstimateBody(title: title, body: body),
+            );
+        return KanbanEstimate.fromJson(_map(response.data));
+      });
+
+  /// The messengers with a home channel, and whether [taskId] posts to each.
+  Future<List<KanbanHomeChannel>> loadHomeChannels(
+    String taskId, {
+    String? board,
+  }) async {
+    final response = await _api.getHomeChannelsApiPluginsKanbanHomeChannelsGet(
+      taskId: taskId,
+      board: board,
+    );
+    final channels = _map(response.data)['home_channels'];
+    return [
+      if (channels is List)
+        for (final c in channels)
+          if (c is Map<String, dynamic>)
+            if (KanbanHomeChannel.fromJson(c) case final channel
+                when channel.platform.isNotEmpty)
+              channel,
+    ];
+  }
+
+  Future<void> setHomeSubscription(
+    String taskId,
+    String platform, {
+    required bool subscribed,
+    String? board,
+  }) => _guard(
+    () => subscribed
+        ? _api.subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(
+            taskId: taskId,
+            platform: platform,
+            board: board,
+          )
+        : _api.unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(
+            taskId: taskId,
+            platform: platform,
+            board: board,
+          ),
+  );
+
   Future<void> removeAttachment(int id, {String? board}) => _guard(
     () => _api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(
       attachmentId: id,
