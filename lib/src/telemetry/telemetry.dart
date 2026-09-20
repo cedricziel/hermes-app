@@ -33,7 +33,7 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
-          attributes: deviceAttributes(),
+          attributes: await deviceAttributes(),
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
