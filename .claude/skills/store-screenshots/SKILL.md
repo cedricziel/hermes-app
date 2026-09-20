@@ -61,5 +61,9 @@ version>`. Check the editable version on App Store Connect first and pass
   widening it by hand works.
 - Simulators must be `en_US` (the script sets it), or the iPad status bar shows
   the date in the system language.
-- No watchOS simulator runtime is installed, so there are no watch screenshots.
+- The watch shot needs the watchOS runtime (Xcode > Settings > Components) and
+  `store-screenshots.sh watch`. The watch app asks the paired phone app, which
+  must be running, and a hand-installed watch app is not noticed for about a
+  minute, so the run waits before it launches the watch app. A simulator can't
+  be tapped, so it is only the first screen, the thread list.
 - `op` can time out once waiting for approval in the 1Password app. Retry.

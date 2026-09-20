@@ -26,10 +26,11 @@ DOCS = ROOT / "docs" / "screenshots"
 LISTING = {
     "iphone": [("light", "chat"), ("light", "threads"), ("light", "welcome"), ("dark", "chat")],
     "ipad": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
+    "watch": [("light", "threads")],
     "mac": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
 }
-PLATFORM = {"iphone": "ios", "ipad": "ios", "mac": "mac"}
-README_WIDTH = {"iphone": 540, "ipad": 1000, "mac": 1600}
+PLATFORM = {"iphone": "ios", "ipad": "ios", "watch": "ios", "mac": "mac"}
+README_WIDTH = {"iphone": 540, "ipad": 1000, "watch": 422, "mac": 1600}
 MAC_CANVAS = (2880, 1800)
 MAC_MAX_WINDOW = (2720, 1700)
 

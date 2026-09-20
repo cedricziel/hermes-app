@@ -3,7 +3,8 @@
 # throwaway Hermes backend seeded with invented demo chats.
 #
 #   scripts/store-screenshots.sh ios [iphone|ipad]   # simulators, light and dark
-#   scripts/store-screenshots.sh mac       # the Mac app's window, light and dark
+#   scripts/store-screenshots.sh mac       # the Mac window at its default (compact) size
+#   scripts/store-screenshots.sh watch     # the watch app, through its paired phone (~3 min)
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
 # Raw captures land in build/screenshots/<device>-<light|dark>/, the finished
@@ -11,7 +12,8 @@
 # them) and the README-sized ones in docs/screenshots/.
 #
 # The Mac run opens the app and takes over the screen for a few minutes (the
-# window has to be in front to be captured), so leave the machine alone.
+# window has to be in front to be captured), so leave the machine alone. The
+# wide Mac shots are taken by hand; see the store-screenshots skill.
 #
 # Needs `hermes` on PATH (see scripts/dev-backend.sh), Xcode with iOS 26
 # simulators and Python 3 with Pillow. Each run boots the two simulators and
@@ -23,6 +25,7 @@ RAW_DIR="$ROOT_DIR/build/screenshots"
 PORT="${SHOT_PORT:-45777}"
 IPHONE="${SHOT_IPHONE:-iPhone 17 Pro Max}"
 IPAD="${SHOT_IPAD:-iPad Pro 13-inch (M5)}"
+WATCH="${SHOT_WATCH:-Apple Watch Ultra 4 (49mm)}"
 RUNTIME="${SHOT_RUNTIME:-iOS-26}"
 HERMES_PYTHON="${HERMES_PYTHON:-$HOME/.hermes/hermes-agent/venv/bin/python}"
 
@@ -112,12 +115,59 @@ cmd_mac() {
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
 
+# The watch and the phone it is paired with; Xcode pairs the simulators.
+pair_of() { # watch name -> "<watch udid> <phone udid>"
+  xcrun simctl list pairs -j | python3 -c '
+import json, sys
+name = sys.argv[1]
+for pair in json.load(sys.stdin)["pairs"].values():
+    if pair["watch"]["name"] == name:
+        print(pair["watch"]["udid"], pair["phone"]["udid"])
+        sys.exit(0)
+sys.exit(f"no simulator pair with {name}; the watchOS runtime may be missing")
+' "$1"
+}
+
+# The watch app has no data of its own: it asks the phone app, which asks the
+# backend. So the phone app runs too, and the watch screen is captured after the
+# threads have come back. Needs the watchOS simulator runtime (Xcode > Settings
+# > Components). The simulator cannot be tapped, so this is the screen the watch
+# app opens on.
+cmd_watch() {
+  local url pair watch phone app
+  pair="$(pair_of "$WATCH")"
+  read -r watch phone <<<"$pair"
+  url="$(start_backend)"
+  xcrun simctl bootstatus "$phone" -b >/dev/null
+  xcrun simctl bootstatus "$watch" -b >/dev/null
+
+  flutter build ios --simulator --debug --no-codesign -d "$phone" \
+    --dart-define=HERMES_SERVER_URL="$url"
+  app="$ROOT_DIR/build/ios/iphonesimulator/Runner.app"
+  xcrun simctl install "$phone" "$app"
+  # Installing the phone app does not install the watch app inside it.
+  xcrun simctl install "$watch" "$app/Watch/HermesWatch.app"
+  xcrun simctl launch "$phone" com.cedricziel.hermesApp
+
+  # The phone takes a minute to notice the hand-installed watch app, and a
+  # request made before then waits. Start the watch app afterwards.
+  sleep 100
+  xcrun simctl terminate "$watch" com.cedricziel.hermesApp.watchkitapp || true
+  xcrun simctl launch "$watch" com.cedricziel.hermesApp.watchkitapp
+  sleep 20
+
+  mkdir -p "$RAW_DIR/watch-light"
+  xcrun simctl io "$watch" screenshot --type=png "$RAW_DIR/watch-light/threads.png"
+  "$ROOT_DIR/scripts/dev-backend.sh" stop || true
+}
+
 case "${1:-}" in
   ios) shift; cmd_ios "$@" ;;
   mac) cmd_mac ;;
+  watch) cmd_watch ;;
   finish) python3 "$ROOT_DIR/scripts/finish_screenshots.py" ;;
   *)
-    echo "usage: $0 ios [iphone|ipad] | mac | finish" >&2
+    echo "usage: $0 ios [iphone|ipad] | mac | watch | finish" >&2
     exit 2
     ;;
 esac
