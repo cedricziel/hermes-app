@@ -148,6 +148,12 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 - **THEN** the state is connection error
 - **AND** the message is the server's `detail` string if present, otherwise "Could not load sign-in options" for network failures
 
+#### Scenario: Providers response is malformed
+
+- **WHEN** auth is required and the providers response is not an object, its `providers` is not a list, or a row is not an object
+- **THEN** the state is connection error
+- **AND** the message is "Could not load sign-in options"
+
 #### Scenario: Session check fails for a transient reason
 
 - **WHEN** a stored session is found and the identity request fails because of a network error or a 5xx answer
@@ -306,7 +312,7 @@ The system SHALL report the connection state changes and the outcome of each sig
 
 ### Requirement: Tokens are stored only in secure storage
 
-The system SHALL keep the session (access token, refresh token, expiry, provider and user id) only in the platform secure storage (Keychain on iOS and macOS, Keystore-backed encrypted preferences on Android), under a single versioned key. It SHALL NOT use cookies or plain preferences for tokens. The saved server address is not a secret and SHALL be kept in ordinary preferences. An unparseable stored value SHALL be deleted and treated as signed out.
+The system SHALL keep the session (access token, refresh token, expiry, provider and user id) only in the platform secure storage (Keychain on iOS and macOS, Keystore-backed encrypted preferences on Android), under a single versioned key. It SHALL NOT use cookies or plain preferences for tokens. The saved server address is not a secret and SHALL be kept in ordinary preferences. A stored value that cannot be turned into a session (invalid JSON, JSON that is not an object, fields of the wrong type) or a failure to read the secure storage SHALL be treated as signed out, and the stored value SHALL be deleted on a best-effort basis.
 
 #### Scenario: Session persists across launches
 
@@ -317,6 +323,11 @@ The system SHALL keep the session (access token, refresh token, expiry, provider
 
 - **WHEN** the stored value is not valid JSON
 - **THEN** it is cleared and the user is treated as signed out
+
+#### Scenario: Stored value is valid JSON but not a session
+
+- **WHEN** the stored value is valid JSON that is not an object, or the secure storage throws while reading
+- **THEN** the user is treated as signed out and the state is needs login, not left on connecting
 
 ### Requirement: Authenticated requests carry a fresh bearer token
 
