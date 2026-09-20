@@ -4,13 +4,18 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../../api/hermes_api_client.dart';
 import 'hermes_gateway_transport.dart';
 
-/// The `/api/ws` URL for the dashboard at [baseUrl], with the credential
-/// [query] (`token` or `ticket`).
-Uri gatewayUri(String baseUrl, Map<String, String> query) {
+/// The WebSocket URL of [path] (the gateway's `/api/ws` unless told
+/// otherwise) on the dashboard at [baseUrl], with the credential [query]
+/// (`token` or `ticket`).
+Uri gatewayUri(
+  String baseUrl,
+  Map<String, String> query, {
+  String path = '/api/ws',
+}) {
   final base = Uri.parse(baseUrl);
   return base.replace(
     scheme: base.scheme == 'https' ? 'wss' : 'ws',
-    path: '${base.path}/api/ws',
+    path: '${base.path}$path',
     queryParameters: query,
   );
 }
@@ -21,13 +26,20 @@ Future<StreamChannel<String>> _openWebSocket(Uri uri) async {
   return channel.cast<String>();
 }
 
-/// Connects to the dashboard's gateway: with a single-use ticket when the
+/// Opens a WebSocket to a dashboard [path], optionally with extra [query]
+/// parameters beside the credential.
+typedef SocketConnect = Future<StreamChannel<String>> Function([
+  Map<String, String> query,
+]);
+
+/// Connects to a dashboard WebSocket: with a single-use ticket when the
 /// dashboard is gated ([authRequired]), else with the page's session token.
 /// Credentials are fetched per connection, since a ticket works only once.
-GatewayConnect hermesGatewayConnect({
+SocketConnect hermesSocketConnect({
   required String baseUrl,
   required bool authRequired,
   required HermesApiClient api,
+  String path = '/api/ws',
   Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
 }) {
   Future<Map<String, String>> credential() async {
@@ -42,5 +54,22 @@ GatewayConnect hermesGatewayConnect({
     return {'token': token};
   }
 
-  return () async => open(gatewayUri(baseUrl, await credential()));
+  return ([query = const {}]) async =>
+      open(gatewayUri(baseUrl, {...query, ...await credential()}, path: path));
+}
+
+/// Connects to the dashboard's chat gateway (`/api/ws`).
+GatewayConnect hermesGatewayConnect({
+  required String baseUrl,
+  required bool authRequired,
+  required HermesApiClient api,
+  Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
+}) {
+  final connect = hermesSocketConnect(
+    baseUrl: baseUrl,
+    authRequired: authRequired,
+    api: api,
+    open: open,
+  );
+  return () => connect();
 }
