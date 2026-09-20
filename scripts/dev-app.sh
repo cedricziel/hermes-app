@@ -22,7 +22,8 @@ LOG_FILE="$STATE_DIR/app.log"
 FLUTTER_PID_FILE="$STATE_DIR/flutter.pid"
 HOLDER_PID_FILE="$STATE_DIR/holder.pid"
 SHOT_DIR="$STATE_DIR/shots"
-APP_BINARY="$ROOT_DIR/build/macos/Build/Products/Debug/hermes_app.app/Contents/MacOS/hermes_app"
+PRODUCT_NAME="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
+APP_BINARY="$ROOT_DIR/build/macos/Build/Products/Debug/$PRODUCT_NAME.app/Contents/MacOS/$PRODUCT_NAME"
 START_TIMEOUT="${HERMES_DEV_APP_TIMEOUT:-900}"
 
 running() {

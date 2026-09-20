@@ -26,19 +26,23 @@ DOCS = ROOT / "docs" / "screenshots"
 LISTING = {
     "iphone": [("light", "chat"), ("light", "threads"), ("light", "welcome"), ("dark", "chat")],
     "ipad": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
-    "mac": [("light", "chat"), ("light", "threads"), ("dark", "chat")],
+    "mac": [("light", "chat"), ("light", "welcome"), ("dark", "chat")],
 }
 PLATFORM = {"iphone": "ios", "ipad": "ios", "mac": "mac"}
 README_WIDTH = {"iphone": 540, "ipad": 1000, "mac": 1600}
 MAC_CANVAS = (2880, 1800)
-MAC_MAX_WINDOW = (2560, 1600)
+MAC_MAX_WINDOW = (2720, 1700)
 
 # Areas to flatten, per device and screen (None means every screen), each with
 # a pixel that has the colour of the empty space around it: the account row
 # with the dev address, and the window handle iPadOS draws in a corner.
 ERASE = {
     "iphone": {"threads": [((0, 2380, 830, 2495), (400, 2374))]},
-    "mac": {"threads": [((0, 1008, 554, 1092), (280, 1000))]},
+    "mac": {
+        # The wide window (widened by hand): the sidebar's account row.
+        None: [((168, 1748, 705, 1832), (400, 1738))],
+    },
+    "mac-compact": {"threads": [((0, 1008, 554, 1092), (280, 1000))]},
     "ipad": {
         None: [
             ((165, 2620, 722, 2705), (400, 2612)),
@@ -86,11 +90,23 @@ def main() -> None:
     made = 0
     for device, screens in LISTING.items():
         store_dir = STORE / PLATFORM[device] / "en-US"
+        cleared = False
         for index, (appearance, screen) in enumerate(screens, start=1):
+            # The Mac is captured wide by hand, or compact by the script.
+            variant = device
             source = RAW / f"{device}-{appearance}" / f"{screen}.png"
+            if device == "mac" and not source.exists():
+                variant = "mac-compact"
+                source = RAW / f"{variant}-{appearance}" / f"{screen}.png"
             if not source.exists():
                 continue
-            image = tidy(device, screen, Image.open(source))
+            if not cleared:
+                # A screen dropped from the listing must not linger and get uploaded.
+                for folder in (store_dir, DOCS):
+                    for old in folder.glob(f"{device}-*.png"):
+                        old.unlink()
+                cleared = True
+            image = tidy(variant, screen, Image.open(source))
             image = mac_canvas(image, appearance) if device == "mac" else image.convert("RGB")
 
             store_dir.mkdir(parents=True, exist_ok=True)

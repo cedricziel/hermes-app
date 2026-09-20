@@ -13,7 +13,7 @@ rotation). No real server, account or chat is in them.
 | `iphone-threads.png`                                      | The thread list, with a pinned chat                    |
 | `iphone-welcome.png`                                      | A new chat with its starter prompts                    |
 | `ipad-chat.png`, `ipad-chat-dark.png`, `ipad-welcome.png` | The wide layout: navigation rail, thread list and chat |
-| `mac-chat.png`, `mac-chat-dark.png`, `mac-threads.png`    | The Mac window, which opens in the compact layout      |
+| `mac-chat.png`, `mac-chat-dark.png`, `mac-welcome.png`    | The wide layout in a Mac window                        |
 
 ## Retake them
 
@@ -22,13 +22,13 @@ iOS 26 simulators, and Python 3 with Pillow.
 
 ```bash
 scripts/store-screenshots.sh ios       # iPhone 17 Pro Max and iPad Pro 13-inch simulators, light and dark
-scripts/store-screenshots.sh mac       # the Mac app window, light and dark
+scripts/store-screenshots.sh mac       # the Mac window at its default, compact size
 scripts/store-screenshots.sh finish    # flatten, size and write the images
 ```
 
-The Mac run opens the app and takes over the screen for a few minutes, because
-a window has to be in front to be captured. Leave the machine alone until it is
-done. `ios iphone` or `ios ipad` retakes just one of the two.
+`ios iphone` or `ios ipad` retakes just one of the two. The `mac` run opens the
+app and takes over the screen for a few minutes, because a window has to be in
+front to be captured; leave the machine alone until it is done.
 
 What happens:
 
@@ -55,10 +55,15 @@ Raw captures go to `build/screenshots/`. The store images go to
 | Mac               | 2880 x 1800 | Mac           |
 
 The Mac window opens at 800 x 600 points, below the 900 point breakpoint of the
-wide layout, so the Mac shots show the compact layout, with the thread list in
-a drawer. Making the window wider for a run needs Accessibility permission for
-the terminal, or a window size that reaches the built app; setting it in the
-xib and in `MainFlutterWindow.swift` did not.
+wide layout, so `mac` takes the compact one, with the thread list in a drawer.
+A script can't widen the window without Accessibility permission for the
+terminal, and setting the size in the xib or in `MainFlutterWindow.swift` did
+not reach the built app. The wide Mac shots are taken by hand instead: start
+the backend and seed it, run `scripts/dev-app.sh start`, widen the window, open
+the chat, and run `scripts/dev-app.sh screenshot
+build/screenshots/mac-light/chat.png`. Do the same for `welcome.png`, then
+switch the app to dark for `mac-dark/chat.png`. `finish` prefers these over the
+compact ones.
 
 The Apple Watch app has no screenshots here: it needs a watchOS simulator
 runtime, which this setup doesn't install.
