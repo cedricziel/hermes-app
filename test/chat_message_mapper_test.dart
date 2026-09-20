@@ -116,6 +116,25 @@ void main() {
       expect(second.metadata![kMetaToolStatus], 'running');
     });
 
+    test('shows no thinking dots once a call has reasoning to show', () {
+      final out = chatMessageToFlyer(
+        message(
+          content: '',
+          status: MessageStatus.thinking,
+          toolCalls: const [
+            ToolCall(
+              name: 'shell',
+              summary: 'ls',
+              status: ToolCallStatus.running,
+              reasoning: 'Look first.',
+            ),
+          ],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-tool-0-reasoning', 'm1-tool-0']);
+    });
+
     test('keeps reasoning, calls and text in the order they happened', () {
       final out = chatMessageToFlyer(
         message(

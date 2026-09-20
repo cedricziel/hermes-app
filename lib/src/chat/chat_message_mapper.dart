@@ -18,7 +18,11 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
   final thinking = m.status == MessageStatus.thinking;
-  final showThinking = thinking && !m.awaitingInput && m.reasoning.isEmpty;
+  final showThinking =
+      thinking &&
+      !m.awaitingInput &&
+      m.reasoning.isEmpty &&
+      !m.toolCalls.any((call) => call.reasoning.isNotEmpty);
   final media = m.role == ChatRole.assistant
       ? extractMedia(m.content, complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
