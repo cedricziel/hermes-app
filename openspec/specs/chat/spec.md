@@ -703,7 +703,7 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 #### Scenario: JSON-RPC methods
 
 - **WHEN** the chat talks over `/api/ws`
-- **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), `client.capabilities` (`server_requests`) and `clarify.lock` (`request_id`, `question_id`, `answer`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
+- **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), `client.capabilities` (`server_requests`) and `clarify.lock` (`request_id`, `question_id`, `answer`; a `status` of `expired` means not accepted) and `session.interrupt` (`session_id`; a `status` of `interrupted` means a running turn was stopped), as JSON-RPC 2.0 with integer ids
 - **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
 - **AND** it answers a secret or a sudo request only to skip it: `sudo.respond` (`request_id`, `password` empty) or `secret.respond` (`request_id`, `value` empty), where a `status` of `expired` means not accepted
 
@@ -738,11 +738,45 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 #### Scenario: Events
 
 - **WHEN** the gateway pushes an `event` notification
-- **THEN** its `type` is mapped as follows: `message.start` (reply started), `message.delta` (`text`), `tool.start` (`name`, `context`), `tool.complete` (`name`, `result.error`), `session.title` (`title`), `message.complete` (`text`, `status`), `approval.request` (`request_id`, `command`, `description`, `choices`), `clarify.request` (`request_id` with either `question`, `choices`, `multi_select` or a `questions` list of `qid`, `question`, `choices`, `multi_select`), `secret.request` and `sudo.request` (`request_id` only; the prompt, variable name and metadata are not read), and `approval.expire`, `clarify.expire`, `secret.expire` or `sudo.expire` (`request_id`), and `request.cancel` (`id`, the id of a server-to-client request)
+- **THEN** its `type` is mapped as follows: `message.start` (reply started), `message.delta` (`text`), `tool.start` (`name`, `context`), `tool.complete` (`name`, `result.error`), `session.title` (`title`), `message.complete` (`text`, `status`; `error` marks a failed reply and `interrupted` a stopped one), `approval.request` (`request_id`, `command`, `description`, `choices`), `clarify.request` (`request_id` with either `question`, `choices`, `multi_select` or a `questions` list of `qid`, `question`, `choices`, `multi_select`), `secret.request` and `sudo.request` (`request_id` only; the prompt, variable name and metadata are not read), and `approval.expire`, `clarify.expire`, `secret.expire` or `sudo.expire` (`request_id`), and `request.cancel` (`id`, the id of a server-to-client request)
 - **AND** other event types are ignored
 
 #### Scenario: Socket closes
 
 - **WHEN** the socket closes
 - **THEN** all pending requests fail with a "connection closed" error, later requests fail at once, and frames that are not JSON-RPC are ignored
+
+### Requirement: Stopping a reply
+
+The system SHALL, while a reply is in flight in the open thread, show a bar above the composer saying "Hermes is replying…" with a "Stop" button, and SHALL ask the gateway to interrupt that thread's running turn when the user taps it. The reply SHALL end as a completed reply that keeps what had streamed, or reads "Stopped." when nothing had, and SHALL NOT be shown as failed. The bar SHALL NOT be shown when no reply is in flight, and sending SHALL work again once the reply has ended.
+
+#### Scenario: Stop while replying
+
+- **WHEN** a reply is in flight in the open thread and the user taps "Stop"
+- **THEN** the running turn of that thread is interrupted and the button is disabled while the request is in flight
+
+#### Scenario: The reply ends as stopped
+
+- **WHEN** the gateway completes the turn with the status `interrupted`
+- **THEN** the reply keeps its streamed text, or reads "Stopped." when it had none, and the bar disappears
+
+#### Scenario: Sending again
+
+- **WHEN** a reply was stopped and the user sends another prompt in that thread
+- **THEN** the prompt is sent
+
+#### Scenario: Nothing is replying
+
+- **WHEN** no reply is in flight in the open thread
+- **THEN** no bar and no "Stop" button are shown
+
+#### Scenario: Nothing is running any more
+
+- **WHEN** the gateway reports that no turn was running
+- **THEN** nothing changes and no error is shown
+
+#### Scenario: Stop fails
+
+- **WHEN** sending the interrupt fails
+- **THEN** "Could not stop the reply. Try again." is shown and "Stop" stays available
 
