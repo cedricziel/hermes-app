@@ -41,6 +41,10 @@ class FakeGateway {
 
   bool rejectSubmit = false;
 
+  /// When set, `session.create` and `session.resume` fail with this JSON-RPC
+  /// error code, as a gateway does for a profile that no longer exists.
+  int? sessionErrorCode;
+
   /// How many approvals `approval.respond` reports resolved.
   int approvalsResolved = 1;
 
@@ -98,6 +102,14 @@ class FakeGateway {
     final id = request['id'];
     final params = request['params'] as Map<String, Object?>;
     switch (request['method']) {
+      case 'session.create' || 'session.resume' when sessionErrorCode != null:
+        _send({
+          'id': id,
+          'error': {
+            'code': sessionErrorCode,
+            'message': "profile 'gone' not found",
+          },
+        });
       case 'session.create':
         _send({'id': id, 'result': createResult});
       case 'session.resume':
@@ -484,6 +496,59 @@ void main() {
       reply(threadId: 'gone'),
       throwsA(isA<GatewayRpcException>()),
     );
+  });
+
+  group('a profile that no longer exists', () {
+    setUp(() => gateway.sessionErrorCode = 4064);
+
+    test('fails a new thread with ProfileUnavailableException', () async {
+      await expectLater(
+        reply(profile: 'gone'),
+        throwsA(isA<ProfileUnavailableException>()),
+      );
+
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    });
+
+    test('fails a resumed thread with ProfileUnavailableException', () async {
+      await expectLater(
+        reply(threadId: 'stored-2', profile: 'gone'),
+        throwsA(isA<ProfileUnavailableException>()),
+      );
+
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    });
+
+    test('is not retried and keeps the connection usable', () async {
+      await expectLater(
+        reply(profile: 'gone'),
+        throwsA(isA<ProfileUnavailableException>()),
+      );
+      gateway.sessionErrorCode = null;
+      gateway.turn = plainReply;
+
+      final events = await reply(profile: 'work');
+
+      expect(events.last, isA<ReplyCompleted>());
+      expect(gateway.methods.where((m) => m == 'session.create'), hasLength(2));
+      expect(connects, 1);
+    });
+
+    test('does not leak the gateway message', () async {
+      final error = await reply(profile: 'gone')
+          .then<Object?>((_) => null, onError: (Object e) => e);
+
+      expect(error.toString(), isNot(contains('gone')));
+    });
+
+    test('another error code stays a GatewayRpcException', () async {
+      gateway.sessionErrorCode = 4007;
+
+      await expectLater(
+        reply(profile: 'gone'),
+        throwsA(isA<GatewayRpcException>()),
+      );
+    });
   });
 
   test('a rejected prompt fails the stream instead of hanging', () async {

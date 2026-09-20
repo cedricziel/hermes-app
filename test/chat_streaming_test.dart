@@ -237,6 +237,24 @@ void main() {
     expect(last.metadata, {'error': true});
   });
 
+  chatTest('a profile that no longer exists is explained, not retried', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await send(tester, 'Any news?');
+
+    transport.sends.single.fail(const ProfileUnavailableException());
+    await tester.pump();
+
+    expect(inTranscript(kProfileUnavailableMessage), findsOneWidget);
+    expect(inTranscript(kReplyFailedMessage), findsNothing);
+    expect(inTranscript('Any news?'), findsOneWidget);
+    expect(find.byType(ThinkingIndicator), findsNothing);
+    final last = transcriptMessages(tester).last as TextMessage;
+    expect(last.metadata, {'error': true});
+    expect(transport.sends, hasLength(1));
+  });
+
   chatTest('a stream that ends without a completion is an error', (
     tester,
   ) async {

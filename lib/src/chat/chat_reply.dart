@@ -3,6 +3,9 @@ import 'chat_transport.dart';
 
 const kReplyFailedMessage = 'Something went wrong. Try sending it again.';
 
+const kProfileUnavailableMessage =
+    'That profile is no longer available. Pick another one.';
+
 /// Folds a transport event into the assistant message it belongs to. Thread
 /// events concern the thread, not the reply, and are left to the caller.
 void applyReplyEvent(ChatMessage reply, ChatEvent event) {
@@ -43,9 +46,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
   }
 }
 
-/// Ends [reply] after the stream broke, keeping whatever had streamed.
-void failReply(ChatMessage reply) {
-  if (reply.content.isEmpty) reply.content = kReplyFailedMessage;
+/// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
+/// is what broke it, when known: it decides the message shown.
+void failReply(ChatMessage reply, [Object? error]) {
+  if (reply.content.isEmpty) {
+    reply.content = error is ProfileUnavailableException
+        ? kProfileUnavailableMessage
+        : kReplyFailedMessage;
+  }
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);
   expireInputRequests(reply);

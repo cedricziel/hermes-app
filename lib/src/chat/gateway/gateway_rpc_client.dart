@@ -43,6 +43,10 @@ class GatewayServerRequest {
   final Map<String, Object?> params;
 }
 
+/// The JSON-RPC error code the gateway answers a profile-scoped call with when
+/// the named profile does not exist (`ProfileUnavailableError` upstream).
+const kGatewayProfileUnavailable = 4064;
+
 /// The gateway answered a request with a JSON-RPC error.
 class GatewayRpcException implements Exception {
   const GatewayRpcException(this.code, this.message);

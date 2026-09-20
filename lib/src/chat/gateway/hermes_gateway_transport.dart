@@ -55,12 +55,20 @@ class HermesGatewayTransport implements ChatTransport {
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
-    final session = threadId == null
-        ? await client.request('session.create', scope)
-        : await client.request('session.resume', {
-            'session_id': threadId,
-            ...scope,
-          });
+    final Map<String, Object?> session;
+    try {
+      session = threadId == null
+          ? await client.request('session.create', scope)
+          : await client.request('session.resume', {
+              'session_id': threadId,
+              ...scope,
+            });
+    } on GatewayRpcException catch (error) {
+      if (error.code == kGatewayProfileUnavailable) {
+        throw const ProfileUnavailableException();
+      }
+      rethrow;
+    }
     final runtimeId = session['session_id'] as String;
 
     // Buffered from here on: events can arrive before the consumer asks for
