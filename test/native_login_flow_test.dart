@@ -61,7 +61,8 @@ void main() {
     final session = await runNativeLogin(
       'http://hermes.test:9119',
       provider: 'oidc',
-      httpClient: Dio()..httpClientAdapter = adapter,
+      httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+        ..httpClientAdapter = adapter,
       launchBrowser: (url) async {
         launched = url;
         unawaited(_hitCallback(url));
@@ -75,8 +76,9 @@ void main() {
       launched!.queryParameters['redirect_uri'],
       startsWith('http://127.0.0.1:'),
     );
+    expect(adapter.lastRequest!.path, '/auth/native/token');
     expect(
-      adapter.lastRequest!.path,
+      adapter.lastRequest!.uri.toString(),
       'http://hermes.test:9119/auth/native/token',
     );
     expect(adapter.lastRequest!.data['code'], 'auth-code');
@@ -99,7 +101,13 @@ void main() {
           },
           closeBrowser: () async => closed++,
         ),
-        throwsA(isA<NativeLoginException>()),
+        throwsA(
+          isA<NativeLoginException>().having(
+            (e) => e.reason,
+            'reason',
+            NativeLoginFailure.stateMismatch,
+          ),
+        ),
       );
       expect(closed, 1);
     },
@@ -113,6 +121,48 @@ void main() {
           'http://hermes.test:9119',
           launchBrowser: (_) async => false,
           closeBrowser: () async {},
+        ),
+        throwsA(
+          isA<NativeLoginException>().having(
+            (e) => e.reason,
+            'reason',
+            NativeLoginFailure.browserLaunch,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('stops waiting and closes the browser when cancelled', () async {
+    var closed = 0;
+    final cancel = Completer<void>();
+
+    final login = runNativeLogin(
+      'http://hermes.test:9119',
+      launchBrowser: (_) async {
+        scheduleMicrotask(cancel.complete);
+        return true;
+      },
+      closeBrowser: () async => closed++,
+      cancelled: cancel.future,
+    );
+
+    await expectLater(login, throwsA(isA<NativeLoginCancelled>()));
+    expect(closed, 1);
+  });
+
+  test(
+    'reports the flow\'s own failure when closing the browser throws',
+    () async {
+      await expectLater(
+        runNativeLogin(
+          'http://hermes.test:9119',
+          httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
+          launchBrowser: (url) async {
+            unawaited(_hitCallback(url, state: 'forged'));
+            return true;
+          },
+          closeBrowser: () async => throw StateError('no web view is open'),
         ),
         throwsA(isA<NativeLoginException>()),
       );

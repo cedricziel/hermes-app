@@ -8,6 +8,7 @@ import '../api/hermes_api_client.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
+import '../telemetry/telemetry_event.dart';
 import 'native_login_flow.dart';
 import 'token_store.dart';
 
@@ -52,6 +53,8 @@ class AuthController extends ChangeNotifier {
     SharedPreferencesAsync? prefs,
     String? devServerUrl,
     this._interceptors = const [],
+    this._events = ignoreTelemetryEvent,
+    this._login = runNativeLogin,
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _prefs = prefs ?? SharedPreferencesAsync(),
        _devServerUrl = devServerUrl ?? _devServerUrlDefine;
@@ -67,6 +70,10 @@ class AuthController extends ChangeNotifier {
   /// Added to every [Dio] client this controller builds.
   final List<Interceptor> _interceptors;
 
+  final TelemetryEvent _events;
+
+  final NativeLogin _login;
+
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
   HermesStatus? _status;
@@ -76,8 +83,10 @@ class AuthController extends ChangeNotifier {
   String? _errorMessage;
 
   Dio? _dio;
+  Dio? _tokenDio;
   HermesApiClient? _api;
   Future<HermesSession>? _refreshInFlight;
+  Completer<void>? _signInCancel;
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
@@ -117,13 +126,11 @@ class AuthController extends ChangeNotifier {
     _errorMessage = null;
     _setState(HermesConnectionState.connecting);
 
-    final probeDio = Dio(
-      BaseOptions(
-        baseUrl: normalized,
-        connectTimeout: const Duration(seconds: 8),
-        receiveTimeout: const Duration(seconds: 8),
-      ),
-    )..interceptors.addAll(_interceptors);
+    final probeDio = _plainDio(
+      normalized,
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+    );
 
     final HermesStatus status;
     try {
@@ -143,6 +150,7 @@ class AuthController extends ChangeNotifier {
     if (remember) await _prefs.setString(_prefsBaseUrlKey, normalized);
 
     _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
+    _tokenDio = _plainDio(normalized);
     _api = HermesApiClient(_dio!);
 
     if (!status.authRequired) {
@@ -176,6 +184,7 @@ class AuthController extends ChangeNotifier {
     } on DioException catch (_) {
       // The request interceptor already tried a refresh; if we're still
       // here the session is unrecoverable.
+      _events('auth.session.expired', {'cause': 'stored_session_rejected'});
       await _tokenStore.clear();
       _session = null;
       _setState(HermesConnectionState.needsLogin);
@@ -189,22 +198,65 @@ class AuthController extends ChangeNotifier {
     if (url == null) return;
     _errorMessage = null;
     _setState(HermesConnectionState.signingIn);
+    final cancel = _signInCancel = Completer<void>();
+    final elapsed = Stopwatch()..start();
+    void report(String outcome, [Map<String, Object> extra = const {}]) =>
+        _events('auth.sign_in.$outcome', {
+          'auth.password': provider.supportsPassword,
+          'duration_ms': elapsed.elapsedMilliseconds,
+          ...extra,
+        });
+    _events('auth.sign_in.started', {
+      'auth.password': provider.supportsPassword,
+    });
     try {
-      final session = await runNativeLogin(url, provider: provider.name);
+      final session = await _login(
+        url,
+        provider: provider.name,
+        httpClient: _tokenDio,
+        cancelled: cancel.future,
+      );
       await _tokenStore.write(session);
       _session = session;
       _identity = await _api!.fetchMe();
+      report('succeeded');
       _setState(HermesConnectionState.ready);
+    } on NativeLoginCancelled {
+      report('cancelled');
+      _setState(HermesConnectionState.needsLogin);
     } on NativeLoginException catch (e) {
+      report('failed', {
+        'reason': e.reason.name,
+        'http.status_code': ?e.statusCode,
+      });
       _errorMessage = e.message;
       _setState(HermesConnectionState.needsLogin);
     } on DioException catch (e) {
+      report('failed', {
+        'reason': 'profile_load',
+        'http.status_code': ?e.response?.statusCode,
+      });
       _errorMessage = _describeDioError(
         e,
         fallback: 'Sign-in succeeded but loading your profile failed',
       );
       _setState(HermesConnectionState.needsLogin);
+    } on Object catch (e) {
+      report('failed', {
+        'reason': 'unexpected',
+        'exception.type': e.runtimeType.toString(),
+      });
+      _errorMessage = 'Sign-in failed. Please try again.';
+      _setState(HermesConnectionState.needsLogin);
+    } finally {
+      _signInCancel = null;
     }
+  }
+
+  /// Abandons a sign-in that is waiting on the browser.
+  void cancelSignIn() {
+    final cancel = _signInCancel;
+    if (cancel != null && !cancel.isCompleted) cancel.complete();
   }
 
   Future<void> signOut() async {
@@ -228,6 +280,7 @@ class AuthController extends ChangeNotifier {
     _session = null;
     _identity = null;
     _dio = null;
+    _tokenDio = null;
     _api = null;
     _setState(HermesConnectionState.needsServerUrl);
   }
@@ -274,14 +327,7 @@ class AuthController extends ChangeNotifier {
   }
 
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 30),
-      ),
-    );
-    dio.interceptors.addAll(_interceptors);
+    final dio = _plainDio(baseUrl);
     if (!gated) dio.interceptors.add(_pageTokenInterceptor(dio, baseUrl));
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -296,28 +342,48 @@ class AuthController extends ChangeNotifier {
           handler.next(options);
         },
         onError: (error, handler) async {
+          final options = error.requestOptions;
           final session = _session;
-          final alreadyRetried =
-              error.requestOptions.extra['hermes_retried'] == true;
-          if (error.response?.statusCode == 401 &&
-              session != null &&
-              session.refreshToken.isNotEmpty &&
-              !alreadyRetried) {
-            try {
-              final refreshed = await _refreshSession(session);
-              final retryOptions = error.requestOptions
-                ..headers['Authorization'] = 'Bearer ${refreshed.accessToken}'
-                ..extra['hermes_retried'] = true;
-              final response = await dio.fetch(retryOptions);
-              handler.resolve(response);
-              return;
-            } catch (_) {
-              await _handleSessionExpired();
-            }
-          } else if (error.response?.statusCode == 401) {
-            await _handleSessionExpired();
+          if (error.response?.statusCode != 401 || session == null) {
+            return handler.next(error);
           }
-          handler.next(error);
+          if (options.extra['hermes_retried'] == true) {
+            await _handleSessionExpired('unauthorized_after_retry');
+            return handler.next(error);
+          }
+          if (session.refreshToken.isEmpty) {
+            await _handleSessionExpired('no_refresh_token');
+            return handler.next(error);
+          }
+
+          // A request that went out with a token another request has since
+          // rotated away only needs the new token. Refreshing again would
+          // spend an already-used refresh token and sign the user out.
+          final sentStaleToken =
+              options.headers['Authorization'] !=
+              'Bearer ${session.accessToken}';
+          final HermesSession current;
+          if (sentStaleToken) {
+            current = session;
+          } else {
+            try {
+              current = await _refreshSession(session, trigger: 'after_401');
+            } on NativeLoginException catch (e) {
+              if (e.rejected) await _handleSessionExpired('refresh_rejected');
+              return handler.next(error);
+            } on Object {
+              return handler.next(error);
+            }
+          }
+
+          options
+            ..headers['Authorization'] = 'Bearer ${current.accessToken}'
+            ..extra['hermes_retried'] = true;
+          try {
+            handler.resolve(await dio.fetch<dynamic>(options));
+          } on DioException catch (e) {
+            handler.next(e);
+          }
         },
       ),
     );
@@ -330,7 +396,7 @@ class AuthController extends ChangeNotifier {
     if (!session.needsRefresh()) return session.accessToken;
     if (session.refreshToken.isEmpty) return session.accessToken;
     try {
-      final refreshed = await _refreshSession(session);
+      final refreshed = await _refreshSession(session, trigger: 'proactive');
       return refreshed.accessToken;
     } catch (_) {
       // Fall through with the (possibly stale) token; the server will 401
@@ -341,7 +407,10 @@ class AuthController extends ChangeNotifier {
 
   /// Refreshes [current], de-duplicating concurrent callers onto a single
   /// in-flight request.
-  Future<HermesSession> _refreshSession(HermesSession current) {
+  Future<HermesSession> _refreshSession(
+    HermesSession current, {
+    required String trigger,
+  }) {
     final inFlight = _refreshInFlight;
     if (inFlight != null) return inFlight;
 
@@ -350,11 +419,20 @@ class AuthController extends ChangeNotifier {
       return Future.error(StateError('No server configured'));
     }
 
-    final future = refreshNativeSession(url, current)
+    final future = refreshNativeSession(url, current, httpClient: _tokenDio)
         .then((refreshed) async {
           _session = refreshed;
           await _tokenStore.write(refreshed);
+          _events('auth.session.refreshed', {'trigger': trigger});
           return refreshed;
+        })
+        .onError<NativeLoginException>((e, stack) {
+          _events('auth.session.refresh_failed', {
+            'trigger': trigger,
+            'rejected': e.rejected,
+            'http.status_code': ?e.statusCode,
+          });
+          Error.throwWithStackTrace(e, stack);
         })
         .whenComplete(() {
           _refreshInFlight = null;
@@ -363,8 +441,9 @@ class AuthController extends ChangeNotifier {
     return future;
   }
 
-  Future<void> _handleSessionExpired() async {
+  Future<void> _handleSessionExpired(String cause) async {
     if (_session == null) return;
+    _events('auth.session.expired', {'cause': cause});
     await _tokenStore.clear();
     _session = null;
     _identity = null;
@@ -372,8 +451,24 @@ class AuthController extends ChangeNotifier {
     _setState(HermesConnectionState.needsLogin);
   }
 
+  /// A client for [baseUrl] with this controller's interceptors. Also serves
+  /// the token endpoints, which the authenticated client must not use (it
+  /// would try to attach and refresh the very token being minted).
+  Dio _plainDio(
+    String baseUrl, {
+    Duration connectTimeout = const Duration(seconds: 15),
+    Duration receiveTimeout = const Duration(seconds: 30),
+  }) => Dio(
+    BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: connectTimeout,
+      receiveTimeout: receiveTimeout,
+    ),
+  )..interceptors.addAll(_interceptors);
+
   void _setState(HermesConnectionState next) {
     _state = next;
+    _events('auth.state', {'state': next.name});
     notifyListeners();
   }
 

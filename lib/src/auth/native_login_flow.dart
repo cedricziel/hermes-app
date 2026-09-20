@@ -7,15 +7,57 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/hermes_session.dart';
 import 'pkce.dart';
 
+/// The fixed set of reasons a login or refresh can fail.
+enum NativeLoginFailure {
+  listenerUnavailable,
+  browserLaunch,
+  timeout,
+  exchange,
+  refresh,
+  idpError,
+  missingCode,
+  stateMismatch,
+  listenerClosed,
+  other,
+}
+
 /// Raised when the native login flow fails for a reason the user should see
 /// (timeout, state mismatch, IdP error, browser launch failure, ...).
 class NativeLoginException implements Exception {
-  NativeLoginException(this.message);
+  NativeLoginException(
+    this.message, {
+    this.statusCode,
+    this.reason = NativeLoginFailure.other,
+  });
   final String message;
+
+  /// Why the flow failed. Its [Enum.name] is a fixed value, safe to record.
+  final NativeLoginFailure reason;
+
+  /// The HTTP status the server answered with, when the failure was one.
+  final int? statusCode;
+
+  /// True when the server refused the credential itself (as opposed to being
+  /// unreachable or failing), so retrying with it cannot succeed.
+  bool get rejected =>
+      statusCode == 400 || statusCode == 401 || statusCode == 403;
 
   @override
   String toString() => message;
 }
+
+/// Raised when the caller abandons the flow through `cancelled`.
+class NativeLoginCancelled implements Exception {
+  const NativeLoginCancelled();
+}
+
+/// Runs the browser sign-in for [runNativeLogin]; replaced in tests.
+typedef NativeLogin = Future<HermesSession> Function(
+  String baseUrl, {
+  String? provider,
+  Dio? httpClient,
+  Future<void>? cancelled,
+});
 
 const _loginTimeout = Duration(minutes: 5);
 
@@ -34,6 +76,16 @@ Future<bool> _defaultLaunchBrowser(Uri url) => launchUrl(
 
 Future<void> _defaultCloseBrowser() async {
   if (Platform.isIOS) await closeInAppWebView();
+}
+
+// Closing the sheet is cleanup. It throws when the user already dismissed it,
+// and that must not replace the flow's own outcome.
+Future<void> _closeQuietly(BrowserCloser close) async {
+  try {
+    await close();
+  } on Object {
+    // Nothing left to close.
+  }
 }
 
 // No tokens, no secrets — just a close affordance for the tab the system
@@ -60,6 +112,13 @@ const _doneHtml = '''
 /// [provider] selects a specific registered provider by name; leave it null
 /// to let the gateway auto-select when exactly one is eligible.
 ///
+/// Completing [cancelled] abandons the flow with [NativeLoginCancelled] and
+/// releases the listener. The browser sheet gives no signal when the user
+/// dismisses it, so this is the only way out short of the timeout.
+///
+/// [httpClient], when given, must already point at [baseUrl]; the token
+/// exchange uses relative paths so request telemetry can record the route.
+///
 /// [launchBrowser] and [closeBrowser] default to `url_launcher`; tests
 /// override them to play the browser's part.
 Future<HermesSession> runNativeLogin(
@@ -68,8 +127,9 @@ Future<HermesSession> runNativeLogin(
   Dio? httpClient,
   BrowserLauncher launchBrowser = _defaultLaunchBrowser,
   BrowserCloser closeBrowser = _defaultCloseBrowser,
+  Future<void>? cancelled,
 }) async {
-  final dio = httpClient ?? Dio();
+  final dio = httpClient ?? Dio(BaseOptions(baseUrl: baseUrl));
   final pkce = PkcePair.generate();
   final state = generatePkceState();
 
@@ -77,8 +137,19 @@ Future<HermesSession> runNativeLogin(
   try {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   } on SocketException catch (e) {
-    throw NativeLoginException('Could not start local sign-in listener: $e');
+    throw NativeLoginException(
+      'Could not start local sign-in listener: $e',
+      reason: NativeLoginFailure.listenerUnavailable,
+    );
   }
+
+  var wasCancelled = false;
+  unawaited(
+    cancelled?.then((_) {
+      wasCancelled = true;
+      return server.close(force: true);
+    }),
+  );
 
   try {
     final redirectUri = 'http://127.0.0.1:${server.port}/callback';
@@ -94,30 +165,44 @@ Future<HermesSession> runNativeLogin(
     if (!launched) {
       throw NativeLoginException(
         'Could not open the system browser for sign-in.',
+        reason: NativeLoginFailure.browserLaunch,
       );
     }
 
     final code = await _awaitCallback(server, expectedState: state).timeout(
       _loginTimeout,
       onTimeout: () {
-        throw NativeLoginException('Sign-in timed out. Please try again.');
+        throw NativeLoginException(
+          'Sign-in timed out. Please try again.',
+          reason: NativeLoginFailure.timeout,
+        );
       },
     );
 
     final tokenResponse = await dio.post<Map<String, dynamic>>(
-      _joinUrl(baseUrl, '/auth/native/token'),
+      '/auth/native/token',
       data: {'code': code, 'code_verifier': pkce.verifier},
     );
     final data = tokenResponse.data;
     if (data == null) {
-      throw NativeLoginException('Empty token response from server.');
+      throw NativeLoginException(
+        'Empty token response from server.',
+        reason: NativeLoginFailure.exchange,
+      );
     }
     return HermesSession.fromTokenResponse(data);
+  } on NativeLoginException {
+    if (wasCancelled) throw const NativeLoginCancelled();
+    rethrow;
   } on DioException catch (e) {
-    throw NativeLoginException(_describeDioError(e));
+    throw NativeLoginException(
+      _describeDioError(e),
+      statusCode: e.response?.statusCode,
+      reason: NativeLoginFailure.exchange,
+    );
   } finally {
     unawaited(server.close(force: true));
-    await closeBrowser();
+    await _closeQuietly(closeBrowser);
   }
 }
 
@@ -127,10 +212,10 @@ Future<HermesSession> refreshNativeSession(
   HermesSession session, {
   Dio? httpClient,
 }) async {
-  final dio = httpClient ?? Dio();
+  final dio = httpClient ?? Dio(BaseOptions(baseUrl: baseUrl));
   try {
     final response = await dio.post<Map<String, dynamic>>(
-      _joinUrl(baseUrl, '/auth/native/refresh'),
+      '/auth/native/refresh',
       data: {
         'refresh_token': session.refreshToken,
         'provider': session.provider,
@@ -138,11 +223,18 @@ Future<HermesSession> refreshNativeSession(
     );
     final data = response.data;
     if (data == null) {
-      throw NativeLoginException('Empty refresh response from server.');
+      throw NativeLoginException(
+        'Empty refresh response from server.',
+        reason: NativeLoginFailure.refresh,
+      );
     }
     return HermesSession.fromTokenResponse(data);
   } on DioException catch (e) {
-    throw NativeLoginException(_describeDioError(e));
+    throw NativeLoginException(
+      _describeDioError(e),
+      statusCode: e.response?.statusCode,
+      reason: NativeLoginFailure.refresh,
+    );
   }
 }
 
@@ -168,6 +260,7 @@ Future<String> _awaitCallback(
       final description = params['error_description'] ?? '';
       throw NativeLoginException(
         'Sign-in was rejected: $error${description.isEmpty ? '' : ' ($description)'}',
+        reason: NativeLoginFailure.idpError,
       );
     }
 
@@ -175,6 +268,7 @@ Future<String> _awaitCallback(
     if (code == null || code.isEmpty) {
       throw NativeLoginException(
         'Sign-in callback missing authorization code.',
+        reason: NativeLoginFailure.missingCode,
       );
     }
 
@@ -182,12 +276,16 @@ Future<String> _awaitCallback(
     if (expectedState.isEmpty || returnedState != expectedState) {
       throw NativeLoginException(
         'Sign-in callback state mismatch (possible CSRF); please try again.',
+        reason: NativeLoginFailure.stateMismatch,
       );
     }
 
     return code;
   }
-  throw NativeLoginException('Sign-in listener closed unexpectedly.');
+  throw NativeLoginException(
+    'Sign-in listener closed unexpectedly.',
+    reason: NativeLoginFailure.listenerClosed,
+  );
 }
 
 String _buildAuthorizeUrl(
