@@ -47,7 +47,7 @@ See `proposal.md` for motivation, and `mcp-servers` and `mcp-catalog` (`openspec
 ## Platforms and invariants
 
 - **Platforms:** iOS, Android, macOS, Windows, Linux (shared Dart). watchOS is not involved. No dependency, entitlement, manifest or Xcode project change.
-- **API layering:** `POST` and `PUT /api/mcp/servers` and `GET /api/config` are in the generated client; nothing is hand-rolled. Request models `MCPServerCreate` and `MCPServersReplace` are used as generated.
+- **API layering:** `POST` and `PUT /api/mcp/servers` and `GET /api/config` are in the generated client (`addMcpServerApiMcpServersPost`, `replaceMcpServersApiMcpServersPut`, `getConfigApiConfigGet`); nothing is hand-rolled. Request models `MCPServerCreate` and `MCPServersReplace` are used as generated. `MCPServerCreate` defaults `args` and `env` to empty and would send `[]` and `{}` for a remote server, which Hermes accepts (it tests for truthiness) but the repository passes `null` so that they are left out. `auth` and `bearer_token` are null, and so not sent, for a command server. `MCPServersReplace.servers` is typed `Map<String, Map<String, Object>>`, so the repository drops a top-level `null` field of a server (Hermes reads a `null` as unset) before sending.
 - **Auth:** nothing new; 401s go through the existing pipeline.
 - **Telemetry:** nothing added; the existing privacy interceptor records no bodies and a test asserts it for both calls.
 

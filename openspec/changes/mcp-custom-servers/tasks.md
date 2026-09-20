@@ -1,8 +1,8 @@
 ## 1. Prepare
 
-- [ ] 1.1 Rebase onto `origin/main` (and onto the merged `mcp-catalog` once it lands) before writing code, then re-run `openspec validate mcp-custom-servers --strict`
-- [ ] 1.2 Add delta specs for `mcp-servers` (overflow menu with "Edit as JSON") and `mcp-catalog` (the Add button and the empty-state button now go through the menu): MODIFIED or ADDED as the current main specs require, copying the full current requirement text before editing it
-- [ ] 1.3 Note the generated client method names for the three calls in `design.md` and check the request models (`MCPServerCreate`, `MCPServersReplace`) send no non-empty `args` or `env` for a remote server and no `auth` or token for a command server
+- [x] 1.1 Rebase onto `origin/main` (and onto the merged `mcp-catalog` once it lands) before writing code, then re-run `openspec validate mcp-custom-servers --strict`
+- [x] 1.2 Add delta specs for `mcp-servers` (overflow menu with "Edit as JSON") and `mcp-catalog` (the Add button and the empty-state button now go through the menu): MODIFIED or ADDED as the current main specs require, copying the full current requirement text before editing it
+- [x] 1.3 Note the generated client method names for the three calls in `design.md` and check the request models (`MCPServerCreate`, `MCPServersReplace`) send no non-empty `args` or `env` for a remote server and no `auth` or token for a command server
 
 ## 2. Repository
 
