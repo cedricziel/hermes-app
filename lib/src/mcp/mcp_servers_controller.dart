@@ -97,6 +97,9 @@ class McpServersController extends ChangeNotifier {
     _tests.removeWhere((name, _) => servers.every((s) => s.name != name));
   }
 
+  /// Lists the servers again, for a change made elsewhere such as an install.
+  Future<void> refresh() => _reload();
+
   Future<void> _reload() async {
     try {
       await _fetch();

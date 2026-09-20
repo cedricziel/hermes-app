@@ -21,3 +21,11 @@ String mcpPlural(int count, String noun) =>
 String mcpSchemaSize(int chars) => chars < 1000
     ? '$chars chars'
     : '${(chars / 1000).toStringAsFixed(1)}k chars';
+
+/// How a catalog entry signs in: "API key", "OAuth" or "No auth".
+String? mcpAuthKindLabel(McpAuthKind kind) => switch (kind) {
+  McpAuthKind.apiKey => 'API key',
+  McpAuthKind.oauth => 'OAuth',
+  McpAuthKind.none => 'No auth',
+  McpAuthKind.unknown => null,
+};

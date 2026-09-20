@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
+import 'mcp_catalog_screen.dart';
 import 'mcp_chip.dart';
 import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
@@ -61,10 +62,34 @@ class _McpServersScreenState extends State<McpServersScreen> {
     );
   }
 
+  void _openCatalog() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => McpCatalogScreen(servers: _controller),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          ListenableBuilder(
+            listenable: _controller,
+            builder: (context, _) =>
+                _controller.servers == null || _controller.failed
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: TextButton.icon(
+                      onPressed: _openCatalog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add'),
+                    ),
+                  ),
+          ),
+        ],
         title: ListenableBuilder(
           listenable: _controller,
           builder: (context, _) => Column(
@@ -107,7 +132,9 @@ class _McpServersScreenState extends State<McpServersScreen> {
         ),
       );
     }
-    if (servers.isEmpty) return _EmptyState(profile: _controller.profile);
+    if (servers.isEmpty) {
+      return _EmptyState(profile: _controller.profile, onAdd: _openCatalog);
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
@@ -138,9 +165,10 @@ class _McpServersScreenState extends State<McpServersScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.profile});
+  const _EmptyState({required this.profile, required this.onAdd});
 
   final String? profile;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +189,11 @@ class _EmptyState extends StatelessWidget {
               'MCP servers give the agent extra tools, such as searching your '
               'documents or reading a calendar.',
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: onAdd,
+              child: const Text('Browse the catalog'),
             ),
           ],
         ),
