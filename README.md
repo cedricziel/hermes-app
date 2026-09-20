@@ -16,6 +16,8 @@ the foundation for the real chat/session UI, not that UI itself.
 
 Join the TestFlight beta for iPhone, iPad and Mac: <https://testflight.apple.com/join/NahPgSAB>
 
+The app checks for a newer version when it opens and offers to take you to it: in the App Store on iOS and macOS, on Google Play on Android, and on the GitHub release page on Linux and Windows. It finds nothing until the app is listed in a store.
+
 You need your own Hermes Agent dashboard to sign in (see [Getting started](#getting-started)). This is an independent app and is not affiliated with Nous Research.
 
 ## Screenshots
