@@ -33,9 +33,6 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _detection = 0;
   int _index = 0;
 
-  /// The board loads and streams only once its tab has been opened.
-  bool _kanbanOpened = false;
-
   @override
   void initState() {
     super.initState();
@@ -56,6 +53,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _detect();
+  }
+
+  /// Puts Chat in front. The chat asks for this when a notification tap or
+  /// shared content lands there while the board is on screen.
+  void _showChat() {
+    if (_index != 0) setState(() => _index = 0);
   }
 
   Future<void> _detect() async {
@@ -83,7 +86,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final chat = KeyedSubtree(key: _chatKey, child: const ChatScreen());
+    final chat = KeyedSubtree(
+      key: _chatKey,
+      child: ChatScreen(onShowChat: _showChat),
+    );
     if (!_kanban) return chat;
 
     return LayoutBuilder(
@@ -93,16 +99,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           index: _index,
           children: [
             chat,
-            if (_kanbanOpened)
+            // Built only while its tab is selected, so the board is fetched
+            // and its event stream runs only while the user is looking at it.
+            if (_index == 1)
               widget.kanbanBuilder?.call(context) ?? const KanbanScreen()
             else
               const SizedBox.shrink(),
           ],
         );
-        void select(int i) => setState(() {
-          _index = i;
-          if (i == 1) _kanbanOpened = true;
-        });
+        void select(int i) => setState(() => _index = i);
         if (wide) {
           return Scaffold(
             body: Row(
