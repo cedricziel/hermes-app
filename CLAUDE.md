@@ -72,6 +72,8 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 Tests drive the real generated client and Dio pipeline against `test/support/fake_hermes_server.dart`, an `HttpClientAdapter` with per-route responses, rather than mocking the client. Other helpers in `test/support/`: `fake_chat_transport.dart`, `memory_token_store.dart`, `fake_share_inbox.dart`, `pump_chat.dart`.
 
+`test/workflows/` walks whole user flows (onboarding, chat, kanban, skills/bots/settings) on phone and desktop, light and dark, and saves a screenshot per step to `build/workflow_screenshots/` (`workflow-screenshots` skill). Look at them after a UI change.
+
 ## Specs
 
 `openspec/` holds spec-driven change proposals (`openspec/specs/` for current behavior, `openspec/changes/` for work in progress). Start a change with `/opsx:propose "<idea>"`; project context for it lives in `openspec/config.yaml`. Design history lives under `openspec/changes/archive/`.
