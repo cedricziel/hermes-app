@@ -1,8 +1,8 @@
 ## 1. Dependencies and native setup
 
-- [ ] 1.1 Add `file_selector`, `image_picker`, `desktop_drop` and `pasteboard`; confirm `flutter pub get` still resolves with the `flutter_otel` pins
+- [ ] 1.1 Add `image_picker`, `desktop_drop` and `pasteboard` (files use the existing `file_picker`); confirm `flutter pub get` still resolves with the `flutter_otel` pins
 - [ ] 1.2 Add `NSCameraUsageDescription` to `ios/Runner/Info.plist`
-- [ ] 1.3 Add `com.apple.security.files.user-selected.read-only` to both macOS entitlement files
+- [ ] 1.3 Check that both macOS entitlement files already carry the user-selected file entitlement (Kanban attachments added `read-write`)
 
 ## 2. Sources
 
