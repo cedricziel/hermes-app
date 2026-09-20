@@ -12,7 +12,7 @@ Release builds send diagnostic logs and traces to a server run by the developer.
 - the operating system (iOS, macOS, Android, Windows or Linux) and its version, and whether the device is a phone, a tablet or a desktop; the form factor is left out when it is not known
 - the hardware model, such as `iPhone17,1`, `Mac14,2` or `Pixel 9`, its manufacturer, the processor architecture on a Mac, the Android API level, and whether it is a simulator or an iOS app running on a Mac. These are shared by every unit of a model. The device name, vendor or hardware IDs, locale, memory and disk sizes are never sent
 - a random ID that changes on every launch
-- for each request the app makes: the HTTP method, the API path (for example `/api/status`), the status code and how long it took
+- for each request the app makes: the HTTP method, the first two segments of the API path (for example `/api/status`, or `/api/sessions` for a request about one conversation; IDs and names further along the path are never sent), the status code and how long it took
 - the type of error when a request fails
 - for the chat connection to your server: the name of each request and event the app sends or receives (for example `session.create` or `tool.start`), its number, the error code when one fails and how long it took, but never what it carries
 - sign-in steps: the app's connection state (for example "needs sign-in" or "ready"), whether a sign-in started, succeeded, was cancelled or failed and how long it took, whether it used a password, a short fixed reason such as "timeout", and when a session was refreshed or ended, with the status code the server answered
