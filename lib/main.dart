@@ -9,6 +9,7 @@ import 'src/notifications/notification_settings.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
+import 'src/telemetry/gateway_telemetry.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/watch/watch_bridge.dart';
@@ -36,6 +37,7 @@ Future<void> main() async {
               WatchBridge.forAuth(context.read<AuthController>())?..start(),
           dispose: (_, bridge) => bridge?.dispose(),
         ),
+        Provider<GatewayTelemetry>.value(value: telemetry.gateway()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         Provider<NotificationService>(

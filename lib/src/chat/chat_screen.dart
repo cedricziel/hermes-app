@@ -7,6 +7,7 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../telemetry/gateway_telemetry.dart';
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
 import '../notifications/attention_notifier.dart';
@@ -114,12 +115,15 @@ class _ChatScreenState extends State<ChatScreen> {
     _transport = widget.transport;
     if (_transport == null && api != null) {
       final auth = context.read<AuthController>();
+      final telemetry = _maybeRead<GatewayTelemetry>();
       _transport = _ownedTransport = HermesGatewayTransport(
         connect: hermesGatewayConnect(
           baseUrl: auth.baseUrl!,
           authRequired: auth.status?.authRequired ?? true,
           api: api,
+          telemetry: telemetry,
         ),
+        telemetry: telemetry,
       );
     }
     if (_repository == null) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:stream_channel/stream_channel.dart';
 
+import '../../telemetry/gateway_telemetry.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import 'gateway_rpc_client.dart';
@@ -13,9 +14,10 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
-  HermesGatewayTransport({required this._connect});
+  HermesGatewayTransport({required this._connect, this._telemetry});
 
   final GatewayConnect _connect;
+  final GatewayTelemetry? _telemetry;
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
   final _requestSessions = <String, String>{};
@@ -106,7 +108,7 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<GatewayRpcClient> _openNew() async {
-    final client = GatewayRpcClient(await _connect());
+    final client = GatewayRpcClient(await _connect(), telemetry: _telemetry);
     return _open = client;
   }
 
