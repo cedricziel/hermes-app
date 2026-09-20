@@ -6,19 +6,19 @@
 
 ## 2. Sending
 
-- [ ] 2.1 Add `OutgoingAttachment` and the `attachments` parameter on `ChatTransport.send`; update the fake transport
-- [ ] 2.2 In `HermesGatewayTransport.send`, attach images with `image.attach_bytes` and other files with `file.attach` between session setup and `prompt.submit`, append the `ref_text` values, and detach queued images on failure
-- [ ] 2.3 Map method-not-found and attach errors to the messages in the spec
-- [ ] 2.4 Enforce the 25 MB limit in `chat_screen.dart` before the message is inserted
+- [x] 2.1 Add `OutgoingAttachment` and the `attachments` parameter on `ChatTransport.send`; update the fake transport
+- [x] 2.2 In `HermesGatewayTransport.send`, attach images with `image.attach_bytes` and other files with `file.attach` between session setup and `prompt.submit`, append the `ref_text` values, and detach queued images on failure
+- [x] 2.3 Map method-not-found and attach errors to the messages in the spec
+- [x] 2.4 Enforce the 25 MB limit in `chat_screen.dart` before the message is inserted
 
 ## 3. Transcript
 
-- [ ] 3.1 Map attachments to image and file messages in `chat_message_mapper.dart` and add the builders
-- [ ] 3.2 Send: build `ChatMessage.attachments` from the pending `SharedFile`s and stop composing the "names only" text
-- [ ] 3.3 Remove `attachmentsNote` and its test expectations
+- [x] 3.1 Map attachments to image and file messages in `chat_message_mapper.dart` and add the builders
+- [x] 3.2 Send: build `ChatMessage.attachments` from the pending `SharedFile`s and stop composing the "names only" text
+- [x] 3.3 Remove `attachmentsNote` and its test expectations
 
 ## 4. Verification and specs
 
-- [ ] 4.1 Extend the fake server or transport tests for image, file, failure, too-large and method-not-found cases
-- [ ] 4.2 Extend `test/real_backend_contract_test.dart` with `image.attach_bytes` and `file.attach` (no model call) and a history row with `@image:` content
+- [x] 4.1 Extend the fake server or transport tests for image, file, failure, too-large and method-not-found cases
+- [x] 4.2 Extend `test/real_backend_contract_test.dart` with `image.attach_bytes` and `file.attach` (no model call) and a history row with `@image:` content
 - [ ] 4.3 Try it in the running macOS app against the dev backend (verify-in-app skill), then archive this change so the specs update
