@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_json_view/flutter_json_view.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
@@ -17,7 +18,7 @@ class ToolCallCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final input = _pretty(call.summary);
+    final input = call.summary.trim();
     final result = call.result.trim();
     final expandable = input.isNotEmpty || result.isNotEmpty;
     final shape = RoundedRectangleBorder(
@@ -74,14 +75,13 @@ class ToolCallCard extends StatelessWidget {
   }
 }
 
-/// Arguments arrive as a compact JSON string; indent it so it reads.
-String _pretty(String text) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) return '';
+bool _isJsonContainer(String text) {
+  if (!text.startsWith('{') && !text.startsWith('[')) return false;
   try {
-    return const JsonEncoder.withIndent('  ').convert(jsonDecode(trimmed));
+    final decoded = jsonDecode(text);
+    return decoded is Map || decoded is List;
   } on FormatException {
-    return trimmed;
+    return false;
   }
 }
 
@@ -96,6 +96,29 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final subtle = context.hermesColors.subtleText;
+    const mono = TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4);
+    final Widget body = _isJsonContainer(text)
+        ? JsonView.string(
+            text,
+            theme: JsonViewTheme(
+              backgroundColor: Colors.transparent,
+              defaultTextStyle: mono.copyWith(color: scheme.onSurface),
+              keyStyle: TextStyle(color: subtle),
+              stringStyle: TextStyle(color: scheme.onSurface),
+              intStyle: TextStyle(color: scheme.secondary),
+              doubleStyle: TextStyle(color: scheme.secondary),
+              boolStyle: TextStyle(
+                color: scheme.secondary,
+                fontWeight: FontWeight.w600,
+              ),
+              openIcon: Icon(Icons.arrow_drop_down, size: 18, color: subtle),
+              closeIcon: Icon(Icons.arrow_right, size: 18, color: subtle),
+            ),
+          )
+        : SingleChildScrollView(
+            child: Text(text, style: mono.copyWith(color: scheme.onSurface)),
+          );
     return Container(
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: scheme.outline)),
@@ -109,23 +132,13 @@ class _Section extends StatelessWidget {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w600,
-              color: context.hermesColors.subtleText,
+              color: subtle,
             ),
           ),
           const SizedBox(height: 4),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: _maxHeight),
-            child: SingleChildScrollView(
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  height: 1.4,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ),
+            child: body,
           ),
         ],
       ),

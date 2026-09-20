@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_json_view/flutter_json_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -35,7 +36,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Input'), findsOneWidget);
-    expect(find.textContaining('"command": "ls -la"'), findsOneWidget);
+    expect(find.byType(JsonView), findsOneWidget);
+    final viewer = find.byType(JsonView);
+    expect(
+      find.descendant(of: viewer, matching: find.textContaining('command')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: viewer, matching: find.textContaining('ls -la')),
+      findsOneWidget,
+    );
     expect(find.text('Result'), findsOneWidget);
     expect(find.text('total 0'), findsOneWidget);
 
@@ -52,6 +62,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Input'), findsOneWidget);
+    expect(find.text('ls -la'), findsWidgets);
+    expect(find.byType(JsonView), findsNothing);
     expect(find.text('Result'), findsNothing);
   });
 
