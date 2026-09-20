@@ -134,6 +134,23 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 - **WHEN** a `tool` row carries a `tool_call_id` and string content
 - **THEN** that content is the result of the call with that id, shown on its card, and the row itself is not shown
 
+#### Scenario: A long thread opens on its newest rows
+
+- **WHEN** a thread's messages are fetched
+- **THEN** the newest rows are requested (`order=latest`, a `limit` of 100, `offset` 0), not the whole session
+
+#### Scenario: Scrolling to the top reads older rows
+
+- **WHEN** the user scrolls to the top of a thread whose last page came back full
+- **THEN** the next older page is fetched and put above the messages already shown, without moving what the user is looking at
+- **AND** the page rereads the newest rows just after it, so a call at the page edge still gets its result, and a message already held is not added twice
+- **AND** once a page comes back short, scrolling to the top asks for nothing more
+
+#### Scenario: Loading older rows fails
+
+- **WHEN** fetching an older page fails
+- **THEN** the user is told "Could not load earlier messages", and scrolling to the top again tries again
+
 #### Scenario: Timestamps
 
 - **WHEN** message or session rows carry timestamps
@@ -687,7 +704,7 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 #### Scenario: REST routes
 
 - **WHEN** the chat reads or changes threads
-- **THEN** it uses `GET /api/sessions` (`limit`, `offset`, `order=recent`, `archived=exclude`, `profile`; response `sessions` and optionally `total`), `GET /api/sessions/{id}/messages` (`profile`; response `messages`), `PATCH /api/sessions/{id}` (body with `title`, `pinned` or `archived`, and `profile`) and `DELETE /api/sessions/{id}` (`profile`)
+- **THEN** it uses `GET /api/sessions` (`limit`, `offset`, `order=recent`, `archived=exclude`, `profile`; response `sessions` and optionally `total`), `GET /api/sessions/{id}/messages` (`profile`, `limit`, `offset`, `order`; response `messages`), `PATCH /api/sessions/{id}` (body with `title`, `pinned` or `archived`, and `profile`) and `DELETE /api/sessions/{id}` (`profile`)
 - **AND** it uses `GET /api/profiles/active` to learn which profile to list, `POST /api/auth/ws-ticket` (response `ticket`) and `GET /` (the `__HERMES_SESSION_TOKEN__` value) to obtain socket credentials
 
 #### Scenario: Row fields
