@@ -503,6 +503,72 @@ void main() {
       expect(puts(), 0);
     });
 
+    Future<void> loadStored(Map<String, Object?> config) async {
+      server.on('GET', configPath, {'mcp_servers': config});
+    }
+
+    testWidgets('a changed working directory is reviewed and shown before '
+        'any request', (tester) async {
+      await loadStored({
+        'py': {
+          'command': 'python',
+          'args': ['server.py'],
+          'cwd': '/srv/mcp',
+        },
+      });
+      await open(tester);
+      await edit(tester, {
+        'py': {
+          'command': 'python',
+          'args': ['server.py'],
+          'cwd': '/tmp/elsewhere',
+        },
+      });
+
+      await tapSave(tester);
+
+      expect(find.byType(McpCommandReview), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(McpCommandReview),
+          matching: find.text('/tmp/elsewhere'),
+        ),
+        findsOneWidget,
+      );
+      expect(puts(), 0);
+    });
+
+    testWidgets('removing the url of an entry that has a url and a command is '
+        'reviewed, since Hermes then runs the command', (tester) async {
+      await loadStored({
+        'both': {'url': 'https://a.test/mcp', 'command': 'bash'},
+      });
+      await open(tester);
+      await edit(tester, {
+        'both': {'command': 'bash'},
+      });
+
+      await tapSave(tester);
+
+      expect(find.byType(McpCommandReview), findsOneWidget);
+      expect(puts(), 0);
+    });
+
+    testWidgets('flipping enabled alone is not reviewed', (tester) async {
+      await loadStored({
+        'py': {'command': 'python', 'cwd': '/srv/mcp', 'enabled': true},
+      });
+      await open(tester);
+      await edit(tester, {
+        'py': {'command': 'python', 'cwd': '/srv/mcp', 'enabled': false},
+      });
+
+      await tapSave(tester);
+
+      expect(find.byType(McpCommandReview), findsNothing);
+      expect(puts(), 1);
+    });
+
     testWidgets('an unchanged command server is not reviewed again', (
       tester,
     ) async {

@@ -1,13 +1,14 @@
 import 'hermes_mcp_repository.dart';
 
-/// What a command server would run: the command, its arguments and the names
-/// of its environment variables. Values are not kept, so nothing that shows
-/// an item can show a secret.
+/// What a command server would run: the command, its arguments, the directory
+/// it starts in and the names of its environment variables. Values are not
+/// kept, so nothing that shows an item can show a secret.
 class McpCommandReviewItem {
   const McpCommandReviewItem({
     required this.name,
     required this.command,
     this.args = const [],
+    this.cwd,
     this.envNames = const [],
   });
 
@@ -32,6 +33,10 @@ class McpCommandReviewItem {
       final List<Object?> args => [for (final arg in args) '$arg'],
       final other => ['$other'],
     },
+    cwd: switch (config['cwd']) {
+      null => null,
+      final other => '$other',
+    },
     envNames: switch (config['env']) {
       final Map<Object?, Object?> env => [for (final k in env.keys) '$k'],
       _ => const [],
@@ -41,6 +46,9 @@ class McpCommandReviewItem {
   final String name;
   final String command;
   final List<String> args;
+
+  /// The working directory of the program, when the entry sets one.
+  final String? cwd;
   final List<String> envNames;
 }
 
@@ -58,10 +66,17 @@ bool _same(Object? a, Object? b) {
   return a == b;
 }
 
-/// The command servers of [next] that would start running something [loaded]
-/// did not have: a name that is new, or a `command`, `args` or `env` (names or
-/// values, since a value such as `NODE_OPTIONS` changes what runs) that
-/// differs. Removed servers and other changes are not listed.
+Map<Object?, Object?> _withoutEnabled(Map<Object?, Object?> config) => {
+  for (final e in config.entries)
+    if (e.key != 'enabled') e.key: e.value,
+};
+
+/// The command servers of [next] that may run something [loaded] did not:
+/// a name that is new, or an entry that differs from the loaded one in any
+/// field but `enabled`. Any other field can change what Hermes runs: `cwd`
+/// is where the program starts, and an entry with both `url` and `command`
+/// runs as HTTP until its `url` is removed, when the `command` starts.
+/// Removed servers and servers without a `command` are not listed.
 List<McpCommandReviewItem> commandServersToReview(
   Map<String, Object?> loaded,
   Map<String, Map<String, Object?>> next,
@@ -70,10 +85,10 @@ List<McpCommandReviewItem> commandServersToReview(
     for (final entry in next.entries)
       if (_isCommandServer(entry.value) &&
           switch (loaded[entry.key]) {
-            final Map<Object?, Object?> before =>
-              !_same(before['command'], entry.value['command']) ||
-                  !_same(before['args'], entry.value['args']) ||
-                  !_same(before['env'], entry.value['env']),
+            final Map<Object?, Object?> before => !_same(
+              _withoutEnabled(before),
+              _withoutEnabled(entry.value),
+            ),
             _ => true,
           })
         McpCommandReviewItem.fromConfig(entry.key, entry.value),

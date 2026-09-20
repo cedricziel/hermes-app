@@ -37,7 +37,8 @@ Future<bool> showMcpCommandReview(
 
 /// The step before a command server is saved: it says that the server is a
 /// program that runs on the Hermes host, and shows the exact command, each
-/// argument and the names, never the values, of its environment variables.
+/// argument, the directory it starts in and the names, never the values, of
+/// its environment variables.
 class McpCommandReview extends StatefulWidget {
   const McpCommandReview({
     super.key,
@@ -135,6 +136,7 @@ class _Command extends StatelessWidget {
             const SizedBox(height: 8),
             _Fact('command', [item.command], mono),
             if (item.args.isNotEmpty) _Fact('args', item.args, mono),
+            if (item.cwd case final cwd?) _Fact('cwd', [cwd], mono),
             if (item.envNames.isNotEmpty) _Fact('env', item.envNames, mono),
           ],
         ),

@@ -22,6 +22,24 @@ void main() {
     });
   });
 
+  group('the review item of a configured command server', () {
+    test('has the working directory when there is one', () {
+      final item = McpCommandReviewItem.fromConfig('py', {
+        'command': 'python',
+        'args': ['server.py'],
+        'cwd': '/srv/mcp',
+      });
+
+      expect(item.cwd, '/srv/mcp');
+    });
+
+    test('has no working directory when there is none', () {
+      final item = McpCommandReviewItem.fromConfig('py', {'command': 'x'});
+
+      expect(item.cwd, isNull);
+    });
+  });
+
   group('commandServersToReview', () {
     const notes = {
       'command': 'npx',
@@ -105,6 +123,106 @@ void main() {
         ),
         ['notes'],
       );
+    });
+
+    test('lists a server whose working directory changed', () {
+      const py = {
+        'command': 'python',
+        'args': ['server.py'],
+        'cwd': '/srv/mcp',
+      };
+
+      final items = commandServersToReview(
+        {'py': py},
+        {
+          'py': {...py, 'cwd': '/tmp/elsewhere'},
+        },
+      );
+
+      expect(items.single.name, 'py');
+      expect(items.single.cwd, '/tmp/elsewhere');
+    });
+
+    test('lists a server that gained a working directory', () {
+      expect(
+        names(
+          {
+            'py': {'command': 'python'},
+          },
+          {
+            'py': {'command': 'python', 'cwd': '/srv'},
+          },
+        ),
+        ['py'],
+      );
+    });
+
+    test('lists a command server whose other settings changed', () {
+      expect(
+        names(
+          {'notes': notes},
+          {
+            'notes': {...notes, 'timeout': 5},
+          },
+        ),
+        ['notes'],
+      );
+    });
+
+    test('does not list an entry with a url and a command that did not '
+        'change', () {
+      const both = {'url': 'https://a.test/mcp', 'command': 'bash'};
+
+      expect(names({'both': both}, {'both': both}), isEmpty);
+    });
+
+    test('lists an entry with a url and a command that lost its url, since '
+        'Hermes then runs the command', () {
+      expect(
+        names(
+          {
+            'both': {'url': 'https://a.test/mcp', 'command': 'bash'},
+          },
+          {
+            'both': {'command': 'bash'},
+          },
+        ),
+        ['both'],
+      );
+    });
+
+    test('lists an entry with a url and a command that is new', () {
+      expect(
+        names({}, {
+          'both': {'url': 'https://a.test/mcp', 'command': 'bash'},
+        }),
+        ['both'],
+      );
+    });
+
+    test('does not list a command server whose only change is enabled', () {
+      expect(
+        names(
+          {'notes': notes},
+          {
+            'notes': {...notes, 'enabled': true},
+          },
+        ),
+        isEmpty,
+      );
+      expect(
+        names(
+          {
+            'notes': {...notes, 'enabled': true},
+          },
+          {'notes': notes},
+        ),
+        isEmpty,
+      );
+    });
+
+    test('lists a renamed command server', () {
+      expect(names({'notes': notes}, {'notes2': notes}), ['notes2']);
     });
 
     test('lists a remote server that became a command server', () {

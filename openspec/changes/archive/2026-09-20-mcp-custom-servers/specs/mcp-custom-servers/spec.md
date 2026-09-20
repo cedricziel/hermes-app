@@ -58,7 +58,7 @@ For a command server the form SHALL ask for a name, a command, the arguments and
 
 ### Requirement: Review before a command server is saved
 
-The system SHALL show a review step before saving any command server, whether from the form or the JSON editor. It SHALL say that the server is a program that runs on the Hermes host with that machine's permissions every time a chat uses it, SHALL show the exact command and each argument on its own line, and the names of the environment variables without their values, and SHALL offer "Add and run on server" (or "Save and run on server" in the JSON editor) and "Back to edit". No request that saves the server SHALL be made until the user confirms. The step SHALL be a bottom sheet on layouts narrower than 900 logical pixels and a centred dialog on wider ones. Remote servers SHALL NOT have this step.
+The system SHALL show a review step before saving any command server, whether from the form or the JSON editor. It SHALL say that the server is a program that runs on the Hermes host with that machine's permissions every time a chat uses it, SHALL show the exact command, each argument on its own line, the working directory when the entry sets one, and the names of the environment variables without their values, and SHALL offer "Add and run on server" (or "Save and run on server" in the JSON editor) and "Back to edit". No request that saves the server SHALL be made until the user confirms. The step SHALL be a bottom sheet on layouts narrower than 900 logical pixels and a centred dialog on wider ones. Remote servers SHALL NOT have this step.
 
 #### Scenario: Confirming
 
@@ -110,7 +110,7 @@ The system SHALL offer "Edit as JSON" in the overflow menu of the MCP servers sc
 
 ### Requirement: JSON editor checks before it saves
 
-The Save button SHALL stay disabled while the text is unchanged. When the text is not valid JSON, or is not an object whose values are all objects, the screen SHALL show the error with its line number and SHALL NOT allow saving. The screen SHALL warn, above the editor, that saving replaces all servers of the profile. When saving would remove servers that were present when the editor loaded, the system SHALL ask for confirmation first, naming them and saying that they are deleted and not just switched off. When the saved map contains a command server that is new or whose command, arguments or environment changed (a name added or removed, or a value changed), the review step SHALL be shown for those servers, listing each of them.
+The Save button SHALL stay disabled while the text is unchanged. When the text is not valid JSON, or is not an object whose values are all objects, the screen SHALL show the error with its line number and SHALL NOT allow saving. The screen SHALL warn, above the editor, that saving replaces all servers of the profile. When saving would remove servers that were present when the editor loaded, the system SHALL ask for confirmation first, naming them and saying that they are deleted and not just switched off. A command server is an entry that has a `command`, including one that also has a `url`. When the saved map contains a command server that is new, renamed, or that differs from the loaded entry in any field other than `enabled` (a changed command, argument, working directory, environment name or value, `url` or any other setting), the review step SHALL be shown for those servers, listing each of them. Turning a server on or off alone SHALL NOT need a review.
 
 #### Scenario: Invalid JSON
 
@@ -135,6 +135,21 @@ The Save button SHALL stay disabled while the text is unchanged. When the text i
 #### Scenario: Unchanged command server
 
 - **WHEN** the user changes only a remote server's URL
+- **THEN** no review step is shown
+
+#### Scenario: Working directory changed
+
+- **WHEN** a loaded command server has `cwd` `/srv/mcp` and the user changes it to `/tmp/elsewhere` and taps Save
+- **THEN** the review step lists that server with its working directory `/tmp/elsewhere` before any request is made
+
+#### Scenario: Url removed from an entry with a url and a command
+
+- **WHEN** a loaded entry has both `url` and `command` (Hermes runs it over HTTP and ignores the command) and the user deletes the `url` and taps Save
+- **THEN** the review step lists that entry before any request is made, because Hermes would now start the command
+
+#### Scenario: Only enabled changed
+
+- **WHEN** the user changes only the `enabled` field of a command server
 - **THEN** no review step is shown
 
 ### Requirement: JSON editor saves the whole map
