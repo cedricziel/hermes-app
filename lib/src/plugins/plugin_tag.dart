@@ -9,6 +9,7 @@ class PluginTag extends StatelessWidget {
     super.key,
     this.strong = false,
     this.filled = false,
+    this.mono = false,
   });
 
   final String text;
@@ -18,6 +19,9 @@ class PluginTag extends StatelessWidget {
 
   /// Drawn as a solid pill.
   final bool filled;
+
+  /// Set in a monospaced font, for a commit.
+  final bool mono;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +44,14 @@ class PluginTag extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(text, style: TextStyle(fontSize: 11, color: color)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontFamily: mono ? 'monospace' : null,
+        ),
+      ),
     );
   }
 }

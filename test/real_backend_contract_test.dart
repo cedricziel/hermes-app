@@ -310,6 +310,38 @@ void main() {
       expect(result.message, isNotEmpty);
     }, skip: skip);
 
+    test('the catalog loads with the fields the app reads', () async {
+      final entries = await repository.loadCatalog();
+
+      expect(entries, isNotEmpty);
+      expect(entries.every((e) => e.name.isNotEmpty), isTrue);
+      expect(entries.every((e) => e.commit.length >= 7), isTrue);
+      expect(entries.any((e) => e.description.isNotEmpty), isTrue);
+      expect(entries.any((e) => e.providesTools.isNotEmpty), isTrue);
+      expect(entries.any((e) => e.requiresEnv.isNotEmpty), isTrue);
+    }, skip: skip);
+
+    test(
+      'installing a name that is not in the catalog is refused with a reason',
+      () async {
+        final result = await repository.installFromCatalog(
+          'no-such-catalog-entry',
+        );
+
+        expect(result.ok, isFalse);
+        expect(result.timedOut, isFalse);
+        expect(result.message, contains('not in the Hermes plugin catalog'));
+      },
+      skip: skip,
+    );
+
+    test('installing an unusable source is refused with a reason', () async {
+      final result = await repository.installFromSource('not a plugin source');
+
+      expect(result.ok, isFalse);
+      expect(result.message, isNotEmpty);
+    }, skip: skip);
+
     test(
       'a nested plugin name reaches its route as one encoded segment',
       () async {

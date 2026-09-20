@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:dio/dio.dart';
+import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 
@@ -39,6 +41,53 @@ Map<String, Object?> hubBody(List<Object?> rows) => {
   'plugins': rows,
   'orphan_dashboard_plugins': <Object?>[],
   'providers': {'memory_provider': '', 'context_engine': 'default'},
+};
+
+Map<String, Object?> catalogRow(
+  String name, {
+  String tier = 'community',
+  String maintainer = 'someone',
+  String? description,
+  bool installed = false,
+  bool updateAvailable = false,
+  List<String> tools = const [],
+  List<String> hooks = const [],
+  List<String> middleware = const [],
+  List<String> env = const [],
+  List<String> platforms = const [],
+  String requiresHermes = '',
+  String docsUrl = '',
+}) => {
+  'name': name,
+  'repo': 'https://github.com/someone/$name',
+  'sha': 'a3f9c21d5e7b8a90123456789abcdef012345678',
+  'sha_short': 'a3f9c21',
+  'description': description ?? 'About $name',
+  'maintainer': maintainer,
+  'tier': tier,
+  'requires_hermes': requiresHermes,
+  'subdir': '',
+  'docs_url': docsUrl,
+  'platforms': platforms,
+  'capabilities': {
+    'provides_tools': tools,
+    'provides_hooks': hooks,
+    'provides_middleware': middleware,
+    'requires_env': env,
+  },
+  'capability_summary': 'unused',
+  'installed': installed,
+  'installed_sha': installed
+      ? 'a3f9c21d5e7b8a90123456789abcdef012345678'
+      : null,
+  'update_available': updateAvailable,
+  'runtime_status': installed ? 'enabled' : null,
+};
+
+Map<String, Object?> catalogBody(List<Object?> entries) => {
+  'entries': entries,
+  'removed': <Object?>[],
+  'generated_at': '2026-09-20T12:00:00Z',
 };
 
 void main() {
@@ -315,6 +364,236 @@ void main() {
 
       expect((await repository.setEnabled('cat/netbox', true)).ok, isTrue);
       expect(server.requestsTo('POST', path), hasLength(1));
+    });
+  });
+
+  group('catalog', () {
+    const path = '/api/dashboard/plugins/catalog';
+
+    test('reads every field of an entry', () async {
+      server.on(
+        'GET',
+        path,
+        catalogBody([
+          catalogRow(
+            'netbox',
+            tier: 'official',
+            maintainer: 'andrew',
+            installed: true,
+            updateAvailable: true,
+            tools: ['netbox_query'],
+            hooks: ['pre_tool_call'],
+            middleware: ['audit'],
+            env: ['NETBOX_URL', 'NETBOX_TOKEN'],
+            platforms: ['linux', 'macos'],
+            requiresHermes: '>=0.20',
+            docsUrl: 'https://example.com/docs',
+          ),
+        ]),
+      );
+
+      final entry = (await repository.loadCatalog()).single;
+
+      expect(entry.name, 'netbox');
+      expect(entry.description, 'About netbox');
+      expect(entry.maintainer, 'andrew');
+      expect(entry.tier, CatalogTier.official);
+      expect(entry.commit, 'a3f9c21');
+      expect(entry.requiresHermes, '>=0.20');
+      expect(entry.platforms, ['linux', 'macos']);
+      expect(entry.docsUrl, 'https://example.com/docs');
+      expect(entry.providesTools, ['netbox_query']);
+      expect(entry.providesHooks, ['pre_tool_call']);
+      expect(entry.providesMiddleware, ['audit']);
+      expect(entry.requiresEnv, ['NETBOX_URL', 'NETBOX_TOKEN']);
+      expect(entry.installed, isTrue);
+      expect(entry.updateAvailable, isTrue);
+    });
+
+    test(
+      'keeps the server\'s order and skips entries without a name',
+      () async {
+        server.on(
+          'GET',
+          path,
+          catalogBody([
+            catalogRow('b'),
+            {'description': 'nameless'},
+            {'name': ''},
+            'nope',
+            catalogRow('a'),
+          ]),
+        );
+
+        expect((await repository.loadCatalog()).map((e) => e.name), ['b', 'a']);
+      },
+    );
+
+    test('defaults fields that are missing or the wrong type', () async {
+      server.on(
+        'GET',
+        path,
+        catalogBody([
+          {
+            'name': 'bare',
+            'tier': 'gold',
+            'platforms': 'linux',
+            'installed': 'yes',
+            'capabilities': {
+              'provides_tools': ['ok', 3, null],
+              'requires_env': 'X',
+            },
+          },
+        ]),
+      );
+
+      final entry = (await repository.loadCatalog()).single;
+
+      expect(entry.tier, CatalogTier.community);
+      expect(entry.description, '');
+      expect(entry.maintainer, '');
+      expect(entry.commit, '');
+      expect(entry.platforms, isEmpty);
+      expect(entry.providesTools, ['ok']);
+      expect(entry.requiresEnv, isEmpty);
+      expect(entry.installed, isFalse);
+      expect(entry.updateAvailable, isFalse);
+    });
+
+    test('takes the commit from sha when sha_short is missing', () async {
+      server.on(
+        'GET',
+        path,
+        catalogBody([
+          {'name': 'x', 'sha': '4688c38295a7b86f8119d7a0ecc09cd0b83a2730'},
+        ]),
+      );
+
+      expect((await repository.loadCatalog()).single.commit, '4688c38');
+    });
+
+    test('reads a body that is not the envelope as empty', () async {
+      server.on('GET', path, ['x']);
+      expect(await repository.loadCatalog(), isEmpty);
+
+      server.on('GET', path, {'entries': 'x'});
+      expect(await repository.loadCatalog(), isEmpty);
+    });
+
+    test('reports a server without the route', () async {
+      expect(repository.loadCatalog(), throwsA(isA<PluginsUnsupported>()));
+    });
+  });
+
+  group('installs', () {
+    const install = '/api/dashboard/agent-plugins/install';
+
+    test('a catalog install sends the catalog name and nothing else to '
+        'resolve', () async {
+      server.on('POST', install, {
+        'ok': true,
+        'plugin_name': 'netbox',
+        'warnings': <Object?>[],
+        'missing_env': <Object?>[],
+        'enabled': true,
+      });
+
+      final result = await repository.installFromCatalog(
+        'hermes-plugin-netbox',
+        enable: false,
+      );
+
+      expect(result.ok, isTrue);
+      expect(result.pluginName, 'netbox');
+      expect(jsonBody(server.requestsTo('POST', install).single), {
+        'identifier': '',
+        'catalog_name': 'hermes-plugin-netbox',
+        'enable': false,
+        'force': false,
+      });
+    });
+
+    test('a source install sends the identifier and no catalog name', () async {
+      server.on('POST', install, {'ok': true, 'plugin_name': 'cool'});
+
+      await repository.installFromSource(
+        'someone/hermes-cool-plugin',
+        enable: true,
+        force: true,
+      );
+
+      final body = jsonBody(
+        server.requestsTo('POST', install).single,
+      ) as Map<String, Object?>;
+      expect(body['identifier'], 'someone/hermes-cool-plugin');
+      expect(body.containsKey('catalog_name'), isFalse);
+      expect(body['enable'], true);
+      expect(body['force'], true);
+    });
+
+    test(
+      'reads warnings and missing variables, dropping other items',
+      () async {
+        server.on('POST', install, {
+          'ok': true,
+          'plugin_name': 'cool',
+          'warnings': ['Custom (unreviewed) source.', 4, ''],
+          'missing_env': ['NETBOX_URL', null],
+        });
+
+        final result = await repository.installFromSource('x/y');
+
+        expect(result.warnings, ['Custom (unreviewed) source.']);
+        expect(result.missingEnv, ['NETBOX_URL']);
+      },
+    );
+
+    test('a refusal carries the server\'s reason', () async {
+      server.on('POST', install, {
+        'detail': "'x' is on the removed list.",
+      }, status: 400);
+
+      final result = await repository.installFromCatalog('x');
+
+      expect(result.ok, isFalse);
+      expect(result.message, "'x' is on the removed list.");
+      expect(result.timedOut, isFalse);
+    });
+
+    test('other failures carry no message', () async {
+      server.on('POST', install, {'detail': ''}, status: 400);
+      expect((await repository.installFromCatalog('x')).message, isNull);
+
+      server.on('POST', install, {'detail': 'trace at /srv/x'}, status: 500);
+      final failed = await repository.installFromCatalog('x');
+      expect(failed.ok, isFalse);
+      expect(failed.message, isNull);
+
+      server.onRequest(
+        'POST',
+        install,
+        (_) => throw const SocketException('no route to host'),
+      );
+      final unreachable = await repository.installFromCatalog('x');
+      expect(unreachable.ok, isFalse);
+      expect(unreachable.timedOut, isFalse);
+    });
+
+    test('a receive timeout is not a failure', () async {
+      server.onRequest(
+        'POST',
+        install,
+        (request) => throw DioException.receiveTimeout(
+          timeout: const Duration(seconds: 30),
+          requestOptions: request,
+        ),
+      );
+
+      final result = await repository.installFromCatalog('x');
+
+      expect(result.timedOut, isTrue);
+      expect(result.ok, isFalse);
+      expect(result.message, isNull);
     });
   });
 }
