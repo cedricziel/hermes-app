@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'src/app.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
+import 'src/chat/media/media_source.dart';
+import 'src/chat/media/media_store.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
@@ -35,6 +38,19 @@ Future<void> main() async {
             interceptors: [?httpInterceptor],
             events: telemetry.events(),
           )..bootstrap(),
+        ),
+        // Downloaded files are deleted when the session ends, so this must be
+        // listening from the start, not from the first file opened.
+        Provider<MediaStore?>(
+          lazy: false,
+          create: (context) {
+            final auth = context.read<AuthController>();
+            return MediaStore(
+              source: HermesMediaSource(() => auth.api),
+              cacheDirectory: getApplicationCacheDirectory,
+            )..clearOnSignOut(auth.signedOut);
+          },
+          dispose: (_, store) => store?.dispose(),
         ),
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
         Provider<AppEventLogger>.value(value: telemetry.events()),

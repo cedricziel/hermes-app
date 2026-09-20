@@ -101,6 +101,12 @@ moves the real mouse pointer, so tell the user first if they are working.
   Screen Recording problem noted below; use it to find a Finder window to
   drag from (`open` a directory of throwaway files, or script Finder to
   place its window over an empty part of the app).
+- Focus the app by pid, not by name: an installed Hermes app has the same
+  process name, so `set frontmost of (first process whose name is "Hermes")`
+  can raise the user's own window over yours and the clicks land in it. Take
+  the pid from `pgrep -fl "<repo>/build/macos/.*Hermes.app"` and use
+  `whose unix id is <pid>`. If clicks seem to do nothing, take a full-screen
+  `screencapture -x` to see which window is on top.
 - The `screenshot` command brings the app to the front and hands focus back,
   so key presses sent right after it can land in the wrong app. Send them
   after focusing the app (`set frontmost to true`).

@@ -3,19 +3,24 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
+import 'media/extract_media.dart';
 
 /// Attachments come first, then the reasoning, tool calls, input requests, the
-/// text, and the thinking indicator.
+/// text, the files the agent sent (read from `MEDIA:` tags in the text), and
+/// the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-reasoning`, `id-tool-N`, `id-input-N`, `id-thinking`), so a streaming
-/// reply that mutates content or status maps to ids the controller can match
-/// with `updateMessage`.
+/// `id-reasoning`, `id-media-N`, `id-tool-N`, `id-input-N`, `id-thinking`), so
+/// a streaming reply that mutates content or status maps to ids the
+/// controller can match with `updateMessage`.
 List<Message> chatMessageToFlyer(ChatMessage m) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
   final thinking = m.status == MessageStatus.thinking;
   final showThinking = thinking && !m.awaitingInput && m.reasoning.isEmpty;
+  final media = m.role == ChatRole.assistant
+      ? extractMedia(m.content, complete: !m.isPending)
+      : ExtractedMedia(m.content, const []);
 
   return [
     for (final (i, attachment) in m.attachments.indexed)
@@ -55,18 +60,20 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt: createdAt,
         metadata: {kMetaKind: kKindInputRequest, kMetaInputRequest: request},
       ),
-    if (!thinking && m.content.isNotEmpty)
+    if (!thinking && media.text.isNotEmpty)
       TextMessage(
         id: m.id,
         authorId: authorId,
         createdAt: createdAt,
-        text: m.content,
+        text: media.text,
         metadata: switch (m.status) {
           MessageStatus.error => {kMetaError: true},
           MessageStatus.streaming => {kMetaStreaming: true},
           _ => null,
         },
       ),
+    for (final (i, attachment) in media.attachments.indexed)
+      _attachmentMessage('${m.id}-media-$i', authorId, createdAt, attachment),
     if (showThinking)
       CustomMessage(
         id: '${m.id}-thinking',
@@ -81,8 +88,8 @@ List<Message> chatThreadToFlyer(ChatThread t) => [
   for (final m in t.messages) ...chatMessageToFlyer(m),
 ];
 
-/// An image the app can draw, from this device or from the history, is an
-/// [ImageMessage]; any other file, and an image it cannot draw, is a
+/// An image the app can draw, from this device, the history or the server, is
+/// an [ImageMessage]; any other file, and an image it cannot draw, is a
 /// [FileMessage] shown as a card with its name.
 Message _attachmentMessage(
   String id,
@@ -92,7 +99,9 @@ Message _attachmentMessage(
 ) {
   final metadata = {kMetaAttachment: attachment};
   if (attachment.kind == AttachmentKind.image &&
-      (attachment.path != null || attachment.bytes != null)) {
+      (attachment.path != null ||
+          attachment.bytes != null ||
+          attachment.fetchPath != null)) {
     return ImageMessage(
       id: id,
       authorId: authorId,

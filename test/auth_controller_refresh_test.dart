@@ -268,4 +268,73 @@ void main() {
     await expectLater(request, throwsA(isA<DioException>()));
     expect(store.session, isNull);
   });
+
+  group('signedOut', () {
+    late int signedOut;
+
+    Future<void> listen(HermesSession session) async {
+      await bootstrapWith(session);
+      signedOut = 0;
+      controller.signedOut.listen((_) => signedOut++);
+    }
+
+    test('fires when the user signs out', () async {
+      await listen(_session());
+
+      await controller.signOut();
+
+      expect(signedOut, 1);
+    });
+
+    test('fires when the user removes the server', () async {
+      await listen(_session());
+
+      await controller.changeServer();
+
+      expect(signedOut, 1);
+    });
+
+    test('fires when the server rejects the refresh token', () async {
+      await listen(_session());
+      dashboard
+        ..validAccess = 'revoked'
+        ..validRefresh = 'something-else';
+
+      await expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(signedOut, 1);
+    });
+
+    test('stays quiet while requests race to refresh the session', () async {
+      await listen(_session());
+      dashboard
+        ..validAccess = 'revoked'
+        ..unauthorizedDelays.addAll([
+          Duration.zero,
+          const Duration(milliseconds: 300),
+        ]);
+
+      await Future.wait([controller.api!.fetchMe(), controller.api!.fetchMe()]);
+
+      expect(controller.state, HermesConnectionState.ready);
+      expect(signedOut, 0);
+    });
+
+    test('stays quiet when the refresh endpoint is unavailable', () async {
+      await listen(_session());
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshFailure = 503;
+
+      await expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(signedOut, 0);
+    });
+  });
 }

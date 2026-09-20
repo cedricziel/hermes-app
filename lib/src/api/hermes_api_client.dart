@@ -73,10 +73,20 @@ class HermesApiClient {
   /// `GET /api/plugins/kanban/attachments/{id}` — a task attachment's bytes.
   /// The generated method cannot return them: it decodes the body as JSON, which
   /// would corrupt a binary file, and takes no way to ask for raw bytes.
-  Future<Uint8List> fetchKanbanAttachment(int id, {String? board}) async {
+  Future<Uint8List> fetchKanbanAttachment(int id, {String? board}) =>
+      _getBytes('/api/plugins/kanban/attachments/$id', {'board': ?board});
+
+  /// `GET /api/files/download?path=` — the bytes of a file on the server, by
+  /// its absolute path. The generated method decodes the body as JSON, which
+  /// would corrupt a binary file, so this asks for raw bytes like
+  /// [fetchKanbanAttachment]. The session goes in the header, never in the URL.
+  Future<Uint8List> fetchManagedFile(String path) =>
+      _getBytes('/api/files/download', {'path': path});
+
+  Future<Uint8List> _getBytes(String route, Map<String, dynamic> query) async {
     final response = await _dio.get<List<int>>(
-      '/api/plugins/kanban/attachments/$id',
-      queryParameters: {'board': ?board},
+      route,
+      queryParameters: query,
       options: Options(responseType: ResponseType.bytes),
     );
     final data = response.data;

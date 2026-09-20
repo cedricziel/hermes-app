@@ -91,6 +91,13 @@ class AuthController extends ChangeNotifier {
   HermesApiClient? _api;
   Future<HermesSession>? _refreshInFlight;
   Completer<void>? _signInCancel;
+  final _signedOut = StreamController<void>.broadcast(sync: true);
+
+  /// Fires when the stored session is dropped, whether the user signs out or
+  /// removes the server, or the server rejects the refresh token. Things
+  /// that hold data fetched with the session, such as downloaded files,
+  /// delete it here. A request that races to refresh the token does not fire.
+  Stream<void> get signedOut => _signedOut.stream;
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
@@ -315,6 +322,7 @@ class AuthController extends ChangeNotifier {
     await _tokenStore.clear();
     _session = null;
     _identity = null;
+    _announceSignedOut();
     _setState(
       (_status?.authRequired ?? true)
           ? HermesConnectionState.needsLogin
@@ -335,6 +343,7 @@ class AuthController extends ChangeNotifier {
     _dio = null;
     _tokenDio = null;
     _api = null;
+    _announceSignedOut();
     _setState(HermesConnectionState.needsServerUrl);
   }
 
@@ -506,6 +515,7 @@ class AuthController extends ChangeNotifier {
     _session = null;
     _identity = null;
     _errorMessage = 'Your session expired. Please sign in again.';
+    _announceSignedOut();
     _setState(HermesConnectionState.needsLogin);
   }
 
@@ -523,6 +533,16 @@ class AuthController extends ChangeNotifier {
       receiveTimeout: receiveTimeout,
     ),
   )..interceptors.addAll(_interceptors);
+
+  void _announceSignedOut() {
+    if (!_signedOut.isClosed) _signedOut.add(null);
+  }
+
+  @override
+  void dispose() {
+    _signedOut.close();
+    super.dispose();
+  }
 
   void _setState(HermesConnectionState next) {
     _state = next;

@@ -183,6 +183,31 @@ void main() {
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 
+  chatTest('a MEDIA tag never shows as text and becomes a file after it', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await send(tester, 'Make a report');
+    final reply = transport.sends.single;
+
+    await emit(tester, reply, const ReplyDelta('Done. MEDIA:/srv/rep'));
+    expect(inTranscript('MEDIA'), findsNothing);
+    expect(inTranscript('Done.'), findsOneWidget);
+    expect(find.text('report.pdf'), findsNothing);
+
+    await emit(tester, reply, const ReplyDelta('ort.pdf'));
+    expect(inTranscript('MEDIA'), findsNothing);
+
+    await emit(
+      tester,
+      reply,
+      const ReplyCompleted('Done. MEDIA:/srv/report.pdf'),
+    );
+    expect(inTranscript('MEDIA'), findsNothing);
+    expect(inTranscript('Done.'), findsOneWidget);
+    expect(find.text('report.pdf'), findsOneWidget);
+  });
+
   chatTest('a tool shows as a running card, then completes', (tester) async {
     await pumpChat(tester);
     await send(tester, 'Any news?');

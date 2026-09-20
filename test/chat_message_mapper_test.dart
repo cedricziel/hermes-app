@@ -301,7 +301,22 @@ void main() {
       expect(out.single, isA<ImageMessage>());
     });
 
-    test('shows an image that is not on this device as a named card', () {
+    test('shows an image on the server as an image message', () {
+      const remote = ChatAttachment(
+        name: 'a.png',
+        kind: AttachmentKind.image,
+        remotePath: '/srv/a.png',
+      );
+      final out = chatMessageToFlyer(
+        message(role: ChatRole.user, content: '', attachments: const [remote]),
+      );
+
+      final image = out.single as ImageMessage;
+      expect(image.source, '/srv/a.png');
+      expect(image.metadata, {kMetaAttachment: remote});
+    });
+
+    test('shows an image with only a relative server path as a named card', () {
       final out = chatMessageToFlyer(
         message(
           role: ChatRole.user,
@@ -310,7 +325,7 @@ void main() {
             ChatAttachment(
               name: 'a.png',
               kind: AttachmentKind.image,
-              remotePath: '/srv/a.png',
+              remotePath: 'attachments/a.png',
             ),
           ],
         ),
@@ -318,7 +333,7 @@ void main() {
 
       final card = out.single as FileMessage;
       expect(card.name, 'a.png');
-      expect(card.source, '/srv/a.png');
+      expect(card.source, 'attachments/a.png');
     });
 
     test('numbers several attachments in order', () {
@@ -337,6 +352,66 @@ void main() {
         'm1-attachment-1',
         'm1',
       ]);
+    });
+
+    group('files the agent sends', () {
+      test('follow the text, hide the tag and are numbered media', () {
+        final out = chatMessageToFlyer(
+          message(content: 'Here you go\nMEDIA:/srv/a.png\nMEDIA:/srv/r.pdf'),
+        );
+
+        expect(out.map((m) => m.id), ['m1', 'm1-media-0', 'm1-media-1']);
+        expect((out[0] as TextMessage).text, 'Here you go');
+        final image = out[1] as ImageMessage;
+        expect(image.authorId, kAssistantAuthorId);
+        expect(image.source, '/srv/a.png');
+        final file = out[2] as FileMessage;
+        expect(file.name, 'r.pdf');
+        expect(file.source, '/srv/r.pdf');
+        expect(
+          (file.metadata![kMetaAttachment] as ChatAttachment).remotePath,
+          '/srv/r.pdf',
+        );
+      });
+
+      test('leave only the attachments for a message of tags', () {
+        final out = chatMessageToFlyer(message(content: 'MEDIA:/srv/a.png'));
+
+        expect(out.map((m) => m.id), ['m1-media-0']);
+      });
+
+      test('are held back while the tag is still arriving', () {
+        final out = chatMessageToFlyer(
+          message(content: 'see MEDIA:/sr', status: MessageStatus.streaming),
+        );
+
+        expect(out.map((m) => m.id), ['m1']);
+        expect((out.single as TextMessage).text, 'see');
+      });
+
+      test('keep the ids of the text and earlier files as the reply grows', () {
+        final m = message(
+          content: 'see MEDIA:/srv/a.png and',
+          status: MessageStatus.streaming,
+        );
+        final before = chatMessageToFlyer(m).map((f) => f.id).toList();
+        m
+          ..content = 'see MEDIA:/srv/a.png and MEDIA:/srv/b.png'
+          ..status = MessageStatus.sent;
+        final after = chatMessageToFlyer(m).map((f) => f.id).toList();
+
+        expect(before, ['m1', 'm1-media-0']);
+        expect(after, ['m1', 'm1-media-0', 'm1-media-1']);
+      });
+
+      test('are not read from what the user typed', () {
+        final out = chatMessageToFlyer(
+          message(role: ChatRole.user, content: 'MEDIA:/srv/a.png'),
+        );
+
+        expect(out.map((m) => m.id), ['m1']);
+        expect((out.single as TextMessage).text, 'MEDIA:/srv/a.png');
+      });
     });
 
     test('emits nothing for an empty sent message without tool calls', () {
