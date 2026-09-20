@@ -503,6 +503,45 @@ void main() {
       skip: skip,
     );
 
+    test(
+      'home channels parse, and a missing one is refused with a reason',
+      () async {
+        final repository = KanbanRepository(client);
+        await cleanUp(repository);
+        addTearDown(() => cleanUp(repository));
+        await repository.createTask(title: title);
+        final task = (await findTask(repository))!;
+
+        final channels = await repository.loadHomeChannels(task.id);
+
+        // The throwaway backend has no messenger configured.
+        expect(channels, isA<List<KanbanHomeChannel>>());
+        if (channels.isEmpty) {
+          expect(
+            repository.setHomeSubscription(
+              task.id,
+              'telegram',
+              subscribed: true,
+            ),
+            throwsA(isA<KanbanException>()),
+          );
+        }
+      },
+      skip: skip,
+    );
+
+    test('an estimate parses', () async {
+      final repository = KanbanRepository(client);
+      await cleanUp(repository);
+      addTearDown(() => cleanUp(repository));
+      await repository.createTask(title: title);
+      final task = (await findTask(repository))!;
+
+      final estimate = await repository.estimateTask(task.id);
+
+      expect(estimate.ok ? estimate.tokens : estimate.reason, isNotNull);
+    }, skip: modelSkip);
+
     test('a refused change carries the plugin\'s reason', () async {
       final repository = KanbanRepository(client);
 
