@@ -204,6 +204,43 @@ void main() {
     expect(selectedTab(tester), 0);
   });
 
+  Future<void> pushOverBoard(WidgetTester tester) async {
+    await tester.tap(find.text('open a task'));
+    await tester.pumpAndSettle();
+    expect(find.text('the task'), findsOneWidget);
+  }
+
+  testWidgets('a notification tap dismisses a screen pushed over the board', (
+    tester,
+  ) async {
+    kanbanPlugin(on: true);
+    await pumpShell(tester, size: const Size(400, 800));
+    await openKanban(tester);
+    await pushOverBoard(tester);
+
+    notifications.tap('t2');
+    await tester.pumpAndSettle();
+
+    expect(find.text('the task'), findsNothing);
+    expect(selectedTab(tester), 0);
+  });
+
+  testWidgets('shared content dismisses a screen pushed over the board', (
+    tester,
+  ) async {
+    kanbanPlugin(on: true);
+    await pumpShell(tester, size: const Size(400, 800));
+    await openKanban(tester);
+    await pushOverBoard(tester);
+
+    inbox.emit([const SharedText('https://example.com')]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('the task'), findsNothing);
+    expect(selectedTab(tester), 0);
+    expect(find.text('https://example.com'), findsOneWidget);
+  });
+
   testWidgets('the board is not built until its tab is opened', (tester) async {
     kanbanPlugin(on: true);
     await pumpShell(tester, size: const Size(400, 800));
@@ -273,6 +310,18 @@ class _BoardState extends State<_Board> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      const Column(children: [Text('the board'), TextField()]);
+  Widget build(BuildContext context) => Column(
+    children: [
+      const Text('the board'),
+      const TextField(),
+      TextButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('the task')),
+          ),
+        ),
+        child: const Text('open a task'),
+      ),
+    ],
+  );
 }

@@ -205,7 +205,7 @@ The system SHALL let the user open a "Notifications" dialog from the account men
 
 ### Requirement: Tapping a notification opens its chat
 
-The system SHALL open the chat a notification was posted for when the user taps it while the app is running. When the Chat and Kanban destinations are shown, the system SHALL select Chat on every tap, including a tap whose chat cannot be opened, so that the user is not left on the Kanban board. When the tap started the app, the system SHALL open that chat once the chat list has loaded. A tap that arrives while the chat list is still loading SHALL be held and applied when the list has loaded, and SHALL take precedence over the notification that launched the app. A notification carries the chat's thread id and, when known, its profile; a notification without a profile SHALL match on the thread id alone (so a notification posted by an earlier build, whose payload is a bare thread id, still works). If the target chat cannot be opened, because it belongs to a different profile than the one currently shown or is not in the loaded list, the selection SHALL NOT change (for a launch, the first chat in the list SHALL be selected instead) and the system SHALL tell the user with the message "Could not open that chat." Opening a chat from a notification SHALL close the chat list drawer when it is open, and SHALL NOT close or pop any other screen the user has open.
+The system SHALL open the chat a notification was posted for when the user taps it while the app is running. When the Chat and Kanban destinations are shown, the system SHALL select Chat on every tap, including a tap whose chat cannot be opened, so that the user is not left on the Kanban board, and SHALL dismiss the screens pushed over the board (a task, board management, the create form). When the tap started the app, the system SHALL select Chat and open that chat once the chat list has loaded. A tap that arrives while the chat list is still loading SHALL be held and applied when the list has loaded, and SHALL take precedence over the notification that launched the app. A notification carries the chat's thread id and, when known, its profile; a notification without a profile SHALL match on the thread id alone (so a notification posted by an earlier build, whose payload is a bare thread id, still works). If the target chat cannot be opened, because it belongs to a different profile than the one currently shown or is not in the loaded list, the selection SHALL NOT change (for a launch, the first chat in the list SHALL be selected instead) and the system SHALL tell the user with the message "Could not open that chat." Opening a chat from a notification SHALL close the chat list drawer when it is open, and SHALL NOT close or pop any other screen the user has open, except the screens pushed over the Kanban board.
 
 #### Scenario: Tap while running
 
@@ -217,6 +217,11 @@ The system SHALL open the chat a notification was posted for when the user taps 
 - **WHEN** the user taps a notification for chat s2 while the Kanban destination is selected
 - **THEN** the Chat destination is selected
 - **AND** chat s2 is open
+
+#### Scenario: Tap while a task is open over the board
+
+- **WHEN** the user taps a notification while a task, board management or the create form is open over the Kanban board
+- **THEN** that screen is dismissed and the Chat destination is selected
 
 #### Scenario: Tap for an unknown chat
 

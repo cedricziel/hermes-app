@@ -62,9 +62,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   /// Puts Chat in front. The chat asks for this when a notification tap or
-  /// shared content lands there while the board is on screen.
+  /// shared content lands there while the board is on screen. Screens pushed
+  /// over the board (a task, board management, the create form) are dismissed
+  /// too, or the user would stay on them.
   void _showChat() {
-    if (_index != 0) setState(() => _index = 0);
+    if (_index == 0) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() => _index = 0);
   }
 
   Future<void> _detect() async {
