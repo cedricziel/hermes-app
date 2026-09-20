@@ -523,3 +523,100 @@ class KanbanHomeChannel {
   KanbanHomeChannel withSubscribed(bool value) =>
       KanbanHomeChannel(platform: platform, name: name, subscribed: value);
 }
+
+/// A worker process the dispatcher has running a task right now.
+class KanbanWorker {
+  const KanbanWorker({
+    required this.runId,
+    required this.taskId,
+    required this.taskTitle,
+    this.profile,
+    this.pid,
+    this.startedAt,
+    this.lastHeartbeatAt,
+  });
+
+  factory KanbanWorker.fromJson(Map<String, dynamic> json) => KanbanWorker(
+    runId: _int(json['run_id']),
+    taskId: json['task_id'] as String? ?? '',
+    taskTitle: json['task_title'] as String? ?? '',
+    profile: _text(json['profile']) ?? _text(json['task_assignee']),
+    pid: json['worker_pid'] is num ? (json['worker_pid'] as num).toInt() : null,
+    startedAt: _time(json['started_at']),
+    lastHeartbeatAt: _time(json['last_heartbeat_at']),
+  );
+
+  final int runId;
+  final String taskId;
+  final String taskTitle;
+  final String? profile;
+  final int? pid;
+  final DateTime? startedAt;
+  final DateTime? lastHeartbeatAt;
+}
+
+/// Live figures for a worker's process, when the server can read them.
+class KanbanRunInspection {
+  const KanbanRunInspection({
+    required this.alive,
+    this.pid,
+    this.cpuPercent,
+    this.memoryBytes,
+    this.threads,
+    this.status,
+    this.note,
+  });
+
+  factory KanbanRunInspection.fromJson(Map<String, dynamic> json) =>
+      KanbanRunInspection(
+        alive: json['alive'] == true,
+        pid: json['pid'] is num ? (json['pid'] as num).toInt() : null,
+        cpuPercent: json['cpu_percent'] is num
+            ? (json['cpu_percent'] as num).toDouble()
+            : null,
+        memoryBytes: json['memory_rss_bytes'] is num
+            ? (json['memory_rss_bytes'] as num).toInt()
+            : null,
+        threads: json['num_threads'] is num
+            ? (json['num_threads'] as num).toInt()
+            : null,
+        status: _text(json['status']),
+        note: _text(json['reason']) ?? _text(json['error']),
+      );
+
+  /// False when the process is gone or cannot be read; [note] says which.
+  final bool alive;
+  final int? pid;
+  final double? cpuPercent;
+  final int? memoryBytes;
+  final int? threads;
+  final String? status;
+  final String? note;
+}
+
+/// The archive a board export wrote, on the server.
+class KanbanExport {
+  const KanbanExport({required this.archive, this.size = 0});
+
+  factory KanbanExport.fromJson(Map<String, dynamic> json) => KanbanExport(
+    archive: json['archive'] as String? ?? '',
+    size: _int(json['size']),
+  );
+
+  /// A path on the server's filesystem, not on this device.
+  final String archive;
+  final int size;
+}
+
+/// The board an import created; its slug may differ from the one asked for.
+class KanbanImport {
+  const KanbanImport({required this.board, this.renamed = false});
+
+  factory KanbanImport.fromJson(Map<String, dynamic> json) => KanbanImport(
+    board: json['board'] as String? ?? '',
+    renamed: json['renamed'] == true,
+  );
+
+  final String board;
+  final bool renamed;
+}

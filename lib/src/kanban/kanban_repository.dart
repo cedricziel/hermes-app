@@ -338,6 +338,69 @@ class KanbanRepository {
           ),
   );
 
+  /// Every worker the dispatcher has running a task.
+  Future<List<KanbanWorker>> loadActiveWorkers({String? board}) =>
+      _guard(() async {
+        final response = await _api
+            .listActiveWorkersApiPluginsKanbanWorkersActiveGet(board: board);
+        final workers = _map(response.data)['workers'];
+        return [
+          if (workers is List)
+            for (final w in workers)
+              if (w is Map<String, dynamic>) KanbanWorker.fromJson(w),
+        ];
+      });
+
+  /// Live figures for a run's worker process. The plugin reads CPU from a
+  /// fresh process handle, so its first reading is always 0; the app shows
+  /// memory and threads instead.
+  Future<KanbanRunInspection> inspectRun(int runId, {String? board}) =>
+      _guard(() async {
+        final response = await _api
+            .inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(
+              runId: runId,
+              board: board,
+            );
+        return KanbanRunInspection.fromJson(_map(response.data));
+      });
+
+  /// Writes a board to an archive on the *server* ([output] is a server path;
+  /// empty lets the server choose its export folder).
+  Future<KanbanExport> exportBoard(
+    String slug, {
+    String output = '',
+    bool attachments = true,
+    bool logs = false,
+  }) => _guard(() async {
+    final response = await _api
+        .exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(
+          slug: slug,
+          exportBoardBody: ExportBoardBody(
+            output: output,
+            attachments: attachments,
+            logs: logs,
+          ),
+        );
+    return KanbanExport.fromJson(_map(response.data));
+  });
+
+  /// Creates a new board from an archive already on the *server*.
+  Future<KanbanImport> importBoard(
+    String archive, {
+    String? slug,
+    bool switchToIt = false,
+  }) => _guard(() async {
+    final response = await _api
+        .importBoardEndpointApiPluginsKanbanBoardsImportPost(
+          importBoardBody: ImportBoardBody(
+            archive: archive,
+            slug: slug,
+            switch_: switchToIt,
+          ),
+        );
+    return KanbanImport.fromJson(_map(response.data));
+  });
+
   Future<void> removeAttachment(int id, {String? board}) => _guard(
     () => _api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(
       attachmentId: id,

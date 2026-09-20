@@ -636,6 +636,43 @@ void main() {
       expect(estimate.ok ? estimate.tokens : estimate.reason, isNotNull);
     }, skip: modelSkip);
 
+    test('the active workers parse', () async {
+      final workers = await KanbanRepository(client).loadActiveWorkers();
+
+      expect(workers, isA<List<KanbanWorker>>());
+    }, skip: skip);
+
+    test(
+      'a board can be exported, imported under a new name and removed',
+      () async {
+        final repository = KanbanRepository(client);
+        const slug = 'contract-export';
+        addTearDown(() async {
+          for (final s in [slug, '$slug-2']) {
+            try {
+              await repository.removeBoard(s, hardDelete: true);
+            } catch (_) {}
+          }
+        });
+        await repository.createBoard(slug: slug, name: 'Contract export');
+
+        final exported = await repository.exportBoard(slug);
+        final imported = await repository.importBoard(
+          exported.archive,
+          slug: slug,
+        );
+
+        expect(exported.archive, isNotEmpty);
+        expect(exported.size, greaterThan(0));
+        expect(imported.board, isNotEmpty);
+        expect(imported.board, isNot(slug));
+        expect(imported.renamed, isTrue);
+        final boards = await repository.listBoards();
+        expect(boards.map((b) => b.slug), containsAll([slug, imported.board]));
+      },
+      skip: skip,
+    );
+
     test('a refused change carries the plugin\'s reason', () async {
       final repository = KanbanRepository(client);
 

@@ -437,4 +437,17 @@ void main() {
 
     expect(find.text('1 selected'), findsOneWidget);
   });
+
+  testWidgets('opens the active workers from the menu', (tester) async {
+    serveTasks();
+    server.on('GET', '/api/plugins/kanban/workers/active', {'workers': []});
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Active workers…'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No workers are running'), findsOneWidget);
+  });
 }
