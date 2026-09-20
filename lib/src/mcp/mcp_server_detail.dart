@@ -344,7 +344,11 @@ class McpServerPage extends StatelessWidget {
         builder: (context, _) {
           if (controller.serverNamed(name) == null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) Navigator.of(context).maybePop();
+              if (!context.mounted) return;
+              final route = ModalRoute.of(context);
+              if (route == null) return;
+              final navigator = Navigator.of(context);
+              route.isCurrent ? navigator.pop() : navigator.removeRoute(route);
             });
           }
           return McpServerDetail(controller: controller, name: name);

@@ -591,6 +591,35 @@ void main() {
       expect(row('filesystem'), findsOneWidget);
     });
 
+    testWidgets('leaves an open confirmation alone when the server vanishes, '
+        'and closes the page after it', (tester) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest(
+        'POST',
+        '/api/mcp/servers/grafana/test',
+        (_) => answer.future,
+      );
+      await pumpScreen(tester);
+      await openDetail(tester, 'grafana');
+      await tester.tap(find.text('Test connection'));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Remove'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Remove grafana?'), findsOneWidget);
+      listServers([filesystem]);
+
+      answer.complete((status: 404, body: {'detail': 'Not Found'}));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Remove grafana?'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpServerDetail), findsNothing);
+      expect(row('filesystem'), findsOneWidget);
+    });
+
     testWidgets('does nothing when cancelled', (tester) async {
       await pumpScreen(tester);
       await openDetail(tester, 'grafana');
