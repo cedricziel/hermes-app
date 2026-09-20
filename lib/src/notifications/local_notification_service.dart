@@ -12,22 +12,32 @@ const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
 /// The payload a notification for [target] carries.
-String encodeTarget(NotificationTarget target) =>
-    jsonEncode({'t': target.threadId, 'p': ?target.profile});
+String encodeTarget(NotificationTarget target) => jsonEncode({
+  if (target.isJob) 'j': target.jobId else 't': target.threadId,
+  'p': ?target.profile,
+});
 
-/// The chat a tapped notification was posted for. A payload that is not our
-/// JSON is a plain thread id, as an earlier build posted it.
+/// What a tapped notification was posted for. A payload that is not our JSON
+/// is a plain thread id, as an earlier build posted it.
 NotificationTarget? targetFromResponse(NotificationResponse response) {
   final payload = response.payload;
   if (payload == null || payload.isEmpty) return null;
   try {
     final decoded = jsonDecode(payload);
-    if (decoded is Map && decoded['t'] is String) {
-      final profile = decoded['p'];
-      return NotificationTarget(
-        threadId: decoded['t'] as String,
-        profile: profile is String ? profile : null,
-      );
+    if (decoded is Map) {
+      final profile = decoded['p'] is String ? decoded['p'] as String : null;
+      if (decoded['j'] is String) {
+        return NotificationTarget.job(
+          jobId: decoded['j'] as String,
+          profile: profile,
+        );
+      }
+      if (decoded['t'] is String) {
+        return NotificationTarget(
+          threadId: decoded['t'] as String,
+          profile: profile,
+        );
+      }
     }
   } on FormatException {
     // Not JSON: fall through to a plain thread id.
@@ -149,10 +159,15 @@ class LocalNotificationService implements NotificationService {
           macOS: DarwinNotificationDetails(),
         ),
         payload: encodeTarget(
-          NotificationTarget(
-            threadId: notification.threadId,
-            profile: notification.profile,
-          ),
+          notification.jobId != null
+              ? NotificationTarget.job(
+                  jobId: notification.jobId!,
+                  profile: notification.profile,
+                )
+              : NotificationTarget(
+                  threadId: notification.threadId,
+                  profile: notification.profile,
+                ),
         ),
       );
     } on Object {

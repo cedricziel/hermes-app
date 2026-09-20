@@ -140,4 +140,62 @@ void main() {
     expect(settings.permissionAsked, isTrue);
     expect(settings.permissionDenied, isTrue);
   });
+
+  group('scheduled tasks', () {
+    test(
+      'alerts are on by default and the choice survives a restart',
+      () async {
+        final settings = await relaunch();
+        expect(settings.scheduleAlerts, isTrue);
+
+        await settings.setScheduleAlerts(false);
+
+        expect((await relaunch()).scheduleAlerts, isFalse);
+      },
+    );
+
+    test('a mute survives a restart and can be lifted', () async {
+      final settings = await relaunch();
+
+      await settings.setMuted('work/job1', true);
+      expect((await relaunch()).isMuted('work/job1'), isTrue);
+      expect((await relaunch()).isMuted('home/job1'), isFalse);
+
+      await settings.setMuted('work/job1', false);
+      expect((await relaunch()).isMuted('work/job1'), isFalse);
+    });
+
+    test('forgets the mutes of jobs that are gone', () async {
+      final settings = await relaunch();
+      await settings.setMuted('work/job1', true);
+      await settings.setMuted('work/job2', true);
+
+      await settings.forgetMutes({'work/job2'});
+
+      final again = await relaunch();
+      expect(again.isMuted('work/job1'), isFalse);
+      expect(again.isMuted('work/job2'), isTrue);
+    });
+
+    test('a mute made while loading is not lost', () async {
+      final settings = NotificationSettings();
+
+      final loading = settings.load();
+      await settings.setMuted('work/job1', true);
+      await loading;
+
+      expect(settings.isMuted('work/job1'), isTrue);
+    });
+
+    test('tells listeners about a mute', () async {
+      final settings = await relaunch();
+      var heard = 0;
+      settings.addListener(() => heard++);
+
+      await settings.setMuted('work/job1', true);
+      await settings.setMuted('work/job1', true);
+
+      expect(heard, 1);
+    });
+  });
 }

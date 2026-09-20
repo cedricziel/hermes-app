@@ -24,12 +24,18 @@ class FakeNotificationService implements NotificationService {
   /// The profile of the notification that started the app, if any.
   String? launchProfile;
 
+  /// The scheduled task whose notification started the app, if it was one.
+  String? launchJob;
+
   final shown = <AttentionNotification>[];
   var permissionRequests = 0;
   final _taps = StreamController<NotificationTarget>.broadcast();
 
   void tap(String threadId, {String? profile}) =>
       _taps.add(NotificationTarget(threadId: threadId, profile: profile));
+
+  void tapJob(String jobId, {String? profile}) =>
+      _taps.add(NotificationTarget.job(jobId: jobId, profile: profile));
 
   @override
   Stream<NotificationTarget> get taps => _taps.stream;
@@ -45,9 +51,14 @@ class FakeNotificationService implements NotificationService {
       shown.add(notification);
 
   @override
-  Future<NotificationTarget?> launchTarget() async => launchThread == null
-      ? null
-      : NotificationTarget(threadId: launchThread!, profile: launchProfile);
+  Future<NotificationTarget?> launchTarget() async {
+    if (launchJob != null) {
+      return NotificationTarget.job(jobId: launchJob!, profile: launchProfile);
+    }
+    return launchThread == null
+        ? null
+        : NotificationTarget(threadId: launchThread!, profile: launchProfile);
+  }
 
   @override
   Future<void> dispose() => _taps.close();

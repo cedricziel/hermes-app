@@ -9,6 +9,8 @@ import '../kanban/kanban_screen.dart';
 import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
+import '../notifications/notification_settings.dart';
+import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
@@ -55,6 +57,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// has been opened.
   final _opened = <_Destination>{};
   SchedulesController? _schedulesController;
+  ScheduleWatcher? _watcher;
+
+  /// A tap on a scheduled task's notification that came before the cron
+  /// check was done.
+  NotificationTarget? _pendingJob;
 
   @override
   void initState() {
@@ -65,13 +72,32 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         (api == null ? null : HermesPluginsRepository(api.raw));
     _cron = widget.cron ?? (api == null ? null : HermesCronRepository(api.raw));
     _profiles = api == null ? null : HermesProfilesRepository(api.raw);
+    final service = _maybeRead<NotificationService>();
+    final settings = _maybeRead<NotificationSettings>();
+    if (service != null && settings != null && _cron != null) {
+      _watcher = ScheduleWatcher(
+        repository: _cron!,
+        service: service,
+        settings: settings,
+        profiles: _profiles,
+      );
+    }
     WidgetsBinding.instance.addObserver(this);
     _detect();
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _watcher?.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
     super.dispose();
@@ -107,7 +133,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (!kanban) _drop(_Destination.kanban);
       if (!schedules) _drop(_Destination.schedules);
     });
+    _watcher?.available = schedules;
     _syncSchedules();
+    final pending = _pendingJob;
+    if (schedules && pending != null) {
+      _pendingJob = null;
+      _openJob(pending);
+    }
   }
 
   /// Forgets a destination that went off, so it is not rebuilt, or reloaded,
@@ -144,8 +176,26 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
   }
 
-  void _syncSchedules() =>
-      _schedulesController?.active = _current == _Destination.schedules;
+  void _syncSchedules() {
+    final inFront = _current == _Destination.schedules;
+    _schedulesController?.active = inFront;
+    _watcher?.schedulesInFront = inFront;
+  }
+
+  /// Shows a scheduled task a notification was about. Chat cannot, so it hands
+  /// the tap over. Before the cron check has answered the tap waits for it.
+  void _openJob(NotificationTarget target) {
+    if (!_schedules) {
+      _pendingJob = target;
+      return;
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    _select(_Destination.schedules);
+    _schedulesController?.requestOpen(
+      target.jobId ?? '',
+      profile: target.profile,
+    );
+  }
 
   void _openRun(CronRun run, CronJob job) {
     _openRequests.request(
@@ -179,7 +229,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final chat = KeyedSubtree(
       key: _chatKey,
-      child: ChatScreen(onShowChat: _showChat, openRequests: _openRequests),
+      child: ChatScreen(
+        onShowChat: _showChat,
+        openRequests: _openRequests,
+        onOpenJob: _openJob,
+      ),
     );
     final destinations = [
       _Destination.chat,

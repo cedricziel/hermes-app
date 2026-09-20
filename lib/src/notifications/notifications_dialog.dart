@@ -36,6 +36,18 @@ class _NotificationsDialog extends StatelessWidget {
           value: settings.enabled,
           onChanged: (value) => settings.setEnabled(value),
         ),
+        SwitchListTile(
+          key: const Key('schedule-alerts'),
+          title: const Text('Scheduled tasks'),
+          subtitle: const Text(
+            'When a scheduled task finishes or fails, while the app is open. '
+            'Mute single tasks from their page.',
+          ),
+          value: settings.scheduleAlerts,
+          onChanged: settings.enabled
+              ? (value) => settings.setScheduleAlerts(value)
+              : null,
+        ),
         if (settings.enabled && settings.permissionDenied)
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),

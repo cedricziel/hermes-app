@@ -244,6 +244,37 @@ class SchedulesController extends ChangeNotifier {
     }
   }
 
+  /// A job the user asked to see from outside the destination, such as by
+  /// tapping its notification. The screen takes it and shows the job. An
+  /// empty id only asks for the list.
+  ({String id, String? profile})? _openRequest;
+
+  void requestOpen(String id, {String? profile}) {
+    _openRequest = (id: id, profile: profile);
+    notifyListeners();
+  }
+
+  ({String id, String? profile})? takeOpenRequest() {
+    final request = _openRequest;
+    _openRequest = null;
+    return request;
+  }
+
+  /// The job [id] of [profile], from the list or, when it is not on it, from
+  /// the server. Null when the server no longer has it.
+  Future<CronJob?> findJob(String id, {String? profile}) async {
+    final known = _jobs
+        .where((j) => j.id == id && (profile == null || j.profile == profile))
+        .firstOrNull;
+    if (known != null) return known;
+    try {
+      return await repository.getJob(id, profile: profile);
+    } on CronException catch (e) {
+      if (e.isNotFound) return null;
+      rethrow;
+    }
+  }
+
   /// Puts a job that was just created or changed on screen and selects it.
   /// A job in another profile than the one listed widens the list to every
   /// profile, or it would seem to have vanished.

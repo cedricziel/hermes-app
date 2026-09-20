@@ -76,6 +76,7 @@ class ChatScreen extends StatefulWidget {
     this.onShowChat,
     this.attachmentSource,
     this.openRequests,
+    this.onOpenJob,
   });
 
   final HermesChatRepository? repository;
@@ -96,6 +97,10 @@ class ChatScreen extends StatefulWidget {
 
   /// Where another destination asks the chat to open a session.
   final ChatOpenRequests? openRequests;
+
+  /// Called for a tapped notification that is about a scheduled task, which
+  /// the chat cannot show.
+  final void Function(NotificationTarget target)? onOpenJob;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -217,7 +222,11 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       profile ??= await _activeProfile();
       final first = await _repository!.loadThreadPage(profile: profile);
-      final launched = await _attention.takeLaunchTarget();
+      var launched = await _attention.takeLaunchTarget();
+      if (launched != null && launched.isJob) {
+        widget.onOpenJob?.call(launched);
+        launched = null;
+      }
       if (!mounted || generation != _loadGeneration) return;
       final held = _pendingTap;
       final fetchHeld = held != null && _pendingFetch;
@@ -312,8 +321,10 @@ class _ChatScreenState extends State<ChatScreen> {
   static bool _isOnProfile(NotificationTarget? target, String? profile) =>
       target != null && (target.profile == null || target.profile == profile);
 
-  void _openFromNotification(NotificationTarget target) =>
-      _open(target, fetchMissing: false);
+  void _openFromNotification(NotificationTarget target) {
+    if (target.isJob) return widget.onOpenJob?.call(target);
+    _open(target, fetchMissing: false);
+  }
 
   /// Another destination asked for a session. Unlike a notification tap, it
   /// is fetched when the loaded threads do not hold it, on its own profile.

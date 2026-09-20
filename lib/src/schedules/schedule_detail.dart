@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'job_form_controller.dart';
+import '../notifications/notification_settings.dart';
 import 'job_form_screen.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
@@ -152,6 +154,12 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
     final now = _controller.now;
     final color = outcomeColor(context, job);
     final next = nextRunText(job, now);
+    NotificationSettings? notifications;
+    try {
+      notifications = context.watch<NotificationSettings>();
+    } on ProviderNotFoundException {
+      notifications = null;
+    }
     final settings = <(String, String)>[
       if (job.skills.isNotEmpty) ('Skills', job.skills.join(', ')),
       if (job.model != null) ('Model', job.model!),
@@ -239,6 +247,15 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
             ),
           ],
         ),
+        if (notifications != null)
+          SwitchListTile(
+            key: const Key('job-mute'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Mute notifications'),
+            subtitle: const Text('No alert when this task runs'),
+            value: notifications.isMuted(job.key),
+            onChanged: (muted) => notifications!.setMuted(job.key, muted),
+          ),
         const SizedBox(height: 20),
         _Heading('Schedule'),
         Text(
