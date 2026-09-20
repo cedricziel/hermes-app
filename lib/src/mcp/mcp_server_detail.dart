@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'hermes_mcp_repository.dart';
+import 'mcp_banner.dart';
 import 'mcp_presentation.dart';
 import 'mcp_servers_controller.dart';
 
@@ -172,8 +173,8 @@ class _TestOutcome extends StatelessWidget {
   Widget build(BuildContext context) {
     return switch (controller.testOf(server.name)) {
       null || McpTestRunning() => const SizedBox.shrink(),
-      McpTestUnavailable() => _Banner(
-        tone: _Tone.error,
+      McpTestUnavailable() => McpBanner(
+        tone: McpTone.error,
         icon: Icons.error_outline,
         title: 'Could not test ${server.name}',
         action: TextButton(
@@ -181,14 +182,15 @@ class _TestOutcome extends StatelessWidget {
           child: const Text('Retry'),
         ),
       ),
-      McpTestFinished(:final result) when result.signInNeeded => const _Banner(
-        tone: _Tone.warning,
-        icon: Icons.lock_outline,
-        title: 'Sign in needed',
-        detail: 'Hermes has no OAuth token for this server yet, so it cannot list tools.',
-      ),
-      McpTestFinished(:final result) when !result.ok => _Banner(
-        tone: _Tone.error,
+      McpTestFinished(:final result) when result.signInNeeded =>
+        const McpBanner(
+          tone: McpTone.warning,
+          icon: Icons.lock_outline,
+          title: 'Sign in needed',
+          detail: 'Hermes has no OAuth token for this server yet, so it cannot list tools.',
+        ),
+      McpTestFinished(:final result) when !result.ok => McpBanner(
+        tone: McpTone.error,
         icon: Icons.error_outline,
         title: 'Could not connect',
         detail: result.error,
@@ -196,8 +198,8 @@ class _TestOutcome extends StatelessWidget {
       McpTestFinished(:final result) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Banner(
-            tone: _Tone.success,
+          McpBanner(
+            tone: McpTone.success,
             icon: Icons.check_circle_outline,
             title: 'Connected',
             detail:
@@ -209,62 +211,6 @@ class _TestOutcome extends StatelessWidget {
         ],
       ),
     };
-  }
-}
-
-enum _Tone { success, warning, error }
-
-class _Banner extends StatelessWidget {
-  const _Banner({
-    required this.tone,
-    required this.icon,
-    required this.title,
-    this.detail = '',
-    this.action,
-  });
-
-  final _Tone tone;
-  final IconData icon;
-  final String title;
-  final String detail;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = switch (tone) {
-      _Tone.success => Colors.green.shade600,
-      _Tone.warning => Colors.amber.shade700,
-      _Tone.error => scheme.error,
-    };
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                if (detail.isNotEmpty) Text(detail),
-              ],
-            ),
-          ),
-          ?action,
-        ],
-      ),
-    );
   }
 }
 
