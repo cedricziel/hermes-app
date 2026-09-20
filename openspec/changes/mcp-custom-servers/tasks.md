@@ -29,6 +29,7 @@
 ## 5. Contract and finish
 
 - [x] 5.1 Extend `test/real_backend_contract_test.dart`: `/api/config` carries a `mcp_servers` map with fields the summary route omits, and the round trip of adding a remote server, saving it unchanged from the editor's data and seeing the list unchanged; run it against `scripts/dev-backend.sh`
-- [x] 5.2 Run `dart format .`, `flutter analyze` and `flutter test`; check the form, the review step and the editor against the mockups in the running app with the `verify-in-app` skill on a throwaway backend, adding only a remote server and a harmless command such as `true` that is never started
+- [x] 5.2 Run `dart format .`, `flutter analyze` and `flutter test`; check the form, the review step and the editor against the mockups in widget tests at widths either side of 900 logical pixels
+- [ ] 5.2b Check the form, the review step and the editor in the running app with the `verify-in-app` skill on a throwaway backend, adding only a remote server and a harmless command such as `true` that is never started. Not verified in the running app: no screen-recording permission, so no screenshot could be taken
 - [x] 5.3 Update the `CLAUDE.md` architecture note for `lib/src/mcp/` and add anything learned to the `verify-in-app` skill
 - [ ] 5.4 Archive the change (`openspec archive mcp-custom-servers`) as the last commit so the main specs are updated with the code
