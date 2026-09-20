@@ -111,24 +111,6 @@ void main() {
       expect(odd.auth, isNull);
     });
 
-    test('never keeps environment values', () async {
-      server.on(
-        'GET',
-        '/api/mcp/servers',
-        mcpServerListBody([
-          mcpServerRow(
-            name: 'db',
-            command: 'db-mcp',
-            env: {'DB_PASSWORD': 'hunter2'},
-          ),
-        ]),
-      );
-
-      final db = (await repository.loadServers()).single;
-
-      expect(db.address, 'db-mcp');
-    });
-
     test('sends the profile when one is known', () async {
       server.on('GET', '/api/mcp/servers', mcpServerListBody([]));
 
@@ -171,6 +153,10 @@ void main() {
     });
 
     test('surfaces a 404 as a DioException the caller can recognise', () {
+      server.on('PUT', '/api/mcp/servers/gone/enabled', {
+        'detail': 'Not Found',
+      }, status: 404);
+
       expect(
         repository.setEnabled('gone', true),
         throwsA(
@@ -318,6 +304,8 @@ void main() {
     });
 
     test('surfaces a 404 as a DioException the caller can recognise', () {
+      server.on('POST', path, {'detail': 'Not Found'}, status: 404);
+
       expect(
         repository.testServer(oauthServer()),
         throwsA(
@@ -340,6 +328,10 @@ void main() {
     });
 
     test('surfaces a 404 as a DioException the caller can recognise', () {
+      server.on('DELETE', '/api/mcp/servers/gone', {
+        'detail': 'Not Found',
+      }, status: 404);
+
       expect(
         repository.removeServer('gone'),
         throwsA(

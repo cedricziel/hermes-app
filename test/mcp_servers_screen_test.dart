@@ -203,11 +203,24 @@ void main() {
 
     testWidgets('never shows environment values', (tester) async {
       await pumpScreen(tester);
-      await openDetail(tester, 'filesystem');
 
-      expect(find.textContaining('hunter2'), findsNothing);
-      expect(find.textContaining('FS_TOKEN'), findsNothing);
-      expect(find.text('***'), findsNothing);
+      void expectNoEnvironment() {
+        expect(
+          find.textContaining('hunter2', skipOffstage: false),
+          findsNothing,
+        );
+        expect(
+          find.textContaining('FS_TOKEN', skipOffstage: false),
+          findsNothing,
+        );
+        expect(find.text('***', skipOffstage: false), findsNothing);
+      }
+
+      expect(row('filesystem'), findsOneWidget);
+      expectNoEnvironment();
+
+      await openDetail(tester, 'filesystem');
+      expectNoEnvironment();
     });
 
     testWidgets('says changes apply from the next chat', (tester) async {
@@ -531,6 +544,42 @@ void main() {
       expect(find.byType(McpServerDetail), findsNothing);
       expect(row('grafana'), findsNothing);
       expect(row('filesystem'), findsOneWidget);
+    });
+
+    testWidgets('shows the first remaining server on a wide layout', (
+      tester,
+    ) async {
+      server.on('POST', '/api/mcp/servers/grafana/test', {
+        'detail': 'Not Found',
+      }, status: 404);
+      await pumpScreen(tester, size: const Size(1200, 800));
+      listServers([filesystem]);
+
+      await tapTest(tester);
+
+      expect(row('grafana'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(McpServerDetail),
+          matching: find.text('Command'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows the empty state on a wide layout when none remain', (
+      tester,
+    ) async {
+      server.on('POST', '/api/mcp/servers/grafana/test', {
+        'detail': 'Not Found',
+      }, status: 404);
+      await pumpScreen(tester, size: const Size(1200, 800));
+      listServers([]);
+
+      await tapTest(tester);
+
+      expect(find.byType(McpServerDetail), findsNothing);
+      expect(find.text('No MCP servers on "work"'), findsOneWidget);
     });
 
     testWidgets('switches the server from its detail', (tester) async {
