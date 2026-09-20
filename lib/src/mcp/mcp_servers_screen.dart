@@ -337,6 +337,11 @@ class _Chip extends StatelessWidget {
         color: warning
             ? Colors.amber.withValues(alpha: 0.15)
             : theme.colorScheme.surfaceContainerHighest,
+        border: Border.all(
+          color: warning
+              ? Colors.amber.withValues(alpha: 0.4)
+              : theme.colorScheme.onSurface.withValues(alpha: 0.18),
+        ),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
