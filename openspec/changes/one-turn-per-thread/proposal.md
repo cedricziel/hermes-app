@@ -6,13 +6,13 @@ The chat lets the user send a second prompt on a thread while the first reply is
 
 - Sending on a thread that has a pending reply is refused, and the chat says why: "Hermes is still replying. Wait for it to finish, or answer its request."
 - A reply that waits for an approval or clarify answer counts as pending, because the user answers the card instead of sending.
-- The composer keeps its text and attachments when a send is refused.
+- The composer keeps its text and attachments when a send is refused. flutter_chat_ui's composer clears the field itself after every send, so it is set to leave clearing to the screen, which clears text and attachments once it accepts the send.
 - Other threads are not affected. Sending works again once the reply completes or its stream breaks.
 - The "Overlapping sends" scenario of the "Sending a message" requirement now applies to several threads only.
 
 ## Impact
 
-- Chat: `_send` in `lib/src/chat/chat_screen.dart`.
+- Chat: `_send` in `lib/src/chat/chat_screen.dart`, `ChatThread.isReplying` in `lib/src/chat/chat_models.dart`, and the composer builder in `lib/src/chat/widgets/chat_composer_builder.dart`.
 - Tests: new `test/chat_one_turn_test.dart`. Existing tests that sent twice on one thread while the first reply was pending now complete the first reply first.
 - No change to the generated API client (`packages/hermes_api`) and no new backend route or RPC method.
 
