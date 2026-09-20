@@ -125,6 +125,7 @@ class McpInstallController extends ChangeNotifier {
   }
 
   void _follow(String action, bool enable) {
+    if (_disposed) return;
     _timer = Timer(pollInterval, () => _poll(action, enable));
   }
 

@@ -670,6 +670,33 @@ void main() {
       expect(server.requests.where((r) => r.method == 'DELETE'), isEmpty);
     });
 
+    testWidgets('does not follow a build that starts after the sheet closed', (
+      tester,
+    ) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', installPath, (_) => answer.future);
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, running: true, exitCode: null),
+      );
+      await openEntry(tester, 'buildkite');
+      await tapInstall(tester);
+      await tester.pump(const Duration(milliseconds: 50));
+
+      await tester.tapAt(const Offset(200, 20));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+      answer.complete((
+        status: 200,
+        body: mcpInstallBody(name: 'buildkite', action: action),
+      ));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(seconds: 10));
+
+      expect(server.requestsTo('GET', statusPath), isEmpty);
+    });
+
     testWidgets('gives up when Hermes no longer knows the build', (
       tester,
     ) async {
