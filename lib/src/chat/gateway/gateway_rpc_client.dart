@@ -23,6 +23,26 @@ class GatewayEvent {
   final Map<String, Object?> payload;
 }
 
+/// A request the gateway sends to the client and waits on, e.g. `approval`.
+/// The client answers it with [GatewayRpcClient.respond] or
+/// [GatewayRpcClient.respondError], quoting [id].
+class GatewayServerRequest {
+  const GatewayServerRequest({
+    required this.id,
+    required this.method,
+    required this.sessionId,
+    required this.params,
+  });
+
+  final String id;
+  final String method;
+
+  /// The runtime session the request belongs to.
+  final String sessionId;
+
+  final Map<String, Object?> params;
+}
+
 /// The gateway answered a request with a JSON-RPC error.
 class GatewayRpcException implements Exception {
   const GatewayRpcException(this.code, this.message);
@@ -43,7 +63,8 @@ class GatewayConnectionClosed implements Exception {
 }
 
 /// A JSON-RPC 2.0 client for the dashboard's `/api/ws` socket: requests are
-/// answered by id, everything else the server sends is an event.
+/// answered by id, the server's own requests are reported as
+/// [serverRequests], and everything else the server sends is an event.
 class GatewayRpcClient {
   GatewayRpcClient(StreamChannel<String> channel, {this._telemetry})
     : _channel = channel {
@@ -58,6 +79,7 @@ class GatewayRpcClient {
   final MessagingConnectionTracer? _telemetry;
   late final StreamSubscription<String> _subscription;
   final _events = StreamController<GatewayEvent>.broadcast();
+  final _serverRequests = StreamController<GatewayServerRequest>.broadcast();
   final _pending = <int, _Pending>{};
   var _nextId = 1;
   var _closed = false;
@@ -66,6 +88,9 @@ class GatewayRpcClient {
 
   /// Ends when the socket closes.
   Stream<GatewayEvent> get events => _events.stream;
+
+  /// Requests the gateway makes of the client. Ends when the socket closes.
+  Stream<GatewayServerRequest> get serverRequests => _serverRequests.stream;
 
   Future<Map<String, Object?>> request(
     String method, [
@@ -86,6 +111,22 @@ class GatewayRpcClient {
     return completer.future;
   }
 
+  /// Answers the server request [id] with [result]. Does nothing once the
+  /// socket has closed: the gateway is no longer waiting.
+  void respond(String id, Map<String, Object?> result) =>
+      _reply({'id': id, 'result': result});
+
+  /// Answers the server request [id] with a JSON-RPC error.
+  void respondError(String id, int code, String message) => _reply({
+    'id': id,
+    'error': {'code': code, 'message': message},
+  });
+
+  void _reply(Map<String, Object?> message) {
+    if (_closed) return;
+    _channel.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));
+  }
+
   Future<void> close() async {
     _onClosed();
     await _subscription.cancel();
@@ -102,11 +143,28 @@ class GatewayRpcClient {
     if (message is! Map<String, dynamic>) return;
 
     final id = message['id'];
+    final method = message['method'];
     if (id is int) {
       _settle(id, message);
-    } else if (message['method'] == 'event') {
+    } else if (method == 'event') {
       _emit(message['params']);
+    } else if (id is String && method is String) {
+      _serverRequest(id, method, message['params']);
     }
+  }
+
+  void _serverRequest(String id, String method, Object? params) {
+    final Map<String, Object?> fields = params is Map<String, Object?>
+        ? params
+        : const {};
+    _serverRequests.add(
+      GatewayServerRequest(
+        id: id,
+        method: method,
+        sessionId: fields['session_id']?.toString() ?? '',
+        params: fields,
+      ),
+    );
   }
 
   void _settle(int id, Map<String, dynamic> message) {
@@ -152,6 +210,7 @@ class GatewayRpcClient {
       call.completer.completeError(const GatewayConnectionClosed());
     }
     _events.close();
+    _serverRequests.close();
   }
 }
 

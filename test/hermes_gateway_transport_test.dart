@@ -26,6 +26,9 @@ class FakeGateway {
   /// Every request received, in order.
   final requests = <Map<String, Object?>>[];
 
+  /// Every response frame the app sent to a server-to-client request.
+  final responses = <Map<String, Object?>>[];
+
   StreamChannel<String> get channel => _wire.local;
 
   /// Runs after `prompt.submit` was answered; emits the turn's events.
@@ -44,6 +47,13 @@ class FakeGateway {
   /// The `status` `clarify.respond` reports.
   String clarifyStatus = 'ok';
 
+  /// The `status` `clarify.lock` reports.
+  String lockStatus = 'ok';
+
+  /// Whether `client.capabilities` fails, as it does on a gateway that
+  /// predates server-to-client requests.
+  bool capabilitiesUnknown = false;
+
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
 
   Iterable<String> get methods => requests.map((r) => r['method'] as String);
@@ -60,6 +70,19 @@ class FakeGateway {
     'params': {'type': type, 'session_id': sessionId, 'payload': payload},
   });
 
+  /// Sends a server-to-client request, the way the gateway asks the client a
+  /// question and waits for the response frame carrying the same [id].
+  void serverRequest(
+    String id,
+    String method,
+    String sessionId, [
+    Map<String, Object?> params = const {},
+  ]) => _send({
+    'id': id,
+    'method': method,
+    'params': {'session_id': sessionId, ...params},
+  });
+
   void drop() => _wire.foreign.sink.close();
 
   void _send(Map<String, Object?> message) =>
@@ -67,6 +90,10 @@ class FakeGateway {
 
   void _onFrame(String frame) {
     final request = jsonDecode(frame) as Map<String, Object?>;
+    if (!request.containsKey('method')) {
+      responses.add(request);
+      return;
+    }
     requests.add(request);
     final id = request['id'];
     final params = request['params'] as Map<String, Object?>;
@@ -83,6 +110,23 @@ class FakeGateway {
                   'error': {'code': 4007, 'message': 'session not found'},
                 },
         );
+      case 'client.capabilities' when capabilitiesUnknown:
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'client.capabilities':
+        _send({
+          'id': id,
+          'result': {
+            'server_requests': ['approval', 'clarify', 'sudo', 'secret'],
+          },
+        });
+      case 'clarify.lock':
+        _send({
+          'id': id,
+          'result': {'status': lockStatus, 'remaining': <String>[]},
+        });
       case 'approval.respond':
         _send({
           'id': id,
@@ -133,6 +177,28 @@ void main() {
   }) =>
       transport.send(threadId: threadId, profile: profile, text: text).toList();
 
+  /// Runs a turn that [raise]s an approval or clarify request, calls [answer]
+  /// on the transport while the turn waits, then completes the turn.
+  Future<T> answerWhileRaising<T>(
+    void Function(FakeGateway gateway, String sessionId) raise,
+    Future<T> Function() answer,
+  ) async {
+    gateway.turn = raise;
+    final done = Completer<void>();
+    late T result;
+    transport.send(text: 'hi').listen((e) async {
+      if (e is ApprovalRequested || e is ClarifyRequested) {
+        result = await answer();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'ok',
+          'status': 'complete',
+        });
+      }
+    }, onDone: done.complete);
+    await done.future;
+    return result;
+  }
+
   void plainReply(FakeGateway g, String sid) {
     g.event('message.start', sid);
     g.event('message.delta', sid, {'text': 'Hel'});
@@ -169,7 +235,11 @@ void main() {
 
       await reply(text: 'hi');
 
-      expect(gateway.methods, ['session.create', 'prompt.submit']);
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.create',
+        'prompt.submit',
+      ]);
       expect(gateway.requestOf('prompt.submit')['params'], {
         'session_id': 'rt-1',
         'text': 'hi',
@@ -184,7 +254,11 @@ void main() {
 
       final events = await reply(threadId: 'stored-2', text: 'again');
 
-      expect(gateway.methods, ['session.resume', 'prompt.submit']);
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.resume',
+        'prompt.submit',
+      ]);
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
       });
@@ -342,6 +416,7 @@ void main() {
 
     expect(connects, 1);
     expect(gateway.methods, [
+      'client.capabilities',
       'session.create',
       'prompt.submit',
       'session.create',
@@ -363,7 +438,11 @@ void main() {
     await reply();
 
     expect(connects, 2);
-    expect(second.methods, ['session.create', 'prompt.submit']);
+    expect(second.methods, [
+      'client.capabilities',
+      'session.create',
+      'prompt.submit',
+    ]);
   });
 
   test('a failed connection attempt is retried by the next send', () async {
@@ -561,7 +640,11 @@ void main() {
 
       await reply();
 
-      expect(gateway.methods, ['session.create', 'prompt.submit']);
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.create',
+        'prompt.submit',
+      ]);
     });
 
     test('secret and sudo expire events end the request', () async {
@@ -585,22 +668,7 @@ void main() {
       String event,
       Map<String, Object?> payload,
       Future<T> Function() answer,
-    ) async {
-      gateway.turn = (g, sid) => g.event(event, sid, payload);
-      final done = Completer<void>();
-      late T result;
-      transport.send(text: 'hi').listen((e) async {
-        if (e is ApprovalRequested || e is ClarifyRequested) {
-          result = await answer();
-          gateway.event('message.complete', 'rt-1', {
-            'text': 'ok',
-            'status': 'complete',
-          });
-        }
-      }, onDone: done.complete);
-      await done.future;
-      return result;
-    }
+    ) => answerWhileRaising((g, sid) => g.event(event, sid, payload), answer);
 
     test('an approval is answered on the runtime session', () async {
       final accepted = await answerWhileWaiting(
@@ -744,6 +812,327 @@ void main() {
       }, () => transport.answerClarify('r2', ['blue']));
 
       expect(accepted, isFalse);
+    });
+  });
+
+  group('server-to-client requests', () {
+    const approvalParams = {
+      'request_id': 'q1',
+      'command': 'rm -rf build',
+      'description': 'delete files',
+      'choices': ['once', 'session', 'deny'],
+    };
+
+    /// Runs a turn that raises [method] as a server-to-client request with
+    /// the id [id], calls [answer] while the turn waits, then completes it.
+    Future<T> answerWhileWaiting<T>(
+      String id,
+      String method,
+      Map<String, Object?> params,
+      Future<T> Function() answer,
+    ) => answerWhileRaising(
+      (g, sid) => g.serverRequest(id, method, sid, params),
+      answer,
+    );
+
+    test('the capability is announced before any session call', () async {
+      gateway.turn = plainReply;
+
+      await reply();
+
+      expect(gateway.requests.first['method'], 'client.capabilities');
+      expect(gateway.requests.first['params'], {'server_requests': true});
+    });
+
+    test('a gateway without the capability call still works', () async {
+      gateway.capabilitiesUnknown = true;
+      gateway.turn = plainReply;
+
+      final events = await reply();
+
+      expect(events.last, isA<ReplyCompleted>());
+    });
+
+    test('the capability is announced again on a new connection', () async {
+      gateway.turn = plainReply;
+      await reply();
+      gateway.drop();
+      await pumpEventQueue();
+      final second = FakeGateway()..turn = plainReply;
+      transport = HermesGatewayTransport(connect: () async => second.channel);
+
+      await reply();
+
+      expect(second.methods.first, 'client.capabilities');
+    });
+
+    test('an approval request becomes an approval, keyed by its id', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-1', 'approval', sid, approvalParams);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<ApprovalRequested>().single.request;
+      expect(request.requestId, 'srq-1');
+      expect(request.command, 'rm -rf build');
+      expect(request.description, 'delete files');
+      expect(request.choices, ['once', 'session', 'deny']);
+    });
+
+    test('an approval is answered with a response frame', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-1',
+        'approval',
+        approvalParams,
+        () => transport.answerApproval('srq-1', 'once'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-1',
+          'result': {'choice': 'once'},
+        },
+      ]);
+      expect(gateway.methods, isNot(contains('approval.respond')));
+    });
+
+    test('a single clarify question becomes a one-question request', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-2', 'clarify', sid, {
+          'question': 'Which colour?',
+          'choices': ['red', 'blue'],
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<ClarifyRequested>().single.request;
+      expect(request.requestId, 'srq-2');
+      expect(request.batch, isFalse);
+      expect(request.questions.single.question, 'Which colour?');
+      expect(request.questions.single.choices, ['red', 'blue']);
+    });
+
+    test(
+      'a single clarify question is answered with a response frame',
+      () async {
+        final accepted = await answerWhileWaiting('srq-2', 'clarify', {
+          'question': 'Which colour?',
+        }, () => transport.answerClarify('srq-2', ['blue']));
+
+        expect(accepted, isTrue);
+        expect(gateway.responses.single['id'], 'srq-2');
+        expect(gateway.responses.single['result'], {'answer': 'blue'});
+        expect(gateway.methods, isNot(contains('clarify.respond')));
+      },
+    );
+
+    test('a multi-select answer is a JSON array in a string', () async {
+      await answerWhileWaiting(
+        'srq-2',
+        'clarify',
+        {'question': 'Toppings?', 'multi_select': true},
+        () => transport.answerClarify('srq-2', [
+          'ham',
+          'olives',
+        ], multiSelect: true),
+      );
+
+      expect(gateway.responses.single['result'], {
+        'answer': '["ham","olives"]',
+      });
+    });
+
+    test('skipping a single question answers with an empty string', () async {
+      await answerWhileWaiting('srq-2', 'clarify', {
+        'question': 'Which colour?',
+      }, () => transport.answerClarify('srq-2', const []));
+
+      expect(gateway.responses.single['result'], {'answer': ''});
+    });
+
+    const batchParams = {
+      'questions': [
+        {'qid': 'a', 'question': 'Name?', 'choices': null},
+        {
+          'qid': 'b',
+          'question': 'Toppings?',
+          'choices': ['ham'],
+        },
+      ],
+    };
+
+    test('a batch question is locked, not answered with a frame', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-3',
+        'clarify',
+        batchParams,
+        () => transport.answerClarify('srq-3', ['ham'], questionId: 'b'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.requestOf('clarify.lock')['params'], {
+        'request_id': 'srq-3',
+        'question_id': 'b',
+        'answer': 'ham',
+      });
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('skipping a batch cancels it with an empty response frame', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-3',
+        'clarify',
+        batchParams,
+        () => transport.answerClarify('srq-3', const []),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['id'], 'srq-3');
+      expect(gateway.responses.single['result'], <String, Object?>{});
+      expect(gateway.methods, isNot(contains('clarify.lock')));
+    });
+
+    test(
+      'answering a clarify question twice never uses the event form',
+      () async {
+        await answerWhileWaiting(
+          'srq-2',
+          'clarify',
+          {'question': 'Which colour?'},
+          () async {
+            await transport.answerClarify('srq-2', ['blue']);
+            await transport.answerClarify('srq-2', ['blue']);
+          },
+        );
+
+        expect(gateway.methods, isNot(contains('clarify.respond')));
+      },
+    );
+
+    test('a batch lock on an ended request reports not accepted', () async {
+      gateway.lockStatus = 'expired';
+
+      final accepted = await answerWhileWaiting(
+        'srq-3',
+        'clarify',
+        batchParams,
+        () => transport.answerClarify('srq-3', ['ham'], questionId: 'b'),
+      );
+
+      expect(accepted, isFalse);
+    });
+
+    test('secret and sudo requests are shown and never answered', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-4', 'sudo', sid, {'command': 'apt install x'});
+        g.serverRequest('srq-5', 'secret', sid, {
+          'env_var': 'SERVICE_API_KEY',
+          'prompt': 'Enter the key',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final requests = events
+          .whereType<UnsupportedRequested>()
+          .map((e) => e.request)
+          .toList();
+      expect(requests.map((r) => r.requestId), ['srq-4', 'srq-5']);
+      expect(requests.map((r) => r.kind), [
+        UnsupportedKind.sudo,
+        UnsupportedKind.secret,
+      ]);
+      await pumpEventQueue();
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('a request the app has no handler for is refused at once', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.code', sid, {'site': 'example.com'});
+        g.serverRequest('srq-7', 'terminal.read', sid);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+      await pumpEventQueue();
+
+      expect(events.map((e) => e.runtimeType), [ThreadBound, ReplyCompleted]);
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-6',
+          'error': {'code': -32601, 'message': 'Method not found'},
+        },
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-7',
+          'error': {'code': -32601, 'message': 'Method not found'},
+        },
+      ]);
+    });
+
+    test('a request of another session is left alone', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-8', 'approval', 'someone-else', approvalParams);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+      await pumpEventQueue();
+
+      expect(events.whereType<ApprovalRequested>(), isEmpty);
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('a withdrawn request expires its card', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-1', 'approval', sid, approvalParams);
+        g.event('request.cancel', sid, {
+          'id': 'srq-1',
+          'method': 'approval',
+          'reason': 'timeout',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(events.whereType<InputRequestExpired>().single.requestId, 'srq-1');
+    });
+
+    test('an answer after the turn ended sends nothing', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-1', 'approval', sid, approvalParams);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+      await reply();
+
+      expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('the event form still works beside it', () async {
+      gateway.turn = (g, sid) {
+        g.event('approval.request', sid, {
+          ...approvalParams,
+          'request_id': 'r1',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(
+        events.whereType<ApprovalRequested>().single.request.requestId,
+        'r1',
+      );
     });
   });
 }
