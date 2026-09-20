@@ -479,6 +479,7 @@ class _ChatScreenState extends State<ChatScreen> {
           ReplyCompleted() ||
           ApprovalRequested() ||
           ClarifyRequested() ||
+          UnsupportedRequested() ||
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }

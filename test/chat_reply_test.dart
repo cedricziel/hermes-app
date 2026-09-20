@@ -221,6 +221,33 @@ void main() {
     });
   });
 
+  test('an unsupported request is added to the reply, pending', () {
+    final reply = _placeholder();
+    const request = UnsupportedRequest(
+      requestId: 'r9',
+      kind: UnsupportedKind.sudo,
+    );
+
+    applyReplyEvent(reply, const UnsupportedRequested(request));
+
+    expect(reply.inputRequests.single, same(request));
+    expect(reply.awaitingInput, isTrue);
+  });
+
+  test('an unsupported request expires with the turn', () {
+    final reply = _placeholder();
+    applyReplyEvent(
+      reply,
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r9', kind: UnsupportedKind.secret),
+      ),
+    );
+
+    applyReplyEvent(reply, const ReplyCompleted('Done'));
+
+    expect(reply.inputRequests.single.status, InputRequestStatus.expired);
+  });
+
   test('an answered request is not expired later', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ApprovalRequested(_approval));

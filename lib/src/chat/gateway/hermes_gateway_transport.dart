@@ -123,6 +123,10 @@ class HermesGatewayTransport implements ChatTransport {
   ChatEvent? _toChatEvent(GatewayEvent event) {
     final payload = event.payload;
     String text(String key) => payload[key] as String? ?? '';
+    UnsupportedRequested unsupported(UnsupportedKind kind) =>
+        UnsupportedRequested(
+          UnsupportedRequest(requestId: text('request_id'), kind: kind),
+        );
     return switch (event.type) {
       'message.start' => const ReplyStarted(),
       'message.delta' => ReplyDelta(text('text')),
@@ -145,8 +149,12 @@ class HermesGatewayTransport implements ChatTransport {
         ),
       ),
       'clarify.request' => ClarifyRequested(_toClarify(payload)),
+      'secret.request' => unsupported(UnsupportedKind.secret),
+      'sudo.request' => unsupported(UnsupportedKind.sudo),
       'approval.expire' ||
-      'clarify.expire' => InputRequestExpired(text('request_id')),
+      'clarify.expire' ||
+      'secret.expire' ||
+      'sudo.expire' => InputRequestExpired(text('request_id')),
       _ => null,
     };
   }

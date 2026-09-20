@@ -63,6 +63,14 @@ final class ClarifyRequested extends ChatEvent {
   final ClarifyRequest request;
 }
 
+/// The agent is waiting on something this app cannot ask for, so the user has
+/// to answer it elsewhere.
+final class UnsupportedRequested extends ChatEvent {
+  const UnsupportedRequested(this.request);
+
+  final UnsupportedRequest request;
+}
+
 /// The gateway gave up waiting on request [requestId].
 final class InputRequestExpired extends ChatEvent {
   const InputRequestExpired(this.requestId);

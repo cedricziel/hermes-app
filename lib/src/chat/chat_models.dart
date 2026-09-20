@@ -138,6 +138,25 @@ final class ClarifyRequest extends InputRequest {
   );
 }
 
+enum UnsupportedKind { secret, sudo }
+
+/// The agent asked for something this app cannot ask the user for yet, such
+/// as a secret value or a sudo password, and waits for it elsewhere. Nothing
+/// the gateway attached to the request is kept.
+final class UnsupportedRequest extends InputRequest {
+  const UnsupportedRequest({
+    required super.requestId,
+    required this.kind,
+    super.status,
+  });
+
+  final UnsupportedKind kind;
+
+  @override
+  UnsupportedRequest withStatus(InputRequestStatus status) =>
+      UnsupportedRequest(requestId: requestId, kind: kind, status: status);
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
