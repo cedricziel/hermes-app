@@ -3,9 +3,7 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
-
 ## Requirements
-
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -503,7 +501,7 @@ The system SHALL accept content shared into the app while the chat is open or be
 
 ### Requirement: Opening a thread from a notification
 
-The system SHALL open the thread named by a tapped notification, or by the notification that launched the app, when it belongs to the profile the chat is showing.
+The system SHALL open the thread named by a tapped notification, or by the notification that launched the app, when it belongs to the profile the chat is showing. A tap SHALL NOT close a screen opened above the chat, and SHALL close the thread drawer when it is open. A tap made while the thread list is loading SHALL be held and applied after it loads.
 
 #### Scenario: Tap opens the thread
 
@@ -513,14 +511,19 @@ The system SHALL open the thread named by a tapped notification, or by the notif
 #### Scenario: Other profile
 
 - **WHEN** the notification carries another profile than the chat's
-- **THEN** nothing changes
+- **THEN** nothing changes except that "Could not open that chat." is shown
 - **AND WHEN** it carries no profile
 - **THEN** it still matches on the thread id alone
 
 #### Scenario: Thread not listed
 
 - **WHEN** the thread is not in the list
-- **THEN** a tap changes nothing and a launch falls back to the first thread
+- **THEN** a tap changes nothing and shows "Could not open that chat."; a launch falls back to the first thread and shows the same message
+
+#### Scenario: Tap while the list loads
+
+- **WHEN** a notification is tapped before the thread list has loaded
+- **THEN** its thread is opened once the list has loaded
 
 ### Requirement: Mock data fallback
 
@@ -572,3 +575,4 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 
 - **WHEN** the socket closes
 - **THEN** all pending requests fail with a "connection closed" error, later requests fail at once, and frames that are not JSON-RPC are ignored
+
