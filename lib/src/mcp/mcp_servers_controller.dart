@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
+import 'mcp_command_review_items.dart';
 
 /// Where a connection test of one server stands.
 sealed class McpTestState {
@@ -54,6 +56,72 @@ class McpSignInGone extends McpSignInStart {
   const McpSignInGone();
 }
 
+/// Asks the user whether the [commands] may be saved and run on the Hermes
+/// host. False, or an error, means no.
+typedef McpReviewer = Future<bool> Function(
+  List<McpCommandReviewItem> commands,
+);
+
+/// What adding a server came to.
+sealed class McpAddOutcome {
+  const McpAddOutcome();
+}
+
+/// Hermes added the server and the list shows it.
+class McpAdded extends McpAddOutcome {
+  const McpAdded(this.name);
+
+  final String name;
+}
+
+/// Nothing was sent: the user went back at the review, or another save was
+/// already running.
+class McpAddCancelled extends McpAddOutcome {
+  const McpAddCancelled();
+}
+
+/// Hermes already has a server of that name.
+class McpAddDuplicate extends McpAddOutcome {
+  const McpAddDuplicate();
+}
+
+/// Hermes said no with a reason of its own, empty when it gave none.
+class McpAddRefused extends McpAddOutcome {
+  const McpAddRefused(this.reason);
+
+  final String reason;
+}
+
+class McpAddFailed extends McpAddOutcome {
+  const McpAddFailed();
+}
+
+/// What replacing the whole map of servers came to.
+sealed class McpReplaceOutcome {
+  const McpReplaceOutcome();
+}
+
+class McpReplaced extends McpReplaceOutcome {
+  const McpReplaced();
+}
+
+/// Nothing was sent: the user declined the review, or another save was
+/// already running.
+class McpReplaceCancelled extends McpReplaceOutcome {
+  const McpReplaceCancelled();
+}
+
+/// Hermes refused the save. [problems] are its words, one per problem.
+class McpReplaceRefused extends McpReplaceOutcome {
+  const McpReplaceRefused(this.problems);
+
+  final List<String> problems;
+}
+
+class McpReplaceFailed extends McpReplaceOutcome {
+  const McpReplaceFailed();
+}
+
 enum McpOutcome {
   done,
 
@@ -85,6 +153,7 @@ class McpServersController extends ChangeNotifier {
   bool _loading = true;
   bool _failed = false;
   bool _disposed = false;
+  bool _saving = false;
   final _switching = <String>{};
   final _tests = <String, McpTestState>{};
   final _startingSignIn = <String>{};
@@ -95,6 +164,12 @@ class McpServersController extends ChangeNotifier {
   List<HermesMcpServer>? get servers => _servers;
   bool get loading => _loading;
   bool get failed => _failed;
+
+  /// Whether an add or a replace is running, review included. Another one
+  /// waits for it.
+  bool get isSaving => _saving;
+
+  bool get _ready => _servers != null && !_failed;
 
   bool isSwitching(String name) => _switching.contains(name);
   McpTestState? testOf(String name) => _tests[name];
@@ -150,6 +225,81 @@ class McpServersController extends ChangeNotifier {
       _failed = true;
     }
     _notify();
+  }
+
+  /// Adds [server] to the profile. A command server makes Hermes run a
+  /// program, so [review] must confirm it first and nothing is sent until it
+  /// does; this is the only way the app saves one. Nothing is added when the
+  /// profile is unknown.
+  Future<McpAddOutcome> addServer(
+    McpNewServer server, {
+    required McpReviewer review,
+  }) async {
+    if (_saving) return const McpAddCancelled();
+    if (!_ready) return const McpAddFailed();
+    _saving = true;
+    _notify();
+    try {
+      if (server is McpNewCommandServer &&
+          !await review([McpCommandReviewItem.of(server)])) {
+        return const McpAddCancelled();
+      }
+      await repository.addServer(server, profile: _profile);
+      await _reload();
+      return McpAdded(server.name);
+    } on McpRefused catch (e) {
+      return e.status == 409
+          ? const McpAddDuplicate()
+          : McpAddRefused(e.reason);
+    } on Object {
+      return const McpAddFailed();
+    } finally {
+      _saving = false;
+      _notify();
+    }
+  }
+
+  /// The profile's whole `mcp_servers` map as stored, for an editor that
+  /// replaces it. Throws when it cannot be read, or the profile is unknown.
+  Future<Map<String, Object?>> loadRawServers() async {
+    if (!_ready) await load();
+    if (!_ready) throw StateError('The active profile is unknown');
+    return repository.loadRawServers(profile: _profile);
+  }
+
+  /// Replaces the profile's whole map of servers with [servers], which was
+  /// edited from [loaded]. The command servers of [servers] that are new or
+  /// changed against [loaded] go to [review] first and nothing is sent until
+  /// it confirms. What is reviewed is what is sent: [servers] is copied first.
+  Future<McpReplaceOutcome> replaceServers(
+    Map<String, Object?> loaded,
+    Map<String, Map<String, Object?>> servers, {
+    required McpReviewer review,
+  }) async {
+    if (_saving) return const McpReplaceCancelled();
+    if (!_ready) return const McpReplaceFailed();
+    _saving = true;
+    _notify();
+    try {
+      final snapshot = <String, Map<String, Object?>>{
+        for (final e in (jsonDecode(jsonEncode(servers)) as Map).entries)
+          '${e.key}': Map<String, Object?>.from(e.value as Map),
+      };
+      final commands = commandServersToReview(loaded, snapshot);
+      if (commands.isNotEmpty && !await review(commands)) {
+        return const McpReplaceCancelled();
+      }
+      await repository.replaceServers(snapshot, profile: _profile);
+      await _reload();
+      return const McpReplaced();
+    } on McpRefused catch (e) {
+      return McpReplaceRefused(e.problems);
+    } on Object {
+      return const McpReplaceFailed();
+    } finally {
+      _saving = false;
+      _notify();
+    }
   }
 
   /// Sets the server on or off. The new state shows once the dashboard has
