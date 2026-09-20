@@ -25,4 +25,4 @@
 - [x] 5.1 Widget tests for every scenario in the spec
 - [x] 5.2 Extend `test/real_backend_contract_test.dart` for both endpoints
 - [x] 5.3 Try it in the running macOS app against the dev backend with a seeded file and image (verify-in-app skill); no model calls
-- [ ] 5.4 Archive this change so the specs update
+- [x] 5.4 Archive this change so the specs update
