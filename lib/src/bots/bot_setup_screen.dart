@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'hermes_bots_repository.dart';
 import 'telegram_pairing_screen.dart';
+import '../widgets/content_column.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only
@@ -94,57 +95,59 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
     final advanced = vars.where((v) => v.advanced).toList();
     return Scaffold(
       appBar: AppBar(title: Text('Set up ${widget.bot.name}')),
-      body: vars.isEmpty
-          ? const Center(child: Text('Nothing to set up for this bot.'))
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (widget.bot.id == 'telegram') ...[
-                    OutlinedButton.icon(
-                      onPressed: _pairTelegram,
-                      icon: const Icon(Icons.auto_fix_high),
-                      label: const Text('Set up with Telegram'),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('Or enter the details yourself.'),
-                    ),
-                  ],
-                  for (final v in basic) _field(v),
-                  if (advanced.isNotEmpty)
-                    ExpansionTile(
-                      title: const Text('Advanced'),
-                      maintainState: true,
-                      initiallyExpanded: advanced.any(
-                        (v) => v.required && !v.isSet,
+      body: ContentColumn(
+        child: vars.isEmpty
+            ? const Center(child: Text('Nothing to set up for this bot.'))
+            : Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (widget.bot.id == 'telegram') ...[
+                      OutlinedButton.icon(
+                        onPressed: _pairTelegram,
+                        icon: const Icon(Icons.auto_fix_high),
+                        label: const Text('Set up with Telegram'),
                       ),
-                      children: [for (final v in advanced) _field(v)],
-                    ),
-                  if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('Or enter the details yourself.'),
+                      ),
+                    ],
+                    for (final v in basic) _field(v),
+                    if (advanced.isNotEmpty)
+                      ExpansionTile(
+                        title: const Text('Advanced'),
+                        maintainState: true,
+                        initiallyExpanded: advanced.any(
+                          (v) => v.required && !v.isSet,
+                        ),
+                        children: [for (final v in advanced) _field(v)],
+                      ),
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
                         ),
                       ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Save'),
                     ),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save'),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 

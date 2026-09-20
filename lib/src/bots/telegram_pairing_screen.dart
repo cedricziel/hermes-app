@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'hermes_bots_repository.dart';
+import '../widgets/content_column.dart';
 
 typedef LinkLauncher = Future<bool> Function(Uri uri);
 
@@ -164,7 +165,12 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Set up with Telegram')),
-      body: ListView(padding: const EdgeInsets.all(16), children: _content()),
+      body: ContentColumn(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: _content(),
+        ),
+      ),
     );
   }
 

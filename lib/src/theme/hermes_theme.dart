@@ -109,12 +109,20 @@ ThemeData _buildTheme({
       thickness: 1,
       space: 1,
     ),
+    // A plain field gets an outline, so it reads as something to type in. A
+    // field that wants none sets its own `border`; it still shows the focus
+    // outline. The chat composer is not affected: it runs on its own theme.
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      focusedBorder: InputBorder.none,
-      contentPadding: EdgeInsets.zero,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: scheme.outline),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: scheme.onSurface, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       hintStyle: TextStyle(color: subtleText),
     ),
     textButtonTheme: TextButtonThemeData(

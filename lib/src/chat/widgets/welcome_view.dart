@@ -61,13 +61,25 @@ class WelcomeView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final prompt in kStarterPrompts)
-                    _SuggestionCard(text: prompt, onTap: () => onPick(prompt)),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // One column at the full width when two cards do not fit.
+                  final width = constraints.maxWidth < 2 * _cardWidth + 10
+                      ? constraints.maxWidth
+                      : _cardWidth;
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final prompt in kStarterPrompts)
+                        _SuggestionCard(
+                          text: prompt,
+                          width: width,
+                          onTap: () => onPick(prompt),
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -77,17 +89,24 @@ class WelcomeView extends StatelessWidget {
   }
 }
 
+const double _cardWidth = 290;
+
 class _SuggestionCard extends StatelessWidget {
-  const _SuggestionCard({required this.text, required this.onTap});
+  const _SuggestionCard({
+    required this.text,
+    required this.width,
+    required this.onTap,
+  });
 
   final String text;
+  final double width;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SizedBox(
-      width: 290,
+      width: width,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

@@ -405,7 +405,9 @@ class _SkillRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final muted = skill.enabled ? scheme.onSurfaceVariant : scheme.outline;
+    final muted = skill.enabled
+        ? scheme.onSurfaceVariant
+        : scheme.onSurface.withValues(alpha: 0.65);
     return ListTile(
       key: ValueKey('skill-${skill.name}'),
       onTap: onTap,
