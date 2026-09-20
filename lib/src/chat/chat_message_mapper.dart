@@ -4,18 +4,18 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 
-/// Attachments come first, then tool calls, input requests, the text, and the
-/// thinking indicator.
+/// Attachments come first, then the reasoning, tool calls, input requests, the
+/// text, and the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-tool-N`, `id-input-N`, `id-thinking`), so a streaming reply that
-/// mutates content or status maps to ids the controller can match with
-/// `updateMessage`.
+/// `id-reasoning`, `id-tool-N`, `id-input-N`, `id-thinking`), so a streaming
+/// reply that mutates content or status maps to ids the controller can match
+/// with `updateMessage`.
 List<Message> chatMessageToFlyer(ChatMessage m) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
   final thinking = m.status == MessageStatus.thinking;
-  final showThinking = thinking && !m.awaitingInput;
+  final showThinking = thinking && !m.awaitingInput && m.reasoning.isEmpty;
 
   return [
     for (final (i, attachment) in m.attachments.indexed)
@@ -24,6 +24,17 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         authorId,
         createdAt,
         attachment,
+      ),
+    if (m.reasoning.isNotEmpty)
+      CustomMessage(
+        id: '${m.id}-reasoning',
+        authorId: authorId,
+        createdAt: createdAt,
+        metadata: {
+          kMetaKind: kKindReasoning,
+          kMetaReasoningText: m.reasoning,
+          kMetaReasoningActive: m.isPending,
+        },
       ),
     for (final (i, call) in m.toolCalls.indexed)
       CustomMessage(
@@ -50,7 +61,11 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         authorId: authorId,
         createdAt: createdAt,
         text: m.content,
-        metadata: m.status == MessageStatus.error ? {'error': true} : null,
+        metadata: switch (m.status) {
+          MessageStatus.error => {kMetaError: true},
+          MessageStatus.streaming => {kMetaStreaming: true},
+          _ => null,
+        },
       ),
     if (showThinking)
       CustomMessage(

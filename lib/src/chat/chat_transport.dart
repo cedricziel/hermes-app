@@ -30,6 +30,15 @@ final class ReplyDelta extends ChatEvent {
   final String text;
 }
 
+/// The model's reasoning: [text] is appended to what has streamed so far, or
+/// replaces it when [replace] is set.
+final class ReasoningUpdated extends ChatEvent {
+  const ReasoningUpdated(this.text, {this.replace = false});
+
+  final String text;
+  final bool replace;
+}
+
 final class ToolStarted extends ChatEvent {
   const ToolStarted({required this.name, this.summary = ''});
 

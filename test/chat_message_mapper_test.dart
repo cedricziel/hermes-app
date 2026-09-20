@@ -17,6 +17,7 @@ void main() {
     List<ToolCall> toolCalls = const [],
     List<InputRequest> inputRequests = const [],
     List<ChatAttachment> attachments = const [],
+    String reasoning = '',
   }) => ChatMessage(
     id: 'm1',
     role: role,
@@ -26,6 +27,7 @@ void main() {
     toolCalls: toolCalls,
     inputRequests: inputRequests,
     attachments: attachments,
+    reasoning: reasoning,
   );
 
   group('chatMessageToFlyer', () {
@@ -40,6 +42,41 @@ void main() {
       expect(text.createdAt, createdAt.toUtc());
       expect(text.createdAt!.isUtc, isTrue);
       expect(text.metadata, isNull);
+    });
+
+    test('puts the reasoning before everything else', () {
+      final out = chatMessageToFlyer(
+        message(
+          reasoning: 'Because.',
+          toolCalls: const [ToolCall(name: 'shell', summary: 'ls')],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-reasoning', 'm1-tool-0', 'm1']);
+      expect((out.first as CustomMessage).metadata, {
+        kMetaKind: kKindReasoning,
+        kMetaReasoningText: 'Because.',
+        kMetaReasoningActive: false,
+      });
+    });
+
+    test('marks reasoning active while the reply is pending', () {
+      final out = chatMessageToFlyer(
+        message(content: '', reasoning: 'Hmm', status: MessageStatus.thinking),
+      );
+
+      expect(
+        (out.single as CustomMessage).metadata![kMetaReasoningActive],
+        isTrue,
+      );
+    });
+
+    test('shows no thinking dots once reasoning is showing', () {
+      final out = chatMessageToFlyer(
+        message(content: '', reasoning: 'Hmm', status: MessageStatus.thinking),
+      );
+
+      expect(out.map((m) => m.id), ['m1-reasoning']);
     });
 
     test('uses the user author id for user messages', () {
@@ -188,7 +225,7 @@ void main() {
       );
 
       expect((out.single as TextMessage).text, 'par');
-      expect(out.single.metadata, isNull);
+      expect(out.single.metadata, {kMetaStreaming: true});
     });
 
     test('flags error messages via metadata and keeps the text', () {

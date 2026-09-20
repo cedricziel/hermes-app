@@ -622,6 +622,7 @@ class _ChatScreenState extends State<ChatScreen> {
       case ReplyStarted():
         break;
       case ReplyDelta() ||
+          ReasoningUpdated() ||
           ToolStarted() ||
           ToolFinished() ||
           ReplyCompleted() ||

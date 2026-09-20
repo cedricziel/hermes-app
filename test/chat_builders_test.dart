@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
@@ -158,6 +159,43 @@ void main() {
 
       final card = tester.widget<ToolCallCard>(find.byType(ToolCallCard));
       expect(card.call.status, ToolCallStatus.error);
+    });
+
+    testWidgets('reasoning is folded until tapped', (tester) async {
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({
+            kMetaKind: kKindReasoning,
+            kMetaReasoningText: 'Because of the logs.',
+            kMetaReasoningActive: false,
+          }),
+        ],
+      );
+
+      expect(find.byType(ReasoningBlock), findsOneWidget);
+      expect(find.text('Reasoning'), findsOneWidget);
+      expect(find.text('Because of the logs.'), findsNothing);
+
+      await tester.tap(find.text('Reasoning'));
+      await tester.pump();
+
+      expect(find.text('Because of the logs.'), findsOneWidget);
+    });
+
+    testWidgets('reasoning of a running reply reads Thinking…', (tester) async {
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({
+            kMetaKind: kKindReasoning,
+            kMetaReasoningText: 'Hmm',
+            kMetaReasoningActive: true,
+          }),
+        ],
+      );
+
+      expect(find.text('Thinking…'), findsOneWidget);
     });
 
     testWidgets('thinking renders the ThinkingIndicator', (tester) async {

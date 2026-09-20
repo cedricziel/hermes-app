@@ -152,6 +152,10 @@ class HermesChatRepository {
           createdAt: _time(row['timestamp']),
           toolCalls: _toolCalls(row['tool_calls']),
           attachments: role == ChatRole.user ? stored.attachments : const [],
+          reasoning: switch (row['reasoning']) {
+            final String text => text,
+            _ => '',
+          },
         ),
       );
     }

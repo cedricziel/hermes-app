@@ -201,11 +201,15 @@ class ChatMessage {
     this.toolCalls = const [],
     this.inputRequests = const [],
     this.attachments = const [],
+    this.reasoning = '',
   });
 
   final String id;
   final ChatRole role;
   String content;
+
+  /// What the model reasoned before answering, when the gateway shares it.
+  String reasoning;
   final DateTime createdAt;
   MessageStatus status;
   List<ToolCall> toolCalls;

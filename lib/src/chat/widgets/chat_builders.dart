@@ -16,6 +16,7 @@ import '../chat_models.dart'
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
+import 'reasoning_block.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
 import 'unsupported_request_card.dart';
@@ -81,7 +82,7 @@ Widget _buildText(
   MessageGroupStatus? groupStatus,
 }) {
   final scheme = Theme.of(context).colorScheme;
-  final failed = message.metadata?['error'] == true;
+  final failed = message.metadata?[kMetaError] == true;
   final style = TextStyle(
     color: failed ? scheme.error : scheme.onSurface,
     fontSize: 14.5,
@@ -135,6 +136,11 @@ Widget _buildCustom(
             metadata[kMetaToolStatus] as String,
           ),
         ),
+      );
+    case kKindReasoning:
+      return ReasoningBlock(
+        text: metadata![kMetaReasoningText] as String,
+        active: metadata[kMetaReasoningActive] == true,
       );
     case kKindThinking:
       return const ThinkingIndicator();
