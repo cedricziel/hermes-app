@@ -108,6 +108,28 @@ void main() {
       expect(find.text('used 14×'), findsOneWidget);
     });
 
+    testWidgets('a disabled skill is still readable', (tester) async {
+      await pumpSkills(tester);
+
+      final color = tester
+          .widget<Text>(find.text('Compose stacks'))
+          .style!
+          .color!;
+      final surface = Theme.of(tester.element(find.text('Compose stacks')))
+          .colorScheme
+          .surface;
+      final blended = Color.alphaBlend(color, surface);
+      final lighter = blended.computeLuminance() > surface.computeLuminance()
+          ? blended
+          : surface;
+      final darker = lighter == blended ? surface : blended;
+      final contrast =
+          (lighter.computeLuminance() + 0.05) /
+          (darker.computeLuminance() + 0.05);
+
+      expect(contrast, greaterThanOrEqualTo(4.5));
+    });
+
     testWidgets('a disabled skill has its switch off', (tester) async {
       await pumpSkills(tester);
 
