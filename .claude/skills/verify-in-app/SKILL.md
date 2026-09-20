@@ -43,8 +43,8 @@ Say plainly what you could not check.
 
 ## What this can and can't show
 
-- I can look and read logs, not click. Anything needing input is checked
-  in widget tests instead.
+- Clicks and keys can be sent (see "Driving the window" below), but it is
+  fiddly. Test input in widget tests first and use this to confirm.
 - The chat UI runs on mock data (`lib/src/chat/mock_chat_data.dart`); the real
   backend backs the connection and status screens.
 - A fresh backend home has no model keys, so no real replies, and the
@@ -69,6 +69,36 @@ Say plainly what you could not check.
   about a minute. Run it with a generous timeout, not a short one.
 - `flutter screenshot --type=skia` does not work here (Impeller), and there is
   no rasterizer type. Don't spend rounds on it.
+
+## Driving the window
+
+Worked for the attach menu, the native file dialog, paste and a real drag and
+drop. It needs Accessibility permission for the terminal, and it briefly
+moves the real mouse pointer, so tell the user first if they are working.
+
+- Screenshot pixels are twice the window's points, and the `screenshot`
+  output is scaled again to 2000 px wide. Get the window origin and size in
+  points with
+  `osascript -e 'tell application "System Events" to tell process "<PRODUCT_NAME>" to get {position, size} of window 1'`
+  and convert: `x = shot_x / (2000 / width)`, `y = origin_y + shot_y / (2000 / width)`.
+- Keys: `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`.
+  In the macOS open dialog, Cmd+Shift+G, type a path, Return, Return picks it.
+- Clipboard: `osascript -e 'set the clipboard to (POSIX file "/tmp/x.txt")'`,
+  `set the clipboard to "text"`, or
+  `set the clipboard to (read (POSIX file "/tmp/x.png") as «class PNGf»)`.
+- Mouse: System Events `click at` does nothing in a Flutter view. Post real
+  events instead: compile a small program with `xcrun swiftc` that sends
+  `CGEvent` mouse moved, down and up (and `leftMouseDragged` steps for a
+  drag) with `.post(tap: .cghidEventTap)`, then restore the pointer with
+  `CGWarpMouseCursorPosition`. For a drag, hold the button over the target
+  for a second before releasing, so a screenshot can catch the drop hint.
+- `screencapture -x out.png` captures the whole screen and works without the
+  Screen Recording problem noted below; use it to find a Finder window to
+  drag from (`open` a directory of throwaway files, or script Finder to
+  place its window over an empty part of the app).
+- The `screenshot` command brings the app to the front and hands focus back,
+  so key presses sent right after it can land in the wrong app. Send them
+  after focusing the app (`set frontmost to true`).
 
 ## When the screenshot can't be taken
 
