@@ -114,6 +114,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    await openThread(tester, 'Run failure');
     final turn = await send(tester, 'Any news?');
     leaveTheApp(tester);
 
@@ -140,15 +141,9 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    await openThread(tester, 'Run failure');
     final turn = await send(tester, 'Any news?');
-    await tester.tap(
-      find.descendant(
-        of: find.byType(ThreadSidebar),
-        matching: find.text('Release notes'),
-      ),
-    );
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
+    await openThread(tester, 'Release notes');
 
     await finish(tester, turn, 'Nothing new.');
 
@@ -329,7 +324,7 @@ void main() {
 
   testWidgets('tapping a notification opens its thread', (tester) async {
     await pump(tester);
-    expect(selected(tester), 's1');
+    expect(selected(tester), isNull);
 
     service.tap('s2');
     await tester.pump();
@@ -347,7 +342,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    expect(selected(tester), 's1');
+    expect(selected(tester), isNull);
   });
 
   testWidgets('a notification carries the profile the chat is on', (
@@ -381,7 +376,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
 
-      expect(selected(tester), 's1');
+      expect(selected(tester), isNull);
       expect(find.text('Could not open that chat.'), findsOneWidget);
     });
 
@@ -410,7 +405,7 @@ void main() {
     });
 
     testWidgets(
-      'a launch under another profile falls back to the first and says so',
+      'a launch under another profile stays on the welcome view and says so',
       (tester) async {
         service
           ..launchThread = 's2'
@@ -419,7 +414,7 @@ void main() {
         await pump(tester, withProfiles: true);
         await tester.pump(const Duration(seconds: 1));
 
-        expect(selected(tester), 's1');
+        expect(selected(tester), isNull);
         expect(find.text('Could not open that chat.'), findsOneWidget);
       },
     );
@@ -439,6 +434,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    await openThread(tester, 'Run failure');
     final turn = await send(tester, 'Any news?');
     leaveTheApp(tester);
 
@@ -486,7 +482,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('Could not open that chat.'), findsOneWidget);
-    expect(selected(tester), 's1');
+    expect(selected(tester), isNull);
   });
 
   testWidgets('a tap does not close a screen that sits above the chat', (
@@ -567,14 +563,14 @@ void main() {
   });
 
   testWidgets(
-    'a launch thread that is not listed falls back to the first and says so',
+    'a launch thread that is not listed stays on the welcome view and says so',
     (tester) async {
       service.launchThread = 'gone';
 
       await pump(tester);
       await tester.pump(const Duration(seconds: 1));
 
-      expect(selected(tester), 's1');
+      expect(selected(tester), isNull);
       expect(find.text('Could not open that chat.'), findsOneWidget);
     },
   );

@@ -22,6 +22,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/pump_chat.dart' show openThread;
 
 /// Sending through a [ChatTransport]: the streamed reply, from the composer
 /// through the real widget tree, against a fake dashboard for the session
@@ -69,7 +70,13 @@ void main() {
     });
   }
 
-  Future<void> pumpChat(WidgetTester tester, {ShareController? share}) async {
+  /// Opens [open] once the threads are listed; the screen itself starts on
+  /// the welcome view.
+  Future<void> pumpChat(
+    WidgetTester tester, {
+    ShareController? share,
+    String? open = 'Run failure',
+  }) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -94,6 +101,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    if (open != null) await openThread(tester, open);
   }
 
   Future<void> send(WidgetTester tester, String text) async {
