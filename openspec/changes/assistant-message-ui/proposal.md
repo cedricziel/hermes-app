@@ -4,7 +4,7 @@ A reply in the chat is text and nothing else. The user cannot copy it without se
 
 ## What Changes
 
-- A finished assistant reply gets an action bar below its text: **Copy** (puts the reply's text on the clipboard; the icon turns into a tick for two seconds) and **Try again** (sends the thread's last prompt again as a new turn). Try again is offered only on the latest reply of the open thread. A failed reply gets Try again but no Copy.
+- A finished assistant reply gets an action bar below its text: **Copy** (puts the reply's text on the clipboard; the icon turns into a tick for two seconds) and **Try again** (sends the text of the thread's last prompt again as a new turn; its files are not sent again). Try again is offered only on the latest reply of the open thread. A failed reply gets Try again but no Copy.
 - The model's reasoning shows as a folded "Reasoning" block above the reply (tool calls, then text follow). It reads "Thinking…" while the reply is still being written, and opens on tap. It comes from the gateway's `reasoning.delta` and `reasoning.available` events while streaming and from a `reasoning` string on a session message row when a thread is loaded. While reasoning shows, the three thinking dots are hidden.
 
 - The latest reply also gets three **follow-up chips** ("Explain in more detail", "Give an example", "Summarize this"). Tapping one sends it as a prompt in the open thread. They are the same for every reply and are not shown under a failed one.

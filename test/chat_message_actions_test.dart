@@ -47,8 +47,13 @@ void main() {
       );
   });
 
-  void chatTest(String name, Future<void> Function(WidgetTester) body) {
+  void chatTest(
+    String name,
+    Future<void> Function(WidgetTester) body, {
+    void Function()? arrange,
+  }) {
     testWidgets(name, (tester) async {
+      arrange?.call();
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
         (call) async {
@@ -211,4 +216,20 @@ void main() {
 
     expect(find.text('Summarize this'), findsNothing);
   });
+
+  chatTest(
+    'a prompt that was only files cannot be tried again',
+    (tester) async {
+      expect(copy, findsOneWidget);
+      expect(tryAgain, findsNothing);
+    },
+    arrange: () => server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', [
+        messageRow(id: 1, role: 'user', content: ''),
+        messageRow(id: 2, role: 'assistant', content: 'A connection reset.'),
+      ]),
+    ),
+  );
 }

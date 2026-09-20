@@ -473,16 +473,21 @@ class _ChatScreenState extends State<ChatScreen> {
     _submit(typed, files, fromComposer: true);
   }
 
-  /// Sends the text of the last prompt of the open thread again as a new turn.
-  /// Its files are not sent again.
-  void _retry(ChatThread thread) {
+  /// The text of the last prompt of [thread], or null when it had none (it
+  /// was only files) or there is no prompt.
+  String? _lastPromptText(ChatThread thread) {
     for (final message in thread.messages.reversed) {
       if (message.role != ChatRole.user) continue;
-      if (message.content.isNotEmpty) {
-        _submit(message.content, const [], fromComposer: false);
-      }
-      return;
+      return message.content.isEmpty ? null : message.content;
     }
+    return null;
+  }
+
+  /// Sends the text of the last prompt again as a new turn. Its files are not
+  /// sent again.
+  void _retry(ChatThread thread) {
+    final prompt = _lastPromptText(thread);
+    if (prompt != null) _submit(prompt, const [], fromComposer: false);
   }
 
   void _submit(
@@ -864,7 +869,9 @@ class _ChatScreenState extends State<ChatScreen> {
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
                   latestReplyId: _latestReplyId,
-                  onRetry: selected == null ? null : () => _retry(selected),
+                  onRetry: selected == null || _lastPromptText(selected) == null
+                      ? null
+                      : () => _retry(selected),
                   showTopBar: isWide,
                   onAnswerApproval: selected == null
                       ? null

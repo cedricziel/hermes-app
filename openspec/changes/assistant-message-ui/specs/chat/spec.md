@@ -66,7 +66,7 @@ The system SHALL show the model's reasoning, when there is any, as a block above
 
 ### Requirement: Reply actions
 
-The system SHALL show an action bar below the text of a finished assistant reply, and none below a reply that is still being written or below a message of the user. The bar SHALL offer Copy, which puts the reply's text on the clipboard and shows a tick in place of its icon for two seconds, and, on the latest reply of the open thread only, Try again, which sends the thread's last prompt again as a new turn. A failed reply SHALL offer Try again but not Copy. Try again SHALL NOT be offered while a reply is being written, and SHALL NOT touch the composer or its attachments.
+The system SHALL show an action bar below the text of a finished assistant reply, and none below a reply that is still being written or below a message of the user. The bar SHALL offer Copy, which puts the reply's text on the clipboard and shows a tick in place of its icon for two seconds, and, on the latest reply of the open thread only, Try again, which sends the text of the thread's last prompt again as a new turn, without its files, and is not offered when that prompt had no text. A failed reply SHALL offer Try again but not Copy. Try again SHALL NOT be offered while a reply is being written, and SHALL NOT touch the composer or its attachments.
 
 #### Scenario: Copy
 
@@ -76,7 +76,7 @@ The system SHALL show an action bar below the text of a finished assistant reply
 #### Scenario: Try again
 
 - **WHEN** the user taps Try again under the latest reply
-- **THEN** the thread's last prompt is sent again to the same thread, and what the user had typed in the composer is kept
+- **THEN** the text of the thread's last prompt is sent again to the same thread without its files, and what the user had typed and attached in the composer is kept
 
 #### Scenario: Only the latest reply
 
