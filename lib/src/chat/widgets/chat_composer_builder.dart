@@ -4,6 +4,10 @@ import 'package:material_ui/material_ui.dart' as mui;
 
 import '../../share/shared_item.dart';
 import '../../theme/hermes_theme.dart';
+import 'input_card_frame.dart';
+
+/// Shown under the attachment chips: Hermes gets the names, not the files.
+const attachmentsNote = 'Only the file names are sent, not their contents.';
 
 /// Builds flutter_chat_ui's [Composer] for the Hermes chat.
 ///
@@ -90,26 +94,29 @@ class _AttachmentChips extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final file in attachments)
-              InputChip(
-                avatar: Icon(
-                  file.isImage
-                      ? Icons.image_outlined
-                      : Icons.insert_drive_file_outlined,
-                  size: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final file in attachments)
+                InputChip(
+                  avatar: Icon(
+                    file.isImage
+                        ? Icons.image_outlined
+                        : Icons.insert_drive_file_outlined,
+                    size: 16,
+                  ),
+                  label: Text(file.name),
+                  deleteButtonTooltipMessage: 'Remove ${file.name}',
+                  onDeleted: () => onRemove(file),
                 ),
-                label: Text(file.name),
-                deleteButtonTooltipMessage: 'Remove ${file.name}',
-                onDeleted: () => onRemove(file),
-              ),
-          ],
-        ),
+            ],
+          ),
+          const InputCardNote(attachmentsNote),
+        ],
       ),
     );
   }
