@@ -140,6 +140,16 @@ MCP servers: `POST /api/mcp/servers` (`{"name","url"}` or `{"name","command","ar
 attempts failed". For a passing test, serve a tiny JSON-only MCP endpoint (see `_serveMinimalMcp` in
 `test/real_backend_contract_test.dart`) on the loopback and point a server at it.
 
+MCP catalog and sign-in: `GET /api/mcp/catalog` lists about 65 approved entries; `POST /api/mcp/catalog/install`
+with `{"name":"context7","enable":true}` installs one that needs no credential and no build (config write
+only). Every entry but `n8n` is a remote URL, so nothing is built. To see the sign-in waiting screen without
+the internet, serve the loopback OAuth provider `_serveMinimalOAuthProvider` in
+`test/real_backend_contract_test.dart` (a 401 on `/mcp` pointing at its metadata, plus dynamic client
+registration; the same few lines in Python work) and add a server with `"auth":"oauth"` at its URL:
+`POST /api/mcp/servers/{name}/auth` then answers a real `authorization_url`. Nothing can approve at that
+provider, so the flow ends by Cancel or after Hermes' five minute timeout. A cancelled flow keeps the server's
+"already in progress" slot for a moment until Hermes' worker ends, so an immediate second start answers 409.
+
 Screens behind a tap can't be reached by clicking (System Events clicks are refused). Add a
 temporary change that opens the screen (a post-frame callback calling the `_open…` method) or
 selects a row and runs the action in `initState`, `dev-app.sh restart` (hot reload keeps `State`),
