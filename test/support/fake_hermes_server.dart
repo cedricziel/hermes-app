@@ -309,3 +309,80 @@ Map<String, Object?> skillRow({
   'usage': usage,
   'provenance': provenance,
 };
+
+/// A hub skill as `/api/skills/hub/*` serialises it.
+Map<String, Object?> hubSkillRow({
+  required String name,
+  String? identifier,
+  String description = '',
+  String source = 'github',
+  String trustLevel = 'community',
+  List<String> tags = const [],
+  String? category,
+  bool? installed,
+}) => {
+  'name': name,
+  'description': description,
+  'source': source,
+  'identifier': identifier ?? '$source/$name',
+  'trust_level': trustLevel,
+  'repo': null,
+  'tags': tags,
+  'category': ?category,
+  'installed': ?installed,
+};
+
+/// What `GET /api/skills/hub/scan` answers.
+Map<String, Object?> hubScanBody({
+  String policy = 'allow',
+  String verdict = 'safe',
+  String summary = 'No findings',
+  String reason = '',
+  List<Map<String, Object?>> findings = const [],
+  Map<String, int> counts = const {
+    'critical': 0,
+    'high': 0,
+    'medium': 0,
+    'low': 0,
+  },
+}) => {
+  'name': 'web-scraper',
+  'identifier': 'github/web-scraper',
+  'source': 'github',
+  'trust_level': 'community',
+  'verdict': verdict,
+  'summary': summary,
+  'policy': policy,
+  'policy_reason': reason,
+  'findings': findings,
+  'severity_counts': counts,
+  'tier1': null,
+};
+
+Map<String, Object?> hubFindingRow({
+  String severity = 'high',
+  String description = 'Downloads and runs a remote script',
+  String file = 'scripts/fetch.sh',
+  int line = 12,
+}) => {
+  'severity': severity,
+  'category': 'exfil',
+  'file': file,
+  'line': line,
+  'description': description,
+};
+
+/// What `GET /api/actions/{name}/status` answers.
+Map<String, Object?> jobStatusBody({
+  String name = 'skills-install-web-scraper',
+  bool running = false,
+  int? exitCode = 0,
+  int pid = 4242,
+  List<String> lines = const [],
+}) => {
+  'name': name,
+  'running': running,
+  'exit_code': exitCode,
+  'pid': pid,
+  'lines': lines,
+};
