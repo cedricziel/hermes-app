@@ -55,7 +55,14 @@ class McpInstallController extends ChangeNotifier {
     this.onInstalled,
     this.onGone,
     this.pollInterval = const Duration(seconds: 2),
-  });
+  }) {
+    if (catalog.buildOf(entry.name) case final build?) {
+      _state = const McpBuilding();
+      _follow(build.action, build.enable);
+    } else {
+      _state = const McpInstallIdle();
+    }
+  }
 
   final McpServersController servers;
   final McpCatalogController catalog;
@@ -73,7 +80,7 @@ class McpInstallController extends ChangeNotifier {
   static const _logLines = 20;
   static const _maxReadFailures = 3;
 
-  McpInstallState _state = const McpInstallIdle();
+  late McpInstallState _state;
   bool _disposed = false;
   Timer? _timer;
   int _readFailures = 0;
@@ -96,6 +103,10 @@ class McpInstallController extends ChangeNotifier {
         profile: servers.profile,
       );
       if (result.action case final action?) {
+        catalog.buildStarted(
+          entry.name,
+          McpBuild(action: action, enable: enable),
+        );
         _set(const McpBuilding());
         _follow(action, enable);
       } else {
@@ -151,6 +162,7 @@ class McpInstallController extends ChangeNotifier {
     } else if (status.exitCode == null) {
       await _lostTrack();
     } else {
+      catalog.buildEnded(entry.name);
       final lines = status.lines;
       _set(
         McpInstallFailed(
@@ -164,6 +176,7 @@ class McpInstallController extends ChangeNotifier {
   }
 
   Future<void> _lostTrack() async {
+    catalog.buildEnded(entry.name);
     _set(McpInstallFailed('Could not follow the build of ${entry.name}'));
     await catalog.load();
   }

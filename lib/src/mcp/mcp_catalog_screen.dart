@@ -268,6 +268,7 @@ class _CatalogList extends StatelessWidget {
           _CatalogRow(
             key: ValueKey('mcp-catalog-row-${entry.name}'),
             entry: entry,
+            building: catalog.buildOf(entry.name) != null,
             selected: entry.name == selected,
             onTap: () => onOpen(entry),
           ),
@@ -280,11 +281,13 @@ class _CatalogRow extends StatelessWidget {
   const _CatalogRow({
     super.key,
     required this.entry,
+    required this.building,
     required this.selected,
     required this.onTap,
   });
 
   final HermesMcpCatalogEntry entry;
+  final bool building;
   final bool selected;
   final VoidCallback onTap;
 
@@ -338,6 +341,7 @@ class _CatalogRow extends StatelessWidget {
                         if (entry.buildsLocally)
                           const McpChip('Builds locally'),
                         if (entry.installed) const McpChip('Installed'),
+                        if (building) const McpChip('Building'),
                       ],
                     ),
                   ],

@@ -562,6 +562,12 @@ void main() {
     const action = 'mcp-install-buildkite-ab12';
     const statusPath = '/api/actions/$action/status';
 
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+
     Future<void> startBuild(WidgetTester tester) async {
       hermesInstalls('buildkite', action: action);
       await openEntry(tester, 'buildkite');
@@ -695,6 +701,130 @@ void main() {
       await tester.pump(const Duration(seconds: 10));
 
       expect(server.requestsTo('GET', statusPath), isEmpty);
+    });
+
+    Finder building(String name) =>
+        find.descendant(of: row(name), matching: find.text('Building'));
+
+    Future<void> closeSheet(WidgetTester tester) async {
+      await tester.tapAt(const Offset(200, 20));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsNothing);
+    }
+
+    testWidgets('marks the entry as building in the list', (tester) async {
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, running: true, exitCode: null),
+      );
+      await startBuild(tester);
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(building('buildkite'), findsOneWidget);
+    });
+
+    testWidgets('picks the build up again when the entry is opened again', (
+      tester,
+    ) async {
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, running: true, exitCode: null),
+      );
+      await startBuild(tester);
+      await tester.pump(const Duration(seconds: 2));
+      await closeSheet(tester);
+      final before = server.requestsTo('GET', statusPath).length;
+
+      await tester.tap(row('buildkite'));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Building on your server…'), findsOneWidget);
+      expect(installEnabled(tester), isFalse);
+      await tester.pump(const Duration(seconds: 2));
+      await settle(tester);
+      expect(server.requestsTo('GET', statusPath).length, greaterThan(before));
+      expect(server.requestsTo('POST', installPath), hasLength(1));
+
+      server.on('GET', statusPath, jobStatusBody(name: action));
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.text('Installed buildkite'), findsOneWidget);
+      expect(building('buildkite'), findsNothing);
+    });
+
+    testWidgets('remembers a build whose answer came after the sheet closed', (
+      tester,
+    ) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', installPath, (_) => answer.future);
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, running: true, exitCode: null),
+      );
+      await openEntry(tester, 'buildkite');
+      await tapInstall(tester);
+      await tester.pump(const Duration(milliseconds: 50));
+      await closeSheet(tester);
+      answer.complete((
+        status: 200,
+        body: mcpInstallBody(name: 'buildkite', action: action),
+      ));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(building('buildkite'), findsOneWidget);
+      await tester.tap(row('buildkite'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Building on your server…'), findsOneWidget);
+      expect(installEnabled(tester), isFalse);
+    });
+
+    testWidgets('forgets a build that failed', (tester) async {
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, exitCode: 1, lines: ['boom']),
+      );
+      await startBuild(tester);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      expect(building('buildkite'), findsNothing);
+      await closeSheet(tester);
+      await tester.tap(row('buildkite'));
+      await tester.pumpAndSettle();
+      expect(installEnabled(tester), isTrue);
+    });
+
+    testWidgets('in the pane, follows the build again when selected again', (
+      tester,
+    ) async {
+      hermesInstalls('buildkite', action: action);
+      server.on(
+        'GET',
+        statusPath,
+        jobStatusBody(name: action, running: true, exitCode: null),
+      );
+      await openEntry(tester, 'buildkite', size: const Size(1200, 800));
+      await tapInstall(tester);
+      await tester.pump(const Duration(seconds: 2));
+
+      await tester.tap(row('context7'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Install context7'), findsOneWidget);
+      final before = server.requestsTo('GET', statusPath).length;
+      await tester.pump(const Duration(seconds: 6));
+      expect(server.requestsTo('GET', statusPath), hasLength(before));
+
+      await tester.tap(row('buildkite'));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Building on your server…'), findsOneWidget);
+      expect(installEnabled(tester), isFalse);
+      await tester.pump(const Duration(seconds: 2));
+      await settle(tester);
+      expect(server.requestsTo('GET', statusPath).length, greaterThan(before));
     });
 
     testWidgets('gives up when Hermes no longer knows the build', (

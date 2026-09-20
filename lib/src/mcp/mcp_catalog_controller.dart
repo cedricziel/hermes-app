@@ -21,6 +21,17 @@ enum McpCatalogFilter {
   };
 }
 
+/// A build Hermes runs on the server for an entry the user installed.
+class McpBuild {
+  const McpBuild({required this.action, required this.enable});
+
+  /// The background process to poll.
+  final String action;
+
+  /// Whether the entry is switched on once it is installed.
+  final bool enable;
+}
+
 /// One visit to the catalog: the entries Hermes offers for the profile the
 /// MCP servers screen acts on, and the search and filter over them.
 ///
@@ -33,6 +44,7 @@ class McpCatalogController extends ChangeNotifier {
   final McpServersController servers;
 
   List<HermesMcpCatalogEntry>? _entries;
+  final _builds = <String, McpBuild>{};
   bool _hasDiagnostics = false;
   bool _loading = true;
   bool _failed = false;
@@ -46,6 +58,11 @@ class McpCatalogController extends ChangeNotifier {
   bool get failed => _failed;
   String get query => _query;
   McpCatalogFilter get filter => _filter;
+
+  /// The build running for [name] that this visit knows about. Closing the
+  /// install screen does not stop a build, so the visit remembers it and the
+  /// next screen for the entry follows it again.
+  McpBuild? buildOf(String name) => _builds[name];
 
   HermesMcpCatalogEntry? entryNamed(String? name) =>
       _entries?.where((e) => e.name == name).firstOrNull;
@@ -76,6 +93,7 @@ class McpCatalogController extends ChangeNotifier {
         profile: servers.profile,
       );
       _entries = catalog.entries;
+      _builds.removeWhere((name, _) => entryNamed(name)?.installed != false);
       _hasDiagnostics = catalog.hasDiagnostics;
     } on Object {
       _failed = true;
@@ -100,8 +118,18 @@ class McpCatalogController extends ChangeNotifier {
     _notify();
   }
 
+  void buildStarted(String name, McpBuild build) {
+    _builds[name] = build;
+    _notify();
+  }
+
+  void buildEnded(String name) {
+    if (_builds.remove(name) != null) _notify();
+  }
+
   /// Shows [name] as installed once Hermes has confirmed the install.
   void markInstalled(String name, {required bool enabled}) {
+    _builds.remove(name);
     _entries = [
       for (final entry in _entries ?? const <HermesMcpCatalogEntry>[])
         entry.name == name ? entry.withInstalled(enabled: enabled) : entry,
