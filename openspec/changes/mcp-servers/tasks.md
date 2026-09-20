@@ -12,12 +12,12 @@
 
 ## 3. Screens
 
-- [ ] 3.1 Add `McpServersScreen`: resolves the active profile (404 means none, any other failure shows "Could not load MCP servers" with Retry), shows the profile in the header, the progress, error and empty states, and the "changes apply from the next chat" note
-- [ ] 3.2 Add the server row (name, address, transport, auth, "Off" and "Sign in needed" chips, tool count after a test) and the switch that waits for the server's answer, is disabled while its request runs, and reloads the list on 404
-- [ ] 3.3 Add the shared detail widget: name, transport, address, sign-in, switch, "Test connection" with progress, the Connected banner with counts and tool list (name, description, optional schema size), the "Could not connect" and "Sign in needed" banners, and "Could not test {name}" with Retry
-- [ ] 3.4 Add removal with a confirmation naming the server, treating OK and 404 as gone and showing "Could not remove {name}" on other failures
-- [ ] 3.5 Switch between one page and list-plus-detail at 900 logical pixels, select the first server on wide layouts, and move the selection when the selected server disappears
-- [ ] 3.6 Write `test/mcp_servers_screen_test.dart` covering the spec's scenarios: profile named, 404 profile, failed profile lookup, list states, toggle success, failure and 404, test success, failure, request failure and sign-in-needed, removal confirm, cancel and failure, and both layouts either side of 900
+- [x] 3.1 Add `McpServersScreen`: resolves the active profile (404 means none, any other failure shows "Could not load MCP servers" with Retry), shows the profile in the header, the progress, error and empty states, and the "changes apply from the next chat" note
+- [x] 3.2 Add the server row (name, address, transport, auth, "Off" and "Sign in needed" chips, tool count after a test) and the switch that waits for the server's answer, is disabled while its request runs, and reloads the list on 404
+- [x] 3.3 Add the shared detail widget: name, transport, address, sign-in, switch, "Test connection" with progress, the Connected banner with counts and tool list (name, description, optional schema size), the "Could not connect" and "Sign in needed" banners, and "Could not test {name}" with Retry
+- [x] 3.4 Add removal with a confirmation naming the server, treating OK and 404 as gone and showing "Could not remove {name}" on other failures
+- [x] 3.5 Switch between one page and list-plus-detail at 900 logical pixels, select the first server on wide layouts, and move the selection when the selected server disappears
+- [x] 3.6 Write `test/mcp_servers_screen_test.dart` covering the spec's scenarios: profile named, 404 profile, failed profile lookup, list states, toggle success, failure and 404, test success, failure, request failure and sign-in-needed, removal confirm, cancel and failure, and both layouts either side of 900
 
 ## 4. Sidebar entry
 

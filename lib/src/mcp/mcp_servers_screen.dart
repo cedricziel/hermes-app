@@ -1,0 +1,348 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../auth/auth_controller.dart';
+import '../profiles/hermes_profiles_repository.dart';
+import 'hermes_mcp_repository.dart';
+import 'mcp_server_detail.dart';
+import 'mcp_servers_controller.dart';
+
+export 'mcp_server_detail.dart' show McpServerDetail;
+
+/// Lists the MCP servers of the active profile and switches, tests and removes
+/// them. Below [wideBreakpoint] a tapped server opens as a page; at or above
+/// it the detail sits beside the list.
+///
+/// The profile is the sticky active one, learned from [profiles] on every
+/// visit and named in the header, so a switch is never flipped on another
+/// profile than the one shown.
+class McpServersScreen extends StatefulWidget {
+  const McpServersScreen({super.key, this.repository, this.profiles});
+
+  final HermesMcpRepository? repository;
+  final HermesProfilesRepository? profiles;
+
+  static const double wideBreakpoint = 900;
+
+  @override
+  State<McpServersScreen> createState() => _McpServersScreenState();
+}
+
+class _McpServersScreenState extends State<McpServersScreen> {
+  late final McpServersController _controller;
+  String? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    final api = widget.repository == null || widget.profiles == null
+        ? context.read<AuthController>().api!.raw
+        : null;
+    _controller = McpServersController(
+      repository: widget.repository ?? HermesMcpRepository(api!),
+      profiles: widget.profiles ?? HermesProfilesRepository(api!),
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _open(HermesMcpServer server, {required bool wide}) {
+    if (wide) {
+      setState(() => _selected = server.name);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            McpServerPage(controller: _controller, name: server.name),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _controller,
+      builder: (context, _) {
+        final profile = _controller.profile;
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('MCP servers'),
+                if (profile != null)
+                  Text(
+                    'Profile: $profile',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+              ],
+            ),
+          ),
+          body: _body(),
+        );
+      },
+    );
+  }
+
+  Widget _body() {
+    final servers = _controller.servers;
+    if (_controller.loading && servers == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_controller.failed || servers == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Could not load MCP servers'),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _controller.load,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (servers.isEmpty) return _EmptyState(profile: _controller.profile);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
+        final selected =
+            servers.where((s) => s.name == _selected).firstOrNull ??
+            servers.first;
+        final list = _ServerList(
+          controller: _controller,
+          servers: servers,
+          selected: wide ? selected.name : null,
+          onOpen: (server) => _open(server, wide: wide),
+        );
+        if (!wide) return list;
+        return Row(
+          children: [
+            SizedBox(width: 380, child: list),
+            const VerticalDivider(width: 1),
+            Expanded(
+              child: McpServerDetail(
+                key: ValueKey(selected.name),
+                controller: _controller,
+                name: selected.name,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.profile});
+
+  final String? profile;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              profile == null
+                  ? 'No MCP servers'
+                  : 'No MCP servers on "$profile"',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'MCP servers give the agent extra tools, such as searching your '
+              'documents or reading a calendar.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServerList extends StatelessWidget {
+  const _ServerList({
+    required this.controller,
+    required this.servers,
+    required this.selected,
+    required this.onOpen,
+  });
+
+  final McpServersController controller;
+  final List<HermesMcpServer> servers;
+  final String? selected;
+  final ValueChanged<HermesMcpServer> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Changes apply from the next chat, not to one that is '
+                  'already running.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final server in servers)
+          _ServerRow(
+            key: ValueKey('mcp-row-${server.name}'),
+            server: server,
+            test: controller.testOf(server.name),
+            selected: server.name == selected,
+            switching: controller.isSwitching(server.name),
+            onTap: () => onOpen(server),
+            onSwitch: (on) => switchMcpServer(context, controller, server, on),
+          ),
+      ],
+    );
+  }
+}
+
+class _ServerRow extends StatelessWidget {
+  const _ServerRow({
+    super.key,
+    required this.server,
+    required this.test,
+    required this.selected,
+    required this.switching,
+    required this.onTap,
+    required this.onSwitch,
+  });
+
+  final HermesMcpServer server;
+  final McpTestState? test;
+  final bool selected;
+  final bool switching;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onSwitch;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final tested = switch (test) {
+      McpTestFinished(:final result) => result,
+      _ => null,
+    };
+    final auth = mcpAuthLabel(server);
+    final transport = mcpTransportLabel(server.transport);
+    return Material(
+      color: selected
+          ? theme.colorScheme.surfaceContainerHighest
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                child: Text(
+                  server.name.characters.first.toUpperCase(),
+                  style: theme.textTheme.labelLarge,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      server.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    if (server.address.isNotEmpty)
+                      Text(
+                        server.address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFamily: server.transport == McpTransport.command
+                              ? 'monospace'
+                              : null,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        if (transport.isNotEmpty) _Chip(transport),
+                        if (auth != null) _Chip(auth),
+                        if (!server.enabled) const _Chip('Off'),
+                        if (tested != null && tested.signInNeeded)
+                          const _Chip('Sign in needed', warning: true),
+                        if (tested != null && tested.ok)
+                          _Chip(
+                            '${tested.tools.length} '
+                            'tool${tested.tools.length == 1 ? '' : 's'}',
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: server.enabled,
+                onChanged: switching ? null : onSwitch,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip(this.label, {this.warning = false});
+
+  final String label;
+  final bool warning;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = warning ? Colors.amber.shade800 : null;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: warning
+            ? Colors.amber.withValues(alpha: 0.15)
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(color: color),
+      ),
+    );
+  }
+}
