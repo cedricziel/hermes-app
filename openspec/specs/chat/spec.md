@@ -3,9 +3,7 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
-
 ## Requirements
-
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -720,7 +718,8 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **WHEN** the gateway sends a JSON-RPC request with a string id and a `method`
 - **THEN** `approval` (`session_id`, `command`, `description`, `choices`) shows an approval card, and `clarify` (`session_id` with either `question`, `choices`, `multi_select` or a `questions` list of `qid`, `question`, `choices`, `multi_select`) shows a clarify card, both keyed by the request's `id`
 - **AND** `secret` and `sudo` show the card for requests the app cannot answer, reading nothing but the `id` and the session
-- **AND** any other method is answered at once with the JSON-RPC error -32601 "method not found"
+- **AND** any other method is answered at once with the JSON-RPC error -32601 "method not found" when its `session_id` is a runtime session this app has a reply in flight for
+- **AND** an unhandled request for any other session is neither shown nor answered, because another client attached to that session may answer it, and the first response settles it for all of them
 - **AND** a request whose `session_id` is not the reply's runtime session is left alone
 
 #### Scenario: Answering a server-to-client request
@@ -746,3 +745,4 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 
 - **WHEN** the socket closes
 - **THEN** all pending requests fail with a "connection closed" error, later requests fail at once, and frames that are not JSON-RPC are ignored
+

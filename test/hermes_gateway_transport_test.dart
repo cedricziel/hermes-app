@@ -1153,6 +1153,29 @@ void main() {
       ]);
     });
 
+    test('an unhandled request of a session nobody here replies in is left '
+        'alone', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-9', 'terminal.read', 'someone-else');
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      await reply();
+      await pumpEventQueue();
+
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('an unhandled request after the reply ended is left alone', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      gateway.serverRequest('srq-9', 'terminal.read', 'rt-1');
+      await pumpEventQueue();
+
+      expect(gateway.responses, isEmpty);
+    });
+
     test('a request of another session is left alone', () async {
       gateway.turn = (g, sid) {
         g.serverRequest('srq-8', 'approval', 'someone-else', approvalParams);
