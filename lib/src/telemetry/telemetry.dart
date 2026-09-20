@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 
+import 'device_attributes.dart';
 import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
 import 'telemetry_event.dart';
@@ -32,6 +33,7 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
+          attributes: deviceAttributes(),
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
