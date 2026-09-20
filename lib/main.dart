@@ -14,6 +14,7 @@ import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentat
 
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
+import 'src/update/github_release_store.dart';
 import 'src/watch/watch_bridge.dart';
 
 Future<void> main() async {
@@ -50,7 +51,7 @@ Future<void> main() async {
           create: (_) => ShareController(createPlatformShareInbox())..start(),
         ),
       ],
-      child: const HermesApp(),
+      child: HermesApp(updateChecker: createUpdateChecker()),
     ),
   );
 }
