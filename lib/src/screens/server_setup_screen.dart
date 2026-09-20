@@ -14,7 +14,7 @@ class ServerSetupScreen extends StatefulWidget {
 
 class _ServerSetupScreenState extends State<ServerSetupScreen> {
   late final _controller = TextEditingController(
-    text: context.read<AuthController>().baseUrl ?? 'http://',
+    text: context.read<AuthController>().savedServerUrl ?? 'http://',
   );
   final _formKey = GlobalKey<FormState>();
 

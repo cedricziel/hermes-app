@@ -14,11 +14,13 @@ import 'package:hermes_app/src/screens/server_setup_screen.dart';
 import 'support/memory_token_store.dart';
 
 /// A gated dashboard whose `/api/auth/me` answers 503, so the stored-session
-/// check fails without the tokens being rejected.
-Future<HttpServer> _startFlakyDashboard() async {
+/// check fails without the tokens being rejected. With [statusFails] the
+/// `/api/status` probe answers 503 as well.
+Future<HttpServer> _startFlakyDashboard({bool statusFails = false}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) {
     final (status, body) = switch (request.uri.path) {
+      '/api/status' when statusFails => (503, {'detail': 'unavailable'}),
       '/api/status' => (200, {'auth_required': true}),
       '/api/auth/providers' => (200, {'providers': <Object?>[]}),
       _ => (503, {'detail': 'unavailable'}),
@@ -91,5 +93,45 @@ void main() {
 
     expect(auth.state, HermesConnectionState.connectionError);
     expect(fieldText(tester), url);
+  });
+
+  Future<void> restoreAndExpectSetupWith(
+    WidgetTester tester,
+    String url,
+  ) async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.withData({
+          'hermes.server_base_url': url,
+        });
+    final auth = AuthController(tokenStore: MemoryTokenStore());
+    await tester.runAsync(auth.bootstrap);
+
+    await pumpSetup(tester, auth);
+
+    expect(auth.state, HermesConnectionState.connectionError);
+    expect(fieldText(tester), url);
+  }
+
+  testWidgets('is prefilled with the saved server when the status probe '
+      'fails', (tester) async {
+    final dashboard = (await tester.runAsync(
+      () => _startFlakyDashboard(statusFails: true),
+    ))!;
+    addTearDown(() => dashboard.close(force: true));
+
+    await restoreAndExpectSetupWith(
+      tester,
+      'http://127.0.0.1:${dashboard.port}',
+    );
+  });
+
+  testWidgets('is prefilled with the saved server when it is unreachable', (
+    tester,
+  ) async {
+    final closed = (await tester.runAsync(_startFlakyDashboard))!;
+    final url = 'http://127.0.0.1:${closed.port}';
+    await tester.runAsync(() => closed.close(force: true));
+
+    await restoreAndExpectSetupWith(tester, url);
   });
 }
