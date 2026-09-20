@@ -64,4 +64,25 @@ void main() {
 
     expect(controller.state, HermesConnectionState.needsServerUrl);
   });
+
+  test('restoring the saved server never shows the setup screen', () async {
+    await SharedPreferencesAsync().setString(_savedUrlKey, dashboardUrl);
+    final controller = AuthController(devServerUrl: '');
+    final seen = <HermesConnectionState>[];
+    controller.addListener(() => seen.add(controller.state));
+
+    await controller.bootstrap();
+
+    expect(seen, [HermesConnectionState.ready]);
+  });
+
+  test('a failed restore lands on the setup screen with the error', () async {
+    await SharedPreferencesAsync().setString(_savedUrlKey, dashboardUrl);
+    await dashboard.close(force: true);
+    final controller = AuthController(devServerUrl: '');
+
+    await controller.bootstrap();
+
+    expect(controller.state, HermesConnectionState.connectionError);
+  });
 }
