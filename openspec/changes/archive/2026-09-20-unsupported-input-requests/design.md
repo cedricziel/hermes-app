@@ -2,7 +2,7 @@
 
 `secret.request` and `sudo.request` are gateway events that ask the user for a value the agent needs: a secret such as an API key, or a sudo password. The gateway waits for the answer up to a timeout. The app dropped both events, so the turn waited behind a thinking indicator with nothing to act on. The approval and clarify requests (`openspec/changes/archive/2026-09-19-agent-input-requests/`) already show how a request rides the turn's event stream; this change reuses that path and only tells the user that the app cannot answer.
 
-Wire format, as described in the follow-up plan (`docs/superpowers/plans/2026-09-19-chat-followups.md`, from the Hermes `tui_gateway` source). It was not re-checked against a Hermes checkout or a running gateway for this change:
+Wire format, as described in the follow-up plan `2026-09-19-chat-followups.md` (from the Hermes `tui_gateway` source). That plan was never merged to main; it lives in commit 97341f4 on the `docs/chat-followups-plan` branch. It was not re-checked against a Hermes checkout or a running gateway for this change:
 
 | Event                          | Payload                                        |
 | ------------------------------ | ---------------------------------------------- |
