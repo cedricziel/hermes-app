@@ -138,10 +138,7 @@ class HermesGatewayTransport implements ChatTransport {
   Future<bool> answerApproval(String requestId, String choice) async {
     final open = _awaiting[requestId];
     if (open == null) return false;
-    if (open.serverRequest) {
-      _awaiting.remove(requestId);
-      return _respond(requestId, {'choice': choice});
-    }
+    if (open.serverRequest) return _respond(requestId, {'choice': choice});
     final client = await _client();
     final result = await client.request('approval.respond', {
       'session_id': open.sessionId,
@@ -171,21 +168,21 @@ class HermesGatewayTransport implements ChatTransport {
       });
       return result['status'] != 'expired';
     }
-    if (!open.batch) {
-      _awaiting.remove(requestId);
-      return _respond(requestId, {'answer': answer});
-    }
+    if (!open.batch) return _respond(requestId, {'answer': answer});
+    // A batch skipped as a whole has no question to lock: an empty result
+    // withdraws all of it.
+    if (questionId == null) return _respond(requestId, const {});
     final result = await _connected()?.request('clarify.lock', {
       'request_id': requestId,
       'answer': answer,
-      'question_id': ?questionId,
+      'question_id': questionId,
     });
     return result != null && result['status'] != 'expired';
   }
 
   /// Answers a server-to-client request. The gateway does not say whether it
   /// was still waiting; a request that ended was already expired by
-  /// `request.cancel`.
+  /// `request.cancel`, and it drops an answer it no longer waits for.
   bool _respond(String requestId, Map<String, Object?> result) {
     final client = _connected();
     if (client == null) return false;

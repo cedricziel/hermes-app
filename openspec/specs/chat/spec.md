@@ -696,6 +696,8 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **THEN** a response frame `{id, result: {answer}}` is sent, the answer being the JSON-encoded list for a multi-select question
 - **AND WHEN** the user answers one question of a batch
 - **THEN** `clarify.lock` is requested with the request's id as `request_id`, and its result decides whether the answer was accepted
+- **AND WHEN** the user skips a whole batch
+- **THEN** a response frame with an empty result is sent with the request's id, and `clarify.lock` is not requested
 
 #### Scenario: Events
 

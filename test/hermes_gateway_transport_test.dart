@@ -984,6 +984,37 @@ void main() {
       expect(gateway.responses, isEmpty);
     });
 
+    test('skipping a batch cancels it with an empty response frame', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-3',
+        'clarify',
+        batchParams,
+        () => transport.answerClarify('srq-3', const []),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['id'], 'srq-3');
+      expect(gateway.responses.single['result'], <String, Object?>{});
+      expect(gateway.methods, isNot(contains('clarify.lock')));
+    });
+
+    test(
+      'answering a clarify question twice never uses the event form',
+      () async {
+        await answerWhileWaiting(
+          'srq-2',
+          'clarify',
+          {'question': 'Which colour?'},
+          () async {
+            await transport.answerClarify('srq-2', ['blue']);
+            await transport.answerClarify('srq-2', ['blue']);
+          },
+        );
+
+        expect(gateway.methods, isNot(contains('clarify.respond')));
+      },
+    );
+
     test('a batch lock on an ended request reports not accepted', () async {
       gateway.lockStatus = 'expired';
 
