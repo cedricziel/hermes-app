@@ -36,6 +36,7 @@ class ToolCallCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       tilePadding: const EdgeInsets.symmetric(horizontal: 10),
       childrenPadding: EdgeInsets.zero,
+      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
       minTileHeight: 36,
       iconColor: context.hermesColors.subtleText,
       collapsedIconColor: context.hermesColors.subtleText,

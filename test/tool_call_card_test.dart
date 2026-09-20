@@ -55,6 +55,25 @@ void main() {
     expect(find.text('Result'), findsNothing);
   });
 
+  testWidgets('the input and result sections line up', (tester) async {
+    await _pump(
+      tester,
+      const ToolCall(
+        name: 'terminal',
+        summary: '{"command":"ls -la"}',
+        result: 'total 0',
+      ),
+    );
+
+    await tester.tap(find.text('terminal'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('Result')).dx,
+      tester.getTopLeft(find.text('Input')).dx,
+    );
+  });
+
   testWidgets('input that is not JSON is shown as it is', (tester) async {
     await _pump(tester, const ToolCall(name: 'terminal', summary: 'ls -la'));
 
