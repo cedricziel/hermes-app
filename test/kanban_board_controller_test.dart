@@ -199,6 +199,24 @@ void main() {
     expect(connects, isEmpty);
   });
 
+  test('a 404 on refresh drops the board and stops the event stream', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    await controller.start();
+    await until(() => controller.live);
+
+    server.on('GET', '/api/plugins/kanban/board', {
+      'detail': 'nope',
+    }, status: 404);
+    await controller.refresh();
+    await pump();
+
+    expect(controller.board, isNull);
+    expect(controller.unavailable, isTrue);
+    expect(controller.refreshFailed, isFalse);
+    expect(controller.live, isFalse);
+    expect(connects, hasLength(1));
+  });
+
   test('a failed refresh keeps the board that was showing', () async {
     serveBoard([kanbanTaskRow(id: 't1')]);
     await controller.start();
