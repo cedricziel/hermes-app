@@ -66,6 +66,8 @@ dependencies:
   # The dashboard's /api/ws JSON-RPC socket the chat streams over.
   web_socket_channel: ^3.0.3
   stream_channel: ^2.1.4
+  flutter_local_notifications: ^22.3.1
+  characters: ^1.4.1
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
