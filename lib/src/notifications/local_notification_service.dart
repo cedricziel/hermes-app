@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,18 +11,38 @@ import 'notification_service.dart';
 const _channelId = 'agent_activity';
 const _channelName = 'Agent activity';
 
-/// The thread a tapped notification was posted for.
-String? threadIdFromResponse(NotificationResponse response) {
+/// The payload a notification for [target] carries.
+String encodeTarget(NotificationTarget target) =>
+    jsonEncode({'t': target.threadId, 'p': ?target.profile});
+
+/// The chat a tapped notification was posted for. A payload that is not our
+/// JSON is a plain thread id, as an earlier build posted it.
+NotificationTarget? targetFromResponse(NotificationResponse response) {
   final payload = response.payload;
-  return payload == null || payload.isEmpty ? null : payload;
+  if (payload == null || payload.isEmpty) return null;
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map && decoded['t'] is String) {
+      final profile = decoded['p'];
+      return NotificationTarget(
+        threadId: decoded['t'] as String,
+        profile: profile is String ? profile : null,
+      );
+    }
+  } on FormatException {
+    // Not JSON: fall through to a plain thread id.
+  }
+  return NotificationTarget(threadId: payload);
 }
 
-/// One id per thread, so a new notification replaces the earlier one. FNV-1a
+/// One id per chat, so a new notification replaces the earlier one. FNV-1a
 /// rather than `hashCode`, which Dart does not keep stable between releases.
 /// Masked to 31 bits: non-negative, and a signed 32-bit int as Android needs.
-int notificationIdFor(String threadId) {
+/// Without a [profile] the id is that of the bare [threadId].
+int notificationIdFor(String threadId, {String? profile}) {
   var hash = 0x811c9dc5;
-  for (final unit in threadId.codeUnits) {
+  final key = profile == null ? threadId : '$profile\u0000$threadId';
+  for (final unit in key.codeUnits) {
     hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
   }
   return hash & 0x7fffffff;
@@ -40,7 +61,7 @@ class LocalNotificationService implements NotificationService {
     : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
-  final _taps = StreamController<String>.broadcast();
+  final _taps = StreamController<NotificationTarget>.broadcast();
   Future<void>? _initialized;
 
   static bool get _supported =>
@@ -54,8 +75,8 @@ class LocalNotificationService implements NotificationService {
           macOS: _darwinSettings,
         ),
         onDidReceiveNotificationResponse: (response) {
-          final threadId = threadIdFromResponse(response);
-          if (threadId != null) _taps.add(threadId);
+          final target = targetFromResponse(response);
+          if (target != null) _taps.add(target);
         },
       )
       .then<void>(
@@ -67,7 +88,7 @@ class LocalNotificationService implements NotificationService {
       );
 
   @override
-  Stream<String> get taps => _taps.stream;
+  Stream<NotificationTarget> get taps => _taps.stream;
 
   static Future<NotificationPermission> _askDarwin(
     Future<bool?> Function({bool alert, bool badge, bool sound}) request,
@@ -110,7 +131,10 @@ class LocalNotificationService implements NotificationService {
     try {
       await _initialize();
       await _plugin.show(
-        id: notificationIdFor(notification.threadId),
+        id: notificationIdFor(
+          notification.threadId,
+          profile: notification.profile,
+        ),
         title: notification.title,
         body: notification.body,
         notificationDetails: const NotificationDetails(
@@ -124,7 +148,12 @@ class LocalNotificationService implements NotificationService {
           iOS: DarwinNotificationDetails(),
           macOS: DarwinNotificationDetails(),
         ),
-        payload: notification.threadId,
+        payload: encodeTarget(
+          NotificationTarget(
+            threadId: notification.threadId,
+            profile: notification.profile,
+          ),
+        ),
       );
     } on Object {
       return;
@@ -132,14 +161,14 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
-  Future<String?> launchThreadId() async {
+  Future<NotificationTarget?> launchTarget() async {
     if (!_supported) return null;
     try {
       await _initialize();
       final details = await _plugin.getNotificationAppLaunchDetails();
       if (details == null || !details.didNotificationLaunchApp) return null;
       final response = details.notificationResponse;
-      return response == null ? null : threadIdFromResponse(response);
+      return response == null ? null : targetFromResponse(response);
     } on Object {
       return null;
     }

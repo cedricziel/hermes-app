@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -10,17 +12,55 @@ NotificationResponse _response(String? payload) => NotificationResponse(
 );
 
 void main() {
-  group('threadIdFromResponse', () {
-    test('is the payload', () {
-      expect(threadIdFromResponse(_response('s1')), 's1');
+  group('targetFromResponse', () {
+    NotificationTarget? roundTrip(NotificationTarget target) =>
+        targetFromResponse(_response(encodeTarget(target)));
+
+    test('round-trips a thread and its profile', () {
+      final target = roundTrip(
+        const NotificationTarget(threadId: 's1', profile: 'work'),
+      )!;
+
+      expect(target.threadId, 's1');
+      expect(target.profile, 'work');
+    });
+
+    test('round-trips a thread without a profile', () {
+      final target = roundTrip(const NotificationTarget(threadId: 's1'))!;
+
+      expect(target.threadId, 's1');
+      expect(target.profile, isNull);
+    });
+
+    test('leaves the profile out of the payload when there is none', () {
+      expect(
+        jsonDecode(encodeTarget(const NotificationTarget(threadId: 's1'))),
+        {'t': 's1'},
+      );
+    });
+
+    test('reads a plain thread id posted by an earlier build', () {
+      final target = targetFromResponse(_response('s1'))!;
+
+      expect(target.threadId, 's1');
+      expect(target.profile, isNull);
+    });
+
+    test('reads a plain id that happens to be valid JSON', () {
+      expect(targetFromResponse(_response('123'))!.threadId, '123');
+      expect(targetFromResponse(_response('{"x":1}'))!.threadId, '{"x":1}');
+    });
+
+    test('reads a plain id that is not JSON at all', () {
+      expect(targetFromResponse(_response('{oops'))!.threadId, '{oops');
     });
 
     test('is null without a payload', () {
-      expect(threadIdFromResponse(_response(null)), isNull);
+      expect(targetFromResponse(_response(null)), isNull);
     });
 
     test('is null for an empty payload', () {
-      expect(threadIdFromResponse(_response('')), isNull);
+      expect(targetFromResponse(_response('')), isNull);
     });
   });
 
@@ -48,6 +88,20 @@ void main() {
 
     test('differs between threads', () {
       expect(notificationIdFor('s1'), isNot(notificationIdFor('s2')));
+    });
+
+    test('is unchanged by a null profile', () {
+      expect(notificationIdFor('s1', profile: null), 139573449);
+    });
+
+    test('differs between profiles that hold the same thread id', () {
+      final work = notificationIdFor('s1', profile: 'work');
+      final home = notificationIdFor('s1', profile: 'home');
+
+      expect(work, isNot(home));
+      expect(work, isNot(notificationIdFor('s1')));
+      expect(work, greaterThanOrEqualTo(0));
+      expect(work, lessThanOrEqualTo(0x7fffffff));
     });
   });
 

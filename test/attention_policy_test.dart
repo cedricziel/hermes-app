@@ -24,12 +24,14 @@ AttentionNotification? _for(
   bool focused = false,
   String? selected,
   bool enabled = true,
+  String? profile,
 }) => attentionFor(
   event: event,
   thread: _thread(),
   appFocused: focused,
   selectedThreadId: selected,
   enabled: enabled,
+  profile: profile,
 );
 
 bool _wellFormed(String text) {
@@ -97,6 +99,17 @@ void main() {
       expect(n.threadId, 't1');
       expect(n.title, 'Release notes');
       expect(n.body, 'Done.');
+    });
+
+    test('carries the profile it was made under', () {
+      expect(
+        _for(const ReplyCompleted('Done.'), profile: 'work')!.profile,
+        'work',
+      );
+    });
+
+    test('has no profile unless one is given', () {
+      expect(_for(const ReplyCompleted('Done.'))!.profile, isNull);
     });
 
     test('an empty reply says it is ready', () {

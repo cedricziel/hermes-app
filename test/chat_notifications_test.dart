@@ -62,12 +62,17 @@ void main() {
       );
   });
 
-  Future<void> pump(WidgetTester tester, {bool load = true}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    bool load = true,
+    bool withProfiles = false,
+  }) async {
     if (load) await tester.runAsync(settings.load);
     await pumpChatScreen(
       tester,
       server: server,
       transport: transport,
+      withProfiles: withProfiles,
       providers: [
         ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         Provider<NotificationService>.value(value: service),
@@ -336,6 +341,83 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(selected(tester), 's1');
+  });
+
+  testWidgets('a notification carries the profile the chat is on', (
+    tester,
+  ) async {
+    server.on('GET', '/api/profiles/active', activeProfileBody(active: 'work'));
+    await pump(tester, withProfiles: true);
+    final turn = await send(tester, 'Any news?');
+    leaveTheApp(tester);
+
+    await finish(tester, turn, 'Nothing new.');
+
+    expect(service.shown.single.profile, 'work');
+  });
+
+  group('on the work profile', () {
+    setUp(() {
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'work'),
+      );
+    });
+
+    testWidgets('a tap made under another profile is ignored', (tester) async {
+      await pump(tester, withProfiles: true);
+
+      service.tap('s2', profile: 'default');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(selected(tester), 's1');
+    });
+
+    testWidgets('a tap made under this profile opens its thread', (
+      tester,
+    ) async {
+      await pump(tester, withProfiles: true);
+
+      service.tap('s2', profile: 'work');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(selected(tester), 's2');
+    });
+
+    testWidgets('a tap without a profile still matches by thread id', (
+      tester,
+    ) async {
+      await pump(tester, withProfiles: true);
+
+      service.tap('s2');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(selected(tester), 's2');
+    });
+
+    testWidgets('a launch under another profile is ignored', (tester) async {
+      service
+        ..launchThread = 's2'
+        ..launchProfile = 'default';
+
+      await pump(tester, withProfiles: true);
+
+      expect(selected(tester), 's1');
+    });
+
+    testWidgets('a launch under this profile opens its thread', (tester) async {
+      service
+        ..launchThread = 's2'
+        ..launchProfile = 'work';
+
+      await pump(tester, withProfiles: true);
+
+      expect(selected(tester), 's2');
+    });
   });
 
   testWidgets('a notification that started the app opens its thread', (

@@ -12,6 +12,16 @@ enum NotificationPermission {
   unavailable,
 }
 
+/// The chat a notification was posted for. A thread id is only unique within
+/// a Hermes profile, so the profile travels with it; it is null for a
+/// notification that carries none.
+class NotificationTarget {
+  const NotificationTarget({required this.threadId, this.profile});
+
+  final String threadId;
+  final String? profile;
+}
+
 /// Posts local notifications and reports when the user taps one.
 abstract interface class NotificationService {
   /// Asks the system for permission to post. [NotificationPermission.denied]
@@ -23,11 +33,11 @@ abstract interface class NotificationService {
   /// Never throws: a notification that cannot be shown is dropped.
   Future<void> show(AttentionNotification notification);
 
-  /// The thread ids of notifications the user tapped while the app ran.
-  Stream<String> get taps;
+  /// The chats of notifications the user tapped while the app ran.
+  Stream<NotificationTarget> get taps;
 
-  /// The thread of the notification whose tap started the app, if one did.
-  Future<String?> launchThreadId();
+  /// The chat of the notification whose tap started the app, if one did.
+  Future<NotificationTarget?> launchTarget();
 
   Future<void> dispose();
 }

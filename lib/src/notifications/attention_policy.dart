@@ -15,9 +15,13 @@ class AttentionNotification {
     required this.threadId,
     required this.title,
     required this.body,
+    this.profile,
   });
 
   final String threadId;
+
+  /// The Hermes profile [threadId] belongs to, when it is known.
+  final String? profile;
   final String title;
   final String body;
 }
@@ -40,6 +44,7 @@ AttentionNotification? attentionFor({
   required bool appFocused,
   required String? selectedThreadId,
   required bool enabled,
+  String? profile,
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
@@ -57,5 +62,6 @@ AttentionNotification? attentionFor({
     threadId: thread.id,
     title: thread.title,
     body: body,
+    profile: profile,
   );
 }

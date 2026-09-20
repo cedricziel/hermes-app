@@ -91,8 +91,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ShareController _share;
   NotificationService? _notifications;
   NotificationSettings? _notificationSettings;
-  StreamSubscription<String>? _notificationTaps;
-  Future<String?>? _launchLookup;
+  StreamSubscription<NotificationTarget>? _notificationTaps;
+  Future<NotificationTarget?>? _launchLookup;
   var _focused = true;
   var _askingPermission = false;
   Future<void>? _permissionRequest;
@@ -102,7 +102,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     super.initState();
     _notifications = _maybeRead<NotificationService>();
     _notificationSettings = _maybeRead<NotificationSettings>();
-    _launchLookup = _notifications?.launchThreadId();
+    _launchLookup = _notifications?.launchTarget();
     _notificationTaps = _notifications?.taps.listen(_openFromNotification);
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _focused = lifecycle == null || lifecycle == AppLifecycleState.resumed;
@@ -159,7 +159,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       profile ??= await _activeProfile();
       final first = await _repository!.loadThreadPage(profile: profile);
-      final launchId = await _launchLookup;
+      final launch = await _launchLookup;
       _launchLookup = null;
       if (!mounted || generation != _loadGeneration) return;
       final threads = _housekeeping!.begin(first);
@@ -178,8 +178,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ..clear()
           ..addAll(threads);
         _loadingThreads = false;
-        _selectedId = threads.any((t) => t.id == launchId)
-            ? launchId
+        _selectedId =
+            _isOnProfile(launch, profile) &&
+                threads.any((t) => t.id == launch!.threadId)
+            ? launch!.threadId
             : (threads.isNotEmpty ? threads.first.id : null);
       });
       if (_selectedId != null) _loadMessages(_selectedId!);
@@ -231,8 +233,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _focused = state == AppLifecycleState.resumed;
   }
 
-  void _openFromNotification(String threadId) {
-    if (_threads.any((t) => t.id == threadId)) _selectThread(threadId);
+  /// Whether [target] names a chat on [profile]. A thread id is only unique
+  /// within a profile, so one posted under another profile is not ours. A
+  /// notification from an earlier build carries no profile; it still matches
+  /// on its thread id alone.
+  static bool _isOnProfile(NotificationTarget? target, String? profile) =>
+      target != null && (target.profile == null || target.profile == profile);
+
+  void _openFromNotification(NotificationTarget target) {
+    if (!_isOnProfile(target, _profile)) return;
+    if (_threads.any((t) => t.id == target.threadId)) {
+      _selectThread(target.threadId);
+    }
   }
 
   void _showMessage(String message) {
@@ -471,6 +483,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       appFocused: _focused,
       selectedThreadId: _selectedId,
       enabled: settings == null || (settings.loaded && settings.enabled),
+      profile: _profile,
     );
     if (notification == null) return;
     final pending = _permissionRequest;
