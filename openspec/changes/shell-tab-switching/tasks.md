@@ -3,10 +3,10 @@
 - [x] 1.1 Write failing widget tests in `test/app_shell_test.dart`: a notification tap, shared text and a shared file each switch from Kanban to Chat
 - [x] 1.2 Add `ChatScreen.onShowChat` in `lib/src/chat/chat_screen.dart`, call it for every tap and whenever shared items are taken, and pass the shell's `_showChat` from `lib/src/shell/app_shell.dart`
 
-## 2. Kanban tab lifecycle
+## 2. Kanban tab state
 
-- [x] 2.1 Write failing widget tests: the board is not built before its tab opens, is closed on leaving the tab, and is not rebuilt after the plugin goes off and on
-- [x] 2.2 Build the Kanban page only while its tab is selected and remove the `_kanbanOpened` flag in `lib/src/shell/app_shell.dart`
+- [x] 2.1 Write failing widget tests: the board is not built before its tab opens, its page and local state survive a visit to Chat, and it is not rebuilt after the plugin goes off and on
+- [x] 2.2 Reset the `_kanbanOpened` flag when the plugin goes off in `lib/src/shell/app_shell.dart`
 
 ## 3. Spec, telemetry and skills
 

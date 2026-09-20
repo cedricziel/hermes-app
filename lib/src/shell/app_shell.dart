@@ -33,6 +33,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _detection = 0;
   int _index = 0;
 
+  /// The board loads and streams only once its tab has been opened, and stays
+  /// alive behind Chat afterwards so its filters and selection survive. It is
+  /// dropped when the plugin goes off, so it is not rebuilt by the plugin
+  /// coming back on.
+  bool _kanbanOpened = false;
+
   @override
   void initState() {
     super.initState();
@@ -67,7 +73,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (!mounted || detection != _detection || enabled == _kanban) return;
     setState(() {
       _kanban = enabled;
-      if (!enabled) _index = 0;
+      if (!enabled) {
+        _index = 0;
+        _kanbanOpened = false;
+      }
     });
   }
 
@@ -99,15 +108,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           index: _index,
           children: [
             chat,
-            // Built only while its tab is selected, so the board is fetched
-            // and its event stream runs only while the user is looking at it.
-            if (_index == 1)
+            if (_kanbanOpened)
               widget.kanbanBuilder?.call(context) ?? const KanbanScreen()
             else
               const SizedBox.shrink(),
           ],
         );
-        void select(int i) => setState(() => _index = i);
+        void select(int i) => setState(() {
+          _index = i;
+          if (i == 1) _kanbanOpened = true;
+        });
         if (wide) {
           return Scaffold(
             body: Row(

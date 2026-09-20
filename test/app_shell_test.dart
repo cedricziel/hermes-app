@@ -213,10 +213,13 @@ void main() {
     expect(boardLog, ['open']);
   });
 
-  testWidgets('leaving the Kanban tab closes the board', (tester) async {
+  testWidgets('the board and its local state survive a visit to Chat', (
+    tester,
+  ) async {
     kanbanPlugin(on: true);
     await pumpShell(tester, size: const Size(400, 800));
     await openKanban(tester);
+    await tester.enterText(find.byType(TextField), 'deploy');
 
     await tester.tap(
       find.descendant(
@@ -225,10 +228,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(boardLog, ['open', 'close']);
-
     await openKanban(tester);
-    expect(boardLog, ['open', 'close', 'open']);
+
+    expect(find.text('deploy'), findsOneWidget);
+    expect(boardLog, ['open']);
   });
 
   testWidgets('a plugin that goes off and on does not reopen the board', (
@@ -270,5 +273,6 @@ class _BoardState extends State<_Board> {
   }
 
   @override
-  Widget build(BuildContext context) => const Text('the board');
+  Widget build(BuildContext context) =>
+      const Column(children: [Text('the board'), TextField()]);
 }
