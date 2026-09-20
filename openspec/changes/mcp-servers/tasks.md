@@ -7,7 +7,7 @@
 
 - [x] 2.1 Add `lib/src/mcp/hermes_mcp_repository.dart` with the models `HermesMcpServer`, `HermesMcpTool` and `HermesMcpTestResult`
 - [x] 2.2 Implement `loadServers` (`GET /api/mcp/servers`) with lenient parsing: skip rows without a non-empty string name, treat a missing `enabled` as on, never keep `env` values, and throw when the body is not an object with a `servers` array
-- [x] 2.3 Implement `setEnabled`, `testServer` and `removeServer`, each passing the `profile` query parameter when a profile is known; `testServer` skips tools without a name and recognises the "OAuth authentication required" prefix for OAuth servers
+- [x] 2.3 Implement `setEnabled`, `testServer` and `removeServer`, each passing the `profile` query parameter when a profile is known; `testServer` skips tools without a name and recognises both wordings of a missing OAuth token for OAuth servers
 - [x] 2.4 Write `test/hermes_mcp_repository_test.dart` against `FakeHermesServer` (list parsing, skipped rows, missing `enabled`, profile parameter on each call, malformed test answer, sign-in-needed prefix, 404 on each call)
 
 ## 3. Screens
@@ -26,6 +26,6 @@
 
 ## 5. Contract and docs
 
-- [ ] 5.1 Add a list-shape check and a test-route check (an OAuth server without a token gives the "OAuth authentication required" wording) to `test/real_backend_contract_test.dart`
+- [x] 5.1 Add a list-shape check and a test-route check (an OAuth server without a token gives one of the two recognised wordings, and a successful probe gives the tools, prompts and resources shape) to `test/real_backend_contract_test.dart`
 - [ ] 5.2 Run `dart format .`, `flutter analyze` and `flutter test`, and check the screens against `mockups/index.html` in the running app with the `verify-in-app` skill, on a throwaway dev backend
 - [ ] 5.3 Note in `CLAUDE.md` that MCP servers live in `lib/src/mcp/`, and add anything learned while verifying to the `verify-in-app` skill
