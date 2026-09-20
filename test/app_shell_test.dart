@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -103,6 +105,31 @@ void main() {
     kanbanPlugin(on: false);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(NavigationBar), findsNothing);
+  });
+
+  testWidgets('ignores a slower answer that a newer check has superseded', (
+    tester,
+  ) async {
+    final first = Completer<FakeResponse>();
+    var calls = 0;
+    server.onRequest('GET', '/api/dashboard/plugins', (_) {
+      calls++;
+      return calls == 1 ? first.future : (status: 200, body: <Object?>[]);
+    });
+    await pumpShell(tester, size: const Size(400, 800));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    first.complete((
+      status: 200,
+      body: [
+        {'name': 'kanban'},
+      ],
+    ));
     await tester.pumpAndSettle();
 
     expect(find.byType(NavigationBar), findsNothing);
