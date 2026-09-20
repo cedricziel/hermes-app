@@ -47,10 +47,15 @@ final class ToolStarted extends ChatEvent {
 }
 
 final class ToolFinished extends ChatEvent {
-  const ToolFinished({required this.name, this.failed = false});
+  const ToolFinished({
+    required this.name,
+    this.failed = false,
+    this.result = '',
+  });
 
   final String name;
   final bool failed;
+  final String result;
 }
 
 /// The dashboard named (or renamed) the thread.

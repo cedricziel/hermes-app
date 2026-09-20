@@ -100,6 +100,7 @@ dependencies:
   open_file: ^4.0.0
   # The app's cache directory, where media the agent sent is downloaded.
   path_provider: ^2.1.6
+  flutter_json_view: ^1.1.5
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.

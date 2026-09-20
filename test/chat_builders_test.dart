@@ -118,6 +118,38 @@ void main() {
     });
   });
 
+  group('spacing', () {
+    testWidgets('messages keep a gutter from the edge of the chat', (
+      tester,
+    ) async {
+      await _pumpChat(tester, messages: [_text(kAssistantAuthorId, 'Reply')]);
+
+      final chat = tester.getTopLeft(find.byType(Chat)).dx;
+      expect(tester.getTopLeft(find.text('Reply')).dx - chat, kChatGutter);
+    });
+
+    testWidgets('a tool card and the text of one reply are set apart', (
+      tester,
+    ) async {
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({
+            kMetaKind: kKindToolCall,
+            kMetaToolName: 'terminal',
+            kMetaToolSummary: '',
+            kMetaToolStatus: ToolCallStatus.completed.name,
+          }),
+          _text(kAssistantAuthorId, 'Reply'),
+        ],
+      );
+
+      final card = tester.getBottomLeft(find.byType(ToolCallCard)).dy;
+      final text = tester.getTopLeft(find.text('Reply')).dy;
+      expect(text - card, greaterThanOrEqualTo(kChatItemGap));
+    });
+  });
+
   group('customMessageBuilder', () {
     testWidgets('tool_call renders a ToolCallCard from metadata', (
       tester,

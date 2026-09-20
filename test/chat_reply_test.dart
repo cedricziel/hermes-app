@@ -155,6 +155,18 @@ void main() {
     expect(reply.toolCalls.single.summary, 'logs');
   });
 
+  test('a finished tool keeps what it returned', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(name: 'search'));
+
+    applyReplyEvent(
+      reply,
+      const ToolFinished(name: 'search', result: '3 matches'),
+    );
+
+    expect(reply.toolCalls.single.result, '3 matches');
+  });
+
   test('a failed tool ends in error', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ToolStarted(name: 'search'));

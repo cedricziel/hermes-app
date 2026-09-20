@@ -22,11 +22,12 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         ...reply.toolCalls,
         ToolCall(name: name, summary: summary, status: ToolCallStatus.running),
       ];
-    case ToolFinished(:final name, :final failed):
+    case ToolFinished(:final name, :final failed, :final result):
       _settleTool(
         reply,
         name,
         failed ? ToolCallStatus.error : ToolCallStatus.completed,
+        result,
       );
     case ApprovalRequested(:final request):
       reply.inputRequests = [...reply.inputRequests, request];
@@ -68,13 +69,18 @@ void failReply(ChatMessage reply, [Object? error]) {
   expireInputRequests(reply);
 }
 
-void _settleTool(ChatMessage reply, String name, ToolCallStatus status) {
+void _settleTool(
+  ChatMessage reply,
+  String name,
+  ToolCallStatus status,
+  String result,
+) {
   final i = reply.toolCalls.indexWhere(
     (c) => c.name == name && c.status == ToolCallStatus.running,
   );
   if (i < 0) return;
   reply.toolCalls = [...reply.toolCalls]
-    ..[i] = reply.toolCalls[i].withStatus(status);
+    ..[i] = reply.toolCalls[i].withStatus(status, result: result);
 }
 
 void _settleRunningTools(ChatMessage reply, ToolCallStatus status) {

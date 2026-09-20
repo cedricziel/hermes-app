@@ -51,6 +51,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
           kMetaToolName: call.name,
           kMetaToolSummary: call.summary,
           kMetaToolStatus: call.status.name,
+          kMetaToolResult: call.result,
         },
       ),
     for (final (i, request) in m.inputRequests.indexed)
