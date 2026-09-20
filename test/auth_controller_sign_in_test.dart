@@ -20,11 +20,15 @@ Future<HttpServer> _startDashboard({
   Object? me,
   int meStatus = 200,
   Future<void>? meGate,
+  List<String?>? meAuthorization,
 }) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
     final isMe = request.uri.path == '/api/auth/me';
-    if (isMe) await meGate;
+    if (isMe) {
+      meAuthorization?.add(request.headers.value('authorization'));
+      await meGate;
+    }
     final body = switch (request.uri.path) {
       '/api/auth/me' => me,
       '/api/status' => {
@@ -215,12 +219,14 @@ void main() {
       Object? me,
       int meStatus = 200,
       Future<void>? meGate,
+      List<String?>? meAuthorization,
     }) async {
       store = MemoryTokenStore();
       dashboard = await _startDashboard(
         me: me,
         meStatus: meStatus,
         meGate: meGate,
+        meAuthorization: meAuthorization,
       );
       final controller = AuthController(
         tokenStore: store,
@@ -241,6 +247,18 @@ void main() {
       expect(controller.identity?.userId, 'u1');
       expect(store.session, session);
       expect(events.named('auth.sign_in.succeeded'), hasLength(1));
+    });
+
+    test('checks the identity with the new access token', () async {
+      final authorization = <String?>[];
+      final controller = await signInAgainst(
+        me: {'user_id': 'u1'},
+        meAuthorization: authorization,
+      );
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(authorization, ['Bearer at']);
     });
 
     test('a server error is reported and nothing is stored', () async {
