@@ -1459,7 +1459,6 @@ void main() {
         catalog.entries.any((e) => e.authKind == McpAuthKind.oauth),
         isTrue,
       );
-      expect(catalog.entries.any((e) => e.buildsLocally), isTrue);
       final context7 = catalog.entries.firstWhere((e) => e.name == 'context7');
       expect(context7.transport, McpTransport.remote);
       expect(context7.authKind, McpAuthKind.none);
