@@ -292,3 +292,20 @@ Map<String, Object?> activeProfileBody({
   required String active,
   String? current,
 }) => {'active': active, 'current': current ?? active};
+
+/// A `GET /api/skills` row as the dashboard serialises it.
+Map<String, Object?> skillRow({
+  required String name,
+  String description = '',
+  String? category,
+  bool enabled = true,
+  int usage = 0,
+  String provenance = 'bundled',
+}) => {
+  'name': name,
+  'description': description,
+  'category': category,
+  'enabled': enabled,
+  'usage': usage,
+  'provenance': provenance,
+};

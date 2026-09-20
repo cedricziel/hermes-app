@@ -17,6 +17,7 @@ import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 
 /// Runs the repositories against a real Hermes dashboard, to check the
 /// response shapes they parse (the spec declares none for these routes), and
@@ -28,8 +29,9 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 ///
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
 /// profile test switches the active profile back to `default`, the setup
-/// test writes and then clears a Telegram token (skipped if one is set), and
-/// the session tests rename, pin and archive the newest session, then undo it
+/// test writes and then clears a Telegram token (skipped if one is set), the
+/// skills test switches one skill off and back on, and the session tests
+/// rename, pin and archive the newest session, then undo it
 /// (a title the session had not set is left as its displayed one). Deleting
 /// is not tried. The gateway test makes two real model calls, which cost
 /// money and need a provider configured in the backend, so it also needs
@@ -197,6 +199,26 @@ void main() {
     await repository.setActive(overview.active);
 
     expect(overview.profiles.map((p) => p.name), contains(overview.active));
+  }, skip: skip);
+
+  test('skills load with their source, read, and switch off and on', () async {
+    final repository = HermesSkillsRepository(client.raw);
+    final skills = await repository.list();
+    expect(skills, isNotEmpty);
+    expect(skills.every((s) => s.name.isNotEmpty), isTrue);
+
+    final skill = skills.first;
+    expect(await repository.content(skill.name), isNotEmpty);
+
+    await repository.setEnabled(skill.name, !skill.enabled);
+    try {
+      final flipped = (await repository.list()).firstWhere(
+        (s) => s.name == skill.name,
+      );
+      expect(flipped.enabled, !skill.enabled);
+    } finally {
+      await repository.setEnabled(skill.name, skill.enabled);
+    }
   }, skip: skip);
 
   test('messaging platforms load as bots', () async {

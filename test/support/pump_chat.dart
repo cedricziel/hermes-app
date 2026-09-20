@@ -11,6 +11,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -23,6 +24,7 @@ Future<void> pumpChatScreen(
   WidgetTester tester, {
   FakeHermesServer? server,
   bool withProfiles = false,
+  bool withSkills = false,
   ChatTransport? transport,
   List<SingleChildWidget> providers = const [],
   bool settle = true,
@@ -51,6 +53,9 @@ Future<void> pumpChatScreen(
               : HermesChatRepository(server.client().raw),
           profiles: withProfiles
               ? HermesProfilesRepository(server!.client().raw)
+              : null,
+          skills: withSkills
+              ? HermesSkillsRepository(server!.client().raw)
               : null,
           transport: transport,
           onShowChat: onShowChat,
