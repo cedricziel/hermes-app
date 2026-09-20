@@ -302,6 +302,14 @@ def telemetry_dart_defines(version)
     return []
   end
 
+  # Mirrors Telemetry.isExportableEndpoint: the app drops any other endpoint at
+  # start-up, so the build would ship with telemetry silently off. The message
+  # omits the URL, which can carry credentials.
+  unless url.match?(%r{\Ahttps://}i) ||
+         url.match?(%r{\Ahttp://(localhost|127\.0\.0\.1|\[::1\])([:/?#]|\z)}i)
+    UI.user_error!("OTLP_INGEST_URL must start with https:// (http:// is only allowed for localhost, 127.0.0.1 and [::1]); the app would drop the endpoint and export nothing.")
+  end
+
   # Log the endpoint, never the key.
   UI.message("Telemetry enabled: exporting OTLP to #{url}")
   [
