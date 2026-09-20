@@ -222,7 +222,7 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Runs the RFC 8252 native login flow for [provider] and, on success,
-  /// stores the resulting token set and loads the identity.
+  /// loads the identity with the new token and only then stores the token set.
   Future<void> signInWithProvider(AuthProviderInfo provider) async {
     final url = _baseUrl;
     if (url == null) return;
@@ -239,6 +239,19 @@ class AuthController extends ChangeNotifier {
     _events('auth.sign_in.started', {
       'auth.password': provider.supportsPassword,
     });
+    // Signing out or switching server while the browser flow or the identity
+    // request was finishing must not bring the result back.
+    bool abandoned() {
+      if (!cancel.isCompleted && _state == HermesConnectionState.signingIn) {
+        return false;
+      }
+      report('cancelled');
+      if (_state == HermesConnectionState.signingIn) {
+        _setState(HermesConnectionState.needsLogin);
+      }
+      return true;
+    }
+
     try {
       final session = await _login(
         url,
@@ -246,18 +259,14 @@ class AuthController extends ChangeNotifier {
         httpClient: _tokenDio,
         cancelled: cancel.future,
       );
-      // Signing out or switching server while the browser flow was finishing
-      // must not bring the result back.
-      if (cancel.isCompleted || _state != HermesConnectionState.signingIn) {
-        report('cancelled');
-        if (_state == HermesConnectionState.signingIn) {
-          _setState(HermesConnectionState.needsLogin);
-        }
-        return;
-      }
+      if (abandoned()) return;
+      // The session is neither in use nor stored until the server has
+      // accepted its token, so a failure leaves nothing behind.
+      final identity = await _api!.fetchMe(accessToken: session.accessToken);
+      if (abandoned()) return;
       await _tokenStore.write(session);
       _session = session;
-      _identity = await _api!.fetchMe();
+      _identity = identity;
       report('succeeded');
       _setState(HermesConnectionState.ready);
     } on NativeLoginCancelled {
@@ -279,6 +288,10 @@ class AuthController extends ChangeNotifier {
         e,
         fallback: 'Sign-in succeeded but loading your profile failed',
       );
+      _setState(HermesConnectionState.needsLogin);
+    } on FormatException {
+      report('failed', {'reason': 'profile_load'});
+      _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.needsLogin);
     } on Object catch (e) {
       report('failed', {
