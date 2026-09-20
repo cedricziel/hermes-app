@@ -293,6 +293,7 @@ The system SHALL end a reply that failed or whose stream broke as an error, and 
 
 - **WHEN** the socket drops, the gateway answers a request with an error, or the stream ends before a completion
 - **THEN** the reply is marked as an error, keeps any text that had already streamed, and otherwise shows "Something went wrong. Try sending it again."
+- **AND** the user is notified that the reply failed when a notification is warranted, as for a failed completion (see the notifications spec)
 
 #### Scenario: Sending again after a failure
 
@@ -523,7 +524,7 @@ The system SHALL accept content shared into the app while the chat is open or be
 
 ### Requirement: Opening a thread from a notification
 
-The system SHALL open the thread named by a tapped notification, or by the notification that launched the app, when it belongs to the profile the chat is showing.
+The system SHALL open the thread named by a tapped notification, or by the notification that launched the app, when it belongs to the profile the chat is showing. A tap that arrives while the thread list is loading SHALL be held and applied once the list has loaded, ahead of the launching notification. When the thread cannot be opened, the system SHALL show "Could not open that chat." Opening a thread this way SHALL close the thread drawer when it is open and SHALL NOT close any other screen. The behaviour of notifications themselves is specified in the notifications spec.
 
 #### Scenario: Tap opens the thread
 
@@ -533,7 +534,7 @@ The system SHALL open the thread named by a tapped notification, or by the notif
 #### Scenario: Other profile
 
 - **WHEN** the notification carries another profile than the chat's
-- **THEN** nothing changes
+- **THEN** the open thread does not change and "Could not open that chat." is shown
 - **AND WHEN** it carries no profile
 - **THEN** it still matches on the thread id alone
 
@@ -541,6 +542,17 @@ The system SHALL open the thread named by a tapped notification, or by the notif
 
 - **WHEN** the thread is not in the list
 - **THEN** a tap changes nothing and a launch falls back to the first thread
+- **AND** "Could not open that chat." is shown
+
+#### Scenario: Tap while threads load
+
+- **WHEN** a notification is tapped while the thread list is loading
+- **THEN** its thread is opened when the list has loaded
+
+#### Scenario: Another screen is open
+
+- **WHEN** a notification is tapped while Profiles or Bots is open over the chat
+- **THEN** the thread is selected and that screen stays open
 
 ### Requirement: Mock data fallback
 

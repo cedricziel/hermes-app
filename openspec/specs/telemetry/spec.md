@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint (in practice SignalDB) so that the people who ship the app can see how sign-in, requests and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
+The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint (in practice SignalDB) so that the people who ship the app can see how sign-in, requests, the chat connection and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
 
 ## Requirements
 
@@ -64,28 +64,56 @@ While telemetry is disabled the system SHALL NOT create an OpenTelemetry SDK, SH
 
 ### Requirement: Resource attributes describe the app and device coarsely
 
-When telemetry is enabled the system SHALL attach a resource to every exported span and log record containing the service name, the service version (omitted when the version define is empty), the deployment environment, and these device attributes: `os.type` (the operating system name), `os.version` (major and minor version, only on iOS and macOS, without the build number), `device.form_factor` and `app.build_mode` (`release`, `profile` or `debug`). `device.form_factor` SHALL be `desktop` on macOS, Windows and Linux, and on iOS and Android `tablet` when the shortest logical screen side is at least 600 and `phone` otherwise. The system SHALL omit `os.version` and `device.form_factor` when they cannot be determined. The system SHALL NOT include a device model, device name, locale or hardware identifier. If reading the device attributes fails, the system SHALL export the resource without them.
+When telemetry is enabled the system SHALL attach a resource to every exported span and log record containing the service name, the service version (omitted when the version define is empty), the deployment environment, and device attributes. The device attributes SHALL be limited to the operating system, the app build mode, the form factor and facts shared by every unit of a device model:
+
+- `os.type` (the operating system name) and `app.build_mode` (`release`, `profile` or `debug`), on every platform.
+- `os.version`: on iOS and macOS the major and minor version without the build number; on Android the release version the device reports; omitted on other systems and whenever it cannot be determined.
+- `device.form_factor`: `desktop` on macOS, Windows and Linux. On iPhone and iPad it SHALL follow the device family the system reports (`phone` for iPhone and iPod, `tablet` for iPad). When the family is not known, and on Android, it SHALL be `tablet` when the shortest logical screen side is at least 600 and `phone` otherwise. It SHALL be omitted when it cannot be determined, for example when the screen size is not yet known.
+- `device.manufacturer` and `device.model.identifier` on iOS, macOS and Android: `Apple` and the hardware model identifier (such as `iPhone17,1` or `Mac14,2`) on Apple systems, the manufacturer and model the device reports (such as `Pixel 9`) on Android.
+- `host.arch` (the processor architecture) on macOS only.
+- `android.os.api_level` on Android only.
+- `device.simulator` on iOS and Android: whether the device is a simulator or emulator.
+- `app.ios_app_on_mac` on iOS only: whether the app is an iOS app running on a Mac.
+
+The system SHALL NOT include the device name, vendor or hardware identifiers, locale, memory or disk sizes, or a build fingerprint. If reading the hardware facts fails, the system SHALL export the resource with the remaining attributes; if reading the basic attributes fails, it SHALL export the resource without any device attribute.
 
 #### Scenario: iPhone
 
-- **WHEN** telemetry is enabled on an iPhone whose shortest logical side is below 600, running a system that reports "Version 26.0 (Build 23A344)"
-- **THEN** the resource has `os.type` = `ios`, `os.version` = `26.0` and `device.form_factor` = `phone`
+- **WHEN** telemetry is enabled on a physical iPhone whose model identifier is `iPhone17,1`, running a system that reports "Version 26.0 (Build 23A344)"
+- **THEN** the resource has `os.type` = `ios`, `os.version` = `26.0`, `device.form_factor` = `phone`, `device.manufacturer` = `Apple`, `device.model.identifier` = `iPhone17,1` and `device.simulator` = false
 - **AND** the build number is not part of any attribute
 
-#### Scenario: Tablet by screen size
+#### Scenario: iPad is a tablet by device family
 
-- **WHEN** the shortest logical side of an iOS or Android device is 600 or more
-- **THEN** `device.form_factor` is `tablet`
+- **WHEN** telemetry is enabled on an iPad
+- **THEN** `device.form_factor` is `tablet` whatever the screen size is
+
+#### Scenario: Android device
+
+- **WHEN** telemetry is enabled on an Android device
+- **THEN** the resource has `device.manufacturer`, `device.model.identifier`, `os.version` (the Android release), `android.os.api_level` and `device.simulator`
+- **AND** `device.form_factor` is `tablet` when the shortest logical screen side is 600 or more and `phone` otherwise
 
 #### Scenario: Mac
 
 - **WHEN** telemetry is enabled on macOS
-- **THEN** `device.form_factor` is `desktop`
+- **THEN** `device.form_factor` is `desktop`, `device.manufacturer` is `Apple`, `device.model.identifier` is the Mac model and `host.arch` is the processor architecture
 
 #### Scenario: Unknown facts are left out
 
-- **WHEN** the screen size is not yet known on iOS or Android, or the system is neither iOS nor macOS
+- **WHEN** the screen size is not yet known on Android (or on iOS when the device family is also unknown), or the system is neither iOS, macOS nor Android
 - **THEN** `device.form_factor` (unknown screen size) or `os.version` (other systems) is omitted rather than filled with a placeholder
+
+#### Scenario: Hardware lookup fails
+
+- **WHEN** reading the hardware model fails
+- **THEN** the resource still has `os.type`, `app.build_mode` and the other basic attributes
+- **AND** no error reaches the user
+
+#### Scenario: Nothing that identifies a person or one device
+
+- **WHEN** the resource is exported on any platform
+- **THEN** it has no device name, vendor identifier, hardware identifier, locale, memory size or disk size
 
 ### Requirement: Every HTTP request through the app's clients is traced and logged
 
@@ -144,6 +172,85 @@ The HTTP interceptor SHALL NOT record the URL, host, query string, fragment, req
 
 - **WHEN** a request goes through the interceptor
 - **THEN** the request sent to the server has no `traceparent` header
+
+### Requirement: The chat gateway socket is traced as an upgrade plus linked messages
+
+When telemetry is enabled the system SHALL trace the dashboard's chat gateway socket (`/api/ws`) like a messaging system instead of as one long trace:
+
+- Opening the socket SHALL be one client span named `HTTP GET` with `http.method` = `GET` and `http.route` = `/api/ws`. When the upgrade succeeds the span carries `http.status_code` = 101 and status OK; when opening fails it carries `error.type` (the exception type name only) and an error status, and the exception is passed on unchanged. The span is always ended.
+- Each JSON-RPC request SHALL be one producer span named `<method> send`, started when the request is sent and ended when the gateway answers. It carries `messaging.system` = `hermes.gateway`, `messaging.operation.type` = `send`, `messaging.destination.name` and `rpc.method` (the method name), `messaging.message.id` (the JSON-RPC request id), `rpc.system` = `jsonrpc` and `rpc.jsonrpc.version` = `2.0`. It ends with status OK on a result; on a JSON-RPC error it ends with an error status and `rpc.jsonrpc.error_code`; when the connection closes before an answer it ends with an error status and `error.type`.
+- Each event the gateway pushes SHALL be one instant consumer span named `<event> receive` with `messaging.system` = `hermes.gateway`, `messaging.operation.type` = `receive` and `messaging.destination.name` = the event type, ended immediately with status OK. Only the events the app handles (`message.start`, `message.complete`, `tool.start`, `tool.complete`, `session.title`, `sessions.changed`, `approval.request`, `approval.expire`, `clarify.request`, `clarify.expire`) SHALL be named after their type; any other event type SHALL be recorded as `other`.
+- Reply deltas (`message.delta`) SHALL NOT produce a span, so that streaming a reply does not emit one span per chunk.
+- Request and event spans SHALL be linked to the span of the connection and SHALL NOT be its children, so that no trace stays open for as long as the connection lives. A request or event recorded before any connection span has ended has no link.
+
+The Kanban events socket (`/api/plugins/kanban/events`) is not traced.
+
+#### Scenario: Socket opens
+
+- **WHEN** the chat opens its socket to the gateway
+- **THEN** one client span `HTTP GET` with `http.route` = `/api/ws` and `http.status_code` = 101 is ended with status OK
+
+#### Scenario: Socket cannot be opened
+
+- **WHEN** opening the socket fails with an exception
+- **THEN** the upgrade span is ended with an error status and `error.type` set to the exception's type name
+- **AND** the exception still reaches the caller
+
+#### Scenario: Request answered
+
+- **WHEN** the app sends `prompt.submit` as request 3 and the gateway answers with a result
+- **THEN** a producer span `prompt.submit send` with `messaging.message.id` = `3` and `rpc.method` = `prompt.submit` is ended with status OK
+- **AND** it is linked to the connection span
+
+#### Scenario: Request answered with an error
+
+- **WHEN** the gateway answers a request with a JSON-RPC error whose code is -32000
+- **THEN** the request span is ended with an error status and `rpc.jsonrpc.error_code` = -32000
+- **AND** the error message the gateway supplied is not recorded
+
+#### Scenario: Connection closes with a request outstanding
+
+- **WHEN** the socket closes before the gateway answered a request
+- **THEN** the request span is ended with an error status and `error.type` = `GatewayConnectionClosed`
+
+#### Scenario: Server event
+
+- **WHEN** the gateway pushes a `tool.start` event
+- **THEN** a consumer span `tool.start receive` is recorded and ended, linked to the connection span
+
+#### Scenario: Unknown event type
+
+- **WHEN** the gateway pushes an event type the app does not handle
+- **THEN** the span is named `other receive` and `messaging.destination.name` is `other`, not the event type
+
+#### Scenario: Reply deltas are not traced
+
+- **WHEN** a reply streams as many `message.delta` events
+- **THEN** no span is recorded for any of them
+
+#### Scenario: Kanban events socket
+
+- **WHEN** the Kanban tab opens its events socket
+- **THEN** no gateway span is recorded for it
+
+### Requirement: Gateway telemetry never records what is sent or received
+
+The gateway spans SHALL record only method names, event type names, request ids, the connection route and error codes. They SHALL NOT record request parameters, results, event payloads, message or reply text, session ids, the ticket, token or any other query parameter of the socket URL, the host, error messages from the gateway, or exception messages. The route recorded for the upgrade SHALL be the socket path only. The system SHALL NOT add a `traceparent` header or any other header to the socket upgrade. While telemetry is disabled the system SHALL NOT record any gateway span.
+
+#### Scenario: Prompt text and session id stay out
+
+- **WHEN** the app submits the prompt "my secret prompt" to session `abc123` and the reply streams back
+- **THEN** no attribute of any gateway span contains the prompt text, the reply text or `abc123`
+
+#### Scenario: Credentials in the socket URL
+
+- **WHEN** the socket is opened with the query parameter `ticket=hunter2`
+- **THEN** the upgrade span has `http.route` = `/api/ws` and nothing on any gateway span contains `hunter2`
+
+#### Scenario: Telemetry off
+
+- **WHEN** telemetry is disabled and the chat sends a message
+- **THEN** no gateway span is recorded and the chat behaves as usual
 
 ### Requirement: Sign-in and session events are logged with coarse values
 
@@ -209,6 +316,11 @@ The system SHALL swallow any failure raised while starting a span, ending a span
 - **WHEN** the tracer throws while a request is made
 - **THEN** the request completes with its normal response
 - **AND** the request log is still emitted
+
+#### Scenario: Tracer throws on the gateway socket
+
+- **WHEN** the tracer throws while the socket is opened, a request is sent or an event arrives
+- **THEN** the socket still opens, the request still completes with the gateway's answer and the event still reaches the chat
 
 #### Scenario: Logger throws on an HTTP request
 

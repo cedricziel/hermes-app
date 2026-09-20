@@ -8,12 +8,22 @@ Describes the local notifications the app posts when the agent has something for
 
 ### Requirement: Notifiable events
 
-The system SHALL post a local notification for exactly these chat events: a reply that completed, a reply that completed with failure, an approval request from the agent, and a clarifying question from the agent. Streaming text, tool activity, title changes, thread binding and expiring input requests SHALL NOT produce a notification. The notification title SHALL be the chat's title.
+The system SHALL post a local notification for exactly these chat events: a reply that completed, a reply that completed with failure, a reply that broke (the stream ended or failed while the reply was still pending, for example because the socket dropped or the gateway answered with an error, so that no completion arrived), an approval request from the agent, and a clarifying question from the agent. A broken reply SHALL be announced exactly like a failed one. Streaming text, tool activity, title changes, thread binding and expiring input requests SHALL NOT produce a notification. The notification title SHALL be the chat's title.
 
 #### Scenario: Reply completes
 
 - **WHEN** a reply finishes while a notification is warranted
 - **THEN** a notification titled with the chat's title is shown
+
+#### Scenario: Reply breaks while the user is away
+
+- **WHEN** the app is in the background, the socket drops while a reply is pending and no completion arrived
+- **THEN** a notification titled with the chat's title and the body "Reply failed" is shown
+
+#### Scenario: Stream ends after the reply already completed
+
+- **WHEN** the stream ends after the reply completed
+- **THEN** no further notification is shown
 
 #### Scenario: Streaming and tool events
 
@@ -22,7 +32,7 @@ The system SHALL post a local notification for exactly these chat events: a repl
 
 ### Requirement: Notification body
 
-For a completed reply the notification body SHALL be a one-line preview of the reply: whitespace runs collapsed to single spaces and trimmed, cut at 120 characters (counted as user-perceived characters, so an emoji is never split) with an ellipsis appended when cut. An empty reply SHALL use the body "Reply ready". A failed reply SHALL use the body "Reply failed" and SHALL NOT include the error text. An approval request SHALL use "Waiting for your approval" and a clarifying question SHALL use "Has a question for you"; these SHALL NOT include the command or the question, so that nothing sensitive shows on a lock screen.
+For a completed reply the notification body SHALL be a one-line preview of the reply: whitespace runs collapsed to single spaces and trimmed, cut at 120 characters (counted as user-perceived characters, so an emoji is never split) with an ellipsis appended when cut. An empty reply SHALL use the body "Reply ready". A failed or broken reply SHALL use the body "Reply failed" and SHALL NOT include the error text. An approval request SHALL use "Waiting for your approval" and a clarifying question SHALL use "Has a question for you"; these SHALL NOT include the command or the question, so that nothing sensitive shows on a lock screen.
 
 #### Scenario: Long reply
 
@@ -41,7 +51,7 @@ For a completed reply the notification body SHALL be a one-line preview of the r
 
 ### Requirement: Attention policy
 
-The system SHALL NOT post a notification while the app is in the foreground and the event belongs to the chat that is currently open. It SHALL post one when the app is not in the foreground, even for the open chat, and when the app is in the foreground but another chat (or no chat) is open. It SHALL post none while the user has notifications turned off, and none until the saved setting has finished loading.
+The system SHALL NOT post a notification while the app is in the foreground and the event belongs to the chat that is currently open. It SHALL post one when the app is not in the foreground, even for the open chat, and when the app is in the foreground but another chat (or no chat) is open. It SHALL post none while the user has notifications turned off, and none until the saved setting has finished loading. A chat counts as the open one only while the chat screen still shows the Hermes profile the turn was sent under; if the profile was switched since, the event belongs to a chat that is not open and SHALL be announced.
 
 #### Scenario: Watching the chat
 
@@ -57,6 +67,11 @@ The system SHALL NOT post a notification while the app is in the foreground and 
 
 - **WHEN** the app is not in the foreground and a reply completes in the open chat
 - **THEN** a notification is shown
+
+#### Scenario: Profile switched during a turn
+
+- **WHEN** a reply is sent in chat A under profile P, the user then switches the chat screen to profile Q, which lists a chat with the same thread id, and the reply completes while the app is in the foreground
+- **THEN** a notification for chat A of profile P is shown
 
 #### Scenario: Notifications switched off
 
@@ -131,7 +146,7 @@ The system SHALL let the user open a "Notifications" dialog from the account men
 
 ### Requirement: Tapping a notification opens its chat
 
-The system SHALL open the chat a notification was posted for when the user taps it while the app is running. When the tap started the app, the system SHALL open that chat once the chat list has loaded. A notification carries the chat's thread id and, when known, its profile; a tap or launch made under a different profile than the one currently shown SHALL be ignored, and one without a profile SHALL match on the thread id alone (so a notification posted by an earlier build, whose payload is a bare thread id, still works). If the target chat is not in the loaded list, the selection SHALL NOT change; for a launch, the first chat in the list SHALL be selected instead.
+The system SHALL open the chat a notification was posted for when the user taps it while the app is running. When the tap started the app, the system SHALL open that chat once the chat list has loaded. A tap that arrives while the chat list is still loading SHALL be held and applied when the list has loaded, and SHALL take precedence over the notification that launched the app. A notification carries the chat's thread id and, when known, its profile; a notification without a profile SHALL match on the thread id alone (so a notification posted by an earlier build, whose payload is a bare thread id, still works). If the target chat cannot be opened, because it belongs to a different profile than the one currently shown or is not in the loaded list, the selection SHALL NOT change (for a launch, the first chat in the list SHALL be selected instead) and the system SHALL tell the user with the message "Could not open that chat." Opening a chat from a notification SHALL close the chat list drawer when it is open, and SHALL NOT close or pop any other screen the user has open.
 
 #### Scenario: Tap while running
 
@@ -142,11 +157,24 @@ The system SHALL open the chat a notification was posted for when the user taps 
 
 - **WHEN** the tapped notification names a chat that is not in the list
 - **THEN** the open chat stays as it was
+- **AND** the message "Could not open that chat." is shown
 
 #### Scenario: Tap made under another profile
 
 - **WHEN** the notification's profile differs from the profile currently shown
-- **THEN** the tap is ignored
+- **THEN** the open chat stays as it was
+- **AND** the message "Could not open that chat." is shown
+
+#### Scenario: Tap while the list is loading
+
+- **WHEN** the user taps a notification for chat s2 while the chat list is still loading
+- **THEN** chat s2 is selected as soon as the list has loaded
+
+#### Scenario: Tap while another screen is open
+
+- **WHEN** the user taps a notification for chat s2 while a secondary screen such as Profiles or Bots is open over the chat
+- **THEN** chat s2 is selected
+- **AND** the secondary screen stays open
 
 #### Scenario: Cold start from a notification
 
