@@ -4,6 +4,7 @@ opt_out_usage
 
 APP_IDENTIFIER       = "com.cedricziel.hermesApp"
 EXTENSION_IDENTIFIER = "#{APP_IDENTIFIER}.ShareExtension"
+WATCH_IDENTIFIER     = "#{APP_IDENTIFIER}.watchkitapp"
 APP_NAME             = "Hermes App"
 TEAM_ID        = "WPW3QSLZ2F"
 OUTPUT_DIR     = "build/fastlane"
@@ -19,7 +20,8 @@ TARGETS = {
     workspace: "ios/Runner.xcworkspace",
     destination: "generic/platform=iOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.ipa",
-    extension_targets: ["ShareExtension"],
+    extension_targets: { "ShareExtension" => EXTENSION_IDENTIFIER, "HermesWatch" => WATCH_IDENTIFIER },
+    match_identifiers: [APP_IDENTIFIER, EXTENSION_IDENTIFIER, WATCH_IDENTIFIER],
   },
   mac: {
     flutter_platform: "macos",
@@ -29,7 +31,8 @@ TARGETS = {
     workspace: "macos/Runner.xcworkspace",
     destination: "generic/platform=macOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.pkg",
-    extension_targets: ["ShareExtension"],
+    extension_targets: { "ShareExtension" => EXTENSION_IDENTIFIER },
+    match_identifiers: [APP_IDENTIFIER, EXTENSION_IDENTIFIER],
   },
 }.freeze
 
@@ -84,7 +87,11 @@ desc "Register the bundle ID and check for the App Store Connect app record"
 lane :bootstrap_app do
   load_app_store_connect_api_key
 
-  { APP_IDENTIFIER => APP_NAME, EXTENSION_IDENTIFIER => "#{APP_NAME} Share Extension" }.each do |identifier, name|
+  {
+    APP_IDENTIFIER => APP_NAME,
+    EXTENSION_IDENTIFIER => "#{APP_NAME} Share Extension",
+    WATCH_IDENTIFIER => "#{APP_NAME} Watch"
+  }.each do |identifier, name|
     bundle = Spaceship::ConnectAPI::BundleId.all(filter: { identifier: identifier })
                                             .find { |b| b.identifier == identifier }
     if bundle
@@ -149,10 +156,18 @@ desc "  force:true regenerates the profiles"
 lane :bootstrap_signing do |options|
   api_key = load_app_store_connect_api_key
   force = options[:force].to_s == "true"
-  match(type: "appstore", platform: "ios", readonly: false, force: force, api_key: api_key)
+  match(
+    type: "appstore",
+    platform: "ios",
+    app_identifier: TARGETS.fetch(:ios)[:match_identifiers],
+    readonly: false,
+    force: force,
+    api_key: api_key
+  )
   match(
     type: "appstore",
     platform: "macos",
+    app_identifier: TARGETS.fetch(:mac)[:match_identifiers],
     additional_cert_types: ["mac_installer_distribution"],
     readonly: false,
     force: force,
@@ -168,7 +183,13 @@ def build_target(key, options)
 
   UI.header("#{APP_NAME} #{key} #{version} (#{build_number})")
 
-  match_params = { type: "appstore", platform: t[:match_platform], readonly: is_ci, api_key: api_key }
+  match_params = {
+    type: "appstore",
+    platform: t[:match_platform],
+    app_identifier: t[:match_identifiers],
+    readonly: is_ci,
+    api_key: api_key
+  }
   match_params[:additional_cert_types] = ["mac_installer_distribution"] if key == :mac
   sync_code_signing(**match_params)
 
@@ -183,7 +204,7 @@ def build_target(key, options)
     profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(APP_IDENTIFIER)
   )
 
-  t[:extension_targets].each do |extension_target|
+  t[:extension_targets].each do |extension_target, extension_identifier|
     update_code_signing_settings(
       path: t[:project],
       targets: [extension_target],
@@ -191,8 +212,8 @@ def build_target(key, options)
       use_automatic_signing: false,
       team_id: TEAM_ID,
       code_sign_identity: "Apple Distribution",
-      bundle_identifier: EXTENSION_IDENTIFIER,
-      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(EXTENSION_IDENTIFIER)
+      bundle_identifier: extension_identifier,
+      profile_name: lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING].fetch(extension_identifier)
     )
   end
 
