@@ -343,4 +343,68 @@ void main() {
 
     expect(server.requestsTo('GET', '/api/plugins/kanban/board'), isEmpty);
   });
+  test('a board picked while the saved one loads is not overwritten', () async {
+    SharedPreferencesAsyncPlatform.instance = _SlowPrefs('default');
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    final c = KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+      prefs: SharedPreferencesAsync(),
+    );
+    addTearDown(c.dispose);
+
+    final loading = c.loadBoards();
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await c.selectBoard('ops');
+    await loading;
+
+    expect(c.boardSlug, 'ops');
+  });
+
+  test(
+    'a preference that cannot be written does not stop the board opening',
+    () async {
+      SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
+      serveBoard([kanbanTaskRow(id: 't1')]);
+      final c = KanbanBoardController(
+        repository: KanbanRepository(server.client().raw),
+        connect: ({required since, board}) async =>
+            StreamChannelController<String>().foreign,
+        prefs: SharedPreferencesAsync(),
+      );
+      addTearDown(c.dispose);
+      await c.start();
+
+      await c.selectBoard('ops');
+
+      expect(c.boardSlug, 'ops');
+      expect(c.board, isNotNull);
+    },
+  );
+}
+
+/// Answers the saved board late, like a slow disk.
+base class _SlowPrefs extends InMemorySharedPreferencesAsync {
+  _SlowPrefs(String saved) : super.withData({'hermes.kanban.board': saved});
+
+  @override
+  Future<String?> getString(
+    String key,
+    SharedPreferencesOptions options,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 60));
+    return super.getString(key, options);
+  }
+}
+
+base class _FailingWritePrefs extends InMemorySharedPreferencesAsync {
+  _FailingWritePrefs() : super.empty();
+
+  @override
+  Future<bool> setString(
+    String key,
+    String value,
+    SharedPreferencesOptions options,
+  ) async => throw StateError('disk full');
 }

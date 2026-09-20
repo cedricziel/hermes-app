@@ -147,6 +147,8 @@ class KanbanBoardController extends ChangeNotifier {
       _boards = boards;
       if (_boardSlug == null) {
         final saved = await prefs?.getString(_boardPrefsKey);
+        // A board picked while the preference was loading wins over it.
+        if (_disposed || _boardSlug != null) return;
         _boardSlug =
             boards.where((b) => b.slug == saved).firstOrNull?.slug ??
             boards.where((b) => b.isCurrent).firstOrNull?.slug;
@@ -268,10 +270,17 @@ class KanbanBoardController extends ChangeNotifier {
     await refresh();
   }
 
-  Future<void> selectBoard(String slug) {
+  Future<void> selectBoard(String slug) async {
     _boardSlug = slug;
-    prefs?.setString(_boardPrefsKey, slug);
-    return _restart();
+    await Future.wait([_restart(), _rememberBoard(slug)]);
+  }
+
+  /// A preference that cannot be written only means the choice is forgotten
+  /// on the next launch; it must not stop the board from opening.
+  Future<void> _rememberBoard(String slug) async {
+    try {
+      await prefs?.setString(_boardPrefsKey, slug);
+    } catch (_) {}
   }
 
   Future<void> setTenant(String? tenant) {
