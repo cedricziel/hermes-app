@@ -346,6 +346,55 @@ void main() {
     });
   });
 
+  group('an installed entry the servers list does not have yet', () {
+    void listsAsanaFromTheSecondRequest() {
+      server.onRequest('GET', '/api/mcp/servers', (_) {
+        final second = server.requestsTo('GET', '/api/mcp/servers').length > 1;
+        return (
+          status: 200,
+          body: mcpServerListBody([
+            mcpServerRow(name: 'other', url: 'https://other.test'),
+            if (second)
+              mcpServerRow(name: 'asana', url: 'https://mcp.asana.com/sse'),
+          ]),
+        );
+      });
+    }
+
+    testWidgets('fills the pane after asking for the servers again', (
+      tester,
+    ) async {
+      listsAsanaFromTheSecondRequest();
+      await openCatalog(tester, size: const Size(1200, 800));
+
+      await tester.tap(row('asana'));
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('GET', '/api/mcp/servers'), hasLength(2));
+      expect(find.text('Test connection'), findsOneWidget);
+    });
+
+    testWidgets('does not ask again for a server the list has', (tester) async {
+      await openCatalog(tester, size: const Size(1200, 800));
+
+      await tester.tap(row('asana'));
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('GET', '/api/mcp/servers'), hasLength(1));
+      expect(find.text('Test connection'), findsOneWidget);
+    });
+
+    testWidgets('opens on a narrow layout the same way', (tester) async {
+      listsAsanaFromTheSecondRequest();
+      await openCatalog(tester);
+
+      await tester.tap(row('asana'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Test connection'), findsOneWidget);
+    });
+  });
+
   group('controller', () {
     test(
       'learns the profile itself and asks for nothing when it cannot',

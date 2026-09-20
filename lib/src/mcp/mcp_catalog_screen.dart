@@ -44,6 +44,9 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   Future<void> _open(HermesMcpCatalogEntry entry, {required bool wide}) async {
     if (wide) {
       setState(() => _selected = entry.name);
+      if (entry.installed && widget.servers.serverNamed(entry.name) == null) {
+        await widget.servers.refresh();
+      }
     } else if (entry.installed) {
       await _openServer(entry.name);
     } else {
