@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import 'hermes_profiles_repository.dart';
+import '../widgets/content_column.dart';
 
 /// Lists the Hermes profiles on the connected dashboard and lets the user
 /// pick the active one (the sticky default `hermes profile use` sets).
@@ -93,7 +94,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Profiles')),
-      body: _body(),
+      body: ContentColumn(child: _body()),
     );
   }
 

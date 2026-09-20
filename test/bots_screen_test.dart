@@ -77,6 +77,18 @@ void main() {
     expect(find.textContaining('Run Hermes from Telegram.'), findsOneWidget);
   });
 
+  testWidgets('keeps its rows to a readable width on a wide window', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await pumpBots(tester);
+
+    expect(tester.getSize(tile('Telegram')).width, lessThanOrEqualTo(640));
+  });
+
   testWidgets('shows a spinner while the bots load', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
