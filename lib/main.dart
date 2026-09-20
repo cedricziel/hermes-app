@@ -21,8 +21,10 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
-          create: (_) =>
-              AuthController(interceptors: [?httpInterceptor])..bootstrap(),
+          create: (_) => AuthController(
+            interceptors: [?httpInterceptor],
+            events: telemetry.events(),
+          )..bootstrap(),
         ),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(
