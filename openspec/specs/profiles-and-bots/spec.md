@@ -91,7 +91,12 @@ The system SHALL list the messaging platforms of the connected dashboard with a 
 #### Scenario: Needs setup
 
 - **WHEN** a platform lacks a credential it requires
-- **THEN** its row shows "Needs setup" and its switch is disabled
+- **THEN** its row shows "Needs setup" and its switch cannot be turned on
+
+#### Scenario: Enabled bot that lost its credential
+
+- **WHEN** a platform is enabled but lacks a credential it requires
+- **THEN** its row shows "Needs setup" and its switch can still be turned off
 
 #### Scenario: Reported error
 
@@ -100,7 +105,7 @@ The system SHALL list the messaging platforms of the connected dashboard with a 
 
 #### Scenario: Switching a bot
 
-- **WHEN** the user switches a configured bot on or off
+- **WHEN** the user switches a bot on or off
 - **THEN** the new enabled state is sent and the list is reloaded to show the state the dashboard now reports
 - **AND WHEN** the dashboard refuses
 - **THEN** the bot stays as it was and the user is told "Could not update this bot"
