@@ -12,6 +12,30 @@ import 'gateway_rpc_client.dart';
 /// Opens the dashboard's `/api/ws` socket, credentials included.
 typedef GatewayConnect = Future<StreamChannel<String>> Function();
 
+/// The server-to-client request methods the app answers. The gateway sends
+/// many more (vault prompts, desktop bridges); those are refused at once.
+const _handledRequests = {'approval', 'clarify', 'sudo', 'secret'};
+
+/// An approval or clarify request the user still has to answer.
+class _OpenRequest {
+  const _OpenRequest({
+    required this.sessionId,
+    required this.serverRequest,
+    required this.batch,
+  });
+
+  final String sessionId;
+
+  /// It arrived as a server-to-client request, not as an event.
+  final bool serverRequest;
+
+  /// A clarify request with several questions, answered one lock at a time.
+  final bool batch;
+}
+
+/// A chat event, and whether it came from a server-to-client request.
+typedef _Incoming = (ChatEvent event, bool serverRequest);
+
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
@@ -21,7 +45,7 @@ class HermesGatewayTransport implements ChatTransport {
   final MessagingConnectionTracer? _telemetry;
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
-  final _requestSessions = <String, String>{};
+  final _awaiting = <String, _OpenRequest>{};
 
   @override
   Stream<ChatEvent> send({
@@ -41,10 +65,23 @@ class HermesGatewayTransport implements ChatTransport {
 
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
-    final inbox = StreamController<GatewayEvent>();
+    final inbox = StreamController<_Incoming>();
     final subscription = client.events
         .where((event) => event.sessionId == runtimeId)
-        .listen(inbox.add, onDone: inbox.close);
+        .map(_toChatEvent)
+        .listen((event) {
+          if (event != null) inbox.add((event, false));
+        }, onDone: inbox.close);
+    final requests = client.serverRequests
+        .where(
+          (request) =>
+              request.sessionId == runtimeId &&
+              _handledRequests.contains(request.method),
+        )
+        .map(_fromServerRequest)
+        .listen((event) {
+          if (event != null) inbox.add((event, true));
+        });
     final mine = <String>{};
     try {
       if (threadId == null) {
@@ -54,31 +91,60 @@ class HermesGatewayTransport implements ChatTransport {
         'session_id': runtimeId,
         'text': text,
       });
-      await for (final event in inbox.stream) {
-        final mapped = _toChatEvent(event);
-        if (mapped == null) continue;
-        if (mapped is ApprovalRequested) {
-          mine.add(mapped.request.requestId);
-          _requestSessions[mapped.request.requestId] = runtimeId;
-        }
-        yield mapped;
-        if (mapped is ReplyCompleted) return;
+      await for (final (event, serverRequest) in inbox.stream) {
+        _track(event, runtimeId, mine, serverRequest: serverRequest);
+        yield event;
+        if (event is ReplyCompleted) return;
       }
       throw const GatewayConnectionClosed();
     } finally {
-      _requestSessions.removeWhere((id, _) => mine.contains(id));
+      mine.forEach(_awaiting.remove);
       await subscription.cancel();
+      await requests.cancel();
       unawaited(inbox.close());
+    }
+  }
+
+  /// Remembers the requests this turn raised, so they can be answered until
+  /// the turn ends, and forgets one that expired.
+  void _track(
+    ChatEvent event,
+    String sessionId,
+    Set<String> mine, {
+    required bool serverRequest,
+  }) {
+    final (String, bool)? request = switch (event) {
+      ApprovalRequested(:final request) => (request.requestId, false),
+      ClarifyRequested(:final request) when serverRequest => (
+        request.requestId,
+        request.batch,
+      ),
+      _ => null,
+    };
+    if (request != null) {
+      final (id, batch) = request;
+      mine.add(id);
+      _awaiting[id] = _OpenRequest(
+        sessionId: sessionId,
+        serverRequest: serverRequest,
+        batch: batch,
+      );
+    } else if (event is InputRequestExpired) {
+      _awaiting.remove(event.requestId);
     }
   }
 
   @override
   Future<bool> answerApproval(String requestId, String choice) async {
-    final sessionId = _requestSessions[requestId];
-    if (sessionId == null) return false;
+    final open = _awaiting[requestId];
+    if (open == null) return false;
+    if (open.serverRequest) {
+      _awaiting.remove(requestId);
+      return _respond(requestId, {'choice': choice});
+    }
     final client = await _client();
     final result = await client.request('approval.respond', {
-      'session_id': sessionId,
+      'session_id': open.sessionId,
       'request_id': requestId,
       'choice': choice,
     });
@@ -92,15 +158,46 @@ class HermesGatewayTransport implements ChatTransport {
     String? questionId,
     bool multiSelect = false,
   }) async {
-    final client = await _client();
-    final result = await client.request('clarify.respond', {
+    final answer = multiSelect
+        ? jsonEncode(values)
+        : (values.isEmpty ? '' : values.first);
+    final open = _awaiting[requestId];
+    if (open == null) {
+      final client = await _client();
+      final result = await client.request('clarify.respond', {
+        'request_id': requestId,
+        'answer': answer,
+        'question_id': ?questionId,
+      });
+      return result['status'] != 'expired';
+    }
+    if (!open.batch) {
+      _awaiting.remove(requestId);
+      return _respond(requestId, {'answer': answer});
+    }
+    final result = await _connected()?.request('clarify.lock', {
       'request_id': requestId,
-      'answer': multiSelect
-          ? jsonEncode(values)
-          : (values.isEmpty ? '' : values.first),
+      'answer': answer,
       'question_id': ?questionId,
     });
-    return result['status'] != 'expired';
+    return result != null && result['status'] != 'expired';
+  }
+
+  /// Answers a server-to-client request. The gateway does not say whether it
+  /// was still waiting; a request that ended was already expired by
+  /// `request.cancel`.
+  bool _respond(String requestId, Map<String, Object?> result) {
+    final client = _connected();
+    if (client == null) return false;
+    client.respond(requestId, result);
+    return true;
+  }
+
+  /// The open connection, or null: a server-to-client request belongs to the
+  /// connection it arrived on and cannot be answered on a new one.
+  GatewayRpcClient? _connected() {
+    final open = _open;
+    return open == null || open.isClosed ? null : open;
   }
 
   @override
@@ -111,23 +208,32 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<GatewayRpcClient> _client() async {
-    final open = _open;
-    if (open != null && !open.isClosed) return open;
+    final open = _connected();
+    if (open != null) return open;
     return _opening ??= _openNew().whenComplete(() => _opening = null);
   }
 
   Future<GatewayRpcClient> _openNew() async {
     final client = GatewayRpcClient(await _connect(), telemetry: _telemetry);
+    // Not awaited: a gateway that predates the call answers with an error and
+    // carries on with events, and none of them may hold up the first send.
+    unawaited(
+      client
+          .request('client.capabilities', {'server_requests': true})
+          .then((_) {}, onError: (Object _) {}),
+    );
+    client.serverRequests
+        .where((request) => !_handledRequests.contains(request.method))
+        .listen(
+          (request) =>
+              client.respondError(request.id, -32601, 'Method not found'),
+        );
     return _open = client;
   }
 
   ChatEvent? _toChatEvent(GatewayEvent event) {
     final payload = event.payload;
     String text(String key) => payload[key] as String? ?? '';
-    UnsupportedRequested unsupported(UnsupportedKind kind) =>
-        UnsupportedRequested(
-          UnsupportedRequest(requestId: text('request_id'), kind: kind),
-        );
     return switch (event.type) {
       'message.start' => const ReplyStarted(),
       'message.delta' => ReplyDelta(text('text')),
@@ -142,23 +248,47 @@ class HermesGatewayTransport implements ChatTransport {
         failed: payload['status'] == 'error',
       ),
       'approval.request' => ApprovalRequested(
-        ApprovalRequest(
-          requestId: text('request_id'),
-          command: text('command'),
-          description: text('description'),
-          choices: _strings(payload['choices']),
-        ),
+        _toApproval(text('request_id'), payload),
       ),
-      'clarify.request' => ClarifyRequested(_toClarify(payload)),
-      'secret.request' => unsupported(UnsupportedKind.secret),
-      'sudo.request' => unsupported(UnsupportedKind.sudo),
+      'clarify.request' => ClarifyRequested(
+        _toClarify(text('request_id'), payload),
+      ),
+      'secret.request' => _unsupported(
+        text('request_id'),
+        UnsupportedKind.secret,
+      ),
+      'sudo.request' => _unsupported(text('request_id'), UnsupportedKind.sudo),
       'approval.expire' ||
       'clarify.expire' ||
       'secret.expire' ||
       'sudo.expire' => InputRequestExpired(text('request_id')),
+      'request.cancel' => InputRequestExpired(text('id')),
       _ => null,
     };
   }
+
+  ChatEvent? _fromServerRequest(GatewayServerRequest request) {
+    return switch (request.method) {
+      'approval' => ApprovalRequested(_toApproval(request.id, request.params)),
+      'clarify' => ClarifyRequested(_toClarify(request.id, request.params)),
+      'sudo' => _unsupported(request.id, UnsupportedKind.sudo),
+      'secret' => _unsupported(request.id, UnsupportedKind.secret),
+      _ => null,
+    };
+  }
+
+  ApprovalRequest _toApproval(String requestId, Map<String, Object?> fields) =>
+      ApprovalRequest(
+        requestId: requestId,
+        command: fields['command'] as String? ?? '',
+        description: fields['description'] as String? ?? '',
+        choices: _strings(fields['choices']),
+      );
+
+  UnsupportedRequested _unsupported(String requestId, UnsupportedKind kind) =>
+      UnsupportedRequested(
+        UnsupportedRequest(requestId: requestId, kind: kind),
+      );
 
   /// The gateway sends no failure flag; a tool that failed puts a message in
   /// the `error` field of its result.
@@ -168,8 +298,7 @@ class HermesGatewayTransport implements ChatTransport {
     return error != null && error != '';
   }
 
-  ClarifyRequest _toClarify(Map<String, Object?> payload) {
-    final requestId = payload['request_id'] as String? ?? '';
+  ClarifyRequest _toClarify(String requestId, Map<String, Object?> payload) {
     final batch = payload['questions'];
     if (batch is List) {
       return ClarifyRequest(
