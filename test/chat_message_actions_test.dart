@@ -9,6 +9,7 @@ import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/widgets/follow_up_chips.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -178,5 +179,36 @@ void main() {
 
     expect(copy, findsOneWidget, reason: 'only the earlier reply');
     expect(tryAgain, findsOneWidget);
+  });
+
+  chatTest('the latest reply offers follow-ups, and a tap sends one', (
+    tester,
+  ) async {
+    for (final prompt in kFollowUpPrompts) {
+      expect(find.text(prompt), findsOneWidget);
+    }
+
+    await tester.tap(find.text('Give an example'));
+    await tester.pump();
+
+    expect(transport.sends.single.text, 'Give an example');
+    expect(transport.sends.single.threadId, 's1');
+  });
+
+  chatTest('follow-ups leave the older reply and a failed one', (tester) async {
+    await send(tester, 'Any news?');
+    final reply = transport.sends.single;
+    await emit(tester, reply, const ReplyDelta('Nothing new.'));
+    await emit(tester, reply, const ReplyCompleted('Nothing new.'));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Summarize this'), findsOneWidget);
+
+    await send(tester, 'And now?');
+    final second = transport.sends.last;
+    await emit(tester, second, const ReplyCompleted('', failed: true));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Summarize this'), findsNothing);
   });
 }

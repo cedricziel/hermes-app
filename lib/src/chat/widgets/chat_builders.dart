@@ -17,6 +17,7 @@ import '../chat_models.dart'
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
+import 'follow_up_chips.dart';
 import 'message_actions.dart';
 import 'reasoning_block.dart';
 import 'thinking_indicator.dart';
@@ -37,7 +38,8 @@ import 'welcome_view.dart';
 ///
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
-/// can.
+/// can. That reply also gets follow-up chips, which send through
+/// [onPickPrompt].
 Builders buildChatBuilders({
   required void Function(String prompt) onPickPrompt,
   String? greetingName,
@@ -60,6 +62,7 @@ Builders buildChatBuilders({
               groupStatus: groupStatus,
               latestReplyId: latestReplyId,
               onRetry: onRetry,
+              onFollowUp: onPickPrompt,
             ),
     imageMessageBuilder: (
       context,
@@ -100,6 +103,7 @@ Widget _buildText(
   MessageGroupStatus? groupStatus,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
+  void Function(String prompt)? onFollowUp,
 }) {
   final scheme = Theme.of(context).colorScheme;
   final failed = message.metadata?[kMetaError] == true;
@@ -125,22 +129,28 @@ Widget _buildText(
   );
   if (isSentByMe || message.metadata?[kMetaStreaming] == true) return bubble;
 
-  Widget actions(bool canRetry) => MessageActions(
-    text: message.text,
-    showCopy: !failed,
-    onRetry: canRetry ? onRetry : null,
+  Widget below(bool latest) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      MessageActions(
+        text: message.text,
+        showCopy: !failed,
+        onRetry: latest ? onRetry : null,
+      ),
+      if (latest && !failed && onFollowUp != null)
+        FollowUpChips(onPick: onFollowUp),
+    ],
   );
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       bubble,
       if (latestReplyId == null)
-        actions(false)
+        below(false)
       else
         ValueListenableBuilder<String?>(
           valueListenable: latestReplyId,
-          builder: (_, latest, _) =>
-              actions(onRetry != null && latest == message.id),
+          builder: (_, latest, _) => below(latest == message.id),
         ),
     ],
   );
