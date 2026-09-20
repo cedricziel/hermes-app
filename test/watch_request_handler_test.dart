@@ -275,6 +275,38 @@ void main() {
       expect(transport.closed, isTrue);
     });
 
+    test('says so when a successful reply has no text', () async {
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('  \n'))
+        ..finish();
+
+      expect(await pending, {
+        'ok': true,
+        'threadId': '/new-1',
+        'text': WatchRequestHandler.emptyReplyText,
+        'failed': false,
+      });
+    });
+
+    test(
+      'falls back to the streamed text when the final text is empty',
+      () async {
+        final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ReplyDelta('Hi '))
+          ..emit(const ReplyDelta('there'))
+          ..emit(const ReplyCompleted(''))
+          ..finish();
+
+        expect((await pending)['text'], 'Hi there');
+      },
+    );
+
     test('starts a thread in the active profile', () async {
       profile = 'work';
       final pending = handler.handle({'op': 'send', 'text': 'Hello'});

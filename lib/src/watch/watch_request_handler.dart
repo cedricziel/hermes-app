@@ -30,6 +30,9 @@ class WatchRequestHandler {
       "Hermes asked for something the watch can't answer. "
       'Ask again on your iPhone.';
 
+  /// What the watch shows for a successful reply that has no text at all.
+  static const emptyReplyText = 'Hermes replied without any text.';
+
   /// The title of a notification for a chat the gateway has not named.
   static const untitledChat = 'Hermes';
 
@@ -119,6 +122,7 @@ class WatchRequestHandler {
     String? profile;
     String? boundId;
     var title = untitledChat;
+    final streamed = StringBuffer();
     void announceEnd(ChatEvent event) {
       final id = boundId;
       if (id == null) return;
@@ -146,12 +150,14 @@ class WatchRequestHandler {
             boundId = threadId;
           case ThreadTitled(title: final named):
             title = named;
+          case ReplyDelta(:final text):
+            streamed.write(text);
           case ReplyCompleted(:final text, :final failed):
             announceEnd(event);
             return {
               'ok': true,
               'threadId': boundId == null ? null : _bind(profile, boundId),
-              'text': _cut(text),
+              'text': _cut(failed ? text : _shown(text, streamed.toString())),
               'failed': failed,
             };
           case ApprovalRequested() ||
@@ -193,6 +199,13 @@ class WatchRequestHandler {
     } on ArgumentError {
       return null;
     }
+  }
+
+  /// The final [text] of a successful reply, else what streamed, else a note
+  /// that there was nothing, so the watch never shows an empty bubble.
+  static String _shown(String text, String streamed) {
+    if (text.trim().isNotEmpty) return text;
+    return streamed.trim().isNotEmpty ? streamed : emptyReplyText;
   }
 
   static String _cut(String text) => text.length <= contentLimit
