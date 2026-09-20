@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.16](https://github.com/cedricziel/hermes-app/compare/v0.1.15...v0.1.16) (2026-09-20)
+
+
+### Features
+
+* **chat:** let the user skip a secret or sudo request ([#161](https://github.com/cedricziel/hermes-app/issues/161)) ([e4537e1](https://github.com/cedricziel/hermes-app/commit/e4537e1ee54df956f55dede655f47c130c6a3cb9))
+
+
+### Bug Fixes
+
+* **auth:** verify the new token before storing it after sign-in ([#173](https://github.com/cedricziel/hermes-app/issues/173)) ([59f86ca](https://github.com/cedricziel/hermes-app/commit/59f86cab4f40f1e0f9c22bd6d59a02effc943c84))
+* **chat:** do not list or send unscoped when the active profile lookup fails ([#172](https://github.com/cedricziel/hermes-app/issues/172)) ([4eb098c](https://github.com/cedricziel/hermes-app/commit/4eb098cdea270fb31af2f6849c0df3a7bcf9d819))
+* **chat:** explain when the selected profile no longer exists ([#166](https://github.com/cedricziel/hermes-app/issues/166)) ([5df3f0d](https://github.com/cedricziel/hermes-app/commit/5df3f0d564a1fb0badc5310ded5d7b494fddcefb))
+* **kanban:** show the unavailable page when a refresh answers 404 ([#171](https://github.com/cedricziel/hermes-app/issues/171)) ([c6546b3](https://github.com/cedricziel/hermes-app/commit/c6546b3ba36533e44feccd1f775e56f999b7da35))
+* **shell:** switch to Chat for taps and shares, and reset the Kanban tab state ([#165](https://github.com/cedricziel/hermes-app/issues/165)) ([5a3983d](https://github.com/cedricziel/hermes-app/commit/5a3983df2b81a5a6bd14125bd74f4dde162fa147))
+* **watch:** show a note instead of an empty bubble for a reply without text ([#170](https://github.com/cedricziel/hermes-app/issues/170)) ([519a8a3](https://github.com/cedricziel/hermes-app/commit/519a8a36578ab5db6e24e0a8fbf84045340a5f6c))
+
 ## [0.1.15](https://github.com/cedricziel/hermes-app/compare/v0.1.14...v0.1.15) (2026-09-20)
 
 
