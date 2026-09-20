@@ -7,6 +7,7 @@ import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
+import 'src/network/network_signals.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
@@ -37,6 +38,7 @@ Future<void> main() async {
           create: (_) => AuthController(
             interceptors: [?httpInterceptor],
             events: telemetry.events(),
+            networkSignals: ConnectivityNetworkSignals(),
           )..bootstrap(),
         ),
         // Downloaded files are deleted when the session ends, so this must be

@@ -10,6 +10,8 @@ import '../api/hermes_api_client.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
+import '../network/network_signals.dart';
+import 'connect_failure.dart';
 import 'native_login_flow.dart';
 import 'token_store.dart';
 
@@ -58,9 +60,13 @@ class AuthController extends ChangeNotifier {
     this._interceptors = const [],
     this._events = noopAppEventLogger,
     this._login = runNativeLogin,
+    NetworkSignals networkSignals = const NoNetworkSignals(),
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _prefs = prefs ?? SharedPreferencesAsync(),
-       _devServerUrl = devServerUrl ?? _devServerUrlDefine;
+       _devServerUrl = devServerUrl ?? _devServerUrlDefine,
+       _network = networkSignals {
+    _networkChanges = _network.changes.listen((_) => _retryUnreachable());
+  }
 
   final TokenStore _tokenStore;
   final SharedPreferencesAsync _prefs;
@@ -77,6 +83,9 @@ class AuthController extends ChangeNotifier {
 
   final NativeLogin _login;
 
+  final NetworkSignals _network;
+  StreamSubscription<void>? _networkChanges;
+
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
   String? _savedServerUrl;
@@ -85,6 +94,10 @@ class AuthController extends ChangeNotifier {
   HermesSession? _session;
   HermesIdentity? _identity;
   String? _errorMessage;
+  ConnectFailure? _lastFailure;
+
+  /// The address the last failed connect went to.
+  String? _failedUrl;
 
   Dio? _dio;
   Dio? _tokenDio;
@@ -109,6 +122,12 @@ class AuthController extends ChangeNotifier {
   List<AuthProviderInfo> get providers => _providers;
   HermesIdentity? get identity => _identity;
   String? get errorMessage => _errorMessage;
+
+  /// Why the last connect failed, when it failed reaching the server.
+  ConnectFailure? get lastFailure => _lastFailure;
+
+  /// Whether a VPN is active, or null where the platform cannot tell.
+  bool? get vpnActive => _network.vpnActive;
 
   /// The authenticated API client. Only valid once [state] is
   /// [HermesConnectionState.ready].
@@ -135,6 +154,7 @@ class AuthController extends ChangeNotifier {
     String rawUrl, {
     bool remember = true,
     bool restoring = false,
+    bool automatic = false,
   }) async {
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
@@ -145,6 +165,8 @@ class AuthController extends ChangeNotifier {
     }
 
     _errorMessage = null;
+    _lastFailure = null;
+    _failedUrl = null;
     if (!restoring) _setState(HermesConnectionState.connecting);
 
     final probeDio = _plainDio(
@@ -157,11 +179,12 @@ class AuthController extends ChangeNotifier {
     try {
       status = await HermesApiClient(probeDio).fetchStatus();
     } on DioException catch (e) {
-      _errorMessage = _describeDioError(
+      _failConnect(
         e,
+        normalized,
         fallback: 'Could not reach $normalized',
+        automatic: automatic,
       );
-      _setState(HermesConnectionState.connectionError);
       return;
     } on FormatException {
       _errorMessage = _unexpectedResponseMessage;
@@ -190,11 +213,12 @@ class AuthController extends ChangeNotifier {
     try {
       _providers = await _api!.fetchAuthProviders();
     } on DioException catch (e) {
-      _errorMessage = _describeDioError(
+      _failConnect(
         e,
+        normalized,
         fallback: 'Could not load sign-in options',
+        automatic: automatic,
       );
-      _setState(HermesConnectionState.connectionError);
       return;
     } on FormatException {
       _errorMessage = 'Could not load sign-in options';
@@ -217,15 +241,47 @@ class AuthController extends ChangeNotifier {
       // cleared the session and asked for a login. Anything else (network,
       // 5xx) leaves the tokens alone so the user can simply retry.
       if (_session == null) return;
-      _errorMessage = _describeDioError(
+      _failConnect(
         e,
+        normalized,
         fallback: 'Could not verify your session',
+        automatic: automatic,
       );
-      _setState(HermesConnectionState.connectionError);
     } on FormatException {
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
     }
+  }
+
+  void _failConnect(
+    DioException e,
+    String url, {
+    required String fallback,
+    required bool automatic,
+  }) {
+    final failure = classifyConnectFailure(e, Uri.parse(url));
+    _lastFailure = failure;
+    _failedUrl = url;
+    _errorMessage = _describeDioError(e, fallback: fallback);
+    _events('auth.connect.failed', {
+      'reason': failure.kind.name,
+      'host_kind': failure.hostKind.name,
+      'retry': automatic,
+    });
+    _setState(HermesConnectionState.connectionError);
+  }
+
+  /// Asks the saved server again after the network changed, when the last
+  /// attempt at it failed for a reason the network can explain.
+  void _retryUnreachable() {
+    final saved = _savedServerUrl;
+    if (_state != HermesConnectionState.connectionError ||
+        saved == null ||
+        _failedUrl != saved ||
+        _lastFailure?.retryable != true) {
+      return;
+    }
+    unawaited(connect(saved, automatic: true));
   }
 
   /// Runs the RFC 8252 native login flow for [provider] and, on success,
@@ -540,6 +596,7 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _networkChanges?.cancel();
     _signedOut.close();
     super.dispose();
   }
