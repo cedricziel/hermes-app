@@ -115,8 +115,12 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$raw" || : > "$raw"
           # TestFlight shows the notes as plain text, so release-please's
           # markdown is stripped. Formatting must never block a release: an
-          # older tag without the script, or a failure, keeps the raw notes.
-          python3 scripts/plain_release_notes.py < "$raw" > "$file" || cp "$raw" "$file"
+          # older tag without the script, or a failure, falls back to the raw
+          # notes cut to TestFlight's 4000 characters, and then to none (the
+          # lane then sends a build line).
+          python3 scripts/plain_release_notes.py < "$raw" > "$file" \
+            || python3 -c 'import sys; sys.stdout.write(sys.stdin.read()[:4000])' < "$raw" > "$file" \
+            || : > "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH for match repo
