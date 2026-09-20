@@ -95,6 +95,7 @@ final class ConversationModelTests: XCTestCase {
     let client = FakeClient()
     client.sendResult = .failure(HermesClientError.phoneUnreachable)
     let model = ConversationModel(client: client, threadId: "s1")
+    await model.load()
 
     await model.send("Hello")
 
@@ -103,10 +104,41 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
   }
 
+  func testNothingIsSentWhileTheThreadIsStillLoading() async {
+    let client = FakeClient()
+    let model = ConversationModel(client: client, threadId: "s1")
+    XCTAssertEqual(model.phase, .loading)
+
+    await model.send("Hello")
+
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertTrue(model.messages.isEmpty)
+    XCTAssertEqual(model.phase, .loading)
+  }
+
+  func testAFailedTurnKeepsTheTextAndStillBindsTheThread() async {
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Model unavailable", failed: true))
+    let model = ConversationModel(client: client, threadId: nil)
+
+    await model.send("Hello")
+
+    XCTAssertTrue(model.messages.isEmpty)
+    XCTAssertEqual(model.unsent, "Hello")
+    XCTAssertEqual(model.phase, .failed(.failed))
+    XCTAssertEqual(model.threadId, "new-1")
+
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Hi", failed: false))
+    await model.send("Hello")
+    XCTAssertEqual(client.sends.last?.threadId, "new-1")
+    XCTAssertEqual(model.phase, .idle)
+  }
+
   func testSendingAgainClearsTheFailure() async {
     let client = FakeClient()
     client.sendResult = .failure(HermesClientError.unavailable)
     let model = ConversationModel(client: client, threadId: "s1")
+    await model.load()
     await model.send("Hello")
     client.sendResult = .success(SendResult(threadId: "s1", text: "Hi", failed: false))
 

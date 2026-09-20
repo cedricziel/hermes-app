@@ -22,7 +22,7 @@ struct ConversationView: View {
           }
           TextField("Reply", text: $draft)
             .onSubmit { Task { await submit() } }
-            .disabled(model.phase == .sending)
+            .disabled(model.phase == .sending || model.phase == .loading)
             .id("composer")
         }
       }

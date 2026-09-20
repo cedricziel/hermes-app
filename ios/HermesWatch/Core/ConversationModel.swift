@@ -37,7 +37,7 @@ final class ConversationModel {
 
   func send(_ text: String) async {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty, phase != .sending else { return }
+    guard !text.isEmpty, phase != .sending, phase != .loading else { return }
     unsent = nil
     phase = .sending
     let pending = ChatMessage(id: "local-\(UUID().uuidString)", role: .user, content: text, at: Date())
@@ -45,14 +45,23 @@ final class ConversationModel {
     do {
       let result = try await client.send(threadId: threadId, text: text)
       threadId = result.threadId ?? threadId
+      if result.failed {
+        takeBack(pending, error: .failed)
+        return
+      }
       messages.append(
         ChatMessage(id: "local-\(UUID().uuidString)", role: .assistant, content: result.text, at: Date())
       )
       phase = .idle
     } catch {
-      messages.removeAll { $0.id == pending.id }
-      unsent = text
-      phase = .failed(error as? HermesClientError ?? .failed)
+      takeBack(pending, error: error as? HermesClientError ?? .failed)
     }
+  }
+
+  /// Drops a message that did not go through and keeps its text to try again.
+  private func takeBack(_ pending: ChatMessage, error: HermesClientError) {
+    messages.removeAll { $0.id == pending.id }
+    unsent = pending.content
+    phase = .failed(error)
   }
 }
