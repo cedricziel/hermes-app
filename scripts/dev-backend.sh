@@ -47,6 +47,7 @@ cmd_start() {
   if ! command -v hermes >/dev/null; then
     echo "hermes not found on PATH. Install Hermes Agent:" >&2
     echo "  https://github.com/NousResearch/hermes-agent (see its README)" >&2
+    echo "or use the recipe in .claude/skills/verify-in-app/SKILL.md (\"Hermes Agent setup\")." >&2
     exit 1
   fi
   if ours; then
