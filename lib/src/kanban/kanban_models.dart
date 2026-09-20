@@ -270,8 +270,9 @@ class KanbanRun {
   final DateTime? startedAt;
   final DateTime? endedAt;
 
-  /// Still in flight, so it can be terminated.
-  bool get active => endedAt == null;
+  /// Still in flight, so it can be terminated. A run that never got an end
+  /// time but is not marked running (a crashed worker) is not.
+  bool get active => endedAt == null && status == 'running';
 }
 
 class KanbanAttachment {

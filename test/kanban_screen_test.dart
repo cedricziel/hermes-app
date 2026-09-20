@@ -73,14 +73,6 @@ void main() {
     expect(find.text('2/5'), findsOneWidget);
     expect(find.text('Write docs'), findsNothing);
 
-    await tester.scrollUntilVisible(
-      find.text('Todo 1'),
-      -100,
-      scrollable: find.descendant(
-        of: find.byType(ListView).first,
-        matching: find.byType(Scrollable),
-      ),
-    );
     await tester.ensureVisible(find.text('Todo 1'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Todo 1'));
@@ -341,5 +333,26 @@ void main() {
 
     expect(chip.left, greaterThanOrEqualTo(0));
     expect(chip.right, lessThanOrEqualTo(400));
+  });
+
+  testWidgets('a refusal that names no task keeps the whole selection', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'ok': false, 'error': 'archive refused'},
+      ],
+    });
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.longPress(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Archive'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 selected'), findsOneWidget);
   });
 }

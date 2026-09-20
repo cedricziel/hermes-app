@@ -592,7 +592,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                   subtitle: r.error != null || r.summary != null
                       ? Text(r.error ?? r.summary!)
                       : null,
-                  trailing: r.active
+                  trailing: r.active && task.status == 'running'
                       ? TextButton(
                           onPressed: () => _terminate(r),
                           child: const Text('Terminate'),

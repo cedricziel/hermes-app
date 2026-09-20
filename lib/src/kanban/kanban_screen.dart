@@ -34,8 +34,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   String _status = 'running';
-  final _selectedChip = GlobalKey();
-  String? _chipShown;
 
   @override
   void initState() {
@@ -60,6 +58,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       repository: _repository,
       connect: connect,
       prefs: SharedPreferencesAsync(),
+      prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
     )..start();
   }
 
@@ -220,7 +219,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (failures.isEmpty) {
       _controller.stopSelecting();
     } else {
-      _controller.keepSelected(failures.map((f) => f.id));
+      // A refusal without a task id cannot say which to keep, so keep all.
+      final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);
+      if (failed.isNotEmpty) _controller.keepSelected(failed);
     }
     _controller.refresh();
   }
@@ -369,37 +370,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
         : (columns.isEmpty ? _status : columns.first.name);
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
-    if (_chipShown != shown) {
-      _chipShown = shown;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final chip = _selectedChip.currentContext;
-        if (chip != null && mounted) {
-          Scrollable.ensureVisible(chip, alignment: 0.5);
-        }
-      });
-    }
     return Column(
       children: [
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
-              for (final c in columns)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    key: c.name == shown ? _selectedChip : null,
-                    label: Text(
-                      '${kanbanStatusLabel(c.name)} ${c.tasks.length}',
-                    ),
-                    selected: c.name == shown,
-                    onSelected: (_) => setState(() => _status = c.name),
-                  ),
-                ),
-            ],
-          ),
+        _StatusChips(
+          columns: columns,
+          selected: shown,
+          onSelected: (name) => setState(() => _status = name),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -489,6 +465,68 @@ class _KanbanScreenState extends State<KanbanScreen> {
       },
     );
   }
+}
+
+/// The row of status chips on a narrow screen. It brings the selected chip
+/// into view when it first appears (a fresh row starts at the left, which may
+/// hide it, e.g. after the screen is rotated) and whenever the selection moves.
+class _StatusChips extends StatefulWidget {
+  const _StatusChips({
+    required this.columns,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<KanbanColumn> columns;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  State<_StatusChips> createState() => _StatusChipsState();
+}
+
+class _StatusChipsState extends State<_StatusChips> {
+  final _selectedChip = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal();
+  }
+
+  @override
+  void didUpdateWidget(_StatusChips old) {
+    super.didUpdateWidget(old);
+    if (old.selected != widget.selected) _reveal();
+  }
+
+  void _reveal() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    final chip = _selectedChip.currentContext;
+    if (chip != null && mounted) Scrollable.ensureVisible(chip, alignment: 0.5);
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          for (final c in widget.columns)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                key: c.name == widget.selected ? _selectedChip : null,
+                label: Text('${kanbanStatusLabel(c.name)} ${c.tasks.length}'),
+                selected: c.name == widget.selected,
+                onSelected: (_) => widget.onSelected(c.name),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _Toolbar extends StatelessWidget {

@@ -409,4 +409,23 @@ void main() {
       );
     },
   );
+
+  test('a refused archive is an error, not a success', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't1', 'ok': false, 'error': 'archive refused'},
+      ],
+    });
+
+    expect(
+      repository.archiveTask('t1'),
+      throwsA(
+        isA<KanbanException>().having(
+          (e) => e.message,
+          'message',
+          'archive refused',
+        ),
+      ),
+    );
+  });
 }

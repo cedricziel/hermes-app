@@ -347,4 +347,32 @@ void main() {
       hasLength(loads),
     );
   });
+
+  testWidgets(
+    'offers no Terminate for a run left open on a task that is not running',
+    (tester) async {
+      server.on(
+        'GET',
+        '/api/plugins/kanban/tasks/t1',
+        kanbanTaskDetailBody(
+          kanbanTaskRow(id: 't1', title: 'Stalled', status: 'blocked'),
+          runs: [
+            {
+              'id': 7,
+              'status': 'crashed',
+              'profile': 'coder',
+              'started_at': 1780000000,
+            },
+          ],
+        ),
+      );
+      await pumpPanel(tester);
+
+      await tester.ensureVisible(find.textContaining('Runs ('));
+      await tester.tap(find.textContaining('Runs ('));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(TextButton, 'Terminate'), findsNothing);
+    },
+  );
 }

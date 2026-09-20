@@ -119,12 +119,12 @@ class KanbanRepository {
     ),
   );
 
-  Future<void> archiveTask(String id, {String? board}) => _guard(
-    () => _api.bulkUpdateApiPluginsKanbanTasksBulkPost(
-      bulkTaskBody: BulkTaskBody(ids: [id], archive: true),
-      board: board,
-    ),
-  );
+  /// Archives a task; the plugin's refusal for it is raised as a
+  /// [KanbanException] rather than read as success.
+  Future<void> archiveTask(String id, {String? board}) async {
+    final failures = await bulkUpdate([id], archive: true, board: board);
+    if (failures.isNotEmpty) throw KanbanException(failures.first.error);
+  }
 
   /// Fans a triage task out into a set of tasks with the plugin's LLM helper.
   Future<KanbanTriageOutcome> decomposeTask(String id, {String? board}) =>
