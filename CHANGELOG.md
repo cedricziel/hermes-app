@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.12](https://github.com/cedricziel/hermes-app/compare/v0.1.11...v0.1.12) (2026-09-20)
+
+
+### Bug Fixes
+
+* **auth:** never leave sign-in spinning after a cancel ([#111](https://github.com/cedricziel/hermes-app/issues/111)) ([5752339](https://github.com/cedricziel/hermes-app/commit/575233910997496ab074cd4aa0412efd6869ad5f))
+* **telemetry:** record a route template instead of raw paths ([#112](https://github.com/cedricziel/hermes-app/issues/112)) ([7fbfb12](https://github.com/cedricziel/hermes-app/commit/7fbfb1261c6f17d68a14038ac3369bd5dbc0831a))
+
 ## [0.1.11](https://github.com/cedricziel/hermes-app/compare/v0.1.10...v0.1.11) (2026-09-20)
 
 
