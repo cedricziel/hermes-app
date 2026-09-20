@@ -99,6 +99,42 @@ void main() {
     await settle(tester);
   });
 
+  testWidgets('skipping a request the app cannot answer sends it and locks', (
+    tester,
+  ) async {
+    await raise(
+      tester,
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r9', kind: UnsupportedKind.sudo),
+      ),
+    );
+
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+
+    expect(transport.skips, [('r9', UnsupportedKind.sudo)]);
+    expect(find.text('You skipped this request'), findsOneWidget);
+    await settle(tester);
+  });
+
+  testWidgets('skipping a request that is no longer pending locks it', (
+    tester,
+  ) async {
+    transport.accepts = false;
+    await raise(
+      tester,
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r9', kind: UnsupportedKind.secret),
+      ),
+    );
+
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+
+    expect(find.text('This request timed out'), findsOneWidget);
+    await settle(tester);
+  });
+
   testWidgets('an expire event locks an unsupported request', (tester) async {
     final turn = await raise(
       tester,

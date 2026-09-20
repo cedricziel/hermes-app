@@ -565,7 +565,7 @@ The system SHALL show a clarify request as a card "Hermes has a question" with o
 
 ### Requirement: Requests the app cannot answer
 
-The system SHALL show a request for a secret value or a sudo password, whether it arrives as the events `secret.request` and `sudo.request` or as the server-to-client requests `secret` and `sudo`, as a card "Hermes needs something else" in the reply, saying that Hermes asked for "a secret value, such as an API key" or "your sudo password", that this app cannot ask for it yet, and that it can be answered in the Hermes terminal or dashboard. The system SHALL NOT ask the user for, collect, store or send a secret or password, and SHALL NOT show the request's prompt, variable name, metadata or command. It SHALL NOT answer a secret or sudo request in any form.
+The system SHALL show a request for a secret value or a sudo password, whether it arrives as the events `secret.request` and `sudo.request` or as the server-to-client requests `secret` and `sudo`, as a card "Hermes needs something else" in the reply, saying that Hermes asked for "a secret value, such as an API key" or "your sudo password", that this app cannot ask for it yet, and that it can be answered in the Hermes terminal or dashboard, with a "Skip" button. The system SHALL NOT ask the user for, collect, store or send a secret or password, and SHALL NOT show the request's prompt, variable name, metadata or command. It SHALL answer a secret or sudo request only when the user taps "Skip", and then only with an empty value, which tells Hermes to carry on without it.
 
 #### Scenario: Sudo request
 
@@ -580,7 +580,22 @@ The system SHALL show a request for a secret value or a sudo password, whether i
 #### Scenario: Nothing is collected
 
 - **WHEN** the card is shown
-- **THEN** it has no text field or button, and no `secret.respond` or `sudo.respond` call and no response to a `secret` or `sudo` server-to-client request is ever made
+- **THEN** it has no text field and one button, "Skip", and nothing is sent until the user taps it
+
+#### Scenario: Skipping
+
+- **WHEN** the user taps "Skip" on a pending card
+- **THEN** an empty answer is sent for that request, the button is disabled while it is in flight, and once sent the card reads "You skipped this request" with no button
+
+#### Scenario: Skipping a request that already ended
+
+- **WHEN** the user taps "Skip" and the gateway no longer waits for the request
+- **THEN** the card is locked and shows "This request timed out"
+
+#### Scenario: Skip fails
+
+- **WHEN** sending the empty answer throws
+- **THEN** the card shows "Could not send your answer. Try again." and the button is usable again
 
 #### Scenario: No thinking indicator
 
@@ -687,7 +702,7 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **WHEN** the chat talks over `/api/ws`
 - **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), `client.capabilities` (`server_requests`) and `clarify.lock` (`request_id`, `question_id`, `answer`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
 - **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
-- **AND** it requests no method to answer a secret or a sudo request
+- **AND** it answers a secret or a sudo request only to skip it: `sudo.respond` (`request_id`, `password` empty) or `secret.respond` (`request_id`, `value` empty), where a `status` of `expired` means not accepted
 
 #### Scenario: Unknown profile
 
@@ -711,6 +726,8 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **THEN** a response frame `{id, result: {answer}}` is sent, the answer being the JSON-encoded list for a multi-select question
 - **AND WHEN** the user answers one question of a batch
 - **THEN** `clarify.lock` is requested with the request's id as `request_id`, and its result decides whether the answer was accepted
+- **AND WHEN** the user skips a `secret` or `sudo` request
+- **THEN** a response frame `{id, result: {value: ''}}` is sent with the request's id
 - **AND WHEN** the user skips a whole batch
 - **THEN** a response frame with an empty result is sent with the request's id, and `clarify.lock` is not requested
 

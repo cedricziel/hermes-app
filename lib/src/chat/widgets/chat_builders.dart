@@ -10,6 +10,7 @@ import '../chat_models.dart'
         ClarifyRequest,
         ToolCall,
         ToolCallStatus,
+        UnsupportedKind,
         UnsupportedRequest;
 import 'approval_card.dart';
 import 'clarify_card.dart';
@@ -34,6 +35,8 @@ Builders buildChatBuilders({
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
+  Future<void> Function(String requestId, UnsupportedKind kind)?
+  onSkipUnsupported,
 }) {
   return Builders(
     textMessageBuilder: _buildText,
@@ -47,6 +50,7 @@ Builders buildChatBuilders({
               groupStatus: groupStatus,
               onAnswerApproval: onAnswerApproval,
               onAnswerClarify: onAnswerClarify,
+              onSkipUnsupported: onSkipUnsupported,
             ),
     emptyChatListBuilder: (_) =>
         WelcomeView(greetingName: greetingName, onPick: onPickPrompt),
@@ -93,6 +97,8 @@ Widget _buildCustom(
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
+  Future<void> Function(String requestId, UnsupportedKind kind)?
+  onSkipUnsupported,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -122,7 +128,12 @@ Widget _buildCustom(
               ? null
               : (answers) => onAnswerClarify(request.requestId, answers),
         ),
-        UnsupportedRequest request => UnsupportedRequestCard(request: request),
+        UnsupportedRequest request => UnsupportedRequestCard(
+          request: request,
+          onSkip: onSkipUnsupported == null
+              ? null
+              : () => onSkipUnsupported(request.requestId, request.kind),
+        ),
         _ => const SizedBox.shrink(),
       };
     default:
