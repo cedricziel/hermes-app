@@ -1,14 +1,14 @@
 ## 1. Prepare
 
-- [ ] 1.1 Rebase the branch onto `origin/main` before writing any code (`git fetch origin main && git rebase origin/main`), and re-check that `openspec validate mcp-servers --strict` still passes
-- [ ] 1.2 Confirm the four calls exist on the generated client's `DefaultApi` (list, set enabled, test, remove) and note their names; no change to `packages/hermes_api`
+- [x] 1.1 Rebase the branch onto `origin/main` before writing any code (`git fetch origin main && git rebase origin/main`), and re-check that `openspec validate mcp-servers --strict` still passes
+- [x] 1.2 Confirm the four calls exist on the generated client's `DefaultApi` (list, set enabled, test, remove) and note their names; no change to `packages/hermes_api`
 
 ## 2. Repository
 
-- [ ] 2.1 Add `lib/src/mcp/hermes_mcp_repository.dart` with the models `HermesMcpServer`, `HermesMcpTool` and `HermesMcpTestResult`
-- [ ] 2.2 Implement `loadServers` (`GET /api/mcp/servers`) with lenient parsing: skip rows without a non-empty string name, treat a missing `enabled` as on, never keep `env` values, and throw when the body is not an object with a `servers` array
-- [ ] 2.3 Implement `setEnabled`, `testServer` and `removeServer`, each passing the `profile` query parameter when a profile is known; `testServer` skips tools without a name and recognises the "OAuth authentication required" prefix for OAuth servers
-- [ ] 2.4 Write `test/hermes_mcp_repository_test.dart` against `FakeHermesServer` (list parsing, skipped rows, missing `enabled`, profile parameter on each call, malformed test answer, sign-in-needed prefix, 404 on each call)
+- [x] 2.1 Add `lib/src/mcp/hermes_mcp_repository.dart` with the models `HermesMcpServer`, `HermesMcpTool` and `HermesMcpTestResult`
+- [x] 2.2 Implement `loadServers` (`GET /api/mcp/servers`) with lenient parsing: skip rows without a non-empty string name, treat a missing `enabled` as on, never keep `env` values, and throw when the body is not an object with a `servers` array
+- [x] 2.3 Implement `setEnabled`, `testServer` and `removeServer`, each passing the `profile` query parameter when a profile is known; `testServer` skips tools without a name and recognises the "OAuth authentication required" prefix for OAuth servers
+- [x] 2.4 Write `test/hermes_mcp_repository_test.dart` against `FakeHermesServer` (list parsing, skipped rows, missing `enabled`, profile parameter on each call, malformed test answer, sign-in-needed prefix, 404 on each call)
 
 ## 3. Screens
 
