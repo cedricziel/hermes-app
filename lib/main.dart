@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'src/app.dart';
+import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
@@ -43,6 +44,10 @@ Future<void> main() async {
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => AppLockController()..load(),
+        ),
         Provider<NotificationService>(
           create: (_) => LocalNotificationService(),
           dispose: (_, service) => service.dispose(),
