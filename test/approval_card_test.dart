@@ -64,6 +64,28 @@ void main() {
     expect(find.text('Allow for session'), findsNothing);
   });
 
+  testWidgets('a request without choices offers Allow once and Deny only', (
+    tester,
+  ) async {
+    const bare = ApprovalRequest(
+      requestId: 'r1',
+      command: 'x',
+      description: 'y',
+      choices: [],
+    );
+    final sent = <String>[];
+    await _pump(tester, bare, onAnswer: (c) async => sent.add(c));
+
+    expect(find.text('Allow once'), findsOneWidget);
+    expect(find.text('Deny'), findsOneWidget);
+    expect(find.text('Allow for session'), findsNothing);
+    expect(find.text('Always allow'), findsNothing);
+
+    await tester.tap(find.text('Deny'));
+    await tester.pump();
+    expect(sent, ['deny']);
+  });
+
   testWidgets('a tap sends the choice', (tester) async {
     final sent = <String>[];
     await _pump(tester, _request, onAnswer: (c) async => sent.add(c));
