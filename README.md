@@ -79,7 +79,8 @@ If the dashboard is only reachable through Tailscale or WireGuard, turn the VPN
 on first, then enter the address the server has on the VPN.
 
 - **Tailscale, recommended:** keep the dashboard on the server's own loopback
-  address and publish it to your tailnet with `tailscale serve`:
+  address, which is Hermes' default, and publish it to your tailnet with
+  `tailscale serve`:
 
   ```bash
   hermes dashboard --port 9119 --no-open
@@ -87,13 +88,18 @@ on first, then enter the address the server has on the VPN.
   ```
 
   Enter the `https://<machine>.<tailnet>.ts.net` address that `tailscale serve`
-  prints. It carries a real certificate, and on iOS Tailscale's VPN On Demand
-  can start the VPN when the app looks up a `*.ts.net` name. It stays off the
-  internet.
-- **Tailscale or WireGuard without `serve`:** enter the server's VPN address, for
-  example `http://100.101.102.103:9119`. Start the dashboard with `--host` set to
-  that address rather than `0.0.0.0`, so it does not also listen on your LAN or
-  the public network. The VPN encrypts the traffic, so plain HTTP is fine.
+  prints. It carries a real certificate, it stays off the internet, and on iOS
+  Tailscale's VPN On Demand can start the VPN when the app looks up a `*.ts.net`
+  name. Hermes sees these requests as local, so it does not ask anyone to sign
+  in: every device on your tailnet can open the dashboard. Limit that with
+  Tailscale access rules, or use the next option.
+- **Tailscale or WireGuard address:** start the dashboard with `--host` set to
+  the server's VPN address, for example `hermes dashboard --host 100.101.102.103`,
+  and enter `http://100.101.102.103:9119`. Hermes refuses to bind to anything
+  but loopback until a sign-in method is configured (a password in
+  `config.yaml`, or an OAuth provider), so set that up first; the app then asks
+  you to sign in. Do not use `0.0.0.0`, which also listens on your LAN. The VPN
+  encrypts the traffic, so plain HTTP is fine.
 
 The VPN has to be on for the whole device, because signing in opens the system
 browser, which must reach the dashboard too. When the address looks like a VPN
