@@ -76,7 +76,11 @@ class KanbanCard extends StatelessWidget {
                       small,
                     ),
                   if (task.warningCount > 0)
-                    _Tag('⚠ ${task.warningCount}', Colors.amber.shade800),
+                    _Meta(
+                      Icons.warning_amber_rounded,
+                      '${task.warningCount}',
+                      small?.copyWith(color: Colors.amber.shade800),
+                    ),
                 ],
               ),
             ],

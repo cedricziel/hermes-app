@@ -73,6 +73,16 @@ void main() {
     expect(find.text('2/5'), findsOneWidget);
     expect(find.text('Write docs'), findsNothing);
 
+    await tester.scrollUntilVisible(
+      find.text('Todo 1'),
+      -100,
+      scrollable: find.descendant(
+        of: find.byType(ListView).first,
+        matching: find.byType(Scrollable),
+      ),
+    );
+    await tester.ensureVisible(find.text('Todo 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Todo 1'));
     await tester.pumpAndSettle();
 
@@ -319,5 +329,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1 selected'), findsOneWidget);
+  });
+
+  testWidgets('a phone scrolls the selected status chip into view', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    final chip = tester.getRect(find.text('Running 1'));
+
+    expect(chip.left, greaterThanOrEqualTo(0));
+    expect(chip.right, lessThanOrEqualTo(400));
   });
 }

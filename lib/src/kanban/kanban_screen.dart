@@ -34,6 +34,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   String _status = 'running';
+  final _selectedChip = GlobalKey();
+  String? _chipShown;
 
   @override
   void initState() {
@@ -367,6 +369,15 @@ class _KanbanScreenState extends State<KanbanScreen> {
         : (columns.isEmpty ? _status : columns.first.name);
     final tasks =
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
+    if (_chipShown != shown) {
+      _chipShown = shown;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final chip = _selectedChip.currentContext;
+        if (chip != null && mounted) {
+          Scrollable.ensureVisible(chip, alignment: 0.5);
+        }
+      });
+    }
     return Column(
       children: [
         SizedBox(
@@ -379,6 +390,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
+                    key: c.name == shown ? _selectedChip : null,
                     label: Text(
                       '${kanbanStatusLabel(c.name)} ${c.tasks.length}',
                     ),
@@ -489,41 +501,54 @@ class _Toolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 220,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18),
+                filled: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
                 hintText: 'Search tasks',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(kHermesRadius),
+                  borderSide: BorderSide.none,
+                ),
               ),
               onChanged: controller.setQuery,
             ),
           ),
-          if (board.assignees.isNotEmpty)
-            _FilterMenu(
-              label: controller.assignee ?? 'All assignees',
-              all: 'All assignees',
-              options: board.assignees,
-              onSelected: controller.setAssignee,
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (board.assignees.isNotEmpty)
+                  _FilterMenu(
+                    label: controller.assignee ?? 'All assignees',
+                    all: 'All assignees',
+                    options: board.assignees,
+                    onSelected: controller.setAssignee,
+                  ),
+                if (board.tenants.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  _FilterMenu(
+                    label: controller.tenant ?? 'All tenants',
+                    all: 'All tenants',
+                    options: board.tenants,
+                    onSelected: controller.setTenant,
+                  ),
+                ],
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Archived'),
+                  selected: controller.includeArchived,
+                  onSelected: controller.setIncludeArchived,
+                ),
+              ],
             ),
-          if (board.tenants.isNotEmpty)
-            _FilterMenu(
-              label: controller.tenant ?? 'All tenants',
-              all: 'All tenants',
-              options: board.tenants,
-              onSelected: controller.setTenant,
-            ),
-          FilterChip(
-            label: const Text('Archived'),
-            selected: controller.includeArchived,
-            onSelected: controller.setIncludeArchived,
           ),
         ],
       ),

@@ -438,9 +438,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         if (task.status == 'running')
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: OutlinedButton(
-              onPressed: _reclaim,
-              child: const Text('Reclaim'),
+            child: Wrap(
+              children: [
+                OutlinedButton(
+                  onPressed: _reclaim,
+                  child: const Text('Reclaim'),
+                ),
+              ],
             ),
           ),
         if (task.status != 'done')
