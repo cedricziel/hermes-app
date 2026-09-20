@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  Tech stack: Flutter/Dart app (iOS, Android, macOS, Windows, Linux, plus an empty watchOS app),
+  Tech stack: Flutter/Dart app (iOS, Android, macOS, Windows, Linux, plus a watchOS companion app that relays through the phone),
   provider for state, dio for HTTP, flutter_chat_ui for the chat UI.
   Domain: client for the Hermes Agent web dashboard (`hermes dashboard`). The user enters a
   self-hosted server URL, signs in (OIDC or password, both via the RFC 8252 native flow),

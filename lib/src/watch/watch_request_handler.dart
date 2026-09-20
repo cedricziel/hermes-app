@@ -1,6 +1,7 @@
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
+import '../notifications/attention_policy.dart';
 
 /// Answers the requests the watch app relays through the phone. Requests and
 /// replies are plain maps of property-list types, the shape WatchConnectivity
@@ -20,7 +21,17 @@ class WatchRequestHandler {
     required this.transport,
     required this.activeProfile,
     this.sendTimeout = const Duration(seconds: 60),
+    this.announce = _ignore,
   });
+
+  /// What the watch is told when the agent asks for something only the phone's
+  /// own chat could answer. It names neither the command nor the question.
+  static const cannotAnswerText =
+      "Hermes asked for something the watch can't answer. "
+      'Ask again on your iPhone.';
+
+  /// The title of a notification for a chat the gateway has not named.
+  static const untitledChat = 'Hermes';
 
   static const threadLimit = 20;
   static const messageLimit = 20;
@@ -33,6 +44,12 @@ class WatchRequestHandler {
 
   /// How long a send may go without an event before it is given up on.
   final Duration sendTimeout;
+
+  /// Tells the user a turn they sent from the watch is over. The watch may
+  /// have lost sight of it by then, so it is called whatever the phone shows.
+  final void Function(AttentionNotification notification) announce;
+
+  static void _ignore(AttentionNotification _) {}
 
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
@@ -99,10 +116,27 @@ class WatchRequestHandler {
     if (threadId != null && thread == null) return _error('bad_request');
     final chat = transport();
     if (chat == null) return _error('signed_out');
+    String? profile;
+    String? boundId;
+    var title = untitledChat;
+    void announceEnd(ChatEvent event) {
+      final id = boundId;
+      if (id == null) return;
+      final notification = attentionFor(
+        event: event,
+        thread: ChatThread(id: id, title: title, updatedAt: DateTime.now()),
+        appFocused: false,
+        selectedThreadId: null,
+        enabled: true,
+        profile: profile,
+      );
+      if (notification != null) announce(notification);
+    }
+
     try {
-      final profile = await activeProfile();
+      profile = await activeProfile();
       if (thread != null && !thread.isIn(profile)) return _error('bad_request');
-      var boundId = thread?.id;
+      boundId = thread?.id;
       final events = chat
           .send(threadId: boundId, profile: profile, text: text)
           .timeout(sendTimeout);
@@ -110,17 +144,33 @@ class WatchRequestHandler {
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;
+          case ThreadTitled(title: final named):
+            title = named;
           case ReplyCompleted(:final text, :final failed):
+            announceEnd(event);
             return {
               'ok': true,
               'threadId': boundId == null ? null : _bind(profile, boundId),
               'text': _cut(text),
               'failed': failed,
             };
+          case ApprovalRequested() ||
+              ClarifyRequested() ||
+              UnsupportedRequested():
+            return {
+              'ok': true,
+              'threadId': boundId == null ? null : _bind(profile, boundId),
+              'text': cannotAnswerText,
+              'failed': false,
+            };
           default:
         }
       }
+      announceEnd(const ReplyCompleted('', failed: true));
       return _error('failed');
+    } on Object {
+      announceEnd(const ReplyCompleted('', failed: true));
+      rethrow;
     } finally {
       await chat.close();
     }

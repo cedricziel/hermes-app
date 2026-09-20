@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -11,6 +13,7 @@ void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
   late WatchRequestHandler handler;
+  late List<AttentionNotification> announced;
   var signedOut = false;
   String? profile;
 
@@ -19,11 +22,13 @@ void main() {
     transport = FakeChatTransport();
     signedOut = false;
     profile = null;
+    announced = [];
     handler = WatchRequestHandler(
       repository: () =>
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
+      announce: announced.add,
     );
   });
 
@@ -355,6 +360,203 @@ void main() {
       transport.sends.single.finish();
 
       expect(await pending, {'ok': false, 'error': 'failed'});
+    });
+  });
+
+  group('announcing a turn', () {
+    Future<Map<String, Object?>> send(
+      void Function(FakeSend send) play, {
+      String? threadId,
+    }) async {
+      final pending = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'threadId': ?threadId,
+      });
+      await pumpEventQueue();
+      play(transport.sends.single);
+      return pending;
+    }
+
+    test(
+      'announces a completed reply with a preview and the profile',
+      () async {
+        profile = 'work';
+
+        await send(
+          (s) => s
+            ..emit(const ThreadBound('new-1'))
+            ..emit(const ReplyCompleted('Done.\n\nTwo files changed.'))
+            ..finish(),
+        );
+
+        expect(announced, hasLength(1));
+        expect(announced.single.threadId, 'new-1');
+        expect(announced.single.profile, 'work');
+        expect(announced.single.title, 'Hermes');
+        expect(announced.single.body, 'Done. Two files changed.');
+      },
+    );
+
+    test('titles the notification with the name the gateway gave', () async {
+      await send(
+        (s) => s
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ThreadTitled('Groceries'))
+          ..emit(const ReplyCompleted('Done'))
+          ..finish(),
+      );
+
+      expect(announced.single.title, 'Groceries');
+    });
+
+    test(
+      'announces a reply into an existing thread by its session id',
+      () async {
+        profile = 'work';
+
+        await send(
+          (s) => s
+            ..emit(const ReplyCompleted('Done'))
+            ..finish(),
+          threadId: 'work/s1',
+        );
+
+        expect(announced.single.threadId, 's1');
+        expect(announced.single.profile, 'work');
+      },
+    );
+
+    test('says a failed reply failed, without its error text', () async {
+      await send(
+        (s) => s
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ReplyCompleted('Traceback: secret detail', failed: true))
+          ..finish(),
+      );
+
+      expect(announced.single.body, kReplyFailedBody);
+    });
+
+    test('announces a broken connection as a failed reply', () async {
+      await send(
+        (s) => s
+          ..emit(const ThreadBound('new-1'))
+          ..fail(),
+      );
+
+      expect(announced.single.body, kReplyFailedBody);
+      expect(announced.single.threadId, 'new-1');
+    });
+
+    test('announces a stream that ends without a reply as failed', () async {
+      await send(
+        (s) => s
+          ..emit(const ThreadBound('new-1'))
+          ..finish(),
+      );
+
+      expect(announced.single.body, kReplyFailedBody);
+    });
+
+    test('announces a reply that never comes as failed', () async {
+      handler = WatchRequestHandler(
+        repository: () => HermesChatRepository(server.client().raw),
+        transport: () => transport,
+        activeProfile: () async => profile,
+        sendTimeout: const Duration(milliseconds: 20),
+        announce: announced.add,
+      );
+
+      final pending = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'threadId': '/s1',
+      });
+      await pumpEventQueue();
+      await pending;
+
+      expect(announced.single.body, kReplyFailedBody);
+      expect(announced.single.threadId, 's1');
+    });
+
+    test(
+      'announces nothing when the turn breaks before a thread exists',
+      () async {
+        await send((s) => s.fail());
+
+        expect(announced, isEmpty);
+      },
+    );
+
+    test('announces nothing for a turn that was refused', () async {
+      profile = 'work';
+
+      await handler.handle({'op': 'send', 'text': 'x', 'threadId': 'home/s1'});
+
+      expect(announced, isEmpty);
+    });
+  });
+
+  group('requests the watch cannot answer', () {
+    const requests = <String, ChatEvent>{
+      'approval': ApprovalRequested(
+        ApprovalRequest(
+          requestId: 'r1',
+          command: 'rm -rf build',
+          description: 'delete files',
+          choices: ['once', 'deny'],
+        ),
+      ),
+      'question': ClarifyRequested(
+        ClarifyRequest(
+          requestId: 'r2',
+          questions: [ClarifyQuestion(qid: '', question: 'Which branch?')],
+        ),
+      ),
+      'secret': UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r3', kind: UnsupportedKind.secret),
+      ),
+      'sudo': UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r4', kind: UnsupportedKind.sudo),
+      ),
+    };
+
+    for (final MapEntry(:key, :value) in requests.entries) {
+      test('ends the send at once on $key', () async {
+        final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ReplyStarted())
+          ..emit(value);
+
+        final reply = await pending;
+
+        expect(reply, {
+          'ok': true,
+          'threadId': '/new-1',
+          'text':
+              "Hermes asked for something the watch can't answer. "
+              'Ask again on your iPhone.',
+          'failed': false,
+        });
+        expect(transport.closed, isTrue);
+        expect(announced, isEmpty);
+      });
+    }
+
+    test('does not leak what was asked for', () async {
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(requests['approval']!);
+
+      final text = (await pending)['text']! as String;
+
+      expect(text, isNot(contains('rm -rf')));
+      expect(text, isNot(contains('delete files')));
     });
   });
 }

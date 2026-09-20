@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
@@ -7,6 +8,9 @@ import '../auth/auth_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/hermes_chat_repository.dart';
+import '../notifications/attention_policy.dart';
+import '../notifications/notification_service.dart';
+import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'watch_request_handler.dart';
 
@@ -26,17 +30,47 @@ class WatchBridge {
 
   /// A bridge that serves the watch from whoever is signed in right now, or
   /// null off iOS, where there is no watch to relay for.
-  static WatchBridge? forAuth(AuthController auth) {
+  ///
+  /// A turn sent from the watch is announced through [notifications], under
+  /// the user's [settings].
+  static WatchBridge? forAuth(
+    AuthController auth, {
+    NotificationService? notifications,
+    NotificationSettings? settings,
+  }) {
     if (!Platform.isIOS) return null;
-    return WatchBridge(handler: handlerFor(auth));
+    return WatchBridge(
+      handler: handlerFor(auth, announce: announcer(notifications, settings)),
+    );
   }
 
-  static WatchRequestHandler handlerFor(AuthController auth) {
+  /// Posts what the relay announces, while notifications are on. It never asks
+  /// for permission: the prompt would appear on a phone the user is not
+  /// holding, so it stays with the chat on the phone. A notification that
+  /// cannot be shown is dropped.
+  static void Function(AttentionNotification) announcer(
+    NotificationService? service,
+    NotificationSettings? settings,
+  ) => (notification) {
+    if (service == null) return;
+    if (settings != null && !(settings.loaded && settings.enabled)) return;
+    try {
+      unawaited(service.show(notification).catchError((Object _) {}));
+    } on Object {
+      // Dropped, like any notification that cannot be shown.
+    }
+  };
+
+  static WatchRequestHandler handlerFor(
+    AuthController auth, {
+    void Function(AttentionNotification) announce = _ignore,
+  }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
         auth.state == HermesConnectionState.ready ? auth.api : null;
 
     return WatchRequestHandler(
+      announce: announce,
       repository: () {
         final api = readyApi();
         return api == null ? null : HermesChatRepository(api.raw);
@@ -64,6 +98,8 @@ class WatchBridge {
       },
     );
   }
+
+  static void _ignore(AttentionNotification _) {}
 
   void start() => _channel.setMethodCallHandler(_onCall);
 

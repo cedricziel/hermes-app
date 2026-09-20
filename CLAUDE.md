@@ -62,7 +62,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 **Telemetry** (`lib/src/telemetry/`). OpenTelemetry to SignalDB through the `flutter_otel` git dependency, which is pinned to a commit along with its sibling packages in `dependency_overrides`. It is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is passed via `--dart-define`. When off, no SDK exists and no `traceparent` header is added. Telemetry code must never break the app (see `safely.dart`).
 
-**Native pieces.** `ios/ShareExtension` (share sheet, `receive_sharing_intent`, linked by a version-pinned path in `project.pbxproj`, so a plugin upgrade must be mirrored there) and `ios/HermesWatch` (an empty watchOS app embedded in the iOS app). macOS has its own share inbox (`share/macos_share_inbox.dart`). Debug builds use bundle ID `com.cedricziel.hermesApp.dev`, so every extension's Debug ID must be prefixed with it. Release and TestFlight builds go through `fastlane` (lanes in `fastlane/Fastfile`, store metadata in `fastlane/metadata/`).
+**Native pieces.** `ios/ShareExtension` (share sheet, `receive_sharing_intent`, linked by a version-pinned path in `project.pbxproj`, so a plugin upgrade must be mirrored there) and `ios/HermesWatch` (the watchOS companion app embedded in the iOS app; it has no network of its own and asks the phone, which answers in `lib/src/watch/`). macOS has its own share inbox (`share/macos_share_inbox.dart`). Debug builds use bundle ID `com.cedricziel.hermesApp.dev`, so every extension's Debug ID must be prefixed with it. Release and TestFlight builds go through `fastlane` (lanes in `fastlane/Fastfile`, store metadata in `fastlane/metadata/`).
 
 ## Testing conventions
 
