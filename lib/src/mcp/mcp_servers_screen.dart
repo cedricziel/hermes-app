@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
+import 'mcp_chip.dart';
 import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
@@ -289,13 +290,13 @@ class _ServerRow extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        if (transport != null) _Chip(transport),
-                        if (auth != null) _Chip(auth),
-                        if (!server.enabled) const _Chip('Off'),
+                        if (transport != null) McpChip(transport),
+                        if (auth != null) McpChip(auth),
+                        if (!server.enabled) const McpChip('Off'),
                         if (tested != null && tested.signInNeeded)
-                          const _Chip('Sign in needed', warning: true),
+                          const McpChip('Sign in needed', warning: true),
                         if (tested != null && tested.ok)
-                          _Chip(mcpPlural(tested.tools.length, 'tool')),
+                          McpChip(mcpPlural(tested.tools.length, 'tool')),
                       ],
                     ),
                   ],
@@ -308,37 +309,6 @@ class _ServerRow extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip(this.label, {this.warning = false});
-
-  final String label;
-  final bool warning;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = warning ? Colors.amber.shade800 : null;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: warning
-            ? Colors.amber.withValues(alpha: 0.15)
-            : theme.colorScheme.surfaceContainerHighest,
-        border: Border.all(
-          color: warning
-              ? Colors.amber.withValues(alpha: 0.4)
-              : theme.colorScheme.onSurface.withValues(alpha: 0.18),
-        ),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.textTheme.labelSmall?.copyWith(color: color),
       ),
     );
   }
