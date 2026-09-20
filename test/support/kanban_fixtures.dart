@@ -67,3 +67,19 @@ Map<String, Object?> kanbanBoardsBody(
   ],
   'current': boards.where((b) => b.current).firstOrNull?.slug,
 };
+
+/// `GET /api/plugins/kanban/tasks/{id}`.
+Map<String, Object?> kanbanTaskDetailBody(
+  Map<String, Object?> task, {
+  List<Map<String, Object?>> comments = const [],
+  List<String> parents = const [],
+  List<Map<String, Object?>> events = const [],
+}) => {
+  'task': task,
+  'comments': comments,
+  'events': events,
+  'attachments': <Object?>[],
+  'links': {'parents': parents, 'children': <String>[]},
+  'child_results': <Object?>[],
+  'runs': <Object?>[],
+};
