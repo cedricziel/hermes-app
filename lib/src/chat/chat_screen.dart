@@ -56,12 +56,17 @@ class ChatScreen extends StatefulWidget {
     this.transport,
     this.profiles,
     this.bots,
+    this.onShowChat,
   });
 
   final HermesChatRepository? repository;
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesBotsRepository? bots;
+
+  /// Asks the host to bring the chat to the front, for a notification tap or
+  /// shared content that arrives while something else is shown.
+  final VoidCallback? onShowChat;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -244,6 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
       target != null && (target.profile == null || target.profile == profile);
 
   void _openFromNotification(NotificationTarget target) {
+    widget.onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
     } else if (_isOnProfile(target, _profile) &&
@@ -269,7 +275,11 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_selectedId != null) _loadMessages(_selectedId!);
   }
 
-  void _onShared() => setState(_absorbShared);
+  void _onShared() {
+    if (!_share.hasPending) return;
+    widget.onShowChat?.call();
+    setState(_absorbShared);
+  }
 
   void _absorbShared() {
     final items = _share.take();

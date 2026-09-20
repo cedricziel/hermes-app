@@ -33,7 +33,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _detection = 0;
   int _index = 0;
 
-  /// The board loads and streams only once its tab has been opened.
+  /// The board loads and streams only once its tab has been opened, and stays
+  /// alive behind Chat afterwards so its filters and selection survive. It is
+  /// dropped when the plugin goes off, so it is not rebuilt by the plugin
+  /// coming back on.
   bool _kanbanOpened = false;
 
   @override
@@ -58,13 +61,22 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) _detect();
   }
 
+  /// Puts Chat in front. The chat asks for this when a notification tap or
+  /// shared content lands there while the board is on screen.
+  void _showChat() {
+    if (_index != 0) setState(() => _index = 0);
+  }
+
   Future<void> _detect() async {
     final detection = ++_detection;
     final enabled = await _plugins?.isKanbanEnabled() ?? false;
     if (!mounted || detection != _detection || enabled == _kanban) return;
     setState(() {
       _kanban = enabled;
-      if (!enabled) _index = 0;
+      if (!enabled) {
+        _index = 0;
+        _kanbanOpened = false;
+      }
     });
   }
 
@@ -83,7 +95,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final chat = KeyedSubtree(key: _chatKey, child: const ChatScreen());
+    final chat = KeyedSubtree(
+      key: _chatKey,
+      child: ChatScreen(onShowChat: _showChat),
+    );
     if (!_kanban) return chat;
 
     return LayoutBuilder(
