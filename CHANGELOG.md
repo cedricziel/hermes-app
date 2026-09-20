@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.27](https://github.com/cedricziel/hermes-app/compare/v0.1.26...v0.1.27) (2026-09-20)
+
+
+### Features
+
+* **chat:** load older messages when scrolling to the top ([#225](https://github.com/cedricziel/hermes-app/issues/225)) ([ddd5b79](https://github.com/cedricziel/hermes-app/commit/ddd5b79304b07eb4cc91c2ca659c4ae03726bf32))
+
 ## [0.1.26](https://github.com/cedricziel/hermes-app/compare/v0.1.25...v0.1.26) (2026-09-20)
 
 
