@@ -18,6 +18,27 @@ Join the TestFlight beta for iPhone, iPad and Mac: <https://testflight.apple.com
 
 You need your own Hermes Agent dashboard to sign in (see [Getting started](#getting-started)). This is an independent app and is not affiliated with Nous Research.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/iphone-chat.png" width="23%" alt="A chat on iPhone with tool calls, a code block and a list">
+  <img src="docs/screenshots/iphone-threads.png" width="23%" alt="The thread list on iPhone, with a pinned chat">
+  <img src="docs/screenshots/iphone-welcome.png" width="23%" alt="A new chat on iPhone with starter prompts">
+  <img src="docs/screenshots/iphone-chat-dark.png" width="23%" alt="The same chat on iPhone in dark mode">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/ipad-chat.png" width="55%" alt="The wide layout on iPad: navigation rail, thread list and chat">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/mac-chat.png" width="90%" alt="The Mac app window with the thread list and a chat">
+</p>
+
+They are taken from the real app against a demo Hermes dashboard that holds a
+few invented chats. [docs/screenshots](docs/screenshots/README.md) explains how
+to retake them.
+
 ## How auth works
 
 Hermes Agent's dashboard (`hermes_cli/dashboard_auth/`) gates the API behind
