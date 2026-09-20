@@ -386,3 +386,49 @@ Map<String, Object?> jobStatusBody({
   'pid': pid,
   'lines': lines,
 };
+
+/// A `GET /api/mcp/servers` entry as the dashboard serialises it. Environment
+/// values arrive redacted.
+Map<String, Object?> mcpServerRow({
+  required String name,
+  String? url,
+  String? command,
+  List<String> args = const [],
+  Map<String, String> env = const {},
+  String? auth,
+  bool? enabled = true,
+}) => {
+  'name': name,
+  'transport': url != null ? 'http' : (command != null ? 'stdio' : 'unknown'),
+  'url': url,
+  'command': command,
+  'args': args,
+  'env': {for (final key in env.keys) key: '***'},
+  'auth': auth,
+  'enabled': ?enabled,
+  'tools': null,
+};
+
+Map<String, Object?> mcpServerListBody(List<Map<String, Object?>> rows) => {
+  'servers': rows,
+};
+
+/// A successful `POST /api/mcp/servers/{name}/test` answer.
+Map<String, Object?> mcpTestBody({
+  List<Map<String, Object?>> tools = const [],
+  int prompts = 0,
+  int resources = 0,
+}) => {'ok': true, 'tools': tools, 'prompts': prompts, 'resources': resources};
+
+Map<String, Object?> mcpToolRow({
+  required String name,
+  String description = '',
+  int? schemaChars,
+}) => {'name': name, 'description': description, 'schema_chars': ?schemaChars};
+
+/// A failed `POST /api/mcp/servers/{name}/test` answer: HTTP 200, `ok: false`.
+Map<String, Object?> mcpTestFailureBody(String error) => {
+  'ok': false,
+  'error': error,
+  'tools': <Object?>[],
+};

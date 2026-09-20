@@ -34,6 +34,19 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
+  testWidgets('the sidebar offers no MCP servers without a dashboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const ChatScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('MCP servers'), findsNothing);
+  });
+
   testWidgets('wide layout shows the thread rail and the first thread', (
     tester,
   ) async {

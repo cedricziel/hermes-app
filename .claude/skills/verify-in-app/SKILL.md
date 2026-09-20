@@ -123,6 +123,17 @@ curl -s -X POST $URL/api/plugins/kanban/tasks -H "X-Hermes-Session-Token: $TOK" 
   -H 'content-type: application/json' -d '{"title":"Try it","triage":true}'
 ```
 
+MCP servers: `POST /api/mcp/servers` (`{"name","url"}` or `{"name","command","args","env"}`, add
+`"auth":"oauth"`) seeds the list; a test of an `auth: oauth` server without a token answers
+`ok:false` with Hermes' "no cached tokens found" wording, a bogus URL answers "All connection
+attempts failed". For a passing test, serve a tiny JSON-only MCP endpoint (see `_serveMinimalMcp` in
+`test/real_backend_contract_test.dart`) on the loopback and point a server at it.
+
+Screens behind a tap can't be reached by clicking (System Events clicks are refused). Add a
+temporary change that opens the screen (a post-frame callback calling the `_open…` method) or
+selects a row and runs the action in `initState`, `dev-app.sh restart` (hot reload keeps `State`),
+screenshot, then revert it. Check a diff before committing so none of it ships.
+
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
@@ -144,7 +155,7 @@ REF=$(grep 'HERMES_REF:' .github/workflows/real-backend-contract.yml | awk '{pri
 mkdir -p /tmp/hermes-agent && curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
   | tar xz -C /tmp/hermes-agent --strip-components=1
 cd /tmp/hermes-agent
-python3.11 -m venv .venv && .venv/bin/pip install -q -e .        # Python 3.11+
+python3.11 -m venv .venv && .venv/bin/pip install -q -e '.[mcp]'   # Python 3.11+; [mcp] lets the dashboard test MCP servers
 npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web
 export PATH=/tmp/hermes-agent/.venv/bin:$PATH HERMES_WEB_DIST=/tmp/hermes-agent/hermes_cli/web_dist
 ```

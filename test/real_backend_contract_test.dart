@@ -4,7 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_api/hermes_api.dart' show SessionRename;
+import 'package:hermes_api/hermes_api.dart' show MCPServerCreate, SessionRename;
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -40,7 +41,10 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 /// is not tried. The gateway test makes two real model calls, which cost
 /// money and need a provider configured in the backend, so it also needs
 /// `HERMES_DEV_MODEL_CALLS=1`. The Telegram pairing test contacts the hosted
-/// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`.
+/// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`. The MCP
+/// tests add servers named `contract-check-…` to the default profile and
+/// remove them again; the probes connect to a minimal MCP server this test
+/// starts on the loopback interface.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -741,4 +745,262 @@ void main() {
       expect(data['cursor'], greaterThan(since));
     }, skip: skip);
   });
+
+  group('MCP servers', () {
+    late HermesMcpRepository repository;
+    late HttpServer mcp;
+    late String mcpUrl;
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final added = <String>[];
+
+    setUpAll(() async {
+      if (url == null) return;
+      repository = HermesMcpRepository(client.raw);
+      mcp = await _serveMinimalMcp();
+      mcpUrl = 'http://127.0.0.1:${mcp.port}/mcp';
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await mcp.close(force: true);
+    });
+
+    tearDown(() async {
+      for (final name in added) {
+        try {
+          await repository.removeServer(name);
+        } on DioException catch (e) {
+          if (!isMcpNotFound(e)) rethrow;
+        }
+      }
+      added.clear();
+    });
+
+    Future<String> add(
+      String label, {
+      String? url,
+      String? command,
+      List<String> args = const [],
+      Map<String, String> env = const {},
+      String? auth,
+    }) async {
+      final name = 'contract-check-$label-$stamp';
+      await client.raw.addMcpServerApiMcpServersPost(
+        mCPServerCreate: MCPServerCreate(
+          name: name,
+          url: url,
+          command: command,
+          args: args,
+          env: env,
+          auth: auth,
+        ),
+      );
+      added.add(name);
+      return name;
+    }
+
+    Future<HermesMcpServer> listed(String name) async =>
+        (await repository.loadServers()).firstWhere((s) => s.name == name);
+
+    test('the list parses remote and command servers, and drops env', () async {
+      final remote = await add('remote', url: mcpUrl, auth: 'oauth');
+      final command = await add(
+        'command',
+        command: 'echo',
+        args: ['hello', 'world'],
+        env: {'CONTRACT_SECRET': 'hunter2'},
+      );
+
+      final servers = await repository.loadServers();
+
+      expect(servers.map((s) => s.name), containsAll([remote, command]));
+      final remoteRow = servers.firstWhere((s) => s.name == remote);
+      expect(remoteRow.transport, McpTransport.remote);
+      expect(remoteRow.address, mcpUrl);
+      expect(remoteRow.auth, 'oauth');
+      expect(remoteRow.enabled, isTrue);
+      final commandRow = servers.firstWhere((s) => s.name == command);
+      expect(commandRow.transport, McpTransport.command);
+      expect(commandRow.address, 'echo hello world');
+      expect(commandRow.auth, isNull);
+    }, skip: skip);
+
+    test('a server can be switched off and on again, and removed', () async {
+      final name = await add('switch', url: mcpUrl);
+
+      await repository.setEnabled(name, false);
+      expect((await listed(name)).enabled, isFalse);
+      await repository.setEnabled(name, true);
+      expect((await listed(name)).enabled, isTrue);
+
+      await repository.removeServer(name);
+      expect(
+        (await repository.loadServers()).map((s) => s.name),
+        isNot(contains(name)),
+      );
+      expect(
+        repository.removeServer(name),
+        throwsA(predicate<Object>(isMcpNotFound)),
+      );
+      expect(
+        repository.setEnabled(name, true),
+        throwsA(predicate<Object>(isMcpNotFound)),
+      );
+    }, skip: skip);
+
+    test('a server whose name needs escaping is switched and removed by '
+        'that name', () async {
+      final name = await add('a b?c', url: mcpUrl);
+
+      await repository.setEnabled(name, false);
+      expect((await listed(name)).enabled, isFalse);
+      await repository.removeServer(name);
+
+      expect(
+        (await repository.loadServers()).map((s) => s.name),
+        isNot(contains(name)),
+      );
+    }, skip: skip);
+
+    test('a test of an unknown server is a 404', () async {
+      final ghost = HermesMcpServer(
+        name: 'contract-check-ghost-$stamp',
+        transport: McpTransport.remote,
+        url: mcpUrl,
+      );
+
+      expect(
+        repository.testServer(ghost),
+        throwsA(predicate<Object>(isMcpNotFound)),
+      );
+    }, skip: skip);
+
+    test('a test lists the tools, prompts and resources', () async {
+      final name = await add('probe', url: mcpUrl);
+
+      final result = await repository.testServer(await listed(name));
+
+      expect(result.ok, isTrue, reason: result.error);
+      expect(result.tools.map((t) => t.name), ['echo']);
+      expect(result.tools.single.description, isNotEmpty);
+      expect(result.tools.single.schemaChars, isNotNull);
+      expect(result.prompts, 1);
+      expect(result.resources, 0);
+      expect(result.signInNeeded, isFalse);
+    }, skip: skip);
+
+    test(
+      'a server that cannot be reached fails the test with a reason',
+      () async {
+        final closed = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final port = closed.port;
+        await closed.close();
+        final name = await add('down', url: 'http://127.0.0.1:$port/mcp');
+
+        final result = await repository.testServer(await listed(name));
+
+        expect(result.ok, isFalse);
+        expect(result.error, isNotEmpty);
+        expect(result.signInNeeded, isFalse);
+      },
+      skip: skip,
+    );
+
+    test('an OAuth server without a token asks to sign in', () async {
+      final name = await add('oauth', url: mcpUrl, auth: 'oauth');
+
+      final result = await repository.testServer(await listed(name));
+
+      expect(result.ok, isFalse);
+      expect(result.signInNeeded, isTrue, reason: result.error);
+    }, skip: skip);
+
+    test(
+      'an OAuth server that needs the browser flow asks to sign in',
+      () async {
+        final closed = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        final port = closed.port;
+        await closed.close();
+        final name = await add(
+          'oauth-down',
+          url: 'http://127.0.0.1:$port/mcp',
+          auth: 'oauth',
+        );
+
+        final result = await repository.testServer(await listed(name));
+
+        expect(result.ok, isFalse);
+        expect(result.signInNeeded, isTrue, reason: result.error);
+      },
+      skip: skip,
+    );
+  });
+}
+
+/// A minimal MCP server over streamable HTTP with one tool and one prompt, for
+/// the dashboard to probe. It answers every request with plain JSON.
+Future<HttpServer> _serveMinimalMcp() async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  server.listen((request) async {
+    if (request.method != 'POST') {
+      request.response.statusCode = HttpStatus.methodNotAllowed;
+      await request.response.close();
+      return;
+    }
+    final body = jsonDecode(await utf8.decoder.bind(request).join());
+    final method = body is Map ? body['method'] : null;
+    final id = body is Map ? body['id'] : null;
+    Object? result;
+    switch (method) {
+      case 'initialize':
+        result = {
+          'protocolVersion':
+              (body['params'] as Map?)?['protocolVersion'] ?? '2025-03-26',
+          'capabilities': {'tools': {}, 'prompts': {}, 'resources': {}},
+          'serverInfo': {'name': 'contract-check', 'version': '1.0.0'},
+        };
+      case 'tools/list':
+        result = {
+          'tools': [
+            {
+              'name': 'echo',
+              'description': 'Echoes its input.',
+              'inputSchema': {
+                'type': 'object',
+                'properties': {
+                  'text': {'type': 'string'},
+                },
+              },
+            },
+          ],
+        };
+      case 'prompts/list':
+        result = {
+          'prompts': [
+            {'name': 'greet'},
+          ],
+        };
+      case 'resources/list':
+        result = {'resources': <Object?>[]};
+      case 'ping':
+        result = <String, Object?>{};
+    }
+    if (id == null) {
+      request.response.statusCode = HttpStatus.accepted;
+    } else {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(
+        jsonEncode({
+          'jsonrpc': '2.0',
+          'id': id,
+          if (result != null)
+            'result': result
+          else
+            'error': {'code': -32601, 'message': 'Method not found'},
+        }),
+      );
+    }
+    await request.response.close();
+  });
+  return server;
 }

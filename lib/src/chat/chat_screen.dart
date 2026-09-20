@@ -13,6 +13,8 @@ import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentat
 
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
+import '../mcp/hermes_mcp_repository.dart';
+import '../mcp/mcp_servers_screen.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -67,6 +69,7 @@ class ChatScreen extends StatefulWidget {
     this.bots,
     this.skills,
     this.plugins,
+    this.mcp,
     this.onShowChat,
     this.attachmentSource,
   });
@@ -77,6 +80,7 @@ class ChatScreen extends StatefulWidget {
   final HermesBotsRepository? bots;
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
+  final HermesMcpRepository? mcp;
 
   /// Asks the host to bring the chat to the front, for a notification tap or
   /// shared content that arrives while something else is shown.
@@ -99,6 +103,7 @@ class _ChatScreenState extends State<ChatScreen> {
   HermesBotsRepository? _bots;
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
+  HermesMcpRepository? _mcp;
   ChatTransport? _transport;
   HermesGatewayTransport? _ownedTransport;
   ThreadHousekeeping? _housekeeping;
@@ -147,6 +152,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _plugins =
         widget.plugins ??
         (api == null ? null : HermesPluginManagerRepository(api.raw));
+    _mcp = widget.mcp ?? (api == null ? null : HermesMcpRepository(api.raw));
     _transport = widget.transport;
     if (_transport == null && api != null) {
       final auth = context.read<AuthController>();
@@ -431,9 +437,19 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _openMcp() {
+    _closeDrawerIfNarrow();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            McpServersScreen(repository: _mcp!, profiles: _profiles),
+      ),
+    );
+  }
+
   void _closeDrawerIfNarrow() {
     if (MediaQuery.sizeOf(context).width < _wideBreakpoint) {
-      Navigator.of(context).maybePop();
+      _scaffoldKey.currentState?.closeDrawer();
     }
   }
 
@@ -729,6 +745,7 @@ class _ChatScreenState extends State<ChatScreen> {
           onOpenBots: _bots == null ? null : _openBots,
           onOpenSkills: _skills == null ? null : _openSkills,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
+          onOpenMcp: _mcp == null ? null : _openMcp,
         );
 
         return Scaffold(
