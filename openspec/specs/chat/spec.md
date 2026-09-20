@@ -289,6 +289,11 @@ The system SHALL end a reply that failed or whose stream broke as an error, and 
 - **WHEN** the gateway completes a turn with status `error`
 - **THEN** the reply is marked as an error and shows the message text the gateway supplied
 
+#### Scenario: Failed completion without text
+
+- **WHEN** the gateway completes a turn with status `error` and supplies no message text
+- **THEN** the reply is marked as an error, keeps any text that had already streamed, and otherwise shows "Something went wrong. Try sending it again."
+
 #### Scenario: Stream drops or ends without completion
 
 - **WHEN** the socket drops, the gateway answers a request with an error, or the stream ends before a completion
