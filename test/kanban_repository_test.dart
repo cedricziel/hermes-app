@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -506,5 +507,104 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('reads an estimate, and a helper that could not give one', () async {
+    server
+      ..on('POST', '/api/plugins/kanban/tasks/t1/estimate', {
+        'ok': true,
+        'est_tokens': 12500,
+        'complexity': 'M',
+        'rationale': 'Touches several files.',
+      })
+      ..on('POST', '/api/plugins/kanban/estimate', {
+        'ok': false,
+        'reason': 'auxiliary client unavailable',
+      });
+
+    final task = await repository.estimateTask('t1');
+    final draft = await repository.estimateText(
+      'Add dark mode',
+      body: 'Settings',
+    );
+
+    expect(task.ok, isTrue);
+    expect(task.summary, 'about 13k tokens · medium');
+    expect(task.rationale, 'Touches several files.');
+    expect(draft.ok, isFalse);
+    expect(draft.summary, 'auxiliary client unavailable');
+    expect(
+      jsonBody(
+        server.requestsTo('POST', '/api/plugins/kanban/estimate').single,
+      ),
+      {'title': 'Add dark mode', 'body': 'Settings'},
+    );
+  });
+
+  test('lists home channels and switches a task on and off', () async {
+    server
+      ..on('GET', '/api/plugins/kanban/home-channels', {
+        'home_channels': [
+          {
+            'platform': 'telegram',
+            'name': 'Ops chat',
+            'chat_id': '1',
+            'subscribed': true,
+          },
+          {'platform': 'slack', 'chat_id': '2', 'subscribed': false},
+        ],
+      })
+      ..on('POST', '/api/plugins/kanban/tasks/t1/home-subscribe/slack', {
+        'ok': true,
+      })
+      ..on('DELETE', '/api/plugins/kanban/tasks/t1/home-subscribe/telegram', {
+        'ok': true,
+      });
+
+    final channels = await repository.loadHomeChannels('t1', board: 'ops');
+    await repository.setHomeSubscription('t1', 'slack', subscribed: true);
+    await repository.setHomeSubscription('t1', 'telegram', subscribed: false);
+
+    expect(channels.map((c) => (c.platform, c.name, c.subscribed)), [
+      ('telegram', 'Ops chat', true),
+      ('slack', 'slack', false),
+    ]);
+    final query = server
+        .requestsTo('GET', '/api/plugins/kanban/home-channels')
+        .single
+        .queryParameters;
+    expect(query, {'task_id': 't1', 'board': 'ops'});
+  });
+
+  test('says why a home channel could not be subscribed', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/t1/home-subscribe/slack', {
+      'detail': "No home channel configured for platform 'slack'.",
+    }, status: 404);
+
+    expect(
+      repository.setHomeSubscription('t1', 'slack', subscribed: true),
+      throwsA(isA<KanbanException>()),
+    );
+  });
+
+  test('an estimate with nothing in it says so instead of showing nothing', () {
+    expect(
+      KanbanEstimate.fromJson({'ok': true, 'rationale': 'x'}).summary,
+      'No estimate available.',
+    );
+  });
+
+  test('drops a home channel that names no platform', () async {
+    server.on('GET', '/api/plugins/kanban/home-channels', {
+      'home_channels': [
+        {'name': 'Nameless'},
+        {'platform': 5},
+        {'platform': 'slack'},
+      ],
+    });
+
+    final channels = await repository.loadHomeChannels('t1');
+
+    expect(channels.map((c) => c.platform), ['slack']);
   });
 }

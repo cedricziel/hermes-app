@@ -309,7 +309,7 @@ The board menu SHALL list the boards and a "Manage boards…" entry that opens a
 
 ### Requirement: Runs, worker log and attachments
 
-The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments as described under "Attachments can be added and saved". It SHALL list the plugin's warnings for the task under "Needs attention". Cost estimates, home-channel subscriptions and the fleet-wide active-worker list are not offered.
+The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments as described under "Attachments can be added and saved". It SHALL list the plugin's warnings for the task under "Needs attention". The fleet-wide active-worker list and board export and import are not offered.
 
 #### Scenario: Terminate an active run
 
@@ -335,9 +335,32 @@ The task detail SHALL always show an "Attachments" section listing each attachme
 - **WHEN** the user saves an attachment whose bytes are not valid text
 - **THEN** exactly the bytes the server sent are written to the chosen location
 
+### Requirement: Work can be sized up before and after a task exists
+
+The task detail SHALL offer an "Estimate" action that asks the plugin's helper to size the task (`POST /api/plugins/kanban/tasks/{id}/estimate`) and shows the answer as an approximate token count with a small, medium or large read, plus the helper's one-line rationale. The create form SHALL offer the same for a draft (`POST /api/plugins/kanban/estimate` with the title and description), enabled only once there is a title. The estimate is a rough size of the work, not a cost in money, and the app SHALL NOT present it as one. The helper runs a language model and reports a failure (no model configured, a provider error) in the response body rather than as an HTTP error, so the system SHALL show the given reason in place of an estimate.
+
+#### Scenario: Helper cannot answer
+
+- **WHEN** Estimate is answered with `ok: false` and the reason "auxiliary client unavailable"
+- **THEN** that reason is shown where the estimate would be
+
+### Requirement: A task can post updates to a messenger's home channel
+
+The task detail SHALL list the messengers that have a home channel (`GET /api/plugins/kanban/home-channels` for the task) under "Notify", each with a switch that is on while the task is subscribed. Turning a switch on SHALL call `POST /api/plugins/kanban/tasks/{id}/home-subscribe/{platform}` and off `DELETE` on the same route. A refusal (for example a platform whose home channel has since been removed) SHALL show the plugin's reason and leave the switch where it was. When the server has no home channel, or the list cannot be loaded, the section SHALL NOT be shown.
+
+#### Scenario: Subscribe a task
+
+- **WHEN** the user turns on the switch for a Telegram home channel
+- **THEN** the task is subscribed and the switch stays on
+
+#### Scenario: No home channel
+
+- **WHEN** the server lists no home channels
+- **THEN** the task detail has no Notify section
+
 ### Requirement: Kanban works against Hermes Agent 0.21.1 and later
 
-The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, an attachment's upload, byte-exact download and removal, refusal messages, the orchestration settings and the live event stream against a real dashboard.
+The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, an attachment's upload, byte-exact download and removal, estimates and home channels, refusal messages, the orchestration settings and the live event stream against a real dashboard.
 
 #### Scenario: Contract check against a real dashboard
 

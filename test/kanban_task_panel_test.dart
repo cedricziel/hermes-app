@@ -551,4 +551,165 @@ void main() {
       expect(files.saved, isEmpty);
     });
   });
+
+  group('estimates and notifications', () {
+    testWidgets('sizes up the task on request', (tester) async {
+      server.on('POST', '/api/plugins/kanban/tasks/t1/estimate', {
+        'ok': true,
+        'est_tokens': 80000,
+        'complexity': 'L',
+        'rationale': 'Broad and ambiguous.',
+      });
+      await pumpPanel(tester);
+
+      await tester.tap(find.text('Estimate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('about 80k tokens · large'), findsOneWidget);
+      expect(find.text('Broad and ambiguous.'), findsOneWidget);
+    });
+
+    testWidgets('shows why the helper could not estimate', (tester) async {
+      server.on('POST', '/api/plugins/kanban/tasks/t1/estimate', {
+        'ok': false,
+        'reason': 'auxiliary client unavailable',
+      });
+      await pumpPanel(tester);
+
+      await tester.tap(find.text('Estimate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('auxiliary client unavailable'), findsOneWidget);
+    });
+
+    testWidgets('shows no Notify section when the server has no home channel', (
+      tester,
+    ) async {
+      server.on('GET', '/api/plugins/kanban/home-channels', {
+        'home_channels': [],
+      });
+      await pumpPanel(tester);
+
+      expect(find.text('Notify'.toUpperCase()), findsNothing);
+    });
+
+    testWidgets('switches a home channel on and back off', (tester) async {
+      server
+        ..on('GET', '/api/plugins/kanban/home-channels', {
+          'home_channels': [
+            {'platform': 'telegram', 'name': 'Ops chat', 'subscribed': false},
+          ],
+        })
+        ..on('POST', '/api/plugins/kanban/tasks/t1/home-subscribe/telegram', {
+          'ok': true,
+        })
+        ..on('DELETE', '/api/plugins/kanban/tasks/t1/home-subscribe/telegram', {
+          'ok': true,
+        });
+      await pumpPanel(tester);
+
+      await tester.ensureVisible(find.text('Post updates to Ops chat'));
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(
+        server.requestsTo(
+          'POST',
+          '/api/plugins/kanban/tasks/t1/home-subscribe/telegram',
+        ),
+        hasLength(1),
+      );
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+      expect(
+        server.requestsTo(
+          'DELETE',
+          '/api/plugins/kanban/tasks/t1/home-subscribe/telegram',
+        ),
+        hasLength(1),
+      );
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    });
+
+    testWidgets('a refused subscription leaves the switch where it was', (
+      tester,
+    ) async {
+      server
+        ..on('GET', '/api/plugins/kanban/home-channels', {
+          'home_channels': [
+            {'platform': 'telegram', 'name': 'Ops chat', 'subscribed': false},
+          ],
+        })
+        ..on('POST', '/api/plugins/kanban/tasks/t1/home-subscribe/telegram', {
+          'detail': 'No home channel configured',
+        }, status: 404);
+      await pumpPanel(tester);
+
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No home channel configured'), findsOneWidget);
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    });
+  });
+
+  group('estimate and notify follow-ups', () {
+    testWidgets('an estimate is dropped once the task is changed', (
+      tester,
+    ) async {
+      server
+        ..on('POST', '/api/plugins/kanban/tasks/t1/estimate', {
+          'ok': true,
+          'est_tokens': 5000,
+          'complexity': 'S',
+        })
+        ..on('POST', '/api/plugins/kanban/tasks/t1/comments', {'ok': true});
+      await pumpPanel(tester);
+      await tester.tap(find.text('Estimate'));
+      await tester.pumpAndSettle();
+      expect(find.text('about 5k tokens · small'), findsOneWidget);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Add a comment…').first,
+        'hi',
+      );
+      await tester.tap(find.byTooltip('Send'));
+      await tester.pumpAndSettle();
+      // A comment is not an edit of the task, but any change made here
+      // clears the estimate rather than guessing which ones matter.
+      expect(find.text('about 5k tokens · small'), findsNothing);
+    });
+
+    testWidgets('a switch cannot be flipped again while its request is out', (
+      tester,
+    ) async {
+      final release = Completer<void>();
+      server
+        ..on('GET', '/api/plugins/kanban/home-channels', {
+          'home_channels': [
+            {'platform': 'telegram', 'name': 'Ops chat', 'subscribed': false},
+          ],
+        })
+        ..onRequest(
+          'POST',
+          '/api/plugins/kanban/tasks/t1/home-subscribe/telegram',
+          (_) async {
+            await release.future;
+            return (status: 200, body: {'ok': true});
+          },
+        );
+      await pumpPanel(tester);
+
+      await tester.ensureVisible(find.byType(Switch));
+      await tester.tap(find.byType(Switch));
+      await tester.pump();
+      expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
+
+      release.complete();
+      await tester.pumpAndSettle();
+      expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
+    });
+  });
 }

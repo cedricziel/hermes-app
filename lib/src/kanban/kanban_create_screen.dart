@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'kanban_errors.dart';
+import 'kanban_models.dart';
 import 'kanban_repository.dart';
 
 /// The quick-create form. Pops `true` once the task exists.
@@ -28,6 +29,8 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
   int _priority = 0;
   bool _triage = true;
   bool _saving = false;
+  bool _estimating = false;
+  KanbanEstimate? _estimate;
 
   @override
   void initState() {
@@ -45,6 +48,25 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
     _title.dispose();
     _body.dispose();
     super.dispose();
+  }
+
+  Future<void> _estimateDraft() async {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    setState(() => _estimating = true);
+    KanbanEstimate? estimate;
+    await runKanbanAction(context, () async {
+      estimate = await widget.repository.estimateText(
+        title,
+        body: _body.text.trim().isEmpty ? null : _body.text.trim(),
+      );
+    });
+    if (mounted) {
+      setState(() {
+        _estimating = false;
+        if (estimate != null) _estimate = estimate;
+      });
+    }
   }
 
   Future<void> _create() async {
@@ -97,7 +119,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                 controller: _title,
                 autofocus: true,
                 decoration: const InputDecoration(labelText: 'Title'),
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => setState(() => _estimate = null),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -105,8 +127,24 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                 minLines: 3,
                 maxLines: 8,
                 decoration: const InputDecoration(labelText: 'Description'),
+                onChanged: (_) => setState(() => _estimate = null),
               ),
-              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _estimating || _title.text.trim().isEmpty
+                      ? null
+                      : _estimateDraft,
+                  icon: const Icon(Icons.speed_outlined, size: 18),
+                  label: const Text('Estimate the work'),
+                ),
+              ),
+              if (_estimate != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Text(_estimate!.summary),
+                ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
                 initialValue: _assignee,
                 decoration: const InputDecoration(labelText: 'Assignee'),

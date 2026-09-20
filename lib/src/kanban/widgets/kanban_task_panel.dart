@@ -73,6 +73,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   KanbanTaskDetail? _detail;
   bool _failed = false;
   bool _transferring = false;
+  KanbanEstimate? _estimate;
+  bool _estimating = false;
+  List<KanbanHomeChannel> _channels = const [];
+  final _switching = <String>{};
   final _comment = TextEditingController();
 
   KanbanRepository get _repo => widget.repository;
@@ -81,6 +85,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   void initState() {
     super.initState();
     _load();
+    _loadChannels();
   }
 
   @override
@@ -97,8 +102,64 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         _detail = detail;
         _failed = false;
       });
+      _loadChannels();
     } catch (_) {
       if (mounted && _detail == null) setState(() => _failed = true);
+    }
+  }
+
+  /// The home channels are an extra: a server without any, or one that
+  /// refuses, simply shows no Notify section.
+  Future<void> _loadChannels() async {
+    try {
+      final channels = await _repo.loadHomeChannels(
+        widget.taskId,
+        board: widget.board,
+      );
+      if (mounted) setState(() => _channels = channels);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleChannel(KanbanHomeChannel channel, bool on) async {
+    if (!_switching.add(channel.platform)) return;
+    setState(() {});
+    final ok = await runKanbanAction(
+      context,
+      () => _repo.setHomeSubscription(
+        widget.taskId,
+        channel.platform,
+        subscribed: on,
+        board: widget.board,
+      ),
+    );
+    _switching.remove(channel.platform);
+    if (ok && mounted) {
+      setState(() {
+        _channels = [
+          for (final c in _channels)
+            c.platform == channel.platform ? c.withSubscribed(on) : c,
+        ];
+      });
+    } else if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _estimateTask() async {
+    setState(() => _estimating = true);
+    KanbanEstimate? estimate;
+    await runKanbanAction(
+      context,
+      () async => estimate = await _repo.estimateTask(
+        widget.taskId,
+        board: widget.board,
+      ),
+    );
+    if (mounted) {
+      setState(() {
+        _estimating = false;
+        if (estimate != null) _estimate = estimate;
+      });
     }
   }
 
@@ -106,6 +167,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   Future<bool> _do(Future<void> Function() action, {bool reload = true}) async {
     final ok = await runKanbanAction(context, action);
     if (ok) {
+      // The task changed, so an estimate of it no longer holds.
+      if (mounted) setState(() => _estimate = null);
       widget.onChanged?.call();
       if (reload) await _load();
     }
@@ -511,6 +574,36 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
               ],
             ),
           ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Wrap(
+            spacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _estimating ? null : _estimateTask,
+                icon: const Icon(Icons.speed_outlined, size: 18),
+                label: const Text('Estimate'),
+              ),
+              if (_estimating)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else if (_estimate != null)
+                Text(_estimate!.summary),
+            ],
+          ),
+        ),
+        if (_estimate?.rationale != null && _estimate!.ok)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              _estimate!.rationale!,
+              style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+            ),
+          ),
         if (detail.diagnostics.isNotEmpty) ...[
           const _Heading('Needs attention'),
           for (final d in detail.diagnostics)
@@ -606,6 +699,20 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             ),
           ],
         ),
+        if (_channels.isNotEmpty) ...[
+          const _Heading('Notify'),
+          for (final c in _channels)
+            SwitchListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text('Post updates to ${c.name}'),
+              subtitle: Text(c.platform),
+              value: c.subscribed,
+              onChanged: _switching.contains(c.platform)
+                  ? null
+                  : (on) => _toggleChannel(c, on),
+            ),
+        ],
         const _Heading('Attachments'),
         if (_transferring) const LinearProgressIndicator(),
         for (final a in detail.attachments)
