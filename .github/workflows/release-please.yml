@@ -207,6 +207,22 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Require an https telemetry endpoint
+        env:
+          OTLP_INGEST_URL: ${{ secrets.OTLP_INGEST_URL }}
+        run: |
+          # Mirrors Telemetry.isExportableEndpoint. The app drops any other
+          # endpoint at start-up, so the build would ship with telemetry off.
+          # Never print the value: it can carry credentials.
+          shopt -s nocasematch
+          url="$OTLP_INGEST_URL"
+          if [ -n "$url" ] \
+            && ! [[ "$url" =~ ^https:// ]] \
+            && ! [[ "$url" =~ ^http://(localhost|127\.0\.0\.1|\[::1\])([:/?#]|$) ]]; then
+            echo "::error::OTLP_INGEST_URL must start with https:// (http:// is only allowed for localhost, 127.0.0.1 and [::1]); the app would drop the endpoint and export nothing."
+            exit 1
+          fi
+
       - name: Build release bundle
         env:
           # Both must be set for the build to enable telemetry; if either is
