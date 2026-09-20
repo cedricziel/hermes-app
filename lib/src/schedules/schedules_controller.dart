@@ -233,6 +233,40 @@ class SchedulesController extends ChangeNotifier {
     }
   }
 
+  /// The names of the profiles a new job can go to. Empty when the server
+  /// has none to tell apart or cannot say.
+  Future<List<String>> profileNames() async {
+    try {
+      final overview = await profiles?.load();
+      return [for (final p in overview?.profiles ?? const []) p.name];
+    } on Object {
+      return const [];
+    }
+  }
+
+  /// Puts a job that was just created or changed on screen and selects it.
+  /// A job in another profile than the one listed widens the list to every
+  /// profile, or it would seem to have vanished.
+  void jobSaved(CronJob job) {
+    _selectedKey = job.key;
+    if (_jobs.any((j) => j.key == job.key)) {
+      _replace(job);
+    } else {
+      _jobs = [..._jobs, job];
+      notifyListeners();
+    }
+    final elsewhere =
+        !_allProfiles &&
+        _activeProfile != null &&
+        job.profile != null &&
+        job.profile != _activeProfile;
+    if (elsewhere) {
+      allProfiles = true;
+    } else {
+      refresh();
+    }
+  }
+
   Future<List<CronRun>> loadRuns(CronJob job, {int limit = 20}) =>
       repository.listRuns(job.id, profile: job.profile, limit: limit);
 

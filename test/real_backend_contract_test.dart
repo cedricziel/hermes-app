@@ -24,7 +24,9 @@ import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/provider_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
+import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 
@@ -822,6 +824,100 @@ void main() {
           isA<CronException>().having((e) => e.isNotFound, '404', isTrue),
         ),
       );
+    }, skip: skip);
+
+    test('blueprints describe their slots and create a job', () async {
+      final cron = HermesCronRepository(client.raw);
+
+      final blueprints = await cron.blueprints();
+
+      expect(blueprints, isNotEmpty);
+      expect(
+        blueprints.every(
+          (b) => b.title.isNotEmpty && b.scheduleHuman.isNotEmpty,
+        ),
+        isTrue,
+      );
+      final blueprint = blueprints.firstWhere(
+        (b) => b.key == 'custom-reminder',
+      );
+      expect(blueprint.fields, isNotEmpty);
+      final values = <String, Object>{
+        for (final f in blueprint.fields)
+          if (f.defaultValue != null) f.name: f.defaultValue.toString(),
+        'deliver': 'local',
+      };
+      final job = await cron.instantiate(blueprint.key, values);
+      try {
+        expect(job.id, isNotEmpty);
+        expect(job.deliver, 'local');
+        expect(job.profile, isNotNull);
+      } finally {
+        await cron.delete(job.id, profile: job.profile);
+      }
+    }, skip: skip);
+
+    test('a blueprint the server refuses names the slot in a 422', () async {
+      final cron = HermesCronRepository(client.raw);
+
+      await expectLater(
+        cron.instantiate('morning-brief', {'time': '25:99'}),
+        throwsA(
+          isA<CronException>()
+              .having((e) => e.status, 'status', 422)
+              .having((e) => e.message, 'message', contains('time')),
+        ),
+      );
+    }, skip: skip);
+
+    test('a job can be edited by diff and its schedule read back', () async {
+      final cron = HermesCronRepository(client.raw);
+      final draft = JobDraft(
+        name: 'contract-edit',
+        prompt: 'contract test, never run',
+        spec: const WeeklySpec({1, 4}, 9, 30),
+        paused: true,
+      );
+      final job = await cron.createJob(draft);
+      try {
+        expect(job.scheduleWords, 'Mon, Thu at 09:30');
+        expect(ScheduleSpec.fromJob(job).toSchedule(), '30 9 * * 1,4');
+
+        final updated = await cron.updateJob(job.id, {
+          'prompt': 'changed',
+          'schedule': const EverySpec(6, EveryUnit.hours).toSchedule(),
+        }, profile: job.profile);
+
+        expect(updated.prompt, 'changed');
+        expect(updated.scheduleWords, 'Every 6 hours');
+        expect(updated.name, 'contract-edit');
+        expect(updated.isPaused, isTrue);
+
+        final cleared = await cron.updateJob(job.id, {
+          'model': '',
+        }, profile: job.profile);
+        expect(cleared.model, isNull);
+      } finally {
+        await cron.delete(job.id, profile: job.profile);
+      }
+    }, skip: skip);
+
+    test('a one-shot in UTC is accepted', () async {
+      final cron = HermesCronRepository(client.raw);
+      final at = DateTime.now().add(const Duration(days: 30));
+      final job = await cron.createJob(
+        JobDraft(
+          prompt: 'contract test, never run',
+          spec: OnceSpec(at),
+          paused: true,
+        ),
+      );
+      try {
+        expect(job.scheduleKind, 'once');
+        expect(job.scheduleRunAt?.difference(at).inMinutes.abs(), lessThan(2));
+      } finally {
+        await cron.delete(job.id, profile: job.profile);
+      }
     }, skip: skip);
   });
 

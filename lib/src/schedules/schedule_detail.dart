@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'job_form_controller.dart';
+import 'job_form_screen.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
@@ -100,6 +102,20 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
       !widget.job.isPaused,
     );
     if (message != null) _say(message);
+  }
+
+  Future<void> _edit() async {
+    final saved = await Navigator.of(context).push<CronJob>(
+      MaterialPageRoute(
+        builder: (_) => JobFormScreen(
+          controller: JobFormController(
+            repository: _controller.repository,
+            editing: widget.job,
+          ),
+        ),
+      ),
+    );
+    if (saved != null && mounted) _controller.jobSaved(saved);
   }
 
   Future<void> _delete() async {
@@ -215,6 +231,11 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
                 job.isPaused ? Icons.play_circle_outline : Icons.pause,
               ),
               label: Text(job.isPaused ? 'Resume' : 'Pause'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _edit,
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('Edit'),
             ),
           ],
         ),
