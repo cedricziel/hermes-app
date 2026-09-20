@@ -57,6 +57,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
+    await openThread(tester, 'Run failure');
     await send(tester, 'One');
     expect(find.text('Stop'), findsOneWidget);
 

@@ -195,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _isOnProfile(launch, profile) &&
                 threads.any((t) => t.id == launch!.threadId)
             ? launch!.threadId
-            : (threads.isNotEmpty ? threads.first.id : null);
+            : null;
       });
       if (launch != null) {
         // A held tap already put Chat in front when it arrived.

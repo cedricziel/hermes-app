@@ -97,12 +97,12 @@ The chat screen SHALL NOT offer searching or filtering the thread list. Every th
 
 ### Requirement: Opening a thread and loading messages
 
-The system SHALL select a thread when the user taps it and SHALL load that thread's messages from the dashboard the first time it is opened, not before. When the list has loaded, the first thread in the list (or the thread named by a notification that launched the app) SHALL be opened.
+The system SHALL select a thread when the user taps it and SHALL load that thread's messages from the dashboard the first time it is opened, not before. When the list has loaded, no thread SHALL be selected and the welcome view for a new chat SHALL be shown, unless a notification that launched the app names a thread, which SHALL be opened.
 
-#### Scenario: First thread opens on load
+#### Scenario: Welcome view on load
 
 - **WHEN** the thread list has loaded
-- **THEN** the first thread is selected and its messages are fetched and shown, while the messages of other threads are not fetched
+- **THEN** no thread is selected, the welcome view is shown, and no thread's messages are fetched
 
 #### Scenario: Another thread is opened
 
@@ -652,7 +652,7 @@ The system SHALL open the thread named by a tapped notification, or by the notif
 #### Scenario: Thread not listed
 
 - **WHEN** the thread is not in the list
-- **THEN** a tap changes nothing and a launch falls back to the first thread
+- **THEN** a tap changes nothing and a launch stays on the welcome view
 - **AND** "Could not open that chat." is shown
 
 #### Scenario: Tap while threads load

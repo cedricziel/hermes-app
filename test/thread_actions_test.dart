@@ -400,6 +400,7 @@ void main() {
         sessionPatchBody(flags: {'archived': true}),
       );
       await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
 
       await openMenu(tester, 's1');
       await choose(tester, 'Archive');

@@ -19,6 +19,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/pump_chat.dart' show openThread;
 
 /// The chat screen against a fake Hermes dashboard, through the real
 /// generated client: HTTP → `DefaultApi` → [HermesChatRepository] → mapper →
@@ -117,11 +118,21 @@ void main() {
     expect(find.text(buildMockThreads().first.title), findsNothing);
   });
 
-  testWidgets('opens the most recent session and renders its messages', (
+  testWidgets('starts on the welcome view without opening a session', (
     tester,
   ) async {
     await pumpChat(tester);
     await tester.pumpAndSettle();
+
+    expect(find.text('Why did the run fail?'), findsNothing);
+    expect(server.requestsTo('GET', '/api/sessions/s1/messages'), isEmpty);
+    expect(server.requestsTo('GET', '/api/sessions/s2/messages'), isEmpty);
+  });
+
+  testWidgets('opens a session and renders its messages', (tester) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+    await openThread(tester, 'Run failure');
 
     expect(inTranscript('Why did the run fail?'), findsOneWidget);
     expect(inTranscript('A connection reset during upload.'), findsOneWidget);
@@ -132,6 +143,7 @@ void main() {
   ) async {
     await pumpChat(tester);
     await tester.pumpAndSettle();
+    await openThread(tester, 'Run failure');
 
     final card = tester.widget<ToolCallCard>(find.byType(ToolCallCard));
     expect(card.call.name, 'search_logs');

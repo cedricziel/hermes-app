@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -58,4 +59,13 @@ Future<void> pumpChatScreen(
     ),
   );
   if (settle) await tester.pumpAndSettle();
+}
+
+/// Opens the sidebar row titled [title]; the screen starts on the welcome
+/// view, not on a thread.
+Future<void> openThread(WidgetTester tester, String title) async {
+  await tester.tap(
+    find.descendant(of: find.byType(ThreadSidebar), matching: find.text(title)),
+  );
+  await tester.pumpAndSettle();
 }

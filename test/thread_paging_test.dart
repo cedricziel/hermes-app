@@ -112,6 +112,7 @@ void main() {
     tester,
   ) async {
     await pumpChatScreen(tester, server: server);
+    await openThread(tester, 'Pinned chat');
 
     await scrollToEnd(tester);
 

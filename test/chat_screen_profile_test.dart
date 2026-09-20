@@ -16,6 +16,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/pump_chat.dart' show openThread;
 
 /// The chat follows the selected Hermes profile. Each profile keeps its own
 /// sessions, so two profiles can hold different sessions under one id.
@@ -123,6 +124,7 @@ void main() {
   testWidgets('reads the open session from the active profile', (tester) async {
     activate('work', current: 'default');
     await pumpChat(tester);
+    await openThread(tester, 'Sprint planning');
 
     final request = server
         .requestsTo('GET', '/api/sessions/shared/messages')
@@ -183,9 +185,11 @@ void main() {
     tester,
   ) async {
     await pumpChat(tester);
+    await openThread(tester, 'Personal notes');
     expect(inTranscript('hello from default'), findsOneWidget);
 
     await switchProfile(tester, 'work');
+    await openThread(tester, 'Sprint planning');
 
     expect(inTranscript('hello from work'), findsOneWidget);
     expect(inTranscript('hello from default'), findsNothing);
@@ -198,8 +202,10 @@ void main() {
   ) async {
     await pumpChat(tester);
     await switchProfile(tester, 'work');
+    await openThread(tester, 'Sprint planning');
 
     await switchProfile(tester, 'default');
+    await openThread(tester, 'Personal notes');
 
     expect(inTranscript('hello from default'), findsOneWidget);
     expect(inTranscript('hello from work'), findsNothing);
@@ -217,6 +223,7 @@ void main() {
   ) async {
     activate('work', current: 'default');
     await pumpChat(tester);
+    await openThread(tester, 'Sprint planning');
 
     await sendMessage(tester, 'plan the sprint');
 
