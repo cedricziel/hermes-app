@@ -79,3 +79,7 @@ Project skills live in `.claude/skills/<name>/SKILL.md` (frontmatter `name` and 
 - Create a new skill when the knowledge is a distinct, repeatable task no current skill covers. Keep the description specific enough that it triggers at the right time.
 - Use memory only for things that are personal to the user or don't belong in the repo.
 - Commit skill changes with the work that prompted them, or on their own as `docs:`.
+
+## Dependencies
+
+Before writing platform or infrastructure code by hand (storage, permissions, sharing, notifications, deep links, auth flows, and the like), check pub.dev for a mature, maintained plugin and prefer it over a homegrown implementation. Judge maturity by recent releases, publisher, platform coverage, popularity and open issues. If none fits, say why in the PR. The existing choices (`flutter_chat_ui`, `receive_sharing_intent`, the generated `hermes_api` client) follow this rule.
