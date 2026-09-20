@@ -41,10 +41,15 @@ class HermesApiClient {
   /// `GET /api/auth/providers` — public. Lists the registered sign-in
   /// options for the login screen.
   Future<List<AuthProviderInfo>> fetchAuthProviders() async {
-    final response = await _dio.get<Map<String, dynamic>>(
-      '/api/auth/providers',
-    );
-    final raw = response.data?['providers'] as List<dynamic>? ?? const [];
+    final response = await _dio.get<dynamic>('/api/auth/providers');
+    final data = response.data;
+    if (data == null) return const [];
+    if (data is! Map) throw const FormatException('malformed providers body');
+    final raw = data['providers'];
+    if (raw == null) return const [];
+    if (raw is! List || raw.any((e) => e is! Map<String, dynamic>)) {
+      throw const FormatException('malformed providers list');
+    }
     return raw
         .map((e) => AuthProviderInfo.fromJson(e as Map<String, dynamic>))
         .toList();

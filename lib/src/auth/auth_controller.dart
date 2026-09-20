@@ -169,6 +169,10 @@ class AuthController extends ChangeNotifier {
       );
       _setState(HermesConnectionState.connectionError);
       return;
+    } on FormatException {
+      _errorMessage = 'Could not load sign-in options';
+      _setState(HermesConnectionState.connectionError);
+      return;
     }
 
     final storedSession = await _tokenStore.read();
