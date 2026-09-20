@@ -607,4 +607,114 @@ void main() {
 
     expect(channels.map((c) => c.platform), ['slack']);
   });
+
+  test('reads the active workers and inspects one', () async {
+    server
+      ..on('GET', '/api/plugins/kanban/workers/active', {
+        'workers': [
+          {
+            'run_id': 7,
+            'task_id': 't1',
+            'task_title': 'Migrate webhooks',
+            'task_assignee': 'coder',
+            'profile': 'coder',
+            'worker_pid': 4242,
+            'started_at': 1780000000,
+            'last_heartbeat_at': 1780000300,
+          },
+          {'oops': true},
+        ],
+        'count': 1,
+      })
+      ..on('GET', '/api/plugins/kanban/runs/7/inspect', {
+        'alive': true,
+        'pid': 4242,
+        'cpu_percent': 12.5,
+        'memory_rss_bytes': 104857600,
+        'num_threads': 9,
+        'status': 'sleeping',
+      })
+      ..on('GET', '/api/plugins/kanban/runs/8/inspect', {
+        'alive': false,
+        'reason': 'process not found',
+      });
+
+    final workers = await repository.loadActiveWorkers(board: 'ops');
+    final alive = await repository.inspectRun(7);
+    final gone = await repository.inspectRun(8);
+
+    expect(workers.first.taskTitle, 'Migrate webhooks');
+    expect(workers.first.pid, 4242);
+    expect(
+      server
+          .requestsTo('GET', '/api/plugins/kanban/workers/active')
+          .single
+          .queryParameters['board'],
+      'ops',
+    );
+    expect(alive.memoryBytes, 104857600);
+    expect(gone.alive, isFalse);
+    expect(gone.note, 'process not found');
+  });
+
+  test('exports a board and imports it under a new name', () async {
+    server
+      ..on('POST', '/api/plugins/kanban/boards/ops/export', {
+        'board': 'ops',
+        'archive': '/srv/hermes/exports/ops.tar.gz',
+        'size': 2048,
+      })
+      ..on('POST', '/api/plugins/kanban/boards/import', {
+        'board': 'ops-2',
+        'requested_board': 'ops',
+        'renamed': true,
+      });
+
+    final exported = await repository.exportBoard('ops', logs: true);
+    final imported = await repository.importBoard(
+      exported.archive,
+      slug: 'ops',
+      switchToIt: true,
+    );
+
+    expect(exported.archive, '/srv/hermes/exports/ops.tar.gz');
+    expect(exported.size, 2048);
+    expect(imported.board, 'ops-2');
+    expect(imported.renamed, isTrue);
+    expect(
+      jsonBody(
+        server
+            .requestsTo('POST', '/api/plugins/kanban/boards/ops/export')
+            .single,
+      ),
+      {'output': '', 'attachments': true, 'logs': true},
+    );
+    expect(
+      jsonBody(
+        server.requestsTo('POST', '/api/plugins/kanban/boards/import').single,
+      ),
+      {
+        'archive': '/srv/hermes/exports/ops.tar.gz',
+        'slug': 'ops',
+        'switch': true,
+      },
+    );
+  });
+
+  test('says why an import was refused', () async {
+    server.on('POST', '/api/plugins/kanban/boards/import', {
+      'detail': 'archive not found: /nope.tar.gz',
+    }, status: 404);
+
+    expect(
+      repository.importBoard('/nope.tar.gz'),
+      throwsA(
+        isA<KanbanException>().having(
+          (e) => e.message,
+          'message',
+          contains('not found'),
+        ),
+      ),
+    );
+  });
 }

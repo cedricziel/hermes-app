@@ -35,17 +35,32 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> pump(WidgetTester tester) => tester
-      .pumpWidget(
-        MaterialApp(
-          theme: buildHermesLightTheme(),
-          home: KanbanBoardsScreen(
-            controller: controller,
-            repository: KanbanRepository(server.client()),
+  /// The boards list opened from another page, as in the app, so leaving it
+  /// has somewhere to go.
+  Future<void> pump(WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => KanbanBoardsScreen(
+                    controller: controller,
+                    repository: KanbanRepository(server.client()),
+                  ),
+                ),
+              ),
+              child: const Text('open boards'),
+            ),
           ),
         ),
-      )
-      .then((_) => tester.pumpAndSettle());
+      ),
+    );
+    await tester.tap(find.text('open boards'));
+    await tester.pumpAndSettle();
+  }
 
   test('derives a slug the plugin accepts from a name', () {
     expect(KanbanBoardsScreen.slugFor('  Ops team! '), 'ops-team');
@@ -132,5 +147,106 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.boardSlug, 'ops');
+  });
+
+  testWidgets('exports a board and says where the archive is', (tester) async {
+    server.on('POST', '/api/plugins/kanban/boards/ops/export', {
+      'board': 'ops',
+      'archive': '/srv/hermes/exports/ops.tar.gz',
+      'size': 3072,
+    });
+    await pump(tester);
+
+    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Export…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Include worker logs'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Export'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('/srv/hermes/exports/ops.tar.gz'), findsOneWidget);
+    expect(find.text('3.0 KB'), findsOneWidget);
+    expect(
+      jsonBody(
+        server
+            .requestsTo('POST', '/api/plugins/kanban/boards/ops/export')
+            .single,
+      ),
+      {'output': '', 'attachments': true, 'logs': true},
+    );
+  });
+
+  testWidgets('imports an archive and opens the new board', (tester) async {
+    server.on('POST', '/api/plugins/kanban/boards/import', {
+      'board': 'restored',
+      'renamed': false,
+    });
+    await pump(tester);
+
+    await tester.tap(find.byTooltip('Import a board'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, 'Import'))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Archive path on the server'),
+      '/srv/hermes/exports/ops.tar.gz',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+    await tester.pumpAndSettle();
+
+    expect(
+      jsonBody(
+        server.requestsTo('POST', '/api/plugins/kanban/boards/import').single,
+      ),
+      {'archive': '/srv/hermes/exports/ops.tar.gz', 'switch': false},
+    );
+    expect(controller.boardSlug, 'restored');
+    // The board opens, so the list gives way to it.
+    expect(find.text('Boards'), findsNothing);
+  });
+
+  testWidgets('says when the imported board was renamed', (tester) async {
+    server.on('POST', '/api/plugins/kanban/boards/import', {
+      'board': 'ops-2',
+      'renamed': true,
+    });
+    await pump(tester);
+
+    await tester.tap(find.byTooltip('Import a board'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Archive path on the server'),
+      '/a.tar.gz',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('the board is ops-2'), findsOneWidget);
+  });
+
+  testWidgets('says why an import was refused', (tester) async {
+    server.on('POST', '/api/plugins/kanban/boards/import', {
+      'detail': 'archive not found: /a.tar.gz',
+    }, status: 404);
+    await pump(tester);
+
+    await tester.tap(find.byTooltip('Import a board'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Archive path on the server'),
+      '/a.tar.gz',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Import'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('archive not found: /a.tar.gz'), findsOneWidget);
   });
 }
