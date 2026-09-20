@@ -138,6 +138,25 @@ final class ClarifyRequest extends InputRequest {
   );
 }
 
+enum UnsupportedKind { secret, sudo }
+
+/// The agent asked for something this app cannot ask the user for yet, such
+/// as a secret value or a sudo password, and waits for it elsewhere. Nothing
+/// the gateway attached to the request is kept.
+final class UnsupportedRequest extends InputRequest {
+  const UnsupportedRequest({
+    required super.requestId,
+    required this.kind,
+    super.status,
+  });
+
+  final UnsupportedKind kind;
+
+  @override
+  UnsupportedRequest withStatus(InputRequestStatus status) =>
+      UnsupportedRequest(requestId: requestId, kind: kind, status: status);
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -186,4 +205,8 @@ class ChatThread {
 
   String get preview =>
       messages.isEmpty ? 'No messages yet' : messages.last.content;
+
+  /// Whether a reply is still thinking or streaming. A reply that waits for
+  /// the user's answer counts, since its turn has not ended.
+  bool get isReplying => messages.any((m) => m.isPending);
 }

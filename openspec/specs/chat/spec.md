@@ -188,7 +188,7 @@ The system SHALL let the user start a local draft thread with "New chat" and SHA
 
 ### Requirement: Sending a message
 
-The system SHALL append the user's message and a thinking placeholder for the assistant reply to the transcript at once when the user sends, and SHALL clear the composer. Blank text with no attachments SHALL NOT be sent.
+The system SHALL append the user's message and a thinking placeholder for the assistant reply to the transcript at once when the user sends, and SHALL clear the composer. Blank text with no attachments SHALL NOT be sent. The system SHALL NOT send on a thread that has a pending reply, meaning a reply that is thinking or streaming, including one that waits for the user to answer an approval or clarify request. It SHALL tell the user why with the message "Hermes is still replying. Wait for it to finish, or answer its request." and SHALL keep the composer text and attachments. Other threads SHALL NOT be affected.
 
 #### Scenario: Send shows prompt and placeholder
 
@@ -209,8 +209,38 @@ The system SHALL append the user's message and a thinking placeholder for the as
 
 #### Scenario: Overlapping sends
 
-- **WHEN** the user sends again in a thread, or in several threads, while an earlier reply is still streaming
+- **WHEN** the user sends in several threads while an earlier reply in another thread is still streaming
 - **THEN** every reply streams into its own place beside its own prompt
+
+#### Scenario: Blocked while the reply streams
+
+- **WHEN** the user sends again in a thread whose reply is still streaming
+- **THEN** nothing is sent and the user is told "Hermes is still replying. Wait for it to finish, or answer its request."
+- **AND** the composer keeps its text
+
+#### Scenario: Blocked while a request is pending
+
+- **WHEN** the reply waits on an approval or clarify request that is not answered yet
+- **AND WHEN** the user sends again in that thread
+- **THEN** nothing is sent and the user is told "Hermes is still replying. Wait for it to finish, or answer its request."
+
+#### Scenario: Allowed after completion
+
+- **WHEN** the reply in a thread has completed
+- **AND WHEN** the user sends again in that thread
+- **THEN** the message is sent
+
+#### Scenario: Allowed after a broken stream
+
+- **WHEN** the reply stream of a thread broke and the reply is marked failed
+- **AND WHEN** the user sends again in that thread
+- **THEN** the message is sent
+
+#### Scenario: Other thread unaffected
+
+- **WHEN** a thread has a pending reply
+- **AND WHEN** the user switches to another thread and sends
+- **THEN** the message is sent under that other thread
 
 ### Requirement: Streaming the reply
 
@@ -511,6 +541,37 @@ The system SHALL show a clarify request as a card "Hermes has a question" with o
 - **WHEN** the gateway answers a `clarify.respond` with status `expired`, or an expire event arrives, or the reply ends unanswered
 - **THEN** the card shows "This request timed out" and has no controls
 
+### Requirement: Requests the app cannot answer
+
+The system SHALL show a request for a secret value (`secret.request`) or a sudo password (`sudo.request`) as a card "Hermes needs something else" in the reply, saying that Hermes asked for "a secret value, such as an API key" or "your sudo password", that this app cannot ask for it yet, and that it can be answered in the Hermes terminal or dashboard. The system SHALL NOT ask the user for, collect, store or send a secret or password, and SHALL NOT show the request's prompt, variable name or metadata.
+
+#### Scenario: Sudo request
+
+- **WHEN** a `sudo.request` arrives
+- **THEN** a card titled "Hermes needs something else" is added to the reply, saying Hermes asked for your sudo password, that the app cannot ask for it yet, and to answer it in the Hermes terminal or dashboard
+
+#### Scenario: Secret request
+
+- **WHEN** a `secret.request` arrives with a prompt and a variable name
+- **THEN** the card says Hermes asked for a secret value, such as an API key, and shows neither the prompt nor the variable name
+
+#### Scenario: Nothing is collected
+
+- **WHEN** the card is shown
+- **THEN** it has no text field or button, and no `secret.respond` or `sudo.respond` call is ever made
+
+#### Scenario: No thinking indicator
+
+- **WHEN** the request is pending
+- **THEN** the thinking indicator is hidden
+
+#### Scenario: Expiry
+
+- **WHEN** a `secret.expire` or `sudo.expire` event names the request
+- **THEN** only that pending card is locked and shows "This request timed out" instead of where to answer
+- **AND WHEN** the reply completes or its stream breaks
+- **THEN** every such card still pending is locked as expired
+
 ### Requirement: Shared content
 
 The system SHALL accept content shared into the app while the chat is open or before it opens: shared text SHALL go into the composer and shared files SHALL be listed as removable attachments above it.
@@ -604,11 +665,12 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **WHEN** the chat talks over `/api/ws`
 - **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
 - **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
+- **AND** it requests no method to answer a secret or a sudo request
 
 #### Scenario: Events
 
 - **WHEN** the gateway pushes an `event` notification
-- **THEN** its `type` is mapped as follows: `message.start` (reply started), `message.delta` (`text`), `tool.start` (`name`, `context`), `tool.complete` (`name`, `result.error`), `session.title` (`title`), `message.complete` (`text`, `status`), `approval.request` (`request_id`, `command`, `description`, `choices`), `clarify.request` (`request_id` with either `question`, `choices`, `multi_select` or a `questions` list of `qid`, `question`, `choices`, `multi_select`), and `approval.expire` or `clarify.expire` (`request_id`)
+- **THEN** its `type` is mapped as follows: `message.start` (reply started), `message.delta` (`text`), `tool.start` (`name`, `context`), `tool.complete` (`name`, `result.error`), `session.title` (`title`), `message.complete` (`text`, `status`), `approval.request` (`request_id`, `command`, `description`, `choices`), `clarify.request` (`request_id` with either `question`, `choices`, `multi_select` or a `questions` list of `qid`, `question`, `choices`, `multi_select`), `secret.request` and `sudo.request` (`request_id` only; the prompt, variable name and metadata are not read), and `approval.expire`, `clarify.expire`, `secret.expire` or `sudo.expire` (`request_id`)
 - **AND** other event types are ignored
 
 #### Scenario: Socket closes

@@ -25,6 +25,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.inputRequests = [...reply.inputRequests, request];
     case ClarifyRequested(:final request):
       reply.inputRequests = [...reply.inputRequests, request];
+    case UnsupportedRequested(:final request):
+      reply.inputRequests = [...reply.inputRequests, request];
     case InputRequestExpired(:final requestId):
       expireInputRequests(reply, requestId: requestId);
     case ReplyCompleted(:final text, :final failed):

@@ -8,6 +8,7 @@ const kReplyReadyBody = 'Reply ready';
 const kReplyFailedBody = 'Reply failed';
 const kApprovalBody = 'Waiting for your approval';
 const kQuestionBody = 'Has a question for you';
+const kNeedsYouBody = 'Waiting for you in Hermes';
 
 /// What to tell the user about, and for which thread.
 class AttentionNotification {
@@ -36,8 +37,8 @@ String replyPreview(String text) {
 
 /// The notification [event] on [thread] deserves, or null. Nothing is said
 /// while the app is focused on that very thread, or while notifications are
-/// off. Approval and clarify notifications stay generic on purpose: the
-/// command or question must not show on a lock screen.
+/// off. Request notifications stay generic on purpose: the command, question
+/// or secret asked for must not show on a lock screen.
 AttentionNotification? attentionFor({
   required ChatEvent event,
   required ChatThread thread,
@@ -55,6 +56,7 @@ AttentionNotification? attentionFor({
           : (replyPreview(text).isEmpty ? kReplyReadyBody : replyPreview(text)),
     ApprovalRequested() => kApprovalBody,
     ClarifyRequested() => kQuestionBody,
+    UnsupportedRequested() => kNeedsYouBody,
     _ => null,
   };
   if (body == null) return null;

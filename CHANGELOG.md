@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.13](https://github.com/cedricziel/hermes-app/compare/v0.1.12...v0.1.13) (2026-09-20)
+
+
+### Features
+
+* human-readable app name and a launch screen ([#93](https://github.com/cedricziel/hermes-app/issues/93)) ([2c79bd7](https://github.com/cedricziel/hermes-app/commit/2c79bd7758b546ba29dce53bd1bbdf1e8c60a59c))
+* **kanban:** open, create and edit tasks ([#66](https://github.com/cedricziel/hermes-app/issues/66)) ([dab4e9d](https://github.com/cedricziel/hermes-app/commit/dab4e9d74673d1435e1ba8703266d0ac6b911761))
+* **kanban:** triage helpers, bulk changes, dispatcher and orchestration ([#68](https://github.com/cedricziel/hermes-app/issues/68)) ([4cd0949](https://github.com/cedricziel/hermes-app/commit/4cd0949be0e329211b789e3b08280846c26d4498))
+
+
+### Bug Fixes
+
+* **auth:** treat an unreadable stored session as signed out ([#126](https://github.com/cedricziel/hermes-app/issues/126)) ([68a39dd](https://github.com/cedricziel/hermes-app/commit/68a39dd399efb6cc5efb4d37dd9a3da8c9503785))
+* **bots:** let an unconfigured but enabled bot be switched off ([#121](https://github.com/cedricziel/hermes-app/issues/121)) ([cb50875](https://github.com/cedricziel/hermes-app/commit/cb50875a47e30c4077bdba162ec3d79ec19b3158))
+* **chat:** give an approval request without choices a way to answer ([#122](https://github.com/cedricziel/hermes-app/issues/122)) ([fb327fa](https://github.com/cedricziel/hermes-app/commit/fb327fa8a86d6b5152c2eb1596443b382363f392))
+* **chat:** scope gateway sessions to the selected profile ([#115](https://github.com/cedricziel/hermes-app/issues/115)) ([7b3d390](https://github.com/cedricziel/hermes-app/commit/7b3d39056364d076da1d58dd36ae57d142b10db2))
+* **chat:** send one prompt at a time on a thread ([#124](https://github.com/cedricziel/hermes-app/issues/124)) ([d1d2b5a](https://github.com/cedricziel/hermes-app/commit/d1d2b5aaf38590ed75db27081ea127ff998f832b))
+* **chat:** show a message when a reply fails with no text ([#125](https://github.com/cedricziel/hermes-app/issues/125)) ([e9fadab](https://github.com/cedricziel/hermes-app/commit/e9fadab3a896e1ab1314d4402ee3bbecff22aecb))
+
+
+### Documentation
+
+* guide the agent on skills and pub.dev plugins ([#133](https://github.com/cedricziel/hermes-app/issues/133)) ([d7e0e42](https://github.com/cedricziel/hermes-app/commit/d7e0e4230d1e8612b745e9fa778bebf517745a4b))
+* **openspec:** sync telemetry and notifications specs with main ([#117](https://github.com/cedricziel/hermes-app/issues/117)) ([7b937f9](https://github.com/cedricziel/hermes-app/commit/7b937f9d1fa9c60f6eec36b02901f5443189a0bb))
+
 ## [0.1.12](https://github.com/cedricziel/hermes-app/compare/v0.1.11...v0.1.12) (2026-09-20)
 
 

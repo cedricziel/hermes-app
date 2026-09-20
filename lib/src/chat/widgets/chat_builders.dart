@@ -5,11 +5,17 @@ import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_message_kinds.dart';
 import '../chat_models.dart'
-    show ApprovalRequest, ClarifyRequest, ToolCall, ToolCallStatus;
+    show
+        ApprovalRequest,
+        ClarifyRequest,
+        ToolCall,
+        ToolCallStatus,
+        UnsupportedRequest;
 import 'approval_card.dart';
 import 'clarify_card.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
+import 'unsupported_request_card.dart';
 import 'welcome_view.dart';
 
 /// The `flutter_chat_ui` builders that give Hermes' message kinds and empty
@@ -116,6 +122,7 @@ Widget _buildCustom(
               ? null
               : (answers) => onAnswerClarify(request.requestId, answers),
         ),
+        UnsupportedRequest request => UnsupportedRequestCard(request: request),
         _ => const SizedBox.shrink(),
       };
     default:

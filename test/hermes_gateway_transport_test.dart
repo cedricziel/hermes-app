@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -518,6 +519,64 @@ void main() {
       final events = await reply();
 
       expect(events.whereType<InputRequestExpired>().single.requestId, 'r2');
+    });
+
+    test('a secret request becomes an unsupported request', () async {
+      gateway.turn = (g, sid) {
+        g.event('secret.request', sid, {
+          'request_id': 'r5',
+          'prompt': 'Enter the key',
+          'env_var': 'SERVICE_API_KEY',
+          'metadata': {'service': 'example'},
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<UnsupportedRequested>().single.request;
+      expect(request.requestId, 'r5');
+      expect(request.kind, UnsupportedKind.secret);
+    });
+
+    test('a sudo request becomes an unsupported request', () async {
+      gateway.turn = (g, sid) {
+        g.event('sudo.request', sid, {'request_id': 'r6'});
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<UnsupportedRequested>().single.request;
+      expect(request.requestId, 'r6');
+      expect(request.kind, UnsupportedKind.sudo);
+    });
+
+    test('nothing is sent for a secret or sudo request', () async {
+      gateway.turn = (g, sid) {
+        g.event('secret.request', sid, {'request_id': 'r5'});
+        g.event('sudo.request', sid, {'request_id': 'r6'});
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      await reply();
+
+      expect(gateway.methods, ['session.create', 'prompt.submit']);
+    });
+
+    test('secret and sudo expire events end the request', () async {
+      gateway.turn = (g, sid) {
+        g.event('secret.expire', sid, {'request_id': 'r5'});
+        g.event('sudo.expire', sid, {'request_id': 'r6'});
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(events.whereType<InputRequestExpired>().map((e) => e.requestId), [
+        'r5',
+        'r6',
+      ]);
     });
 
     /// Runs a turn that raises [payload] as [event], calls [answer] on the
