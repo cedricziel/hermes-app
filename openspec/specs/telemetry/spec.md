@@ -133,7 +133,7 @@ The system SHALL NOT include the device name, vendor or hardware identifiers, lo
 
 ### Requirement: Every HTTP request through the app's clients is traced and logged
 
-When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.method`, `http.route` (when known), `http.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.method`, `http.route` (when known), `http.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is not 2xx and `info` otherwise, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
+When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.method`, `http.route` (when known), `http.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.method`, `http.route` (when known), `http.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is 400 or above and `info` otherwise, so the span and the log always agree on whether a request failed, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
 
 #### Scenario: Successful request
 
@@ -146,6 +146,11 @@ When telemetry is enabled the system SHALL add one interceptor to every HTTP cli
 - **WHEN** the server answers with a 4xx or 5xx status
 - **THEN** the span status is an error, carries the status code and the error type `badResponse`, and is ended
 - **AND** the log record has severity `error` and includes the status
+
+#### Scenario: Non-error status
+
+- **WHEN** the server answers 204 or 304
+- **THEN** the span status is OK and the log record has severity `info`
 
 #### Scenario: No response
 
