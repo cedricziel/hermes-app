@@ -417,7 +417,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _closeDrawerIfNarrow() {
     if (MediaQuery.sizeOf(context).width < _wideBreakpoint) {
-      Navigator.of(context).maybePop();
+      _scaffoldKey.currentState?.closeDrawer();
     }
   }
 

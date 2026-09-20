@@ -314,4 +314,23 @@ void main() {
     expect(profiles, lessThan(bots));
     expect(bots, lessThan(plugins));
   });
+
+  testWidgets('a narrow layout closes the drawer when it opens the bots', (
+    tester,
+  ) async {
+    server.on('GET', '/api/messaging/platforms', platformListBody([]));
+    await pumpChat(tester);
+    tester.view.physicalSize = const Size(400, 800);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bots'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(BotsScreen), findsNothing);
+    expect(find.byType(Drawer), findsNothing);
+  });
 }
