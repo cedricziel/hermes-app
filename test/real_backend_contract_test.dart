@@ -9,6 +9,7 @@ import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
@@ -202,6 +203,27 @@ void main() {
 
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
+  }, skip: skip);
+
+  test('the gateway accepts the server-request capability and lists what it '
+      'may ask', () async {
+    final rpc = GatewayRpcClient(
+      await hermesGatewayConnect(
+        baseUrl: url!,
+        authRequired: false,
+        api: client,
+      )(),
+    );
+    addTearDown(rpc.close);
+
+    final result = await rpc.request('client.capabilities', {
+      'server_requests': true,
+    });
+
+    expect(
+      (result['server_requests'] as List).cast<String>(),
+      containsAll(['approval', 'clarify', 'sudo', 'secret']),
+    );
   }, skip: skip);
 
   test(
