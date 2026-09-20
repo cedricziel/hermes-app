@@ -47,6 +47,9 @@ class HermesGatewayTransport implements ChatTransport {
   Future<GatewayRpcClient>? _opening;
   final _awaiting = <String, _OpenRequest>{};
 
+  /// The runtime sessions a reply is in flight for, with how many.
+  final _replying = <String, int>{};
+
   @override
   Stream<ChatEvent> send({
     String? threadId,
@@ -70,6 +73,7 @@ class HermesGatewayTransport implements ChatTransport {
       rethrow;
     }
     final runtimeId = session['session_id'] as String;
+    _replying.update(runtimeId, (count) => count + 1, ifAbsent: () => 1);
 
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
@@ -107,6 +111,8 @@ class HermesGatewayTransport implements ChatTransport {
       throw const GatewayConnectionClosed();
     } finally {
       mine.forEach(_awaiting.remove);
+      _replying.update(runtimeId, (count) => count - 1);
+      if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
       await subscription.cancel();
       await requests.cancel();
       unawaited(inbox.close());
@@ -246,8 +252,15 @@ class HermesGatewayTransport implements ChatTransport {
           .request('client.capabilities', {'server_requests': true})
           .then((_) {}, onError: (Object _) {}),
     );
+    // Another client attached to a session may answer its requests, and the
+    // first response settles one for all of them: only refuse those of a
+    // session this app is replying in.
     client.serverRequests
-        .where((request) => !_handledRequests.contains(request.method))
+        .where(
+          (request) =>
+              !_handledRequests.contains(request.method) &&
+              _replying.containsKey(request.sessionId),
+        )
         .listen(
           (request) =>
               client.respondError(request.id, -32601, 'Method not found'),
