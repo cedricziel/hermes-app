@@ -48,13 +48,18 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   if (signingIn)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Column(
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 12),
-                          Text('Continue in your browser…'),
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          const Text('Continue in your browser…'),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: auth.cancelSignIn,
+                            child: const Text('Cancel'),
+                          ),
                         ],
                       ),
                     )

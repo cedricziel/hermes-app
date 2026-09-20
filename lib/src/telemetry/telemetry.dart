@@ -3,6 +3,7 @@ import 'package:flutter_otel/flutter_otel.dart';
 
 import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
+import 'telemetry_event.dart';
 import 'uncaught_error_logging.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
@@ -44,6 +45,14 @@ class Telemetry {
     final sdk = _sdk;
     if (sdk == null) return null;
     return HttpTelemetryInterceptor(sdk.getTracer(), sdk.getLogger());
+  }
+
+  /// Logs app events such as sign-in outcomes; does nothing when disabled.
+  TelemetryEvent events() {
+    final sdk = _sdk;
+    return sdk == null
+        ? ignoreTelemetryEvent
+        : logTelemetryEvents(sdk.getLogger());
   }
 
   /// Logs uncaught Flutter and async errors; does nothing when disabled.

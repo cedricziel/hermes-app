@@ -12,6 +12,7 @@ Release builds send diagnostic logs and traces to a server run by the developer.
 - a random ID that changes on every launch
 - for each request the app makes: the HTTP method, the API path (for example `/api/status`), the status code and how long it took
 - the type of error when a request fails
+- sign-in steps: the app's connection state (for example "needs sign-in" or "ready"), whether a sign-in started, succeeded, was cancelled or failed and how long it took, whether it used a password, a short fixed reason such as "timeout", and when a session was refreshed or ended, with the status code the server answered
 - the type of an error the app did not handle, such as `StateError`, without its message or stack trace
 
 They never contain your server address, your session tokens, your messages or the responses from your server. The app does not add tracing headers to the requests it sends to your server.
