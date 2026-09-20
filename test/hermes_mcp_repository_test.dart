@@ -370,4 +370,476 @@ void main() {
       });
     }
   });
+
+  group('loadCatalog', () {
+    const path = '/api/mcp/catalog';
+
+    test(
+      'maps a remote OAuth entry and a command entry with a build',
+      () async {
+        server.on(
+          'GET',
+          path,
+          mcpCatalogBody([
+            mcpCatalogEntry(
+              name: 'asana',
+              description: 'Tasks, projects and workspaces.',
+              source: 'https://asana.com/docs',
+              url: 'https://mcp.asana.com/sse',
+              authType: 'oauth',
+              installed: true,
+              enabled: true,
+            ),
+            mcpCatalogEntry(
+              name: 'buildkite',
+              command: 'node',
+              args: ['dist/index.js'],
+              installUrl: 'https://github.com/buildkite/mcp-server',
+              installRef: 'v1.2.0',
+              bootstrap: ['npm ci', 'npm run build'],
+              requiredEnv: [
+                mcpCredentialRow(name: 'BUILDKITE_TOKEN', prompt: 'API token'),
+                mcpCredentialRow(name: 'BUILDKITE_ORG', required: false),
+              ],
+              authType: 'api_key',
+            ),
+          ]),
+        );
+
+        final catalog = await repository.loadCatalog(profile: 'work');
+
+        expect(catalog.entries.map((e) => e.name), ['asana', 'buildkite']);
+        final asana = catalog.entries.first;
+        expect(asana.description, 'Tasks, projects and workspaces.');
+        expect(asana.source, 'https://asana.com/docs');
+        expect(asana.transport, McpTransport.remote);
+        expect(asana.url, 'https://mcp.asana.com/sse');
+        expect(asana.authKind, McpAuthKind.oauth);
+        expect(asana.installed, isTrue);
+        expect(asana.enabled, isTrue);
+        expect(asana.buildsLocally, isFalse);
+        expect(asana.requiredEnv, isEmpty);
+        final buildkite = catalog.entries.last;
+        expect(buildkite.transport, McpTransport.command);
+        expect(buildkite.command, 'node');
+        expect(buildkite.args, ['dist/index.js']);
+        expect(buildkite.authKind, McpAuthKind.apiKey);
+        expect(buildkite.buildsLocally, isTrue);
+        expect(buildkite.installUrl, 'https://github.com/buildkite/mcp-server');
+        expect(buildkite.installRef, 'v1.2.0');
+        expect(buildkite.bootstrap, ['npm ci', 'npm run build']);
+        expect(buildkite.installed, isFalse);
+        expect(buildkite.requiredEnv.map((e) => e.name), [
+          'BUILDKITE_TOKEN',
+          'BUILDKITE_ORG',
+        ]);
+        expect(buildkite.requiredEnv.first.prompt, 'API token');
+        expect(buildkite.requiredEnv.first.required, isTrue);
+        expect(buildkite.requiredEnv.last.required, isFalse);
+        expect(
+          server.requestsTo('GET', path).single.queryParameters['profile'],
+          'work',
+        );
+      },
+    );
+
+    test('skips entries without a usable name', () async {
+      server.on('GET', path, {
+        'entries': [
+          mcpCatalogEntry(name: 'a', url: 'https://a.test'),
+          {...mcpCatalogEntry(name: 'x'), 'name': ''},
+          {...mcpCatalogEntry(name: 'x'), 'name': 7},
+          {'transport': 'http'},
+          'nope',
+        ],
+      });
+
+      final catalog = await repository.loadCatalog();
+
+      expect(catalog.entries.map((e) => e.name), ['a']);
+    });
+
+    test(
+      'shows an entry without credentials and build steps as plain',
+      () async {
+        server.on(
+          'GET',
+          path,
+          mcpCatalogBody([
+            {'name': 'bare', 'transport': 'http', 'url': 'https://bare.test'},
+          ]),
+        );
+
+        final bare = (await repository.loadCatalog()).entries.single;
+
+        expect(bare.requiredEnv, isEmpty);
+        expect(bare.bootstrap, isEmpty);
+        expect(bare.buildsLocally, isFalse);
+        expect(bare.installed, isFalse);
+        expect(bare.authKind, McpAuthKind.none);
+        expect(bare.description, '');
+      },
+    );
+
+    test('falls back to defaults for malformed fields', () async {
+      server.on(
+        'GET',
+        path,
+        mcpCatalogBody([
+          {
+            'name': 'odd',
+            'transport': 3,
+            'auth_type': 4,
+            'required_env': [
+              {'name': 'OK', 'prompt': 1},
+              {'prompt': 'no name'},
+              'nope',
+            ],
+            'args': 'nope',
+            'bootstrap': [1, 'make'],
+            'installed': 'yes',
+          },
+        ]),
+      );
+
+      final odd = (await repository.loadCatalog()).entries.single;
+
+      expect(odd.transport, McpTransport.unknown);
+      expect(odd.authKind, McpAuthKind.unknown);
+      expect(odd.requiredEnv.map((e) => e.name), ['OK']);
+      expect(odd.requiredEnv.single.prompt, 'OK');
+      expect(odd.args, isEmpty);
+      expect(odd.bootstrap, ['make']);
+      expect(odd.installed, isFalse);
+    });
+
+    test('counts the diagnostics', () async {
+      server.on(
+        'GET',
+        path,
+        mcpCatalogBody(
+          [],
+          diagnostics: [
+            {'name': 'broken', 'kind': 'invalid', 'message': 'bad yaml'},
+          ],
+        ),
+      );
+
+      expect((await repository.loadCatalog()).hasDiagnostics, isTrue);
+    });
+
+    test('throws when the body is not an object with entries', () {
+      server.on('GET', path, {'entries': 'nope'});
+
+      expect(repository.loadCatalog(), throwsA(isA<FormatException>()));
+    });
+
+    test('surfaces a server error as a DioException', () {
+      server.on('GET', path, {'detail': 'boom'}, status: 500);
+
+      expect(repository.loadCatalog(), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('installEntry', () {
+    const path = '/api/mcp/catalog/install';
+
+    HermesMcpCatalogEntry entry({List<HermesMcpCredential> env = const []}) =>
+        HermesMcpCatalogEntry(
+          name: 'airtable',
+          transport: McpTransport.remote,
+          url: 'https://mcp.airtable.com/mcp',
+          authKind: McpAuthKind.apiKey,
+          requiredEnv: env,
+        );
+
+    const key = HermesMcpCredential(name: 'AIRTABLE_API_KEY', prompt: 'Token');
+    const optional = HermesMcpCredential(
+      name: 'AIRTABLE_BASE',
+      prompt: 'Base',
+      required: false,
+    );
+
+    test('sends the name, the enable flag and the profile', () async {
+      server.on('POST', path, mcpInstallBody(name: 'airtable'));
+
+      final result = await repository.installEntry(
+        entry(),
+        enable: false,
+        profile: 'work',
+      );
+
+      final request = server.requestsTo('POST', path).single;
+      expect(jsonBody(request), {
+        'name': 'airtable',
+        'env': {},
+        'enable': false,
+      });
+      expect(request.queryParameters['profile'], 'work');
+      expect(result.action, isNull);
+    });
+
+    test('sends only the credentials the entry declares', () async {
+      server.on('POST', path, mcpInstallBody(name: 'airtable'));
+
+      await repository.installEntry(
+        entry(env: [key]),
+        env: {'AIRTABLE_API_KEY': 'pat-1', 'PATH': '/evil'},
+      );
+
+      expect(jsonBody(server.requestsTo('POST', path).single), {
+        'name': 'airtable',
+        'env': {'AIRTABLE_API_KEY': 'pat-1'},
+        'enable': true,
+      });
+    });
+
+    test('leaves out empty credentials', () async {
+      server.on('POST', path, mcpInstallBody(name: 'airtable'));
+
+      await repository.installEntry(
+        entry(env: [key, optional]),
+        env: {'AIRTABLE_API_KEY': 'pat-1', 'AIRTABLE_BASE': ''},
+      );
+
+      expect(
+        (jsonBody(server.requestsTo('POST', path).single)! as Map)['env'],
+        {'AIRTABLE_API_KEY': 'pat-1'},
+      );
+    });
+
+    test('reads a background install', () async {
+      server.on(
+        'POST',
+        path,
+        mcpInstallBody(name: 'buildkite', action: 'mcp-install-buildkite-ab12'),
+      );
+
+      final result = await repository.installEntry(entry());
+
+      expect(result.action, 'mcp-install-buildkite-ab12');
+    });
+
+    test('treats a background answer without an action as a failure', () {
+      server.on('POST', path, {'ok': true, 'name': 'x', 'background': true});
+
+      expect(repository.installEntry(entry()), throwsA(isA<FormatException>()));
+    });
+
+    test('turns a 400 into a refusal with Hermes\' reason', () {
+      server.on('POST', path, {
+        'detail': "Catalog entry 'airtable' does not declare environment variable(s): X",
+      }, status: 400);
+
+      expect(
+        repository.installEntry(entry()),
+        throwsA(
+          isA<McpRefused>()
+              .having((e) => e.status, 'status', 400)
+              .having((e) => e.reason, 'reason', contains('does not declare')),
+        ),
+      );
+    });
+
+    test('surfaces a 404 as a DioException the caller can recognise', () {
+      server.on('POST', path, {'detail': 'No catalog entry'}, status: 404);
+
+      expect(
+        repository.installEntry(entry()),
+        throwsA(
+          isA<DioException>().having(isMcpNotFound, 'isMcpNotFound', isTrue),
+        ),
+      );
+    });
+
+    test('leaves a server error as a DioException', () {
+      server.on('POST', path, {'detail': 'boom'}, status: 500);
+
+      expect(repository.installEntry(entry()), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('actionStatus', () {
+    const path = '/api/actions/mcp-install-buildkite-ab12/status';
+
+    test('reads a running build', () async {
+      server.on('GET', path, jobStatusBody(running: true, exitCode: null));
+
+      final action = await repository.actionStatus(
+        'mcp-install-buildkite-ab12',
+      );
+
+      expect(action.running, isTrue);
+      expect(action.exitCode, isNull);
+    });
+
+    test('reads the exit code and the log lines of a finished build', () async {
+      server.on(
+        'GET',
+        path,
+        jobStatusBody(exitCode: 1, lines: ['cloning', 'npm ERR! failed']),
+      );
+
+      final action = await repository.actionStatus(
+        'mcp-install-buildkite-ab12',
+      );
+
+      expect(action.running, isFalse);
+      expect(action.exitCode, 1);
+      expect(action.lines, ['cloning', 'npm ERR! failed']);
+    });
+
+    test('takes what is there from a malformed body', () async {
+      server.on('GET', path, {'running': 'yes', 'exit_code': 'x', 'lines': 3});
+
+      final action = await repository.actionStatus(
+        'mcp-install-buildkite-ab12',
+      );
+
+      expect(action.running, isFalse);
+      expect(action.exitCode, isNull);
+      expect(action.lines, isEmpty);
+    });
+
+    test('throws when the answer is not an object', () {
+      server.on('GET', path, ['nope']);
+
+      expect(
+        repository.actionStatus('mcp-install-buildkite-ab12'),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
+
+  group('startSignIn', () {
+    const path = '/api/mcp/servers/asana/auth';
+
+    test('reads the flow and sends the profile', () async {
+      server.on('POST', path, mcpFlowBody(flowId: 'f1'));
+
+      final flow = await repository.startSignIn('asana', profile: 'work');
+
+      expect(flow.flowId, 'f1');
+      expect(flow.status, McpFlowStatus.authorizationRequired);
+      expect(flow.authorizationUrl, 'https://auth.example/authorize?state=s1');
+      expect(server.requestsTo('POST', path).single.queryParameters, {
+        'profile': 'work',
+      });
+    });
+
+    test('reads a flow that already ended in an error', () async {
+      server.on(
+        'POST',
+        path,
+        mcpFlowBody(status: 'error', authorizationUrl: null, error: 'no dice'),
+      );
+
+      final flow = await repository.startSignIn('asana');
+
+      expect(flow.status, McpFlowStatus.error);
+      expect(flow.authorizationUrl, isNull);
+      expect(flow.error, 'no dice');
+    });
+
+    test('throws when the flow has no id', () {
+      server.on('POST', path, {'status': 'starting'});
+
+      expect(repository.startSignIn('asana'), throwsA(isA<FormatException>()));
+    });
+
+    for (final (status, reason) in [
+      (409, "MCP OAuth for 'asana' is already in progress"),
+      (429, 'Too many MCP OAuth flows are already in progress'),
+      (400, 'stdio servers authenticate via env keys, not OAuth'),
+    ]) {
+      test('turns a $status into a refusal', () {
+        server.on('POST', path, {'detail': reason}, status: status);
+
+        expect(
+          repository.startSignIn('asana'),
+          throwsA(
+            isA<McpRefused>()
+                .having((e) => e.status, 'status', status)
+                .having((e) => e.reason, 'reason', reason),
+          ),
+        );
+      });
+    }
+
+    test('surfaces a 404 as a DioException the caller can recognise', () {
+      expect(
+        repository.startSignIn('asana'),
+        throwsA(
+          isA<DioException>().having(isMcpNotFound, 'isMcpNotFound', isTrue),
+        ),
+      );
+    });
+  });
+
+  group('flowStatus', () {
+    const path = '/api/mcp/oauth/flows/f1';
+
+    test('maps each status Hermes reports', () async {
+      for (final (raw, expected) in [
+        ('starting', McpFlowStatus.starting),
+        ('authorization_required', McpFlowStatus.authorizationRequired),
+        ('approved', McpFlowStatus.approved),
+        ('error', McpFlowStatus.error),
+        ('surprise', McpFlowStatus.unknown),
+      ]) {
+        server.on('GET', path, {...mcpFlowBody(status: raw), 'tools': []});
+
+        expect((await repository.flowStatus('f1')).status, expected);
+      }
+    });
+
+    test('surfaces a 404 as a DioException the caller can recognise', () {
+      expect(
+        repository.flowStatus('f1'),
+        throwsA(
+          isA<DioException>().having(isMcpNotFound, 'isMcpNotFound', isTrue),
+        ),
+      );
+    });
+  });
+
+  group('cancelFlow', () {
+    test('deletes the flow', () async {
+      server.on('DELETE', '/api/mcp/oauth/flows/f1', {
+        'ok': true,
+        'status': 'error',
+      });
+
+      await repository.cancelFlow('f1');
+
+      expect(
+        server.requestsTo('DELETE', '/api/mcp/oauth/flows/f1'),
+        hasLength(1),
+      );
+    });
+  });
+
+  group('path parameters', () {
+    test('are encoded, so an awkward name cannot change the route', () async {
+      const awkward = 'a b?c/d#e%f';
+      const encoded = 'a%20b%3Fc%2Fd%23e%25f';
+      server
+        ..on('POST', '/api/mcp/servers/$encoded/auth', mcpFlowBody())
+        ..on('GET', '/api/mcp/oauth/flows/$encoded', mcpFlowBody())
+        ..on('DELETE', '/api/mcp/oauth/flows/$encoded', {'ok': true})
+        ..on('GET', '/api/actions/$encoded/status', jobStatusBody());
+
+      await repository.startSignIn(awkward);
+      await repository.flowStatus(awkward);
+      await repository.cancelFlow(awkward);
+      await repository.actionStatus(awkward);
+
+      expect(server.requests.map((r) => r.path), [
+        '/api/mcp/servers/$encoded/auth',
+        '/api/mcp/oauth/flows/$encoded',
+        '/api/mcp/oauth/flows/$encoded',
+        '/api/actions/$encoded/status',
+      ]);
+    });
+  });
 }

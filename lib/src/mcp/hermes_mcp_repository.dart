@@ -85,6 +85,155 @@ class HermesMcpTestResult {
   final bool signInNeeded;
 }
 
+/// How a catalog entry authenticates: `api_key` (credentials in the profile's
+/// `.env`), `oauth` (a sign-in on the server) or `none`.
+enum McpAuthKind { apiKey, oauth, none, unknown }
+
+/// A credential a catalog entry declares. Hermes sends its name and prompt,
+/// never a value.
+class HermesMcpCredential {
+  const HermesMcpCredential({
+    required this.name,
+    required this.prompt,
+    this.required = true,
+  });
+
+  final String name;
+  final String prompt;
+  final bool required;
+}
+
+/// One approved server of Hermes' catalog, annotated with whether the
+/// profile has it. The transport, command and build steps are kept because
+/// the catalog's trust model asks the user to see them before installing.
+class HermesMcpCatalogEntry {
+  const HermesMcpCatalogEntry({
+    required this.name,
+    required this.transport,
+    this.description = '',
+    this.source = '',
+    this.authKind = McpAuthKind.none,
+    this.requiredEnv = const [],
+    this.command,
+    this.args = const [],
+    this.url,
+    this.installUrl,
+    this.installRef,
+    this.bootstrap = const [],
+    this.installed = false,
+    this.enabled = false,
+  });
+
+  final String name;
+  final McpTransport transport;
+  final String description;
+  final String source;
+  final McpAuthKind authKind;
+  final List<HermesMcpCredential> requiredEnv;
+  final String? command;
+  final List<String> args;
+  final String? url;
+
+  /// The repository Hermes clones and the reference it checks out, for an
+  /// entry that has to be built on the server.
+  final String? installUrl;
+  final String? installRef;
+  final List<String> bootstrap;
+  final bool installed;
+  final bool enabled;
+
+  bool get buildsLocally => installUrl != null;
+
+  /// Whether the entry names an address or a command, so the user can see
+  /// what installing it would run.
+  bool get hasTarget =>
+      (url?.isNotEmpty ?? false) || (command?.isNotEmpty ?? false);
+
+  HermesMcpCatalogEntry withInstalled({required bool enabled}) =>
+      HermesMcpCatalogEntry(
+        name: name,
+        transport: transport,
+        description: description,
+        source: source,
+        authKind: authKind,
+        requiredEnv: requiredEnv,
+        command: command,
+        args: args,
+        url: url,
+        installUrl: installUrl,
+        installRef: installRef,
+        bootstrap: bootstrap,
+        installed: true,
+        enabled: enabled,
+      );
+}
+
+class HermesMcpCatalog {
+  const HermesMcpCatalog({required this.entries, this.hasDiagnostics = false});
+
+  final List<HermesMcpCatalogEntry> entries;
+
+  /// Hermes could not read some catalog files and says so.
+  final bool hasDiagnostics;
+}
+
+class HermesMcpInstallResult {
+  const HermesMcpInstallResult({required this.name, this.action});
+
+  final String name;
+
+  /// The background process building the entry on the server, or null when
+  /// the install finished with the request.
+  final String? action;
+}
+
+/// A background process on the server, as `GET /api/actions/{name}/status`
+/// reports it.
+class HermesMcpAction {
+  const HermesMcpAction({
+    required this.running,
+    this.exitCode,
+    this.lines = const [],
+  });
+
+  final bool running;
+  final int? exitCode;
+
+  /// The tail of its log.
+  final List<String> lines;
+}
+
+enum McpFlowStatus { starting, authorizationRequired, approved, error, unknown }
+
+/// A sign-in that Hermes runs on the server for an OAuth server. The user
+/// approves it in a browser; Hermes receives the code and keeps the token.
+class HermesMcpFlow {
+  const HermesMcpFlow({
+    required this.flowId,
+    required this.status,
+    this.authorizationUrl,
+    this.error,
+  });
+
+  final String flowId;
+  final McpFlowStatus status;
+  final String? authorizationUrl;
+  final String? error;
+}
+
+/// Hermes refused a request with a reason of its own: 400 for a bad request,
+/// 409 or 429 when a sign-in for the server is already running or too many
+/// are. [reason] is Hermes' text, empty when it sent none.
+class McpRefused implements Exception {
+  const McpRefused(this.status, this.reason);
+
+  final int status;
+  final String reason;
+
+  @override
+  String toString() => 'McpRefused($status)';
+}
+
 /// Whether [error] is the dashboard saying the named server does not exist.
 bool isMcpNotFound(Object error) =>
     error is DioException && error.response?.statusCode == 404;
@@ -113,6 +262,34 @@ class HermesMcpRepository {
 
   static int? _count(Object? value) => value is num ? value.toInt() : null;
 
+  static List<String> _texts(Object? value) => [
+    if (value case final List<dynamic> items) ...items.whereType<String>(),
+  ];
+
+  static McpTransport _transport(Object? value) => switch (value) {
+    'http' => McpTransport.remote,
+    'stdio' => McpTransport.command,
+    _ => McpTransport.unknown,
+  };
+
+  /// Runs [call] and turns the refusals Hermes explains (400, 409, 429) into
+  /// [McpRefused]. Anything else, a 404 included, stays a [DioException].
+  static Future<T> _refusing<T>(Future<T> Function() call) async {
+    try {
+      return await call();
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      if (status == 400 || status == 409 || status == 429) {
+        final reason = switch (e.response?.data) {
+          {'detail': final String detail} => detail,
+          _ => '',
+        };
+        throw McpRefused(status!, reason);
+      }
+      rethrow;
+    }
+  }
+
   Future<List<HermesMcpServer>> loadServers({String? profile}) async {
     final response = await _api.listMcpServersApiMcpServersGet(
       profile: profile,
@@ -126,17 +303,10 @@ class HermesMcpRepository {
         if (row['name'] case final String name when name.isNotEmpty)
           HermesMcpServer(
             name: name,
-            transport: switch (row['transport']) {
-              'http' => McpTransport.remote,
-              'stdio' => McpTransport.command,
-              _ => McpTransport.unknown,
-            },
+            transport: _transport(row['transport']),
             url: _text(row['url']),
             command: _text(row['command']),
-            args: [
-              if (row['args'] case final List<dynamic> args)
-                ...args.whereType<String>(),
-            ],
+            args: _texts(row['args']),
             auth: _text(row['auth']),
             enabled: row['enabled'] != false,
           ),
@@ -194,6 +364,156 @@ class HermesMcpRepository {
     await _api.removeMcpServerApiMcpServersNameDelete(
       name: Uri.encodeComponent(name),
       profile: profile,
+    );
+  }
+
+  Future<HermesMcpCatalog> loadCatalog({String? profile}) async {
+    final response = await _api.listMcpCatalogApiMcpCatalogGet(
+      profile: profile,
+    );
+    final body = response.data;
+    if (body is! Map || body['entries'] is! List) {
+      throw const FormatException('Unexpected MCP catalog response');
+    }
+    return HermesMcpCatalog(
+      entries: [
+        for (final row in (body['entries'] as List).whereType<Map>())
+          if (row['name'] case final String name when name.isNotEmpty)
+            HermesMcpCatalogEntry(
+              name: name,
+              transport: _transport(row['transport']),
+              description: _text(row['description']) ?? '',
+              source: _text(row['source']) ?? '',
+              authKind: switch (row['auth_type']) {
+                null || 'none' => McpAuthKind.none,
+                'api_key' => McpAuthKind.apiKey,
+                'oauth' => McpAuthKind.oauth,
+                _ => McpAuthKind.unknown,
+              },
+              requiredEnv: [
+                if (row['required_env'] case final List<dynamic> env)
+                  for (final spec in env.whereType<Map>())
+                    if (spec['name'] case final String key when key.isNotEmpty)
+                      HermesMcpCredential(
+                        name: key,
+                        prompt: _text(spec['prompt']) ?? key,
+                        required: spec['required'] != false,
+                      ),
+              ],
+              command: _text(row['command']),
+              args: _texts(row['args']),
+              url: _text(row['url']),
+              installUrl: _text(row['install_url']),
+              installRef: _text(row['install_ref']),
+              bootstrap: _texts(row['bootstrap']),
+              installed: row['installed'] == true,
+              enabled: row['enabled'] == true,
+            ),
+      ],
+      hasDiagnostics: switch (body['diagnostics']) {
+        final List<dynamic> found => found.isNotEmpty,
+        _ => false,
+      },
+    );
+  }
+
+  /// Installs [entry]. Only the credentials it declares are sent, and empty
+  /// ones are left out. A refusal (400) surfaces as [McpRefused]; an entry
+  /// Hermes no longer has, as a 404 [DioException].
+  Future<HermesMcpInstallResult> installEntry(
+    HermesMcpCatalogEntry entry, {
+    Map<String, String> env = const {},
+    bool enable = true,
+    String? profile,
+  }) async {
+    final declared = {for (final spec in entry.requiredEnv) spec.name};
+    final response = await _refusing(
+      () => _api.installMcpCatalogEntryApiMcpCatalogInstallPost(
+        mCPCatalogInstall: MCPCatalogInstall(
+          name: entry.name,
+          env: {
+            for (final e in env.entries)
+              if (declared.contains(e.key) && e.value.isNotEmpty)
+                e.key: e.value,
+          },
+          enable: enable,
+        ),
+        profile: profile,
+      ),
+    );
+    final body = response.data;
+    if (body is! Map || body['ok'] != true) {
+      throw const FormatException('Unexpected MCP install response');
+    }
+    final action = body['background'] == true ? _text(body['action']) : null;
+    if (body['background'] == true && action == null) {
+      throw const FormatException('Install has no action to follow');
+    }
+    return HermesMcpInstallResult(
+      name: _text(body['name']) ?? entry.name,
+      action: action,
+    );
+  }
+
+  Future<HermesMcpAction> actionStatus(String action) async {
+    final response = await _api.getActionStatusApiActionsNameStatusGet(
+      name: Uri.encodeComponent(action),
+    );
+    final body = response.data;
+    if (body is! Map) {
+      throw const FormatException('Unexpected action status response');
+    }
+    return HermesMcpAction(
+      running: body['running'] == true,
+      exitCode: _count(body['exit_code']),
+      lines: _texts(body['lines']),
+    );
+  }
+
+  /// Starts a sign-in for an OAuth server on Hermes. The flow's
+  /// [HermesMcpFlow.authorizationUrl] is where the user approves it.
+  Future<HermesMcpFlow> startSignIn(String name, {String? profile}) async {
+    final response = await _refusing(
+      () => _api.authMcpServerApiMcpServersNameAuthPost(
+        name: Uri.encodeComponent(name),
+        profile: profile,
+      ),
+    );
+    return _flow(response.data);
+  }
+
+  /// The state of a flow. A flow Hermes has dropped is a 404
+  /// [DioException].
+  Future<HermesMcpFlow> flowStatus(String flowId) async {
+    final response = await _api.mcpOauthFlowStatusApiMcpOauthFlowsFlowIdGet(
+      flowId: Uri.encodeComponent(flowId),
+    );
+    return _flow(response.data);
+  }
+
+  /// Ends a flow so its server can start another. Hermes treats a flow it no
+  /// longer has as already cancelled.
+  Future<void> cancelFlow(String flowId) async {
+    await _api.cancelMcpOauthFlowApiMcpOauthFlowsFlowIdDelete(
+      flowId: Uri.encodeComponent(flowId),
+    );
+  }
+
+  static HermesMcpFlow _flow(Object? body) {
+    if (body is! Map || body['flow_id'] is! String) {
+      throw const FormatException('Unexpected MCP sign-in response');
+    }
+    return HermesMcpFlow(
+      flowId: body['flow_id'] as String,
+      status: switch (body['status']) {
+        'starting' => McpFlowStatus.starting,
+        'authorization_required' => McpFlowStatus.authorizationRequired,
+        'approved' => McpFlowStatus.approved,
+        'error' => McpFlowStatus.error,
+        _ => McpFlowStatus.unknown,
+      },
+      authorizationUrl: _text(body['authorization_url']),
+      error: _text(body['error']),
     );
   }
 }

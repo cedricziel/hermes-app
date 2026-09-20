@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
@@ -23,6 +26,34 @@ class McpTestUnavailable extends McpTestState {
   const McpTestUnavailable();
 }
 
+/// Opens a link in the system browser; false when it could not.
+typedef McpLinkLauncher = Future<bool> Function(Uri uri);
+
+Future<bool> _openInBrowser(Uri uri) =>
+    launchUrl(uri, mode: LaunchMode.externalApplication);
+
+/// What starting a sign-in came to.
+sealed class McpSignInStart {
+  const McpSignInStart();
+}
+
+/// Hermes started the flow; the user approves it in the browser.
+class McpSignInStarted extends McpSignInStart {
+  const McpSignInStarted(this.flow);
+
+  final HermesMcpFlow flow;
+}
+
+/// Hermes said no. The reason is on [McpServersController.signInNoteOf].
+class McpSignInDeclined extends McpSignInStart {
+  const McpSignInDeclined();
+}
+
+/// The dashboard no longer knows the server; the list has been reloaded.
+class McpSignInGone extends McpSignInStart {
+  const McpSignInGone();
+}
+
 enum McpOutcome {
   done,
 
@@ -39,10 +70,15 @@ enum McpOutcome {
 /// fails for any reason but 404 fails the load, so nothing is listed or
 /// changed unscoped.
 class McpServersController extends ChangeNotifier {
-  McpServersController({required this.repository, this.profiles});
+  McpServersController({
+    required this.repository,
+    this.profiles,
+    McpLinkLauncher? launchLink,
+  }) : launchLink = launchLink ?? _openInBrowser;
 
   final HermesMcpRepository repository;
   final HermesProfilesRepository? profiles;
+  final McpLinkLauncher launchLink;
 
   String? _profile;
   List<HermesMcpServer>? _servers;
@@ -51,6 +87,8 @@ class McpServersController extends ChangeNotifier {
   bool _disposed = false;
   final _switching = <String>{};
   final _tests = <String, McpTestState>{};
+  final _startingSignIn = <String>{};
+  final _signInNotes = <String, String>{};
 
   /// The profile the screen acts on; null when the dashboard has none.
   String? get profile => _profile;
@@ -60,6 +98,10 @@ class McpServersController extends ChangeNotifier {
 
   bool isSwitching(String name) => _switching.contains(name);
   McpTestState? testOf(String name) => _tests[name];
+  bool isStartingSignIn(String name) => _startingSignIn.contains(name);
+
+  /// Why Hermes would not start a sign-in for the server, until the next try.
+  String? signInNoteOf(String name) => _signInNotes[name];
 
   HermesMcpServer? serverNamed(String? name) =>
       _servers?.where((s) => s.name == name).firstOrNull;
@@ -96,6 +138,9 @@ class McpServersController extends ChangeNotifier {
     _servers = servers;
     _tests.removeWhere((name, _) => servers.every((s) => s.name != name));
   }
+
+  /// Lists the servers again, for a change made elsewhere such as an install.
+  Future<void> refresh() => _reload();
 
   Future<void> _reload() async {
     try {
@@ -167,6 +212,45 @@ class McpServersController extends ChangeNotifier {
     _tests.remove(name);
     _notify();
     return McpOutcome.done;
+  }
+
+  /// Asks Hermes to start signing in to an OAuth server. Its refusals become
+  /// a note on the server, not an exception.
+  Future<McpSignInStart> startSignIn(HermesMcpServer server) async {
+    final name = server.name;
+    if (!_startingSignIn.add(name)) return const McpSignInDeclined();
+    _signInNotes.remove(name);
+    _notify();
+    try {
+      return McpSignInStarted(
+        await repository.startSignIn(name, profile: _profile),
+      );
+    } on McpRefused catch (e) {
+      _signInNotes[name] = switch (e.status) {
+        409 =>
+          'A sign-in for $name is already in progress on your server. '
+              'Try again in a few minutes.',
+        429 =>
+          'Too many sign-ins are in progress on your server. '
+              'Try again in a few minutes.',
+        _ when e.reason.isNotEmpty => e.reason,
+        _ => 'Could not start signing in to $name',
+      };
+      return const McpSignInDeclined();
+    } on Object catch (e) {
+      if (await _failure(e) == McpOutcome.gone) return const McpSignInGone();
+      _signInNotes[name] = 'Could not start signing in to $name';
+      return const McpSignInDeclined();
+    } finally {
+      _startingSignIn.remove(name);
+      _notify();
+    }
+  }
+
+  /// Ends [flow] on Hermes so its server can start another sign-in. Nobody
+  /// waits for the answer; a flow Hermes has dropped is already cancelled.
+  void cancelSignIn(HermesMcpFlow flow) {
+    unawaited(repository.cancelFlow(flow.flowId).catchError((Object _) {}));
   }
 
   /// A 404 means another client removed the server: reload the list.
