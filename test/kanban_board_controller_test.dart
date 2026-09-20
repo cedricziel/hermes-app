@@ -7,6 +7,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:stream_channel/stream_channel.dart';
 
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -59,8 +60,25 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> settle() =>
-      Future<void>.delayed(const Duration(milliseconds: 20));
+  /// Waits for [done] by yielding to the event loop, not by sleeping: how long
+  /// the fake server and the controller take depends on machine load.
+  Future<void> until(bool Function() done) async {
+    while (!done()) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  /// Lets frames that were already added reach the controller, for tests that
+  /// assert something did not happen. Delivery takes microtasks and the
+  /// controller's zero-length timers take one turn each; 10 turns is ample.
+  Future<void> pump() async {
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  int boardFetches() =>
+      server.requestsTo('GET', '/api/plugins/kanban/board').length;
 
   test(
     'loads the board and the board list, and starts the stream after it',
@@ -71,7 +89,7 @@ void main() {
       ], latest: 7);
 
       await controller.start();
-      await settle();
+      await until(() => controller.live);
 
       expect(controller.board!.taskCount, 2);
       expect(controller.boards.map((b) => b.slug), ['default', 'ops']);
@@ -86,25 +104,20 @@ void main() {
     () async {
       serveBoard([kanbanTaskRow(id: 't1', status: 'todo')], latest: 1);
       await controller.start();
-      expect(
-        server.requestsTo('GET', '/api/plugins/kanban/board'),
-        hasLength(1),
-      );
+      expect(boardFetches(), 1);
 
       serveBoard([kanbanTaskRow(id: 't1', status: 'running')], latest: 3);
       sockets.single.local.sink
         ..add(jsonEncode(frame(2)))
         ..add(jsonEncode(frame(3)));
-      await settle();
+      List<KanbanTask> running() => controller.board!.columns
+          .firstWhere((c) => c.name == 'running')
+          .tasks;
+      await until(() => running().isNotEmpty);
+      await pump();
 
-      expect(
-        server.requestsTo('GET', '/api/plugins/kanban/board'),
-        hasLength(2),
-      );
-      expect(
-        controller.board!.columns.firstWhere((c) => c.name == 'running').tasks,
-        hasLength(1),
-      );
+      expect(boardFetches(), 2);
+      expect(running(), hasLength(1));
     },
   );
 
@@ -113,7 +126,7 @@ void main() {
     await controller.start();
 
     sockets.single.local.sink.add(jsonEncode(frame(5, events: false)));
-    await settle();
+    await pump();
 
     expect(server.requestsTo('GET', '/api/plugins/kanban/board'), hasLength(1));
   });
@@ -122,10 +135,10 @@ void main() {
     serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
     await controller.start();
     sockets.single.local.sink.add(jsonEncode(frame(9, events: false)));
-    await settle();
+    await pump();
 
     await sockets.single.local.sink.close();
-    await settle();
+    await until(() => connects.length == 2 && controller.live);
 
     expect(connects, hasLength(2));
     expect(connects.last.since, 9);
