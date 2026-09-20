@@ -52,6 +52,11 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Hermes uses the camera when you choose to take a photo to send in a chat.</string>
+	<!-- file_picker links DKImagePickerController, whose code references the
+	     location API. The app never calls it, but App Store validation
+	     (ITMS-90683) still wants a purpose string. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Hermes can read the location stored in a photo you attach to a chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hermes reads photos you share to it so you can send them in a chat.</string>
 	<key>UIApplicationSceneManifest</key>
