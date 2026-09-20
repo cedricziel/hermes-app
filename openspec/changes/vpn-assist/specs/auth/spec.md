@@ -16,7 +16,7 @@ The system SHALL classify a failure to reach the server, from the error the requ
 
 #### Scenario: Host does not answer
 
-- **WHEN** the status request runs into its connect or receive timeout
+- **WHEN** the status request runs into its connect or receive timeout, or the network reports the host or network as unreachable
 - **THEN** the failure is classified as timed out
 
 #### Scenario: Certificate is rejected
@@ -72,7 +72,7 @@ The server setup screen SHALL tell the user, in a short text with a link to the 
 
 ### Requirement: Saved server is checked again after a network change
 
-While the state is connection error because the saved server could not be reached (name lookup failed, connection refused, timed out or a network error), the system SHALL connect to the saved address again, as a restoring connect, when the network changes and when the app returns to the foreground. Network changes SHALL be debounced so that several changes in quick succession cause one attempt. The system SHALL NOT retry after a failure that is not a network failure (an HTTP error answer, a malformed response or a TLS failure), when there is no saved address, or while a connect is in flight, and SHALL NOT retry the address the user just typed and submitted until that connect has finished. A retry that succeeds SHALL continue as any connect does, including opening the app when the session is valid.
+While the state is connection error because the saved server could not be reached (name lookup failed, connection refused, timed out or another network error), the system SHALL connect to the saved address again when the network changes and when the app returns to the foreground. The state SHALL be connecting while that attempt is in flight. Network changes SHALL be debounced so that several changes in quick succession cause one attempt. The system SHALL NOT retry after a failure that is not a network failure (an HTTP error answer, a malformed response or a TLS failure), when there is no saved address, when the address that failed is not the saved address (for example one the user typed and submitted), or when the state is not connection error. A retry that succeeds SHALL continue as any connect does, including opening the app when the session is valid.
 
 #### Scenario: VPN comes up
 

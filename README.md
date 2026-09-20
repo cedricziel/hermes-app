@@ -73,6 +73,34 @@ Plain HTTP works against a dashboard on your network: Android allows cleartext
 traffic, iOS and macOS allow local networking, and the macOS sandbox has the
 client and server network entitlements the loopback sign-in callback needs.
 
+## Reaching your dashboard over a VPN
+
+If the dashboard is only reachable through Tailscale or WireGuard, turn the VPN
+on first, then enter the address the server has on the VPN.
+
+- **Tailscale, recommended:** keep the dashboard on the server's own loopback
+  address and publish it to your tailnet with `tailscale serve`:
+
+  ```bash
+  hermes dashboard --port 9119 --no-open
+  tailscale serve --bg 9119
+  ```
+
+  Enter the `https://<machine>.<tailnet>.ts.net` address that `tailscale serve`
+  prints. It carries a real certificate, and on iOS Tailscale's VPN On Demand
+  can start the VPN when the app looks up a `*.ts.net` name. It stays off the
+  internet.
+- **Tailscale or WireGuard without `serve`:** enter the server's VPN address, for
+  example `http://100.101.102.103:9119`. Start the dashboard with `--host` set to
+  that address rather than `0.0.0.0`, so it does not also listen on your LAN or
+  the public network. The VPN encrypts the traffic, so plain HTTP is fine.
+
+The VPN has to be on for the whole device, because signing in opens the system
+browser, which must reach the dashboard too. When the address looks like a VPN
+or private address and the server does not answer, the app asks whether the VPN
+is connected. When the network changes or you return to the app, it tries the
+saved server again by itself.
+
 ## How sign-in works
 
 The app uses the native-app OAuth flow (RFC 8252) that the dashboard exposes,
