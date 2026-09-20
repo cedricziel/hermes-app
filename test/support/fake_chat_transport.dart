@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
@@ -69,6 +70,15 @@ class FakeChatTransport implements ChatTransport {
       questionId: questionId,
       multiSelect: multiSelect,
     ));
+    return accepts;
+  }
+
+  final skips = <(String, UnsupportedKind)>[];
+
+  @override
+  Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
+    if (answerError case final error?) throw error;
+    skips.add((requestId, kind));
     return accepts;
   }
 

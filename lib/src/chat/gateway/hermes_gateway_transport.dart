@@ -119,6 +119,7 @@ class HermesGatewayTransport implements ChatTransport {
         request.requestId,
         request.batch,
       ),
+      UnsupportedRequested(:final request) => (request.requestId, false),
       _ => null,
     };
     if (request != null) {
@@ -178,6 +179,24 @@ class HermesGatewayTransport implements ChatTransport {
       'question_id': questionId,
     });
     return result != null && result['status'] != 'expired';
+  }
+
+  @override
+  Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
+    final open = _awaiting[requestId];
+    if (open == null) return false;
+    if (open.serverRequest) return _respond(requestId, {'value': ''});
+    final client = _connected();
+    if (client == null) return false;
+    final (method, key) = switch (kind) {
+      UnsupportedKind.sudo => ('sudo.respond', 'password'),
+      UnsupportedKind.secret => ('secret.respond', 'value'),
+    };
+    final result = await client.request(method, {
+      'request_id': requestId,
+      key: '',
+    });
+    return result['status'] != 'expired';
   }
 
   /// Answers a server-to-client request. The gateway does not say whether it

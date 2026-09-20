@@ -50,6 +50,9 @@ class FakeGateway {
   /// The `status` `clarify.lock` reports.
   String lockStatus = 'ok';
 
+  /// The `status` `sudo.respond` and `secret.respond` report.
+  String skipStatus = 'ok';
+
   /// Whether `client.capabilities` fails, as it does on a gateway that
   /// predates server-to-client requests.
   bool capabilitiesUnknown = false;
@@ -122,6 +125,11 @@ class FakeGateway {
             'server_requests': ['approval', 'clarify', 'sudo', 'secret'],
           },
         });
+      case 'sudo.respond' || 'secret.respond':
+        _send({
+          'id': id,
+          'result': {'status': skipStatus},
+        });
       case 'clarify.lock':
         _send({
           'id': id,
@@ -187,7 +195,9 @@ void main() {
     final done = Completer<void>();
     late T result;
     transport.send(text: 'hi').listen((e) async {
-      if (e is ApprovalRequested || e is ClarifyRequested) {
+      if (e is ApprovalRequested ||
+          e is ClarifyRequested ||
+          e is UnsupportedRequested) {
         result = await answer();
         gateway.event('message.complete', 'rt-1', {
           'text': 'ok',
@@ -1133,6 +1143,102 @@ void main() {
         events.whereType<ApprovalRequested>().single.request.requestId,
         'r1',
       );
+    });
+  });
+
+  group('skipping a request the app cannot answer', () {
+    test('a sudo server request is skipped with an empty value', () async {
+      final accepted = await answerWhileRaising(
+        (g, sid) => g.serverRequest('srq-4', 'sudo', sid, {'command': 'x'}),
+        () => transport.skipUnsupported('srq-4', UnsupportedKind.sudo),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-4',
+          'result': {'value': ''},
+        },
+      ]);
+      expect(gateway.methods, isNot(contains('sudo.respond')));
+    });
+
+    test('a secret server request is skipped with an empty value', () async {
+      await answerWhileRaising(
+        (g, sid) => g.serverRequest('srq-5', 'secret', sid, {
+          'env_var': 'SERVICE_API_KEY',
+          'prompt': 'Enter the key',
+        }),
+        () => transport.skipUnsupported('srq-5', UnsupportedKind.secret),
+      );
+
+      expect(gateway.responses.single['id'], 'srq-5');
+      expect(gateway.responses.single['result'], {'value': ''});
+    });
+
+    test('a sudo event is skipped with an empty password', () async {
+      final accepted = await answerWhileRaising(
+        (g, sid) => g.event('sudo.request', sid, {'request_id': 'r6'}),
+        () => transport.skipUnsupported('r6', UnsupportedKind.sudo),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.requestOf('sudo.respond')['params'], {
+        'request_id': 'r6',
+        'password': '',
+      });
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('a secret event is skipped with an empty value', () async {
+      await answerWhileRaising(
+        (g, sid) => g.event('secret.request', sid, {'request_id': 'r5'}),
+        () => transport.skipUnsupported('r5', UnsupportedKind.secret),
+      );
+
+      expect(gateway.requestOf('secret.respond')['params'], {
+        'request_id': 'r5',
+        'value': '',
+      });
+    });
+
+    test(
+      'an event skip the gateway reports as expired is not accepted',
+      () async {
+        gateway.skipStatus = 'expired';
+
+        final accepted = await answerWhileRaising(
+          (g, sid) => g.event('sudo.request', sid, {'request_id': 'r6'}),
+          () => transport.skipUnsupported('r6', UnsupportedKind.sudo),
+        );
+
+        expect(accepted, isFalse);
+      },
+    );
+
+    test('a request nothing is waiting on sends nothing', () async {
+      expect(
+        await transport.skipUnsupported('nope', UnsupportedKind.sudo),
+        isFalse,
+      );
+      expect(gateway.requests, isEmpty);
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('a skip after the turn ended sends nothing', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-4', 'sudo', sid);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+      await reply();
+
+      expect(
+        await transport.skipUnsupported('srq-4', UnsupportedKind.sudo),
+        isFalse,
+      );
+      expect(gateway.responses, isEmpty);
+      expect(gateway.methods, isNot(contains('sudo.respond')));
     });
   });
 }

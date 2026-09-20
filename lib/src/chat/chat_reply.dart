@@ -84,6 +84,13 @@ void recordClarifyAnswers(
   (r) => r is ClarifyRequest ? r.answeredWith(answers) : r,
 );
 
+void recordSkipped(ChatMessage reply, String requestId) => _editPending(
+  reply,
+  requestId,
+  (r) =>
+      r is UnsupportedRequest ? r.withStatus(InputRequestStatus.answered) : r,
+);
+
 /// Ends the pending requests of [reply], or only [requestId] when given.
 void expireInputRequests(ChatMessage reply, {String? requestId}) =>
     _editPending(

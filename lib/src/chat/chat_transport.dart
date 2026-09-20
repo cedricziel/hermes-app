@@ -117,5 +117,11 @@ abstract interface class ChatTransport {
     bool multiSelect = false,
   });
 
+  /// Skips a request the app cannot answer, a secret or a sudo password, by
+  /// answering it with an empty value: Hermes carries on without it. Returns
+  /// false when the request is no longer pending, and throws when the call
+  /// itself fails.
+  Future<bool> skipUnsupported(String requestId, UnsupportedKind kind);
+
   Future<void> close();
 }

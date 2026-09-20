@@ -556,6 +556,25 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _skipUnsupported(
+    ChatThread thread,
+    String requestId,
+    UnsupportedKind kind,
+  ) async {
+    final transport = _transport;
+    final reply = _replyAwaiting(thread, requestId);
+    if (transport == null || reply == null) return;
+    final accepted = await transport.skipUnsupported(requestId, kind);
+    if (!mounted) return;
+    _updateReply(
+      thread,
+      reply,
+      () => accepted
+          ? recordSkipped(reply, requestId)
+          : expireInputRequests(reply, requestId: requestId),
+    );
+  }
+
   Future<void> _answerClarify(
     ChatThread thread,
     String requestId,
@@ -655,6 +674,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   onAnswerClarify: selected == null
                       ? null
                       : (id, answers) => _answerClarify(selected, id, answers),
+                  onSkipUnsupported: selected == null
+                      ? null
+                      : (id, kind) => _skipUnsupported(selected, id, kind),
                 ),
               ),
             ],
@@ -676,6 +698,7 @@ class _ThreadView extends StatelessWidget {
     required this.showTopBar,
     this.onAnswerApproval,
     this.onAnswerClarify,
+    this.onSkipUnsupported,
   });
 
   final ChatThread? thread;
@@ -692,6 +715,8 @@ class _ThreadView extends StatelessWidget {
     Map<String, List<String>> answers,
   )?
   onAnswerClarify;
+  final Future<void> Function(String requestId, UnsupportedKind kind)?
+  onSkipUnsupported;
 
   @override
   Widget build(BuildContext context) {
@@ -702,6 +727,7 @@ class _ThreadView extends StatelessWidget {
           greetingName: identity?.displayName,
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,
+          onSkipUnsupported: onSkipUnsupported,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
