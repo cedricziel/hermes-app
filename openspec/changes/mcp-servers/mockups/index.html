@@ -937,9 +937,8 @@
           <span class="tag c3">3</span><b>JSON editor.</b> Loads the current
           map, saves with <code>PUT /api/mcp/servers</code> (whole-map replace).
           Hermes' validation issues are shown as a list. A command server added
-          here goes through the same review sheet. Secret values arrive
-          redacted, so saving them back unchanged must not overwrite the stored
-          ones (see design).
+          here goes through the same review sheet. It reads the full map from
+          the config route, because the server list leaves fields out.
         </figcaption>
       </figure>
     </div>

@@ -44,7 +44,7 @@ The chat sidebar already links to Profiles and Bots through callbacks on `ChatSc
 **Notes for the next changes (not built here).**
 
 - `mcp-catalog`: OAuth completes on the server, because the callback URL points at the dashboard. The app only opens `authorization_url` in the system browser and polls `GET /api/mcp/oauth/flows/{id}`; it needs no loopback listener and no PKCE of its own. It must call `DELETE` on the flow when the user cancels, or the server refuses a retry with 409 until its five-minute timeout. Catalog installs of entries with a git step return `background: true` and an action name, so the app has to keep checking that the server appears in the list.
-- `mcp-custom-servers`: `PUT /api/mcp/servers` replaces the whole map. The list route returns `env` values redacted, so the JSON editor must not write redacted values back over real ones. This needs a rule in that change's design (for example, show only key names and drop untouched redacted values from the body) before any code.
+- `mcp-custom-servers`: the list route is a lossy summary (no headers, oauth settings or timeouts, env redacted), so the JSON editor reads the full map from `GET /api/config` and saves with `PUT /api/mcp/servers`, which replaces the whole map.
 
 ## Risks / Trade-offs
 
