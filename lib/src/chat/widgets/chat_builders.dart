@@ -7,12 +7,14 @@ import '../chat_message_kinds.dart';
 import '../chat_models.dart'
     show
         ApprovalRequest,
+        ChatAttachment,
         ClarifyRequest,
         ToolCall,
         ToolCallStatus,
         UnsupportedKind,
         UnsupportedRequest;
 import 'approval_card.dart';
+import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
@@ -40,6 +42,20 @@ Builders buildChatBuilders({
 }) {
   return Builders(
     textMessageBuilder: _buildText,
+    imageMessageBuilder: (
+      context,
+      message,
+      index, {
+      required isSentByMe,
+      groupStatus,
+    }) => _buildAttachment(message.metadata, image: true),
+    fileMessageBuilder: (
+      context,
+      message,
+      index, {
+      required isSentByMe,
+      groupStatus,
+    }) => _buildAttachment(message.metadata, image: false),
     customMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildCustom(
@@ -86,6 +102,14 @@ Widget _buildText(
         ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
         : EdgeInsets.zero,
   );
+}
+
+Widget _buildAttachment(Map<String, dynamic>? metadata, {required bool image}) {
+  final attachment = metadata?[kMetaAttachment];
+  if (attachment is! ChatAttachment) return const SizedBox.shrink();
+  return image
+      ? AttachmentThumbnail(attachment: attachment)
+      : AttachmentCard(attachment: attachment);
 }
 
 Widget _buildCustom(

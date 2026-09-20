@@ -1,18 +1,14 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/stored_content.dart';
 
+import 'support/attachment_fixtures.dart';
+
 void main() {
-  // A 1x1 transparent PNG.
-  final png = base64Decode(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA'
-    '60e6kgAAAABJRU5ErkJggg==',
-  );
-  final pngUrl = 'data:image/png;base64,${base64Encode(png)}';
+  final pngUrl = 'data:image/png;base64,${base64Encode(kTinyPng)}';
 
   group('text content', () {
     test('plain text has no attachments', () {
@@ -157,8 +153,8 @@ void main() {
       expect(image.name, 'pic.png');
       expect(image.kind, AttachmentKind.image);
       expect(image.remotePath, '/x/pic.png');
-      expect(image.bytes, Uint8List.fromList(png));
-      expect(image.size, png.length);
+      expect(image.bytes, kTinyPng);
+      expect(image.size, kTinyPng.length);
     });
 
     test('shows an embedded image that has no reference in the text', () {
