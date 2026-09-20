@@ -111,7 +111,9 @@ class _BotsScreenState extends State<BotsScreen> {
             onTap: () => _setUp(bot),
             trailing: Switch(
               value: bot.enabled,
-              onChanged: bot.configured ? (v) => _toggle(bot, v) : null,
+              onChanged: bot.configured || bot.enabled
+                  ? (v) => _toggle(bot, v)
+                  : null,
             ),
           ),
       ],
