@@ -141,19 +141,20 @@ void main() {
     expect(_sendButton(tester).onPressed, isNull);
   });
 
-  testWidgets('typing text enables send and sending clears the field', (
-    tester,
-  ) async {
-    await h.pump(tester);
+  testWidgets(
+    'typing text enables send and sending leaves the field to the screen',
+    (tester) async {
+      await h.pump(tester);
 
-    await tester.enterText(find.byType(EditableText), 'hello');
-    await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
-    await tester.pump();
+      await tester.enterText(find.byType(EditableText), 'hello');
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
 
-    expect(h.sent, ['hello']);
-    expect(h.controller.text, isEmpty);
-  });
+      expect(h.sent, ['hello']);
+      expect(h.controller.text, 'hello');
+    },
+  );
 
   testWidgets('attachments alone are enough to send', (tester) async {
     await h.pump(tester, attachments: [_report]);

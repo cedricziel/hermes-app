@@ -243,10 +243,12 @@ void main() {
     await pump(tester);
     expect(service.permissionRequests, 0);
 
-    await send(tester, 'One');
+    final first = await send(tester, 'One');
+    await finish(tester, first, 'Done.');
     await send(tester, 'Two');
     await tester.pump();
 
+    expect(transport.sends, hasLength(2));
     expect(service.permissionRequests, 1);
     expect(settings.permissionAsked, isTrue);
     expect(settings.permissionDenied, isFalse);
@@ -281,12 +283,13 @@ void main() {
     service.permission = NotificationPermission.unavailable;
     await pump(tester);
 
-    await send(tester, 'One');
+    final first = await send(tester, 'One');
     await tester.pump();
 
     expect(settings.permissionAsked, isFalse);
     expect(settings.permissionDenied, isFalse);
 
+    await finish(tester, first, 'Done.');
     service.permission = NotificationPermission.granted;
     await send(tester, 'Two');
     await tester.pump();

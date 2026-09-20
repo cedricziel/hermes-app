@@ -11,7 +11,8 @@ import '../../theme/hermes_theme.dart';
 /// [attachments] show as removable chips above the input, and count as
 /// sendable content on their own: the send button stays enabled and an empty
 /// message is emitted through `Chat.onMessageSend`, which the screen pairs
-/// with its pending attachments.
+/// with its pending attachments. The composer never clears the field itself:
+/// the screen does once it accepts the send, so a refused send keeps the text.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   required List<SharedFile> attachments,
@@ -31,6 +32,7 @@ WidgetBuilder buildChatComposer({
       sigmaX: 0,
       sigmaY: 0,
       allowEmptyMessage: hasAttachments,
+      inputClearMode: InputClearMode.never,
       sendButtonVisibilityMode: hasAttachments
           ? SendButtonVisibilityMode.always
           : SendButtonVisibilityMode.disabled,
