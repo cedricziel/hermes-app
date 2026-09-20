@@ -90,6 +90,7 @@ dependencies:
   upgrader: ^13.7.0
   version: ^3.0.2
   local_auth: ^3.0.2
+  file_picker: ^11.0.3
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
