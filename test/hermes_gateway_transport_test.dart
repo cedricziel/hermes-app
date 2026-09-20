@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show FileSystemException;
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show AttachmentKind, UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -66,6 +69,18 @@ class FakeGateway {
   /// Whether `client.capabilities` fails, as it does on a gateway that
   /// predates server-to-client requests.
   bool capabilitiesUnknown = false;
+
+  /// Attach methods the gateway does not know, as a gateway that predates
+  /// them answers.
+  final unknownMethods = <String>{};
+
+  /// Attach calls that fail, by `<method> <file name>`: the JSON-RPC error
+  /// code and message to answer with.
+  final attachFailures = <String, (int, String)>{};
+
+  /// The image paths the gateway queued for the next prompt, as `image.detach`
+  /// leaves them.
+  final queuedImages = <String>[];
 
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
 
@@ -168,6 +183,55 @@ class FakeGateway {
           'id': id,
           'result': {'status': clarifyStatus},
         });
+      case 'image.attach_bytes' || 'file.attach' || 'image.detach'
+          when unknownMethods.contains(request['method']):
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'image.attach_bytes' || 'file.attach'
+          when attachFailures.containsKey(
+            '${request['method']} ${params['filename'] ?? params['name']}',
+          ):
+        final (code, message) =
+            attachFailures['${request['method']} ${params['filename'] ?? params['name']}']!;
+        _send({
+          'id': id,
+          'error': {'code': code, 'message': message},
+        });
+      case 'image.attach_bytes':
+        final path =
+            '/home/u/.hermes/images/upload_${queuedImages.length + 1}.png';
+        queuedImages.add(path);
+        _send({
+          'id': id,
+          'result': {
+            'attached': true,
+            'path': path,
+            'count': queuedImages.length,
+            'remainder': '',
+            'text': '[User attached image: upload.png]',
+          },
+        });
+      case 'file.attach':
+        final name = params['name'] as String;
+        _send({
+          'id': id,
+          'result': {
+            'attached': true,
+            'name': name,
+            'path': '/home/u/.hermes/attachments/$name',
+            'ref_path': 'attachments/$name',
+            'ref_text': '@file:attachments/$name',
+            'uploaded': true,
+          },
+        });
+      case 'image.detach':
+        queuedImages.remove(params['path']);
+        _send({
+          'id': id,
+          'result': {'detached': true, 'count': queuedImages.length},
+        });
       case 'prompt.submit' when rejectSubmit:
         _send({
           'id': id,
@@ -206,8 +270,15 @@ void main() {
     String? threadId,
     String? profile,
     String text = 'hi',
-  }) =>
-      transport.send(threadId: threadId, profile: profile, text: text).toList();
+    List<OutgoingAttachment> attachments = const [],
+  }) => transport
+      .send(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+      )
+      .toList();
 
   /// Runs a turn that [raise]s an approval or clarify request, calls [answer]
   /// on the transport while the turn waits, then completes the turn.
@@ -1339,6 +1410,293 @@ void main() {
       );
       expect(gateway.responses, isEmpty);
       expect(gateway.methods, isNot(contains('sudo.respond')));
+    });
+  });
+
+  group('attachments', () {
+    final photo = OutgoingAttachment(
+      name: 'photo.png',
+      kind: AttachmentKind.image,
+      mimeType: 'image/png',
+      read: () async => Uint8List.fromList([1, 2, 3]),
+    );
+    final report = OutgoingAttachment(
+      name: 'report.pdf',
+      kind: AttachmentKind.file,
+      mimeType: 'application/pdf',
+      read: () async => Uint8List.fromList([4, 5, 6, 7]),
+    );
+
+    Future<Object?> failure(List<OutgoingAttachment> attachments) async {
+      try {
+        await reply(attachments: attachments);
+      } on Object catch (error) {
+        return error;
+      }
+      return null;
+    }
+
+    test('an image is attached to the session before the prompt', () async {
+      gateway.turn = plainReply;
+
+      await reply(text: 'what is this?', attachments: [photo]);
+
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.create',
+        'image.attach_bytes',
+        'prompt.submit',
+      ]);
+      expect(gateway.requestOf('image.attach_bytes')['params'], {
+        'session_id': 'rt-1',
+        'content_base64': base64Encode([1, 2, 3]),
+        'filename': 'photo.png',
+      });
+      expect(gateway.requestOf('prompt.submit')['params'], {
+        'session_id': 'rt-1',
+        'text': 'what is this?',
+      });
+    });
+
+    test('an image sent without text submits no text', () async {
+      gateway.turn = plainReply;
+
+      await reply(text: '', attachments: [photo]);
+
+      expect(gateway.requestOf('prompt.submit')['params'], {
+        'session_id': 'rt-1',
+        'text': '',
+      });
+    });
+
+    test('a file is attached as a data URL and its reference sent', () async {
+      gateway.turn = plainReply;
+
+      await reply(text: '', attachments: [report]);
+
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.create',
+        'file.attach',
+        'prompt.submit',
+      ]);
+      expect(gateway.requestOf('file.attach')['params'], {
+        'session_id': 'rt-1',
+        'name': 'report.pdf',
+        'data_url': 'data:application/pdf;base64,${base64Encode([4, 5, 6, 7])}',
+      });
+      expect(gateway.requestOf('prompt.submit')['params'], {
+        'session_id': 'rt-1',
+        'text': '@file:attachments/report.pdf',
+      });
+    });
+
+    test('a file with no known type goes up as a binary stream', () async {
+      gateway.turn = plainReply;
+      final unknown = OutgoingAttachment(
+        name: 'blob',
+        kind: AttachmentKind.file,
+        read: () async => Uint8List.fromList([9]),
+      );
+
+      await reply(attachments: [unknown]);
+
+      expect(
+        (gateway.requestOf('file.attach')['params'] as Map)['data_url'],
+        startsWith('data:application/octet-stream;base64,'),
+      );
+    });
+
+    test('the references of files follow the typed text', () async {
+      gateway.turn = plainReply;
+
+      await reply(text: 'summarise', attachments: [photo, report]);
+
+      expect(gateway.requestOf('prompt.submit')['params'], {
+        'session_id': 'rt-1',
+        'text': 'summarise\n@file:attachments/report.pdf',
+      });
+    });
+
+    test('attachments go to the resumed session', () async {
+      gateway.turn = plainReply;
+
+      await reply(threadId: 'stored-2', attachments: [photo]);
+
+      expect(
+        (gateway.requestOf('image.attach_bytes')['params']
+            as Map)['session_id'],
+        'rt-2',
+      );
+    });
+
+    test(
+      'an image the server does not take as one goes up as a file',
+      () async {
+        gateway.turn = plainReply;
+        gateway.attachFailures['image.attach_bytes photo.heic'] = (
+          4016,
+          'unsupported image',
+        );
+        final heic = OutgoingAttachment(
+          name: 'photo.heic',
+          kind: AttachmentKind.image,
+          mimeType: 'image/heic',
+          read: () async => Uint8List.fromList([1]),
+        );
+
+        await reply(text: 'see', attachments: [heic]);
+
+        expect(gateway.methods, [
+          'client.capabilities',
+          'session.create',
+          'image.attach_bytes',
+          'file.attach',
+          'prompt.submit',
+        ]);
+        expect(gateway.requestOf('prompt.submit')['params'], {
+          'session_id': 'rt-1',
+          'text': 'see\n@file:attachments/photo.heic',
+        });
+      },
+    );
+
+    test('the thread is bound before an attachment fails', () async {
+      gateway.attachFailures['file.attach report.pdf'] = (5028, 'disk full');
+
+      await expectLater(
+        transport.send(text: 'x', attachments: [report]),
+        emitsInOrder([isA<ThreadBound>(), emitsError(anything)]),
+      );
+    });
+
+    test('a rejected attachment ends the send and submits nothing', () async {
+      gateway.attachFailures['file.attach report.pdf'] = (5028, 'disk full');
+
+      final error = await failure([report]);
+
+      expect(error, isA<AttachmentException>());
+      expect(
+        (error! as AttachmentException).message,
+        'Could not attach report.pdf: disk full',
+      );
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    });
+
+    test('images queued before a failure are detached again', () async {
+      gateway.attachFailures['file.attach report.pdf'] = (5028, 'disk full');
+
+      await failure([photo, report]);
+
+      expect(gateway.methods, contains('image.detach'));
+      expect(gateway.requestOf('image.detach')['params'], {
+        'session_id': 'rt-1',
+        'path': '/home/u/.hermes/images/upload_1.png',
+      });
+      expect(gateway.queuedImages, isEmpty);
+    });
+
+    test('a failure with nothing queued detaches nothing', () async {
+      gateway.attachFailures['file.attach report.pdf'] = (5028, 'disk full');
+
+      await failure([report]);
+
+      expect(gateway.methods, isNot(contains('image.detach')));
+    });
+
+    test('a rejected prompt detaches the images it would have taken', () async {
+      gateway.rejectSubmit = true;
+
+      final error = await failure([photo]);
+
+      expect(error, isA<GatewayRpcException>());
+      expect(gateway.queuedImages, isEmpty);
+    });
+
+    test('a server without the attach methods says so', () async {
+      gateway.unknownMethods.add('image.attach_bytes');
+
+      final error = await failure([photo]);
+
+      expect(error, isA<AttachmentException>());
+      expect(
+        (error! as AttachmentException).message,
+        "This Hermes server can't receive attachments. "
+        'Update Hermes to attach files.',
+      );
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    });
+
+    test('a server without file.attach says so', () async {
+      gateway.unknownMethods.add('file.attach');
+
+      final error = await failure([report]);
+
+      expect(error, isA<AttachmentException>());
+      expect(
+        (error! as AttachmentException).message,
+        contains('Update Hermes'),
+      );
+    });
+
+    test('a file over the limit is refused without going up', () async {
+      final huge = OutgoingAttachment(
+        name: 'huge.bin',
+        kind: AttachmentKind.file,
+        read: () async => Uint8List(kMaxAttachmentBytes + 1),
+      );
+
+      final error = await failure([huge]);
+
+      expect(
+        (error! as AttachmentException).message,
+        "huge.bin is larger than 25 MB and can't be sent.",
+      );
+      expect(gateway.methods, isNot(contains('file.attach')));
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    });
+
+    test('a file that cannot be read is named', () async {
+      final broken = OutgoingAttachment(
+        name: 'gone.txt',
+        kind: AttachmentKind.file,
+        read: () async => throw const FileSystemException('gone'),
+      );
+
+      final error = await failure([broken]);
+
+      expect(
+        (error! as AttachmentException).message,
+        'Could not attach gone.txt: the file could not be read.',
+      );
+    });
+
+    test(
+      'a dropped socket during an upload is not blamed on the file',
+      () async {
+        final slow = OutgoingAttachment(
+          name: 'slow.pdf',
+          kind: AttachmentKind.file,
+          read: () async {
+            gateway.drop();
+            return Uint8List.fromList([1]);
+          },
+        );
+
+        expect(await failure([slow]), isA<GatewayConnectionClosed>());
+      },
+    );
+
+    test('a send without attachments makes no attach call', () async {
+      gateway.turn = plainReply;
+
+      await reply();
+
+      expect(gateway.methods, [
+        'client.capabilities',
+        'session.create',
+        'prompt.submit',
+      ]);
     });
   });
 

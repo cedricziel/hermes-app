@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -19,6 +21,7 @@ import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/attachment_fixtures.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
@@ -483,24 +486,185 @@ void main() {
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 
-  chatTest('an attachments-only send says it carries names, not contents', (
-    tester,
-  ) async {
-    final share = ShareController(
-      FakeShareInbox([
-        const SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf'),
-      ]),
-    );
-    await share.start();
-    await pumpChat(tester, share: share);
+  group('attachments', () {
+    late Directory dir;
 
-    await tester.tap(find.byIcon(Icons.arrow_upward));
-    await tester.pump();
+    setUp(() => dir = tempDir('chat_attachments'));
 
-    expect(
-      transport.sends.single.text,
-      'Files (names only, contents not sent): report.pdf',
-    );
-    expect(find.byTooltip('Remove report.pdf'), findsNothing);
+    File fileOf(String name, List<int> bytes) => writeTemp(dir, name, bytes);
+
+    Future<ShareController> sharing(List<SharedFile> files) async {
+      final share = ShareController(FakeShareInbox(files));
+      await share.start();
+      return share;
+    }
+
+    chatTest('an attachments-only send hands the file to the transport', (
+      tester,
+    ) async {
+      final report = fileOf('report.pdf', List.filled(120 * 1024, 7));
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(
+            path: report.path,
+            name: 'report.pdf',
+            mimeType: 'application/pdf',
+          ),
+        ]),
+      );
+
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+
+      final sent = transport.sends.single;
+      expect(sent.text, isEmpty);
+      final attachment = sent.attachments.single;
+      expect(attachment.name, 'report.pdf');
+      expect(attachment.kind, AttachmentKind.file);
+      expect(attachment.mimeType, 'application/pdf');
+      expect((await tester.runAsync(attachment.read))!, hasLength(120 * 1024));
+      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+    });
+
+    chatTest('the sent message shows the file as a card with its size', (
+      tester,
+    ) async {
+      final report = fileOf('report.pdf', List.filled(120 * 1024, 7));
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(path: report.path, name: 'report.pdf'),
+        ]),
+      );
+
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+
+      expect(inTranscript('report.pdf'), findsOneWidget);
+      expect(inTranscript('120 KB'), findsOneWidget);
+      expect(inTranscript('Files (names only'), findsNothing);
+    });
+
+    chatTest('an image goes with the typed text and shows as a thumbnail', (
+      tester,
+    ) async {
+      final photo = fileOf('photo.png', kTinyPng);
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(
+            path: photo.path,
+            name: 'photo.png',
+            mimeType: 'image/png',
+            isImage: true,
+          ),
+        ]),
+      );
+
+      await send(tester, 'what is this?');
+
+      final sent = transport.sends.single;
+      expect(sent.text, 'what is this?');
+      expect(sent.attachments.single.kind, AttachmentKind.image);
+      expect(inTranscript('what is this?'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(Chat),
+          matching: find.byType(Image, skipOffstage: false),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    chatTest('a send with several files hands them over in order', (
+      tester,
+    ) async {
+      final a = fileOf('a.txt', [1]);
+      final b = fileOf('b.txt', [2]);
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(path: a.path, name: 'a.txt'),
+          SharedFile(path: b.path, name: 'b.txt'),
+        ]),
+      );
+
+      await send(tester, 'both');
+
+      expect(transport.sends.single.attachments.map((a) => a.name), [
+        'a.txt',
+        'b.txt',
+      ]);
+    });
+
+    chatTest('a file over 25 MB is refused and the composer keeps it', (
+      tester,
+    ) async {
+      final big = File('${dir.path}/big.bin');
+      big.openSync(mode: FileMode.write)
+        ..truncateSync(kMaxAttachmentBytes + 1)
+        ..closeSync();
+      await pumpChat(
+        tester,
+        share: await sharing([SharedFile(path: big.path, name: 'big.bin')]),
+      );
+
+      await send(tester, 'take a look');
+
+      expect(
+        find.text("big.bin is larger than 25 MB and can't be sent."),
+        findsOneWidget,
+      );
+      expect(transport.sends, isEmpty);
+      expect(find.byTooltip('Remove big.bin'), findsOneWidget);
+      expect(find.text('take a look'), findsOneWidget);
+      // Only the two stored messages of the open thread.
+      expect(transcriptMessages(tester), hasLength(2));
+    });
+
+    chatTest('a file that has gone is named and nothing is sent', (
+      tester,
+    ) async {
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(path: '${dir.path}/gone.txt', name: 'gone.txt'),
+        ]),
+      );
+
+      await tester.tap(find.byIcon(Icons.arrow_upward));
+      await tester.pump();
+
+      expect(
+        find.text('Could not attach gone.txt: the file could not be read.'),
+        findsOneWidget,
+      );
+      expect(transport.sends, isEmpty);
+      expect(find.byTooltip('Remove gone.txt'), findsOneWidget);
+    });
+
+    chatTest('a rejected attachment is shown as the reply', (tester) async {
+      final report = fileOf('report.pdf', [1, 2, 3]);
+      await pumpChat(
+        tester,
+        share: await sharing([
+          SharedFile(path: report.path, name: 'report.pdf'),
+        ]),
+      );
+      await send(tester, 'read this');
+
+      transport.sends.single.fail(
+        const AttachmentException('Could not attach report.pdf: disk full'),
+      );
+      await tester.pump();
+
+      expect(
+        inTranscript('Could not attach report.pdf: disk full'),
+        findsOneWidget,
+      );
+      expect(inTranscript(kReplyFailedMessage), findsNothing);
+      expect(find.byType(ThinkingIndicator), findsNothing);
+    });
   });
 }

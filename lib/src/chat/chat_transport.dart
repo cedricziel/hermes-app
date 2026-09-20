@@ -3,6 +3,8 @@
 /// its `/api/ws` JSON-RPC socket (`prompt.submit` → `message.delta` ...).
 library;
 
+import 'dart:typed_data';
+
 import 'chat_models.dart';
 
 sealed class ChatEvent {
@@ -100,6 +102,52 @@ class ProfileUnavailableException implements Exception {
   String toString() => 'The selected profile is no longer available';
 }
 
+/// The most a single attachment may weigh: what Hermes accepts for an image,
+/// applied to every file.
+const kMaxAttachmentBytes = 25 * 1024 * 1024;
+
+const kAttachmentsUnsupportedMessage =
+    "This Hermes server can't receive attachments. "
+    'Update Hermes to attach files.';
+
+const kAttachmentUnreadable = 'the file could not be read.';
+
+String attachmentTooLargeMessage(String name) =>
+    "$name is larger than ${kMaxAttachmentBytes ~/ (1024 * 1024)} MB "
+    "and can't be sent.";
+
+String attachmentFailedMessage(String name, String reason) =>
+    'Could not attach $name: $reason';
+
+/// A file to send with a message. Its content is read only when the message
+/// goes out.
+class OutgoingAttachment {
+  const OutgoingAttachment({
+    required this.name,
+    required this.kind,
+    required this.read,
+    this.mimeType,
+  });
+
+  final String name;
+  final AttachmentKind kind;
+  final String? mimeType;
+
+  /// Reads the whole file.
+  final Future<Uint8List> Function() read;
+}
+
+/// An attachment could not be sent, so the message was not either. [message]
+/// is fit to show the user.
+class AttachmentException implements Exception {
+  const AttachmentException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => 'AttachmentException: $message';
+}
+
 abstract interface class ChatTransport {
   /// Sends [text] to the thread [threadId], or starts a new thread when it is
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
@@ -109,10 +157,15 @@ abstract interface class ChatTransport {
   /// [profile] is the Hermes profile the thread lives in. A thread id is only
   /// unique within a profile, so it must be the one the thread was listed
   /// under; null leaves it to the dashboard's own profile.
+  ///
+  /// Each of [attachments] is made available to the agent before [text] goes
+  /// out. When one cannot be, nothing is sent and the stream ends with an
+  /// [AttachmentException].
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
     required String text,
+    List<OutgoingAttachment> attachments = const [],
   });
 
   /// Answers an approval the agent is waiting on with one of its choices.

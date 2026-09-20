@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 
+import 'support/attachment_fixtures.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
@@ -66,7 +67,12 @@ void main() {
         ],
       );
 
-  const report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
+  late SharedFile report;
+
+  setUp(() {
+    final file = writeTemp(tempDir('chat_one_turn'), 'report.pdf', [1, 2, 3]);
+    report = SharedFile(path: file.path, name: 'report.pdf');
+  });
 
   Future<FakeSend> send(WidgetTester tester, String text) async {
     await tester.enterText(composerField, text);

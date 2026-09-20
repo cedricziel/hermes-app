@@ -55,9 +55,11 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
 /// is what broke it, when known: it decides the message shown.
 void failReply(ChatMessage reply, [Object? error]) {
   if (reply.content.isEmpty) {
-    reply.content = error is ProfileUnavailableException
-        ? kProfileUnavailableMessage
-        : kReplyFailedMessage;
+    reply.content = switch (error) {
+      ProfileUnavailableException() => kProfileUnavailableMessage,
+      AttachmentException(:final message) => message,
+      _ => kReplyFailedMessage,
+    };
   }
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
@@ -445,23 +446,44 @@ class _ChatScreenState extends State<ChatScreen> {
   /// The package composer reports attachments-only sends as an empty [text].
   void _send(String text) {
     final typed = text.trim();
-    final attached = _attachments.isEmpty
-        ? ''
-        : 'Files (names only, contents not sent): '
-              '${_attachments.map((f) => f.name).join(', ')}';
-    final content = [typed, attached].where((s) => s.isNotEmpty).join('\n\n');
-    if (content.isEmpty) return;
+    final files = List.of(_attachments);
+    if (typed.isEmpty && files.isEmpty) return;
 
     final selected = _selectedThread;
     if (selected != null && selected.isReplying) {
       _showMessage(_stillReplying);
       return;
     }
+    final sizes = _sizesOrExplain(files);
+    if (sizes == null) return;
+    final attachments = <ChatAttachment>[];
+    final outgoing = <OutgoingAttachment>[];
+    for (final (i, file) in files.indexed) {
+      final kind = file.isImage ? AttachmentKind.image : AttachmentKind.file;
+      attachments.add(
+        ChatAttachment(
+          name: file.name,
+          kind: kind,
+          path: file.path,
+          size: sizes[i],
+        ),
+      );
+      outgoing.add(
+        OutgoingAttachment(
+          name: file.name,
+          kind: kind,
+          mimeType: file.mimeType,
+          read: File(file.path).readAsBytes,
+        ),
+      );
+    }
+
+    final label = typed.isEmpty ? files.first.name : typed;
     final thread =
         selected ??
         ChatThread(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
-          title: content,
+          title: label,
           updatedAt: DateTime.now(),
         );
     if (selected == null) {
@@ -469,17 +491,16 @@ class _ChatScreenState extends State<ChatScreen> {
       _selectedId = thread.id;
     }
     if (thread.messages.isEmpty) {
-      thread.title = content.length > 48
-          ? '${content.substring(0, 48)}…'
-          : content;
+      thread.title = label.length > 48 ? '${label.substring(0, 48)}…' : label;
     }
 
     final threadId = _bound.contains(thread) ? thread.id : null;
     final userMessage = ChatMessage(
       id: _newMessageId(thread),
       role: ChatRole.user,
-      content: content,
+      content: typed,
       createdAt: DateTime.now(),
+      attachments: attachments,
     );
     final placeholder = ChatMessage(
       id: _newMessageId(thread),
@@ -507,13 +528,34 @@ class _ChatScreenState extends State<ChatScreen> {
         if (!mounted) return;
         _updateReply(thread, placeholder, () {
           placeholder.status = MessageStatus.sent;
-          placeholder.content = buildMockReply(content);
+          placeholder.content = buildMockReply(label);
         });
       });
     } else {
-      _streamReply(transport, thread, placeholder, content, threadId);
+      _streamReply(transport, thread, placeholder, typed, outgoing, threadId);
       unawaited(_attention.askForPermission());
     }
+  }
+
+  /// The size of each of [files], or null after telling the user which one
+  /// cannot be sent. The composer keeps its text and attachments then.
+  List<int>? _sizesOrExplain(List<SharedFile> files) {
+    final sizes = <int>[];
+    for (final file in files) {
+      final int size;
+      try {
+        size = File(file.path).lengthSync();
+      } on FileSystemException {
+        _showMessage(attachmentFailedMessage(file.name, kAttachmentUnreadable));
+        return null;
+      }
+      if (size > kMaxAttachmentBytes) {
+        _showMessage(attachmentTooLargeMessage(file.name));
+        return null;
+      }
+      sizes.add(size);
+    }
+    return sizes;
   }
 
   void _streamReply(
@@ -521,6 +563,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ChatThread thread,
     ChatMessage reply,
     String text,
+    List<OutgoingAttachment> attachments,
     String? threadId,
   ) {
     late final StreamSubscription<ChatEvent> subscription;
@@ -534,7 +577,12 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     subscription = transport
-        .send(threadId: threadId, profile: profile, text: text)
+        .send(
+          threadId: threadId,
+          profile: profile,
+          text: text,
+          attachments: attachments,
+        )
         .listen(
           (event) => _onReplyEvent(thread, reply, event, profile),
           onError: end,
