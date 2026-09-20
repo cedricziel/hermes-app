@@ -29,7 +29,7 @@ Future<void> showKanbanTask(
       builder: (_) => Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-          child: panel,
+          child: Padding(padding: const EdgeInsets.only(top: 16), child: panel),
         ),
       ),
     );
