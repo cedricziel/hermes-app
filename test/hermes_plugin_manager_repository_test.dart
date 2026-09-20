@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
+import 'package:hermes_app/src/plugins/provider_settings.dart';
 
 import 'support/fake_hermes_server.dart';
 
@@ -88,6 +89,43 @@ Map<String, Object?> catalogBody(List<Object?> entries) => {
   'entries': entries,
   'removed': <Object?>[],
   'generated_at': '2026-09-20T12:00:00Z',
+};
+
+Map<String, Object?> memoryOption(
+  String name, {
+  String status = 'ready',
+  String description = '',
+  List<String> env = const [],
+  List<Map<String, String>> external = const [],
+  List<String> pip = const [],
+}) => {
+  'name': name,
+  'description': description.isEmpty ? 'About $name' : description,
+  'available': status == 'ready',
+  'configured': status == 'ready',
+  'status': status,
+  'setup': {
+    'pip_dependencies': pip,
+    'external_dependencies': external,
+    'required_env': env,
+    'dependencies_installed': status == 'ready',
+  },
+};
+
+Map<String, Object?> providersHub({
+  String memory = '',
+  List<Object?> memoryOptions = const [],
+  String engine = 'compressor',
+  List<Object?> engines = const [],
+}) => {
+  'plugins': <Object?>[],
+  'orphan_dashboard_plugins': <Object?>[],
+  'providers': {
+    'memory_provider': memory,
+    'memory_options': memoryOptions,
+    'context_engine': engine,
+    'context_options': engines,
+  },
 };
 
 void main() {
@@ -594,6 +632,194 @@ void main() {
       expect(result.timedOut, isTrue);
       expect(result.ok, isFalse);
       expect(result.message, isNull);
+    });
+  });
+
+  group('providers', () {
+    const hub = '/api/dashboard/plugins/hub';
+
+    test('reads the memory provider, the engine and their options', () async {
+      server.on(
+        'GET',
+        hub,
+        providersHub(
+          memory: 'honcho',
+          memoryOptions: [
+            memoryOption('honcho', description: 'Honcho memory'),
+            memoryOption(
+              'byterover',
+              status: 'unavailable',
+              env: ['BRV_KEY'],
+              external: [
+                {
+                  'name': 'brv',
+                  'install': 'curl -fsSL https://byterover.dev/install.sh | sh',
+                  'check': 'brv --version',
+                },
+              ],
+              pip: ['byterover-sdk'],
+            ),
+            memoryOption('mem0', status: 'needs_config'),
+          ],
+          engine: 'lossless',
+          engines: [
+            {'name': 'compressor', 'description': 'Default'},
+            {'name': 'lossless', 'description': 'Keeps everything'},
+          ],
+        ),
+      );
+
+      final settings = await repository.loadProviders();
+
+      expect(settings.memoryProvider, 'honcho');
+      expect(settings.contextEngine, 'lossless');
+      expect(settings.memoryOptions.map((o) => o.name), [
+        'honcho',
+        'byterover',
+        'mem0',
+      ]);
+      expect(settings.memoryOptions.map((o) => o.status), [
+        ProviderStatus.ready,
+        ProviderStatus.unavailable,
+        ProviderStatus.needsSetup,
+      ]);
+      expect(settings.memoryOptions.first.description, 'Honcho memory');
+      final byterover = settings.memoryOptions[1];
+      expect(byterover.requiredEnv, ['BRV_KEY']);
+      expect(byterover.pipDependencies, ['byterover-sdk']);
+      expect(byterover.externalDependencies.single.name, 'brv');
+      expect(
+        byterover.externalDependencies.single.install,
+        'curl -fsSL https://byterover.dev/install.sh | sh',
+      );
+      expect(settings.contextOptions.map((o) => o.name), [
+        'compressor',
+        'lossless',
+      ]);
+      expect(settings.contextOptions.last.description, 'Keeps everything');
+    });
+
+    test('skips options without a usable name', () async {
+      server.on(
+        'GET',
+        hub,
+        providersHub(
+          memoryOptions: [
+            {'description': 'nameless'},
+            {'name': ''},
+            'nope',
+            memoryOption('kept'),
+          ],
+          engines: [
+            {'name': 7},
+            {'name': 'engine'},
+          ],
+        ),
+      );
+
+      final settings = await repository.loadProviders();
+
+      expect(settings.memoryOptions.map((o) => o.name), ['kept']);
+      expect(settings.contextOptions.map((o) => o.name), ['engine']);
+    });
+
+    test('defaults fields that are missing or the wrong type', () async {
+      server.on('GET', hub, {
+        'providers': {
+          'memory_provider': 5,
+          'memory_options': [
+            {
+              'name': 'bare',
+              'status': 'quarantined',
+              'setup': {
+                'required_env': 'X',
+                'external_dependencies': [
+                  {'name': 'tool'},
+                  {'install': 'no name'},
+                  'nope',
+                ],
+                'pip_dependencies': ['ok', 3],
+              },
+            },
+            {'name': 'nosetup', 'setup': 'x'},
+          ],
+        },
+      });
+
+      final settings = await repository.loadProviders();
+
+      expect(settings.memoryProvider, '');
+      expect(settings.contextEngine, '');
+      final bare = settings.memoryOptions.first;
+      expect(bare.status, ProviderStatus.unavailable);
+      expect(bare.description, '');
+      expect(bare.requiredEnv, isEmpty);
+      expect(bare.pipDependencies, ['ok']);
+      expect(bare.externalDependencies.single.name, 'tool');
+      expect(bare.externalDependencies.single.install, '');
+      expect(settings.memoryOptions.last.requiredEnv, isEmpty);
+    });
+
+    test('reads a hub without providers as built-in with no options', () async {
+      server.on('GET', hub, {'plugins': <Object?>[]});
+
+      final settings = await repository.loadProviders();
+
+      expect(settings.memoryProvider, '');
+      expect(settings.memoryOptions, isEmpty);
+      expect(settings.contextEngine, '');
+      expect(settings.contextOptions, isEmpty);
+    });
+
+    test('reports a server without the hub', () async {
+      expect(repository.loadProviders(), throwsA(isA<PluginsUnsupported>()));
+    });
+  });
+
+  group('saving providers', () {
+    const path = '/api/dashboard/plugin-providers';
+
+    test('sends only the fields it is given', () async {
+      server.on('PUT', path, {'ok': true});
+
+      await repository.saveProviders(memoryProvider: 'honcho');
+      await repository.saveProviders(contextEngine: 'lossless');
+      await repository.saveProviders(memoryProvider: '', contextEngine: 'x');
+
+      final bodies = server.requestsTo('PUT', path).map(jsonBody).toList();
+      expect(bodies, [
+        {'memory_provider': 'honcho'},
+        {'context_engine': 'lossless'},
+        {'memory_provider': '', 'context_engine': 'x'},
+      ]);
+    });
+
+    test('a refusal carries the server\'s reason', () async {
+      server.on('PUT', path, {
+        'detail': "Memory provider 'mem0' is not ready (needs config).",
+      }, status: 400);
+
+      final result = await repository.saveProviders(memoryProvider: 'mem0');
+
+      expect(result.ok, isFalse);
+      expect(
+        result.message,
+        "Memory provider 'mem0' is not ready (needs config).",
+      );
+    });
+
+    test('other failures carry no message', () async {
+      server.on('PUT', path, {'detail': 'trace at /srv/x'}, status: 500);
+      final failed = await repository.saveProviders(memoryProvider: 'x');
+      expect(failed.ok, isFalse);
+      expect(failed.message, isNull);
+
+      server.onRequest(
+        'PUT',
+        path,
+        (_) => throw const SocketException('no route to host'),
+      );
+      expect((await repository.saveProviders(memoryProvider: 'x')).ok, isFalse);
     });
   });
 }

@@ -20,6 +20,7 @@ import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
+import 'package:hermes_app/src/plugins/provider_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -350,6 +351,59 @@ void main() {
       expect(result.ok, isFalse);
       expect(result.message, isNotEmpty);
     }, skip: skip);
+
+    test(
+      'the provider settings load with a status for each provider',
+      () async {
+        final settings = await repository.loadProviders();
+
+        expect(settings.memoryOptions, isNotEmpty);
+        expect(settings.memoryOptions.every((o) => o.name.isNotEmpty), isTrue);
+        expect(
+          settings.memoryOptions.any((o) => o.status == ProviderStatus.ready),
+          isTrue,
+        );
+        expect(settings.contextEngine, isNotEmpty);
+      },
+      skip: skip,
+    );
+
+    test('saving the memory provider already in use is accepted', () async {
+      final settings = await repository.loadProviders();
+
+      final result = await repository.saveProviders(
+        memoryProvider: settings.memoryProvider,
+      );
+
+      expect(result.ok, isTrue);
+      expect(
+        (await repository.loadProviders()).memoryProvider,
+        settings.memoryProvider,
+      );
+    }, skip: skip);
+
+    test(
+      'picking a provider that is not ready is refused with a reason',
+      () async {
+        final settings = await repository.loadProviders();
+        final notReady = settings.memoryOptions
+            .where((o) => !o.ready)
+            .firstOrNull;
+        if (notReady == null) return;
+
+        final result = await repository.saveProviders(
+          memoryProvider: notReady.name,
+        );
+
+        expect(result.ok, isFalse);
+        expect(result.message, contains('not ready'));
+        expect(
+          (await repository.loadProviders()).memoryProvider,
+          settings.memoryProvider,
+        );
+      },
+      skip: skip,
+    );
 
     test(
       'a nested plugin name reaches its route as one encoded segment',

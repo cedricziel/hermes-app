@@ -10,6 +10,8 @@ import 'catalog_tab.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'installed_tab.dart';
 import 'plugins_controller.dart';
+import 'providers_controller.dart';
+import 'providers_tab.dart';
 
 /// Manages the plugins of the connected dashboard: the ones installed, with a
 /// details view for each, and the catalog to install more from.
@@ -29,6 +31,7 @@ class PluginsScreen extends StatefulWidget {
 class _PluginsScreenState extends State<PluginsScreen> {
   late final PluginsController _installed;
   late final CatalogController _catalog;
+  late final ProvidersController _providers;
 
   @override
   void initState() {
@@ -44,10 +47,12 @@ class _PluginsScreenState extends State<PluginsScreen> {
       events: events,
       onInstalled: _installed.refresh,
     );
+    _providers = ProvidersController(repository, events: events);
   }
 
   @override
   void dispose() {
+    _providers.dispose();
     _catalog.dispose();
     _installed.dispose();
     super.dispose();
@@ -56,7 +61,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Plugins'),
@@ -64,6 +69,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
             tabs: [
               Tab(text: 'Installed'),
               Tab(text: 'Catalog'),
+              Tab(text: 'Providers'),
             ],
           ),
         ),
@@ -71,6 +77,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
           children: [
             InstalledTab(controller: _installed),
             CatalogTab(controller: _catalog, openLink: widget.openLink),
+            ProvidersTab(controller: _providers),
           ],
         ),
       ),

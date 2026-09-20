@@ -4,6 +4,7 @@ import 'package:hermes_api/hermes_api.dart';
 import 'catalog_entry.dart';
 import 'installed_plugin.dart';
 import 'plugin_install_result.dart';
+import 'provider_settings.dart';
 
 /// The server has no plugin hub: it is older than the app needs.
 class PluginsUnsupported implements Exception {
@@ -52,6 +53,53 @@ class HermesPluginManagerRepository {
           ),
     ];
   }
+
+  /// The memory provider and context engine settings, from the hub. Throws
+  /// [PluginsUnsupported] on a server without the route.
+  Future<ProviderSettings> loadProviders() async {
+    final Response<Object> response;
+    try {
+      response = await _api.getPluginsHubApiDashboardPluginsHubGet();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) throw const PluginsUnsupported();
+      rethrow;
+    }
+    final providers = switch (response.data) {
+      {'providers': final Map<String, dynamic> providers} => providers,
+      _ => const <String, dynamic>{},
+    };
+    return ProviderSettings(
+      memoryProvider: _text(providers['memory_provider']) ?? '',
+      memoryOptions: [
+        for (final row in _rows(providers['memory_options']))
+          if (row case {'name': final String name} when name.isNotEmpty)
+            _memoryOption(name, row),
+      ],
+      contextEngine: _text(providers['context_engine']) ?? '',
+      contextOptions: [
+        for (final row in _rows(providers['context_options']))
+          if (row case {'name': final String name} when name.isNotEmpty)
+            ContextEngineOption(
+              name: name,
+              description: _text(row['description']) ?? '',
+            ),
+      ],
+    );
+  }
+
+  /// Sends only the fields given: an empty [memoryProvider] means the
+  /// built-in one. Never throws.
+  Future<PluginActionResult> saveProviders({
+    String? memoryProvider,
+    String? contextEngine,
+  }) => _act(
+    () => _api.putPluginProvidersApiDashboardPluginProvidersPut(
+      pluginProvidersPutBody: PluginProvidersPutBody(
+        memoryProvider: memoryProvider,
+        contextEngine: contextEngine,
+      ),
+    ),
+  );
 
   /// Throws [PluginsUnsupported] on a server without the route.
   Future<List<CatalogEntry>> loadCatalog() async {
@@ -197,6 +245,38 @@ class HermesPluginManagerRepository {
       {'detail': final String detail} when detail.isNotEmpty => detail,
       _ => null,
     };
+  }
+
+  static Iterable<Map<String, dynamic>> _rows(Object? value) =>
+      value is List ? value.whereType<Map<String, dynamic>>() : const [];
+
+  static MemoryProviderOption _memoryOption(
+    String name,
+    Map<String, dynamic> row,
+  ) {
+    final setup = row['setup'] is Map<String, dynamic>
+        ? row['setup'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+    return MemoryProviderOption(
+      name: name,
+      description: _text(row['description']) ?? '',
+      status: switch (row['status']) {
+        'ready' => ProviderStatus.ready,
+        'needs_config' => ProviderStatus.needsSetup,
+        _ => ProviderStatus.unavailable,
+      },
+      requiredEnv: _strings(setup['required_env']),
+      externalDependencies: [
+        for (final dep in _rows(setup['external_dependencies']))
+          if (dep case {'name': final String toolName} when toolName.isNotEmpty)
+            ExternalDependency(
+              name: toolName,
+              install: _text(dep['install']) ?? '',
+              check: _text(dep['check']) ?? '',
+            ),
+      ],
+      pipDependencies: _strings(setup['pip_dependencies']),
+    );
   }
 
   static Object? _capability(Map<String, dynamic> row, String key) =>
