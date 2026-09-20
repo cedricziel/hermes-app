@@ -34,6 +34,7 @@ import 'chat_controller_sync.dart';
 import 'chat_message_kinds.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
+import 'chat_open_requests.dart';
 import 'chat_reply.dart';
 import 'chat_theme.dart';
 import 'chat_transport.dart';
@@ -72,6 +73,7 @@ class ChatScreen extends StatefulWidget {
     this.mcp,
     this.onShowChat,
     this.attachmentSource,
+    this.openRequests,
   });
 
   final HermesChatRepository? repository;
@@ -89,6 +91,9 @@ class ChatScreen extends StatefulWidget {
   /// Where the attach control, drops and paste get their files; the platform's
   /// plugins unless a test supplies its own.
   final AttachmentSource? attachmentSource;
+
+  /// Where another destination asks the chat to open a session.
+  final ChatOpenRequests? openRequests;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -134,6 +139,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
       settings: _maybeRead<NotificationSettings>(),
@@ -288,7 +294,17 @@ class _ChatScreenState extends State<ChatScreen> {
   static bool _isOnProfile(NotificationTarget? target, String? profile) =>
       target != null && (target.profile == null || target.profile == profile);
 
-  void _openFromNotification(NotificationTarget target) {
+  void _openFromNotification(NotificationTarget target) =>
+      _open(target, fetchMissing: false);
+
+  /// Another destination asked for a session. Unlike a notification tap, it
+  /// is fetched when the loaded threads do not hold it, on its own profile.
+  void _onOpenRequest() {
+    final target = widget.openRequests?.take();
+    if (target != null) _open(target, fetchMissing: true);
+  }
+
+  void _open(NotificationTarget target, {required bool fetchMissing}) {
     widget.onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
@@ -296,8 +312,41 @@ class _ChatScreenState extends State<ChatScreen> {
         _threads.any((t) => t.id == target.threadId)) {
       _selectThread(target.threadId, closeDrawer: false);
       _scaffoldKey.currentState?.closeDrawer();
+    } else if (fetchMissing) {
+      _openMissing(target);
     } else {
       _showMessage(_couldNotOpenChat);
+    }
+  }
+
+  /// Opens a chat the loaded threads do not hold: one on another profile, or
+  /// older than the first page of sessions.
+  Future<void> _openMissing(NotificationTarget target) async {
+    final repository = _repository;
+    final profile = target.profile ?? _profile;
+    if (repository == null) return _showMessage(_couldNotOpenChat);
+    try {
+      if (profile != _profile) await _loadThreads(profile);
+      if (!mounted) return;
+      // A failed switch leaves the old profile's threads on screen.
+      if (profile != _profile) return _showMessage(_couldNotOpenChat);
+      if (!_threads.any((t) => t.id == target.threadId)) {
+        final thread = await repository.loadThread(
+          target.threadId,
+          profile: profile,
+        );
+        if (!mounted) return;
+        if (thread == null) return _showMessage(_couldNotOpenChat);
+        setState(() {
+          _threads.insert(0, thread);
+          _bound.add(thread);
+          _unloaded.add(thread.id);
+        });
+      }
+      _selectThread(target.threadId, closeDrawer: false);
+      _scaffoldKey.currentState?.closeDrawer();
+    } on Object {
+      if (mounted) _showMessage(_couldNotOpenChat);
     }
   }
 
@@ -348,6 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();
     for (final reply in _replies) {

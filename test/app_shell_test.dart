@@ -9,11 +9,13 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
@@ -56,6 +58,7 @@ void main() {
           theme: buildHermesLightTheme(),
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
+            cron: HermesCronRepository(server.client().raw),
             kanbanBuilder: (_) => _Board(boardLog),
           ),
         ),
@@ -283,6 +286,167 @@ void main() {
 
     expect(selectedTab(tester), 0);
     expect(boardLog, ['open', 'close']);
+  });
+
+  void cronRoutes({required bool on}) => server.on(
+    'GET',
+    '/api/cron/delivery-targets',
+    cronDeliveryTargets,
+    status: on ? 200 : 404,
+  );
+
+  void jobRoutes() => server
+    ..on('GET', '/api/cron/jobs', [cronJobRow()])
+    ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+    ..on('GET', '/api/cron/jobs/job1/runs', {
+      'runs': [
+        cronRunRow(
+          id: 'cron_job1_1',
+          startedAt: 1789800000,
+          endedAt: 1789800042,
+        ),
+      ],
+    });
+
+  Future<void> openTab(WidgetTester tester, String label) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(NavigationBar),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  List<String> navigationLabels(WidgetTester tester) => [
+    for (final d
+        in tester
+            .widget<NavigationBar>(find.byType(NavigationBar))
+            .destinations)
+      (d as NavigationDestination).label,
+  ];
+
+  group('Schedules', () {
+    testWidgets('is offered without Kanban when the server has cron routes', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+
+      await pumpShell(tester, size: const Size(400, 800));
+
+      expect(navigationLabels(tester), ['Chat', 'Schedules']);
+    });
+
+    testWidgets('sits next to Kanban when both are on', (tester) async {
+      kanbanPlugin(on: true);
+      cronRoutes(on: true);
+
+      await pumpShell(tester, size: const Size(400, 800));
+
+      expect(navigationLabels(tester), ['Chat', 'Kanban', 'Schedules']);
+    });
+
+    testWidgets('is offered in a rail on a wide screen', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+
+      await pumpShell(tester, size: const Size(1400, 900));
+
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.text('Schedules'), findsOneWidget);
+    });
+
+    testWidgets('is not offered by a server without the cron routes', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+
+      await pumpShell(tester, size: const Size(400, 800));
+
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('does not load jobs until its tab is opened', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(400, 800));
+
+      expect(server.requests.where((r) => r.path == '/api/cron/jobs'), isEmpty);
+      await openTab(tester, 'Schedules');
+
+      expect(find.text('Morning brief'), findsOneWidget);
+    });
+
+    testWidgets('keeps its filter across a visit to Chat', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(400, 800));
+      await openTab(tester, 'Schedules');
+      await tester.ensureVisible(find.text('Paused'));
+      await tester.tap(find.text('Paused'));
+      await tester.pumpAndSettle();
+
+      await openTab(tester, 'Chat');
+      await openTab(tester, 'Schedules');
+
+      expect(
+        tester
+            .widget<FilterChip>(find.widgetWithText(FilterChip, 'Paused'))
+            .selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('goes back to Chat when cron goes away while selected', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(400, 800));
+      await openTab(tester, 'Schedules');
+
+      cronRoutes(on: false);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.text('Morning brief'), findsNothing);
+    });
+
+    testWidgets('opening a run brings Chat to the front', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(400, 800));
+      await openTab(tester, 'Schedules');
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('42 s'));
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(find.text('Delete task'), findsNothing);
+    });
+
+    testWidgets('a notification tap leaves Schedules for Chat', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      jobRoutes();
+      await pumpShell(tester, size: const Size(400, 800));
+      await openTab(tester, 'Schedules');
+
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+    });
   });
 }
 
