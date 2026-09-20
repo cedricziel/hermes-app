@@ -40,8 +40,10 @@ struct RelayClient: HermesClient {
     if let threadId { message["threadId"] = threadId }
     let reply = try await call(message)
     guard let text = reply["text"] as? String else { throw HermesClientError.failed }
+    let boundId = reply["threadId"] as? String
+    if threadId == nil, boundId == nil { throw HermesClientError.failed }
     return SendResult(
-      threadId: reply["threadId"] as? String,
+      threadId: boundId,
       text: text,
       failed: reply["failed"] as? Bool ?? false
     )
