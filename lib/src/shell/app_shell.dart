@@ -27,6 +27,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final _chatKey = GlobalKey();
   HermesPluginsRepository? _plugins;
   bool _kanban = false;
+  int _detection = 0;
   int _index = 0;
 
   @override
@@ -52,8 +53,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   Future<void> _detect() async {
+    final detection = ++_detection;
     final enabled = await _plugins?.isKanbanEnabled() ?? false;
-    if (!mounted || enabled == _kanban) return;
+    if (!mounted || detection != _detection || enabled == _kanban) return;
     setState(() {
       _kanban = enabled;
       if (!enabled) _index = 0;
