@@ -33,6 +33,12 @@ void main() {
           ),
           platformRow(id: 'whatsapp', name: 'WhatsApp'),
           platformRow(
+            id: 'signal',
+            name: 'Signal',
+            enabled: true,
+            state: 'error',
+          ),
+          platformRow(
             id: 'slack',
             name: 'Slack',
             enabled: true,
@@ -98,6 +104,37 @@ void main() {
       findsOneWidget,
     );
     expect(switchIn(tester, 'WhatsApp').onChanged, isNull);
+  });
+
+  testWidgets('an enabled bot that lost its credential can be switched off', (
+    tester,
+  ) async {
+    server.on('PUT', '/api/messaging/platforms/signal', {'ok': true});
+    await pumpBots(tester);
+
+    expect(switchIn(tester, 'Signal').value, isTrue);
+    expect(switchIn(tester, 'Signal').onChanged, isNotNull);
+    expect(
+      find.descendant(of: tile('Signal'), matching: find.text('Needs setup')),
+      findsOneWidget,
+    );
+
+    server.on(
+      'GET',
+      '/api/messaging/platforms',
+      platformListBody([platformRow(id: 'signal', name: 'Signal')]),
+    );
+    await tester.tap(
+      find.descendant(of: tile('Signal'), matching: find.byType(Switch)),
+    );
+    await tester.pumpAndSettle();
+
+    final request = server
+        .requestsTo('PUT', '/api/messaging/platforms/signal')
+        .single;
+    expect((jsonBody(request) as Map)['enabled'], isFalse);
+    expect(switchIn(tester, 'Signal').value, isFalse);
+    expect(switchIn(tester, 'Signal').onChanged, isNull);
   });
 
   testWidgets('shows the error a bot reports', (tester) async {

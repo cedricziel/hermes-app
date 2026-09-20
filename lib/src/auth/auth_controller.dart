@@ -169,6 +169,10 @@ class AuthController extends ChangeNotifier {
       );
       _setState(HermesConnectionState.connectionError);
       return;
+    } on FormatException {
+      _errorMessage = 'Could not load sign-in options';
+      _setState(HermesConnectionState.connectionError);
+      return;
     }
 
     final storedSession = await _tokenStore.read();
@@ -223,6 +227,9 @@ class AuthController extends ChangeNotifier {
       // must not bring the result back.
       if (cancel.isCompleted || _state != HermesConnectionState.signingIn) {
         report('cancelled');
+        if (_state == HermesConnectionState.signingIn) {
+          _setState(HermesConnectionState.needsLogin);
+        }
         return;
       }
       await _tokenStore.write(session);

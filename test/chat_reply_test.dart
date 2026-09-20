@@ -82,6 +82,25 @@ void main() {
     expect(reply.status, MessageStatus.error);
   });
 
+  test('a failed completion with no text shows the fallback message', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyCompleted('', failed: true));
+
+    expect(reply.content, kReplyFailedMessage);
+    expect(reply.status, MessageStatus.error);
+  });
+
+  test('a failed completion with no text keeps what streamed', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReplyDelta('Partial'));
+
+    applyReplyEvent(reply, const ReplyCompleted('', failed: true));
+
+    expect(reply.content, 'Partial');
+    expect(reply.status, MessageStatus.error);
+  });
+
   test('a tool runs, then completes', () {
     final reply = _placeholder();
 

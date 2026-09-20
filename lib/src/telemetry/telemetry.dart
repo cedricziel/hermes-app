@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 
 import 'device_attributes.dart';
+import 'gateway_telemetry.dart';
 import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
 import 'telemetry_event.dart';
@@ -33,7 +34,7 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
-          attributes: deviceAttributes(),
+          attributes: await deviceAttributes(),
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
@@ -48,6 +49,9 @@ class Telemetry {
     if (sdk == null) return null;
     return HttpTelemetryInterceptor(sdk.getTracer(), sdk.getLogger());
   }
+
+  /// Traces the gateway socket; does nothing when disabled.
+  GatewayTelemetry gateway() => GatewayTelemetry(_sdk?.getTracer());
 
   /// Logs app events such as sign-in outcomes; does nothing when disabled.
   TelemetryEvent events() {

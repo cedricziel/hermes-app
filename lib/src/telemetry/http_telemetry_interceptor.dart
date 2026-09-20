@@ -9,13 +9,15 @@ import 'safely.dart';
 /// leaves out anything that could identify it: no URL or host, no query
 /// string, no exception messages (Dio puts the host in them), and no
 /// `traceparent` header. What it keeps is the method, the status, the error
-/// type, the duration and, for relative request paths such as `/api/status`,
-/// the path.
+/// type, the duration and, for relative request paths, the first two path
+/// segments (`/api/sessions` for `/api/sessions/<id>/messages`), so session
+/// ids, profile names and other path parameters never leave the device.
 class HttpTelemetryInterceptor extends Interceptor {
   HttpTelemetryInterceptor(this._tracer, this._logger);
 
   static const _callKey = 'hermes.telemetry.call';
   static final _routeEnd = RegExp('[?#]');
+  static const _routeSegments = 2;
 
   final Tracer _tracer;
   final Logger _logger;
@@ -102,11 +104,16 @@ class HttpTelemetryInterceptor extends Interceptor {
     });
   }
 
-  /// The request path for relative paths only, without query or fragment.
+  /// The first [_routeSegments] segments of a relative path, without query or
+  /// fragment. Later segments are where path parameters live.
   static String? _route(String path) {
     if (!path.startsWith('/')) return null;
     final end = path.indexOf(_routeEnd);
-    return end < 0 ? path : path.substring(0, end);
+    final segments = (end < 0 ? path : path.substring(0, end))
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .take(_routeSegments);
+    return '/${segments.join('/')}';
   }
 }
 

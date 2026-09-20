@@ -7,11 +7,13 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
 
@@ -19,6 +21,7 @@ import 'support/fake_share_inbox.dart';
 /// sessions, so two profiles can hold different sessions under one id.
 void main() {
   late FakeHermesServer server;
+  late FakeChatTransport transport;
 
   /// One session, id `shared` in every profile, as [profile] serves it.
   void seedProfile(String profile, String title, String greeting) {
@@ -48,6 +51,7 @@ void main() {
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    transport = FakeChatTransport();
     server = FakeHermesServer()
       ..on(
         'GET',
@@ -83,6 +87,7 @@ void main() {
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
             profiles: HermesProfilesRepository(server.client().raw),
+            transport: transport,
           ),
         ),
       ),
@@ -181,5 +186,64 @@ void main() {
 
     expect(inTranscript('hello from default'), findsOneWidget);
     expect(inTranscript('hello from work'), findsNothing);
+  });
+
+  Future<void> sendMessage(WidgetTester tester, String text) async {
+    await tester.enterText(find.byType(EditableText), text);
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump();
+  }
+
+  testWidgets('a message goes to the gateway under the shown profile', (
+    tester,
+  ) async {
+    activate('work', current: 'default');
+    await pumpChat(tester);
+
+    await sendMessage(tester, 'plan the sprint');
+
+    expect(transport.sends.single.profile, 'work');
+    expect(transport.sends.single.threadId, 'shared');
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('after switching profile a new message uses the new profile', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await sendMessage(tester, 'first');
+    transport.sends.single
+      ..emit(const ReplyCompleted('ok'))
+      ..finish();
+    await tester.pumpAndSettle();
+    await switchProfile(tester, 'work');
+
+    await sendMessage(tester, 'second');
+
+    expect(transport.sends.map((s) => s.profile), ['default', 'work']);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a message goes unscoped when the active profile is unknown', (
+    tester,
+  ) async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([sessionRow(id: 's1', title: 'Whatever')]),
+    );
+    server.on(
+      'GET',
+      '/api/sessions/s1/messages',
+      messageListBody('s1', const []),
+    );
+    await pumpChat(tester);
+
+    await sendMessage(tester, 'hello');
+
+    expect(transport.sends.single.profile, isNull);
+    await tester.pump(const Duration(seconds: 1));
   });
 }
