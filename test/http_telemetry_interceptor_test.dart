@@ -89,6 +89,53 @@ void main() {
     expect(tracer.spans.single.attributes['http.route'], '/api/x');
   });
 
+  group('route template', () {
+    const paths = {
+      '/api/sessions/20260919_abc123': '/api/sessions',
+      '/api/sessions/20260919_abc123/messages': '/api/sessions',
+      '/api/profiles/work-laptop': '/api/profiles',
+      '/api/plugins/kanban/tasks/t_8f3a': '/api/plugins',
+      '/api/plugins/kanban/boards/my-board': '/api/plugins',
+      '/api/mcp/servers/github/auth': '/api/mcp',
+      '/api/cron/jobs/9c1d': '/api/cron',
+      '/api/sessions/': '/api/sessions',
+      '/api/sessions?q=alice#top': '/api/sessions',
+      '/api/sessions/abc?q=alice#top': '/api/sessions',
+      '/api/status': '/api/status',
+      '/api/auth': '/api/auth',
+      '/api': '/api',
+      '/': '/',
+    };
+
+    for (final entry in paths.entries) {
+      test('records ${entry.key} as ${entry.value}', () async {
+        final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
+
+        await dio.get<dynamic>(entry.key);
+
+        expect(tracer.spans.single.attributes['http.route'], entry.value);
+        final record = logger.records.single;
+        expect(record.attributes['http.route'], entry.value);
+        expect(record.body, 'HTTP GET ${entry.value} 200');
+      });
+    }
+
+    test('never records a path parameter in the span or the log', () async {
+      final dio = buildDio((_) async => ResponseBody.fromString('', 404));
+
+      await expectLater(
+        dio.get<dynamic>('/api/profiles/alice/soul'),
+        throwsA(isA<DioException>()),
+      );
+
+      final record = logger.records.single;
+      final everything =
+          '${tracer.spans.single.attributes} ${record.body} ${record.attributes}';
+      expect(everything, isNot(contains('alice')));
+      expect(everything, isNot(contains('soul')));
+    });
+  });
+
   test('never exports the server host or exception details', () async {
     final dio = buildDio(
       (options) async => throw DioException.connectionError(
