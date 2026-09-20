@@ -198,7 +198,7 @@ void main() {
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 
-  testWidgets('replies stay beside their prompt when sends overlap', (
+  testWidgets('replies stay beside their prompt across consecutive sends', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1400, 900);
@@ -218,8 +218,7 @@ void main() {
     }
 
     await send('FIRSTQ');
-    await tester.pump(const Duration(milliseconds: 500));
-    // The second prompt goes out while the first reply is still pending.
+    await tester.pump(const Duration(milliseconds: 1000));
     await send('SECONDQ');
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();

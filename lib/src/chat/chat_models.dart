@@ -186,4 +186,8 @@ class ChatThread {
 
   String get preview =>
       messages.isEmpty ? 'No messages yet' : messages.last.content;
+
+  /// Whether a reply is still thinking or streaming. A reply that waits for
+  /// the user's answer counts, since its turn has not ended.
+  bool get isReplying => messages.any((m) => m.isPending);
 }

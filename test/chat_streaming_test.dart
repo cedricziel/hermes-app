@@ -425,12 +425,14 @@ void main() {
     expect(inTranscript('Partial'), findsOneWidget);
   });
 
-  chatTest('replies stay beside their prompt when sends overlap', (
+  chatTest('replies stay beside their prompt when threads reply at once', (
     tester,
   ) async {
     await pumpChat(tester);
 
     await send(tester, 'FIRSTQ');
+    await tester.tap(find.text('Release notes'));
+    await tester.pumpAndSettle();
     await send(tester, 'SECONDQ');
     final [first, second] = transport.sends;
     await emit(tester, second, const ReplyCompleted('SECONDA'));
@@ -446,13 +448,12 @@ void main() {
       return tester.getTopLeft(found).dy;
     }
 
-    final ordered = [
-      top('FIRSTQ'),
-      top('FIRSTA'),
-      top('SECONDQ'),
-      top('SECONDA'),
-    ];
-    expect(ordered, orderedEquals([...ordered]..sort()));
+    expect(top('SECONDQ'), lessThan(top('SECONDA')));
+    expect(find.byType(ThinkingIndicator), findsNothing);
+
+    await tester.tap(find.text('Run failure'));
+    await tester.pumpAndSettle();
+    expect(top('FIRSTQ'), lessThan(top('FIRSTA')));
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 

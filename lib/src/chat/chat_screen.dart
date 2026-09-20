@@ -35,6 +35,8 @@ import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
 
 const _couldNotOpenChat = 'Could not open that chat.';
+const _stillReplying =
+    'Hermes is still replying. Wait for it to finish, or answer its request.';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -373,6 +375,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (content.isEmpty) return;
 
     final selected = _selectedThread;
+    if (selected != null && selected.isReplying) {
+      _showMessage(_stillReplying);
+      return;
+    }
     final thread =
         selected ??
         ChatThread(
