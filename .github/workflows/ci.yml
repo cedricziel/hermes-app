@@ -75,8 +75,16 @@ jobs:
       - name: flutter pub get
         run: flutter pub get
 
+      # With a watch app in the project Flutter needs a concrete simulator to
+      # pick the matching watchOS SDK.
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          udid=$(xcrun simctl list devices available iPhone -j | jq -r '[.devices[][]][0].udid')
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
       - name: Build simulator app with share extension and watch app
-        run: flutter build ios --simulator --debug --no-codesign
+        run: flutter build ios --simulator --debug --no-codesign -d "${{ steps.simulator.outputs.udid }}"
 
   build-macos:
     name: Build macOS (debug)
