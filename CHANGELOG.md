@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.8](https://github.com/cedricziel/hermes-app/compare/v0.1.7...v0.1.8) (2026-09-20)
+
+
+### Features
+
+* **chat:** answer agent approval and clarify requests ([#55](https://github.com/cedricziel/hermes-app/issues/55)) ([519e534](https://github.com/cedricziel/hermes-app/commit/519e534b2edeb25357675c1ba7681c36760d909f))
+* dark mode with a system default and a setting to override it ([#53](https://github.com/cedricziel/hermes-app/issues/53)) ([57061d1](https://github.com/cedricziel/hermes-app/commit/57061d1b25d5ad0a7a0940f4a8a147f2e3794bc2))
+
+
+### Bug Fixes
+
+* **auth:** stop signing users out on concurrent 401s and never leave sign-in spinning ([#58](https://github.com/cedricziel/hermes-app/issues/58)) ([5eb9650](https://github.com/cedricziel/hermes-app/commit/5eb96505f0531029fad6092a8959d914824e68e3))
+
 ## [0.1.7](https://github.com/cedricziel/hermes-app/compare/v0.1.6...v0.1.7) (2026-09-19)
 
 
