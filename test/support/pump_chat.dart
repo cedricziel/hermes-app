@@ -25,6 +25,7 @@ Future<void> pumpChatScreen(
   ChatTransport? transport,
   List<SingleChildWidget> providers = const [],
   bool settle = true,
+  VoidCallback? onShowChat,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -51,6 +52,7 @@ Future<void> pumpChatScreen(
               ? HermesProfilesRepository(server!.client().raw)
               : null,
           transport: transport,
+          onShowChat: onShowChat,
         ),
       ),
     ),

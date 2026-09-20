@@ -171,7 +171,8 @@ class _ChatScreenState extends State<ChatScreen> {
       final first = await _repository!.loadThreadPage(profile: profile);
       final launched = await _attention.takeLaunchTarget();
       if (!mounted || generation != _loadGeneration) return;
-      final launch = _pendingTap ?? launched;
+      final held = _pendingTap;
+      final launch = held ?? launched;
       _pendingTap = null;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
@@ -195,8 +196,10 @@ class _ChatScreenState extends State<ChatScreen> {
             ? launch!.threadId
             : (threads.isNotEmpty ? threads.first.id : null);
       });
-      if (launch != null && _selectedId != launch.threadId) {
-        _showMessage(_couldNotOpenChat);
+      if (launch != null) {
+        // A held tap already put Chat in front when it arrived.
+        if (held == null) widget.onShowChat?.call();
+        if (_selectedId != launch.threadId) _showMessage(_couldNotOpenChat);
       }
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {

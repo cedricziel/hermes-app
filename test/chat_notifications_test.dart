@@ -67,6 +67,7 @@ void main() {
     bool load = true,
     bool withProfiles = false,
     bool settle = true,
+    VoidCallback? onShowChat,
   }) async {
     if (load) await tester.runAsync(settings.load);
     await pumpChatScreen(
@@ -75,6 +76,7 @@ void main() {
       transport: transport,
       withProfiles: withProfiles,
       settle: settle,
+      onShowChat: onShowChat,
       providers: [
         ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         Provider<NotificationService>.value(value: service),
@@ -543,6 +545,25 @@ void main() {
     await pump(tester);
 
     expect(selected(tester), 's2');
+  });
+
+  testWidgets('a notification that started the app puts the chat in front', (
+    tester,
+  ) async {
+    service.launchThread = 's2';
+    var shown = 0;
+
+    await pump(tester, onShowChat: () => shown++);
+
+    expect(shown, 1);
+  });
+
+  testWidgets('a plain launch does not ask for the chat', (tester) async {
+    var shown = 0;
+
+    await pump(tester, onShowChat: () => shown++);
+
+    expect(shown, 0);
   });
 
   testWidgets(
