@@ -3,6 +3,8 @@ import 'chat_transport.dart';
 
 const kReplyFailedMessage = 'Something went wrong. Try sending it again.';
 
+const kReplyStoppedMessage = 'Stopped.';
+
 const kProfileUnavailableMessage =
     'That profile is no longer available. Pick another one.';
 
@@ -32,9 +34,12 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.inputRequests = [...reply.inputRequests, request];
     case InputRequestExpired(:final requestId):
       expireInputRequests(reply, requestId: requestId);
-    case ReplyCompleted(:final text, :final failed):
+    case ReplyCompleted(:final text, :final failed, :final stopped):
       if (text.isNotEmpty) reply.content = text;
       if (failed && reply.content.isEmpty) reply.content = kReplyFailedMessage;
+      if (stopped && reply.content.isEmpty) {
+        reply.content = kReplyStoppedMessage;
+      }
       reply.status = failed ? MessageStatus.error : MessageStatus.sent;
       _settleRunningTools(
         reply,

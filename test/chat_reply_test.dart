@@ -69,6 +69,25 @@ void main() {
     expect(reply.status, MessageStatus.sent);
   });
 
+  test('a stopped reply with nothing streamed says it was stopped', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.content, kReplyStoppedMessage);
+    expect(reply.status, MessageStatus.sent);
+  });
+
+  test('a stopped reply keeps what had streamed', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReplyDelta('Half an ans'));
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.content, 'Half an ans');
+    expect(reply.status, MessageStatus.sent);
+  });
+
   test('a failed completion shows its message as an error', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ReplyDelta('Hel'));

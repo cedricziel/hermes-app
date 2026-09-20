@@ -38,6 +38,7 @@ import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
 
 const _couldNotOpenChat = 'Could not open that chat.';
+const _couldNotStop = 'Could not stop the reply. Try again.';
 const _stillReplying =
     'Hermes is still replying. Wait for it to finish, or answer its request.';
 
@@ -575,6 +576,14 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _stopReply(ChatThread thread) async {
+    try {
+      await _transport?.stopReply(thread.id);
+    } on Object {
+      _showMessage(_couldNotStop);
+    }
+  }
+
   Future<void> _skipUnsupported(
     ChatThread thread,
     String requestId,
@@ -696,6 +705,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   onSkipUnsupported: selected == null
                       ? null
                       : (id, kind) => _skipUnsupported(selected, id, kind),
+                  onStop: selected == null || _transport == null
+                      ? null
+                      : () => _stopReply(selected),
                 ),
               ),
             ],
@@ -718,6 +730,7 @@ class _ThreadView extends StatelessWidget {
     this.onAnswerApproval,
     this.onAnswerClarify,
     this.onSkipUnsupported,
+    this.onStop,
   });
 
   final ChatThread? thread;
@@ -736,6 +749,7 @@ class _ThreadView extends StatelessWidget {
   onAnswerClarify;
   final Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported;
+  final Future<void> Function()? onStop;
 
   @override
   Widget build(BuildContext context) {
@@ -752,6 +766,7 @@ class _ThreadView extends StatelessWidget {
             controller: composerController,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,
+            onStop: thread?.isReplying == true ? onStop : null,
           ),
         );
 

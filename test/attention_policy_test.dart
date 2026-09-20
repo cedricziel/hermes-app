@@ -121,6 +121,10 @@ void main() {
       expect(_for(const ReplyCompleted(''))!.body, kReplyReadyBody);
     });
 
+    test('a reply the user stopped is not announced', () {
+      expect(_for(const ReplyCompleted('Half', stopped: true)), isNull);
+    });
+
     test('a failed reply says so, not its error text', () {
       final n = _for(const ReplyCompleted('boom: trace', failed: true))!;
 

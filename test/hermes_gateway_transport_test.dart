@@ -41,6 +41,9 @@ class FakeGateway {
 
   bool rejectSubmit = false;
 
+  /// The runtime session of the latest `prompt.submit`.
+  String lastSessionId = '';
+
   /// When set, `session.create` and `session.resume` fail with this JSON-RPC
   /// error code, as a gateway does for a profile that no longer exists.
   int? sessionErrorCode;
@@ -56,6 +59,9 @@ class FakeGateway {
 
   /// The `status` `sudo.respond` and `secret.respond` report.
   String skipStatus = 'ok';
+
+  /// The `status` `session.interrupt` reports.
+  String interruptStatus = 'interrupted';
 
   /// Whether `client.capabilities` fails, as it does on a gateway that
   /// predates server-to-client requests.
@@ -137,6 +143,11 @@ class FakeGateway {
             'server_requests': ['approval', 'clarify', 'sudo', 'secret'],
           },
         });
+      case 'session.interrupt':
+        _send({
+          'id': id,
+          'result': {'status': interruptStatus},
+        });
       case 'sudo.respond' || 'secret.respond':
         _send({
           'id': id,
@@ -167,7 +178,8 @@ class FakeGateway {
           'id': id,
           'result': {'status': 'streaming'},
         });
-        turn(this, params['session_id'] as String);
+        lastSessionId = params['session_id'] as String;
+        turn(this, lastSessionId);
     }
   }
 }
@@ -1327,6 +1339,87 @@ void main() {
       );
       expect(gateway.responses, isEmpty);
       expect(gateway.methods, isNot(contains('sudo.respond')));
+    });
+  });
+
+  group('stopping a reply', () {
+    /// Starts a turn that never completes on its own, calls [stop] while it
+    /// runs, then completes it.
+    Future<T> stopWhileReplying<T>(
+      Future<T> Function() stop, {
+      String? threadId,
+    }) async {
+      gateway.turn = (g, sid) => g.event('message.start', sid);
+      final done = Completer<void>();
+      late T result;
+      transport.send(threadId: threadId, text: 'hi').listen((e) async {
+        if (e is ReplyStarted) {
+          result = await stop();
+          gateway.event('message.complete', gateway.lastSessionId, {
+            'text': '',
+            'status': 'interrupted',
+          });
+        }
+      }, onDone: done.complete);
+      await done.future;
+      return result;
+    }
+
+    test('interrupts the runtime session of a thread it created', () async {
+      final stopped = await stopWhileReplying(
+        () => transport.stopReply('stored-1'),
+      );
+
+      expect(stopped, isTrue);
+      expect(gateway.requestOf('session.interrupt')['params'], {
+        'session_id': 'rt-1',
+      });
+    });
+
+    test('interrupts the runtime session of a thread it resumed', () async {
+      await stopWhileReplying(
+        () => transport.stopReply('stored-2'),
+        threadId: 'stored-2',
+      );
+
+      expect(gateway.requestOf('session.interrupt')['params'], {
+        'session_id': 'rt-2',
+      });
+    });
+
+    test('nothing running reports not stopped', () async {
+      gateway.interruptStatus = 'not_interrupted';
+
+      final stopped = await stopWhileReplying(
+        () => transport.stopReply('stored-1'),
+      );
+
+      expect(stopped, isFalse);
+    });
+
+    test('a thread with no reply in flight sends nothing', () async {
+      expect(await transport.stopReply('stored-1'), isFalse);
+      expect(gateway.requests, isEmpty);
+    });
+
+    test('a reply that ended can no longer be stopped', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      expect(await transport.stopReply('stored-1'), isFalse);
+      expect(gateway.methods, isNot(contains('session.interrupt')));
+    });
+
+    test('an interrupted turn completes as stopped, not failed', () async {
+      gateway.turn = (g, sid) => g.event('message.complete', sid, {
+        'text': '',
+        'status': 'interrupted',
+      });
+
+      final completed = (await reply()).last as ReplyCompleted;
+
+      expect(completed.stopped, isTrue);
+      expect(completed.failed, isFalse);
     });
   });
 }

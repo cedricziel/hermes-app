@@ -50,6 +50,7 @@ AttentionNotification? attentionFor({
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
   final body = switch (event) {
+    ReplyCompleted(stopped: true) => null,
     ReplyCompleted(:final text, :final failed) =>
       failed
           ? kReplyFailedBody
