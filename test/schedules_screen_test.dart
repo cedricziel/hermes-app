@@ -254,6 +254,18 @@ void main() {
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('42 s'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byType(ScheduleDetail),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.drag(find.byType(ScheduleDetail), const Offset(0, -300));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('42 s'));
       await tester.pumpAndSettle();
 

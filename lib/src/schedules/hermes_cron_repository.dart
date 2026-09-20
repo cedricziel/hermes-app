@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import 'job_draft.dart';
 import 'schedule_models.dart';
 
 /// The server refused a cron request and said why (`{"detail": "..."}`).
@@ -74,6 +75,61 @@ class HermesCronRepository {
     if (job == null) throw const CronException('Unreadable job', status: 502);
     return job;
   });
+
+  Future<CronJob> createJob(JobDraft draft, {String? profile}) =>
+      _guard(() async {
+        final response = await _api.createCronJobApiCronJobsPost(
+          cronJobCreate: draft.toCreate(),
+          profile: profile,
+        );
+        return _job(response.data);
+      });
+
+  /// Changes the fields named in [updates] and leaves the rest of the job as
+  /// the server has it.
+  Future<CronJob> updateJob(
+    String id,
+    Map<String, Object> updates, {
+    String? profile,
+  }) => _guard(() async {
+    final response = await _api.updateCronJobApiCronJobsJobIdPut(
+      jobId: id,
+      cronJobUpdate: CronJobUpdate(updates: updates),
+      profile: profile,
+    );
+    return _job(response.data);
+  });
+
+  Future<List<Blueprint>> blueprints() => _guard(() async {
+    final response = await _api.listCronBlueprintsApiCronBlueprintsGet();
+    final data = response.data;
+    final rows = data is Map ? data['blueprints'] : null;
+    if (rows is! List) return const <Blueprint>[];
+    return [for (final row in rows) ?Blueprint.fromJson(row)];
+  });
+
+  /// Has the server fill the blueprint's slots and create the job.
+  Future<CronJob> instantiate(
+    String key,
+    Map<String, Object> values, {
+    String? profile,
+  }) => _guard(() async {
+    final response = await _api
+        .instantiateBlueprintApiCronBlueprintsInstantiatePost(
+          automationBlueprintInstantiate: AutomationBlueprintInstantiate(
+            blueprint: key,
+            values: values,
+          ),
+          profile: profile,
+        );
+    return _job(response.data);
+  });
+
+  static CronJob _job(Object? body) {
+    final job = CronJob.fromJson(body);
+    if (job == null) throw const CronException('Unreadable job', status: 502);
+    return job;
+  }
 
   Future<void> pause(String id, {String? profile}) => _guard(
     () =>

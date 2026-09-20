@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'blueprint_screens.dart';
 import 'schedule_detail.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
@@ -45,6 +46,23 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     );
   }
 
+  Future<void> _new({required bool wide}) async {
+    final names = await _controller.profileNames();
+    if (!mounted) return;
+    final job = await Navigator.of(context).push<CronJob>(
+      MaterialPageRoute(
+        builder: (_) => BlueprintGalleryScreen(
+          repository: _controller.repository,
+          profile: _controller.activeProfile,
+          profileNames: names,
+        ),
+      ),
+    );
+    if (job == null || !mounted) return;
+    _controller.jobSaved(job);
+    if (!wide) _openNarrow(job);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -71,6 +89,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     icon: const Icon(Icons.refresh),
                   ),
                 ],
+              ),
+              floatingActionButton: FloatingActionButton.extended(
+                onPressed: () => _new(wide: wide),
+                icon: const Icon(Icons.add),
+                label: const Text('New'),
               ),
               body: wide
                   ? Row(

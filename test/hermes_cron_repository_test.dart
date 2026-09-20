@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/job_draft.dart';
+import 'package:hermes_app/src/schedules/schedule_spec.dart';
 
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
@@ -130,5 +134,104 @@ void main() {
 
     expect(targets.map((t) => t.id), ['local', 'discord']);
     expect(targets.last.homeTargetSet, isFalse);
+  });
+
+  group('create and change', () {
+    test('createJob posts the draft to the chosen profile', () async {
+      server.on(
+        'POST',
+        '/api/cron/jobs',
+        cronJobRow(id: 'new'),
+        query: {'profile': 'work'},
+      );
+
+      final job = await repository.createJob(
+        JobDraft(
+          name: 'Price watch',
+          prompt: 'Check it',
+          spec: const EverySpec(6, EveryUnit.hours),
+        ),
+        profile: 'work',
+      );
+
+      expect(job.id, 'new');
+      final request = server.requests.last;
+      final body = jsonDecode(request.data as String) as Map;
+      expect(body, containsPair('schedule', 'every 6h'));
+      expect(body, containsPair('prompt', 'Check it'));
+      expect(body, isNot(contains('model')));
+    });
+
+    test('updateJob sends only the updates', () async {
+      server.on('PUT', '/api/cron/jobs/job1', cronJobRow());
+
+      await repository.updateJob('job1', {'prompt': 'New'}, profile: 'work');
+
+      final request = server.requests.last;
+      expect(jsonDecode(request.data as String), {
+        'updates': {'prompt': 'New'},
+      });
+      expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('a refusal carries the server reason and status', () async {
+      server.on('POST', '/api/cron/jobs', {
+        'detail': 'script must be inside /x/scripts',
+      }, status: 400);
+
+      await expectLater(
+        repository.createJob(JobDraft(prompt: 'x')),
+        throwsA(
+          isA<CronException>()
+              .having((e) => e.message, 'message', contains('script must'))
+              .having((e) => e.status, 'status', 400),
+        ),
+      );
+    });
+  });
+
+  group('blueprints', () {
+    test('blueprints reads the catalog and skips bad entries', () async {
+      server.on('GET', '/api/cron/blueprints', {
+        'blueprints': [
+          {'key': 'morning-brief', 'title': 'Morning briefing', 'fields': []},
+          {'title': 'no key'},
+        ],
+      });
+
+      final blueprints = await repository.blueprints();
+
+      expect(blueprints.map((b) => b.key), ['morning-brief']);
+    });
+
+    test('instantiate sends the key and values for the profile', () async {
+      server.on(
+        'POST',
+        '/api/cron/blueprints/instantiate',
+        cronJobRow(id: 'b'),
+        query: {'profile': 'work'},
+      );
+
+      final job = await repository.instantiate('morning-brief', {
+        'time': '07:30',
+      }, profile: 'work');
+
+      expect(job.id, 'b');
+      expect(jsonDecode(server.requests.last.data as String), {
+        'blueprint': 'morning-brief',
+        'values': {'time': '07:30'},
+      });
+    });
+
+    test('a 422 keeps its message', () async {
+      server.on('POST', '/api/cron/blueprints/instantiate', {
+        'detail': 'missing required value: time (What time?)',
+      }, status: 422);
+
+      await expectLater(
+        repository.instantiate('morning-brief', {}),
+        throwsA(isA<CronException>().having((e) => e.status, 'status', 422)),
+      );
+    });
   });
 }
