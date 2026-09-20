@@ -228,6 +228,18 @@ void main() {
       },
     );
 
+    testWidgets('shows a provider in use that the server does not list', (
+      tester,
+    ) async {
+      server.on('GET', _hub, hub(memory: 'custom-memory'));
+
+      await openProviders(tester);
+
+      expect(selected(tester, 'memory-custom-memory'), isTrue);
+      expect(radio(tester, 'memory-custom-memory').enabled, isTrue);
+      expect(selected(tester, 'memory-builtin'), isFalse);
+    });
+
     testWidgets('says what a provider needs, and that setup is on the server', (
       tester,
     ) async {

@@ -145,6 +145,32 @@ void main() {
     });
 
     test(
+      'add the memory provider in use when the server does not list it',
+      () async {
+        serve(memory: 'custom-memory');
+        await controller.load();
+
+        expect(controller.memoryOptions.map((o) => o.name), [
+          'custom-memory',
+          'honcho',
+          'mem0',
+          'holographic',
+        ]);
+      },
+    );
+
+    test('add nothing when the built-in provider is in use', () async {
+      serve(memory: '');
+      await controller.load();
+
+      expect(controller.memoryOptions.map((o) => o.name), [
+        'honcho',
+        'mem0',
+        'holographic',
+      ]);
+    });
+
+    test(
       'list no engine when the server has none and none is in use',
       () async {
         serve(engine: '', engines: []);

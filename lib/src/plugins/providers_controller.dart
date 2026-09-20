@@ -44,6 +44,15 @@ class ProvidersController extends ChangeNotifier {
 
   bool get _changedContext => _contextChoice != _settings.contextEngine;
 
+  /// The memory providers to show: the server's list, with the provider in use
+  /// first when the list does not have it, so what is in use is always there.
+  List<MemoryProviderOption> get memoryOptions {
+    final listed = _settings.memoryOptions;
+    final inUse = _settings.memoryProvider;
+    if (inUse.isEmpty || listed.any((o) => o.name == inUse)) return listed;
+    return [MemoryProviderOption(name: inUse), ...listed];
+  }
+
   /// The engines to show: the server's list, with the engine in use first
   /// when the list does not have it.
   List<ContextEngineOption> get contextOptions {

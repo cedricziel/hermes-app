@@ -62,12 +62,17 @@ The system SHALL load the provider settings from the `providers` object of `GET 
 
 ### Requirement: Memory provider picker
 
-The system SHALL show the memory providers as a single choice: "Built-in" first (no external memory), then each provider in the order the server lists them. The provider in use SHALL be selected. Each provider SHALL carry its status as a chip (Ready, Needs setup, Unavailable) and its description. A provider whose status is not Ready SHALL NOT be selectable, unless it is the one in use. For such a provider the tab SHALL offer a "What it needs" view listing, when non-empty, its environment variable names, its external tools each with the name and the install command (with a copy button), and its Python packages; and SHALL say the setup is done on the server. The app SHALL NOT run a command and SHALL NOT show a value for an environment variable.
+The system SHALL show the memory providers as a single choice: "Built-in" first (no external memory), then each provider in the order the server lists them. The provider in use SHALL be selected, and SHALL be shown even when the server's list does not have it. Each provider SHALL carry its status as a chip (Ready, Needs setup, Unavailable) and its description. A provider whose status is not Ready SHALL NOT be selectable, unless it is the one in use. For such a provider the tab SHALL offer a "What it needs" view listing, when non-empty, its environment variable names, its external tools each with the name and the install command (with a copy button), and its Python packages; and SHALL say the setup is done on the server. The app SHALL NOT run a command and SHALL NOT show a value for an environment variable.
 
 #### Scenario: In use
 
 - **WHEN** the server reports `memory_provider` "honcho" and honcho is Ready
 - **THEN** honcho is selected
+
+#### Scenario: In use but not listed
+
+- **WHEN** the server reports `memory_provider` "custom-memory" and its list has no such provider
+- **THEN** "custom-memory" is still shown, first after Built-in, and selected
 
 #### Scenario: Built-in
 

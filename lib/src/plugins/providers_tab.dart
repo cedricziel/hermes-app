@@ -173,7 +173,7 @@ class _MemorySection extends StatelessWidget {
                 title: Text('Built-in'),
                 subtitle: Text('No external memory'),
               ),
-              for (final option in controller.settings.memoryOptions) ...[
+              for (final option in controller.memoryOptions) ...[
                 RadioListTile<String>(
                   key: Key('memory-${option.name}'),
                   value: option.name,
