@@ -12,11 +12,11 @@
 
 ## 3. Add form and review
 
-- [ ] 3.1 Add the `McpAddServerScreen` with the Remote and Command switch, the remote fields and sign-in choice, the obscured bearer token, the command, the one-per-line arguments and the environment rows, with the client checks and disabled Add from the spec
+- [x] 3.1 Add the `McpAddServerScreen` with the Remote and Command switch, the remote fields and sign-in choice, the obscured bearer token, the command, the one-per-line arguments and the environment rows, with the client checks and disabled Add from the spec
 - [x] 3.2 Add `McpCommandReview` (bottom sheet below 900 logical pixels, dialog above), taking a list of servers and showing command, arguments and env names only
-- [ ] 3.3 Wire adding: review first for command servers, progress on Add, close and open or select the new server on success, 409 on the name field, 400 reason, "Could not add {name}", and clear the secret fields in a `finally`
+- [x] 3.3 Wire adding: review first for command servers, progress on Add, close and open or select the new server on success, 409 on the name field, 400 reason, "Could not add {name}", and clear the secret fields in a `finally`
 - [ ] 3.4 Turn the Add button into a menu and make the empty state's second button open the form
-- [ ] 3.5 Write `test/mcp_add_server_test.dart` for the add scenarios at widths either side of 900
+- [x] 3.5 Write `test/mcp_add_server_test.dart` for the add scenarios at widths either side of 900
 
 ## 4. JSON editor
 
