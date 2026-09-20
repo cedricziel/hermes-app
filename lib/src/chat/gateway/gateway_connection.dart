@@ -2,7 +2,9 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../api/hermes_api_client.dart';
-import '../../telemetry/gateway_telemetry.dart';
+
+import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
+
 import 'hermes_gateway_transport.dart';
 
 /// The WebSocket URL of [path] (the gateway's `/api/ws` unless told
@@ -41,7 +43,7 @@ SocketConnect hermesSocketConnect({
   required bool authRequired,
   required HermesApiClient api,
   String path = '/api/ws',
-  GatewayTelemetry? telemetry,
+  MessagingConnectionTracer? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
 }) {
   Future<Map<String, String>> credential() async {
@@ -72,7 +74,7 @@ GatewayConnect hermesGatewayConnect({
   required String baseUrl,
   required bool authRequired,
   required HermesApiClient api,
-  GatewayTelemetry? telemetry,
+  MessagingConnectionTracer? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
 }) {
   final connect = hermesSocketConnect(

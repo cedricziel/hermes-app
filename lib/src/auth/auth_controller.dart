@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,7 +10,6 @@ import '../api/hermes_api_client.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
-import '../telemetry/telemetry_event.dart';
 import 'native_login_flow.dart';
 import 'token_store.dart';
 
@@ -53,7 +54,7 @@ class AuthController extends ChangeNotifier {
     SharedPreferencesAsync? prefs,
     String? devServerUrl,
     this._interceptors = const [],
-    this._events = ignoreTelemetryEvent,
+    this._events = noopAppEventLogger,
     this._login = runNativeLogin,
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _prefs = prefs ?? SharedPreferencesAsync(),
@@ -70,7 +71,7 @@ class AuthController extends ChangeNotifier {
   /// Added to every [Dio] client this controller builds.
   final List<Interceptor> _interceptors;
 
-  final TelemetryEvent _events;
+  final AppEventLogger _events;
 
   final NativeLogin _login;
 
