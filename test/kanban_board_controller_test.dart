@@ -46,7 +46,7 @@ void main() {
     connects = [];
     sockets = [];
     controller = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async {
         connects.add((since: since, board: board));
         final socket = StreamChannelController<String>();
@@ -275,7 +275,7 @@ void main() {
     late SharedPreferencesAsync prefs;
 
     KanbanBoardController withPrefs() => KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
       prefs: prefs,
@@ -345,7 +345,7 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     final prefs = SharedPreferencesAsync();
     KanbanBoardController build() => KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
       prefs: prefs,
@@ -373,7 +373,7 @@ void main() {
           });
       serveBoard([kanbanTaskRow(id: 't1')]);
       final c = KanbanBoardController(
-        repository: KanbanRepository(server.client().raw),
+        repository: KanbanRepository(server.client()),
         connect: ({required since, board}) async =>
             StreamChannelController<String>().foreign,
         prefs: SharedPreferencesAsync(),
@@ -389,7 +389,7 @@ void main() {
   test('leaving during the board list load does not fetch the board', () async {
     serveBoard([kanbanTaskRow(id: 't1')]);
     final leaving = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
     );
@@ -404,7 +404,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance = _SlowPrefs('default');
     serveBoard([kanbanTaskRow(id: 't1')]);
     final c = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
       prefs: SharedPreferencesAsync(),
@@ -425,7 +425,7 @@ void main() {
       SharedPreferencesAsyncPlatform.instance = _FailingWritePrefs();
       serveBoard([kanbanTaskRow(id: 't1')]);
       final c = KanbanBoardController(
-        repository: KanbanRepository(server.client().raw),
+        repository: KanbanRepository(server.client()),
         connect: ({required since, board}) async =>
             StreamChannelController<String>().foreign,
         prefs: SharedPreferencesAsync(),
@@ -462,7 +462,7 @@ void main() {
               );
       });
       final c = KanbanBoardController(
-        repository: KanbanRepository(server.client().raw),
+        repository: KanbanRepository(server.client()),
         connect: ({required since, board}) async =>
             StreamChannelController<String>().foreign,
         prefs: SharedPreferencesAsync(),
@@ -489,7 +489,7 @@ void main() {
     var opened = 0;
     var open = 0;
     final c = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async {
         opened++;
         await Future<void>.delayed(const Duration(milliseconds: 30));
@@ -532,7 +532,7 @@ void main() {
     final prefs = SharedPreferencesAsync();
     serveBoard([kanbanTaskRow(id: 't1')]);
     final c = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
       prefs: prefs,

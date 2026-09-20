@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../api/hermes_api_client.dart';
 import 'kanban_models.dart';
 
 /// The plugin refused a request and said why (`{"detail": "..."}`), for
@@ -18,7 +22,15 @@ Future<T> _guard<T>(Future<T> Function() run) async {
   try {
     return await run();
   } on DioException catch (e) {
-    final data = e.response?.data;
+    var data = e.response?.data;
+    // A download asks for raw bytes, so its error body arrives as bytes too.
+    if (data is List<int>) {
+      try {
+        data = jsonDecode(utf8.decode(data));
+      } on FormatException {
+        // Not JSON (a proxy's error page): there is no reason to read.
+      }
+    }
     final detail = data is Map ? data['detail'] : null;
     if (detail is String) throw KanbanException(detail);
     // A request the plugin could not validate lists what was wrong.
@@ -36,9 +48,13 @@ Future<T> _guard<T>(Future<T> Function() run) async {
 /// The plugin's routes declare no response schema, so bodies are parsed by
 /// hand into the models in `kanban_models.dart`.
 class KanbanRepository {
-  KanbanRepository(this._api);
+  /// Takes the whole client, not only its generated half: attachment downloads
+  /// are fetched through [HermesApiClient.fetchKanbanAttachment], since the
+  /// generated client cannot return a file's bytes.
+  KanbanRepository(this.client) : _api = client.raw;
 
   final DefaultApi _api;
+  final HermesApiClient client;
 
   Future<KanbanBoard> loadBoard({
     String? board,
@@ -243,6 +259,24 @@ class KanbanRepository {
           board: board,
         ),
       );
+
+  /// Attaches [bytes] to a task as [filename]. The plugin caps the size and
+  /// refuses with a reason, which is raised as a [KanbanException].
+  Future<void> uploadAttachment(
+    String taskId,
+    String filename,
+    Uint8List bytes, {
+    String? board,
+  }) => _guard(
+    () => _api.uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(
+      taskId: taskId,
+      file: MultipartFile.fromBytes(bytes, filename: filename),
+      board: board,
+    ),
+  );
+
+  Future<Uint8List> downloadAttachment(int id, {String? board}) =>
+      _guard(() => client.fetchKanbanAttachment(id, board: board));
 
   Future<void> removeAttachment(int id, {String? board}) => _guard(
     () => _api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(

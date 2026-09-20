@@ -30,7 +30,7 @@ void main() {
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<bool>(
                   builder: (_) => KanbanCreateScreen(
-                    repository: KanbanRepository(server.client().raw),
+                    repository: KanbanRepository(server.client()),
                     tenant: 'acme',
                   ),
                 ),

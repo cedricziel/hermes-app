@@ -26,7 +26,7 @@ void main() {
       )
       ..on('GET', '/api/plugins/kanban/board', kanbanBoardBody([]));
     controller = KanbanBoardController(
-      repository: KanbanRepository(server.client().raw),
+      repository: KanbanRepository(server.client()),
       connect: ({required since, board}) async =>
           StreamChannelController<String>().foreign,
     );
@@ -41,7 +41,7 @@ void main() {
           theme: buildHermesLightTheme(),
           home: KanbanBoardsScreen(
             controller: controller,
-            repository: KanbanRepository(server.client().raw),
+            repository: KanbanRepository(server.client()),
           ),
         ),
       )

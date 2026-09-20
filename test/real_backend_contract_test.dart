@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -418,7 +419,7 @@ void main() {
     }, skip: skip);
 
     test('the board and the board list parse', () async {
-      final repository = KanbanRepository(client.raw);
+      final repository = KanbanRepository(client);
 
       final board = await repository.loadBoard();
       final boards = await repository.listBoards();
@@ -429,7 +430,7 @@ void main() {
     }, skip: skip);
 
     test('a task can be created, changed, commented on and deleted', () async {
-      final repository = KanbanRepository(client.raw);
+      final repository = KanbanRepository(client);
       await cleanUp(repository);
       addTearDown(() => cleanUp(repository));
 
@@ -455,8 +456,33 @@ void main() {
       expect(await findTask(repository), isNull);
     }, skip: skip);
 
+    test(
+      'an attachment can be uploaded, downloaded byte for byte and removed',
+      () async {
+        final repository = KanbanRepository(client);
+        await cleanUp(repository);
+        addTearDown(() => cleanUp(repository));
+        await repository.createTask(title: title);
+        final task = (await findTask(repository))!;
+        final bytes = Uint8List.fromList([0, 255, 128, 10, 13, 200, 1, 2]);
+
+        await repository.uploadAttachment(task.id, 'contract.bin', bytes);
+        final attached = (await repository.loadTask(task.id)).attachments;
+        final downloaded = await repository.downloadAttachment(
+          attached.single.id,
+        );
+        await repository.removeAttachment(attached.single.id);
+
+        expect(attached.single.filename, 'contract.bin');
+        expect(attached.single.size, bytes.length);
+        expect(downloaded, bytes);
+        expect((await repository.loadTask(task.id)).attachments, isEmpty);
+      },
+      skip: skip,
+    );
+
     test('a refused change carries the plugin\'s reason', () async {
-      final repository = KanbanRepository(client.raw);
+      final repository = KanbanRepository(client);
 
       expect(
         repository.updateTask('t_missing', status: 'running'),
@@ -465,13 +491,13 @@ void main() {
     }, skip: skip);
 
     test('the orchestration settings parse', () async {
-      final settings = await KanbanRepository(client.raw).loadOrchestration();
+      final settings = await KanbanRepository(client).loadOrchestration();
 
       expect(settings.activeProfile, isNotEmpty);
     }, skip: skip);
 
     test('the event stream announces a new task', () async {
-      final repository = KanbanRepository(client.raw);
+      final repository = KanbanRepository(client);
       await cleanUp(repository);
       addTearDown(() => cleanUp(repository));
       final since = (await repository.loadBoard()).latestEventId;

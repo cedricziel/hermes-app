@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
@@ -66,6 +68,19 @@ class HermesApiClient {
     return RegExp(r'__HERMES_SESSION_TOKEN__="([^"]+)"')
         .firstMatch(response.data ?? '')
         ?.group(1);
+  }
+
+  /// `GET /api/plugins/kanban/attachments/{id}` — a task attachment's bytes.
+  /// The generated method cannot return them: it decodes the body as JSON, which
+  /// would corrupt a binary file, and takes no way to ask for raw bytes.
+  Future<Uint8List> fetchKanbanAttachment(int id, {String? board}) async {
+    final response = await _dio.get<List<int>>(
+      '/api/plugins/kanban/attachments/$id',
+      queryParameters: {'board': ?board},
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final data = response.data;
+    return data is Uint8List ? data : Uint8List.fromList(data ?? const []);
   }
 
   /// `GET /api/auth/me` — auth-required. The verified session for the

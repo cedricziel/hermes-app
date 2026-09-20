@@ -17,7 +17,7 @@ class FakeHermesServer implements HttpClientAdapter {
   final List<RequestOptions> requests = [];
 
   /// Answers [method] [path] with [body]: a [String] is served as is (an HTML
-  /// page), anything else as JSON. With [query], only requests carrying those
+  /// page), a [Uint8List] as a binary file, anything else as JSON. With [query], only requests carrying those
   /// parameters match, and they win over a route without.
   void on(
     String method,
@@ -83,6 +83,15 @@ class FakeHermesServer implements HttpClientAdapter {
     final (:status, :body) = route == null
         ? (status: 404, body: {'detail': 'Not Found'})
         : await route.respond(options);
+    if (body is Uint8List) {
+      return ResponseBody.fromBytes(
+        body,
+        status,
+        headers: {
+          Headers.contentTypeHeader: ['application/octet-stream'],
+        },
+      );
+    }
     final page = body is String;
     return ResponseBody.fromString(
       page ? body : jsonEncode(body),

@@ -8,6 +8,7 @@ import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
 import 'kanban_errors.dart';
+import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import '../theme/hermes_theme.dart';
@@ -18,7 +19,15 @@ import 'widgets/kanban_task_panel.dart';
 /// The Kanban board: status chips over a card list on a phone, real columns
 /// on a wide screen. Kept current by the plugin's event stream.
 class KanbanScreen extends StatefulWidget {
-  const KanbanScreen({super.key, this.repository, this.connect});
+  const KanbanScreen({
+    super.key,
+    this.repository,
+    this.connect,
+    this.files = const PlatformKanbanFiles(),
+  });
+
+  /// The file dialogs used to attach and save attachments.
+  final KanbanFiles files;
 
   /// Override the repository / event stream built from the signed-in client.
   final KanbanRepository? repository;
@@ -40,7 +49,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     super.initState();
     final auth = context.read<AuthController>();
     final api = auth.api;
-    _repository = widget.repository ?? KanbanRepository(api!.raw);
+    _repository = widget.repository ?? KanbanRepository(api!);
     KanbanEventsConnect connect;
     if (widget.connect != null) {
       connect = widget.connect!;
@@ -131,6 +140,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   void _open(KanbanTask task) => showKanbanTask(
     context,
     repository: _repository,
+    files: widget.files,
     taskId: task.id,
     board: _controller.boardSlug,
     onChanged: _controller.refresh,
