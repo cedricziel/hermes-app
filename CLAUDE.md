@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Flutter client (iOS, Android, macOS, Windows, Linux) for the Hermes Agent web dashboard (`hermes dashboard`, from NousResearch/hermes-agent). The user enters a self-hosted server URL, signs in, and chats with the agent. `README.md` covers the auth flow and the generated client in depth.
+A Flutter client (iOS, Android, macOS, Windows, Linux) for the Hermes Agent web dashboard (`hermes dashboard`, from NousResearch/hermes-agent). The user enters a self-hosted server URL, signs in, and chats with the agent. The sign-in flow is specified in `openspec/specs/auth/spec.md`, and `openapi/README.md` covers the generated client.
 
 ## Commands
 
@@ -27,6 +27,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 - `scripts/dev-backend.sh start|stop|url` runs a throwaway Hermes dashboard on an OS-assigned port with its own `HERMES_HOME` (needs `hermes` on PATH).
 - `scripts/dev-app.sh start|reload|restart|screenshot|logs|stop` runs the macOS app against it and can screenshot the window. State lives in `.dart_tool/hermes-dev/`.
+- `scripts/store-screenshots.sh ios|mac|finish` retakes the App Store and README screenshots; the `store-screenshots` skill (`.claude/skills/store-screenshots/SKILL.md`) has the procedure and the traps.
 - The `verify-in-app` skill (`.claude/skills/verify-in-app/SKILL.md`) has the full loop and its rules. Never point the app or `hermes` at the real `~/.hermes`, and never run `hermes dashboard --stop`.
 - Building the macOS app rewrites tracked `ios/` and `macos/` Xcode files. Stage files by name, never `git add -A`, and `git restore` those afterwards.
 - `test/real_backend_contract_test.dart` checks the response shapes the repositories parse against a live backend. It skips unless `HERMES_DEV_URL` is set. Tests that call a model also need `HERMES_DEV_MODEL_CALLS=1`, and the Telegram pairing test needs `HERMES_DEV_TELEGRAM_PAIRING=1`. It runs in CI as a non-required check (`real-backend-contract.yml`, Hermes pinned by `HERMES_REF`).
