@@ -30,6 +30,11 @@ The system SHALL load the first page of the thread list from the dashboard when 
 - **WHEN** the session list request fails
 - **THEN** the screen shows "Could not load your chats" with a Retry button, and Retry loads the list again
 
+#### Scenario: Active profile lookup fails
+
+- **WHEN** the request for the active profile fails for any reason other than the server not having the route (404)
+- **THEN** no session list is requested, the screen shows "Could not load your chats" with a Retry button, and no message can be sent until Retry has learned the profile, so nothing is listed or sent unscoped
+
 #### Scenario: Account without sessions
 
 - **WHEN** the dashboard returns no sessions
@@ -373,7 +378,7 @@ The system SHALL send a message by starting a new gateway session (`session.crea
 
 #### Scenario: No profile known
 
-- **WHEN** the dashboard did not report the active profile
+- **WHEN** the server has no active-profile route (404), so it reports none
 - **THEN** `session.create` and `session.resume` are requested without a `profile` param, and the dashboard uses its own profile
 
 #### Scenario: Events of other sessions
