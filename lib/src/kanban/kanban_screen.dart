@@ -215,7 +215,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
       );
     }
-    _controller.stopSelecting();
+    if (failures.isEmpty) {
+      _controller.stopSelecting();
+    } else {
+      _controller.keepSelected(failures.map((f) => f.id));
+    }
     _controller.refresh();
   }
 
@@ -307,7 +311,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final selecting = _controller.selecting;
     return KanbanCard(
       task: task,
-      selected: _controller.selected.contains(task.id),
+      selected: _controller.isSelected(task.id),
       onTap: selecting
           ? () => _controller.toggleSelected(task.id)
           : () => _open(task),

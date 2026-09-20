@@ -3,10 +3,6 @@ import 'package:hermes_api/hermes_api.dart';
 
 import 'kanban_models.dart';
 
-/// Reads the Kanban plugin's boards through the generated [DefaultApi].
-///
-/// The plugin's routes declare no response schema, so bodies are parsed by
-/// hand into the models in `kanban_models.dart`.
 /// The plugin refused a request and said why (`{"detail": "..."}`), for
 /// example a task that cannot move to `ready` while a parent is open.
 class KanbanException implements Exception {
@@ -25,10 +21,20 @@ Future<T> _guard<T>(Future<T> Function() run) async {
     final data = e.response?.data;
     final detail = data is Map ? data['detail'] : null;
     if (detail is String) throw KanbanException(detail);
+    // A request the plugin could not validate lists what was wrong.
+    if (detail is List && detail.isNotEmpty && detail.first is Map) {
+      final message = (detail.first as Map)['msg'];
+      if (message is String) throw KanbanException(message);
+    }
     rethrow;
   }
 }
 
+/// Reads and changes the Kanban plugin's boards through the generated
+/// [DefaultApi].
+///
+/// The plugin's routes declare no response schema, so bodies are parsed by
+/// hand into the models in `kanban_models.dart`.
 class KanbanRepository {
   KanbanRepository(this._api);
 

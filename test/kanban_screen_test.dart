@@ -286,6 +286,38 @@ void main() {
       server.requestsTo('PUT', '/api/plugins/kanban/orchestration').single,
     ) as Map;
     expect(body['auto_decompose'], false);
-    expect(body['auto_promote_children'], true);
+    expect(body.keys, isNot(contains('auto_promote_children')));
+    expect(body.keys, isNot(contains('orchestrator_profile')));
+  });
+
+  testWidgets('keeps the tasks a bulk change refused selected for a retry', (
+    tester,
+  ) async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/board',
+      kanbanBoardBody([
+        kanbanTaskRow(id: 't_a', title: 'Alpha', status: 'running'),
+        kanbanTaskRow(id: 't_b', title: 'Beta', status: 'running'),
+      ]),
+    );
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't_a', 'ok': true},
+        {'id': 't_b', 'ok': false, 'error': 'archive refused'},
+      ],
+    });
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.longPress(find.text('Alpha'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Beta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Archive'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 selected'), findsOneWidget);
   });
 }

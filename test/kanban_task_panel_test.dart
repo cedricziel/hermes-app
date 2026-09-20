@@ -324,4 +324,27 @@ void main() {
       hasLength(1),
     );
   });
+
+  testWidgets('deleting a task does not fetch it again', (tester) async {
+    server.on('DELETE', '/api/plugins/kanban/tasks/t1', {'ok': true});
+    await pumpPanel(tester);
+    final loads = server
+        .requestsTo('GET', '/api/plugins/kanban/tasks/t1')
+        .length;
+
+    await tester.ensureVisible(find.text('Delete'));
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('DELETE', '/api/plugins/kanban/tasks/t1'),
+      hasLength(1),
+    );
+    expect(
+      server.requestsTo('GET', '/api/plugins/kanban/tasks/t1'),
+      hasLength(loads),
+    );
+  });
 }

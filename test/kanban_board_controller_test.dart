@@ -328,4 +328,19 @@ void main() {
       expect(c.boardSlug, 'default');
     },
   );
+
+  test('leaving during the board list load does not fetch the board', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    final leaving = KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+    );
+
+    final started = leaving.start();
+    leaving.dispose();
+    await started;
+
+    expect(server.requestsTo('GET', '/api/plugins/kanban/board'), isEmpty);
+  });
 }

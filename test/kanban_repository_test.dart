@@ -384,4 +384,29 @@ void main() {
 
     expect(repository.terminateRun(7), throwsA(isA<KanbanException>()));
   });
+
+  test(
+    'reads the reason from a validation error that lists what is wrong',
+    () async {
+      server.on('POST', '/api/plugins/kanban/boards', {
+        'detail': [
+          {
+            'loc': ['body', 'slug'],
+            'msg': 'String should have at least 1 character',
+          },
+        ],
+      }, status: 422);
+
+      expect(
+        repository.createBoard(slug: ''),
+        throwsA(
+          isA<KanbanException>().having(
+            (e) => e.message,
+            'message',
+            contains('at least 1 character'),
+          ),
+        ),
+      );
+    },
+  );
 }

@@ -77,6 +77,22 @@ void main() {
     expect(body['name'], 'Q3 Launch');
   });
 
+  testWidgets('will not send a name that leaves no slug', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('New board'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '日本語');
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('POST', '/api/plugins/kanban/boards'), isEmpty);
+    expect(
+      find.text('Use letters or numbers in the board name.'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('says why the plugin refused a board', (tester) async {
     server.on('POST', '/api/plugins/kanban/boards', {
       'detail': 'invalid board slug',
@@ -85,7 +101,7 @@ void main() {
 
     await tester.tap(find.text('New board'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '!!!');
+    await tester.enterText(find.byType(TextField), 'Ops');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pumpAndSettle();
 

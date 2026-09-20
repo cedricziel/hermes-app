@@ -95,11 +95,11 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   /// Runs a write and reloads; reports the change to the board when it works.
-  Future<bool> _do(Future<void> Function() action) async {
+  Future<bool> _do(Future<void> Function() action, {bool reload = true}) async {
     final ok = await runKanbanAction(context, action);
     if (ok) {
       widget.onChanged?.call();
-      await _load();
+      if (reload) await _load();
     }
     return ok;
   }
@@ -208,46 +208,16 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _edit(KanbanTask task) async {
-    final title = TextEditingController(text: task.title);
-    final body = TextEditingController(text: task.body ?? '');
-    final saved = await showDialog<bool>(
+    final edited = await showDialog<(String, String)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit task'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: title,
-              decoration: const InputDecoration(labelText: 'Title'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: body,
-              minLines: 3,
-              maxLines: 8,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _EditTaskDialog(task: task),
     );
-    if (saved != true || title.text.trim().isEmpty) return;
+    if (edited == null || edited.$1.isEmpty) return;
     await _do(
       () => _repo.updateTask(
         widget.taskId,
-        title: title.text.trim(),
-        body: body.text.trim(),
+        title: edited.$1,
+        body: edited.$2,
         board: widget.board,
       ),
     );
@@ -341,6 +311,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     }
     if (await _do(
           () => _repo.archiveTask(widget.taskId, board: widget.board),
+          reload: false,
         ) &&
         mounted) {
       Navigator.pop(context);
@@ -355,7 +326,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     )) {
       return;
     }
-    if (await _do(() => _repo.deleteTask(widget.taskId, board: widget.board)) &&
+    if (await _do(
+          () => _repo.deleteTask(widget.taskId, board: widget.board),
+          reload: false,
+        ) &&
         mounted) {
       Navigator.pop(context);
     }
@@ -688,5 +662,58 @@ class _Heading extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
     ),
+  );
+}
+
+class _EditTaskDialog extends StatefulWidget {
+  const _EditTaskDialog({required this.task});
+
+  final KanbanTask task;
+
+  @override
+  State<_EditTaskDialog> createState() => _EditTaskDialogState();
+}
+
+class _EditTaskDialogState extends State<_EditTaskDialog> {
+  late final _title = TextEditingController(text: widget.task.title);
+  late final _body = TextEditingController(text: widget.task.body ?? '');
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Edit task'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _title,
+          decoration: const InputDecoration(labelText: 'Title'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _body,
+          minLines: 3,
+          maxLines: 8,
+          decoration: const InputDecoration(labelText: 'Description'),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () =>
+            Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
+        child: const Text('Save'),
+      ),
+    ],
   );
 }

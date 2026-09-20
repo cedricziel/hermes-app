@@ -103,6 +103,8 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Ids picked for a bulk change; empty outside selection mode.
   Set<String> get selected => Set.unmodifiable(_selected);
+
+  bool isSelected(String id) => _selected.contains(id);
   bool get selecting => _selecting;
   bool _selecting = false;
 
@@ -117,6 +119,13 @@ class KanbanBoardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Keeps only [ids] selected, so a change that failed for some tasks can
+  /// be retried on exactly those.
+  void keepSelected(Iterable<String> ids) {
+    _selected.retainAll(ids.toSet());
+    notifyListeners();
+  }
+
   void stopSelecting() {
     _selecting = false;
     _selected.clear();
@@ -125,6 +134,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> start() async {
     await loadBoards();
+    if (_disposed) return;
     await refresh();
   }
 
@@ -152,6 +162,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Fetches the board now and (re)starts the event stream from it.
   Future<void> refresh() async {
+    if (_disposed) return;
     final generation = _generation;
     _loading = _board == null;
     notifyListeners();
