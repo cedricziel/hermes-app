@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/cedricziel/hermes-app/compare/v0.1.17...v0.1.18) (2026-09-20)
+
+
+### Features
+
+* **chat:** let the user stop a reply that is running ([#178](https://github.com/cedricziel/hermes-app/issues/178)) ([8120dad](https://github.com/cedricziel/hermes-app/commit/8120dad32292a6e53272ccaab731320221877826))
+
 ## [0.1.17](https://github.com/cedricziel/hermes-app/compare/v0.1.16...v0.1.17) (2026-09-20)
 
 
