@@ -31,6 +31,9 @@ class _GatedDashboard {
   /// Status the refresh route answers with instead of rotating, if set.
   int? refreshFailure;
 
+  /// Whether the refresh route leaves `expires_at` out of its answer.
+  bool omitExpiresAt = false;
+
   /// How long the refresh route takes before answering.
   Duration refreshDelay = Duration.zero;
 
@@ -69,7 +72,7 @@ class _GatedDashboard {
         return _json(request, 200, {
           'access_token': validAccess,
           'refresh_token': validRefresh,
-          'expires_at': _farFuture,
+          if (!omitExpiresAt) 'expires_at': _farFuture,
           'provider': 'oidc',
           'user_id': 'u1',
         });
@@ -102,14 +105,17 @@ class _GatedDashboard {
 final _farFuture =
     DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
 
-HermesSession _session({String access = 'access-1', String? refresh}) =>
-    HermesSession(
-      accessToken: access,
-      refreshToken: refresh ?? 'refresh-1',
-      expiresAt: _farFuture,
-      provider: 'oidc',
-      userId: 'u1',
-    );
+HermesSession _session({
+  String access = 'access-1',
+  String? refresh,
+  int? expiresAt,
+}) => HermesSession(
+  accessToken: access,
+  refreshToken: refresh ?? 'refresh-1',
+  expiresAt: expiresAt ?? _farFuture,
+  provider: 'oidc',
+  userId: 'u1',
+);
 
 void main() {
   late _GatedDashboard dashboard;
@@ -145,6 +151,39 @@ void main() {
   });
 
   tearDown(() => dashboard.close());
+
+  test(
+    'a session with no known expiry is not refreshed before each request',
+    () async {
+      await bootstrapWith(_session(expiresAt: 0));
+
+      await controller.api!.fetchMe();
+      await controller.api!.fetchMe();
+      await controller.api!.fetchMe();
+
+      expect(dashboard.rotations, 0);
+      expect(requestedPaths, isNot(contains('/auth/native/refresh')));
+      expect(events.named('auth.session.refreshed'), isEmpty);
+    },
+  );
+
+  test('a session with no known expiry refreshes once on a 401 and then '
+      'stops refreshing', () async {
+    await bootstrapWith(_session(expiresAt: 0));
+    dashboard
+      ..validAccess = 'revoked'
+      ..omitExpiresAt = true;
+
+    await controller.api!.fetchMe();
+    await controller.api!.fetchMe();
+    await controller.api!.fetchMe();
+
+    expect(dashboard.rotations, 1);
+    expect(store.session?.accessToken, 'access-2');
+    expect(events.named('auth.session.refreshed'), [
+      {'trigger': 'after_401'},
+    ]);
+  });
 
   test('a 401 for a token another request already rotated retries with the '
       'new token instead of spending the used refresh token', () async {
