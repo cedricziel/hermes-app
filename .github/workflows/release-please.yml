@@ -1,7 +1,9 @@
 name: release-please
 
 # 1. `release-please` keeps a release PR in sync with conventional commits on
-#    main. Merging it cuts a `vX.Y.Z` tag and GitHub release.
+#    main. Merging it cuts a `vX.Y.Z` tag and a GitHub pre-release
+#    (`prerelease` in release-please-config.json); promote one to a full
+#    release by hand.
 # 2. `testflight` then builds that tag on a macOS runner, signs it via fastlane
 #    match and uploads it to TestFlight, for iOS and macOS in parallel.
 # 3. `linux` builds that tag for x86_64 and arm64 and attaches a tar.gz and a
