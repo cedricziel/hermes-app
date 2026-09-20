@@ -130,14 +130,15 @@ lane :bootstrap_app do
 end
 
 desc "Upload App Store metadata (listing text, category, age rating) without a binary"
-lane :sync_metadata do
+desc "  version:X.Y.Z  the editable version to update (default: pubspec.yaml, which renames it)"
+lane :sync_metadata do |options|
   api_key = load_app_store_connect_api_key
   %w[ios osx].each do |platform|
     upload_to_app_store(
       api_key: api_key,
       app_identifier: APP_IDENTIFIER,
       platform: platform,
-      app_version: marketing_version({}),
+      app_version: marketing_version(options),
       skip_binary_upload: true,
       skip_screenshots: true,
       skip_metadata: false,
