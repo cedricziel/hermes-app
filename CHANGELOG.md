@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.19](https://github.com/cedricziel/hermes-app/compare/v0.1.18...v0.1.19) (2026-09-20)
+
+
+### Features
+
+* **kanban:** attach and save files on a task ([#185](https://github.com/cedricziel/hermes-app/issues/185)) ([6efb2e3](https://github.com/cedricziel/hermes-app/commit/6efb2e3c9ace883970b9418e03ee1993cfa5f71e))
+* **skills:** add a Skills page to the chat sidebar ([#189](https://github.com/cedricziel/hermes-app/issues/189)) ([e6ecdd0](https://github.com/cedricziel/hermes-app/commit/e6ecdd0e21c23fb70ef5ad461c2f1b4ee8d17438))
+
+
+### Bug Fixes
+
+* **android:** compile file_picker's Kotlin sources with Built-in Kotlin turned off ([#188](https://github.com/cedricziel/hermes-app/issues/188)) ([e1901cd](https://github.com/cedricziel/hermes-app/commit/e1901cd434f0fd4005f78f52ff1678e439d58f86))
+* **chat:** start on the new chat screen instead of the first thread ([#187](https://github.com/cedricziel/hermes-app/issues/187)) ([7ba5791](https://github.com/cedricziel/hermes-app/commit/7ba5791b63e43d0fdc4966765287cf2499441eec))
+
 ## [0.1.18](https://github.com/cedricziel/hermes-app/compare/v0.1.17...v0.1.18) (2026-09-20)
 
 
