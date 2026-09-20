@@ -348,4 +348,34 @@ void main() {
       );
     });
   });
+
+  group('server names in paths', () {
+    const awkward = {'a b?c': 'a%20b%3Fc', 'a#b': 'a%23b', 'a/b': 'a%2Fb'};
+
+    for (final MapEntry(key: name, value: encoded) in awkward.entries) {
+      test('encodes "$name" in every request', () async {
+        server
+          ..on('PUT', '/api/mcp/servers/$encoded/enabled', {'ok': true})
+          ..on('POST', '/api/mcp/servers/$encoded/test', mcpTestBody())
+          ..on('DELETE', '/api/mcp/servers/$encoded', {'ok': true});
+
+        await repository.setEnabled(name, false);
+        await repository.testServer(
+          HermesMcpServer(
+            name: name,
+            transport: McpTransport.remote,
+            url: 'https://a.test',
+          ),
+        );
+        await repository.removeServer(name);
+
+        expect(server.requests.map((r) => r.path), [
+          '/api/mcp/servers/$encoded/enabled',
+          '/api/mcp/servers/$encoded/test',
+          '/api/mcp/servers/$encoded',
+        ]);
+        expect(server.requests.every((r) => r.queryParameters.isEmpty), isTrue);
+      });
+    }
+  });
 }

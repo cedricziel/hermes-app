@@ -816,6 +816,20 @@ void main() {
       );
     }, skip: skip);
 
+    test('a server whose name needs escaping is switched and removed by '
+        'that name', () async {
+      final name = await add('a b?c', url: mcpUrl);
+
+      await repository.setEnabled(name, false);
+      expect((await listed(name)).enabled, isFalse);
+      await repository.removeServer(name);
+
+      expect(
+        (await repository.loadServers()).map((s) => s.name),
+        isNot(contains(name)),
+      );
+    }, skip: skip);
+
     test('a test of an unknown server is a 404', () async {
       final ghost = HermesMcpServer(
         name: 'contract-check-ghost-$stamp',

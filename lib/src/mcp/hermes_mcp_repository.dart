@@ -145,7 +145,7 @@ class HermesMcpRepository {
 
   Future<void> setEnabled(String name, bool enabled, {String? profile}) async {
     await _api.setMcpServerEnabledApiMcpServersNameEnabledPut(
-      name: name,
+      name: Uri.encodeComponent(name),
       mCPEnabledToggle: MCPEnabledToggle(enabled: enabled),
       profile: profile,
     );
@@ -158,7 +158,7 @@ class HermesMcpRepository {
     String? profile,
   }) async {
     final response = await _api.testMcpServerApiMcpServersNameTestPost(
-      name: server.name,
+      name: Uri.encodeComponent(server.name),
       profile: profile,
     );
     final body = response.data;
@@ -192,7 +192,7 @@ class HermesMcpRepository {
 
   Future<void> removeServer(String name, {String? profile}) async {
     await _api.removeMcpServerApiMcpServersNameDelete(
-      name: name,
+      name: Uri.encodeComponent(name),
       profile: profile,
     );
   }
