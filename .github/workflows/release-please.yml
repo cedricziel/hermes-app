@@ -110,8 +110,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          file="$RUNNER_TEMP/release_notes.md"
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$file" || : > "$file"
+          raw="$RUNNER_TEMP/release_notes_raw.md"
+          file="$RUNNER_TEMP/release_notes.txt"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$raw" || : > "$raw"
+          # TestFlight shows the notes as plain text, so release-please's
+          # markdown is stripped. Formatting must never block a release: an
+          # older tag without the script, or a failure, keeps the raw notes.
+          python3 scripts/plain_release_notes.py < "$raw" > "$file" || cp "$raw" "$file"
           echo "file=$file" >> "$GITHUB_OUTPUT"
 
       - name: Configure SSH for match repo
