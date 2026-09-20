@@ -5,6 +5,7 @@ import 'hermes_mcp_repository.dart';
 import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
 import 'mcp_chip.dart';
+import 'mcp_json_editor_screen.dart';
 import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
@@ -39,6 +40,8 @@ class McpServersScreen extends StatefulWidget {
   @override
   State<McpServersScreen> createState() => _McpServersScreenState();
 }
+
+enum _MoreChoice { editAsJson }
 
 class _McpServersScreenState extends State<McpServersScreen> {
   late final McpServersController _controller;
@@ -82,6 +85,14 @@ class _McpServersScreenState extends State<McpServersScreen> {
     );
   }
 
+  void _openJsonEditor() {
+    Navigator.of(context).push(
+      MaterialPageRoute<bool>(
+        builder: (_) => McpJsonEditorScreen(servers: _controller),
+      ),
+    );
+  }
+
   Future<void> _openCustomForm() async {
     final name = await Navigator.of(context).push<String>(
       MaterialPageRoute<String>(
@@ -104,26 +115,39 @@ class _McpServersScreenState extends State<McpServersScreen> {
             builder: (context, _) =>
                 _controller.servers == null || _controller.failed
                 ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: MenuAnchor(
-                      menuChildren: [
-                        MenuItemButton(
-                          onPressed: _openCatalog,
-                          child: const Text('Browse the catalog'),
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MenuAnchor(
+                        menuChildren: [
+                          MenuItemButton(
+                            onPressed: _openCatalog,
+                            child: const Text('Browse the catalog'),
+                          ),
+                          MenuItemButton(
+                            onPressed: _openCustomForm,
+                            child: const Text('Add a custom server'),
+                          ),
+                        ],
+                        builder: (context, menu, _) => TextButton.icon(
+                          onPressed: () =>
+                              menu.isOpen ? menu.close() : menu.open(),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add'),
                         ),
-                        MenuItemButton(
-                          onPressed: _openCustomForm,
-                          child: const Text('Add a custom server'),
-                        ),
-                      ],
-                      builder: (context, menu, _) => TextButton.icon(
-                        onPressed: () =>
-                            menu.isOpen ? menu.close() : menu.open(),
-                        icon: const Icon(Icons.add),
-                        label: const Text('Add'),
                       ),
-                    ),
+                      PopupMenuButton<_MoreChoice>(
+                        tooltip: 'More',
+                        onSelected: (_) => _openJsonEditor(),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: _MoreChoice.editAsJson,
+                            child: Text('Edit as JSON'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 4),
+                    ],
                   ),
           ),
         ],

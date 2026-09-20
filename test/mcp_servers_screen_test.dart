@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_add_server_screen.dart';
+import 'package:hermes_app/src/mcp/mcp_json_editor_screen.dart';
 import 'package:hermes_app/src/mcp/mcp_server_detail.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -896,6 +897,76 @@ void main() {
         findsOneWidget,
       );
       expect(row('linear'), findsOneWidget);
+    });
+  });
+
+  group('overflow menu', () {
+    Future<void> openMenu(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('More'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('offers Edit as JSON, which opens the editor', (tester) async {
+      server.on('GET', '/api/config', {
+        'mcp_servers': {
+          'grafana': {'url': 'https://mcp.grafana.com/mcp', 'timeout': 30},
+        },
+      });
+      await pumpScreen(tester);
+
+      await openMenu(tester);
+      await tester.tap(find.text('Edit as JSON'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpJsonEditorScreen), findsOneWidget);
+      expect(find.text('Profile: work · mcp_servers'), findsOneWidget);
+      expect(find.textContaining('"timeout": 30'), findsOneWidget);
+    });
+
+    testWidgets('is there when the profile has no servers', (tester) async {
+      listServers([]);
+      await pumpScreen(tester);
+
+      await openMenu(tester);
+
+      expect(find.text('Edit as JSON'), findsOneWidget);
+    });
+
+    testWidgets('is not shown while the servers could not be loaded', (
+      tester,
+    ) async {
+      server.on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500);
+      await pumpScreen(tester);
+
+      expect(find.byTooltip('More'), findsNothing);
+    });
+
+    testWidgets('a saved editor changes the list', (tester) async {
+      server.on('GET', '/api/config', {
+        'mcp_servers': {
+          'grafana': {'url': 'https://mcp.grafana.com/mcp'},
+        },
+      });
+      server.onRequest('PUT', '/api/mcp/servers', (_) {
+        listServers([mcpServerRow(name: 'grafana', url: 'https://b.test')]);
+        return (status: 200, body: {'ok': true});
+      });
+      await pumpScreen(tester);
+      await openMenu(tester);
+      await tester.tap(find.text('Edit as JSON'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const ValueKey('mcp-json-text')),
+        '{"grafana": {"url": "https://b.test"}}',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mcp-json-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpJsonEditorScreen), findsNothing);
+      expect(find.text('https://b.test'), findsOneWidget);
+      expect(find.byKey(const ValueKey('mcp-row-filesystem')), findsNothing);
     });
   });
 }

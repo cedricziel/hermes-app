@@ -23,7 +23,7 @@
 - [x] 4.1 Add `McpJsonEditorScreen`: load the full map, show the profile and the secrets note, the replace-everything warning, monospace editing, progress and Retry on failure
 - [x] 4.2 Add the checks: JSON errors with a line number, the object-of-objects rule, Save disabled while unchanged, the deletion confirmation naming removed servers, and the review step for new or changed command servers only
 - [x] 4.3 Save with `replaceServers`: progress, close and reload the list on success, the problem list on 400 with the text unchanged, "Could not save" otherwise, and the discard prompt when leaving with changes
-- [ ] 4.4 Add "Edit as JSON" to the servers screen's overflow menu
+- [x] 4.4 Add "Edit as JSON" to the servers screen's overflow menu
 - [x] 4.5 Write `test/mcp_json_editor_test.dart` for the editor scenarios
 
 ## 5. Contract and finish
