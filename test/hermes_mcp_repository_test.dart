@@ -263,6 +263,34 @@ void main() {
       expect(result.signInNeeded, isTrue);
     });
 
+    test('recognises Hermes\' non-interactive OAuth refusal', () async {
+      server.on(
+        'POST',
+        path,
+        mcpTestFailureBody(
+          "MCP OAuth for 'grafana': non-interactive environment and no cached "
+          'tokens found. Run `hermes mcp login grafana` interactively first '
+          'to complete initial authorization.',
+        ),
+      );
+
+      final result = await repository.testServer(oauthServer());
+
+      expect(result.signInNeeded, isTrue);
+    });
+
+    test('does not read every OAuth failure as a missing token', () async {
+      server.on(
+        'POST',
+        path,
+        mcpTestFailureBody("MCP OAuth for 'grafana': token refresh failed"),
+      );
+
+      final result = await repository.testServer(oauthServer());
+
+      expect(result.signInNeeded, isFalse);
+    });
+
     test('only asks for sign-in on a server that uses OAuth', () async {
       server.on(
         'POST',

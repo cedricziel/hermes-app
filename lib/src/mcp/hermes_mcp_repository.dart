@@ -104,7 +104,13 @@ class HermesMcpRepository {
 
   final DefaultApi _api;
 
-  static const _signInPrefix = 'OAuth authentication required';
+  /// Hermes has no structured code for "no OAuth token". A server that
+  /// answers without one gets the first wording; one that refuses to start the
+  /// browser flow inside the dashboard gets the second.
+  static bool _isMissingToken(String error) =>
+      error.startsWith('OAuth authentication required') ||
+      (error.startsWith('MCP OAuth for') &&
+          error.contains('no cached tokens found'));
 
   static String? _text(Object? value) => value is String ? value : null;
 
@@ -167,7 +173,7 @@ class HermesMcpRepository {
       return HermesMcpTestResult(
         ok: false,
         error: error,
-        signInNeeded: server.usesOAuth && error.startsWith(_signInPrefix),
+        signInNeeded: server.usesOAuth && _isMissingToken(error),
       );
     }
     return HermesMcpTestResult(

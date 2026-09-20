@@ -121,12 +121,17 @@ The system SHALL open a detail page when the user taps a row on a narrow layout,
 
 ### Requirement: Sign in needed
 
-The system SHALL show "Sign in needed" instead of the plain failure when a test of a server that signs in with OAuth answers `ok: false` with an error that begins with "OAuth authentication required". The row and the detail SHALL show it as a warning chip and banner ("Hermes has no OAuth token for this server yet, so it cannot list tools."). Signing in itself is not part of this capability.
+The system SHALL show "Sign in needed" instead of the plain failure when a test of a server that signs in with OAuth answers `ok: false` with an error that begins with "OAuth authentication required", or that begins with "MCP OAuth for" and says no cached tokens were found (Hermes' two wordings for a missing token). The row and the detail SHALL show it as a warning chip and banner ("Hermes has no OAuth token for this server yet, so it cannot list tools."). Signing in itself is not part of this capability.
 
 #### Scenario: OAuth token missing
 
 - **WHEN** the test of a server with `auth: "oauth"` answers `ok: false` with "OAuth authentication required — no token found."
 - **THEN** the detail shows the "Sign in needed" banner instead of "Could not connect", and the row shows a "Sign in needed" chip
+
+#### Scenario: OAuth flow refused inside the dashboard
+
+- **WHEN** the test of a server with `auth: "oauth"` answers `ok: false` with "MCP OAuth for 'grafana': non-interactive environment and no cached tokens found. Run `hermes mcp login grafana` interactively first…"
+- **THEN** the detail shows the "Sign in needed" banner, as for the first wording
 
 #### Scenario: Other failure on an OAuth server
 
