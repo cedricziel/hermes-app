@@ -92,6 +92,13 @@ The system SHALL discover a server by requesting `GET /api/status` without crede
 - **AND** the message is "Could not reach" followed by the address, unless the server sent a `detail` string, which is shown instead
 - **AND** the address is not saved
 
+#### Scenario: Status response is malformed
+
+- **WHEN** the status response is not an object or one of its fields has the wrong type
+- **THEN** the state is connection error, also when the connect is restoring the saved address on launch
+- **AND** the message is "Unexpected response from the server"
+- **AND** the address is not saved
+
 #### Scenario: Successful discovery saves the address
 
 - **WHEN** the status request succeeds
@@ -159,6 +166,13 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 - **WHEN** a stored session is found and the identity request fails because of a network error or a 5xx answer
 - **THEN** the state is connection error
 - **AND** the stored tokens are kept
+
+#### Scenario: Identity response is malformed
+
+- **WHEN** a stored session is found and the identity response is not an object or one of its fields has the wrong type
+- **THEN** the state is connection error, also when the connect is restoring the saved address on launch
+- **AND** the message is "Unexpected response from the server"
+- **AND** the stored tokens are kept, so connecting again once the server answers correctly restores the session
 
 #### Scenario: Stored session is dead
 

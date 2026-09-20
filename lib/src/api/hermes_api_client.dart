@@ -34,8 +34,8 @@ class HermesApiClient {
   /// the auth gate is engaged and which flows are supported before any
   /// sign-in attempt.
   Future<HermesStatus> fetchStatus() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/status');
-    return HermesStatus.fromJson(response.data ?? const {});
+    final response = await _dio.get<dynamic>('/api/status');
+    return _parseObject(response.data, HermesStatus.fromJson, 'status');
   }
 
   /// `GET /api/auth/providers` — public. Lists the registered sign-in
@@ -71,7 +71,25 @@ class HermesApiClient {
   /// `GET /api/auth/me` — auth-required. The verified session for the
   /// signed-in user.
   Future<HermesIdentity> fetchMe() async {
-    final response = await _dio.get<Map<String, dynamic>>('/api/auth/me');
-    return HermesIdentity.fromJson(response.data ?? const {});
+    final response = await _dio.get<dynamic>('/api/auth/me');
+    return _parseObject(response.data, HermesIdentity.fromJson, 'identity');
+  }
+
+  /// Throws [FormatException] for a body that is not an object or whose
+  /// fields have the wrong type.
+  static T _parseObject<T>(
+    dynamic data,
+    T Function(Map<String, dynamic>) parse,
+    String what,
+  ) {
+    if (data == null) return parse(const {});
+    if (data is! Map<String, dynamic>) {
+      throw FormatException('malformed $what body');
+    }
+    try {
+      return parse(data);
+    } on TypeError {
+      throw FormatException('malformed $what fields');
+    }
   }
 }

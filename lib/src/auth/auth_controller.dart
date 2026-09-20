@@ -39,6 +39,8 @@ enum HermesConnectionState {
 
 const _prefsBaseUrlKey = 'hermes.server_base_url';
 
+const _unexpectedResponseMessage = 'Unexpected response from the server';
+
 const _sessionTokenHeader = 'X-Hermes-Session-Token';
 
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
@@ -140,13 +142,16 @@ class AuthController extends ChangeNotifier {
 
     final HermesStatus status;
     try {
-      final response = await probeDio.get<Map<String, dynamic>>('/api/status');
-      status = HermesStatus.fromJson(response.data ?? const {});
+      status = await HermesApiClient(probeDio).fetchStatus();
     } on DioException catch (e) {
       _errorMessage = _describeDioError(
         e,
         fallback: 'Could not reach $normalized',
       );
+      _setState(HermesConnectionState.connectionError);
+      return;
+    } on FormatException {
+      _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
       return;
     }
@@ -200,6 +205,9 @@ class AuthController extends ChangeNotifier {
         e,
         fallback: 'Could not verify your session',
       );
+      _setState(HermesConnectionState.connectionError);
+    } on FormatException {
+      _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
     }
   }
