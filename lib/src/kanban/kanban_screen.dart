@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
 import 'kanban_board_controller.dart';
+import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
@@ -55,6 +57,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     _controller = KanbanBoardController(
       repository: _repository,
       connect: connect,
+      prefs: SharedPreferencesAsync(),
     )..start();
   }
 
@@ -81,8 +84,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
             : AppBar(
                 title: const Text('Kanban'),
                 actions: [
-                  if (_controller.boards.length > 1)
-                    _BoardMenu(controller: _controller),
+                  if (_controller.boards.isNotEmpty)
+                    _BoardMenu(
+                      controller: _controller,
+                      onManage: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => KanbanBoardsScreen(
+                            controller: _controller,
+                            repository: _repository,
+                          ),
+                        ),
+                      ),
+                    ),
                   _LiveDot(live: _controller.live),
                   if (_controller.board != null) _moreMenu(),
                   const SizedBox(width: 4),
@@ -544,16 +557,18 @@ class _FilterMenu extends StatelessWidget {
 }
 
 class _BoardMenu extends StatelessWidget {
-  const _BoardMenu({required this.controller});
+  const _BoardMenu({required this.controller, required this.onManage});
 
   final KanbanBoardController controller;
+  final VoidCallback onManage;
 
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       tooltip: 'Switch board',
       icon: const Icon(Icons.dashboard_customize_outlined),
-      onSelected: controller.selectBoard,
+      onSelected: (slug) =>
+          slug.isEmpty ? onManage() : controller.selectBoard(slug),
       itemBuilder: (_) => [
         for (final b in controller.boards)
           CheckedPopupMenuItem(
@@ -561,6 +576,8 @@ class _BoardMenu extends StatelessWidget {
             checked: b.slug == controller.boardSlug,
             child: Text('${b.name} (${b.total})'),
           ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: '', child: Text('Manage boards…')),
       ],
     );
   }
