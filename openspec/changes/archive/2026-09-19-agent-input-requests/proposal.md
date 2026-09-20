@@ -2,7 +2,7 @@
 
 While it works on a turn, the agent can stop and ask the user something. The Hermes gateway sends this as an event on the `/api/ws` socket and waits for an answer, up to a timeout. The app ignored these events and had no way to answer, so the chat looked stuck until the backend gave up.
 
-This change was imported from `docs/superpowers/` (design and plan dated 2026-09-19) and is already implemented and shipped in #55 (`feat(chat): answer agent approval and clarify requests`). It is archived here to keep the design history in OpenSpec.
+This change was imported from the former `docs/superpowers/` directory (design and plan dated 2026-09-19; the directory is gone, git history keeps it) and is already implemented and shipped in #55 (`feat(chat): answer agent approval and clarify requests`). It is archived here to keep the design history in OpenSpec.
 
 ## What Changes
 
