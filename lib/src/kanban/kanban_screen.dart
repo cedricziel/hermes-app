@@ -4,9 +4,13 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
 import 'kanban_board_controller.dart';
+import 'kanban_create_screen.dart';
+import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import '../theme/hermes_theme.dart';
 import 'widgets/kanban_card.dart';
+import 'widgets/kanban_task_panel.dart';
 
 /// The Kanban board: status chips over a card list on a phone, real columns
 /// on a wide screen. Kept current by the plugin's event stream.
@@ -25,6 +29,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   static const double _columnsBreakpoint = 720;
 
   late final KanbanBoardController _controller;
+  late final KanbanRepository _repository;
   String _status = 'running';
 
   @override
@@ -32,7 +37,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     super.initState();
     final auth = context.read<AuthController>();
     final api = auth.api;
-    final repository = widget.repository ?? KanbanRepository(api!.raw);
+    _repository = widget.repository ?? KanbanRepository(api!.raw);
     KanbanEventsConnect connect;
     if (widget.connect != null) {
       connect = widget.connect!;
@@ -47,7 +52,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
           socket({'since': '$since', 'board': ?board});
     }
     _controller = KanbanBoardController(
-      repository: repository,
+      repository: _repository,
       connect: connect,
     )..start();
   }
@@ -73,8 +78,49 @@ class _KanbanScreenState extends State<KanbanScreen> {
           ],
         ),
         body: _body(context),
+        floatingActionButton: _controller.board == null
+            ? null
+            : FloatingActionButton.extended(
+                onPressed: _create,
+                icon: const Icon(Icons.add),
+                label: const Text('New task'),
+              ),
       ),
     );
+  }
+
+  Future<void> _create() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => KanbanCreateScreen(
+          repository: _repository,
+          board: _controller.boardSlug,
+          tenant: _controller.tenant,
+        ),
+      ),
+    );
+    if (created == true) _controller.refresh();
+  }
+
+  void _open(KanbanTask task) => showKanbanTask(
+    context,
+    repository: _repository,
+    taskId: task.id,
+    board: _controller.boardSlug,
+    onChanged: _controller.refresh,
+  );
+
+  Future<void> _move(KanbanTask task, String status) async {
+    if (task.status == status) return;
+    await runKanbanAction(
+      context,
+      () => _repository.updateTask(
+        task.id,
+        status: status,
+        board: _controller.boardSlug,
+      ),
+    );
+    _controller.refresh();
   }
 
   Widget _body(BuildContext context) {
@@ -159,7 +205,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     padding: const EdgeInsets.all(12),
                     itemCount: tasks.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => KanbanCard(task: tasks[i]),
+                    itemBuilder: (_, i) => KanbanCard(
+                      task: tasks[i],
+                      onTap: () => _open(tasks[i]),
+                    ),
                   ),
           ),
         ),
@@ -176,26 +225,60 @@ class _KanbanScreenState extends State<KanbanScreen> {
       separatorBuilder: (_, _) => const SizedBox(width: 12),
       itemBuilder: (context, i) {
         final column = columns[i];
+        final droppable = kanbanSettableStatuses.contains(column.name);
         return SizedBox(
           width: 260,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8, left: 4),
-                child: Text(
-                  '${kanbanStatusLabel(column.name)}  ${column.tasks.length}',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
+          child: DragTarget<KanbanTask>(
+            onWillAcceptWithDetails: (d) =>
+                droppable && d.data.status != column.name,
+            onAcceptWithDetails: (d) => _move(d.data, column.name),
+            builder: (context, candidates, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(kHermesRadius),
+                color: candidates.isEmpty
+                    ? null
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
               ),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: column.tasks.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, j) => KanbanCard(task: column.tasks[j]),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8, left: 4),
+                    child: Text(
+                      '${kanbanStatusLabel(column.name)}  ${column.tasks.length}',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: column.tasks.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (_, j) {
+                        final task = column.tasks[j];
+                        return LongPressDraggable<KanbanTask>(
+                          data: task,
+                          feedback: SizedBox(
+                            width: 240,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: KanbanCard(task: task),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.4,
+                            child: KanbanCard(task: task),
+                          ),
+                          child: KanbanCard(
+                            task: task,
+                            onTap: () => _open(task),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -115,5 +116,56 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Could not load the board'), findsNothing);
+  });
+
+  testWidgets('tapping a card opens its detail', (tester) async {
+    serveTasks();
+    server.on(
+      'GET',
+      '/api/plugins/kanban/tasks/t_run',
+      kanbanTaskDetailBody(
+        kanbanTaskRow(id: 't_run', title: 'Migrate webhooks', status: 'running')
+          ..['body'] = 'Details here',
+      ),
+    );
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.tap(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Details here'), findsOneWidget);
+  });
+
+  testWidgets('dragging a card to another column moves it', (tester) async {
+    serveTasks();
+    server.on('PATCH', '/api/plugins/kanban/tasks/t_todo', {'ok': true});
+    await pumpBoard(tester, size: const Size(1600, 900));
+
+    final from = tester.getCenter(find.text('Write docs'));
+    final to = tester.getCenter(find.text('Blocked  0'));
+    final gesture = await tester.startGesture(from);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(to);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t_todo').single,
+      ),
+      containsPair('status', 'blocked'),
+    );
+  });
+
+  testWidgets('New task opens the create form', (tester) async {
+    serveTasks();
+    server.on('GET', '/api/plugins/kanban/assignees', {'assignees': []});
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.tap(find.text('New task'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Title'), findsOneWidget);
   });
 }
