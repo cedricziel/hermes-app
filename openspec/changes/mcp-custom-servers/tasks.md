@@ -6,9 +6,9 @@
 
 ## 2. Repository
 
-- [ ] 2.1 Add `addServer` (`POST /api/mcp/servers`), `replaceServers` (`PUT /api/mcp/servers`) and `loadRawServers` (`GET /api/config`, returning the `mcp_servers` map, empty when missing) to `HermesMcpRepository`, each with the profile parameter
-- [ ] 2.2 Map refusals to typed results: 409 duplicate name, 400 with Hermes' reason (for replace, split at "; "), other failures
-- [ ] 2.3 Extend the repository tests against `FakeHermesServer`, including the request bodies for each server shape and a privacy test that the spans and log records of both calls contain no token, env value or body
+- [x] 2.1 Add `addServer` (`POST /api/mcp/servers`), `replaceServers` (`PUT /api/mcp/servers`) and `loadRawServers` (`GET /api/config`, returning the `mcp_servers` map, empty when missing) to `HermesMcpRepository`, each with the profile parameter
+- [x] 2.2 Map refusals to typed results: 409 duplicate name, 400 with Hermes' reason (for replace, split at "; "), other failures
+- [x] 2.3 Extend the repository tests against `FakeHermesServer`, including the request bodies for each server shape and a privacy test that the spans and log records of both calls contain no token, env value or body
 
 ## 3. Add form and review
 
