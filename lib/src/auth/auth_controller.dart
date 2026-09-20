@@ -101,7 +101,7 @@ class AuthController extends ChangeNotifier {
 
   Future<void> bootstrap() async {
     if (_devServerUrl.isNotEmpty) {
-      await connect(_devServerUrl, remember: false);
+      await connect(_devServerUrl, remember: false, restoring: true);
       return;
     }
     final savedUrl = await _prefs.getString(_prefsBaseUrlKey);
@@ -109,12 +109,17 @@ class AuthController extends ChangeNotifier {
       _setState(HermesConnectionState.needsServerUrl);
       return;
     }
-    await connect(savedUrl);
+    await connect(savedUrl, restoring: true);
   }
 
   /// Normalizes and connects to a dashboard base URL, then figures out
-  /// whether sign-in is needed.
-  Future<void> connect(String rawUrl, {bool remember = true}) async {
+  /// whether sign-in is needed. A [restoring] connect (app launch) stays in
+  /// [HermesConnectionState.initializing] instead of flashing the setup form.
+  Future<void> connect(
+    String rawUrl, {
+    bool remember = true,
+    bool restoring = false,
+  }) async {
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
       _errorMessage =
@@ -124,7 +129,7 @@ class AuthController extends ChangeNotifier {
     }
 
     _errorMessage = null;
-    _setState(HermesConnectionState.connecting);
+    if (!restoring) _setState(HermesConnectionState.connecting);
 
     final probeDio = _plainDio(
       normalized,
