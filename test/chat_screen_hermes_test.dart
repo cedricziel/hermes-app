@@ -12,6 +12,8 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
+import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -83,6 +85,7 @@ void main() {
             repository: HermesChatRepository(server.client().raw),
             profiles: HermesProfilesRepository(server.client().raw),
             bots: HermesBotsRepository(server.client().raw),
+            plugins: HermesPluginManagerRepository(server.client().raw),
           ),
         ),
       ),
@@ -281,5 +284,34 @@ void main() {
 
     expect(find.byType(BotsScreen), findsOneWidget);
     expect(find.text('Telegram'), findsOneWidget);
+  });
+
+  testWidgets('the sidebar opens the plugins of the connected dashboard', (
+    tester,
+  ) async {
+    server.on('GET', '/api/dashboard/plugins/hub', {
+      'plugins': [
+        {'name': 'netbox', 'runtime_status': 'enabled'},
+      ],
+    });
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Plugins'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PluginsScreen), findsOneWidget);
+    expect(find.text('netbox'), findsOneWidget);
+  });
+
+  testWidgets('the Plugins entry follows Profiles and Bots', (tester) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    final profiles = tester.getTopLeft(find.text('Profiles')).dy;
+    final bots = tester.getTopLeft(find.text('Bots')).dy;
+    final plugins = tester.getTopLeft(find.text('Plugins')).dy;
+    expect(profiles, lessThan(bots));
+    expect(bots, lessThan(plugins));
   });
 }

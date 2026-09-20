@@ -16,6 +16,8 @@ import '../bots/hermes_bots_repository.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../plugins/hermes_plugin_manager_repository.dart';
+import '../plugins/plugins_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
@@ -61,6 +63,7 @@ class ChatScreen extends StatefulWidget {
     this.profiles,
     this.bots,
     this.skills,
+    this.plugins,
     this.onShowChat,
   });
 
@@ -69,6 +72,7 @@ class ChatScreen extends StatefulWidget {
   final HermesProfilesRepository? profiles;
   final HermesBotsRepository? bots;
   final HermesSkillsRepository? skills;
+  final HermesPluginManagerRepository? plugins;
 
   /// Asks the host to bring the chat to the front, for a notification tap or
   /// shared content that arrives while something else is shown.
@@ -86,6 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
   HermesProfilesRepository? _profiles;
   HermesBotsRepository? _bots;
   HermesSkillsRepository? _skills;
+  HermesPluginManagerRepository? _plugins;
   ChatTransport? _transport;
   HermesGatewayTransport? _ownedTransport;
   ThreadHousekeeping? _housekeeping;
@@ -130,6 +135,9 @@ class _ChatScreenState extends State<ChatScreen> {
     _bots = widget.bots ?? (api == null ? null : HermesBotsRepository(api.raw));
     _skills =
         widget.skills ?? (api == null ? null : HermesSkillsRepository(api.raw));
+    _plugins =
+        widget.plugins ??
+        (api == null ? null : HermesPluginManagerRepository(api.raw));
     _transport = widget.transport;
     if (_transport == null && api != null) {
       final auth = context.read<AuthController>();
@@ -398,6 +406,13 @@ class _ChatScreenState extends State<ChatScreen> {
     if (draft == null || !mounted) return;
     widget.onShowChat?.call();
     setState(() => _appendToComposer(draft));
+  }
+
+  void _openPlugins() {
+    _closeDrawerIfNarrow();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => PluginsScreen(repository: _plugins)),
+    );
   }
 
   void _closeDrawerIfNarrow() {
@@ -697,6 +712,7 @@ class _ChatScreenState extends State<ChatScreen> {
           onOpenProfiles: _profiles == null ? null : _openProfiles,
           onOpenBots: _bots == null ? null : _openBots,
           onOpenSkills: _skills == null ? null : _openSkills,
+          onOpenPlugins: _plugins == null ? null : _openPlugins,
         );
 
         return Scaffold(

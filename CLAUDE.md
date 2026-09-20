@@ -50,13 +50,15 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 - `packages/hermes_api` is a generated `dart-dio` client for the backend's OpenAPI spec (`openapi/hermes-agent.openapi.json`). Reach it through `authController.api!.raw`, which shares the managed `Dio`, instead of adding hand-rolled calls.
 - `lib/src/api/hermes_api_client.dart` hand-writes only `/api/status`, `/api/auth/providers` and `/api/auth/me`, because the spec has no response schemas for them. It also hand-writes the Kanban attachment download (`fetchKanbanAttachment`), because the generated method decodes the body as JSON and cannot return a file's bytes.
-- Many routes (sessions, profiles, bots, skills) also lack response schemas, so the generated methods return untyped JSON. The repositories (`chat/hermes_chat_repository.dart`, `profiles/`, `bots/`, `skills/`) parse those rows leniently and skip rows that don't fit. The contract test above guards these shapes.
+- Many routes (sessions, profiles, bots, skills, plugins) also lack response schemas, so the generated methods return untyped JSON. The repositories (`chat/hermes_chat_repository.dart`, `profiles/`, `bots/`, `skills/`, `plugins/`) parse those rows leniently and skip rows that don't fit. The contract test above guards these shapes.
 
 **Chat** (`lib/src/chat/`, built on `flutter_chat_ui`).
 
 - History is loaded over REST by `HermesChatRepository`. Sending and streaming go through the `ChatTransport` interface (`chat_transport.dart`), a sealed `ChatEvent` stream. The real implementation, `gateway/hermes_gateway_transport.dart`, speaks JSON-RPC over the dashboard's `/api/ws` websocket (`session.create` or `session.resume`, then `prompt.submit`, with replies as `message.delta` events). `gateway_rpc_client.dart` and `gateway_connection.dart` handle the socket.
 - Domain messages (`chat_models.dart`) map to flyer messages in `chat_message_mapper.dart`. `chat_controller_sync.dart` applies before/after diffs to the `InMemoryChatController`. Custom message kinds and cards (tool calls, approval and clarify requests) live in `chat_message_kinds.dart` and `widgets/`. The design for agent input requests is in `openspec/changes/archive/2026-09-19-agent-input-requests/`.
 - With no repository, `ChatScreen` falls back to `mock_chat_data.dart`. A canned reply is used when there is no transport.
+
+**Plugins** (`lib/src/plugins/`). The chat sidebar's Plugins row opens a screen that lists the dashboard's installed plugins (`GET /api/dashboard/plugins/hub`) and enables, disables, updates, removes and hides them. It lists agent plugins only: Kanban and Achievements are dashboard-only extensions that the hub reports apart from them. Details are a bottom sheet below 900 px and a pane at 900 px or wider. The generated client puts a plugin's name into the path unencoded, so the repository encodes it.
 
 **Notifications** (`lib/src/notifications/`). Local notifications when a reply finishes or the agent needs the user, gated by `attention_policy.dart` and user settings.
 
