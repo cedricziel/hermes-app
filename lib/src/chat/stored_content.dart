@@ -14,10 +14,9 @@ class StoredContent {
 
 final _reference = RegExp(r'^@(image|file):(.+)$');
 final _attachedFile = RegExp(r'^\[User attached file: (.+)\]$');
-final _dataImage = RegExp(
-  r'^data:image/([a-zA-Z0-9.+-]+)?;base64,(.*)$',
-  dotAll: true,
-);
+final _dataImageHeader = RegExp(r'^data:image/([a-zA-Z0-9.+-]+)?;base64,');
+final _whitespace = RegExp(r'\s+');
+final _pathSeparator = RegExp(r'[/\\]');
 const _textParts = {'text', 'input_text', 'output_text'};
 const _imageParts = {'image_url', 'input_image', 'image'};
 
@@ -120,12 +119,9 @@ String _unquote(String value) {
   return value;
 }
 
-String _fileName(String path) {
-  final name = path
-      .split(RegExp(r'[/\\]'))
-      .lastWhere((part) => part.isNotEmpty, orElse: () => path);
-  return name;
-}
+String _fileName(String path) => path
+    .split(_pathSeparator)
+    .lastWhere((part) => part.isNotEmpty, orElse: () => path);
 
 ChatAttachment _withBytes(ChatAttachment a, Uint8List bytes) => ChatAttachment(
   name: a.name,
@@ -138,12 +134,14 @@ ChatAttachment _withBytes(ChatAttachment a, Uint8List bytes) => ChatAttachment(
 ({Uint8List bytes, String extension})? _decodeDataImage(Object? value) {
   final url = value is Map ? value['url'] : value;
   if (url is! String) return null;
-  final match = _dataImage.firstMatch(url.trim());
-  if (match == null) return null;
+  final header = _dataImageHeader.matchAsPrefix(url);
+  if (header == null) return null;
   try {
-    final bytes = base64Decode(match[2]!.replaceAll(RegExp(r'\s+'), ''));
+    final bytes = base64Decode(
+      url.substring(header.end).replaceAll(_whitespace, ''),
+    );
     if (bytes.isEmpty) return null;
-    final subtype = (match[1] ?? 'png').toLowerCase();
+    final subtype = (header[1] ?? 'png').toLowerCase();
     return (bytes: bytes, extension: subtype == 'jpeg' ? 'jpg' : subtype);
   } on FormatException {
     return null;
