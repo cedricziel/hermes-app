@@ -17,6 +17,10 @@ const _outcomes = {
   'deny': 'Denied',
 };
 
+/// Offered when the agent sends no choices, so the card never has no way to
+/// answer. Nothing broader than a single allow is granted by default.
+const _defaultChoices = ['once', 'deny'];
+
 const kAnswerFailedMessage = 'Could not send your answer. Try again.';
 
 /// The agent wants to run something and waits for the user to allow or deny
@@ -124,7 +128,13 @@ class _ApprovalCardState extends State<ApprovalCard> {
             InputRequestStatus.pending => Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [for (final choice in request.choices) _button(choice)],
+              children: [
+                for (final choice
+                    in request.choices.isEmpty
+                        ? _defaultChoices
+                        : request.choices)
+                  _button(choice),
+              ],
             ),
             InputRequestStatus.answered => InputCardNote(
               _outcomes[request.choice] ?? 'Answered',
