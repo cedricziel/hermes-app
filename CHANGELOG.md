@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.15](https://github.com/cedricziel/hermes-app/compare/v0.1.14...v0.1.15) (2026-09-20)
+
+
+### Features
+
+* **app-lock:** lock the app behind Face ID, Touch ID or the device passcode ([#158](https://github.com/cedricziel/hermes-app/issues/158)) ([e83f664](https://github.com/cedricziel/hermes-app/commit/e83f664b24ed6bd4bc5719abb20248dcac30b509))
+* **chat:** answer prompts the gateway sends as server-to-client requests ([#145](https://github.com/cedricziel/hermes-app/issues/145)) ([8677ce8](https://github.com/cedricziel/hermes-app/commit/8677ce8867345b90bd5eaa5ead197515d3dd5dc4))
+* **kanban:** runs, worker log and attachments on a task ([#76](https://github.com/cedricziel/hermes-app/issues/76)) ([131831c](https://github.com/cedricziel/hermes-app/commit/131831c9fb9c55101e43e40a85bf148b4e3a56e6))
+* **watch:** announce watch-sent replies with a notification ([#159](https://github.com/cedricziel/hermes-app/issues/159)) ([18673ed](https://github.com/cedricziel/hermes-app/commit/18673ed03c8756b9d24bb6cbec0bb3753085edc1))
+
+
+### Documentation
+
+* **openspec:** archive the notifications and Kanban designs and remove docs/superpowers ([#154](https://github.com/cedricziel/hermes-app/issues/154)) ([01f9921](https://github.com/cedricziel/hermes-app/commit/01f992189cac9a86f9244bd908e8c8e8e19487d7))
+
 ## [0.1.14](https://github.com/cedricziel/hermes-app/compare/v0.1.13...v0.1.14) (2026-09-20)
 
 
