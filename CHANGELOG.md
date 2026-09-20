@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.21](https://github.com/cedricziel/hermes-app/compare/v0.1.20...v0.1.21) (2026-09-20)
+
+
+### Features
+
+* **kanban:** active workers and board export and import ([#198](https://github.com/cedricziel/hermes-app/issues/198)) ([fee6303](https://github.com/cedricziel/hermes-app/commit/fee6303fbfe5576dfd325652ed6cd60fa01a2dec))
+* **plugins:** browse the catalog and install plugins from the app ([#199](https://github.com/cedricziel/hermes-app/issues/199)) ([29bda4f](https://github.com/cedricziel/hermes-app/commit/29bda4f849c885c49082fff04f5c7d98f1056b69))
+
 ## [0.1.20](https://github.com/cedricziel/hermes-app/compare/v0.1.19...v0.1.20) (2026-09-20)
 
 
