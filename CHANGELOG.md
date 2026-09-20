@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/cedricziel/hermes-app/compare/v0.1.8...v0.1.9) (2026-09-20)
+
+
+### Bug Fixes
+
+* **auth:** listen for the sign-in redirect before opening the browser ([#61](https://github.com/cedricziel/hermes-app/issues/61)) ([c6a736e](https://github.com/cedricziel/hermes-app/commit/c6a736e65d463d7de9fc16742624846cbf2eea8a))
+
 ## [0.1.8](https://github.com/cedricziel/hermes-app/compare/v0.1.7...v0.1.8) (2026-09-20)
 
 
