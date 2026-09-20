@@ -13,17 +13,27 @@ import 'theme/hermes_theme.dart';
 class HermesApp extends StatelessWidget {
   /// Prompts to update when [updateChecker] finds a newer release. Left off in
   /// tests, so they never reach out to GitHub.
-  const HermesApp({super.key, this.updateChecker});
+  const HermesApp({
+    super.key,
+    this.updateChecker,
+    this.lightTheme,
+    this.darkTheme,
+  });
 
   final Upgrader? updateChecker;
+
+  /// Replace the built-in themes. Tests use it to render with a font loaded
+  /// from the SDK.
+  final ThemeData? lightTheme;
+  final ThemeData? darkTheme;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
-      theme: buildHermesLightTheme(),
-      darkTheme: buildHermesDarkTheme(),
+      theme: lightTheme ?? buildHermesLightTheme(),
+      darkTheme: darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
       builder: (context, child) => AppLockGate(child: child!),
       home: _RootRouter(updateChecker: updateChecker),
