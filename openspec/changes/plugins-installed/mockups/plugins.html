@@ -1,0 +1,1067 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hermes app – Plugins mockups</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --side: #fafafa;
+        --fg: #18181b;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --soft: #f4f4f5;
+        --primary: #18181b;
+        --on-primary: #fff;
+        --err: #b91c1c;
+        --scrim: rgba(9, 9, 11, 0.45);
+      }
+      .dark {
+        --bg: #09090b;
+        --side: #18181b;
+        --fg: #fafafa;
+        --muted: #a1a1aa;
+        --line: #27272a;
+        --soft: #27272a;
+        --primary: #fafafa;
+        --on-primary: #18181b;
+        --err: #f87171;
+        --scrim: rgba(0, 0, 0, 0.6);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 40px;
+        background: #e9e9ec;
+        font:
+          14px/1.4 Inter,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        color: #18181b;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 0 0 4px;
+      }
+      .lede {
+        color: #52525b;
+        margin: 0 0 32px;
+        max-width: 760px;
+      }
+      h2 {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #52525b;
+        margin: 40px 0 16px;
+      }
+      .row {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #52525b;
+        max-width: 320px;
+      }
+      figcaption b {
+        color: #18181b;
+      }
+
+      .phone {
+        width: 320px;
+        height: 660px;
+        border-radius: 34px;
+        border: 8px solid #18181b;
+        background: var(--bg);
+        color: var(--fg);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .status {
+        height: 34px;
+        padding: 10px 22px 0;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 600;
+        flex: none;
+      }
+      .appbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 14px 10px;
+        font-size: 18px;
+        font-weight: 600;
+        flex: none;
+      }
+      .tabs {
+        display: flex;
+        margin: 0 14px 6px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 3px;
+        flex: none;
+      }
+      .tabs span {
+        flex: 1;
+        text-align: center;
+        padding: 7px 0;
+        border-radius: 9px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .tabs span.on {
+        background: var(--primary);
+        color: var(--on-primary);
+        font-weight: 600;
+      }
+      .body {
+        flex: 1;
+        overflow: hidden;
+        padding: 6px 14px;
+      }
+      .bottomnav {
+        height: 62px;
+        border-top: 1px solid var(--line);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        font-size: 11px;
+        color: var(--muted);
+        flex: none;
+      }
+      .bottomnav .pill {
+        background: var(--primary);
+        color: var(--on-primary);
+        border-radius: 999px;
+        padding: 6px 22px;
+      }
+
+      .item {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .item:last-child {
+        border-bottom: 0;
+      }
+      .item .top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .item .name {
+        font-weight: 600;
+        font-size: 14px;
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .item .ver {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 400;
+        margin-left: 6px;
+      }
+      .item .desc {
+        color: var(--muted);
+        font-size: 12.5px;
+        margin-top: 2px;
+      }
+      .tags {
+        display: flex;
+        gap: 6px;
+        margin-top: 7px;
+        flex-wrap: wrap;
+      }
+      .chip {
+        font-size: 11px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .chip.on {
+        background: var(--primary);
+        color: var(--on-primary);
+        border-color: var(--primary);
+      }
+      .chip.off {
+        color: var(--muted);
+      }
+      .chip.idle {
+        border-style: dashed;
+      }
+      .chip.strong {
+        color: var(--fg);
+        border-color: var(--fg);
+      }
+      .chip.mono {
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .btn {
+        display: inline-block;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 16px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        color: var(--fg);
+      }
+      .btn.fill {
+        background: var(--primary);
+        color: var(--on-primary);
+        border-color: var(--primary);
+      }
+      .btn.dis {
+        opacity: 0.35;
+      }
+      .btn.danger {
+        color: var(--err);
+        border-color: var(--err);
+      }
+      .btn.sm {
+        padding: 5px 12px;
+        font-size: 12px;
+      }
+      .switch {
+        width: 40px;
+        height: 24px;
+        border-radius: 999px;
+        background: var(--line);
+        position: relative;
+        flex: none;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .switch.on {
+        background: var(--primary);
+      }
+      .switch.on::after {
+        left: 19px;
+        background: var(--on-primary);
+      }
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        margin: 10px 0;
+      }
+      .card.soft {
+        background: var(--soft);
+        border-color: transparent;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .small {
+        font-size: 12px;
+      }
+      .mono {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 12.5px;
+      }
+      .split {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .grow {
+        flex: 1;
+      }
+      .search {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 9px 12px;
+        color: var(--muted);
+        flex: 1;
+        font-size: 13px;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: var(--scrim);
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--bg);
+        border-radius: 22px 22px 0 0;
+        padding: 10px 16px 18px;
+        border-top: 1px solid var(--line);
+      }
+      .handle {
+        width: 36px;
+        height: 4px;
+        border-radius: 4px;
+        background: var(--line);
+        margin: 0 auto 12px;
+      }
+      .dialog {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        top: 130px;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 16px;
+      }
+      .warn {
+        border: 1px solid var(--fg);
+        border-radius: 14px;
+        padding: 10px 12px;
+        display: flex;
+        gap: 10px;
+        font-size: 12.5px;
+        margin: 12px 0;
+      }
+      .check {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--muted);
+        border-radius: 5px;
+        flex: none;
+      }
+      .radio {
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--muted);
+        border-radius: 50%;
+        flex: none;
+        position: relative;
+      }
+      .radio.on {
+        border-color: var(--fg);
+      }
+      .radio.on::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        border-radius: 50%;
+        background: var(--fg);
+      }
+      .opt {
+        display: flex;
+        gap: 12px;
+        padding: 10px 0;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--line);
+      }
+      .opt:last-child {
+        border-bottom: 0;
+      }
+      .sect {
+        font-weight: 600;
+        margin: 12px 0 0;
+      }
+      .savebar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+        background: var(--bg);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .drawer {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 62px;
+        width: 250px;
+        background: var(--side);
+        border-right: 1px solid var(--line);
+        border-radius: 0 22px 22px 0;
+        display: flex;
+        flex-direction: column;
+        padding-top: 34px;
+      }
+      .drawer .hd {
+        padding: 10px 16px;
+        font-weight: 600;
+        font-size: 16px;
+      }
+      .drawer .th {
+        padding: 9px 16px;
+        font-size: 13px;
+      }
+      .drawer .th small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .drawer .foot {
+        margin-top: auto;
+        border-top: 1px solid var(--line);
+      }
+      .drawer .foot div {
+        padding: 12px 16px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        font-size: 14px;
+      }
+      .badge {
+        margin-left: auto;
+        font-size: 10px;
+        border-radius: 999px;
+        padding: 1px 7px;
+        background: var(--primary);
+        color: var(--on-primary);
+      }
+      .hl {
+        outline: 2px solid var(--fg);
+        outline-offset: -2px;
+        border-radius: 10px;
+      }
+
+      .wide {
+        width: 1100px;
+        height: 640px;
+        border-radius: 14px;
+        border: 1px solid #a1a1aa;
+        background: var(--bg);
+        color: var(--fg);
+        display: flex;
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      }
+      .rail {
+        width: 84px;
+        border-right: 1px solid var(--line);
+        background: var(--side);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        padding-top: 44px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .rail .on {
+        color: var(--fg);
+        font-weight: 600;
+      }
+      .listpane {
+        width: 400px;
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .listpane .h {
+        padding: 18px 18px 8px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .detail {
+        flex: 1;
+        padding: 28px 34px;
+      }
+      .detail h3 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .sel {
+        background: var(--soft);
+        border-radius: 12px;
+        padding-left: 10px;
+        padding-right: 10px;
+        margin: 0 -10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Plugins screen – mockups</h1>
+    <p class="lede">
+      Proposal for a native Plugins screen in the Hermes app. Opened from a
+      “Plugins” row in the chat sidebar footer, next to Profiles and Bots. Three
+      tabs: Installed, Catalog, Providers. Illustrative, not pixel-exact; the
+      real screen uses the app’s Material 3 theme.
+    </p>
+<div style="background:#fff;border:1px solid #18181b;border-radius:14px;padding:14px 18px;max-width:760px;margin:0 0 28px;font-size:13px">
+<b>Where these differ from change 1 (plugins-installed):</b>
+<ul style="margin:6px 0 0;padding-left:18px">
+<li>The “Update available” pill and the sidebar badge are not in part 1. The hub has no such fact; they come with plugins-catalog.</li>
+<li>In part 1 the details show Update for any plugin the server marks updatable, and the answer is “Updated” or “Already up to date”.</li>
+<li>Part 1 has no tab row: only the Installed list. The Catalog and Providers tabs (shown here) belong to changes 2 and 3.</li>
+<li>For the <b>kanban</b> plugin the hide switch says it also removes the Kanban tab from the app.</li>
+</ul></div>
+
+
+    <h2>1 · Entry point and Installed tab</h2>
+    <div class="row">
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar" style="opacity: 0.35">Chat</div>
+          <div class="body" style="opacity: 0.35">
+            <p class="muted">Why did last night's backup fail?</p>
+          </div>
+          <div class="scrim" style="top: 34px; bottom: 62px"></div>
+          <div class="drawer">
+            <div class="hd">⌘ Hermes</div>
+            <div style="padding: 4px 16px 10px">
+              <span class="btn sm">＋ New chat</span>
+            </div>
+            <div class="th">
+              Draft release notes for 0.1.11<small>2h ago</small>
+            </div>
+            <div class="th" style="background: var(--soft)">
+              Why did last night's backup fail?<small>6m ago</small>
+            </div>
+            <div class="th">
+              Rotate the staging TLS cert…<small>5h ago</small>
+            </div>
+            <div class="th">
+              Summarize this week's alerts<small>Yesterday</small>
+            </div>
+            <div class="foot">
+              <div>◯ Profiles</div>
+              <div>▣ Bots</div>
+              <div class="hl">✦ <b>Plugins</b><span class="badge">2</span></div>
+            </div>
+          </div>
+          <div class="bottomnav">
+            <span class="pill">Chat</span><span>Kanban</span>
+          </div>
+        </div>
+        <figcaption>
+          <b>Sidebar.</b> New “Plugins” row. The badge counts plugins with an
+          update waiting.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span class="on">Installed</span><span>Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body">
+            <div class="item">
+              <div class="top">
+                <span class="name">kanban<span class="ver">1.0.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Multi-agent collaboration board</div>
+              <div class="tags"><span class="chip">Bundled</span></div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >hermes-achievements<span class="ver">0.4.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Steam-style achievements for agentic work</div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">spotify<span class="ver">0.3.1</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Control Spotify from the agent</div>
+              <div class="tags">
+                <span class="chip strong">🔑 Needs login</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >disk-cleanup<span class="ver">0.2.0</span></span
+                ><span class="chip off">Disabled</span>
+              </div>
+              <div class="desc">Clean old caches and logs</div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >hermes-plugin-netbox<span class="ver">1.2.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Query NetBox from the agent</div>
+              <div class="tags">
+                <span class="chip strong">↑ Update available</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">herdr-auto-reconcile</span
+                ><span class="chip idle">Inactive</span>
+              </div>
+              <div class="desc">Installed, never enabled</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Installed.</b> Status chip per row (Enabled, Disabled, Inactive),
+          plus an update pill and a “Needs login” tag when they apply. Pull to
+          refresh.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span class="on">Installed</span><span>Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body" style="opacity: 0.6">
+            <div class="item">
+              <div class="top">
+                <span class="name">spotify</span
+                ><span class="chip on">Enabled</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">hermes-plugin-netbox</span
+                ><span class="chip on">Enabled</span>
+              </div>
+            </div>
+          </div>
+          <div class="scrim" style="top: 34px"></div>
+          <div class="sheet">
+            <div class="handle"></div>
+            <div style="font-size: 18px; font-weight: 600">
+              hermes-plugin-netbox
+            </div>
+            <div class="muted small" style="margin: 2px 0 8px">
+              v1.2.0 · from catalog · pinned <span class="mono">a3f9c21</span>
+            </div>
+            <div class="small">
+              Query NetBox from the agent: devices, IPs and racks.
+            </div>
+            <div class="split" style="margin-top: 12px">
+              <div class="grow">
+                <b>Enabled</b>
+                <div class="muted small">Applies to new chats</div>
+              </div>
+              <span class="switch on"></span>
+            </div>
+            <div class="split" style="margin-top: 10px">
+              <div class="grow">
+                <b>Hide from dashboard sidebar</b>
+                <div class="muted small">Only affects the web dashboard</div>
+              </div>
+              <span class="switch"></span>
+            </div>
+            <div class="card">
+              <div class="split">
+                <div class="grow">
+                  <b>Update available</b>
+                  <div class="mono muted">a3f9c21 → 7be04d8</div>
+                </div>
+                <span class="btn fill sm">Update</span>
+              </div>
+            </div>
+            <div class="card soft">
+              <b class="small">🔑 Needs login</b>
+              <div class="split" style="margin-top: 4px">
+                <span class="mono grow">hermes auth netbox</span><span>⧉</span>
+              </div>
+              <div class="muted small">Run this on the server.</div>
+            </div>
+            <div style="text-align: center; margin-top: 8px">
+              <span class="btn danger">Remove plugin</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Plugin detail.</b> Bottom sheet on phones. Remove asks for
+          confirmation. The login command is copyable; the app never runs it.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone dark">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span class="on">Installed</span><span>Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body">
+            <div class="item">
+              <div class="top">
+                <span class="name">kanban<span class="ver">1.0.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Multi-agent collaboration board</div>
+              <div class="tags"><span class="chip">Bundled</span></div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">spotify<span class="ver">0.3.1</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Control Spotify from the agent</div>
+              <div class="tags">
+                <span class="chip strong">🔑 Needs login</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >disk-cleanup<span class="ver">0.2.0</span></span
+                ><span class="chip off">Disabled</span>
+              </div>
+              <div class="desc">Clean old caches and logs</div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >hermes-plugin-netbox<span class="ver">1.2.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="desc">Query NetBox from the agent</div>
+              <div class="tags">
+                <span class="chip strong">↑ Update available</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">old-thing<span class="ver">0.1.0</span></span
+                ><span class="chip off">Disabled</span>
+              </div>
+              <div class="desc">Removed from the Hermes catalog</div>
+              <div class="tags">
+                <span class="chip strong">⚠ Removed: unsafe network call</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Dark mode.</b> Same layout. A plugin on the server’s removed list
+          shows the server’s reason and can only be disabled or removed.
+        </figcaption>
+      </figure>
+    </div>
+
+    <h2>2 · Catalog and install</h2>
+    <div class="row">
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span>Installed</span><span class="on">Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body">
+            <div class="split">
+              <span class="search">🔍 Search catalog</span
+              ><span class="btn sm">🔗 Git URL</span>
+            </div>
+            <div class="card">
+              <div class="split">
+                <b class="grow">hermes-plugin-chrome-profiles</b
+                ><span class="btn fill sm">Install</span>
+              </div>
+              <div class="muted small">
+                Switch Chrome profiles from the agent
+              </div>
+              <div class="tags">
+                <span class="chip">Tools</span><span class="chip">Network</span
+                ><span class="chip mono">4c1d9ab</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="split">
+                <b class="grow">hermes-plugin-netbox</b
+                ><span class="btn sm">Update</span>
+              </div>
+              <div class="muted small">Query NetBox from the agent</div>
+              <div class="tags">
+                <span class="chip">Tools</span
+                ><span class="chip mono">a3f9c21</span
+                ><span class="chip on">Installed</span>
+              </div>
+            </div>
+            <div class="card">
+              <div class="split">
+                <b class="grow">hermes-snapcompact</b
+                ><span class="btn fill sm">Install</span>
+              </div>
+              <div class="muted small">Compact context snapshots</div>
+              <div class="tags">
+                <span class="chip">Hooks</span
+                ><span class="chip mono">91be7f0</span>
+              </div>
+            </div>
+            <div
+              class="muted small"
+              style="text-align: center; margin-top: 8px"
+            >
+              Curated list. Every entry is pinned to a reviewed commit.
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Catalog.</b> Search, capability summary, pinned commit. “Git URL”
+          opens the dialog on the right.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span>Installed</span><span class="on">Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body" style="opacity: 0.5">
+            <div class="card">hermes-snapcompact</div>
+          </div>
+          <div class="scrim" style="top: 34px"></div>
+          <div class="dialog">
+            <div style="font-size: 17px; font-weight: 600">
+              Install from Git URL
+            </div>
+            <div class="card" style="margin: 12px 0 0">
+              <span class="muted small">Git URL or owner/repo</span>
+              <div>someone/hermes-cool-plugin</div>
+            </div>
+            <div class="warn">
+              <span>🛡</span
+              ><span
+                ><b>Unreviewed code.</b> This plugin is not from the Hermes
+                catalog. It runs on your server with full access.</span
+              >
+            </div>
+            <div class="split">
+              <span class="check"></span><span>I trust this source</span>
+            </div>
+            <div class="split" style="margin-top: 10px">
+              <span class="grow">Enable after install</span
+              ><span class="switch on"></span>
+            </div>
+            <div class="muted small" style="margin-top: 10px">▸ Advanced</div>
+            <div
+              class="split"
+              style="justify-content: flex-end; margin-top: 14px"
+            >
+              <span class="btn" style="border: 0">Cancel</span
+              ><span class="btn fill dis">Install</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>Git URL install.</b> Install stays disabled until the user ticks “I
+          trust this source”. “Overwrite existing (force)” hides under Advanced.
+          After install, any server warnings (insecure URL, custom source)
+          appear in a snackbar.
+        </figcaption>
+      </figure>
+
+      <figure>
+        <div class="phone">
+          <div class="status"><span>09:41</span><span>●●● ▮</span></div>
+          <div class="appbar">← Plugins</div>
+          <div class="tabs">
+            <span>Installed</span><span>Catalog</span
+            ><span class="on">Providers</span>
+          </div>
+          <div class="body">
+            <div class="sect">Memory provider</div>
+            <div class="muted small">
+              Where the agent keeps long-term memory
+            </div>
+            <div class="opt">
+              <span class="radio"></span>
+              <div class="grow">
+                <b>Built-in</b>
+                <div class="muted small">No external memory</div>
+              </div>
+            </div>
+            <div class="opt">
+              <span class="radio on"></span>
+              <div class="grow"><b>honcho</b></div>
+              <span class="chip on">Ready</span>
+            </div>
+            <div class="opt">
+              <span class="radio"></span>
+              <div class="grow">
+                <b>mem0</b>
+                <div class="muted small">Missing API key on the server</div>
+              </div>
+              <span class="chip idle">Needs setup</span>
+            </div>
+            <div class="opt">
+              <span class="radio"></span>
+              <div class="grow"><b>supermemory</b></div>
+              <span class="chip on">Ready</span>
+            </div>
+            <div class="sect" style="margin-top: 18px">Context engine</div>
+            <div class="muted small">How long conversations are compressed</div>
+            <div class="opt">
+              <span class="radio on"></span>
+              <div class="grow"><b>default</b></div>
+            </div>
+            <div class="opt">
+              <span class="radio"></span>
+              <div class="grow">
+                <b>lossless</b>
+                <div class="muted small">
+                  Keeps every message, larger prompts
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="savebar">
+            <span class="small muted grow">Changes apply to new chats</span
+            ><span class="btn fill">Save</span>
+          </div>
+        </div>
+        <figcaption>
+          <b>Providers.</b> One choice per group. A provider that isn’t ready
+          can’t be picked, and the server’s reason shows underneath.
+        </figcaption>
+      </figure>
+    </div>
+
+    <h2>3 · Wide layout (tablet, macOS, Windows, Linux)</h2>
+    <figure>
+      <div class="wide">
+        <div class="rail">
+          <span>💬<br />Chat</span><span>▥<br />Kanban</span>
+        </div>
+        <div class="listpane">
+          <div class="h">Plugins</div>
+          <div class="tabs" style="margin: 0 18px 8px">
+            <span class="on">Installed</span><span>Catalog</span
+            ><span>Providers</span>
+          </div>
+          <div class="body" style="padding: 4px 18px">
+            <div class="item">
+              <div class="top">
+                <span class="name">kanban<span class="ver">1.0.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >hermes-achievements<span class="ver">0.4.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">spotify<span class="ver">0.3.1</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="tags">
+                <span class="chip strong">🔑 Needs login</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name"
+                  >disk-cleanup<span class="ver">0.2.0</span></span
+                ><span class="chip off">Disabled</span>
+              </div>
+            </div>
+            <div class="item sel">
+              <div class="top">
+                <span class="name"
+                  >hermes-plugin-netbox<span class="ver">1.2.0</span></span
+                ><span class="chip on">Enabled</span>
+              </div>
+              <div class="tags">
+                <span class="chip strong">↑ Update available</span>
+              </div>
+            </div>
+            <div class="item">
+              <div class="top">
+                <span class="name">herdr-auto-reconcile</span
+                ><span class="chip idle">Inactive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="detail">
+          <h3>hermes-plugin-netbox</h3>
+          <div class="muted small" style="margin: 4px 0 14px">
+            v1.2.0 · from catalog · pinned <span class="mono">a3f9c21</span>
+          </div>
+          <p style="max-width: 520px">
+            Query NetBox from the agent: devices, IPs and racks.
+          </p>
+          <div class="split" style="max-width: 520px; margin-top: 18px">
+            <div class="grow">
+              <b>Enabled</b>
+              <div class="muted small">Applies to new chats</div>
+            </div>
+            <span class="switch on"></span>
+          </div>
+          <div class="split" style="max-width: 520px; margin-top: 14px">
+            <div class="grow">
+              <b>Hide from dashboard sidebar</b>
+              <div class="muted small">Only affects the web dashboard</div>
+            </div>
+            <span class="switch"></span>
+          </div>
+          <div class="card" style="max-width: 520px; margin-top: 18px">
+            <div class="split">
+              <div class="grow">
+                <b>Update available</b>
+                <div class="mono muted">a3f9c21 → 7be04d8</div>
+              </div>
+              <span class="btn fill sm">Update</span>
+            </div>
+          </div>
+          <div class="card soft" style="max-width: 520px">
+            <b class="small">🔑 Needs login</b>
+            <div class="split" style="margin-top: 4px">
+              <span class="mono grow">hermes auth netbox</span><span>⧉</span>
+            </div>
+            <div class="muted small">Run this on the server.</div>
+          </div>
+          <div style="margin-top: 22px">
+            <span class="btn danger">Remove plugin</span>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <b>Master-detail</b> at 900 px and wider (the app’s existing
+        breakpoint). The list and the detail sit side by side, so the sheet is
+        not needed.
+      </figcaption>
+    </figure>
+  </body>
+</html>
