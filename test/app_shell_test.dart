@@ -8,7 +8,6 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
-import 'package:hermes_app/src/kanban/kanban_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -43,7 +42,10 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
-          home: AppShell(plugins: HermesPluginsRepository(server.client().raw)),
+          home: AppShell(
+            plugins: HermesPluginsRepository(server.client().raw),
+            kanbanBuilder: (_) => const Text('the board'),
+          ),
         ),
       ),
     );
@@ -83,7 +85,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(KanbanScreen).hitTestable(), findsOneWidget);
+    expect(find.text('the board'), findsOneWidget);
   });
 
   testWidgets('offers a Kanban tab in a rail on a wide screen', (tester) async {

@@ -12,10 +12,13 @@ import '../kanban/kanban_screen.dart';
 /// it off the shell is just the chat, exactly as before. The check runs on
 /// connect and whenever the app returns to the foreground.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, this.plugins});
+  const AppShell({super.key, this.plugins, this.kanbanBuilder});
 
   /// Overrides the repository built from the signed-in client.
   final HermesPluginsRepository? plugins;
+
+  /// Overrides the Kanban page.
+  final WidgetBuilder? kanbanBuilder;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -29,6 +32,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _kanban = false;
   int _detection = 0;
   int _index = 0;
+
+  /// The board loads and streams only once its tab has been opened.
+  bool _kanbanOpened = false;
 
   @override
   void initState() {
@@ -85,9 +91,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         final wide = constraints.maxWidth >= _wideBreakpoint;
         final pages = IndexedStack(
           index: _index,
-          children: [chat, const KanbanScreen()],
+          children: [
+            chat,
+            if (_kanbanOpened)
+              widget.kanbanBuilder?.call(context) ?? const KanbanScreen()
+            else
+              const SizedBox.shrink(),
+          ],
         );
-        void select(int i) => setState(() => _index = i);
+        void select(int i) => setState(() {
+          _index = i;
+          if (i == 1) _kanbanOpened = true;
+        });
         if (wide) {
           return Scaffold(
             body: Row(
