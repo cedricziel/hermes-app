@@ -9,11 +9,17 @@ import '../chat/hermes_chat_repository.dart';
 /// out.
 ///
 /// The watch shows a glance, so lists are cut to what fits on it.
+///
+/// A thread id the watch sees is tied to the profile it was listed under
+/// (`<encoded profile>/<session id>`), because the same session id can exist in
+/// two profiles. The watch treats it as opaque and hands it back; a request
+/// whose profile is no longer the active one is refused as `bad_request`.
 class WatchRequestHandler {
   WatchRequestHandler({
     required this.repository,
     required this.transport,
     required this.activeProfile,
+    this.sendTimeout = const Duration(seconds: 60),
   });
 
   static const threadLimit = 20;
@@ -24,6 +30,9 @@ class WatchRequestHandler {
   final HermesChatRepository? Function() repository;
   final ChatTransport? Function() transport;
   final Future<String?> Function() activeProfile;
+
+  /// How long a send may go without an event before it is given up on.
+  final Duration sendTimeout;
 
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
@@ -41,16 +50,17 @@ class WatchRequestHandler {
   Future<Map<String, Object?>> _threads() async {
     final repo = repository();
     if (repo == null) return _error('signed_out');
+    final profile = await activeProfile();
     final threads = await repo.loadThreads(
       limit: threadLimit,
-      profile: await activeProfile(),
+      profile: profile,
     );
     return {
       'ok': true,
       'threads': [
-        for (final thread in threads)
+        for (final thread in threads.take(threadLimit))
           {
-            'id': thread.id,
+            'id': _bind(profile, thread.id),
             'title': thread.title,
             'updatedAt': thread.updatedAt.millisecondsSinceEpoch ~/ 1000,
             'pinned': thread.pinned,
@@ -60,13 +70,13 @@ class WatchRequestHandler {
   }
 
   Future<Map<String, Object?>> _messages(Object? threadId) async {
-    if (threadId is! String || threadId.isEmpty) return _error('bad_request');
+    final thread = _unbind(threadId);
+    if (thread == null) return _error('bad_request');
     final repo = repository();
     if (repo == null) return _error('signed_out');
-    final messages = await repo.loadMessages(
-      threadId,
-      profile: await activeProfile(),
-    );
+    final profile = await activeProfile();
+    if (!thread.isIn(profile)) return _error('bad_request');
+    final messages = await repo.loadMessages(thread.id, profile: profile);
     return {
       'ok': true,
       'messages': [
@@ -85,19 +95,25 @@ class WatchRequestHandler {
 
   Future<Map<String, Object?>> _send(Object? threadId, Object? text) async {
     if (text is! String || text.trim().isEmpty) return _error('bad_request');
-    if (threadId != null && threadId is! String) return _error('bad_request');
+    final thread = threadId == null ? null : _unbind(threadId);
+    if (threadId != null && thread == null) return _error('bad_request');
     final chat = transport();
     if (chat == null) return _error('signed_out');
     try {
-      var boundId = threadId as String?;
-      await for (final event in chat.send(threadId: boundId, text: text)) {
+      final profile = await activeProfile();
+      if (thread != null && !thread.isIn(profile)) return _error('bad_request');
+      var boundId = thread?.id;
+      final events = chat
+          .send(threadId: boundId, text: text)
+          .timeout(sendTimeout);
+      await for (final event in events) {
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;
           case ReplyCompleted(:final text, :final failed):
             return {
               'ok': true,
-              'threadId': boundId,
+              'threadId': boundId == null ? null : _bind(profile, boundId),
               'text': _cut(text),
               'failed': failed,
             };
@@ -110,6 +126,25 @@ class WatchRequestHandler {
     }
   }
 
+  static String _bind(String? profile, String sessionId) =>
+      '${Uri.encodeComponent(profile ?? '')}/$sessionId';
+
+  static _Thread? _unbind(Object? threadId) {
+    if (threadId is! String) return null;
+    final slash = threadId.indexOf('/');
+    if (slash < 0 || slash == threadId.length - 1) return null;
+    try {
+      return _Thread(
+        Uri.decodeComponent(threadId.substring(0, slash)),
+        threadId.substring(slash + 1),
+      );
+    } on FormatException {
+      return null;
+    } on ArgumentError {
+      return null;
+    }
+  }
+
   static String _cut(String text) => text.length <= contentLimit
       ? text
       : '${text.substring(0, contentLimit)}…';
@@ -118,4 +153,13 @@ class WatchRequestHandler {
     'ok': false,
     'error': code,
   };
+}
+
+class _Thread {
+  const _Thread(this.profile, this.id);
+
+  final String profile;
+  final String id;
+
+  bool isIn(String? active) => profile == (active ?? '');
 }

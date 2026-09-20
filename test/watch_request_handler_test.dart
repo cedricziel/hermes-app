@@ -51,8 +51,29 @@ void main() {
     expect(await handler.handle({}), {'ok': false, 'error': 'bad_request'});
   });
 
+  test('rejects a thread id that carries no profile', () async {
+    for (final threadId in ['s1', '', '/', 'work/', '%zz/s1']) {
+      expect(await handler.handle({'op': 'messages', 'threadId': threadId}), {
+        'ok': false,
+        'error': 'bad_request',
+      }, reason: 'messages with "$threadId"');
+      expect(
+        await handler.handle({
+          'op': 'send',
+          'threadId': threadId,
+          'text': 'Hi',
+        }),
+        {'ok': false, 'error': 'bad_request'},
+        reason: 'send with "$threadId"',
+      );
+    }
+    expect(transport.sends, isEmpty);
+    expect(server.requests, isEmpty);
+  });
+
   group('threads', () {
     test('lists recent threads as plain values', () async {
+      profile = 'work';
       server.on(
         'GET',
         '/api/sessions',
@@ -77,13 +98,13 @@ void main() {
         'ok': true,
         'threads': [
           {
-            'id': 's1',
+            'id': 'work/s1',
             'title': 'Groceries',
             'updatedAt': 1780000600,
             'pinned': true,
           },
           {
-            'id': 's2',
+            'id': 'work/s2',
             'title': 'Plan the trip',
             'updatedAt': 1780000100,
             'pinned': false,
@@ -101,6 +122,37 @@ void main() {
       final request = server.requestsTo('GET', '/api/sessions').single;
       expect(request.queryParameters['limit'], 20);
       expect(request.queryParameters['profile'], 'work');
+    });
+
+    test('never lists more than the limit, even when the server adds '
+        'pinned threads', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([
+          for (var i = 0; i < 25; i++) sessionRow(id: 's$i', title: 'T$i'),
+        ]),
+      );
+
+      final reply = await handler.handle({'op': 'threads'});
+
+      expect(reply['threads'], hasLength(WatchRequestHandler.threadLimit));
+    });
+
+    test('ties each thread to the profile it was listed in', () async {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's1', title: 'A')]),
+      );
+
+      profile = 'a/b c';
+      final tied = await handler.handle({'op': 'threads'});
+      profile = null;
+      final untied = await handler.handle({'op': 'threads'});
+
+      expect((tied['threads'] as List).single['id'], 'a%2Fb%20c/s1');
+      expect((untied['threads'] as List).single['id'], '/s1');
     });
 
     test('reports a failed request as failed', () async {
@@ -130,7 +182,10 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'messages', 'threadId': 's1'});
+      final reply = await handler.handle({
+        'op': 'messages',
+        'threadId': 'work/s1',
+      });
 
       expect(reply, {
         'ok': true,
@@ -164,12 +219,31 @@ void main() {
         ]),
       );
 
-      final reply = await handler.handle({'op': 'messages', 'threadId': 's1'});
+      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
 
       final messages = (reply['messages']! as List).cast<Map>();
       expect(messages, hasLength(20));
       expect(messages.first['id'], 's1-11');
       expect((messages.last['content'] as String).length, lessThan(4100));
+    });
+  });
+
+  group('messages across a profile change', () {
+    test('refuses a thread that was listed under another profile', () async {
+      profile = 'work';
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [messageRow(id: 1, role: 'user', content: 'Hi')]),
+      );
+
+      final reply = await handler.handle({
+        'op': 'messages',
+        'threadId': 'home/s1',
+      });
+
+      expect(reply, {'ok': false, 'error': 'bad_request'});
+      expect(server.requests, isEmpty);
     });
   });
 
@@ -189,7 +263,7 @@ void main() {
 
       expect(await pending, {
         'ok': true,
-        'threadId': 'new-1',
+        'threadId': '/new-1',
         'text': 'Hi there',
         'failed': false,
       });
@@ -197,9 +271,10 @@ void main() {
     });
 
     test('replies into an existing thread', () async {
+      profile = 'work';
       final pending = handler.handle({
         'op': 'send',
-        'threadId': 's1',
+        'threadId': 'work/s1',
         'text': 'More',
       });
       await pumpEventQueue();
@@ -210,8 +285,35 @@ void main() {
       final reply = await pending;
 
       expect(transport.sends.single.threadId, 's1');
-      expect(reply['threadId'], 's1');
+      expect(reply['threadId'], 'work/s1');
       expect(reply['text'], 'Done');
+    });
+
+    test('refuses to send into a thread from another profile', () async {
+      profile = 'work';
+
+      final reply = await handler.handle({
+        'op': 'send',
+        'threadId': 'home/s1',
+        'text': 'More',
+      });
+
+      expect(reply, {'ok': false, 'error': 'bad_request'});
+      expect(transport.sends, isEmpty);
+    });
+
+    test('gives up on a reply that never comes', () async {
+      handler = WatchRequestHandler(
+        repository: () => HermesChatRepository(server.client().raw),
+        transport: () => transport,
+        activeProfile: () async => profile,
+        sendTimeout: const Duration(milliseconds: 20),
+      );
+
+      final reply = await handler.handle({'op': 'send', 'text': 'Hello'});
+
+      expect(reply, {'ok': false, 'error': 'failed'});
+      expect(transport.closed, isTrue);
     });
 
     test('passes a failed turn on with its message', () async {

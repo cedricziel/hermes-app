@@ -55,7 +55,7 @@ void main() {
       final result = await fromNative('request', {'op': 'threads'}) as Map;
 
       expect(result['ok'], isTrue);
-      expect((result['threads'] as List).single['id'], 's1');
+      expect((result['threads'] as List).single['id'], '/s1');
     },
   );
 
