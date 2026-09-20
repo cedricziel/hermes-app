@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_catalog_controller.dart';
+import 'package:hermes_app/src/mcp/mcp_install_controller.dart';
 import 'package:hermes_app/src/mcp/mcp_install_panel.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
@@ -338,8 +340,12 @@ void main() {
       expect(body['env'], {'AIRTABLE_API_KEY': 'pat-1'});
     });
 
-    testWidgets('are cleared after Hermes accepts them', (tester) async {
-      hermesInstalls('airtable');
+    /// The panel on its own, so it stays on screen whatever the install
+    /// does, and its fields can be read afterwards.
+    Future<void> pumpPanel(WidgetTester tester, String name) async {
+      tester.view.physicalSize = const Size(600, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       final servers = McpServersController(
         repository: HermesMcpRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
@@ -356,21 +362,106 @@ void main() {
             body: McpInstallPanel(
               servers: servers,
               catalog: catalog,
-              entry: catalog.entryNamed('airtable')!,
+              entry: catalog.entryNamed(name)!,
             ),
           ),
         ),
       );
+    }
 
+    void expectFieldsEmpty(WidgetTester tester) {
+      for (final label in ['AIRTABLE_API_KEY', 'AIRTABLE_BASE']) {
+        expect(tester.widget<TextField>(field(label)).controller!.text, '');
+      }
+    }
+
+    Future<void> fillBoth(WidgetTester tester) async {
       await fillKey(tester);
       await tester.enterText(field('AIRTABLE_BASE'), 'appX');
       await tapInstall(tester);
       await tester.pumpAndSettle();
+    }
+
+    testWidgets('are cleared after Hermes accepts them', (tester) async {
+      hermesInstalls('airtable');
+      await pumpPanel(tester, 'airtable');
+
+      await fillBoth(tester);
 
       expect(server.requestsTo('POST', installPath), hasLength(1));
-      for (final label in ['AIRTABLE_API_KEY', 'AIRTABLE_BASE']) {
-        expect(tester.widget<TextField>(field(label)).controller!.text, '');
-      }
+      expectFieldsEmpty(tester);
+    });
+
+    testWidgets('are cleared after a server error', (tester) async {
+      server.on('POST', installPath, {'detail': 'boom'}, status: 500);
+      await pumpPanel(tester, 'airtable');
+
+      await fillBoth(tester);
+
+      expect(find.text('Could not install airtable'), findsOneWidget);
+      expectFieldsEmpty(tester);
+    });
+
+    testWidgets('are cleared after the request could not be made', (
+      tester,
+    ) async {
+      server.onRequest(
+        'POST',
+        installPath,
+        (request) => throw DioException.connectionError(
+          requestOptions: request,
+          reason: 'offline',
+        ),
+      );
+      await pumpPanel(tester, 'airtable');
+
+      await fillBoth(tester);
+
+      expect(find.text('Could not install airtable'), findsOneWidget);
+      expectFieldsEmpty(tester);
+    });
+
+    testWidgets('are cleared once a build has started on the server', (
+      tester,
+    ) async {
+      catalogRows = [
+        mcpCatalogEntry(
+          name: 'airtable',
+          command: 'node',
+          installUrl: 'https://github.com/x/y',
+          installRef: 'v1',
+          bootstrap: ['make'],
+          requiredEnv: [
+            mcpCredentialRow(name: 'AIRTABLE_API_KEY', prompt: 'Token'),
+            mcpCredentialRow(
+              name: 'AIRTABLE_BASE',
+              prompt: 'Base',
+              required: false,
+            ),
+          ],
+        ),
+      ];
+      server
+        ..on(
+          'POST',
+          installPath,
+          mcpInstallBody(name: 'airtable', action: 'a-1'),
+        )
+        ..on(
+          'GET',
+          '/api/actions/a-1/status',
+          jobStatusBody(name: 'a-1', running: true, exitCode: null),
+        );
+      await pumpPanel(tester, 'airtable');
+
+      await fillKey(tester);
+      await tester.enterText(field('AIRTABLE_BASE'), 'appX');
+      await tapInstall(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Building on your server…'), findsOneWidget);
+      expectFieldsEmpty(tester);
+      await tester.pumpWidget(const SizedBox());
     });
 
     testWidgets('are cleared after Hermes refuses them', (tester) async {
@@ -467,9 +558,7 @@ void main() {
       expect(installed.value, isFalse);
     });
 
-    testWidgets('shows progress and takes no second tap while it runs', (
-      tester,
-    ) async {
+    testWidgets('shows progress while it runs', (tester) async {
       final answer = Completer<FakeResponse>();
       server.onRequest('POST', installPath, (_) => answer.future);
       await openEntry(tester, 'context7');
@@ -484,12 +573,44 @@ void main() {
         ),
         findsOneWidget,
       );
-      await tester.tap(installButton, warnIfMissed: false);
-      await tester.pump(const Duration(milliseconds: 50));
-      expect(server.requestsTo('POST', installPath), hasLength(1));
 
       answer.complete((status: 200, body: mcpInstallBody(name: 'context7')));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('sends one request however often install is called', (
+      tester,
+    ) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', installPath, (_) => answer.future);
+      final servers = McpServersController(
+        repository: HermesMcpRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+      );
+      final catalog = McpCatalogController(servers);
+      await tester.runAsync(catalog.load);
+      final install = McpInstallController(
+        servers: servers,
+        catalog: catalog,
+        entry: catalog.entryNamed('context7')!,
+      );
+      addTearDown(() {
+        install.dispose();
+        catalog.dispose();
+        servers.dispose();
+      });
+
+      final first = install.install({}, enable: true);
+      final second = install.install({}, enable: true);
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(install.busy, isTrue);
+      answer.complete((status: 200, body: mcpInstallBody(name: 'context7')));
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await Future.wait([first, second]);
+
+      expect(server.requestsTo('POST', installPath), hasLength(1));
     });
 
     testWidgets('keeps the sheet open and shows Hermes\' reason on a 400', (
