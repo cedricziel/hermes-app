@@ -420,6 +420,49 @@ void main() {
     });
   });
 
+  testWidgets('a turn that breaks while the app is away is announced', (
+    tester,
+  ) async {
+    await pump(tester);
+    final turn = await send(tester, 'Any news?');
+    leaveTheApp(tester);
+
+    turn.fail();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final n = service.shown.single;
+    expect(n.threadId, 's1');
+    expect(n.body, kReplyFailedBody);
+  });
+
+  testWidgets('a broken turn is not announced while you are looking at it', (
+    tester,
+  ) async {
+    await pump(tester);
+    final turn = await send(tester, 'Any news?');
+
+    turn.fail();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(service.shown, isEmpty);
+  });
+
+  testWidgets('a reply that ended normally is announced once', (tester) async {
+    await pump(tester);
+    final turn = await send(tester, 'Any news?');
+    leaveTheApp(tester);
+
+    turn.emit(const ReplyCompleted('Nothing new.'));
+    await tester.pump();
+    turn.finish();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(service.shown, hasLength(1));
+    expect(service.shown.single.body, 'Nothing new.');
+  });
+
   testWidgets('a notification that started the app opens its thread', (
     tester,
   ) async {

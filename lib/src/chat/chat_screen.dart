@@ -439,7 +439,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     late final StreamSubscription<ChatEvent> subscription;
     void end() {
       _replies.remove(subscription);
-      if (reply.isPending) _updateReply(thread, reply, () => failReply(reply));
+      if (reply.isPending) {
+        _updateReply(thread, reply, () => failReply(reply));
+        _announce(thread, const ReplyCompleted('', failed: true));
+      }
     }
 
     subscription = transport
