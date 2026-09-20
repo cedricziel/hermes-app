@@ -125,7 +125,7 @@ REF=$(grep 'HERMES_REF:' .github/workflows/real-backend-contract.yml | awk '{pri
 mkdir -p /tmp/hermes-agent && curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
   | tar xz -C /tmp/hermes-agent --strip-components=1
 cd /tmp/hermes-agent
-python3.11 -m venv .venv && .venv/bin/pip install -q -e .        # Python 3.11+
+python3.11 -m venv .venv && .venv/bin/pip install -q -e '.[mcp]'   # Python 3.11+; [mcp] lets the dashboard test MCP servers
 npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web
 export PATH=/tmp/hermes-agent/.venv/bin:$PATH HERMES_WEB_DIST=/tmp/hermes-agent/hermes_cli/web_dist
 ```

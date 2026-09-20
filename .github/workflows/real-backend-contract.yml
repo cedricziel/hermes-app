@@ -96,10 +96,11 @@ jobs:
         with:
           enable-cache: false
 
+      # The mcp extra carries the HTTP client the MCP server tests probe with.
       - name: Install Hermes Agent
         run: |
           uv venv --python 3.11 "$HOME/hermes-agent/.venv"
-          uv pip install --python "$HOME/hermes-agent/.venv/bin/python" -e "$HOME/hermes-agent"
+          uv pip install --python "$HOME/hermes-agent/.venv/bin/python" -e "$HOME/hermes-agent[mcp]"
           echo "$HOME/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
           echo "HERMES_WEB_DIST=$HOME/hermes-agent/hermes_cli/web_dist" >> "$GITHUB_ENV"
 
