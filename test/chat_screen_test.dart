@@ -72,6 +72,17 @@ void main() {
     );
   });
 
+  testWidgets('the demo chat has no Plugins entry', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const ChatScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plugins'), findsNothing);
+  });
+
   testWidgets('a tool call from the mock data renders as a ToolCallCard', (
     tester,
   ) async {

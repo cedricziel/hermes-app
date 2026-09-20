@@ -16,6 +16,8 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
+import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -31,8 +33,9 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 /// Skipped when `HERMES_DEV_URL` is unset. Use a throwaway backend: the
 /// profile test switches the active profile back to `default`, the setup
 /// test writes and then clears a Telegram token (skipped if one is set), the
-/// skills test switches one skill off and back on, and the session tests
-/// rename, pin and archive the newest session, then undo it
+/// skills test switches one skill off and back on, the plugin tests switch a
+/// bundled plugin off and on and hide and show it, then put both back, and
+/// the session tests rename, pin and archive the newest session, then undo it
 /// (a title the session had not set is left as its displayed one). Deleting
 /// is not tried. The gateway test makes two real model calls, which cost
 /// money and need a provider configured in the backend, so it also needs
@@ -243,6 +246,81 @@ void main() {
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
   }, skip: skip);
+
+  group('plugins', () {
+    late HermesPluginManagerRepository repository;
+
+    setUp(() => repository = HermesPluginManagerRepository(client.raw));
+
+    Future<InstalledPlugin?> bundledPlugin() async =>
+        (await repository.load()).where((p) => p.bundled).firstOrNull;
+
+    test('the hub lists plugins with the fields the app reads', () async {
+      final plugins = await repository.load();
+
+      expect(plugins, isNotEmpty);
+      expect(plugins.every((p) => p.name.isNotEmpty), isTrue);
+      expect(plugins.any((p) => p.bundled), isTrue);
+      expect(
+        plugins.where((p) => p.bundled).every((p) => !p.canRemove),
+        isTrue,
+      );
+    }, skip: skip);
+
+    test(
+      'a bundled plugin can be turned off and on, and the hub follows',
+      () async {
+        final plugin = await bundledPlugin();
+        if (plugin == null) return;
+        final wasEnabled = plugin.status == PluginStatus.enabled;
+        addTearDown(() => repository.setEnabled(plugin.name, wasEnabled));
+
+        final changed = await repository.setEnabled(plugin.name, !wasEnabled);
+        final after = (await repository.load()).singleWhere(
+          (p) => p.name == plugin.name,
+        );
+
+        expect(changed.ok, isTrue);
+        expect(
+          after.status,
+          wasEnabled ? PluginStatus.disabled : PluginStatus.enabled,
+        );
+      },
+      skip: skip,
+    );
+
+    test('hiding a plugin shows in user_hidden and can be undone', () async {
+      final plugin = await bundledPlugin();
+      if (plugin == null) return;
+      addTearDown(() => repository.setHidden(plugin.name, plugin.hidden));
+
+      final hidden = await repository.setHidden(plugin.name, !plugin.hidden);
+      final after = (await repository.load()).singleWhere(
+        (p) => p.name == plugin.name,
+      );
+
+      expect(hidden.ok, isTrue);
+      expect(after.hidden, !plugin.hidden);
+    }, skip: skip);
+
+    test('an unknown plugin is refused with a reason', () async {
+      final result = await repository.setEnabled('no-such-plugin-here', true);
+
+      expect(result.ok, isFalse);
+      expect(result.message, isNotEmpty);
+    }, skip: skip);
+
+    test(
+      'a nested plugin name reaches its route as one encoded segment',
+      () async {
+        final result = await repository.setEnabled('no/such/plugin', true);
+
+        expect(result.ok, isFalse);
+        expect(result.message, contains('not installed'));
+      },
+      skip: skip,
+    );
+  });
 
   test('the gateway accepts the server-request capability and lists what it '
       'may ask', () async {
