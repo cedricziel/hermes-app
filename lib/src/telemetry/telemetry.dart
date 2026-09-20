@@ -1,17 +1,42 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
+import 'package:flutter_otel_device_info/flutter_otel_device_info.dart';
+import 'package:flutter_otel_instrumentation_dio/flutter_otel_instrumentation_dio.dart';
+import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
 
-import 'device_attributes.dart';
-import 'gateway_telemetry.dart';
-import 'http_telemetry_interceptor.dart';
 import 'telemetry_config.dart';
-import 'telemetry_event.dart';
-import 'uncaught_error_logging.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
 ///
 /// When telemetry is off no SDK is created, so nothing is exported and no
 /// `traceparent` header is added to requests.
+// Streaming a reply sends one delta per chunk; a span each would drown the
+// rest, so the events that mark its start, tools and end stand for it.
+const _skippedGatewayEvents = {'message.delta'};
+
+const _knownGatewayEvents = {
+  'message.start',
+  'message.complete',
+  'tool.start',
+  'tool.complete',
+  'session.title',
+  'sessions.changed',
+  'approval.request',
+  'approval.expire',
+  'clarify.request',
+  'clarify.expire',
+};
+
+/// How the chat gateway socket is traced, on [tracer] or, when null, nowhere.
+MessagingConnectionTracer gatewayTracer(Tracer? tracer) =>
+    MessagingConnectionTracer(
+      tracer,
+      system: 'hermes.gateway',
+      jsonRpc: true,
+      skippedNames: _skippedGatewayEvents,
+      knownEvents: _knownGatewayEvents,
+    );
+
 class Telemetry {
   Telemetry._(this._sdk);
 
@@ -34,7 +59,7 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
-          attributes: await deviceAttributes(),
+          attributes: await detectDeviceAttributes(),
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
@@ -47,18 +72,16 @@ class Telemetry {
   Interceptor? dioInterceptor() {
     final sdk = _sdk;
     if (sdk == null) return null;
-    return HttpTelemetryInterceptor(sdk.getTracer(), sdk.getLogger());
+    return DioOTelInterceptor.privacy(sdk.getLogger(), tracer: sdk.getTracer());
   }
 
   /// Traces the gateway socket; does nothing when disabled.
-  GatewayTelemetry gateway() => GatewayTelemetry(_sdk?.getTracer());
+  MessagingConnectionTracer gateway() => gatewayTracer(_sdk?.getTracer());
 
   /// Logs app events such as sign-in outcomes; does nothing when disabled.
-  TelemetryEvent events() {
+  AppEventLogger events() {
     final sdk = _sdk;
-    return sdk == null
-        ? ignoreTelemetryEvent
-        : logTelemetryEvents(sdk.getLogger());
+    return sdk == null ? noopAppEventLogger : appEventLogger(sdk.getLogger());
   }
 
   /// Logs uncaught Flutter and async errors; does nothing when disabled.

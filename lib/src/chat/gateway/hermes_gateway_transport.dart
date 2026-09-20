@@ -3,7 +3,8 @@ import 'dart:convert';
 
 import 'package:stream_channel/stream_channel.dart';
 
-import '../../telemetry/gateway_telemetry.dart';
+import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
+
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import 'gateway_rpc_client.dart';
@@ -17,7 +18,7 @@ class HermesGatewayTransport implements ChatTransport {
   HermesGatewayTransport({required this._connect, this._telemetry});
 
   final GatewayConnect _connect;
-  final GatewayTelemetry? _telemetry;
+  final MessagingConnectionTracer? _telemetry;
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
   final _requestSessions = <String, String>{};
