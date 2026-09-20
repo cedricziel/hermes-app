@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +9,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
 
 import 'support/memory_token_store.dart';
 import 'support/recorded_events.dart';
@@ -119,4 +121,37 @@ void main() {
     expect(failed['reason'], 'unexpected');
     expect(failed['exception.type'], 'PlatformException');
   });
+
+  test(
+    'a sign-in that finishes after the server was changed is discarded',
+    () async {
+      final finish = Completer<void>();
+      final store = MemoryTokenStore();
+      dashboard = await _startDashboard();
+      final controller = AuthController(
+        tokenStore: store,
+        devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+        login: (url, {provider, httpClient, cancelled}) async {
+          await finish.future;
+          return const HermesSession(
+            accessToken: 'at',
+            refreshToken: 'rt',
+            expiresAt: 4102444800,
+            provider: 'oidc',
+            userId: 'u1',
+          );
+        },
+        events: events.call,
+      );
+      await controller.bootstrap();
+
+      final signIn = controller.signInWithProvider(controller.providers.single);
+      await controller.changeServer();
+      finish.complete();
+      await signIn;
+
+      expect(controller.state, HermesConnectionState.needsServerUrl);
+      expect(store.session, isNull);
+    },
+  );
 }

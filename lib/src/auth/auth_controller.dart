@@ -219,6 +219,12 @@ class AuthController extends ChangeNotifier {
         httpClient: _tokenDio,
         cancelled: cancel.future,
       );
+      // Signing out or switching server while the browser flow was finishing
+      // must not bring the result back.
+      if (cancel.isCompleted || _state != HermesConnectionState.signingIn) {
+        report('cancelled');
+        return;
+      }
       await _tokenStore.write(session);
       _session = session;
       _identity = await _api!.fetchMe();
