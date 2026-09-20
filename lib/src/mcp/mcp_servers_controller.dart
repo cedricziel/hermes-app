@@ -154,6 +154,7 @@ class McpServersController extends ChangeNotifier {
   bool _failed = false;
   bool _disposed = false;
   bool _saving = false;
+  bool _reviewing = false;
   final _switching = <String>{};
   final _tests = <String, McpTestState>{};
   final _startingSignIn = <String>{};
@@ -168,6 +169,10 @@ class McpServersController extends ChangeNotifier {
   /// Whether an add or a replace is running, review included. Another one
   /// waits for it.
   bool get isSaving => _saving;
+
+  /// Whether the running add or replace is waiting for the review of a
+  /// command, so nothing has been sent yet.
+  bool get isReviewing => _reviewing;
 
   bool get _ready => _servers != null && !_failed;
 
@@ -241,7 +246,7 @@ class McpServersController extends ChangeNotifier {
     _notify();
     try {
       if (server is McpNewCommandServer &&
-          !await review([McpCommandReviewItem.of(server)])) {
+          !await _confirm(review, [McpCommandReviewItem.of(server)])) {
         return const McpAddCancelled();
       }
       await repository.addServer(server, profile: _profile);
@@ -255,6 +260,20 @@ class McpServersController extends ChangeNotifier {
       return const McpAddFailed();
     } finally {
       _saving = false;
+      _notify();
+    }
+  }
+
+  Future<bool> _confirm(
+    McpReviewer review,
+    List<McpCommandReviewItem> commands,
+  ) async {
+    _reviewing = true;
+    _notify();
+    try {
+      return await review(commands);
+    } finally {
+      _reviewing = false;
       _notify();
     }
   }
@@ -286,7 +305,7 @@ class McpServersController extends ChangeNotifier {
           '${e.key}': Map<String, Object?>.from(e.value as Map),
       };
       final commands = commandServersToReview(loaded, snapshot);
-      if (commands.isNotEmpty && !await review(commands)) {
+      if (commands.isNotEmpty && !await _confirm(review, commands)) {
         return const McpReplaceCancelled();
       }
       await repository.replaceServers(snapshot, profile: _profile);

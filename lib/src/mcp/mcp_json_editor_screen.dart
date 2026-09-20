@@ -33,7 +33,6 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   String _original = '';
   bool _loading = true;
   bool _loadFailed = false;
-  bool _busy = false;
   bool _asking = false;
   McpJsonCheck _check = const McpJsonValid({});
   List<String> _problems = const [];
@@ -43,16 +42,16 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   void initState() {
     super.initState();
     _text.addListener(_edited);
+    widget.servers.addListener(_changed);
     _load();
   }
 
   @override
   void dispose() {
+    widget.servers.removeListener(_changed);
     _text.removeListener(_edited);
     _text.clear();
     _text.dispose();
-    _loaded = {};
-    _original = '';
     super.dispose();
   }
 
@@ -77,6 +76,10 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     }
   }
 
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
   void _edited() {
     setState(() {
       _check = checkMcpServersJson(_text.text);
@@ -87,6 +90,10 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
 
   bool get _dirty => !_loading && !_loadFailed && _text.text != _original;
 
+  /// A save is running or a question is open: the text is not editable and
+  /// there is no second save or leaving.
+  bool get _busy => _asking || widget.servers.isSaving;
+
   bool get _canSave => _dirty && _check is McpJsonValid && !_busy;
 
   Future<bool> _ask({
@@ -95,80 +102,72 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
     required String confirm,
     String cancel = 'Cancel',
   }) async {
-    final answer = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialog).pop(false),
-            child: Text(cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialog).pop(true),
-            child: Text(confirm),
-          ),
-        ],
-      ),
-    );
-    return answer == true;
-  }
-
-  Future<bool> _review(List<McpCommandReviewItem> commands) async {
-    if (!mounted) return false;
     setState(() => _asking = true);
     try {
-      return await showMcpCommandReview(
-        context,
-        commands,
-        confirmLabel: 'Save and run on server',
+      final answer = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialog).pop(false),
+              child: Text(cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialog).pop(true),
+              child: Text(confirm),
+            ),
+          ],
+        ),
       );
+      return answer == true;
     } finally {
       if (mounted) setState(() => _asking = false);
     }
   }
 
+  Future<bool> _review(List<McpCommandReviewItem> commands) async =>
+      mounted &&
+      await showMcpCommandReview(
+        context,
+        commands,
+        confirmLabel: 'Save and run on server',
+      );
+
   Future<void> _save() async {
-    if (!_canSave || _check is! McpJsonValid) return;
-    final edited = (_check as McpJsonValid).servers;
-    _busy = true;
+    final check = _check;
+    if (!_canSave || check is! McpJsonValid) return;
+    final edited = check.servers;
     setState(() {
       _problems = const [];
       _failure = null;
     });
-    try {
-      final removed = _loaded.keys.where((name) => !edited.containsKey(name));
-      if (removed.isNotEmpty) {
-        setState(() => _asking = true);
-        final ok = await _ask(
-          title: 'Delete ${removed.length == 1 ? 'a server' : 'servers'}?',
-          body:
-              '${removed.map((n) => '"$n"').join(', ')} will be deleted, not '
-              'just switched off.',
-          confirm: 'Delete and save',
-        );
-        if (mounted) setState(() => _asking = false);
-        if (!ok || !mounted) return;
-      }
-      final outcome = await widget.servers.replaceServers(
-        _loaded,
-        edited,
-        review: _review,
+    final removed = _loaded.keys.where((name) => !edited.containsKey(name));
+    if (removed.isNotEmpty) {
+      final ok = await _ask(
+        title: 'Delete ${removed.length == 1 ? 'a server' : 'servers'}?',
+        body:
+            '${removed.map((n) => '"$n"').join(', ')} will be deleted, not '
+            'just switched off.',
+        confirm: 'Delete and save',
       );
-      if (!mounted) return;
-      switch (outcome) {
-        case McpReplaced():
-          Navigator.of(context).pop(true);
-        case McpReplaceRefused(:final problems) when problems.isNotEmpty:
-          setState(() => _problems = problems);
-        case McpReplaceRefused() || McpReplaceFailed():
-          setState(() => _failure = 'Could not save');
-        case McpReplaceCancelled():
-      }
-    } finally {
-      _busy = false;
-      if (mounted) setState(() {});
+      if (!ok || !mounted) return;
+    }
+    final outcome = await widget.servers.replaceServers(
+      _loaded,
+      edited,
+      review: _review,
+    );
+    if (!mounted) return;
+    switch (outcome) {
+      case McpReplaced():
+        Navigator.of(context).pop(true);
+      case McpReplaceRefused(:final problems) when problems.isNotEmpty:
+        setState(() => _problems = problems);
+      case McpReplaceRefused() || McpReplaceFailed():
+        setState(() => _failure = 'Could not save');
+      case McpReplaceCancelled():
     }
   }
 
@@ -187,7 +186,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final profile = widget.servers.profile;
-    final sending = _busy && !_asking;
+    final sending = widget.servers.isSaving && !widget.servers.isReviewing;
     return PopScope(
       canPop: !_dirty && !_busy,
       onPopInvokedWithResult: (didPop, _) {

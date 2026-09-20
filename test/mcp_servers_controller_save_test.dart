@@ -140,6 +140,38 @@ void main() {
       expect(controller.isSaving, isFalse);
     });
 
+    test('says it is reviewing only while the review is open', () async {
+      final answer = Completer<bool>();
+      final saw = <(bool, bool)>[];
+      controller.addListener(
+        () => saw.add((controller.isSaving, controller.isReviewing)),
+      );
+
+      final add = controller.addServer(command, review: (_) => answer.future);
+      expect(controller.isReviewing, isTrue);
+      expect(controller.isSaving, isTrue);
+      expect(posts(), 0);
+      answer.complete(true);
+      await add;
+
+      expect(controller.isReviewing, isFalse);
+      expect(controller.isSaving, isFalse);
+      expect(saw, contains((true, false)));
+    });
+
+    test('is not reviewing when a remote server needs no review', () async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', '/api/mcp/servers', (_) => answer.future);
+
+      final add = controller.addServer(remote, review: approve);
+      await pumpEventQueue();
+      expect(controller.isSaving, isTrue);
+      expect(controller.isReviewing, isFalse);
+
+      answer.complete((status: 200, body: mcpServerRow(name: 'x')));
+      await add;
+    });
+
     test('a second add during the request is ignored', () async {
       final answer = Completer<FakeResponse>();
       server.onRequest('POST', '/api/mcp/servers', (_) => answer.future);

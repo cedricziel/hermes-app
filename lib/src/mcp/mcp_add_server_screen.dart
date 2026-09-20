@@ -53,7 +53,6 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   bool _remote = true;
   McpRemoteAuth _auth = McpRemoteAuth.none;
   bool _nameTaken = false;
-  bool _reviewing = false;
   String? _error;
 
   @override
@@ -150,19 +149,13 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
     );
   }
 
-  Future<bool> _review(List<McpCommandReviewItem> commands) async {
-    if (!mounted) return false;
-    setState(() => _reviewing = true);
-    try {
-      return await showMcpCommandReview(
+  Future<bool> _review(List<McpCommandReviewItem> commands) async =>
+      mounted &&
+      await showMcpCommandReview(
         context,
         commands,
         confirmLabel: 'Add and run on server',
       );
-    } finally {
-      if (mounted) setState(() => _reviewing = false);
-    }
-  }
 
   void _clearSecrets() {
     _token.clear();
@@ -218,7 +211,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
             child: FilledButton(
               key: const ValueKey('mcp-add-server-button'),
               onPressed: _canAdd ? _submit : null,
-              child: _saving && !_reviewing
+              child: _saving && !widget.servers.isReviewing
                   ? const SizedBox.square(
                       dimension: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
