@@ -50,6 +50,8 @@ class KanbanBoardController extends ChangeNotifier {
   String _query = '';
   bool _includeArchived = false;
 
+  final _selected = <String>{};
+
   int _generation = 0;
   int _cursor = 0;
   StreamSubscription<String>? _events;
@@ -92,6 +94,28 @@ class KanbanBoardController extends ChangeNotifier {
     ];
   }
 
+  /// Ids picked for a bulk change; empty outside selection mode.
+  Set<String> get selected => Set.unmodifiable(_selected);
+  bool get selecting => _selecting;
+  bool _selecting = false;
+
+  void startSelecting([String? first]) {
+    _selecting = true;
+    if (first != null) _selected.add(first);
+    notifyListeners();
+  }
+
+  void toggleSelected(String id) {
+    if (!_selected.remove(id)) _selected.add(id);
+    notifyListeners();
+  }
+
+  void stopSelecting() {
+    _selecting = false;
+    _selected.clear();
+    notifyListeners();
+  }
+
   Future<void> start() async {
     await Future.wait([_loadBoards(), refresh()]);
   }
@@ -122,6 +146,11 @@ class KanbanBoardController extends ChangeNotifier {
       if (_disposed || generation != _generation) return;
       _board = board;
       _error = null;
+      final ids = {
+        for (final c in board.columns)
+          for (final t in c.tasks) t.id,
+      };
+      _selected.retainAll(ids);
       _cursor = math.max(_cursor, board.latestEventId);
       if (_events == null) _listen();
     } catch (e) {
@@ -203,6 +232,8 @@ class KanbanBoardController extends ChangeNotifier {
     _events = null;
     _live = false;
     _cursor = 0;
+    _selected.clear();
+    _selecting = false;
     _board = null;
     _error = null;
     await refresh();

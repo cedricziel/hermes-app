@@ -10,6 +10,7 @@ import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import '../theme/hermes_theme.dart';
 import 'widgets/kanban_card.dart';
+import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
 
 /// The Kanban board: status chips over a card list on a phone, real columns
@@ -68,17 +69,28 @@ class _KanbanScreenState extends State<KanbanScreen> {
     return ListenableBuilder(
       listenable: _controller,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Kanban'),
-          actions: [
-            if (_controller.boards.length > 1)
-              _BoardMenu(controller: _controller),
-            _LiveDot(live: _controller.live),
-            const SizedBox(width: 12),
-          ],
-        ),
+        appBar: _controller.selecting
+            ? AppBar(
+                leading: IconButton(
+                  tooltip: 'Cancel selection',
+                  icon: const Icon(Icons.close),
+                  onPressed: _controller.stopSelecting,
+                ),
+                title: Text('${_controller.selected.length} selected'),
+              )
+            : AppBar(
+                title: const Text('Kanban'),
+                actions: [
+                  if (_controller.boards.length > 1)
+                    _BoardMenu(controller: _controller),
+                  _LiveDot(live: _controller.live),
+                  if (_controller.board != null) _moreMenu(),
+                  const SizedBox(width: 4),
+                ],
+              ),
+        bottomNavigationBar: _controller.selecting ? _bulkBar() : null,
         body: _body(context),
-        floatingActionButton: _controller.board == null
+        floatingActionButton: _controller.board == null || _controller.selecting
             ? null
             : FloatingActionButton.extended(
                 onPressed: _create,
@@ -121,6 +133,175 @@ class _KanbanScreenState extends State<KanbanScreen> {
       ),
     );
     _controller.refresh();
+  }
+
+  Widget _moreMenu() => PopupMenuButton<String>(
+    onSelected: (value) {
+      switch (value) {
+        case 'select':
+          _controller.startSelecting();
+        case 'dispatch':
+          _dispatch();
+        case 'orchestration':
+          showDialog<void>(
+            context: context,
+            builder: (_) => KanbanOrchestrationDialog(
+              repository: _repository,
+              board: _controller.boardSlug,
+            ),
+          );
+      }
+    },
+    itemBuilder: (_) => const [
+      PopupMenuItem(value: 'select', child: Text('Select tasks')),
+      PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
+      PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
+    ],
+  );
+
+  Future<void> _dispatch() async {
+    final ok = await runKanbanAction(
+      context,
+      () => _repository.dispatch(board: _controller.boardSlug),
+    );
+    if (!ok || !mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Dispatcher nudged')));
+    _controller.refresh();
+  }
+
+  /// Applies one change to every selected task, reporting the ones it could
+  /// not apply to.
+  Future<void> _bulk({
+    String? status,
+    String? assignee,
+    int? priority,
+    bool archive = false,
+  }) async {
+    final ids = _controller.selected.toList();
+    if (ids.isEmpty) return;
+    var failures = const <KanbanBulkFailure>[];
+    final ok = await runKanbanAction(context, () async {
+      failures = await _repository.bulkUpdate(
+        ids,
+        status: status,
+        assignee: assignee,
+        priority: priority,
+        archive: archive,
+        board: _controller.boardSlug,
+      );
+    });
+    if (!ok || !mounted) return;
+    if (failures.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${failures.length} of ${ids.length} could not be changed: '
+            '${failures.first.error}',
+          ),
+        ),
+      );
+    }
+    _controller.stopSelecting();
+    _controller.refresh();
+  }
+
+  Future<T?> _pick<T>(String title, List<(String, T)> options) => showDialog<T>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(title),
+      children: [
+        for (final (label, value) in options)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, value),
+            child: Text(label),
+          ),
+      ],
+    ),
+  );
+
+  Widget _bulkBar() {
+    final none = _controller.selected.isEmpty;
+    return BottomAppBar(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextButton(
+              onPressed: none
+                  ? null
+                  : () async {
+                      final status = await _pick('Move to', [
+                        for (final s in kanbanSettableStatuses)
+                          (kanbanStatusLabel(s), s),
+                      ]);
+                      if (status != null) _bulk(status: status);
+                    },
+              child: const Text('Move'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: none
+                  ? null
+                  : () async {
+                      final names = _controller.board?.assignees ?? const [];
+                      final assignee = await _pick('Assign to', [
+                        ('Nobody', ''),
+                        for (final n in names) (n, n),
+                      ]);
+                      if (assignee != null) _bulk(assignee: assignee);
+                    },
+              child: const Text('Assign'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: none
+                  ? null
+                  : () async {
+                      final priority = await _pick('Priority', [
+                        ('Normal', 0),
+                        for (final p in [1, 2, 3]) ('P$p', p),
+                      ]);
+                      if (priority != null) _bulk(priority: priority);
+                    },
+              child: const Text('Priority'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: none
+                  ? null
+                  : () async {
+                      if (await confirmKanban(
+                        context,
+                        title: 'Archive ${_controller.selected.length} tasks?',
+                        confirm: 'Archive',
+                      )) {
+                        _bulk(archive: true);
+                      }
+                    },
+              child: const Text('Archive'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _card(KanbanTask task, {bool longPressSelects = false}) {
+    final selecting = _controller.selecting;
+    return KanbanCard(
+      task: task,
+      selected: _controller.selected.contains(task.id),
+      onTap: selecting
+          ? () => _controller.toggleSelected(task.id)
+          : () => _open(task),
+      onLongPress: longPressSelects && !selecting
+          ? () => _controller.startSelecting(task.id)
+          : null,
+    );
   }
 
   Widget _body(BuildContext context) {
@@ -205,10 +386,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     padding: const EdgeInsets.all(12),
                     itemCount: tasks.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) => KanbanCard(
-                      task: tasks[i],
-                      onTap: () => _open(tasks[i]),
-                    ),
+                    itemBuilder: (_, i) =>
+                        _card(tasks[i], longPressSelects: true),
                   ),
           ),
         ),
@@ -268,10 +447,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                             opacity: 0.4,
                             child: KanbanCard(task: task),
                           ),
-                          child: KanbanCard(
-                            task: task,
-                            onTap: () => _open(task),
-                          ),
+                          child: _card(task),
                         );
                       },
                     ),

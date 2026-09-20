@@ -168,4 +168,124 @@ void main() {
 
     expect(find.widgetWithText(TextField, 'Title'), findsOneWidget);
   });
+
+  testWidgets('long-pressing a card selects it and archives the selection', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't_run', 'ok': true},
+      ],
+    });
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.longPress(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Archive'));
+    await tester.pumpAndSettle();
+
+    final body = jsonBody(
+      server.requestsTo('POST', '/api/plugins/kanban/tasks/bulk').single,
+    ) as Map;
+    expect(body['ids'], ['t_run']);
+    expect(body['archive'], true);
+    expect(find.text('1 selected'), findsNothing);
+  });
+
+  testWidgets('tapping cards in selection mode picks them instead of opening', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(1400, 900));
+
+    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Select tasks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Migrate webhooks'));
+    await tester.tap(find.text('Write docs'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2 selected'), findsOneWidget);
+    expect(
+      server.requestsTo('GET', '/api/plugins/kanban/tasks/t_run'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('tells which tasks a bulk change could not apply to', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't_run', 'ok': false, 'error': 'archive refused'},
+      ],
+    });
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.longPress(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archive'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Archive'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('archive refused'), findsOneWidget);
+  });
+
+  testWidgets('runs the dispatcher from the menu', (tester) async {
+    serveTasks();
+    server.on('POST', '/api/plugins/kanban/dispatch', {'spawned': []});
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Run dispatcher now'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('POST', '/api/plugins/kanban/dispatch'),
+      hasLength(1),
+    );
+    expect(find.text('Dispatcher nudged'), findsOneWidget);
+  });
+
+  testWidgets('edits the orchestration settings from the menu', (tester) async {
+    serveTasks();
+    server
+      ..on('GET', '/api/plugins/kanban/orchestration', {
+        'orchestrator_profile': '',
+        'default_assignee': '',
+        'auto_decompose': true,
+        'auto_promote_children': true,
+        'active_profile': 'default',
+      })
+      ..on('GET', '/api/plugins/kanban/assignees', {
+        'assignees': ['coder'],
+      })
+      ..on('PUT', '/api/plugins/kanban/orchestration', {
+        'auto_decompose': false,
+        'active_profile': 'default',
+      });
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Orchestration…'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Auto-decompose triage tasks'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final body = jsonBody(
+      server.requestsTo('PUT', '/api/plugins/kanban/orchestration').single,
+    ) as Map;
+    expect(body['auto_decompose'], false);
+    expect(body['auto_promote_children'], true);
+  });
 }

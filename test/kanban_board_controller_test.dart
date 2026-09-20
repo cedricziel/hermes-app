@@ -193,4 +193,21 @@ void main() {
     expect(controller.board, isNotNull);
     expect(controller.error, isNotNull);
   });
+
+  test('drops selected tasks that left the board', () async {
+    serveBoard([kanbanTaskRow(id: 't1'), kanbanTaskRow(id: 't2')]);
+    await controller.start();
+    controller
+      ..startSelecting('t1')
+      ..toggleSelected('t2');
+    expect(controller.selected, {'t1', 't2'});
+
+    serveBoard([kanbanTaskRow(id: 't2')]);
+    await controller.refresh();
+
+    expect(controller.selected, {'t2'});
+    controller.stopSelecting();
+    expect(controller.selecting, isFalse);
+    expect(controller.selected, isEmpty);
+  });
 }
