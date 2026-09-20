@@ -129,6 +129,22 @@ lane :bootstrap_app do
   end
 end
 
+# The person App Review contacts. Read from the environment so it stays out of
+# the repository; the notes are public and live in fastlane/metadata.
+def app_review_information
+  keys = %w[REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL]
+  missing = keys.select { |key| ENV[key].to_s.strip.empty? }
+  UI.user_error!("Set #{missing.join(', ')} to sync the App Review contact.") unless missing.empty?
+
+  {
+    first_name: ENV["REVIEW_CONTACT_FIRST_NAME"].strip,
+    last_name: ENV["REVIEW_CONTACT_LAST_NAME"].strip,
+    phone_number: ENV["REVIEW_CONTACT_PHONE"].strip,
+    email_address: ENV["REVIEW_CONTACT_EMAIL"].strip,
+    notes: File.read(File.join(__dir__, "metadata", "review_information", "notes.txt")).strip
+  }
+end
+
 desc "Upload App Store metadata (listing text, category, age rating) without a binary"
 desc "  version:X.Y.Z  the editable version to update (default: pubspec.yaml, which renames it)"
 lane :sync_metadata do |options|
@@ -147,6 +163,7 @@ lane :sync_metadata do |options|
       force: true,
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false,
+      app_review_information: app_review_information,
       app_rating_config_path: "fastlane/metadata/age_rating.json"
     )
   end
