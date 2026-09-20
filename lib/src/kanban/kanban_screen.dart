@@ -11,6 +11,7 @@ import 'kanban_errors.dart';
 import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import 'kanban_workers_screen.dart';
 import '../theme/hermes_theme.dart';
 import 'widgets/kanban_card.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
@@ -166,6 +167,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
           _controller.startSelecting();
         case 'dispatch':
           _dispatch();
+        case 'workers':
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => KanbanWorkersScreen(
+                repository: _repository,
+                board: _controller.boardSlug,
+                onChanged: _controller.refresh,
+              ),
+            ),
+          );
         case 'orchestration':
           showDialog<void>(
             context: context,
@@ -179,6 +190,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     itemBuilder: (_) => const [
       PopupMenuItem(value: 'select', child: Text('Select tasks')),
       PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
+      PopupMenuItem(value: 'workers', child: Text('Active workers…')),
       PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
     ],
   );
