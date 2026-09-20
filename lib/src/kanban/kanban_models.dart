@@ -281,3 +281,63 @@ class KanbanTaskDetail {
   final List<String> children;
   final List<KanbanChildResult> childResults;
 }
+
+/// What the triage helpers report: they run an LLM, and a refusal is an
+/// answer, not an HTTP error.
+class KanbanTriageOutcome {
+  const KanbanTriageOutcome({
+    required this.ok,
+    this.reason,
+    this.childIds = const [],
+  });
+
+  factory KanbanTriageOutcome.fromJson(Map<String, dynamic> json) =>
+      KanbanTriageOutcome(
+        ok: json['ok'] == true,
+        reason: _text(json['reason']),
+        childIds: [
+          if (json['child_ids'] is List)
+            for (final id in json['child_ids'] as List)
+              if (id is String) id,
+        ],
+      );
+
+  final bool ok;
+  final String? reason;
+  final List<String> childIds;
+}
+
+/// A task a bulk change could not apply to, and why.
+class KanbanBulkFailure {
+  const KanbanBulkFailure({required this.id, required this.error});
+
+  final String id;
+  final String error;
+}
+
+/// The `kanban.*` knobs that steer how tasks are fanned out and picked up.
+class KanbanOrchestration {
+  const KanbanOrchestration({
+    this.orchestratorProfile = '',
+    this.defaultAssignee = '',
+    this.autoDecompose = true,
+    this.autoPromoteChildren = true,
+    this.activeProfile = 'default',
+  });
+
+  factory KanbanOrchestration.fromJson(Map<String, dynamic> json) =>
+      KanbanOrchestration(
+        orchestratorProfile: json['orchestrator_profile'] as String? ?? '',
+        defaultAssignee: json['default_assignee'] as String? ?? '',
+        autoDecompose: json['auto_decompose'] != false,
+        autoPromoteChildren: json['auto_promote_children'] != false,
+        activeProfile: json['active_profile'] as String? ?? 'default',
+      );
+
+  /// Empty means "use the active profile".
+  final String orchestratorProfile;
+  final String defaultAssignee;
+  final bool autoDecompose;
+  final bool autoPromoteChildren;
+  final String activeProfile;
+}

@@ -120,6 +120,100 @@ class KanbanRepository {
     ),
   );
 
+  /// Fans a triage task out into a set of tasks with the plugin's LLM helper.
+  Future<KanbanTriageOutcome> decomposeTask(String id, {String? board}) =>
+      _guard(() async {
+        final response = await _api
+            .decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(
+              taskId: id,
+              decomposeBody: DecomposeBody(),
+              board: board,
+            );
+        return KanbanTriageOutcome.fromJson(_map(response.data));
+      });
+
+  /// Expands a one-line triage task into a spec and promotes it to todo.
+  Future<KanbanTriageOutcome> specifyTask(String id, {String? board}) =>
+      _guard(() async {
+        final response = await _api
+            .specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(
+              taskId: id,
+              specifyBody: SpecifyBody(),
+              board: board,
+            );
+        return KanbanTriageOutcome.fromJson(_map(response.data));
+      });
+
+  /// Releases a running task's worker claim without waiting for it to expire.
+  Future<void> reclaimTask(String id, {String? reason, String? board}) =>
+      _guard(
+        () => _api.reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(
+          taskId: id,
+          reclaimBody: ReclaimBody(reason: reason),
+          board: board,
+        ),
+      );
+
+  /// Applies one change to many tasks; the ones it could not apply to come
+  /// back, the rest went through.
+  Future<List<KanbanBulkFailure>> bulkUpdate(
+    List<String> ids, {
+    String? status,
+    String? assignee,
+    int? priority,
+    bool archive = false,
+    String? board,
+  }) => _guard(() async {
+    final response = await _api.bulkUpdateApiPluginsKanbanTasksBulkPost(
+      bulkTaskBody: BulkTaskBody(
+        ids: ids.toList(),
+        status: status,
+        assignee: assignee,
+        priority: priority,
+        archive: archive,
+      ),
+      board: board,
+    );
+    final results = _map(response.data)['results'];
+    return [
+      if (results is List)
+        for (final r in results)
+          if (r is Map && r['ok'] == false)
+            KanbanBulkFailure(
+              id: r['id'] as String? ?? '',
+              error: r['error'] as String? ?? 'failed',
+            ),
+    ];
+  });
+
+  /// Runs the dispatcher now instead of waiting for its next tick.
+  Future<void> dispatch({String? board}) =>
+      _guard(() => _api.dispatchApiPluginsKanbanDispatchPost(board: board));
+
+  Future<KanbanOrchestration> loadOrchestration() async {
+    final response = await _api
+        .getOrchestrationSettingsApiPluginsKanbanOrchestrationGet();
+    return KanbanOrchestration.fromJson(_map(response.data));
+  }
+
+  Future<KanbanOrchestration> saveOrchestration({
+    String? orchestratorProfile,
+    String? defaultAssignee,
+    bool? autoDecompose,
+    bool? autoPromoteChildren,
+  }) => _guard(() async {
+    final response = await _api
+        .setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(
+          orchestrationSettingsBody: OrchestrationSettingsBody(
+            orchestratorProfile: orchestratorProfile,
+            defaultAssignee: defaultAssignee,
+            autoDecompose: autoDecompose,
+            autoPromoteChildren: autoPromoteChildren,
+          ),
+        );
+    return KanbanOrchestration.fromJson(_map(response.data));
+  });
+
   Future<void> deleteTask(String id, {String? board}) => _guard(
     () => _api.deleteTaskApiPluginsKanbanTasksTaskIdDelete(
       taskId: id,

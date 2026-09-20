@@ -166,4 +166,71 @@ void main() {
       {'parent_id': 't0', 'child_id': 't1', 'board': 'ops'},
     );
   });
+
+  void serveStatus(String status) => server.on(
+    'GET',
+    '/api/plugins/kanban/tasks/t1',
+    kanbanTaskDetailBody(
+      kanbanTaskRow(id: 't1', title: 'Rough idea', status: status),
+    ),
+  );
+
+  testWidgets('triage tasks offer Decompose and say how many tasks came out', (
+    tester,
+  ) async {
+    serveStatus('triage');
+    server.on('POST', '/api/plugins/kanban/tasks/t1/decompose', {
+      'ok': true,
+      'child_ids': ['t2', 't3'],
+    });
+    await pumpPanel(tester);
+
+    await tester.tap(find.text('Decompose'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Decomposed into 2 tasks'), findsOneWidget);
+    expect(changes, 1);
+  });
+
+  testWidgets('shows why a triage helper declined and changes nothing', (
+    tester,
+  ) async {
+    serveStatus('triage');
+    server.on('POST', '/api/plugins/kanban/tasks/t1/specify', {
+      'ok': false,
+      'reason': 'No auxiliary model configured',
+    });
+    await pumpPanel(tester);
+
+    await tester.tap(find.text('Specify'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No auxiliary model configured'), findsOneWidget);
+    expect(changes, 0);
+  });
+
+  testWidgets('only triage tasks offer the triage helpers', (tester) async {
+    await pumpPanel(tester);
+
+    expect(find.text('Decompose'), findsNothing);
+    expect(find.text('Specify'), findsNothing);
+  });
+
+  testWidgets('a running task can be reclaimed after confirming', (
+    tester,
+  ) async {
+    server.on('POST', '/api/plugins/kanban/tasks/t1/reclaim', {'ok': true});
+    await pumpPanel(tester);
+
+    await tester.tap(find.text('Reclaim'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Reclaim'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('POST', '/api/plugins/kanban/tasks/t1/reclaim'),
+      hasLength(1),
+    );
+    expect(changes, 1);
+  });
 }

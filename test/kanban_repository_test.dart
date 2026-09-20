@@ -133,4 +133,112 @@ void main() {
       containsPair('archive', true),
     );
   });
+
+  test(
+    'reads a triage helper that declined as an answer, not an error',
+    () async {
+      server
+        ..on('POST', '/api/plugins/kanban/tasks/t1/decompose', {
+          'ok': true,
+          'fanout': true,
+          'child_ids': ['t2', 't3'],
+        })
+        ..on('POST', '/api/plugins/kanban/tasks/t1/specify', {
+          'ok': false,
+          'reason': 'No auxiliary model configured',
+        });
+
+      final decomposed = await repository.decomposeTask('t1');
+      final specified = await repository.specifyTask('t1');
+
+      expect(decomposed.ok, isTrue);
+      expect(decomposed.childIds, ['t2', 't3']);
+      expect(specified.ok, isFalse);
+      expect(specified.reason, 'No auxiliary model configured');
+    },
+  );
+
+  test('reclaims a running task and says why it cannot', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/t1/reclaim', {'ok': true});
+    await repository.reclaimTask('t1', reason: 'stuck');
+    expect(
+      jsonBody(
+        server
+            .requestsTo('POST', '/api/plugins/kanban/tasks/t1/reclaim')
+            .single,
+      ),
+      {'reason': 'stuck'},
+    );
+
+    server.on('POST', '/api/plugins/kanban/tasks/t1/reclaim', {
+      'detail': 'cannot reclaim t1: not running',
+    }, status: 409);
+    expect(repository.reclaimTask('t1'), throwsA(isA<KanbanException>()));
+  });
+
+  test('a bulk change reports only the tasks it could not change', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't1', 'ok': true},
+        {'id': 't2', 'ok': false, 'error': 'archive refused'},
+      ],
+    });
+
+    final failures = await repository.bulkUpdate(['t1', 't2'], archive: true);
+
+    expect(failures.single.id, 't2');
+    expect(failures.single.error, 'archive refused');
+    final body = jsonBody(
+      server.requestsTo('POST', '/api/plugins/kanban/tasks/bulk').single,
+    ) as Map;
+    expect(body['ids'], ['t1', 't2']);
+    expect(body['archive'], true);
+  });
+
+  test('nudges the dispatcher', () async {
+    server.on('POST', '/api/plugins/kanban/dispatch', {'spawned': []});
+
+    await repository.dispatch(board: 'ops');
+
+    expect(
+      server
+          .requestsTo('POST', '/api/plugins/kanban/dispatch')
+          .single
+          .queryParameters['board'],
+      'ops',
+    );
+  });
+
+  test('reads and saves the orchestration settings', () async {
+    server
+      ..on('GET', '/api/plugins/kanban/orchestration', {
+        'orchestrator_profile': 'lead',
+        'default_assignee': '',
+        'auto_decompose': false,
+        'auto_promote_children': true,
+        'active_profile': 'default',
+      })
+      ..on('PUT', '/api/plugins/kanban/orchestration', {
+        'orchestrator_profile': '',
+        'auto_decompose': true,
+        'auto_promote_children': true,
+        'active_profile': 'default',
+      });
+
+    final loaded = await repository.loadOrchestration();
+    final saved = await repository.saveOrchestration(
+      orchestratorProfile: '',
+      autoDecompose: true,
+    );
+
+    expect(loaded.orchestratorProfile, 'lead');
+    expect(loaded.autoDecompose, isFalse);
+    expect(saved.autoDecompose, isTrue);
+    expect(
+      jsonBody(
+        server.requestsTo('PUT', '/api/plugins/kanban/orchestration').single,
+      ),
+      {'orchestrator_profile': '', 'auto_decompose': true},
+    );
+  });
 }

@@ -135,6 +135,46 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     );
   }
 
+  Future<void> _triage(
+    Future<KanbanTriageOutcome> Function() run,
+    String done,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    KanbanTriageOutcome? outcome;
+    final ok = await runKanbanAction(
+      context,
+      () async => outcome = await run(),
+    );
+    if (!ok) return;
+    final result = outcome!;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.ok
+              ? (result.childIds.isEmpty
+                    ? done
+                    : '$done into ${result.childIds.length} tasks')
+              : result.reason ?? 'That did not work out.',
+        ),
+      ),
+    );
+    if (result.ok) {
+      widget.onChanged?.call();
+      await _load();
+    }
+  }
+
+  Future<void> _reclaim() async {
+    if (!await confirmKanban(
+      context,
+      title: 'Release the worker’s claim on this task?',
+      confirm: 'Reclaim',
+    )) {
+      return;
+    }
+    await _do(() => _repo.reclaimTask(widget.taskId, board: widget.board));
+  }
+
   Future<void> _edit(KanbanTask task) async {
     final title = TextEditingController(text: task.title);
     final body = TextEditingController(text: task.body ?? '');
@@ -365,6 +405,38 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             ),
           ],
         ),
+        if (task.status == 'triage')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: () => _triage(
+                    () =>
+                        _repo.decomposeTask(widget.taskId, board: widget.board),
+                    'Decomposed',
+                  ),
+                  child: const Text('Decompose'),
+                ),
+                OutlinedButton(
+                  onPressed: () => _triage(
+                    () => _repo.specifyTask(widget.taskId, board: widget.board),
+                    'Specified',
+                  ),
+                  child: const Text('Specify'),
+                ),
+              ],
+            ),
+          ),
+        if (task.status == 'running')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton(
+              onPressed: _reclaim,
+              child: const Text('Reclaim'),
+            ),
+          ),
         if (task.status != 'done')
           Padding(
             padding: const EdgeInsets.only(top: 8),
