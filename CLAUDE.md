@@ -19,7 +19,7 @@ flutter test --plain-name "some test name"                   # one test
 pre-commit install                # hooks run dart format + flutter analyze on staged Dart files
 ```
 
-CI (`.github/workflows/ci.yml`) runs format, analyze and test, then builds Android (debug APK), iOS (simulator), macOS and Linux (release bundle, packaged by `scripts/package-linux.sh`). Releases attach a Linux tar.gz and .deb (x86_64, arm64) to the GitHub release. The iOS build needs the watchOS platform installed and an explicit simulator: `flutter build ios --simulator -d <udid>`.
+CI (`.github/workflows/ci.yml`) runs format, analyze and test, then builds Android (debug APK), iOS (simulator), macOS and Linux (release bundle, packaged by `scripts/package-linux.sh`). Releases attach a Linux tar.gz and .deb (x86_64, arm64) to the GitHub release. Every release is cut as a GitHub pre-release and its build goes to TestFlight; promoting one to a full release starts `app-store.yml`, which runs `fastlane submit` to send that version's TestFlight build to App Review on iOS and macOS (release stays manual). It needs the `REVIEW_CONTACT_*` secrets. A version already in review or released is skipped, so promoting one you submitted by hand does no harm. Run it by hand with `dry_run` (the workflow's default input) to update the listing without submitting. The iOS build needs the watchOS platform installed and an explicit simulator: `flutter build ios --simulator -d <udid>`.
 
 Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bumps `pubspec.yaml` from them. Don't edit the version by hand.
 

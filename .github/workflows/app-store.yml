@@ -1,0 +1,89 @@
+name: app-store
+
+# Sends a release to App Review, for iOS and macOS.
+#
+# release-please cuts every release as a GitHub pre-release and the
+# release-please workflow uploads its build to TestFlight. Promoting a
+# pre-release to a full release is the decision that this one goes to the
+# store, and it is what starts this workflow. The build is not rebuilt: the
+# `submit` lane waits for the version's TestFlight build to finish processing
+# and attaches it.
+#
+# The version is left for you to publish once App Review approves it.
+#
+# `workflow_dispatch` runs the same for any tag. `dry_run` (the default there)
+# updates the listing but does not submit.
+#
+# Needs the ASC_* secrets the TestFlight job already uses, plus the App Review
+# contact: REVIEW_CONTACT_FIRST_NAME, REVIEW_CONTACT_LAST_NAME,
+# REVIEW_CONTACT_PHONE and REVIEW_CONTACT_EMAIL.
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to submit (e.g. v0.1.26).
+        required: true
+      dry_run:
+        description: Update the listing and the notes, but do not submit.
+        type: boolean
+        default: true
+
+# Two submissions must not race: one pulls the other's version back.
+concurrency:
+  group: app-store
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit to App Review
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.release.prerelease == false && startsWith(github.event.release.tag_name, 'v')) }}
+    runs-on: macos-26
+    # The build may still be processing when a release is promoted.
+    timeout-minutes: 60
+    env:
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Fetch release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          raw="$RUNNER_TEMP/release_notes_raw.md"
+          file="$RUNNER_TEMP/release_notes.txt"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > "$raw" || : > "$raw"
+          # The store shows plain text and stops at 4000 characters. Notes
+          # must never block a submission: if formatting fails, the lane falls
+          # back to fastlane/metadata/en-US/release_notes.txt.
+          python3 scripts/plain_release_notes.py < "$raw" > "$file" \
+            || python3 -c 'import sys; sys.stdout.write(sys.stdin.read()[:4000])' < "$raw" > "$file" \
+            || : > "$file"
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+
+      - name: Submit to App Review
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          REVIEW_CONTACT_FIRST_NAME: ${{ secrets.REVIEW_CONTACT_FIRST_NAME }}
+          REVIEW_CONTACT_LAST_NAME: ${{ secrets.REVIEW_CONTACT_LAST_NAME }}
+          REVIEW_CONTACT_PHONE: ${{ secrets.REVIEW_CONTACT_PHONE }}
+          REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
+          RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          FASTLANE_HIDE_CHANGELOG: "true"
+        run: bundle exec fastlane submit version:"${TAG#v}" dry_run:"${DRY_RUN:-false}"
