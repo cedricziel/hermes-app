@@ -140,6 +140,11 @@ MCP servers: `POST /api/mcp/servers` (`{"name","url"}` or `{"name","command","ar
 attempts failed". For a passing test, serve a tiny JSON-only MCP endpoint (see `_serveMinimalMcp` in
 `test/real_backend_contract_test.dart`) on the loopback and point a server at it.
 
+Custom MCP servers: `GET /api/config` returns `mcp_servers` with `${VAR}` references expanded (a bearer token added
+through `POST` shows in plain text there), and `GET /api/config/raw` returns the YAML as stored, where the
+`${MCP_<NAME>_API_KEY}` reference stays. `PUT /api/mcp/servers` with the expanded values unchanged keeps the reference.
+Seed a harmless command server with `{"name":"x","command":"true"}`; nothing starts it.
+
 MCP catalog and sign-in: `GET /api/mcp/catalog` lists about 65 approved entries; `POST /api/mcp/catalog/install`
 with `{"name":"context7","enable":true}` installs one that needs no credential and no build (config write
 only). Every entry but `n8n` is a remote URL, so nothing is built. To see the sign-in waiting screen without
