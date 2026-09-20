@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:stream_channel/stream_channel.dart';
 
-import '../../telemetry/gateway_telemetry.dart';
+import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
 
 /// A server-pushed `event` notification, e.g. `message.delta`.
 class GatewayEvent {
@@ -55,7 +55,7 @@ class GatewayRpcClient {
   }
 
   final StreamChannel<String> _channel;
-  final GatewayTelemetry? _telemetry;
+  final MessagingConnectionTracer? _telemetry;
   late final StreamSubscription<String> _subscription;
   final _events = StreamController<GatewayEvent>.broadcast();
   final _pending = <int, _Pending>{};

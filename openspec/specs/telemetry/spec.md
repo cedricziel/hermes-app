@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint (in practice SignalDB) so that the people who ship the app can see how sign-in, requests, the chat connection and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
+The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint over https (in practice SignalDB) so that the people who ship the app can see how sign-in, requests, the chat connection and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
 
 ## Requirements
 
@@ -39,13 +39,29 @@ The system SHALL parse `OTEL_EXPORTER_OTLP_HEADERS` as comma-separated `key=valu
 
 ### Requirement: An unusable endpoint disables telemetry
 
-The system SHALL treat an endpoint without a scheme or without a host as unusable, disable telemetry and continue starting the app instead of throwing.
+The system SHALL treat an endpoint as unusable, disable telemetry and continue starting the app instead of throwing, when it has no scheme or no host, when its scheme is not `https`, or when its scheme is `http` and its host is not a loopback host (`localhost`, `127.0.0.1` or `::1`). Export requests carry the configured headers, which usually include a bearer token, so the system SHALL NOT send them over cleartext to any other host.
 
 #### Scenario: Endpoint is not a URL
 
 - **WHEN** the endpoint define is `not a url`
 - **THEN** app start-up succeeds
 - **AND** telemetry is disabled and no HTTP interceptor is offered
+
+#### Scenario: Endpoint is cleartext http
+
+- **WHEN** the endpoint define is `http://collector.example.com:4318` or `http://192.168.1.20:4318`
+- **THEN** app start-up succeeds
+- **AND** telemetry is disabled and no HTTP interceptor is offered
+
+#### Scenario: Endpoint uses another scheme
+
+- **WHEN** the endpoint define is `ftp://collector.example.com`
+- **THEN** telemetry is disabled
+
+#### Scenario: Loopback collector over http
+
+- **WHEN** the endpoint define is `http://localhost:4318`, `http://127.0.0.1:4318` or `http://[::1]:4318`
+- **THEN** telemetry is enabled, because the traffic never leaves the device
 
 ### Requirement: No SDK, no interceptor, no header, no handlers when off
 
@@ -117,7 +133,7 @@ The system SHALL NOT include the device name, vendor or hardware identifiers, lo
 
 ### Requirement: Every HTTP request through the app's clients is traced and logged
 
-When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.method`, `http.route` (when known), `http.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.method`, `http.route` (when known), `http.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is not 2xx and `info` otherwise, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
+When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.method`, `http.route` (when known), `http.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.method`, `http.route` (when known), `http.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is 400 or above and `info` otherwise, so the span and the log always agree on whether a request failed, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
 
 #### Scenario: Successful request
 
@@ -130,6 +146,11 @@ When telemetry is enabled the system SHALL add one interceptor to every HTTP cli
 - **WHEN** the server answers with a 4xx or 5xx status
 - **THEN** the span status is an error, carries the status code and the error type `badResponse`, and is ended
 - **AND** the log record has severity `error` and includes the status
+
+#### Scenario: Non-error status
+
+- **WHEN** the server answers 204 or 304
+- **THEN** the span status is OK and the log record has severity `info`
 
 #### Scenario: No response
 

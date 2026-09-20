@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:upgrader/upgrader.dart';
 
 import 'auth/auth_controller.dart';
 import 'screens/login_screen.dart';
@@ -9,16 +10,21 @@ import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
 
 class HermesApp extends StatelessWidget {
-  const HermesApp({super.key});
+  /// Prompts to update when [updateChecker] finds a newer release. Left off in
+  /// tests, so they never reach out to GitHub.
+  const HermesApp({super.key, this.updateChecker});
+
+  final Upgrader? updateChecker;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hermes',
+      debugShowCheckedModeBanner: false,
       theme: buildHermesLightTheme(),
       darkTheme: buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      home: const _RootRouter(),
+      home: _RootRouter(updateChecker: updateChecker),
     );
   }
 }
@@ -27,7 +33,9 @@ class HermesApp extends StatelessWidget {
 /// no named routes yet, since the bootstrap app only has these three
 /// destinations.
 class _RootRouter extends StatelessWidget {
-  const _RootRouter();
+  const _RootRouter({this.updateChecker});
+
+  final Upgrader? updateChecker;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +51,13 @@ class _RootRouter extends StatelessWidget {
       case HermesConnectionState.signingIn:
         return const LoginScreen();
       case HermesConnectionState.ready:
-        return const AppShell();
+        final updateChecker = this.updateChecker;
+        if (updateChecker == null) return const AppShell();
+        return UpgradeAlert(
+          upgrader: updateChecker,
+          showReleaseNotes: false,
+          child: const AppShell(),
+        );
     }
   }
 }

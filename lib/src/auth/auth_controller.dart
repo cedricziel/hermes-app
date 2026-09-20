@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,7 +10,6 @@ import '../api/hermes_api_client.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
-import '../telemetry/telemetry_event.dart';
 import 'native_login_flow.dart';
 import 'token_store.dart';
 
@@ -38,6 +39,8 @@ enum HermesConnectionState {
 
 const _prefsBaseUrlKey = 'hermes.server_base_url';
 
+const _unexpectedResponseMessage = 'Unexpected response from the server';
+
 const _sessionTokenHeader = 'X-Hermes-Session-Token';
 
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
@@ -53,7 +56,7 @@ class AuthController extends ChangeNotifier {
     SharedPreferencesAsync? prefs,
     String? devServerUrl,
     this._interceptors = const [],
-    this._events = ignoreTelemetryEvent,
+    this._events = noopAppEventLogger,
     this._login = runNativeLogin,
   }) : _tokenStore = tokenStore ?? TokenStore(),
        _prefs = prefs ?? SharedPreferencesAsync(),
@@ -70,12 +73,13 @@ class AuthController extends ChangeNotifier {
   /// Added to every [Dio] client this controller builds.
   final List<Interceptor> _interceptors;
 
-  final TelemetryEvent _events;
+  final AppEventLogger _events;
 
   final NativeLogin _login;
 
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
+  String? _savedServerUrl;
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -90,6 +94,10 @@ class AuthController extends ChangeNotifier {
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
+
+  /// The remembered server address, known from launch on. Unlike [baseUrl] it
+  /// does not mean the server was reached.
+  String? get savedServerUrl => _savedServerUrl;
   HermesStatus? get status => _status;
   List<AuthProviderInfo> get providers => _providers;
   HermesIdentity? get identity => _identity;
@@ -109,6 +117,7 @@ class AuthController extends ChangeNotifier {
       _setState(HermesConnectionState.needsServerUrl);
       return;
     }
+    _savedServerUrl = savedUrl;
     await connect(savedUrl, restoring: true);
   }
 
@@ -139,8 +148,7 @@ class AuthController extends ChangeNotifier {
 
     final HermesStatus status;
     try {
-      final response = await probeDio.get<Map<String, dynamic>>('/api/status');
-      status = HermesStatus.fromJson(response.data ?? const {});
+      status = await HermesApiClient(probeDio).fetchStatus();
     } on DioException catch (e) {
       _errorMessage = _describeDioError(
         e,
@@ -148,11 +156,18 @@ class AuthController extends ChangeNotifier {
       );
       _setState(HermesConnectionState.connectionError);
       return;
+    } on FormatException {
+      _errorMessage = _unexpectedResponseMessage;
+      _setState(HermesConnectionState.connectionError);
+      return;
     }
 
     _baseUrl = normalized;
     _status = status;
-    if (remember) await _prefs.setString(_prefsBaseUrlKey, normalized);
+    if (remember) {
+      _savedServerUrl = normalized;
+      await _prefs.setString(_prefsBaseUrlKey, normalized);
+    }
 
     _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
     _tokenDio = _plainDio(normalized);
@@ -199,6 +214,9 @@ class AuthController extends ChangeNotifier {
         e,
         fallback: 'Could not verify your session',
       );
+      _setState(HermesConnectionState.connectionError);
+    } on FormatException {
+      _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
     }
   }
@@ -296,6 +314,7 @@ class AuthController extends ChangeNotifier {
     await _tokenStore.clear();
     await _prefs.remove(_prefsBaseUrlKey);
     _baseUrl = null;
+    _savedServerUrl = null;
     _status = null;
     _providers = const [];
     _session = null;

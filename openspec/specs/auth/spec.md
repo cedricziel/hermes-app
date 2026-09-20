@@ -53,7 +53,7 @@ When the `HERMES_SERVER_URL` compile-time define is non-empty, the system SHALL 
 
 ### Requirement: Server URL entry and normalization
 
-The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network.
+The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network. The address field SHALL start as the saved server address when one exists, whether or not that server could be reached, and as `http://` otherwise.
 
 #### Scenario: Scheme is added
 
@@ -70,6 +70,22 @@ The server setup screen SHALL require a non-empty URL before it submits. The sys
 - **WHEN** the user submits `ftp://hermes.example`
 - **THEN** the state is connection error
 - **AND** the message is "Enter a valid http(s) URL, e.g. http://192.168.1.20:9119"
+
+#### Scenario: Field starts as http:// on a first launch
+
+- **WHEN** the setup screen is shown and no server address is saved
+- **THEN** the address field contains `http://`
+
+#### Scenario: Field is prefilled after a failed session check
+
+- **WHEN** the stored-session check fails on a network error or a server error, so the app is in the connection error state with the tokens kept
+- **THEN** the setup screen shows the saved server address in the address field
+
+#### Scenario: Field is prefilled when the saved server cannot be reached
+
+- **WHEN** the app launches with a saved address and the status request fails because the server is unreachable or answers with an error
+- **THEN** the state is connection error
+- **AND** the setup screen shows the saved server address in the address field
 
 #### Scenario: Empty field
 
@@ -90,6 +106,13 @@ The system SHALL discover a server by requesting `GET /api/status` without crede
 - **WHEN** the status request fails because the host cannot be reached or times out
 - **THEN** the state is connection error
 - **AND** the message is "Could not reach" followed by the address, unless the server sent a `detail` string, which is shown instead
+- **AND** the address is not saved
+
+#### Scenario: Status response is malformed
+
+- **WHEN** the status response is not an object or one of its fields has the wrong type
+- **THEN** the state is connection error, also when the connect is restoring the saved address on launch
+- **AND** the message is "Unexpected response from the server"
 - **AND** the address is not saved
 
 #### Scenario: Successful discovery saves the address
@@ -159,6 +182,13 @@ When auth is required, the system SHALL load the sign-in options from `GET /api/
 - **WHEN** a stored session is found and the identity request fails because of a network error or a 5xx answer
 - **THEN** the state is connection error
 - **AND** the stored tokens are kept
+
+#### Scenario: Identity response is malformed
+
+- **WHEN** a stored session is found and the identity response is not an object or one of its fields has the wrong type
+- **THEN** the state is connection error, also when the connect is restoring the saved address on launch
+- **AND** the message is "Unexpected response from the server"
+- **AND** the stored tokens are kept, so connecting again once the server answers correctly restores the session
 
 #### Scenario: Stored session is dead
 
@@ -337,7 +367,7 @@ The system SHALL keep the session (access token, refresh token, expiry, provider
 
 ### Requirement: Authenticated requests carry a fresh bearer token
 
-Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token has no known expiry or expires within 60 seconds, and a refresh token is available. The rotated token set SHALL replace the stored session. If that refresh fails, the request SHALL still be sent with the existing token. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
+Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token expires within 60 seconds and a refresh token is available. An access token with no known expiry (the server left `expires_at` out) SHALL NOT be refreshed before a request; it is refreshed only after a 401. The rotated token set SHALL replace the stored session. If that refresh fails, the request SHALL still be sent with the existing token. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
 
 #### Scenario: Token near expiry
 
@@ -355,6 +385,12 @@ Every request made through the authenticated client on a gated server SHALL carr
 
 - **WHEN** the access token is near expiry and there is no refresh token
 - **THEN** the request is sent with the existing token without a refresh
+
+#### Scenario: Token has no known expiry
+
+- **WHEN** the session has no expiry because the server left `expires_at` out, and several requests are made
+- **THEN** the requests are sent with the existing token without a refresh
+- **AND** a 401 still triggers one refresh and one retry
 
 ### Requirement: A 401 triggers one refresh and one retry
 

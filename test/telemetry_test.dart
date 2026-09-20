@@ -26,6 +26,31 @@ void main() {
     });
   });
 
+  group('Telemetry.isExportableEndpoint', () {
+    bool exportable(String url) =>
+        Telemetry.isExportableEndpoint(Uri.parse(url));
+
+    test('accepts https', () {
+      expect(exportable('https://collector.example.com:4318'), isTrue);
+      expect(exportable('HTTPS://collector.example.com'), isTrue);
+    });
+
+    test('accepts http only for loopback hosts', () {
+      expect(exportable('http://localhost:4318'), isTrue);
+      expect(exportable('http://127.0.0.1:4318'), isTrue);
+      expect(exportable('http://[::1]:4318'), isTrue);
+      expect(exportable('http://collector.example.com'), isFalse);
+      expect(exportable('http://localhost.example.com'), isFalse);
+      expect(exportable('http://127.0.0.1.example.com'), isFalse);
+    });
+
+    test('rejects other schemes and missing hosts', () {
+      expect(exportable('ftp://localhost'), isFalse);
+      expect(exportable('https://'), isFalse);
+      expect(exportable('collector.example.com:4318'), isFalse);
+    });
+  });
+
   group('Telemetry.initialize', () {
     TelemetryConfig config(String endpoint) => TelemetryConfig(
       otlpEndpoint: endpoint,
@@ -59,5 +84,18 @@ void main() {
       expect(telemetry.enabled, isFalse);
       expect(telemetry.dioInterceptor(), isNull);
     });
+
+    for (final endpoint in [
+      'http://collector.example.com:4318',
+      'http://192.168.1.20:4318',
+      'ftp://collector.example.com',
+    ]) {
+      test('is disabled for the non-https endpoint $endpoint', () async {
+        final telemetry = await Telemetry.initialize(config(endpoint));
+
+        expect(telemetry.enabled, isFalse);
+        expect(telemetry.dioInterceptor(), isNull);
+      });
+    }
   });
 }

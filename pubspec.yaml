@@ -56,21 +56,39 @@ dependencies:
   flutter_chat_core: ^2.9.1
   flyer_chat_text_message: ^2.6.1
   material_ui: ^1.3.0
-  # Coarse device facts (model, OS) attached to telemetry. Held at 12.x: 13.x
-  # needs win32 6, which flutter_secure_storage 9 rules out.
-  device_info_plus: ^12.4.0
   # OpenTelemetry logs and traces, exported to SignalDB. Not on pub.dev, so
   # the siblings it depends on are pinned in dependency_overrides below.
   flutter_otel:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel
+  # Coarse device facts for the telemetry resource. It resolves device_info_plus
+  # to 12.x here: 13.x needs win32 6, which flutter_secure_storage 9 rules out.
+  flutter_otel_device_info:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
+      path: packages/flutter_otel_device_info
+  # Request spans and logs that record the route only, never the server address.
+  flutter_otel_instrumentation_dio:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
+      path: packages/flutter_otel_instrumentation_dio
+  # The chat WebSocket as an upgrade span plus linked message spans.
+  flutter_otel_instrumentation_messaging:
+    git:
+      url: https://github.com/cedricziel/flutter-otel.git
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
+      path: packages/flutter_otel_instrumentation_messaging
   # The dashboard's /api/ws JSON-RPC socket the chat streams over.
   web_socket_channel: ^3.0.3
   stream_channel: ^2.1.4
   flutter_local_notifications: ^22.3.1
   characters: ^1.4.1
+  upgrader: ^13.7.0
+  version: ^3.0.2
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
@@ -78,21 +96,24 @@ dependency_overrides:
   flutter_otel_api:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_api
   flutter_otel_sdk:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_sdk
   flutter_otel_exporter_otlp_http:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 5b7af474d13c9aad4bb1e5b5c6df8e445233eea6
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_exporter_otlp_http
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # Drives the real app for the store screenshots (integration_test/).
+  integration_test:
     sdk: flutter
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.1
@@ -103,6 +124,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  http: ^1.6.0
+  package_info_plus: ^9.0.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

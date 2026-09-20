@@ -37,7 +37,7 @@ class HermesSession {
   final String accessToken;
   final String refreshToken;
 
-  /// Unix seconds when [accessToken] expires.
+  /// Unix seconds when [accessToken] expires, or 0 when the server did not say.
   final int expiresAt;
   final String provider;
   final String userId;
@@ -52,8 +52,9 @@ class HermesSession {
 
   /// True when the access token is at or near expiry and should be refreshed
   /// before use. Mirrors the server's own 60s floor on cookie Max-Age.
+  /// An unknown expiry never needs a proactive refresh; a 401 drives it.
   bool needsRefresh({int skewSeconds = 60, DateTime? now}) {
-    if (expiresAt <= 0) return true;
+    if (expiresAt <= 0) return false;
     final nowSeconds = (now ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
     return nowSeconds >= expiresAt - skewSeconds;
   }
