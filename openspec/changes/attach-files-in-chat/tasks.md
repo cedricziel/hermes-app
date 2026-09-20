@@ -1,8 +1,8 @@
 ## 1. Model and history
 
-- [ ] 1.1 Add `ChatAttachment` and `ChatMessage.attachments`
-- [ ] 1.2 Add the pure parser from a stored row's content (string or list) to text plus attachments, with tests for `@image:`, `@file:`, "[User attached file: …]", quoted paths and list content
-- [ ] 1.3 Use the parser in `HermesChatRepository.loadMessages`; a row that cannot be read is skipped
+- [x] 1.1 Add `ChatAttachment` and `ChatMessage.attachments`
+- [x] 1.2 Add the pure parser from a stored row's content (string or list) to text plus attachments, with tests for `@image:`, `@file:`, "[User attached file: …]", quoted paths and list content
+- [x] 1.3 Use the parser in `HermesChatRepository.loadMessages`; a row that cannot be read is skipped
 
 ## 2. Sending
 

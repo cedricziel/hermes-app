@@ -451,6 +451,66 @@ void main() {
       },
     );
 
+    test(
+      'reads the attachments of a user message back from its text',
+      () async {
+        final messages = await load([
+          messageRow(
+            id: 1,
+            role: 'user',
+            content: 'look\n@image:/home/u/.hermes/images/a.png\n@file:r.pdf',
+          ),
+        ]);
+
+        final message = messages.single;
+        expect(message.content, 'look');
+        expect(message.attachments.map((a) => (a.name, a.kind)), [
+          ('a.png', AttachmentKind.image),
+          ('r.pdf', AttachmentKind.file),
+        ]);
+      },
+    );
+
+    test('loads a message whose content is a list of parts', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'user',
+          content: [
+            {'type': 'text', 'text': 'what is this?\n@image:/x/pic.png'},
+            {
+              'type': 'image_url',
+              'image_url': {'url': 'data:image/png;base64,iVBORw0KGgo='},
+            },
+          ],
+        ),
+        messageRow(id: 2, role: 'assistant', content: 'A picture.'),
+      ]);
+
+      expect(messages.map((m) => m.content), ['what is this?', 'A picture.']);
+      expect(messages.first.attachments.single.name, 'pic.png');
+      expect(messages.first.attachments.single.bytes, isNotNull);
+    });
+
+    test('leaves an assistant message that names a file as it is', () async {
+      final messages = await load([
+        messageRow(id: 1, role: 'assistant', content: 'Saved.\n@file:out.txt'),
+      ]);
+
+      expect(messages.single.content, 'Saved.\n@file:out.txt');
+      expect(messages.single.attachments, isEmpty);
+    });
+
+    test('skips a row it cannot read and keeps the rest', () async {
+      final messages = await load([
+        messageRow(id: 1, role: 'user', content: 'before'),
+        messageRow(id: 2, role: 'user', content: 42),
+        messageRow(id: 3, role: 'assistant', content: 'after'),
+      ]);
+
+      expect(messages.map((m) => m.content), ['before', 'after']);
+    });
+
     test('surfaces a missing session as a DioException', () async {
       server.on('GET', '/api/sessions/gone/messages', {
         'detail': 'Session not found',
