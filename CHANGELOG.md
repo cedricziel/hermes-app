@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.14](https://github.com/cedricziel/hermes-app/compare/v0.1.13...v0.1.14) (2026-09-20)
+
+
+### Features
+
+* **chat:** show a card for secret and sudo requests the app cannot answer ([#127](https://github.com/cedricziel/hermes-app/issues/127)) ([a0a08e7](https://github.com/cedricziel/hermes-app/commit/a0a08e782d7fa983abc2468365dc18da76d2301c))
+* **kanban:** manage boards ([#74](https://github.com/cedricziel/hermes-app/issues/74)) ([9606cb4](https://github.com/cedricziel/hermes-app/commit/9606cb441ef8d805440aa238f7f6172d2d2f71b7))
+* **update:** prompt to update when a newer release exists ([#150](https://github.com/cedricziel/hermes-app/issues/150)) ([5aebb42](https://github.com/cedricziel/hermes-app/commit/5aebb428d9529946d3dc90675f2715b5ec072b57))
+
+
+### Bug Fixes
+
+* **auth:** prefill the saved server address on the setup screen ([#151](https://github.com/cedricziel/hermes-app/issues/151)) ([7e7c5ea](https://github.com/cedricziel/hermes-app/commit/7e7c5ea900e16bfe67a4a9f3131425eb76a46dac))
+* **auth:** show a connection error for a malformed status or identity response ([#146](https://github.com/cedricziel/hermes-app/issues/146)) ([b40896e](https://github.com/cedricziel/hermes-app/commit/b40896ee4204113f09739118c8e7c74c72ff0b8f))
+* **auth:** stay on the splash while restoring the saved server ([#132](https://github.com/cedricziel/hermes-app/issues/132)) ([475e7e7](https://github.com/cedricziel/hermes-app/commit/475e7e780d9bbf3086b900f60c2701ddb2bf4c33))
+* **auth:** stop refreshing on every request when the server omits expires_at ([#141](https://github.com/cedricziel/hermes-app/issues/141)) ([b0f822b](https://github.com/cedricziel/hermes-app/commit/b0f822ba8d6cb8036252979b8ebb2ecbe1e86ecc))
+* **telemetry:** only export to https endpoints ([#139](https://github.com/cedricziel/hermes-app/issues/139)) ([6322cfa](https://github.com/cedricziel/hermes-app/commit/6322cfa35f486e8a7438703a668e6bcab9e68a1d))
+* **telemetry:** restore the two-segment route and align span and log status ([#144](https://github.com/cedricziel/hermes-app/issues/144)) ([03856f2](https://github.com/cedricziel/hermes-app/commit/03856f2008adfc02352ccacebd3283858e1b5b51))
+* **watch:** clear the reply field after a message is sent ([#152](https://github.com/cedricziel/hermes-app/issues/152)) ([a89df4e](https://github.com/cedricziel/hermes-app/commit/a89df4ecee200b932156f550058fc5dc0e8673c5))
+
+
+### Documentation
+
+* add screenshots to the README and the App Store listing ([#136](https://github.com/cedricziel/hermes-app/issues/136)) ([26c8406](https://github.com/cedricziel/hermes-app/commit/26c8406c0151dcfd47338bda2312a7bfd87daf02))
+* tidy the README, retake the Mac screenshots wide, add a screenshots skill ([#147](https://github.com/cedricziel/hermes-app/issues/147)) ([309648a](https://github.com/cedricziel/hermes-app/commit/309648a2d564007b8bb3f93321b5ca118b767b7b))
+
 ## [0.1.13](https://github.com/cedricziel/hermes-app/compare/v0.1.12...v0.1.13) (2026-09-20)
 
 
