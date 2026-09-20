@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
+import '../auth/connect_failure.dart';
+
+final _vpnGuide = Uri.parse(
+  'https://github.com/cedricziel/hermes-app#reaching-your-dashboard-over-a-vpn',
+);
 
 /// First-run screen: point the app at a `hermes dashboard` instance
 /// (e.g. `http://192.168.1.20:9119`).
@@ -28,6 +34,10 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final connecting = auth.state == HermesConnectionState.connecting;
+    final failure = auth.lastFailure;
+    final hint = failure == null
+        ? null
+        : vpnHint(failure, vpnActive: auth.vpnActive);
 
     return Scaffold(
       body: SafeArea(
@@ -51,10 +61,24 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Enter the address of your hermes dashboard '
-                      '(hermes dashboard --host 0.0.0.0).',
+                      'Enter the address of your hermes dashboard.',
                       style: Theme.of(context).textTheme.bodyMedium,
                       textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Behind Tailscale or WireGuard? Enter its VPN address, '
+                      'or run tailscale serve on the server for an https:// '
+                      'address.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    TextButton(
+                      onPressed: () => launchUrl(
+                        _vpnGuide,
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      child: const Text('Read the VPN setup guide'),
                     ),
                     const SizedBox(height: 24),
                     TextFormField(
@@ -83,6 +107,14 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
+                      if (hint != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          hint,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ],
                     const SizedBox(height: 20),
                     FilledButton(

@@ -101,6 +101,7 @@ dependencies:
   # The app's cache directory, where media the agent sent is downloaded.
   path_provider: ^2.1.6
   flutter_json_view: ^1.1.5
+  connectivity_plus: ^7.3.1
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
@@ -138,6 +139,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   http: ^1.6.0
   package_info_plus: ^9.0.1
+  fake_async: ^1.3.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
