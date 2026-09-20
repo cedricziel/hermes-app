@@ -19,9 +19,7 @@ struct ErrorView: View {
     VStack(spacing: 8) {
       Text(error.message)
         .multilineTextAlignment(.center)
-      if error != .signedOut {
-        Button("Try again", action: retry)
-      }
+      Button("Try again", action: retry)
     }
   }
 }
