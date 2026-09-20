@@ -223,6 +223,9 @@ class AuthController extends ChangeNotifier {
       // must not bring the result back.
       if (cancel.isCompleted || _state != HermesConnectionState.signingIn) {
         report('cancelled');
+        if (_state == HermesConnectionState.signingIn) {
+          _setState(HermesConnectionState.needsLogin);
+        }
         return;
       }
       await _tokenStore.write(session);
