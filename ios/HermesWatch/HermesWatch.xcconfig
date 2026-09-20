@@ -1,0 +1,3 @@
+// Only the Flutter version variables, so the watch app is versioned with the
+// phone app it ships inside.
+#include "../Flutter/Generated.xcconfig"
