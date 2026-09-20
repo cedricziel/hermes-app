@@ -1,0 +1,520 @@
+import 'package:flutter/material.dart';
+
+import '../../chat/widgets/relative_time.dart';
+import '../kanban_errors.dart';
+import '../kanban_models.dart';
+import '../kanban_repository.dart';
+
+/// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
+Future<void> showKanbanTask(
+  BuildContext context, {
+  required KanbanRepository repository,
+  required String taskId,
+  String? board,
+  VoidCallback? onChanged,
+}) {
+  final panel = KanbanTaskPanel(
+    repository: repository,
+    taskId: taskId,
+    board: board,
+    onChanged: onChanged,
+  );
+  if (MediaQuery.sizeOf(context).width >= 720) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
+          child: panel,
+        ),
+      ),
+    );
+  }
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    builder: (_) => FractionallySizedBox(heightFactor: 0.92, child: panel),
+  );
+}
+
+/// A task's detail: status actions, description, dependencies, comments and
+/// history.
+class KanbanTaskPanel extends StatefulWidget {
+  const KanbanTaskPanel({
+    super.key,
+    required this.repository,
+    required this.taskId,
+    this.board,
+    this.onChanged,
+  });
+
+  final KanbanRepository repository;
+  final String taskId;
+  final String? board;
+
+  /// Called after every change that went through, so the board can refresh.
+  final VoidCallback? onChanged;
+
+  @override
+  State<KanbanTaskPanel> createState() => _KanbanTaskPanelState();
+}
+
+class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
+  KanbanTaskDetail? _detail;
+  bool _failed = false;
+  final _comment = TextEditingController();
+
+  KanbanRepository get _repo => widget.repository;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    try {
+      final detail = await _repo.loadTask(widget.taskId, board: widget.board);
+      if (!mounted) return;
+      setState(() {
+        _detail = detail;
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted && _detail == null) setState(() => _failed = true);
+    }
+  }
+
+  /// Runs a write and reloads; reports the change to the board when it works.
+  Future<bool> _do(Future<void> Function() action) async {
+    final ok = await runKanbanAction(context, action);
+    if (ok) {
+      widget.onChanged?.call();
+      await _load();
+    }
+    return ok;
+  }
+
+  Future<void> _moveTo(String status) async {
+    String? reason;
+    String? result;
+    if (status == 'blocked') {
+      reason = await askKanbanText(
+        context,
+        title: 'Why is it blocked?',
+        hint: 'Optional',
+        confirm: 'Block',
+      );
+      if (reason == null) return;
+    } else if (status == 'done') {
+      result = await askKanbanText(
+        context,
+        title: 'Result',
+        hint: 'Optional — what came out of it',
+        confirm: 'Complete',
+        multiline: true,
+      );
+      if (result == null) return;
+    }
+    await _do(
+      () => _repo.updateTask(
+        widget.taskId,
+        status: status,
+        blockReason: reason == null || reason.isEmpty ? null : reason,
+        result: result == null || result.isEmpty ? null : result,
+        board: widget.board,
+      ),
+    );
+  }
+
+  Future<void> _edit(KanbanTask task) async {
+    final title = TextEditingController(text: task.title);
+    final body = TextEditingController(text: task.body ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit task'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: title,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: body,
+              minLines: 3,
+              maxLines: 8,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved != true || title.text.trim().isEmpty) return;
+    await _do(
+      () => _repo.updateTask(
+        widget.taskId,
+        title: title.text.trim(),
+        body: body.text.trim(),
+        board: widget.board,
+      ),
+    );
+  }
+
+  Future<void> _assign(KanbanTask task) async {
+    List<String> names = const [];
+    try {
+      names = await _repo.loadAssignees(board: widget.board);
+    } catch (_) {}
+    if (!mounted) return;
+    final picked = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Assign to'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, ''),
+            child: const Text('Nobody'),
+          ),
+          for (final n in names)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, n),
+              child: Text(n),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || picked == (task.assignee ?? '')) return;
+    await _do(
+      () => _repo.updateTask(
+        widget.taskId,
+        assignee: picked,
+        board: widget.board,
+      ),
+    );
+  }
+
+  Future<void> _prioritise(KanbanTask task) async {
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('Priority'),
+        children: [
+          for (final p in [0, 1, 2, 3])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, p),
+              child: Text(p == 0 ? 'Normal' : 'P$p'),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || picked == task.priority) return;
+    await _do(
+      () => _repo.updateTask(
+        widget.taskId,
+        priority: picked,
+        board: widget.board,
+      ),
+    );
+  }
+
+  Future<void> _addParent() async {
+    final id = await askKanbanText(
+      context,
+      title: 'Depends on',
+      hint: 'Task id, e.g. t_1a2b',
+      confirm: 'Add',
+    );
+    if (id == null || id.isEmpty) return;
+    await _do(() => _repo.addLink(id, widget.taskId, board: widget.board));
+  }
+
+  Future<void> _sendComment() async {
+    final text = _comment.text.trim();
+    if (text.isEmpty) return;
+    if (await _do(
+      () => _repo.addComment(widget.taskId, text, board: widget.board),
+    )) {
+      _comment.clear();
+    }
+  }
+
+  Future<void> _archive() async {
+    if (!await confirmKanban(
+      context,
+      title: 'Archive this task?',
+      confirm: 'Archive',
+    )) {
+      return;
+    }
+    if (await _do(
+          () => _repo.archiveTask(widget.taskId, board: widget.board),
+        ) &&
+        mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _delete() async {
+    if (!await confirmKanban(
+      context,
+      title: 'Delete this task for good?',
+      confirm: 'Delete',
+    )) {
+      return;
+    }
+    if (await _do(() => _repo.deleteTask(widget.taskId, board: widget.board)) &&
+        mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detail = _detail;
+    if (detail == null) {
+      return Center(
+        child: _failed
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Could not load the task'),
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: () {
+                      setState(() => _failed = false);
+                      _load();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
+              )
+            : const CircularProgressIndicator(),
+      );
+    }
+    final task = detail.task;
+    final theme = Theme.of(context);
+    final subtle = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        Text(
+          '${task.id} · ${kanbanStatusLabel(task.status)}',
+          style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(task.title, style: theme.textTheme.titleLarge),
+            ),
+            IconButton(
+              tooltip: 'Edit',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => _edit(task),
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 8,
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.person_outline, size: 16),
+              label: Text(task.assignee ?? 'Unassigned'),
+              onPressed: () => _assign(task),
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.flag_outlined, size: 16),
+              label: Text(task.priority == 0 ? 'Normal' : 'P${task.priority}'),
+              onPressed: () => _prioritise(task),
+            ),
+            if (task.tenant != null) Chip(label: Text(task.tenant!)),
+            PopupMenuButton<String>(
+              tooltip: 'Move to',
+              onSelected: _moveTo,
+              itemBuilder: (_) => [
+                for (final s in kanbanSettableStatuses)
+                  if (s != task.status)
+                    PopupMenuItem(value: s, child: Text(kanbanStatusLabel(s))),
+              ],
+              child: const Chip(
+                avatar: Icon(Icons.swap_horiz, size: 16),
+                label: Text('Move to…'),
+              ),
+            ),
+          ],
+        ),
+        if (task.status != 'done')
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: () => _moveTo('done'),
+                  child: const Text('Complete'),
+                ),
+                if (task.status != 'blocked')
+                  OutlinedButton(
+                    onPressed: () => _moveTo('blocked'),
+                    child: const Text('Block'),
+                  ),
+              ],
+            ),
+          ),
+        if (task.body != null) ...[
+          const _Heading('Description'),
+          SelectableText(task.body!),
+        ],
+        if (task.latestSummary != null || task.result != null) ...[
+          const _Heading('Result'),
+          SelectableText(task.latestSummary ?? task.result!),
+        ],
+        const _Heading('Depends on'),
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final id in detail.parents)
+              InputChip(
+                label: Text(id),
+                onDeleted: () => _do(
+                  () => _repo.removeLink(id, task.id, board: widget.board),
+                ),
+              ),
+            ActionChip(
+              avatar: const Icon(Icons.add, size: 16),
+              label: const Text('Add'),
+              onPressed: _addParent,
+            ),
+          ],
+        ),
+        if (detail.childResults.isNotEmpty) ...[
+          const _Heading('Subtasks'),
+          for (final c in detail.childResults)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(c.title),
+              subtitle: Text(
+                '${c.id} · ${kanbanStatusLabel(c.status)}'
+                '${c.summary == null ? '' : '\n${c.summary}'}',
+              ),
+            ),
+        ],
+        _Heading('Comments (${detail.comments.length})'),
+        for (final c in detail.comments)
+          Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${c.author}${c.createdAt == null ? '' : ' · ${relativeTime(c.createdAt!)}'}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+                ),
+                SelectableText(c.body),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _comment,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'Add a comment…',
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _sendComment(),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Send',
+              icon: const Icon(Icons.send),
+              onPressed: _sendComment,
+            ),
+          ],
+        ),
+        if (detail.events.isNotEmpty)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text('History'),
+            children: [
+              for (final e in detail.events.reversed)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(e.kind.replaceAll('_', ' ')),
+                  trailing: e.createdAt == null
+                      ? null
+                      : Text(relativeTime(e.createdAt!)),
+                ),
+            ],
+          ),
+        const Divider(),
+        Row(
+          children: [
+            TextButton.icon(
+              onPressed: _archive,
+              icon: const Icon(Icons.archive_outlined),
+              label: const Text('Archive'),
+            ),
+            TextButton.icon(
+              onPressed: _delete,
+              icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+              label: Text(
+                'Delete',
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _Heading extends StatelessWidget {
+  const _Heading(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 16, bottom: 6),
+    child: Text(
+      text.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        letterSpacing: 0.8,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+      ),
+    ),
+  );
+}
