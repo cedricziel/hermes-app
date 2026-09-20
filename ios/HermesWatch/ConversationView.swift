@@ -3,6 +3,7 @@ import SwiftUI
 struct ConversationView: View {
   @State var model: ConversationModel
   @State private var draft = ""
+  @State private var composerEpoch = 0
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -23,6 +24,7 @@ struct ConversationView: View {
           TextField("Reply", text: $draft)
             .onSubmit { Task { await submit() } }
             .disabled(model.phase == .sending || model.phase == .loading)
+            .id(composerEpoch)
             .id("composer")
         }
       }
@@ -38,6 +40,7 @@ struct ConversationView: View {
   private func submit() async {
     let text = draft
     draft = ""
+    composerEpoch += 1
     await model.send(text)
   }
 
