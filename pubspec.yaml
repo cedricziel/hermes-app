@@ -87,6 +87,8 @@ dependencies:
   stream_channel: ^2.1.4
   flutter_local_notifications: ^22.3.1
   characters: ^1.4.1
+  upgrader: ^13.7.0
+  version: ^3.0.2
 
 # flutter_otel declares its siblings as plain version constraints that only
 # resolve inside its own workspace, so pin them to the same commit.
@@ -122,6 +124,8 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  http: ^1.6.0
+  package_info_plus: ^9.0.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
