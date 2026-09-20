@@ -128,13 +128,15 @@ has the details.
 ## Development
 
 `CLAUDE.md` covers the commands and the architecture. The repo uses
-[pre-commit](https://pre-commit.com) to run the same `dart format` and
-`flutter analyze` checks CI does, on staged Dart files:
+[dart_pre_commit](https://pub.dev/packages/dart_pre_commit) to run the same
+`dart format` and `dart analyze` checks CI does, on staged Dart files:
 
 ```bash
-pip install pre-commit   # or: brew install pre-commit
-pre-commit install
+flutter pub get
+dart run tool/setup_git_hooks.dart
 ```
+
+The hook is installed once per clone and is shared by all its git worktrees.
 
 ## Contributing
 
