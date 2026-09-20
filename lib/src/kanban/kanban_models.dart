@@ -237,6 +237,102 @@ class KanbanChildResult {
   final String? summary;
 }
 
+/// One attempt at a task by a worker.
+class KanbanRun {
+  const KanbanRun({
+    required this.id,
+    required this.status,
+    this.profile,
+    this.outcome,
+    this.summary,
+    this.error,
+    this.startedAt,
+    this.endedAt,
+  });
+
+  factory KanbanRun.fromJson(Map<String, dynamic> json) => KanbanRun(
+    id: _int(json['id']),
+    status: json['status'] as String? ?? '',
+    profile: _text(json['profile']),
+    outcome: _text(json['outcome']),
+    summary: _text(json['summary']),
+    error: _text(json['error']),
+    startedAt: _time(json['started_at']),
+    endedAt: _time(json['ended_at']),
+  );
+
+  final int id;
+  final String status;
+  final String? profile;
+  final String? outcome;
+  final String? summary;
+  final String? error;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  /// Still in flight, so it can be terminated.
+  bool get active => endedAt == null;
+}
+
+class KanbanAttachment {
+  const KanbanAttachment({
+    required this.id,
+    required this.filename,
+    this.size = 0,
+  });
+
+  factory KanbanAttachment.fromJson(Map<String, dynamic> json) =>
+      KanbanAttachment(
+        id: _int(json['id']),
+        filename: json['filename'] as String? ?? '',
+        size: _int(json['size']),
+      );
+
+  final int id;
+  final String filename;
+  final int size;
+}
+
+/// A distress signal the plugin raised on a task (stale worker, repeated
+/// failures, and so on).
+class KanbanDiagnostic {
+  const KanbanDiagnostic({
+    required this.title,
+    required this.severity,
+    this.detail = '',
+  });
+
+  factory KanbanDiagnostic.fromJson(Map<String, dynamic> json) =>
+      KanbanDiagnostic(
+        title: json['title'] as String? ?? json['kind'] as String? ?? '',
+        severity: json['severity'] as String? ?? 'warning',
+        detail: json['detail'] as String? ?? '',
+      );
+
+  final String title;
+  final String severity;
+  final String detail;
+}
+
+/// The tail of a worker's stdout and stderr.
+class KanbanTaskLog {
+  const KanbanTaskLog({
+    required this.content,
+    this.exists = false,
+    this.truncated = false,
+  });
+
+  factory KanbanTaskLog.fromJson(Map<String, dynamic> json) => KanbanTaskLog(
+    content: json['content'] as String? ?? '',
+    exists: json['exists'] == true,
+    truncated: json['truncated'] == true,
+  );
+
+  final String content;
+  final bool exists;
+  final bool truncated;
+}
+
 /// `GET /tasks/{id}`: a task with everything the detail view shows.
 class KanbanTaskDetail {
   const KanbanTaskDetail({
@@ -246,6 +342,9 @@ class KanbanTaskDetail {
     this.parents = const [],
     this.children = const [],
     this.childResults = const [],
+    this.runs = const [],
+    this.attachments = const [],
+    this.diagnostics = const [],
   });
 
   factory KanbanTaskDetail.fromJson(Map<String, dynamic> json) {
@@ -271,6 +370,12 @@ class KanbanTaskDetail {
       parents: links is Map ? ids(links['parents']) : const [],
       children: links is Map ? ids(links['children']) : const [],
       childResults: all(json['child_results'], KanbanChildResult.fromJson),
+      runs: all(json['runs'], KanbanRun.fromJson),
+      attachments: all(json['attachments'], KanbanAttachment.fromJson),
+      diagnostics: all(
+        (json['task'] as Map?)?['diagnostics'],
+        KanbanDiagnostic.fromJson,
+      ),
     );
   }
 
@@ -280,6 +385,9 @@ class KanbanTaskDetail {
   final List<String> parents;
   final List<String> children;
   final List<KanbanChildResult> childResults;
+  final List<KanbanRun> runs;
+  final List<KanbanAttachment> attachments;
+  final List<KanbanDiagnostic> diagnostics;
 }
 
 /// What the triage helpers report: they run an LLM, and a refusal is an

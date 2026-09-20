@@ -214,6 +214,37 @@ class KanbanRepository {
     return KanbanOrchestration.fromJson(_map(response.data));
   });
 
+  /// The end of the worker's log for a task, at most [tail] bytes.
+  Future<KanbanTaskLog> loadTaskLog(
+    String id, {
+    int tail = 20000,
+    String? board,
+  }) => _guard(() async {
+    final response = await _api.getTaskLogApiPluginsKanbanTasksTaskIdLogGet(
+      taskId: id,
+      tail: tail,
+      board: board,
+    );
+    return KanbanTaskLog.fromJson(_map(response.data));
+  });
+
+  /// Stops an in-flight run; the plugin refuses when it already ended.
+  Future<void> terminateRun(int runId, {String? reason, String? board}) =>
+      _guard(
+        () => _api.terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(
+          runId: runId,
+          terminateRunBody: TerminateRunBody(reason: reason),
+          board: board,
+        ),
+      );
+
+  Future<void> removeAttachment(int id, {String? board}) => _guard(
+    () => _api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(
+      attachmentId: id,
+      board: board,
+    ),
+  );
+
   Future<void> deleteTask(String id, {String? board}) => _guard(
     () => _api.deleteTaskApiPluginsKanbanTasksTaskIdDelete(
       taskId: id,
