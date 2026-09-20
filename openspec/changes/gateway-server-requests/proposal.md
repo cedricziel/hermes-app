@@ -16,7 +16,7 @@ Non-goals: no replay of requests already open when a session is resumed (`open_r
 
 Security and privacy impact: the sudo request carries the redacted command it is for, and the secret request a prompt, a variable name and metadata; none of these is read or shown, as before. Nothing the user types for a secret or a password is collected. The response frames carry only the user's approval choice or clarify answer.
 
-Telemetry: None.
+Telemetry: None added. The `client.capabilities` call is one more gateway request and is timed by the existing per-request spans; server-to-client requests are not recorded.
 
 ## Capabilities
 
