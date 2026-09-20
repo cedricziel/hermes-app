@@ -447,7 +447,7 @@ packages:
     source: sdk
     version: "0.0.0"
   gpt_markdown:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: gpt_markdown
       sha256: "42887afaf5c7a71348221048a6c1e34c9836703ee0e6b4865e789253fcaa204a"

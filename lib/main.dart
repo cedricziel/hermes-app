@@ -11,6 +11,7 @@ import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
 
+import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
 
 import 'src/telemetry/telemetry.dart';
@@ -36,6 +37,7 @@ Future<void> main() async {
           )..bootstrap(),
         ),
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
+        Provider<AppEventLogger>.value(value: telemetry.events()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         ChangeNotifierProvider(
