@@ -40,7 +40,7 @@ Platforms: iOS, Android, macOS, Windows, Linux. watchOS is not affected. No nati
 
 **Installed marker uses the server's `installed` map.** Search, official and sources replies mark installed identifiers per profile. The tab reloads them after any job ends.
 
-**Invariants touched.** All calls go through `authController.api!.raw`; no hand-written Dio. Telemetry uses `safely`, never carries identifiers, search text or logs. Auth and 401 handling are untouched: a 401 during polling is handled by the existing interceptor, and polling never signs the user out.
+**Invariants touched.** All calls go through `authController.api!.raw`; no hand-written Dio. Telemetry (request tracing by the Dio interceptor, plus guarded app events) never carries identifiers, search text or logs. Auth and 401 handling are untouched: a 401 during polling is handled by the existing interceptor, and polling never signs the user out.
 
 ## Risks / Trade-offs
 

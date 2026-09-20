@@ -28,7 +28,7 @@ None new. All calls use the existing bearer token through the generated client. 
 
 **Telemetry**
 
-Through flutter_otel, when enabled: a span per Skills request (list, toggle, read content, save, create) named after the operation with attributes `hermes.skills.profile_scoped` (bool) and result (`ok` or `error`), and an `ok` or `error` log event for saves and creates. Skill names and `SKILL.md` content are never attached.
+Through flutter_otel, when enabled: every Skills request is already traced by the app's Dio interceptor (route, status), so no new spans are added. Each write (switch, save, create) also logs an app event `skills.write` with attributes `op` (`toggle`, `save`, `create`) and `result` (`ok`, `rejected`, `error`). Skill names and `SKILL.md` content are never attached.
 
 ## Capabilities
 
@@ -46,4 +46,4 @@ Through flutter_otel, when enabled: a span per Skills request (list, toggle, rea
 - `lib/src/chat/chat_screen.dart`: sidebar entry, and accepting a drafted message from the Skills page.
 - Generated client routes already exist (`/api/skills`, `/toggle`, `/content`); no spec or client regeneration. All three read routes return untyped JSON, so the repository parses rows leniently.
 - Contract test additions in `test/real_backend_contract_test.dart` for the list, content and toggle shapes.
-- No native, entitlement or dependency changes. Markdown is rendered with `gpt_markdown`, which the chat already uses.
+- No native, entitlement or dependency changes. Markdown is rendered with `gpt_markdown`, which the chat already uses; it becomes a direct dependency at the version already locked.

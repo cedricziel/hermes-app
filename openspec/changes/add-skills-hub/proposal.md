@@ -28,7 +28,7 @@ This change lets the app cause code to be installed on the user's Hermes server.
 
 **Telemetry**
 
-Through flutter_otel, when enabled: spans for search, scan, install, uninstall and update with attributes `hermes.skills.source` (source id), `hermes.skills.trust_level`, `hermes.skills.policy` (`allow`, `ask`, `block`) and the job result (`ok`, `failed`, `timeout`). Search text, skill identifiers and log lines are never attached.
+Through flutter_otel, when enabled: requests are already traced by the app's Dio interceptor. Each install, uninstall and update also logs an app event `skills.job` with attributes `op`, `source` (source id), `trust_level`, `policy` (`allow`, `ask`, `block`) and `result` (`ok`, `failed`, `unknown`). Search text, skill identifiers, names and log lines are never attached.
 
 ## Capabilities
 

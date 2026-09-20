@@ -29,7 +29,7 @@
 ## 6. Contract, telemetry, docs
 
 - [ ] 6.1 Add search, official, sources, preview, scan and action-status shape checks to `test/real_backend_contract_test.dart`; install and uninstall against the dev backend behind an env flag like the other side-effecting tests, since they need network
-- [ ] 6.2 Add the spans named in the proposal using `safely`, with no identifiers, search text or logs; test that a telemetry failure does not break an install
+- [ ] 6.2 Add the `skills.job` app event named in the proposal, with no identifiers, search text or logs; test that a telemetry failure does not break an install
 - [ ] 6.3 Update `.claude/skills/verify-in-app` and `CLAUDE.md` if they name the sidebar pages or the dev backend flags
 
 ## 7. Verify

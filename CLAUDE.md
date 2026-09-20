@@ -50,7 +50,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 - `packages/hermes_api` is a generated `dart-dio` client for the backend's OpenAPI spec (`openapi/hermes-agent.openapi.json`). Reach it through `authController.api!.raw`, which shares the managed `Dio`, instead of adding hand-rolled calls.
 - `lib/src/api/hermes_api_client.dart` hand-writes only `/api/status`, `/api/auth/providers` and `/api/auth/me`, because the spec has no response schemas for them. It also hand-writes the Kanban attachment download (`fetchKanbanAttachment`), because the generated method decodes the body as JSON and cannot return a file's bytes.
-- Many routes (sessions, profiles, bots) also lack response schemas, so the generated methods return untyped JSON. The repositories (`chat/hermes_chat_repository.dart`, `profiles/`, `bots/`) parse those rows leniently and skip rows that don't fit. The contract test above guards these shapes.
+- Many routes (sessions, profiles, bots, skills) also lack response schemas, so the generated methods return untyped JSON. The repositories (`chat/hermes_chat_repository.dart`, `profiles/`, `bots/`, `skills/`) parse those rows leniently and skip rows that don't fit. The contract test above guards these shapes.
 
 **Chat** (`lib/src/chat/`, built on `flutter_chat_ui`).
 
