@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'mcp_banner.dart';
 import 'mcp_command_review_items.dart';
-import 'mcp_servers_screen.dart';
+import 'mcp_presentation.dart';
 
 /// Shows [McpCommandReview] as a bottom sheet below
-/// [McpServersScreen.wideBreakpoint] and as a dialog at or above it. True only
+/// [mcpWideBreakpoint] and as a dialog at or above it. True only
 /// when the user confirms; going back, tapping outside or the system back
 /// gesture all answer false.
 Future<bool> showMcpCommandReview(
@@ -15,8 +15,7 @@ Future<bool> showMcpCommandReview(
 }) async {
   Widget review(BuildContext context) =>
       McpCommandReview(commands: commands, confirmLabel: confirmLabel);
-  final wide =
-      MediaQuery.sizeOf(context).width >= McpServersScreen.wideBreakpoint;
+  final wide = MediaQuery.sizeOf(context).width >= mcpWideBreakpoint;
   final confirmed = wide
       ? await showDialog<bool>(
           context: context,

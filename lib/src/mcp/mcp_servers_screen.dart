@@ -35,7 +35,7 @@ class McpServersScreen extends StatefulWidget {
   /// otherwise.
   final McpLinkLauncher? launchLink;
 
-  static const double wideBreakpoint = 900;
+  static const double wideBreakpoint = mcpWideBreakpoint;
 
   @override
   State<McpServersScreen> createState() => _McpServersScreenState();
