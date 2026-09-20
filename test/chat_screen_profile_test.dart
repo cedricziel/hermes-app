@@ -131,22 +131,39 @@ void main() {
     expect(inTranscript('hello from work'), findsOneWidget);
   });
 
-  testWidgets(
-    'asks the dashboard unscoped when the active profile is unknown',
-    (tester) async {
-      server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
-      server.on(
-        'GET',
-        '/api/sessions',
-        sessionListBody([sessionRow(id: 's1', title: 'Whatever')]),
-      );
-      await pumpChat(tester);
+  testWidgets('a failed profile lookup lists nothing and offers a retry', (
+    tester,
+  ) async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+    await pumpChat(tester);
 
-      expect(find.text('Whatever'), findsWidgets);
-      final request = server.requestsTo('GET', '/api/sessions').single;
-      expect(request.queryParameters.containsKey('profile'), isFalse);
-    },
-  );
+    expect(find.text('Could not load your chats'), findsOneWidget);
+    expect(server.requestsTo('GET', '/api/sessions'), isEmpty);
+
+    activate('work', current: 'default');
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sprint planning'), findsWidgets);
+    final request = server.requestsTo('GET', '/api/sessions').single;
+    expect(request.queryParameters['profile'], 'work');
+  });
+
+  testWidgets('a server without the profiles route lists unscoped', (
+    tester,
+  ) async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([sessionRow(id: 's1', title: 'Whatever')]),
+    );
+    await pumpChat(tester);
+
+    expect(find.text('Whatever'), findsWidgets);
+    final request = server.requestsTo('GET', '/api/sessions').single;
+    expect(request.queryParameters.containsKey('profile'), isFalse);
+  });
 
   testWidgets('switching profile reloads the threads of the new profile', (
     tester,
@@ -225,10 +242,31 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('a message goes unscoped when the active profile is unknown', (
+  testWidgets('a message is not sent unscoped after a failed profile lookup', (
     tester,
   ) async {
     server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 500);
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([sessionRow(id: 's1', title: 'Whatever')]),
+    );
+    await pumpChat(tester);
+    expect(find.byType(EditableText), findsNothing);
+
+    activate('work', current: 'default');
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    await sendMessage(tester, 'hello');
+
+    expect(transport.sends.single.profile, 'work');
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a message goes unscoped when the server has no profiles', (
+    tester,
+  ) async {
+    server.on('GET', '/api/profiles/active', {'detail': 'x'}, status: 404);
     server.on(
       'GET',
       '/api/sessions',

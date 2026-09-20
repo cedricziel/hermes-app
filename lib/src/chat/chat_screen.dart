@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
@@ -202,11 +203,15 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// The sticky active profile, or null when the server has none to report:
+  /// no repository, or a server without the profiles route (404). Any other
+  /// failure throws, so the caller does not list or send unscoped.
   Future<String?> _activeProfile() async {
     try {
       return (await _profiles?.loadActive())?.active;
-    } on Object {
-      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
     }
   }
 
