@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -11,7 +14,7 @@ void main() {
 
   setUp(() {
     server = FakeHermesServer();
-    repository = KanbanRepository(server.client().raw);
+    repository = KanbanRepository(server.client());
   });
 
   test('reads a task with its comments, links and history', () async {
@@ -424,6 +427,82 @@ void main() {
           (e) => e.message,
           'message',
           'archive refused',
+        ),
+      ),
+    );
+  });
+
+  test('uploads a file as a multipart form', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/t1/attachments', {
+      'attachment': {'id': 3, 'filename': 'spec.pdf'},
+    });
+
+    await repository.uploadAttachment(
+      't1',
+      'spec.pdf',
+      Uint8List.fromList([1, 2, 3, 4]),
+      board: 'ops',
+    );
+
+    final request = server
+        .requestsTo('POST', '/api/plugins/kanban/tasks/t1/attachments')
+        .single;
+    final form = request.data as FormData;
+    expect(form.files.single.value.filename, 'spec.pdf');
+    expect(form.files.single.value.length, 4);
+    expect(request.queryParameters['board'], 'ops');
+  });
+
+  test('says why the plugin refused an upload', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/t1/attachments', {
+      'detail': 'attachment exceeds 25 MB limit',
+    }, status: 413);
+
+    expect(
+      repository.uploadAttachment('t1', 'big.bin', Uint8List(1)),
+      throwsA(
+        isA<KanbanException>().having(
+          (e) => e.message,
+          'message',
+          contains('25 MB'),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'downloads a file byte for byte, including bytes that are not text',
+    () async {
+      final bytes = Uint8List.fromList([0, 255, 128, 10, 13, 200]);
+      server.on('GET', '/api/plugins/kanban/attachments/3', bytes);
+      final withClient = KanbanRepository(server.client());
+
+      final downloaded = await withClient.downloadAttachment(3, board: 'ops');
+
+      expect(downloaded, bytes);
+      expect(
+        server
+            .requestsTo('GET', '/api/plugins/kanban/attachments/3')
+            .single
+            .queryParameters['board'],
+        'ops',
+      );
+    },
+  );
+
+  test('says why a download was refused', () async {
+    server.on('GET', '/api/plugins/kanban/attachments/3', {
+      'detail': 'attachment file missing on disk',
+    }, status: 404);
+    final withClient = KanbanRepository(server.client());
+
+    expect(
+      withClient.downloadAttachment(3),
+      throwsA(
+        isA<KanbanException>().having(
+          (e) => e.message,
+          'message',
+          contains('missing on disk'),
         ),
       ),
     );
