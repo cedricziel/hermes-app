@@ -5,13 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show ApprovalRequest, ClarifyQuestion, ClarifyRequest, ToolCallStatus;
+    show
+        ApprovalRequest,
+        ClarifyQuestion,
+        ClarifyRequest,
+        ToolCallStatus,
+        UnsupportedKind,
+        UnsupportedRequest;
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -200,6 +207,26 @@ void main() {
       );
 
       expect(find.byType(ClarifyCard), findsOneWidget);
+    });
+
+    testWidgets('a secret request renders as an UnsupportedRequestCard', (
+      tester,
+    ) async {
+      const request = UnsupportedRequest(
+        requestId: 'r3',
+        kind: UnsupportedKind.secret,
+      );
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({kMetaKind: kKindInputRequest, kMetaInputRequest: request}),
+        ],
+      );
+
+      final card = tester.widget<UnsupportedRequestCard>(
+        find.byType(UnsupportedRequestCard),
+      );
+      expect(card.request, same(request));
     });
 
     testWidgets(

@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -79,6 +80,38 @@ void main() {
     expect(find.byType(ApprovalCard), findsOneWidget);
     expect(find.text('rm -rf build'), findsOneWidget);
     expect(find.byType(ThinkingIndicator), findsNothing);
+    await settle(tester);
+  });
+
+  testWidgets('a sudo request shows a card, and no thinking indicator', (
+    tester,
+  ) async {
+    await raise(
+      tester,
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r9', kind: UnsupportedKind.sudo),
+      ),
+    );
+
+    expect(find.byType(UnsupportedRequestCard), findsOneWidget);
+    expect(find.text('Hermes needs something else'), findsOneWidget);
+    expect(find.byType(ThinkingIndicator), findsNothing);
+    await settle(tester);
+  });
+
+  testWidgets('an expire event locks an unsupported request', (tester) async {
+    final turn = await raise(
+      tester,
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r9', kind: UnsupportedKind.secret),
+      ),
+    );
+
+    turn.emit(const InputRequestExpired('r9'));
+    await tester.pump();
+
+    expect(find.text('This request timed out'), findsOneWidget);
+    expect(find.textContaining('terminal or dashboard'), findsNothing);
     await settle(tester);
   });
 

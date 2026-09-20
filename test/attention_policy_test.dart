@@ -14,6 +14,11 @@ const _approval = ApprovalRequest(
   choices: ['once', 'deny'],
 );
 
+const _unsupported = UnsupportedRequest(
+  requestId: 'r3',
+  kind: UnsupportedKind.secret,
+);
+
 const _question = ClarifyRequest(
   requestId: 'r2',
   questions: [ClarifyQuestion(qid: '', question: 'Which colour?')],
@@ -134,6 +139,13 @@ void main() {
 
       expect(n.body, 'Has a question for you');
     });
+
+    test('a request the app cannot answer stays generic', () {
+      final n = _for(const UnsupportedRequested(_unsupported))!;
+
+      expect(n.body, 'Waiting for you in Hermes');
+      expect(n.body, kNeedsYouBody);
+    });
   });
 
   group('when it is said', () {
@@ -141,6 +153,7 @@ void main() {
       ReplyCompleted('Done.'),
       ApprovalRequested(_approval),
       ClarifyRequested(_question),
+      UnsupportedRequested(_unsupported),
     ];
 
     test('never while the app is focused on that thread', () {
