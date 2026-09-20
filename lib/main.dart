@@ -34,18 +34,23 @@ Future<void> main() async {
             events: telemetry.events(),
           )..bootstrap(),
         ),
-        Provider<WatchBridge?>(
-          lazy: false,
-          create: (context) =>
-              WatchBridge.forAuth(context.read<AuthController>())?..start(),
-          dispose: (_, bridge) => bridge?.dispose(),
-        ),
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         Provider<NotificationService>(
           create: (_) => LocalNotificationService(),
           dispose: (_, service) => service.dispose(),
+        ),
+        // Read after the notification providers above: a provider only sees
+        // the ones declared before it.
+        Provider<WatchBridge?>(
+          lazy: false,
+          create: (context) => WatchBridge.forAuth(
+            context.read<AuthController>(),
+            notifications: context.read<NotificationService>(),
+            settings: context.read<NotificationSettings>(),
+          )?..start(),
+          dispose: (_, bridge) => bridge?.dispose(),
         ),
         ChangeNotifierProvider(
           create: (_) => ShareController(createPlatformShareInbox())..start(),
