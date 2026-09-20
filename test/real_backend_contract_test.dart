@@ -237,6 +237,39 @@ void main() {
     timeout: const Timeout(Duration(minutes: 3)),
   );
 
+  test(
+    'the gateway creates and resumes sessions in the profile it is given',
+    () async {
+      final profiles = HermesProfilesRepository(client.raw);
+      final active = (await profiles.loadActive()).active;
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+
+      final first = await transport
+          .send(profile: active, text: 'Reply with the single word: pong.')
+          .toList();
+      final bound = first.first as ThreadBound;
+      expect((first.last as ReplyCompleted).failed, isFalse);
+
+      final listed = await HermesChatRepository(client.raw)
+          .loadThreads(profile: active);
+      expect(listed.map((t) => t.id), contains(bound.threadId));
+
+      final second = await transport
+          .send(threadId: bound.threadId, profile: active, text: 'Say: ping')
+          .toList();
+      expect((second.last as ReplyCompleted).failed, isFalse);
+    },
+    skip: modelSkip,
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
   test('a platform\'s setup can be saved, shows as set without its value, '
       'and cleared again', () async {
     final repository = HermesBotsRepository(client.raw);

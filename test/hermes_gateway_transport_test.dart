@@ -125,8 +125,12 @@ void main() {
 
   tearDown(() => transport.close());
 
-  Future<List<ChatEvent>> reply({String? threadId, String text = 'hi'}) =>
-      transport.send(threadId: threadId, text: text).toList();
+  Future<List<ChatEvent>> reply({
+    String? threadId,
+    String? profile,
+    String text = 'hi',
+  }) =>
+      transport.send(threadId: threadId, profile: profile, text: text).toList();
 
   void plainReply(FakeGateway g, String sid) {
     g.event('message.start', sid);
@@ -191,6 +195,41 @@ void main() {
       expect(events.last, isA<ReplyCompleted>());
     },
   );
+
+  test('a new thread is created in the given profile', () async {
+    gateway.turn = plainReply;
+
+    await reply(profile: 'work');
+
+    expect(gateway.requestOf('session.create')['params'], {'profile': 'work'});
+    expect(gateway.requestOf('prompt.submit')['params'], {
+      'session_id': 'rt-1',
+      'text': 'hi',
+    });
+  });
+
+  test('a stored thread is resumed in the given profile', () async {
+    gateway.turn = plainReply;
+
+    await reply(threadId: 'stored-2', profile: 'work');
+
+    expect(gateway.requestOf('session.resume')['params'], {
+      'session_id': 'stored-2',
+      'profile': 'work',
+    });
+  });
+
+  test('a session is created and resumed unscoped without a profile', () async {
+    gateway.turn = plainReply;
+
+    await reply();
+    await reply(threadId: 'stored-2');
+
+    expect(gateway.requestOf('session.create')['params'], isEmpty);
+    expect(gateway.requestOf('session.resume')['params'], {
+      'session_id': 'stored-2',
+    });
+  });
 
   test('tool calls map to a started and a finished event', () async {
     gateway.turn = (g, sid) {

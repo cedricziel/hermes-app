@@ -270,6 +270,18 @@ void main() {
       expect(transport.closed, isTrue);
     });
 
+    test('starts a thread in the active profile', () async {
+      profile = 'work';
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ReplyCompleted('Hi'))
+        ..finish();
+      await pending;
+
+      expect(transport.sends.single.profile, 'work');
+    });
+
     test('replies into an existing thread', () async {
       profile = 'work';
       final pending = handler.handle({
@@ -285,6 +297,7 @@ void main() {
       final reply = await pending;
 
       expect(transport.sends.single.threadId, 's1');
+      expect(transport.sends.single.profile, 'work');
       expect(reply['threadId'], 'work/s1');
       expect(reply['text'], 'Done');
     });

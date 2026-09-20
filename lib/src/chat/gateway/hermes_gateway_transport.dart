@@ -23,11 +23,19 @@ class HermesGatewayTransport implements ChatTransport {
   final _requestSessions = <String, String>{};
 
   @override
-  Stream<ChatEvent> send({String? threadId, required String text}) async* {
+  Stream<ChatEvent> send({
+    String? threadId,
+    String? profile,
+    required String text,
+  }) async* {
     final client = await _client();
+    final scope = <String, Object?>{'profile': ?profile};
     final session = threadId == null
-        ? await client.request('session.create')
-        : await client.request('session.resume', {'session_id': threadId});
+        ? await client.request('session.create', scope)
+        : await client.request('session.resume', {
+            'session_id': threadId,
+            ...scope,
+          });
     final runtimeId = session['session_id'] as String;
 
     // Buffered from here on: events can arrive before the consumer asks for

@@ -301,7 +301,7 @@ The system SHALL end a reply that failed or whose stream broke as an error, and 
 
 ### Requirement: Gateway session handling
 
-The system SHALL send a message by starting a new gateway session (`session.create`) when the thread is not yet known to the dashboard, or resuming the thread's stored session (`session.resume` with its id) otherwise, then submitting the text to the resulting runtime session with `prompt.submit`; the reply SHALL arrive as events of that runtime session.
+The system SHALL send a message by starting a new gateway session (`session.create`) when the thread is not yet known to the dashboard, or resuming the thread's stored session (`session.resume` with its id) otherwise, then submitting the text to the resulting runtime session with `prompt.submit`; the reply SHALL arrive as events of that runtime session. When the chat is showing a Hermes profile, the system SHALL pass that profile's name as the `profile` param of `session.create` and `session.resume`, so the session is created in and resumed from that profile rather than the dashboard's own.
 
 #### Scenario: New thread
 
@@ -312,6 +312,26 @@ The system SHALL send a message by starting a new gateway session (`session.crea
 
 - **WHEN** a message is sent with a thread id
 - **THEN** `session.resume` is requested with `session_id` set to that id and `prompt.submit` is requested on the runtime session id it returns
+
+#### Scenario: New thread in a profile
+
+- **WHEN** a message is sent without a thread id while the chat shows the profile "work"
+- **THEN** `session.create` is requested with `profile` set to "work"
+
+#### Scenario: Existing thread in a profile
+
+- **WHEN** a message is sent with a thread id while the chat shows the profile "work"
+- **THEN** `session.resume` is requested with `session_id` set to that id and `profile` set to "work"
+
+#### Scenario: Profile changes between sends
+
+- **WHEN** the user switches the chat to another profile and sends a message
+- **THEN** the session is created or resumed under the newly shown profile, not the previous one
+
+#### Scenario: No profile known
+
+- **WHEN** the dashboard did not report the active profile
+- **THEN** `session.create` and `session.resume` are requested without a `profile` param, and the dashboard uses its own profile
 
 #### Scenario: Events of other sessions
 
@@ -560,7 +580,8 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 #### Scenario: JSON-RPC methods
 
 - **WHEN** the chat talks over `/api/ws`
-- **THEN** it requests `session.create`, `session.resume` (`session_id`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
+- **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
+- **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
 
 #### Scenario: Events
 
