@@ -6,8 +6,11 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:hermes_app/src/app.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/settings/theme_controller.dart';
+
+import 'support/fake_device_authenticator.dart';
 
 void main() {
   setUp(() {
@@ -102,11 +105,15 @@ void main() {
 
   testWidgets('HermesApp follows the controller', (tester) async {
     final theme = ThemeController();
+    final appLock = AppLockController(authenticator: FakeDeviceAuthenticator());
+    addTearDown(appLock.dispose);
+    await tester.runAsync(appLock.load);
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => AuthController()),
           ChangeNotifierProvider.value(value: theme),
+          ChangeNotifierProvider.value(value: appLock),
         ],
         child: const HermesApp(),
       ),

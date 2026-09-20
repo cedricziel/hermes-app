@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
+import 'app_lock/app_lock_gate.dart';
 import 'auth/auth_controller.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
@@ -24,6 +25,7 @@ class HermesApp extends StatelessWidget {
       theme: buildHermesLightTheme(),
       darkTheme: buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
+      builder: (context, child) => AppLockGate(child: child!),
       home: _RootRouter(updateChecker: updateChecker),
     );
   }

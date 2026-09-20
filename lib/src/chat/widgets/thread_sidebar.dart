@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -411,6 +412,7 @@ class _AccountFooter extends StatelessWidget {
           if (value == 'change-server') auth.changeServer();
           if (value == 'appearance') showAppearanceDialog(context);
           if (value == 'notifications') showNotificationsDialog(context);
+          if (value == 'app-lock') showAppLockDialog(context);
         },
         itemBuilder: (context) => [
           PopupMenuItem(
@@ -426,6 +428,7 @@ class _AccountFooter extends StatelessWidget {
             value: 'notifications',
             child: Text('Notifications'),
           ),
+          const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
           if (auth.status?.authRequired ?? false)
             const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
           const PopupMenuItem(
