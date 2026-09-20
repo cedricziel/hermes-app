@@ -37,9 +37,6 @@ class AttentionNotifier with WidgetsBindingObserver {
   var _askingPermission = false;
   Future<void>? _permissionRequest;
 
-  /// Whether the app is in front.
-  bool get focused => _focused;
-
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _focused = state == AppLifecycleState.resumed;

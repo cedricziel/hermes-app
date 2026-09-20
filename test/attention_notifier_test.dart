@@ -264,15 +264,22 @@ void main() {
   });
 
   group('focus', () {
+    void announceOnScreen() => notifier.announce(
+      thread,
+      const ReplyCompleted('Nothing new.'),
+      selectedThreadId: 's1',
+      profile: null,
+    );
+
     test('follows the app lifecycle', () {
       build();
-      expect(notifier.focused, isTrue);
-
       leaveTheApp();
-      expect(notifier.focused, isFalse);
+      announceOnScreen();
+      expect(service.shown, hasLength(1));
 
       binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-      expect(notifier.focused, isTrue);
+      announceOnScreen();
+      expect(service.shown, hasLength(1));
     });
 
     test('stops following after dispose', () {
@@ -280,8 +287,9 @@ void main() {
       notifier.dispose();
 
       leaveTheApp();
+      announceOnScreen();
 
-      expect(notifier.focused, isTrue);
+      expect(service.shown, isEmpty);
     });
   });
 }
