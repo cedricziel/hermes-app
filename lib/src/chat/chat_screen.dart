@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
-import '../notifications/attention_policy.dart';
+import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
@@ -32,6 +32,8 @@ import 'thread_housekeeping.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
+
+const _couldNotOpenChat = 'Could not open that chat.';
 
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
@@ -60,7 +62,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
+class _ChatScreenState extends State<ChatScreen> {
   static const double _wideBreakpoint = 900;
 
   late List<ChatThread> _threads;
@@ -89,24 +91,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _chatControllers = <String, InMemoryChatController>{};
   final List<SharedFile> _attachments = [];
   late final ShareController _share;
-  NotificationService? _notifications;
-  NotificationSettings? _notificationSettings;
-  StreamSubscription<NotificationTarget>? _notificationTaps;
-  Future<NotificationTarget?>? _launchLookup;
-  var _focused = true;
-  var _askingPermission = false;
-  Future<void>? _permissionRequest;
+  late final AttentionNotifier _attention;
+  NotificationTarget? _pendingTap;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _notifications = _maybeRead<NotificationService>();
-    _notificationSettings = _maybeRead<NotificationSettings>();
-    _launchLookup = _notifications?.launchTarget();
-    _notificationTaps = _notifications?.taps.listen(_openFromNotification);
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _focused = lifecycle == null || lifecycle == AppLifecycleState.resumed;
-    WidgetsBinding.instance.addObserver(this);
+    _attention = AttentionNotifier(
+      service: _maybeRead<NotificationService>(),
+      settings: _maybeRead<NotificationSettings>(),
+      onOpen: _openFromNotification,
+    );
     final api = context.read<AuthController>().api;
     _repository =
         widget.repository ??
@@ -159,9 +155,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     try {
       profile ??= await _activeProfile();
       final first = await _repository!.loadThreadPage(profile: profile);
-      final launch = await _launchLookup;
-      _launchLookup = null;
+      final launched = await _attention.takeLaunchTarget();
       if (!mounted || generation != _loadGeneration) return;
+      final launch = _pendingTap ?? launched;
+      _pendingTap = null;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       for (final controller in _chatControllers.values) {
@@ -184,6 +181,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? launch!.threadId
             : (threads.isNotEmpty ? threads.first.id : null);
       });
+      if (launch != null && _selectedId != launch.threadId) {
+        _showMessage(_couldNotOpenChat);
+      }
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {
       if (!mounted || generation != _loadGeneration) return;
@@ -228,11 +228,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    _focused = state == AppLifecycleState.resumed;
-  }
-
   /// Whether [target] names a chat on [profile]. A thread id is only unique
   /// within a profile, so one posted under another profile is not ours. A
   /// notification from an earlier build carries no profile; it still matches
@@ -241,9 +236,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       target != null && (target.profile == null || target.profile == profile);
 
   void _openFromNotification(NotificationTarget target) {
-    if (!_isOnProfile(target, _profile)) return;
-    if (_threads.any((t) => t.id == target.threadId)) {
-      _selectThread(target.threadId);
+    if (_loadingThreads) {
+      _pendingTap = target;
+    } else if (_isOnProfile(target, _profile) &&
+        _threads.any((t) => t.id == target.threadId)) {
+      _selectThread(target.threadId, closeDrawer: false);
+      _scaffoldKey.currentState?.closeDrawer();
+    } else {
+      _showMessage(_couldNotOpenChat);
     }
   }
 
@@ -282,8 +282,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _share.removeListener(_onShared);
-    WidgetsBinding.instance.removeObserver(this);
-    _notificationTaps?.cancel();
+    _attention.dispose();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -324,9 +323,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _closeDrawerIfNarrow();
   }
 
-  void _selectThread(String id) {
+  void _selectThread(String id, {bool closeDrawer = true}) {
     setState(() => _selectedId = id);
-    _closeDrawerIfNarrow();
+    if (closeDrawer) _closeDrawerIfNarrow();
     if (_repository != null) _loadMessages(id);
   }
 
@@ -425,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       });
     } else {
       _streamReply(transport, thread, placeholder, content, threadId);
-      unawaited(_askForNotificationPermission());
+      unawaited(_attention.askForPermission());
     }
   }
 
@@ -437,15 +436,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     String? threadId,
   ) {
     late final StreamSubscription<ChatEvent> subscription;
+    final profile = _profile;
     void end() {
       _replies.remove(subscription);
-      if (reply.isPending) _updateReply(thread, reply, () => failReply(reply));
+      if (reply.isPending) {
+        _updateReply(thread, reply, () => failReply(reply));
+        _announce(thread, const ReplyCompleted('', failed: true), profile);
+      }
     }
 
     subscription = transport
         .send(threadId: threadId, text: text)
         .listen(
-          (event) => _onReplyEvent(thread, reply, event),
+          (event) => _onReplyEvent(thread, reply, event, profile),
           onError: (Object _) => end(),
           onDone: end,
           cancelOnError: true,
@@ -453,7 +456,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _replies.add(subscription);
   }
 
-  void _onReplyEvent(ChatThread thread, ChatMessage reply, ChatEvent event) {
+  void _onReplyEvent(
+    ChatThread thread,
+    ChatMessage reply,
+    ChatEvent event,
+    String? profile,
+  ) {
     switch (event) {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
@@ -470,56 +478,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
-    _announce(thread, event);
+    _announce(thread, event, profile);
   }
 
-  void _announce(ChatThread thread, ChatEvent event) {
-    final service = _notifications;
-    if (service == null) return;
-    final settings = _notificationSettings;
-    final notification = attentionFor(
-      event: event,
-      thread: thread,
-      appFocused: _focused,
-      selectedThreadId: _selectedId,
-      enabled: settings == null || (settings.loaded && settings.enabled),
-      profile: _profile,
-    );
-    if (notification == null) return;
-    final pending = _permissionRequest;
-    unawaited(
-      pending == null
-          ? service.show(notification)
-          : pending.then((_) => service.show(notification)),
-    );
-  }
-
-  Future<void> _askForNotificationPermission() async {
-    final service = _notifications;
-    final settings = _notificationSettings;
-    if (service == null || settings == null) return;
-    if (!settings.loaded ||
-        !settings.enabled ||
-        settings.permissionAsked ||
-        _askingPermission) {
-      return;
-    }
-    _askingPermission = true;
-    try {
-      final request = service.requestPermission();
-      _permissionRequest = request
-          .then<void>((_) {}, onError: (Object _) {})
-          .whenComplete(() => _permissionRequest = null);
-      final answer = await request;
-      if (answer != NotificationPermission.unavailable) {
-        await settings.recordPermission(
-          granted: answer == NotificationPermission.granted,
-        );
-      }
-    } finally {
-      _askingPermission = false;
-    }
-  }
+  /// [profile] is the one the turn was sent under: the thread on screen only
+  /// counts when the chat is still on that profile.
+  void _announce(ChatThread thread, ChatEvent event, String? profile) =>
+      _attention.announce(
+        thread,
+        event,
+        selectedThreadId: profile == _profile ? _selectedId : null,
+        profile: profile,
+      );
 
   /// Gives a thread created here the id the dashboard stored it under, so it
   /// stays one row and later sends continue that session.
@@ -644,6 +614,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         );
 
         return Scaffold(
+          key: _scaffoldKey,
           drawer: isWide ? null : Drawer(width: 280, child: sidebar),
           appBar: isWide
               ? null

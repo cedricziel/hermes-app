@@ -24,6 +24,7 @@ Future<void> pumpChatScreen(
   bool withProfiles = false,
   ChatTransport? transport,
   List<SingleChildWidget> providers = const [],
+  bool settle = true,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -54,5 +55,5 @@ Future<void> pumpChatScreen(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) await tester.pumpAndSettle();
 }
