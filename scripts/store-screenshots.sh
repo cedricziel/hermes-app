@@ -91,17 +91,19 @@ cmd_ios() { # [iphone|ipad]
 }
 
 # The Mac window opens at 800x600, below the 900 point breakpoint of the wide
-# layout, so the Mac shots show the compact layout. Widening the window from
-# outside needs Accessibility permission, and changing the size in the xib or
-# in MainFlutterWindow.swift did not change the built app's window.
+# layout, so this run takes the compact layout, into mac-compact-*. The wide
+# shots are taken with the user widening the window by hand (see the
+# store-screenshots skill) into mac-*, and finish prefers those. Widening the
+# window from a script needs Accessibility permission, and changing the size in
+# the xib or in MainFlutterWindow.swift did not change the built app's window.
 cmd_mac() {
   local url process
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
   url="$(start_backend)"
   for appearance in dark light; do
     echo "== mac ($appearance)"
-    rm -rf "$RAW_DIR/mac-$appearance"
-    SHOT_PORT="$PORT" SHOT_MAC_PROCESS="$process" SHOT_DIR="$RAW_DIR/mac-$appearance" \
+    rm -rf "$RAW_DIR/mac-compact-$appearance"
+    SHOT_PORT="$PORT" SHOT_MAC_PROCESS="$process" SHOT_DIR="$RAW_DIR/mac-compact-$appearance" \
       flutter drive --driver=test_driver/integration_test.dart \
       --target=integration_test/store_screenshots_test.dart -d macos \
       --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT" \

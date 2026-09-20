@@ -16,12 +16,15 @@ erased. This is the procedure and the traps.
 2. `scripts/store-screenshots.sh ios` takes the iPhone 17 Pro Max and iPad Pro
    13-inch simulators, light and dark (about 10 minutes cold). `ios iphone` or
    `ios ipad` takes one.
-3. Mac: `scripts/store-screenshots.sh mac` gives the compact 800 x 600 window.
-   For the wide layout, start the backend and seed it, run
-   `scripts/dev-app.sh start`, and ask the user to widen the window (up to the
-   screen width, under the menu bar) and open the thread. After each screen
-   they confirm, run `scripts/dev-app.sh screenshot <file>` into
-   `build/screenshots/mac-<light|dark>/`.
+3. Mac, wide (preferred): start the backend and seed it (`dev-backend.sh
+start`, then the seed script), run `scripts/dev-app.sh start`, and ask the
+   user to widen the window and open the backup chat. After each screen they
+   confirm, run `scripts/dev-app.sh screenshot
+build/screenshots/mac-<light|dark>/<chat|welcome>.png`: chat and new chat in
+   light, then the user switches to dark (account menu, Appearance) for the dark
+   chat. Tell them what to do next each time, and to leave the window in front.
+   `scripts/store-screenshots.sh mac` is the unattended fallback: the compact
+   800 x 600 window, into `mac-compact-*`.
 4. `scripts/store-screenshots.sh finish`, then look at every image in
    `fastlane/screenshots/`: no dev address, an English status bar, no seams
    where something was erased.
