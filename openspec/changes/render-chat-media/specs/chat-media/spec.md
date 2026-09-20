@@ -6,7 +6,7 @@ Defines how the app shows files Hermes returns in its replies, and attachments r
 
 ### Requirement: Media tags become attachments
 
-The system SHALL read each `MEDIA:<absolute path>` tag in an assistant message, remove it from the visible text, and show the file it names as an attachment after the text, in the order the tags appear. Only tags whose path is absolute SHALL be read; other text SHALL be left as written. While a reply is streaming, a tag that has not finished arriving SHALL NOT be shown as text. A message that is only tags SHALL show only attachments.
+The system SHALL read each `MEDIA:<absolute path>` tag in an assistant message, remove it from the visible text, and show the file it names as an attachment after the text, in the order the tags appear. A path named twice SHALL show once. Only tags whose path is absolute SHALL be read, and none inside code; other text SHALL be left as written. While a reply is streaming, a tag that has not finished arriving SHALL NOT be shown as text. A message that is only tags SHALL show only attachments.
 
 #### Scenario: Image tag
 
@@ -30,7 +30,7 @@ The system SHALL read each `MEDIA:<absolute path>` tag in an assistant message, 
 
 ### Requirement: Images are shown inline
 
-The system SHALL show an image attachment as a thumbnail in the transcript, fetched with the user's session. Tapping it SHALL open it full screen where it can be zoomed and shared, and closing it SHALL return to the chat. While it loads the thumbnail SHALL show a placeholder.
+The system SHALL show an image attachment as a thumbnail in the transcript, fetched with the user's session. Tapping it SHALL open it full screen where it can be zoomed and saved, and closing it SHALL return to the chat. While it loads the thumbnail SHALL show a placeholder.
 
 #### Scenario: Open an image
 
@@ -39,7 +39,7 @@ The system SHALL show an image attachment as a thumbnail in the transcript, fetc
 
 ### Requirement: Files download on demand
 
-The system SHALL show any other file as a card with its name, which downloads the file when tapped, shows that it is downloading, and then opens it with the system's app for that type. The card SHALL offer share and save. A file SHALL be downloaded at most once until the app signs out.
+The system SHALL show any other file as a card with its name, which downloads the file when tapped, shows that it is downloading, and then opens it with the system's app for that type. The card SHALL offer to save it. A file SHALL be downloaded at most once until the app signs out.
 
 #### Scenario: Open a document
 
@@ -51,10 +51,10 @@ The system SHALL show any other file as a card with its name, which downloads th
 - **WHEN** the user taps the same card again
 - **THEN** it opens without downloading again
 
-#### Scenario: Share
+#### Scenario: Save
 
-- **WHEN** the user chooses share on a file card
-- **THEN** the system share sheet opens with the file
+- **WHEN** the user chooses save on a file card
+- **THEN** the system's save dialog opens with the file's name, and the file is not opened
 
 ### Requirement: Fetch failures are explained
 
@@ -81,9 +81,14 @@ Attachments restored from history that carry an absolute server path SHALL be sh
 
 ### Requirement: Cached media is removed on sign-out
 
-The system SHALL delete every file it downloaded or cached for media when the user signs out or the account is removed.
+The system SHALL delete every file it downloaded or cached for media when the user signs out, the server is removed, or the server rejects the session's refresh token. Requests that race to refresh the token SHALL NOT delete anything.
 
 #### Scenario: Sign out
 
 - **WHEN** the user signs out after opening a downloaded file
 - **THEN** the downloaded file is no longer on disk
+
+#### Scenario: Requests race to refresh
+
+- **WHEN** two requests get a 401 at once and the session is refreshed
+- **THEN** downloaded files are kept
