@@ -4,9 +4,11 @@ name: release-please
 #    main. Merging it cuts a `vX.Y.Z` tag and GitHub release.
 # 2. `testflight` then builds that tag on a macOS runner, signs it via fastlane
 #    match and uploads it to TestFlight, for iOS and macOS in parallel.
+# 3. `linux` builds that tag for x86_64 and arm64 and attaches a tar.gz and a
+#    .deb to the GitHub release.
 #
-# `workflow_dispatch` with a `tag` re-runs the TestFlight job for an existing
-# tag (e.g. after a failed upload). Without a tag it runs release-please.
+# `workflow_dispatch` with a `tag` re-runs the TestFlight and Linux jobs for an
+# existing tag (e.g. after a failed upload). Without a tag it runs release-please.
 #
 # RELEASE_PLEASE_TOKEN must be a PAT: a PR opened with GITHUB_TOKEN does not
 # trigger ci.yml, which would leave the release PR ungated.
@@ -137,4 +139,76 @@ jobs:
           name: hermes-app-${{ matrix.platform }}-${{ env.TAG }}
           path: ${{ matrix.artifact_glob }}
           if-no-files-found: ignore
+          retention-days: 30
+
+  linux:
+    name: Linux (${{ matrix.arch }})
+    needs: [release-please]
+    if: |
+      always() && (
+        inputs.tag != '' ||
+        needs.release-please.outputs.release_created == 'true'
+      )
+    # Built on the oldest supported LTS so the binary runs on older glibc too.
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
+    env:
+      TAG: ${{ inputs.tag || needs.release-please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build release bundle
+        env:
+          # Both must be set for the build to enable telemetry; if either is
+          # missing the build still succeeds with telemetry off.
+          OTLP_INGEST_URL: ${{ secrets.OTLP_INGEST_URL }}
+          OTLP_INGEST_KEY: ${{ secrets.OTLP_INGEST_KEY }}
+        run: |
+          defines=()
+          if [ -n "$OTLP_INGEST_URL" ] && [ -n "$OTLP_INGEST_KEY" ]; then
+            defines+=(
+              "--dart-define=OTEL_EXPORTER_OTLP_ENDPOINT=$OTLP_INGEST_URL"
+              "--dart-define=OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer $OTLP_INGEST_KEY,x-tenant-id=homelab,x-dataset-id=apps"
+              "--dart-define=OTEL_SERVICE_NAME=hermes-app"
+              "--dart-define=OTEL_SERVICE_VERSION=${TAG#v}"
+            )
+          fi
+          flutter build linux --release "${defines[@]}"
+
+      - name: Package tar.gz and .deb
+        run: scripts/package-linux.sh "${TAG#v}"
+
+      - name: Attach to the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$TAG" build/linux-dist/* --clobber --repo "$GITHUB_REPOSITORY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hermes-app-linux-${{ matrix.arch }}-${{ env.TAG }}
+          path: build/linux-dist/*
           retention-days: 30

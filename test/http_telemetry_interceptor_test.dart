@@ -6,102 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/http_telemetry_interceptor.dart';
 
 import 'support/fake_logger.dart';
+import 'support/recording_tracer.dart';
 
 const _host = 'secret-hermes.example.org';
-
-class _RecordingSpan implements Span {
-  _RecordingSpan(this.name, this.kind, this.spanContext);
-
-  @override
-  final String name;
-  final SpanKind kind;
-  @override
-  final SpanContext spanContext;
-
-  final Map<String, Object?> attributes = {};
-  final List<String> events = [];
-  StatusCode? status;
-  String? statusDescription;
-  bool ended = false;
-
-  @override
-  bool get isRecording => !ended;
-
-  @override
-  void setAttribute(String key, Object? value) => attributes[key] = value;
-
-  @override
-  void setAttributes(Map<String, Object?> attributes) =>
-      this.attributes.addAll(attributes);
-
-  @override
-  void addEvent(
-    String name, {
-    Map<String, Object?>? attributes,
-    DateTime? timestamp,
-  }) => events.add(name);
-
-  @override
-  void setStatus(StatusCode code, {String? description}) {
-    status = code;
-    statusDescription = description;
-  }
-
-  @override
-  void recordException(
-    Object exception, {
-    StackTrace? stackTrace,
-    Map<String, Object?>? attributes,
-  }) => events.add('exception');
-
-  @override
-  void end([DateTime? endTime]) => ended = true;
-}
-
-class _RecordingTracer implements Tracer {
-  final List<_RecordingSpan> spans = [];
-
-  @override
-  String get name => 'test';
-
-  @override
-  Span startSpan(
-    String name, {
-    SpanKind kind = SpanKind.internal,
-    Map<String, Object?>? attributes,
-    SpanContext? parentContext,
-    List<SpanLink> links = const [],
-  }) {
-    final span = _RecordingSpan(
-      name,
-      kind,
-      SpanContext(traceId: 'a' * 32, spanId: '1' * 16),
-    );
-    if (attributes != null) span.setAttributes(attributes);
-    spans.add(span);
-    return span;
-  }
-
-  @override
-  Future<T> startActiveSpan<T>(
-    String name,
-    Future<T> Function(Span span) body, {
-    SpanKind kind = SpanKind.internal,
-    Map<String, Object?>? attributes,
-    List<SpanLink> links = const [],
-  }) => throw UnimplementedError();
-}
-
-class _ThrowingTracer extends _RecordingTracer {
-  @override
-  Span startSpan(
-    String name, {
-    SpanKind kind = SpanKind.internal,
-    Map<String, Object?>? attributes,
-    SpanContext? parentContext,
-    List<SpanLink> links = const [],
-  }) => throw StateError('tracer broke');
-}
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this._respond);
@@ -124,7 +31,7 @@ class _FakeAdapter implements HttpClientAdapter {
 }
 
 void main() {
-  late _RecordingTracer tracer;
+  late RecordingTracer tracer;
   late RecordingLogger logger;
 
   Dio buildDio(
@@ -141,7 +48,7 @@ void main() {
   }
 
   setUp(() {
-    tracer = _RecordingTracer();
+    tracer = RecordingTracer();
     logger = RecordingLogger();
   });
 
@@ -180,6 +87,53 @@ void main() {
     await dio.get<dynamic>('/api/x?token=hunter2');
 
     expect(tracer.spans.single.attributes['http.route'], '/api/x');
+  });
+
+  group('route template', () {
+    const paths = {
+      '/api/sessions/20260919_abc123': '/api/sessions',
+      '/api/sessions/20260919_abc123/messages': '/api/sessions',
+      '/api/profiles/work-laptop': '/api/profiles',
+      '/api/plugins/kanban/tasks/t_8f3a': '/api/plugins',
+      '/api/plugins/kanban/boards/my-board': '/api/plugins',
+      '/api/mcp/servers/github/auth': '/api/mcp',
+      '/api/cron/jobs/9c1d': '/api/cron',
+      '/api/sessions/': '/api/sessions',
+      '/api/sessions?q=alice#top': '/api/sessions',
+      '/api/sessions/abc?q=alice#top': '/api/sessions',
+      '/api/status': '/api/status',
+      '/api/auth': '/api/auth',
+      '/api': '/api',
+      '/': '/',
+    };
+
+    for (final entry in paths.entries) {
+      test('records ${entry.key} as ${entry.value}', () async {
+        final dio = buildDio((_) async => ResponseBody.fromString('{}', 200));
+
+        await dio.get<dynamic>(entry.key);
+
+        expect(tracer.spans.single.attributes['http.route'], entry.value);
+        final record = logger.records.single;
+        expect(record.attributes['http.route'], entry.value);
+        expect(record.body, 'HTTP GET ${entry.value} 200');
+      });
+    }
+
+    test('never records a path parameter in the span or the log', () async {
+      final dio = buildDio((_) async => ResponseBody.fromString('', 404));
+
+      await expectLater(
+        dio.get<dynamic>('/api/profiles/alice/soul'),
+        throwsA(isA<DioException>()),
+      );
+
+      final record = logger.records.single;
+      final everything =
+          '${tracer.spans.single.attributes} ${record.body} ${record.attributes}';
+      expect(everything, isNot(contains('alice')));
+      expect(everything, isNot(contains('soul')));
+    });
   });
 
   test('never exports the server host or exception details', () async {
@@ -229,7 +183,7 @@ void main() {
   test('a failing tracer never breaks the request', () async {
     final dio = buildDio(
       (_) async => ResponseBody.fromString('{}', 200),
-      withTracer: _ThrowingTracer(),
+      withTracer: ThrowingTracer(),
     );
 
     final response = await dio.get<dynamic>('/api/status');
@@ -355,7 +309,7 @@ void main() {
     test('a failing tracer still logs the request', () async {
       final dio = buildDio(
         (_) async => ResponseBody.fromString('{}', 200),
-        withTracer: _ThrowingTracer(),
+        withTracer: ThrowingTracer(),
       );
 
       await dio.get<dynamic>('/api/status');

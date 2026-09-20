@@ -57,6 +57,22 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+  # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
+  # be tested on the Mac without a watch simulator.
+  test-watch:
+    name: Test watch core
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: swift test
+        working-directory: ios/HermesWatch
+        run: swift test
+
   # Builds the app together with its share extension and watch app. The extension links the
   # receive_sharing_intent package by a version-pinned path in project.pbxproj,
   # so a plugin upgrade that isn't mirrored there breaks only this build.
@@ -86,6 +102,18 @@ jobs:
       - name: Build simulator app with share extension and watch app
         run: flutter build ios --simulator --debug --no-codesign -d "${{ steps.simulator.outputs.udid }}"
 
+      # The project-level Release and Profile settings say iphoneos only, and a
+      # watch target that inherits that is archived with the iOS SDK. No job
+      # here archives for a device, so check the setting directly. It needs the
+      # Flutter-generated package, so it runs after the build.
+      - name: Watch target builds for watchOS in every configuration
+        run: |
+          for configuration in Debug Profile Release; do
+            xcodebuild -showBuildSettings -project ios/Runner.xcodeproj \
+              -target HermesWatch -configuration "$configuration" \
+              | grep -E 'SUPPORTED_PLATFORMS = watchos watchsimulator$'
+          done
+
   build-macos:
     name: Build macOS (debug)
     runs-on: macos-26
@@ -103,3 +131,34 @@ jobs:
 
       - name: Build debug app with share extension
         run: flutter build macos --debug
+
+  # Builds the release bundle and packages it exactly as the release workflow
+  # does, so a broken tarball or .deb shows up on the PR instead of at release.
+  build-linux:
+    name: Build Linux (release)
+    runs-on: ubuntu-22.04
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Build release bundle
+        run: flutter build linux --release
+
+      - name: Package tar.gz and .deb
+        run: scripts/package-linux.sh 0.0.0-ci
+
+      - name: Inspect the .deb
+        run: dpkg-deb --info build/linux-dist/*.deb && dpkg-deb --contents build/linux-dist/*.deb

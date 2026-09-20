@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.1.12](https://github.com/cedricziel/hermes-app/compare/v0.1.11...v0.1.12) (2026-09-20)
+
+
+### Bug Fixes
+
+* **auth:** never leave sign-in spinning after a cancel ([#111](https://github.com/cedricziel/hermes-app/issues/111)) ([5752339](https://github.com/cedricziel/hermes-app/commit/575233910997496ab074cd4aa0412efd6869ad5f))
+* **telemetry:** record a route template instead of raw paths ([#112](https://github.com/cedricziel/hermes-app/issues/112)) ([7fbfb12](https://github.com/cedricziel/hermes-app/commit/7fbfb1261c6f17d68a14038ac3369bd5dbc0831a))
+
+## [0.1.11](https://github.com/cedricziel/hermes-app/compare/v0.1.10...v0.1.11) (2026-09-20)
+
+
+### Features
+
+* **notifications:** announce broken turns and tidy up notification taps ([#71](https://github.com/cedricziel/hermes-app/issues/71)) ([2aadae8](https://github.com/cedricziel/hermes-app/commit/2aadae80fe188c90eeb5e3cb6491d80af83da4a7))
+* **telemetry:** report the hardware model and more device facts ([#69](https://github.com/cedricziel/hermes-app/issues/69)) ([bce0bf7](https://github.com/cedricziel/hermes-app/commit/bce0bf750b5bd6f655f4f510175ce3115bfa222b))
+* **telemetry:** trace the gateway socket as an upgrade plus linked messages ([#77](https://github.com/cedricziel/hermes-app/issues/77)) ([81aeb4c](https://github.com/cedricziel/hermes-app/commit/81aeb4c556db6f96e97f6648ef24e580edb4e7df))
+* **watch:** thread list and conversation screens on the watch ([#60](https://github.com/cedricziel/hermes-app/issues/60)) ([f2b56b1](https://github.com/cedricziel/hermes-app/commit/f2b56b1e442e31dbbae09ce7f53870ee6877441b))
+
+
+### Bug Fixes
+
+* **watch:** archive the watch app with the watchOS SDK in Release ([#73](https://github.com/cedricziel/hermes-app/issues/73)) ([ca8346d](https://github.com/cedricziel/hermes-app/commit/ca8346dfdcb8b24c1a39dbc28fffb9b9fd882411))
+
+
+### Documentation
+
+* **openspec:** add baseline auth spec ([#79](https://github.com/cedricziel/hermes-app/issues/79)) ([207d291](https://github.com/cedricziel/hermes-app/commit/207d2912665c360e0bf8a438b85b7b25b438ec8a))
+* **openspec:** add baseline chat, profiles and bots specs ([#101](https://github.com/cedricziel/hermes-app/issues/101)) ([6ade765](https://github.com/cedricziel/hermes-app/commit/6ade7650f5fae3f24260020885d1202f2ddf1543))
+* **openspec:** add baseline kanban, notifications, sharing and appearance specs ([#92](https://github.com/cedricziel/hermes-app/issues/92)) ([c4b96a7](https://github.com/cedricziel/hermes-app/commit/c4b96a75856f242ff93d4cd833658889a120684e))
+* **openspec:** add baseline telemetry spec ([#78](https://github.com/cedricziel/hermes-app/issues/78)) ([8429a71](https://github.com/cedricziel/hermes-app/commit/8429a7126ced26fce95f31cc4009be9fe6d640cd))
+* **openspec:** archive the agent input requests design and retire docs/superpowers ([#80](https://github.com/cedricziel/hermes-app/issues/80)) ([ede92ed](https://github.com/cedricziel/hermes-app/commit/ede92ed063310596f6e5ba5fe8ace91a6bb49310))
+
+## [0.1.10](https://github.com/cedricziel/hermes-app/compare/v0.1.9...v0.1.10) (2026-09-20)
+
+
+### Features
+
+* **kanban:** detect the Kanban plugin and add a Chat/Kanban navigation shell ([#64](https://github.com/cedricziel/hermes-app/issues/64)) ([9f3ddde](https://github.com/cedricziel/hermes-app/commit/9f3ddded02c7bd7775e1abb0437d0cdc98efc907))
+* **kanban:** show the board and keep it live ([#65](https://github.com/cedricziel/hermes-app/issues/65)) ([799907c](https://github.com/cedricziel/hermes-app/commit/799907c763a78a0d5faf9720503384a3f221a1f7))
+* **notifications:** notify when a reply finishes or the agent needs you ([#56](https://github.com/cedricziel/hermes-app/issues/56)) ([22a4c7b](https://github.com/cedricziel/hermes-app/commit/22a4c7b0adc499dc4dc8f36271e5bed90b36d800))
+* **telemetry:** tag telemetry with the system, its version and the form factor ([#63](https://github.com/cedricziel/hermes-app/issues/63)) ([ec57b39](https://github.com/cedricziel/hermes-app/commit/ec57b396dac4a9795f1b0e5718207c9640d126cf))
+* **watch:** add an empty watchOS app target embedded in the iOS app ([#57](https://github.com/cedricziel/hermes-app/issues/57)) ([70199fd](https://github.com/cedricziel/hermes-app/commit/70199fd1cf8ac21f9418923d44a3b7d01cdbe760))
+* **watch:** relay watch requests to Hermes through the phone ([#59](https://github.com/cedricziel/hermes-app/issues/59)) ([70e892f](https://github.com/cedricziel/hermes-app/commit/70e892fe70779b349dd26d7c4782f4e8dede9ca6))
+
+
+### Documentation
+
+* add CLAUDE.md and initialize OpenSpec ([#70](https://github.com/cedricziel/hermes-app/issues/70)) ([97c796a](https://github.com/cedricziel/hermes-app/commit/97c796a76ff0c6a82ccf7b506f1d072216954336))
+
 ## [0.1.9](https://github.com/cedricziel/hermes-app/compare/v0.1.8...v0.1.9) (2026-09-20)
 
 
