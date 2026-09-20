@@ -1540,7 +1540,7 @@ void main() {
         expect(flow.authorizationUrl, startsWith('$providerUrl/authorize?'));
         final status = await repository.flowStatus(flow.flowId);
         expect(status.status, McpFlowStatus.authorizationRequired);
-        expect(
+        await expectLater(
           repository.startSignIn(name),
           throwsA(
             isA<McpRefused>()
