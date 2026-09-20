@@ -41,13 +41,15 @@ class NotificationSettings extends ChangeNotifier {
   bool isMuted(String key) => _muted.contains(key);
 
   Future<void> load() async {
+    // Every counter is read before the first await, so an edit made while
+    // any of the values is being read wins over what was stored.
     final enabledEditsBefore = _enabledEdits;
     final permissionEditsBefore = _permissionEdits;
+    final scheduleEditsBefore = _scheduleEdits;
+    final mutedEditsBefore = _mutedEdits;
     final enabled = await _prefs.getBool(_prefsEnabledKey);
     final asked = await _prefs.getBool(_prefsAskedKey);
     final denied = await _prefs.getBool(_prefsDeniedKey);
-    final scheduleEditsBefore = _scheduleEdits;
-    final mutedEditsBefore = _mutedEdits;
     final schedules = await _prefs.getBool(_prefsSchedulesKey);
     final muted = await _prefs.getStringList(_prefsMutedKey);
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;

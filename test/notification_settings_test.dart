@@ -1,8 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:hermes_app/src/notifications/notification_settings.dart';
+
+/// Reads preferences like the real thing, but runs [onDenied] while the
+/// permission flags are read and always reports the scheduled task values as
+/// not yet stored, so a test can see whether an edit made meanwhile survives.
+class _HookedPrefs extends SharedPreferencesAsync {
+  _HookedPrefs(this.onDenied);
+
+  final void Function() onDenied;
+
+  @override
+  Future<bool?> getBool(String key) async {
+    if (key == 'hermes.notifications_permission_denied') onDenied();
+    if (key == 'hermes.notifications_schedules') return null;
+    return super.getBool(key);
+  }
+
+  @override
+  Future<List<String>?> getStringList(String key) async => null;
+}
+
+NotificationSettings? hooked;
 
 void main() {
   setUp(() {
@@ -183,6 +205,36 @@ void main() {
       final loading = settings.load();
       await settings.setMuted('work/job1', true);
       await loading;
+
+      expect(settings.isMuted('work/job1'), isTrue);
+    });
+
+    test(
+      'a switch changed while an early value is read is not undone',
+      () async {
+        // The stored value is what the write had not reached yet.
+        final settings = NotificationSettings(
+          prefs: _HookedPrefs(() {
+            // Runs while the permission flags are read, before the scheduled
+            // task values are.
+            hooked?.setScheduleAlerts(false);
+          }),
+        );
+        hooked = settings;
+
+        await settings.load();
+
+        expect(settings.scheduleAlerts, isFalse);
+      },
+    );
+
+    test('a mute made while an early value is read is not undone', () async {
+      final settings = NotificationSettings(
+        prefs: _HookedPrefs(() => hooked?.setMuted('work/job1', true)),
+      );
+      hooked = settings;
+
+      await settings.load();
 
       expect(settings.isMuted('work/job1'), isTrue);
     });
