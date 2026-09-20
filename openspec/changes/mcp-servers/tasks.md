@@ -27,5 +27,5 @@
 ## 5. Contract and docs
 
 - [x] 5.1 Add a list-shape check and a test-route check (an OAuth server without a token gives one of the two recognised wordings, and a successful probe gives the tools, prompts and resources shape) to `test/real_backend_contract_test.dart`
-- [ ] 5.2 Run `dart format .`, `flutter analyze` and `flutter test`, and check the screens against `mockups/index.html` in the running app with the `verify-in-app` skill, on a throwaway dev backend
-- [ ] 5.3 Note in `CLAUDE.md` that MCP servers live in `lib/src/mcp/`, and add anything learned while verifying to the `verify-in-app` skill
+- [x] 5.2 Run `dart format .`, `flutter analyze` and `flutter test`, and check the screens against `mockups/index.html` in the running app with the `verify-in-app` skill, on a throwaway dev backend
+- [x] 5.3 Note in `CLAUDE.md` that MCP servers live in `lib/src/mcp/`, and add anything learned while verifying to the `verify-in-app` skill

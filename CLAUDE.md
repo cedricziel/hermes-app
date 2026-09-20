@@ -60,6 +60,8 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 **Plugins** (`lib/src/plugins/`). The chat sidebar's Plugins row opens a screen that lists the dashboard's installed plugins (`GET /api/dashboard/plugins/hub`) and enables, disables, updates, removes and hides them. It lists agent plugins only: Kanban and Achievements are dashboard-only extensions that the hub reports apart from them. Details are a bottom sheet below 900 px and a pane at 900 px or wider. The generated client puts a plugin's name into the path unencoded, so the repository encodes it.
 
+**MCP servers** (`lib/src/mcp/`). List, switch, test and remove the MCP servers of the active profile, opened from the chat sidebar. `HermesMcpRepository` wraps the four generated calls and parses leniently. `McpServersController` holds one visit's state (the profile learned first, the list, the test results), and `McpServersScreen` and `McpServerDetail` render it, side by side from 900 logical pixels.
+
 **Notifications** (`lib/src/notifications/`). Local notifications when a reply finishes or the agent needs the user, gated by `attention_policy.dart` and user settings.
 
 **Telemetry** (`lib/src/telemetry/`). OpenTelemetry to SignalDB through the `flutter_otel` git dependency, which is pinned to a commit along with its sibling packages in `dependency_overrides`. It is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is passed via `--dart-define`. When off, no SDK exists and no `traceparent` header is added. Telemetry code must never break the app (see `safely.dart`).
