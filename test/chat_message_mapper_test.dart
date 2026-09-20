@@ -44,15 +44,16 @@ void main() {
       expect(text.metadata, isNull);
     });
 
-    test('puts the reasoning before everything else', () {
+    test('puts the reasoning that led to a call before it', () {
       final out = chatMessageToFlyer(
         message(
-          reasoning: 'Because.',
-          toolCalls: const [ToolCall(name: 'shell', summary: 'ls')],
+          toolCalls: const [
+            ToolCall(name: 'shell', summary: 'ls', reasoning: 'Because.'),
+          ],
         ),
       );
 
-      expect(out.map((m) => m.id), ['m1-reasoning', 'm1-tool-0', 'm1']);
+      expect(out.map((m) => m.id), ['m1-tool-0-reasoning', 'm1-tool-0', 'm1']);
       expect((out.first as CustomMessage).metadata, {
         kMetaKind: kKindReasoning,
         kMetaReasoningText: 'Because.',
@@ -113,6 +114,27 @@ void main() {
         kMetaToolResult: '',
       });
       expect(second.metadata![kMetaToolStatus], 'running');
+    });
+
+    test('keeps reasoning, calls and text in the order they happened', () {
+      final out = chatMessageToFlyer(
+        message(
+          reasoning: 'Now I can answer.',
+          toolCalls: const [
+            ToolCall(name: 'shell', summary: 'ls', reasoning: 'Look first.'),
+            ToolCall(name: 'read', summary: 'a', reasoning: 'Then read.'),
+          ],
+        ),
+      );
+
+      expect(out.map((m) => m.id), [
+        'm1-tool-0-reasoning',
+        'm1-tool-0',
+        'm1-tool-1-reasoning',
+        'm1-tool-1',
+        'm1-reasoning',
+        'm1',
+      ]);
     });
 
     test('emits tool calls without text when content is empty', () {

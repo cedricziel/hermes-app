@@ -5,14 +5,15 @@ import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'media/extract_media.dart';
 
-/// Attachments come first, then the reasoning, tool calls, input requests, the
+/// Attachments come first, then the tool calls, each after the reasoning that
+/// led to it, the reasoning that followed the last call, input requests, the
 /// text, the files the agent sent (read from `MEDIA:` tags in the text), and
 /// the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-reasoning`, `id-media-N`, `id-tool-N`, `id-input-N`, `id-thinking`), so
-/// a streaming reply that mutates content or status maps to ids the
-/// controller can match with `updateMessage`.
+/// `id-tool-N-reasoning`, `id-tool-N`, `id-reasoning`, `id-media-N`,
+/// `id-input-N`, `id-thinking`), so a streaming reply that mutates content or
+/// status maps to ids the controller can match with `updateMessage`.
 List<Message> chatMessageToFlyer(ChatMessage m) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
@@ -30,18 +31,15 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt,
         attachment,
       ),
-    if (m.reasoning.isNotEmpty)
-      CustomMessage(
-        id: '${m.id}-reasoning',
-        authorId: authorId,
-        createdAt: createdAt,
-        metadata: {
-          kMetaKind: kKindReasoning,
-          kMetaReasoningText: m.reasoning,
-          kMetaReasoningActive: m.isPending,
-        },
-      ),
-    for (final (i, call) in m.toolCalls.indexed)
+    for (final (i, call) in m.toolCalls.indexed) ...[
+      if (call.reasoning.isNotEmpty)
+        _reasoningMessage(
+          '${m.id}-tool-$i-reasoning',
+          authorId,
+          createdAt,
+          call.reasoning,
+          active: false,
+        ),
       CustomMessage(
         id: '${m.id}-tool-$i',
         authorId: authorId,
@@ -53,6 +51,15 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
           kMetaToolStatus: call.status.name,
           kMetaToolResult: call.result,
         },
+      ),
+    ],
+    if (m.reasoning.isNotEmpty)
+      _reasoningMessage(
+        '${m.id}-reasoning',
+        authorId,
+        createdAt,
+        m.reasoning,
+        active: m.isPending,
       ),
     for (final (i, request) in m.inputRequests.indexed)
       CustomMessage(
@@ -88,6 +95,23 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
 List<Message> chatThreadToFlyer(ChatThread t) => [
   for (final m in t.messages) ...chatMessageToFlyer(m),
 ];
+
+Message _reasoningMessage(
+  String id,
+  String authorId,
+  DateTime createdAt,
+  String text, {
+  required bool active,
+}) => CustomMessage(
+  id: id,
+  authorId: authorId,
+  createdAt: createdAt,
+  metadata: {
+    kMetaKind: kKindReasoning,
+    kMetaReasoningText: text,
+    kMetaReasoningActive: active,
+  },
+);
 
 /// An image the app can draw, from this device, the history or the server, is
 /// an [ImageMessage]; any other file, and an image it cannot draw, is a

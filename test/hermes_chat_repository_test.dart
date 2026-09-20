@@ -430,6 +430,23 @@ void main() {
       expect(call.status, ToolCallStatus.completed);
     });
 
+    test('keeps a tool turn\'s reasoning ahead of its first call', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          reasoning: 'Look first.',
+          toolCalls: [functionCall('a', '{}'), functionCall('b', '{}')],
+        ),
+      ]);
+
+      expect(messages.single.reasoning, isEmpty);
+      expect(messages.single.toolCalls.map((c) => c.reasoning), [
+        'Look first.',
+        '',
+      ]);
+    });
+
     test(
       'folds tool result rows into the call instead of showing them',
       () async {

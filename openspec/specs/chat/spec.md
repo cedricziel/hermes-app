@@ -136,7 +136,7 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 
 ### Requirement: Rendering of messages
 
-The system SHALL render a message as its reasoning first, then tool call cards, then agent input request cards, then the text, then a thinking indicator, and SHALL render message text as markdown.
+The system SHALL render a message as its tool call cards, each after the reasoning that led to it, then the reasoning that followed the last call, then agent input request cards, then the text, then a thinking indicator, and SHALL render message text as markdown.
 
 #### Scenario: Thinking indicator
 
@@ -794,14 +794,19 @@ The system SHALL accept content shared into the app while the chat is open or be
 
 ### Requirement: Reasoning
 
-The system SHALL show the model's reasoning, when there is any, as a block above the rest of the reply that is folded by default and opens and closes when tapped. The block SHALL read "Thinking…" while the reply is pending and "Reasoning" once it has ended. A reply without reasoning SHALL have no block.
+The system SHALL show the model's reasoning, when there is any, as blocks in the order it happened: the reasoning before each tool call sits above that call's card, and the reasoning after the last call sits below the cards and above the text. Each block SHALL be folded by default and open and close when tapped. A block SHALL read "Thinking…" while the reply is pending and "Reasoning" once it has ended. A reply without reasoning SHALL have no block.
 
 #### Scenario: Reasoning streams in
 
 - **WHEN** the gateway sends `reasoning.delta` events for the running turn
-- **THEN** their `text` is appended to the reply's reasoning in order
+- **THEN** their `text` is appended to the reasoning after the last tool call, or before the first when there is none, in order
 - **AND WHEN** it sends `reasoning.available`
-- **THEN** its `text` replaces the reasoning
+- **THEN** its `text` replaces that reasoning
+
+#### Scenario: A tool call ends a block of reasoning
+
+- **WHEN** a tool starts after reasoning arrived
+- **THEN** that reasoning stays above the tool's card, and reasoning that arrives after it opens a new block below the card
 
 #### Scenario: Reasoning does not end the wait
 
@@ -811,7 +816,7 @@ The system SHALL show the model's reasoning, when there is any, as a block above
 #### Scenario: Loaded thread
 
 - **WHEN** a session message row carries a `reasoning` string
-- **THEN** that message shows it in a reasoning block, and a `reasoning` that is not a string is read as none
+- **THEN** that message shows it in a reasoning block, above its first tool call when the row has tool calls, and a `reasoning` that is not a string is read as none
 
 #### Scenario: Spinner text is not reasoning
 

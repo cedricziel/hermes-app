@@ -167,6 +167,28 @@ void main() {
     expect(reply.toolCalls.single.result, '3 matches');
   });
 
+  test('reasoning before a call stays with it, and new reasoning follows', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('Check the logs.'));
+    applyReplyEvent(reply, const ToolStarted(name: 'search'));
+    applyReplyEvent(reply, const ReasoningUpdated('Found it.'));
+    applyReplyEvent(reply, const ReasoningUpdated('Found it!', replace: true));
+
+    expect(reply.toolCalls.single.reasoning, 'Check the logs.');
+    expect(reply.reasoning, 'Found it!');
+  });
+
+  test('settling a call keeps its reasoning', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReasoningUpdated('Check.'));
+    applyReplyEvent(reply, const ToolStarted(name: 'search'));
+
+    applyReplyEvent(reply, const ToolFinished(name: 'search', result: 'x'));
+
+    expect(reply.toolCalls.single.reasoning, 'Check.');
+  });
+
   test('a failed tool ends in error', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ToolStarted(name: 'search'));
