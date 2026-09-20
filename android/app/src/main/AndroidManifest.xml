@@ -4,7 +4,7 @@
     <!-- Local notifications; a runtime prompt on Android 13 and newer. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="hermes_app"
+        android:label="Hermes"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
