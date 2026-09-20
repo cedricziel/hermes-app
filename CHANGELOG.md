@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.26](https://github.com/cedricziel/hermes-app/compare/v0.1.25...v0.1.26) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ios:** add privacy manifests for the app, share extension and watch app ([#222](https://github.com/cedricziel/hermes-app/issues/222)) ([028c34e](https://github.com/cedricziel/hermes-app/commit/028c34e035c287f114ba56d4fe740cff99043510))
+
 ## [0.1.25](https://github.com/cedricziel/hermes-app/compare/v0.1.24...v0.1.25) (2026-09-20)
 
 
