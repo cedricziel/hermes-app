@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -53,7 +54,9 @@ import 'support/attachment_fixtures.dart';
 /// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`. The MCP
 /// tests add servers named `contract-check-…` to the default profile and
 /// remove them again; the probes connect to a minimal MCP server this test
-/// starts on the loopback interface.
+/// starts on the loopback interface. The media tests write throwaway files
+/// under the backend's `images` folder and the system temp directory, so they
+/// need a backend on this machine, and delete them after.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -440,6 +443,91 @@ void main() {
       containsAll(['approval', 'clarify', 'sudo', 'secret']),
     );
   }, skip: skip);
+
+  group('media the agent sends (local backend, no model call)', () {
+    late MediaSource media;
+    late Directory temp;
+    Directory? images;
+
+    setUpAll(() async {
+      if (url == null) return;
+      media = HermesMediaSource(() => client);
+      temp = tempDir('hermes_media_contract');
+      final status = (await Dio().get<Map<String, dynamic>>('$url/api/status'))
+          .data!;
+      final home = status['hermes_home'];
+      if (home is String && Directory(home).existsSync()) {
+        images = Directory('$home/images')..createSync(recursive: true);
+      }
+    });
+
+    Future<MediaFailure> failureOf(Future<Object?> call) async {
+      try {
+        await call;
+      } on MediaFetchException catch (e) {
+        return e.reason;
+      }
+      fail('expected a MediaFetchException');
+    }
+
+    test('an image in the images folder comes back as a data URL', () async {
+      final dir = images;
+      if (dir == null) return;
+      final file = writeTemp(dir, 'contract-check.png', kTinyPng);
+      addTearDown(file.deleteSync);
+
+      expect(await media.image(file.path), kTinyPng);
+      final raw = await client.raw.getMediaApiMediaGet(path: file.path);
+      expect(
+        (raw.data as Map)['data_url'],
+        startsWith('data:image/png;base64,'),
+      );
+    }, skip: skip);
+
+    test('an image elsewhere is refused by /api/media and comes from the '
+        'download route', () async {
+      final file = writeTemp(temp, 'contract-check.png', kTinyPng);
+
+      await expectLater(
+        client.raw.getMediaApiMediaGet(path: file.path),
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.response?.statusCode,
+            'status',
+            403,
+          ),
+        ),
+      );
+      expect(await media.image(file.path), kTinyPng);
+    }, skip: skip);
+
+    test('a file downloads byte for byte', () async {
+      final everyByte = [for (var i = 0; i < 256; i++) i];
+      final file = writeTemp(temp, 'contract-check.bin', everyByte);
+
+      expect(await media.file(file.path), everyByte);
+    }, skip: skip);
+
+    test('a missing file is reported as missing by both routes', () async {
+      final path = '${temp.path}/nothing-here.png';
+
+      expect(await failureOf(media.file(path)), MediaFailure.missing);
+      expect(await failureOf(media.image(path)), MediaFailure.missing);
+    }, skip: skip);
+
+    test('a file the server keeps private is refused', () async {
+      final file = writeTemp(temp, 'auth.json', utf8.encode('{}'));
+
+      expect(await failureOf(media.file(file.path)), MediaFailure.refused);
+    }, skip: skip);
+
+    test('a relative path is not a valid download', () async {
+      expect(
+        await failureOf(media.file('attachments/report.pdf')),
+        MediaFailure.failed,
+      );
+    }, skip: skip);
+  });
 
   group('attachments over the gateway (no model call)', () {
     late GatewayRpcClient rpc;
