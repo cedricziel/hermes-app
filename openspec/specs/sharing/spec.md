@@ -103,7 +103,7 @@ When the chat screen takes shared items, it SHALL join all shared text with newl
 
 ### Requirement: Shared files appear as removable attachments
 
-Shared files SHALL appear as chips above the composer input, one per file, each with a "Remove <name>" control. Attachments alone SHALL be enough to send. On send, the message text SHALL be the typed text followed, after a blank line, by "Attached: " and the comma-separated file names, and the attachments SHALL then be cleared. Only the names are sent; the file contents are not uploaded.
+Shared files SHALL appear as chips above the composer input, one per file, each with a "Remove <name>" control. Attachments alone SHALL be enough to send. The chips SHALL be followed by the note "Only the file names are sent, not their contents." On send, the message text SHALL be the typed text followed, after a blank line, by "Files (names only, contents not sent): " and the comma-separated file names, and the attachments SHALL then be cleared. Only the names are sent; the file contents are not uploaded, so the agent cannot read the files.
 
 #### Scenario: Remove an attachment
 
@@ -113,4 +113,9 @@ Shared files SHALL appear as chips above the composer input, one per file, each 
 #### Scenario: Send attachments only
 
 - **WHEN** the user sends with an attached file "report.pdf" and no typed text
-- **THEN** the sent message reads "Attached: report.pdf" and the chip is gone
+- **THEN** the sent message reads "Files (names only, contents not sent): report.pdf" and the chip is gone
+
+#### Scenario: The composer says what is sent
+
+- **WHEN** at least one file is attached
+- **THEN** the note "Only the file names are sent, not their contents." shows under the chips, and it is gone with the last chip
