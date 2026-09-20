@@ -436,6 +436,7 @@ void main() {
     final finished = events.whereType<ToolFinished>().single;
     expect(finished.name, 'terminal');
     expect(finished.failed, isFalse);
+    expect(finished.result, 'a\nb');
   });
 
   test('reasoning events map to reasoning updates', () async {

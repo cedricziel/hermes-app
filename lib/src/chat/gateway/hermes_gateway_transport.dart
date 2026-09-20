@@ -398,6 +398,7 @@ class HermesGatewayTransport implements ChatTransport {
       'tool.complete' => ToolFinished(
         name: text('name'),
         failed: _toolFailed(payload['result']),
+        result: _toolResult(payload['result']),
       ),
       'session.title' => ThreadTitled(text('title')),
       'message.complete' => ReplyCompleted(
@@ -454,6 +455,21 @@ class HermesGatewayTransport implements ChatTransport {
     if (result is! Map) return false;
     final error = result['error'];
     return error != null && error != '';
+  }
+
+  /// A result is a string or a JSON object; an object with an `output` shows
+  /// that, since the rest is bookkeeping such as the exit code.
+  String _toolResult(Object? result) {
+    if (result == null) return '';
+    if (result is String) return result;
+    if (result is Map && result['output'] is String) {
+      return result['output'] as String;
+    }
+    try {
+      return const JsonEncoder.withIndent('  ').convert(result);
+    } on Object {
+      return result.toString();
+    }
   }
 
   ClarifyRequest _toClarify(String requestId, Map<String, Object?> payload) {

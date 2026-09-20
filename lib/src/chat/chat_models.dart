@@ -20,14 +20,23 @@ class ToolCall {
     required this.name,
     required this.summary,
     this.status = ToolCallStatus.completed,
+    this.result = '',
   });
 
   final String name;
   final String summary;
   final ToolCallStatus status;
 
-  ToolCall withStatus(ToolCallStatus status) =>
-      ToolCall(name: name, summary: summary, status: status);
+  /// What the tool returned, as text; empty until it finishes or when the
+  /// history did not keep it.
+  final String result;
+
+  ToolCall withStatus(ToolCallStatus status, {String? result}) => ToolCall(
+    name: name,
+    summary: summary,
+    status: status,
+    result: result ?? this.result,
+  );
 }
 
 enum InputRequestStatus { pending, answered, expired }

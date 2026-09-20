@@ -186,6 +186,7 @@ Widget _buildCustom(
           status: ToolCallStatus.values.byName(
             metadata[kMetaToolStatus] as String,
           ),
+          result: metadata[kMetaToolResult] as String? ?? '',
         ),
       );
     case kKindReasoning:

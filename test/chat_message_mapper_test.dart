@@ -110,6 +110,7 @@ void main() {
         kMetaToolName: 'shell',
         kMetaToolSummary: 'ls -la',
         kMetaToolStatus: 'completed',
+        kMetaToolResult: '',
       });
       expect(second.metadata![kMetaToolStatus], 'running');
     });
