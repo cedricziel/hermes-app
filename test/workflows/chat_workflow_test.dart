@@ -20,16 +20,6 @@ const _unbroken =
     'https://staging.example.internal/api/v2/jobs/2f9d6c1e-7a4b-4c1f-9e0d-'
     '5b7a1c3e8f42/artifacts/nightly-backup-analytics-warehouse-2026-09-19.tar.zst';
 
-/// Lets the chat's scroll and fade animations play out frame by frame, as
-/// they would on a device. `pumpAndSettle` cannot be used while a spinner
-/// runs, and one long pump skips frames the list relies on.
-Future<void> _runFrames(WidgetTester tester) async {
-  await tester.pump();
-  for (var i = 0; i < 30; i++) {
-    await tester.pump(const Duration(milliseconds: 100));
-  }
-}
-
 /// A conversation on a phone and on a desktop: reading history, sending a
 /// message, and answering what the agent asks along the way.
 void main() {
@@ -119,7 +109,7 @@ void main() {
     await tester.enterText(find.byType(EditableText), text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
-    await _runFrames(tester);
+    await runFrames(tester);
   }
 
   /// Feeds [event] to [reply]. Pass `settle: false` when nothing is captured
@@ -131,7 +121,7 @@ void main() {
     bool settle = true,
   }) async {
     reply.emit(event);
-    await (settle ? _runFrames(tester) : tester.pump());
+    await (settle ? runFrames(tester) : tester.pump());
   }
 
   /// Opens [threadId], sends [text] and starts the reply.

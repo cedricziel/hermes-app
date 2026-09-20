@@ -147,3 +147,20 @@ Future<void> openSidebar(WidgetTester tester) async {
   await tester.tap(find.byIcon(Icons.menu).first);
   await tester.pumpAndSettle();
 }
+
+/// Lets a chat's scroll and fade animations play out frame by frame, as they
+/// would on a device. `pumpAndSettle` cannot be used while a spinner runs, and
+/// one long pump skips frames the list relies on.
+Future<void> runFrames(WidgetTester tester) async {
+  await tester.pump();
+  for (var i = 0; i < 30; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
+/// One frame to start the animations a change triggers (a floating label, an
+/// error line, a button's colours) and a second to run them out.
+Future<void> animate(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
