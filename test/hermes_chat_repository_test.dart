@@ -430,6 +430,24 @@ void main() {
       expect(call.status, ToolCallStatus.completed);
     });
 
+    test('puts a tool result row on the call it answers', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          toolCalls: [functionCall('a', '{}'), functionCall('b', '{}')],
+        ),
+        messageRow(
+          id: 2,
+          role: 'tool',
+          toolCallId: 'call_b',
+          content: '3 matches',
+        ),
+      ]);
+
+      expect(messages.single.toolCalls.map((c) => c.result), ['', '3 matches']);
+    });
+
     test('keeps a tool turn\'s reasoning ahead of its first call', () async {
       final messages = await load([
         messageRow(

@@ -129,6 +129,11 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 - **WHEN** an assistant row carries OpenAI-style `tool_calls`
 - **THEN** each call with a function name appears as a completed tool call card on that message, with the call's arguments string as its summary, and a null content is treated as empty text
 
+#### Scenario: Tool results are put on their calls
+
+- **WHEN** a `tool` row carries a `tool_call_id` and string content
+- **THEN** that content is the result of the call with that id, shown on its card, and the row itself is not shown
+
 #### Scenario: Timestamps
 
 - **WHEN** message or session rows carry timestamps
