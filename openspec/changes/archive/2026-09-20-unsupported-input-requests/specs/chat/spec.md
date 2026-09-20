@@ -52,7 +52,8 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 #### Scenario: JSON-RPC methods
 
 - **WHEN** the chat talks over `/api/ws`
-- **THEN** it requests `session.create`, `session.resume` (`session_id`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
+- **THEN** it requests `session.create` (optional `profile`), `session.resume` (`session_id`, optional `profile`), `prompt.submit` (`session_id`, `text`), `approval.respond` (`session_id`, `request_id`, `choice`; a `resolved` result above zero means accepted) and `clarify.respond` (`request_id`, `answer`, optional `question_id`; a `status` of `expired` means not accepted), as JSON-RPC 2.0 with integer ids
+- **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
 - **AND** it requests no method to answer a secret or a sudo request
 
 #### Scenario: Events
