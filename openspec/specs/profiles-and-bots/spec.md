@@ -3,9 +3,7 @@
 ## Purpose
 
 Hermes can run several profiles, each with its own sessions, and can run as a bot on messaging platforms such as Telegram. This spec covers the two screens the chat sidebar links to: Profiles, where the user picks the profile the chat shows, and Bots, where the user switches messaging platforms on or off, enters their credentials, and pairs a Telegram bot. It describes the behaviour of the code as it is today.
-
 ## Requirements
-
 ### Requirement: Profile list
 
 The system SHALL list the profiles of the connected dashboard, marking the active one, and SHALL offer a Retry when loading fails.
@@ -256,3 +254,18 @@ The system SHALL use the following dashboard routes for profiles and bots, and S
 
 - **WHEN** the app pairs a Telegram bot
 - **THEN** it uses `POST /api/messaging/telegram/onboarding/start` (response `pairing_id`, `deep_link`), `GET /api/messaging/telegram/onboarding/{pairing_id}` (response `status`, where `ready` means claimed, plus `bot_username` and `owner_user_id`), `POST /api/messaging/telegram/onboarding/{pairing_id}/apply` (body `allowed_user_ids`) and `DELETE /api/messaging/telegram/onboarding/{pairing_id}`
+
+### Requirement: Skills entry in the sidebar
+
+The system SHALL show a Skills entry in the chat sidebar beside Profiles and Bots when the chat has a dashboard connection, opening the Skills page (see the `skills` capability).
+
+#### Scenario: Entry is shown
+
+- **WHEN** the chat sidebar has a connection to the dashboard
+- **THEN** it shows a Skills entry that opens the Skills page
+
+#### Scenario: Entry is hidden
+
+- **WHEN** the chat has no dashboard connection
+- **THEN** the sidebar does not show a Skills entry
+
