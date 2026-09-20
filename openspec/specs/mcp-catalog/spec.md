@@ -5,7 +5,7 @@ Hermes keeps an approved catalog of MCP servers and can sign in to servers that 
 ## Requirements
 ### Requirement: Catalog screen
 
-The system SHALL offer a Catalog screen, opened from the "Add" button of the MCP servers screen and from the button of its empty state, acting on the active profile and naming it in the header as "Installing into: {profile}". It SHALL load the catalog with `GET /api/mcp/catalog` and the active profile, show a progress indicator while loading, and list every entry with its name, its description, a chip for its transport ("Remote" or "Command"), a chip for its sign-in kind ("API key", "OAuth" or "No auth"), a "Builds locally" chip when Hermes has to build it on the server, and an "Installed" chip when it is installed. Entries without a non-empty string name SHALL be skipped. When the answer carries diagnostics, the screen SHALL say that some catalog entries could not be read. When loading fails, or the active profile cannot be learned, the screen SHALL show "Could not load the catalog" with a Retry button and SHALL NOT install anything.
+The system SHALL offer a Catalog screen, opened by "Browse the catalog" in the menu of the "Add" button of the MCP servers screen and by the same button in its empty state, acting on the active profile and naming it in the header as "Installing into: {profile}". It SHALL load the catalog with `GET /api/mcp/catalog` and the active profile, show a progress indicator while loading, and list every entry with its name, its description, a chip for its transport ("Remote" or "Command"), a chip for its sign-in kind ("API key", "OAuth" or "No auth"), a "Builds locally" chip when Hermes has to build it on the server, and an "Installed" chip when it is installed. Entries without a non-empty string name SHALL be skipped. When the answer carries diagnostics, the screen SHALL say that some catalog entries could not be read. When loading fails, or the active profile cannot be learned, the screen SHALL show "Could not load the catalog" with a Retry button and SHALL NOT install anything.
 
 #### Scenario: Catalog is listed
 
@@ -24,7 +24,7 @@ The system SHALL offer a Catalog screen, opened from the "Add" button of the MCP
 
 #### Scenario: Entry point
 
-- **WHEN** the user taps "Add" on the MCP servers screen, or the button of the empty state
+- **WHEN** the user taps "Add" on the MCP servers screen and then "Browse the catalog", or taps "Browse the catalog" in the empty state
 - **THEN** the Catalog screen opens for the same profile
 
 ### Requirement: Search and filters
