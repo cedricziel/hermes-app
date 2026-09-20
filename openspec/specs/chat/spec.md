@@ -631,7 +631,7 @@ The system SHALL accept content shared into the app while the chat is open or be
 #### Scenario: Files are named, not uploaded
 
 - **WHEN** the user sends with attachments
-- **THEN** the message text is the typed text followed by a blank line and "Attached:" with the file names, and the attachments are cleared; file contents are not sent
+- **THEN** the message text is the typed text followed by a blank line and "Files (names only, contents not sent):" with the file names, and the attachments are cleared; file contents are not sent, and the composer says so under the chips
 
 ### Requirement: Opening a thread from a notification
 

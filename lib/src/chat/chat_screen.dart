@@ -390,7 +390,8 @@ class _ChatScreenState extends State<ChatScreen> {
     final typed = text.trim();
     final attached = _attachments.isEmpty
         ? ''
-        : 'Attached: ${_attachments.map((f) => f.name).join(', ')}';
+        : 'Files (names only, contents not sent): '
+              '${_attachments.map((f) => f.name).join(', ')}';
     final content = [typed, attached].where((s) => s.isNotEmpty).join('\n\n');
     if (content.isEmpty) return;
 

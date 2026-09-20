@@ -112,6 +112,13 @@ void main() {
     await h.pump(tester);
 
     expect(find.byType(InputChip), findsNothing);
+    expect(find.text(attachmentsNote), findsNothing);
+  });
+
+  testWidgets('says that only the file names are sent', (tester) async {
+    await h.pump(tester, attachments: [_report, _photo]);
+
+    expect(find.text(attachmentsNote), findsOneWidget);
   });
 
   testWidgets('tapping a chip remove control reports that file', (

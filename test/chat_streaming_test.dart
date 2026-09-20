@@ -475,7 +475,7 @@ void main() {
     expect(find.byType(ThinkingIndicator), findsNothing);
   });
 
-  chatTest('an attachments-only send goes out naming the files', (
+  chatTest('an attachments-only send says it carries names, not contents', (
     tester,
   ) async {
     final share = ShareController(
@@ -489,7 +489,10 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
 
-    expect(transport.sends.single.text, 'Attached: report.pdf');
+    expect(
+      transport.sends.single.text,
+      'Files (names only, contents not sent): report.pdf',
+    );
     expect(find.byTooltip('Remove report.pdf'), findsNothing);
   });
 }

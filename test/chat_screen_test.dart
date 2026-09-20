@@ -318,42 +318,46 @@ void main() {
       expect(field.controller.text, 'Summarise:\nhttps://example.com');
     });
 
-    testWidgets('shared files show as removable chips and are named on send', (
-      tester,
-    ) async {
-      useWideView(tester);
-      final inbox = FakeShareInbox([
-        const SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf'),
-        const SharedFile(
-          path: '/tmp/a/photo.png',
-          name: 'photo.png',
-          isImage: true,
-        ),
-      ]);
-      final share = ShareController(inbox);
-      await share.start();
+    testWidgets(
+      'shared files show as removable chips and only their names are sent',
+      (tester) async {
+        useWideView(tester);
+        final inbox = FakeShareInbox([
+          const SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf'),
+          const SharedFile(
+            path: '/tmp/a/photo.png',
+            name: 'photo.png',
+            isImage: true,
+          ),
+        ]);
+        final share = ShareController(inbox);
+        await share.start();
 
-      await tester.pumpWidget(_wrap(const ChatScreen(), share: share));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(_wrap(const ChatScreen(), share: share));
+        await tester.pumpAndSettle();
 
-      expect(find.text('report.pdf'), findsOneWidget);
-      expect(find.text('photo.png'), findsOneWidget);
+        expect(find.text('report.pdf'), findsOneWidget);
+        expect(find.text('photo.png'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('Remove photo.png'));
-      await tester.pump();
-      expect(find.text('photo.png'), findsNothing);
+        await tester.tap(find.byTooltip('Remove photo.png'));
+        await tester.pump();
+        expect(find.text('photo.png'), findsNothing);
 
-      // Attachments alone are enough to send.
-      await tester.tap(find.byIcon(Icons.arrow_upward));
-      await tester.pump();
-      expect(
-        find.textContaining('Attached: report.pdf', findRichText: true),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Remove report.pdf'), findsNothing);
+        // Attachments alone are enough to send.
+        await tester.tap(find.byIcon(Icons.arrow_upward));
+        await tester.pump();
+        expect(
+          find.textContaining(
+            'Files (names only, contents not sent): report.pdf',
+            findRichText: true,
+          ),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Remove report.pdf'), findsNothing);
 
-      await tester.pump(const Duration(milliseconds: 1000));
-      await tester.pumpAndSettle();
-    });
+        await tester.pump(const Duration(milliseconds: 1000));
+        await tester.pumpAndSettle();
+      },
+    );
   });
 }
