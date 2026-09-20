@@ -204,6 +204,14 @@ final _absoluteServerPath = RegExp(r'^(?:/|[A-Za-z]:[\\/])');
 /// Whether [path] is absolute on a POSIX or Windows server.
 bool isAbsoluteServerPath(String path) => _absoluteServerPath.hasMatch(path);
 
+final _pathSeparator = RegExp(r'[/\\]');
+
+/// The last part of a POSIX or Windows [path], or [path] itself when it has
+/// none.
+String fileNameOf(String path) => path
+    .split(_pathSeparator)
+    .lastWhere((part) => part.isNotEmpty, orElse: () => path);
+
 class ChatMessage {
   ChatMessage({
     required this.id,

@@ -60,8 +60,6 @@ class HermesMediaSource implements MediaSource {
     if (api == null) throw const MediaFetchException(MediaFailure.failed);
     try {
       return await fetch(api);
-    } on MediaFetchException {
-      rethrow;
     } on DioException catch (e) {
       throw MediaFetchException(switch (e.response?.statusCode) {
         404 => MediaFailure.missing,

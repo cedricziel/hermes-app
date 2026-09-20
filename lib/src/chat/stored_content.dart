@@ -16,7 +16,6 @@ final _reference = RegExp(r'^@(image|file):(.+)$');
 final _attachedFile = RegExp(r'^\[User attached file: (.+)\]$');
 final _dataImageHeader = RegExp(r'^data:image/([a-zA-Z0-9.+-]+)?;base64,');
 final _whitespace = RegExp(r'\s+');
-final _pathSeparator = RegExp(r'[/\\]');
 const _textParts = {'text', 'input_text', 'output_text'};
 const _imageParts = {'image_url', 'input_image', 'image'};
 
@@ -106,7 +105,7 @@ ChatAttachment? _attachmentOf(String line) {
     return null;
   }
   if (path.isEmpty) return null;
-  return ChatAttachment(name: _fileName(path), kind: kind, remotePath: path);
+  return ChatAttachment(name: fileNameOf(path), kind: kind, remotePath: path);
 }
 
 /// Hermes wraps a path that holds whitespace or brackets in one kind of quote.
@@ -118,10 +117,6 @@ String _unquote(String value) {
   }
   return value;
 }
-
-String _fileName(String path) => path
-    .split(_pathSeparator)
-    .lastWhere((part) => part.isNotEmpty, orElse: () => path);
 
 ChatAttachment _withBytes(ChatAttachment a, Uint8List bytes) => ChatAttachment(
   name: a.name,

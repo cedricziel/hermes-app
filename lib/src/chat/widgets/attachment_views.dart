@@ -249,19 +249,14 @@ class _AttachmentCardState extends State<AttachmentCard> {
     try {
       final file = await store.file(path, _attachment.name);
       await then(store, file);
-      if (mounted) setState(() => _busy = false);
     } on MediaFetchException catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _failure = e.reason;
-        });
-      }
+      if (mounted) setState(() => _failure = e.reason);
     } on Object {
-      if (mounted) setState(() => _busy = false);
       messenger?.showSnackBar(
         const SnackBar(content: Text('Something went wrong. Try again.')),
       );
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 

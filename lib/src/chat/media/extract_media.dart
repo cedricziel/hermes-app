@@ -18,7 +18,6 @@ final _code = RegExp(r'```[\s\S]*?(?:```|$)|`[^`\n]*`');
 final _sentenceEnd = RegExp(r'''[.,;:!?)\]}>'"`]+$''');
 final _trailingBlanks = RegExp(r'[ \t]+$');
 final _whitespace = RegExp(r'\s');
-final _pathSeparator = RegExp(r'[/\\]');
 const _imageExtensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'};
 
 /// Reads the `MEDIA:<absolute path>` tags Hermes' agent writes to hand a file
@@ -31,7 +30,12 @@ const _imageExtensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'ico'};
 /// not have finished, and a start of one such as `MED`, is held back, so a
 /// half-read path is never fetched or shown.
 ExtractedMedia extractMedia(String content, {bool complete = true}) {
-  if (!content.contains('M')) return ExtractedMedia(content, const []);
+  // A reply is scanned again for each piece that streams in, so a text
+  // without a tag, the usual one, must cost no more than these two searches.
+  final partialAt = complete ? -1 : _partialMarkerStart(content);
+  if (partialAt < 0 && !content.contains(_marker)) {
+    return ExtractedMedia(content, const []);
+  }
   final protected = [
     for (final match in _code.allMatches(content)) (match.start, match.end),
   ];
@@ -56,38 +60,40 @@ ExtractedMedia extractMedia(String content, {bool complete = true}) {
     final open = _openQuote.firstMatch(content);
     if (open != null && !isCode(open.start)) {
       removals.add((open.start, content.length));
-    } else {
-      final start = content.lastIndexOf(_whitespace) + 1;
-      final tail = content.substring(start);
-      if (tail.isNotEmpty && _marker.startsWith(tail) && !isCode(start)) {
-        removals.add((start, content.length));
-      }
+    } else if (partialAt >= 0 && !isCode(partialAt)) {
+      removals.add((partialAt, content.length));
     }
   }
   if (removals.isEmpty) return ExtractedMedia(content, const []);
 
   final out = StringBuffer();
   var from = 0;
+  // Whether nothing has been written on the line the output is on.
+  var atLineStart = true;
   for (final (start, end) in removals) {
-    out.write(content.substring(from, start));
+    final gap = content
+        .substring(from, start)
+        .replaceFirst(_trailingBlanks, '');
+    out.write(gap);
+    if (gap.isNotEmpty) atLineStart = gap.endsWith('\n');
     from = end;
-    var kept = out.toString();
-    kept = kept.replaceFirst(_trailingBlanks, '');
     // A line that held only a tag goes away with its line break.
-    final lineEmpty = kept.substring(kept.lastIndexOf('\n') + 1).isEmpty;
-    if (lineEmpty && from < content.length && content[from] == '\n') from++;
-    out
-      ..clear()
-      ..write(kept);
+    if (atLineStart && from < content.length && content[from] == '\n') from++;
   }
   out.write(content.substring(from));
   return ExtractedMedia(out.toString().trim(), attachments);
 }
 
+/// Where the last word of [content] starts, when it is the start of `MEDIA:`
+/// (`M`, `MED`, `MEDIA:`); otherwise -1.
+int _partialMarkerStart(String content) {
+  final start = content.lastIndexOf(_whitespace) + 1;
+  final tail = content.substring(start);
+  return tail.isNotEmpty && _marker.startsWith(tail) ? start : -1;
+}
+
 ChatAttachment _attachmentFor(String path) {
-  final name = path
-      .split(_pathSeparator)
-      .lastWhere((part) => part.isNotEmpty, orElse: () => path);
+  final name = fileNameOf(path);
   final dot = name.lastIndexOf('.');
   final extension = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
   return ChatAttachment(

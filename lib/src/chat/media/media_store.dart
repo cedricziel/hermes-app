@@ -5,12 +5,12 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import '../chat_models.dart' show fileNameOf;
 import 'media_actions.dart';
 import 'media_source.dart';
 
 const _folder = 'hermes_media';
-final _pathSeparator = RegExp(r'[/\\]');
-final _unsafeInName = RegExp(r'[\x00-\x1f:*?"<>|]');
+final _unsafeInName = RegExp(r'[\x00-\x1f:*?"<>|/\\]');
 
 /// Keeps what the chat fetched from the server for files the agent sent:
 /// images in memory, other files in the app's cache directory. Nothing is
@@ -144,10 +144,7 @@ class MediaStore {
 /// The last part of [name], with what a file system rejects taken out, so a
 /// name from the server can only land inside its own folder.
 String _safeName(String name) {
-  final last = name
-      .split(_pathSeparator)
-      .lastWhere((part) => part.isNotEmpty, orElse: () => '');
-  final clean = last.replaceAll(_unsafeInName, '_').trim();
+  final clean = fileNameOf(name).replaceAll(_unsafeInName, '_').trim();
   return clean.isEmpty || clean == '.' || clean == '..' ? 'file' : clean;
 }
 
