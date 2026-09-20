@@ -14,6 +14,7 @@ rotation). No real server, account or chat is in them.
 | `iphone-welcome.png`                                      | A new chat with its starter prompts                    |
 | `ipad-chat.png`, `ipad-chat-dark.png`, `ipad-welcome.png` | The wide layout: navigation rail, thread list and chat |
 | `mac-chat.png`, `mac-chat-dark.png`, `mac-welcome.png`    | The wide layout in a Mac window                        |
+| `watch-threads.png`                                       | The watch app's thread list                            |
 
 ## Retake them
 
@@ -23,6 +24,7 @@ iOS 26 simulators, and Python 3 with Pillow.
 ```bash
 scripts/store-screenshots.sh ios       # iPhone 17 Pro Max and iPad Pro 13-inch simulators, light and dark
 scripts/store-screenshots.sh mac       # the Mac window at its default, compact size
+scripts/store-screenshots.sh watch     # the watch app, through its paired phone
 scripts/store-screenshots.sh finish    # flatten, size and write the images
 ```
 
@@ -53,6 +55,7 @@ Raw captures go to `build/screenshots/`. The store images go to
 | iPhone 17 Pro Max | 1320 x 2868 | iPhone 6.9"   |
 | iPad Pro 13-inch  | 2064 x 2752 | iPad 13"      |
 | Mac               | 2880 x 1800 | Mac           |
+| Apple Watch Ultra | 422 x 514   | Apple Watch   |
 
 The Mac window opens at 800 x 600 points, below the 900 point breakpoint of the
 wide layout, so `mac` takes the compact one, with the thread list in a drawer.
@@ -65,8 +68,12 @@ build/screenshots/mac-light/chat.png`. Do the same for `welcome.png`, then
 switch the app to dark for `mac-dark/chat.png`. `finish` prefers these over the
 compact ones.
 
-The Apple Watch app has no screenshots here: it needs a watchOS simulator
-runtime, which this setup doesn't install.
+The watch screenshot needs the watchOS simulator runtime (Xcode > Settings >
+Components). The `watch` run builds the phone app with the watch app inside,
+installs both on a paired Apple Watch Ultra 4 and iPhone 17, and captures the
+watch once the phone has answered its request for the threads. A simulator
+can't be tapped and the watch has no status-bar override, so it is the screen
+the watch app opens on, with the simulator's own clock.
 
 ## Upload to the App Store
 
