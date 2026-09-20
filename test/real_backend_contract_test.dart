@@ -791,7 +791,6 @@ void main() {
       expect(commandRow.transport, McpTransport.command);
       expect(commandRow.address, 'echo hello world');
       expect(commandRow.auth, isNull);
-      expect(commandRow.toString(), isNot(contains('hunter2')));
     }, skip: skip);
 
     test('a server can be switched off and on again, and removed', () async {

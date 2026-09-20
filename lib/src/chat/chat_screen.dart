@@ -425,7 +425,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => McpServersScreen(repository: _mcp, profiles: _profiles),
+        builder: (_) =>
+            McpServersScreen(repository: _mcp!, profiles: _profiles),
       ),
     );
   }

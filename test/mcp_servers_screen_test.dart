@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
+import 'package:hermes_app/src/mcp/mcp_server_detail.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 

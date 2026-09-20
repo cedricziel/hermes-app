@@ -1,29 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'hermes_mcp_repository.dart';
+import 'mcp_presentation.dart';
 import 'mcp_servers_controller.dart';
-
-/// The label of a server's transport and sign-in, as in "Remote · OAuth".
-String mcpTransportLabel(McpTransport transport) => switch (transport) {
-  McpTransport.remote => 'Remote',
-  McpTransport.command => 'Command',
-  McpTransport.unknown => '',
-};
-
-/// How a server signs in, or null for a command server that does not.
-String? mcpAuthLabel(HermesMcpServer server) => switch (server.auth) {
-  'oauth' => 'OAuth',
-  'header' => 'Header',
-  final other? when other.isNotEmpty => other,
-  _ => server.transport == McpTransport.remote ? 'No auth' : null,
-};
-
-String _plural(int count, String noun) =>
-    '$count $noun${count == 1 ? '' : 's'}';
-
-String _schemaSize(int chars) => chars < 1000
-    ? '$chars chars'
-    : '${(chars / 1000).toStringAsFixed(1)}k chars';
 
 /// Turns [server] on or off and says so when it could not.
 Future<void> switchMcpServer(
@@ -109,9 +88,9 @@ class McpServerDetail extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               [
-                mcpTransportLabel(server.transport),
-                mcpAuthLabel(server),
-              ].where((s) => s != null && s.isNotEmpty).join(' · '),
+                ?mcpTransportLabel(server.transport),
+                ?mcpAuthLabel(server),
+              ].join(' · '),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if (server.address.isNotEmpty) ...[
@@ -222,9 +201,9 @@ class _TestOutcome extends StatelessWidget {
             icon: Icons.check_circle_outline,
             title: 'Connected',
             detail:
-                '${_plural(result.tools.length, 'tool')} · '
-                '${_plural(result.prompts, 'prompt')} · '
-                '${_plural(result.resources, 'resource')}',
+                '${mcpPlural(result.tools.length, 'tool')} · '
+                '${mcpPlural(result.prompts, 'prompt')} · '
+                '${mcpPlural(result.resources, 'resource')}',
           ),
           if (result.tools.isNotEmpty) _ToolList(tools: result.tools),
         ],
@@ -326,7 +305,7 @@ class _ToolList extends StatelessWidget {
                   trailing: tool.schemaChars == null
                       ? null
                       : Text(
-                          _schemaSize(tool.schemaChars!),
+                          mcpSchemaSize(tool.schemaChars!),
                           style: theme.textTheme.bodySmall,
                         ),
                 ),
@@ -358,19 +337,19 @@ class McpServerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: controller,
-      builder: (context, _) {
-        if (controller.serverNamed(name) == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) Navigator.of(context).maybePop();
-          });
-        }
-        return Scaffold(
-          appBar: AppBar(title: const Text('MCP servers')),
-          body: McpServerDetail(controller: controller, name: name),
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(title: const Text('MCP servers')),
+      body: ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) {
+          if (controller.serverNamed(name) == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (context.mounted) Navigator.of(context).maybePop();
+            });
+          }
+          return McpServerDetail(controller: controller, name: name);
+        },
+      ),
     );
   }
 }

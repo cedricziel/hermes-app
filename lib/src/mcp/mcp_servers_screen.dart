@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../auth/auth_controller.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
+import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
-
-export 'mcp_server_detail.dart' show McpServerDetail;
 
 /// Lists the MCP servers of the active profile and switches, tests and removes
 /// them. Below [wideBreakpoint] a tapped server opens as a page; at or above
@@ -17,9 +14,12 @@ export 'mcp_server_detail.dart' show McpServerDetail;
 /// visit and named in the header, so a switch is never flipped on another
 /// profile than the one shown.
 class McpServersScreen extends StatefulWidget {
-  const McpServersScreen({super.key, this.repository, this.profiles});
+  const McpServersScreen({super.key, required this.repository, this.profiles});
 
-  final HermesMcpRepository? repository;
+  final HermesMcpRepository repository;
+
+  /// Where the active profile comes from; without it the screen acts without
+  /// a profile.
   final HermesProfilesRepository? profiles;
 
   static const double wideBreakpoint = 900;
@@ -35,12 +35,9 @@ class _McpServersScreenState extends State<McpServersScreen> {
   @override
   void initState() {
     super.initState();
-    final api = widget.repository == null || widget.profiles == null
-        ? context.read<AuthController>().api!.raw
-        : null;
     _controller = McpServersController(
-      repository: widget.repository ?? HermesMcpRepository(api!),
-      profiles: widget.profiles ?? HermesProfilesRepository(api!),
+      repository: widget.repository,
+      profiles: widget.profiles,
     )..load();
   }
 
@@ -65,27 +62,27 @@ class _McpServersScreenState extends State<McpServersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) {
-        final profile = _controller.profile;
-        return Scaffold(
-          appBar: AppBar(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('MCP servers'),
-                if (profile != null)
-                  Text(
-                    'Profile: $profile',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-              ],
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: ListenableBuilder(
+          listenable: _controller,
+          builder: (context, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('MCP servers'),
+              if (_controller.profile case final profile?)
+                Text(
+                  'Profile: $profile',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
           ),
-          body: _body(),
-        );
-      },
+        ),
+      ),
+      body: ListenableBuilder(
+        listenable: _controller,
+        builder: (context, _) => _body(),
+      ),
     );
   }
 
@@ -113,9 +110,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
-        final selected =
-            servers.where((s) => s.name == _selected).firstOrNull ??
-            servers.first;
+        final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,
           servers: servers,
@@ -213,7 +208,10 @@ class _ServerList extends StatelessWidget {
           _ServerRow(
             key: ValueKey('mcp-row-${server.name}'),
             server: server,
-            test: controller.testOf(server.name),
+            tested: switch (controller.testOf(server.name)) {
+              McpTestFinished(:final result) => result,
+              _ => null,
+            },
             selected: server.name == selected,
             switching: controller.isSwitching(server.name),
             onTap: () => onOpen(server),
@@ -228,7 +226,7 @@ class _ServerRow extends StatelessWidget {
   const _ServerRow({
     super.key,
     required this.server,
-    required this.test,
+    required this.tested,
     required this.selected,
     required this.switching,
     required this.onTap,
@@ -236,7 +234,7 @@ class _ServerRow extends StatelessWidget {
   });
 
   final HermesMcpServer server;
-  final McpTestState? test;
+  final HermesMcpTestResult? tested;
   final bool selected;
   final bool switching;
   final VoidCallback onTap;
@@ -245,10 +243,7 @@ class _ServerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tested = switch (test) {
-      McpTestFinished(:final result) => result,
-      _ => null,
-    };
+    final tested = this.tested;
     final auth = mcpAuthLabel(server);
     final transport = mcpTransportLabel(server.transport);
     return Material(
@@ -294,16 +289,13 @@ class _ServerRow extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        if (transport.isNotEmpty) _Chip(transport),
+                        if (transport != null) _Chip(transport),
                         if (auth != null) _Chip(auth),
                         if (!server.enabled) const _Chip('Off'),
                         if (tested != null && tested.signInNeeded)
                           const _Chip('Sign in needed', warning: true),
                         if (tested != null && tested.ok)
-                          _Chip(
-                            '${tested.tools.length} '
-                            'tool${tested.tools.length == 1 ? '' : 's'}',
-                          ),
+                          _Chip(mcpPlural(tested.tools.length, 'tool')),
                       ],
                     ),
                   ],

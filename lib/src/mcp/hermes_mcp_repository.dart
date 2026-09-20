@@ -47,9 +47,6 @@ class HermesMcpServer {
     auth: auth,
     enabled: enabled,
   );
-
-  @override
-  String toString() => 'HermesMcpServer($name)';
 }
 
 class HermesMcpTool {

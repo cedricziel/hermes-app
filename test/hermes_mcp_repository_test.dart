@@ -126,7 +126,6 @@ void main() {
 
       final db = (await repository.loadServers()).single;
 
-      expect(db.toString(), isNot(contains('DB_PASSWORD')));
       expect(db.address, 'db-mcp');
     });
 

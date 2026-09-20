@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
@@ -62,7 +61,7 @@ class McpServersController extends ChangeNotifier {
   bool isSwitching(String name) => _switching.contains(name);
   McpTestState? testOf(String name) => _tests[name];
 
-  HermesMcpServer? serverNamed(String name) =>
+  HermesMcpServer? serverNamed(String? name) =>
       _servers?.where((s) => s.name == name).firstOrNull;
 
   /// Learns the active profile, then lists its servers.
@@ -85,8 +84,8 @@ class McpServersController extends ChangeNotifier {
     try {
       final active = (await profiles?.loadActive())?.active;
       return active == null || active.isEmpty ? null : active;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+    } on Object catch (e) {
+      if (isMcpNotFound(e)) return null;
       rethrow;
     }
   }
@@ -122,9 +121,7 @@ class McpServersController extends ChangeNotifier {
       ];
       return McpOutcome.done;
     } on Object catch (e) {
-      if (!isMcpNotFound(e)) return McpOutcome.failed;
-      await _reload();
-      return McpOutcome.gone;
+      return _failure(e);
     } finally {
       _switching.remove(name);
       _notify();
@@ -140,9 +137,8 @@ class McpServersController extends ChangeNotifier {
       final result = await repository.testServer(server, profile: _profile);
       _tests[name] = McpTestFinished(result);
     } on Object catch (e) {
-      if (isMcpNotFound(e)) {
+      if (await _failure(e) == McpOutcome.gone) {
         _tests.remove(name);
-        await _reload();
       } else {
         _tests[name] = const McpTestUnavailable();
       }
@@ -157,14 +153,19 @@ class McpServersController extends ChangeNotifier {
     try {
       await repository.removeServer(name, profile: _profile);
     } on Object catch (e) {
-      if (!isMcpNotFound(e)) return McpOutcome.failed;
-      await _reload();
-      return McpOutcome.gone;
+      return _failure(e);
     }
     _servers = _servers?.where((s) => s.name != name).toList();
     _tests.remove(name);
     _notify();
     return McpOutcome.done;
+  }
+
+  /// A 404 means another client removed the server: reload the list.
+  Future<McpOutcome> _failure(Object error) async {
+    if (!isMcpNotFound(error)) return McpOutcome.failed;
+    await _reload();
+    return McpOutcome.gone;
   }
 
   void _notify() {
