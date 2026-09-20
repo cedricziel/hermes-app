@@ -286,7 +286,7 @@ Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. 
 
 ### Requirement: Sign-in outcome and progress
 
-While a sign-in runs, the state SHALL be signing in, and the login screen SHALL show a progress indicator, the text "Continue in your browser…" and a Cancel button, and SHALL disable the "Change server" action. On success the system SHALL store the session, load the identity with `GET /api/auth/me` and go to ready. On any failure it SHALL go to needs login and SHALL show the failure message. The state SHALL NOT remain signing in after a failure or cancellation, including a cancellation that arrives after the browser flow has already produced its result.
+While a sign-in runs, the state SHALL be signing in, and the login screen SHALL show a progress indicator, the text "Continue in your browser…" and a Cancel button, and SHALL disable the "Change server" action. On success the system SHALL load the identity with `GET /api/auth/me` using the new token, then store the session and go to ready. It SHALL NOT store the session, or keep it in use, unless that request succeeded. On any failure it SHALL go to needs login and SHALL show the failure message. The state SHALL NOT remain signing in after a failure or cancellation, including a cancellation that arrives after the browser flow has already produced its result.
 
 #### Scenario: Flow failure
 
@@ -299,6 +299,15 @@ While a sign-in runs, the state SHALL be signing in, and the login screen SHALL 
 - **WHEN** the token exchange succeeds and the identity request fails
 - **THEN** the state is needs login
 - **AND** the message is the server's `detail` string if present, otherwise "Sign-in succeeded but loading your profile failed" for network failures
+- **AND** no session is stored
+
+#### Scenario: Identity response is malformed after sign-in
+
+- **WHEN** the token exchange succeeds and `GET /api/auth/me` answers with a body that is not an identity object
+- **THEN** the state is needs login
+- **AND** the message is "Unexpected response from the server"
+- **AND** no session is stored
+- **AND** the sign-in is recorded as failed with the reason `profile_load`
 
 #### Scenario: Unexpected error
 
@@ -327,7 +336,7 @@ While a sign-in runs, the state SHALL be signing in, and the login screen SHALL 
 #### Scenario: Server changed while sign-in was finishing
 
 - **WHEN** the user leaves the server (or signs out) while a sign-in is still completing
-- **THEN** the late result is discarded and no token is stored
+- **THEN** the late result is discarded and no token is stored, including when the identity request was already in flight
 - **AND** the state stays where the user's action put it
 
 ### Requirement: Auth outcomes are reported without secrets
