@@ -16,13 +16,22 @@ import 'mcp_servers_controller.dart';
 /// visit and named in the header, so a switch is never flipped on another
 /// profile than the one shown.
 class McpServersScreen extends StatefulWidget {
-  const McpServersScreen({super.key, required this.repository, this.profiles});
+  const McpServersScreen({
+    super.key,
+    required this.repository,
+    this.profiles,
+    this.launchLink,
+  });
 
   final HermesMcpRepository repository;
 
   /// Where the active profile comes from; without it the screen acts without
   /// a profile.
   final HermesProfilesRepository? profiles;
+
+  /// Opens links in the browser; the system browser unless a test says
+  /// otherwise.
+  final McpLinkLauncher? launchLink;
 
   static const double wideBreakpoint = 900;
 
@@ -40,6 +49,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     _controller = McpServersController(
       repository: widget.repository,
       profiles: widget.profiles,
+      launchLink: widget.launchLink,
     )..load();
   }
 
