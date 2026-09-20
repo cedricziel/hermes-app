@@ -36,6 +36,9 @@
 		BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */; };
 		C0DC256A998B03F622796497 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */; };
 		F2CB0B8AC120A8E23B8820AE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF79B50BC0B3A3CBB709B7F /* ShareViewController.swift */; };
+		A1B2C3D4E5F60718293A4B11 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B01 /* PrivacyInfo.xcprivacy */; };
+		A1B2C3D4E5F60718293A4B12 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B02 /* PrivacyInfo.xcprivacy */; };
+		A1B2C3D4E5F60718293A4B13 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B03 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -145,6 +148,9 @@
 		E71B86F76BA7818BE17D62C1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E8CE00F2E3EF1A4E96AA892B /* ShareExtension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = ShareExtension.xcconfig; sourceTree = "<group>"; };
 		F884F744E1BE6D3436E17C0A /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B01 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B02 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B03 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +214,7 @@
 				E71B86F76BA7818BE17D62C1 /* Info.plist */,
 				C2F0C32DC8A15DCD964CDCBC /* ShareExtension.entitlements */,
 				E8CE00F2E3EF1A4E96AA892B /* ShareExtension.xcconfig */,
+				A1B2C3D4E5F60718293A4B02 /* PrivacyInfo.xcprivacy */,
 			);
 			name = ShareExtension;
 			path = ShareExtension;
@@ -217,6 +224,7 @@
 			isa = PBXGroup;
 			children = (
 				C3209CC4CC0AEEABCB8B7C61 /* HermesWatch.xcconfig */,
+				A1B2C3D4E5F60718293A4B03 /* PrivacyInfo.xcprivacy */,
 				881128D4B7DE0DB07C68576B /* HermesWatchApp.swift */,
 				F884F744E1BE6D3436E17C0A /* Assets.xcassets */,
 				B7E3CA37F8EEB16A589FBEBB /* WCSessionTransport.swift */,
@@ -298,6 +306,7 @@
 			children = (
 				97C146FA1CF9000F007C117D /* Main.storyboard */,
 				97C146FD1CF9000F007C117D /* Assets.xcassets */,
+				A1B2C3D4E5F60718293A4B01 /* PrivacyInfo.xcprivacy */,
 				97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */,
 				97C147021CF9000F007C117D /* Info.plist */,
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
@@ -476,6 +485,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0AA3809677393A117BD4526D /* Assets.xcassets in Resources */,
+				A1B2C3D4E5F60718293A4B13 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -487,6 +497,7 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				A1B2C3D4E5F60718293A4B11 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -494,6 +505,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1B2C3D4E5F60718293A4B12 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
