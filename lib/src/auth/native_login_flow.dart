@@ -183,6 +183,7 @@ Future<HermesSession> runNativeLogin(
       '/auth/native/token',
       data: {'code': code, 'code_verifier': pkce.verifier},
     );
+    if (wasCancelled) throw const NativeLoginCancelled();
     final data = tokenResponse.data;
     if (data == null) {
       throw NativeLoginException(
@@ -195,6 +196,7 @@ Future<HermesSession> runNativeLogin(
     if (wasCancelled) throw const NativeLoginCancelled();
     rethrow;
   } on DioException catch (e) {
+    if (wasCancelled) throw const NativeLoginCancelled();
     throw NativeLoginException(
       _describeDioError(e),
       statusCode: e.response?.statusCode,

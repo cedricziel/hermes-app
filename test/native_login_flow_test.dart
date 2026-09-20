@@ -9,6 +9,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/native_login_flow.dart';
 
 class _TokenAdapter implements HttpClientAdapter {
+  /// When set, the token response waits for it; [requested] fires first.
+  Completer<void>? gate;
+  final requested = Completer<void>();
   RequestOptions? lastRequest;
 
   @override
@@ -18,6 +21,8 @@ class _TokenAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     lastRequest = options;
+    if (!requested.isCompleted) requested.complete();
+    await gate?.future;
     return ResponseBody.fromString(
       jsonEncode({
         'access_token': 'at',
@@ -168,4 +173,26 @@ void main() {
       );
     },
   );
+
+  test('a cancel during the token exchange discards the session', () async {
+    final adapter = _TokenAdapter()..gate = Completer<void>();
+    final cancel = Completer<void>();
+
+    final login = runNativeLogin(
+      'http://hermes.test:9119',
+      httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+        ..httpClientAdapter = adapter,
+      launchBrowser: (url) async {
+        unawaited(_hitCallback(url));
+        return true;
+      },
+      closeBrowser: () async {},
+      cancelled: cancel.future,
+    );
+    await adapter.requested.future;
+    cancel.complete();
+    adapter.gate!.complete();
+
+    await expectLater(login, throwsA(isA<NativeLoginCancelled>()));
+  });
 }

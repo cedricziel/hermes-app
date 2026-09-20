@@ -181,13 +181,16 @@ class AuthController extends ChangeNotifier {
     try {
       _identity = await _api!.fetchMe();
       _setState(HermesConnectionState.ready);
-    } on DioException catch (_) {
-      // The request interceptor already tried a refresh; if we're still
-      // here the session is unrecoverable.
-      _events('auth.session.expired', {'cause': 'stored_session_rejected'});
-      await _tokenStore.clear();
-      _session = null;
-      _setState(HermesConnectionState.needsLogin);
+    } on DioException catch (e) {
+      // When the interceptor confirmed the credential is dead it has already
+      // cleared the session and asked for a login. Anything else (network,
+      // 5xx) leaves the tokens alone so the user can simply retry.
+      if (_session == null) return;
+      _errorMessage = _describeDioError(
+        e,
+        fallback: 'Could not verify your session',
+      );
+      _setState(HermesConnectionState.connectionError);
     }
   }
 
@@ -421,6 +424,11 @@ class AuthController extends ChangeNotifier {
 
     final future = refreshNativeSession(url, current, httpClient: _tokenDio)
         .then((refreshed) async {
+          // Signing out or switching server while this was in flight must
+          // not bring the old session back.
+          if (!identical(_session, current)) {
+            throw StateError('The session changed during the refresh');
+          }
           _session = refreshed;
           await _tokenStore.write(refreshed);
           _events('auth.session.refreshed', {'trigger': trigger});

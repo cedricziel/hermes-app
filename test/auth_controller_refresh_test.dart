@@ -31,6 +31,9 @@ class _GatedDashboard {
   /// Status the refresh route answers with instead of rotating, if set.
   int? refreshFailure;
 
+  /// How long the refresh route takes before answering.
+  Duration refreshDelay = Duration.zero;
+
   /// Delays applied, in order, to the next 401 answers, so one request's
   /// rejection can land after a concurrent request has rotated the tokens.
   final List<Duration> unauthorizedDelays = [];
@@ -52,6 +55,7 @@ class _GatedDashboard {
         final body = jsonDecode(
           await utf8.decoder.bind(request).join(),
         ) as Map<String, dynamic>;
+        await Future<void>.delayed(refreshDelay);
         final failure = refreshFailure;
         if (failure != null) {
           return _json(request, failure, {'detail': 'refresh failed'});
@@ -196,5 +200,33 @@ void main() {
       {'cause': 'refresh_rejected'},
     ]);
     expect(events.named('auth.state').last, {'state': 'needsLogin'});
+  });
+
+  test('keeps stored tokens when the session check fails for a transient '
+      'reason at startup', () async {
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshFailure = 503;
+
+    await bootstrapWith(_session());
+
+    expect(controller.state, HermesConnectionState.connectionError);
+    expect(store.session?.refreshToken, 'refresh-1');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a refresh that finishes after sign-out does not restore the '
+      'session', () async {
+    await bootstrapWith(_session());
+    dashboard
+      ..validAccess = 'revoked'
+      ..refreshDelay = const Duration(milliseconds: 300);
+
+    final request = controller.api!.fetchMe();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await controller.signOut();
+
+    await expectLater(request, throwsA(isA<DioException>()));
+    expect(store.session, isNull);
   });
 }
