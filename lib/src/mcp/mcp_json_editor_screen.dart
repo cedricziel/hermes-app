@@ -255,7 +255,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
             detail:
                 'Anything you remove here is deleted, not just switched off. '
                 "This is the profile's real configuration, including secrets "
-                'such as environment values. It is not saved on this device.',
+                'such as environment values and bearer tokens. It is not saved on '
+                'this device.',
           ),
           const SizedBox(height: 12),
           Expanded(

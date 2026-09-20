@@ -96,7 +96,7 @@ While the add request runs, the Add button SHALL show progress and SHALL NOT acc
 
 ### Requirement: JSON editor loads the full map
 
-The system SHALL offer "Edit as JSON" in the overflow menu of the MCP servers screen. It SHALL load the active profile's whole `mcp_servers` map from `GET /api/config` with the profile, and show it as formatted JSON in a monospace editor, because the server list route leaves out fields such as headers, OAuth settings and timeouts. The screen SHALL name the profile and say that the text holds the profile's real configuration, including secrets. A progress indicator SHALL show while loading, and a failure SHALL show "Could not load the configuration" with a Retry button. A profile with no servers SHALL show `{}`.
+The system SHALL offer "Edit as JSON" in the overflow menu of the MCP servers screen. It SHALL load the active profile's whole `mcp_servers` map from `GET /api/config` with the profile, and show it as formatted JSON in a monospace editor, because the server list route leaves out fields such as headers, OAuth settings and timeouts. The screen SHALL name the profile and say that the text holds the profile's real configuration, including secrets such as environment values and bearer tokens. A progress indicator SHALL show while loading, and a failure SHALL show "Could not load the configuration" with a Retry button. A profile with no servers SHALL show `{}`.
 
 #### Scenario: Loading
 
@@ -167,7 +167,7 @@ The system SHALL NOT store a bearer token, an environment value or the JSON edit
 
 ### Requirement: Backend contract
 
-The system SHALL use `POST /api/mcp/servers`, `PUT /api/mcp/servers` and `GET /api/config` with the `profile` query parameter. An add answers the server's summary as the list does. An add for a remote server SHALL NOT send arguments or environment values, and an add for a command server SHALL NOT send an authentication mode or a token, because Hermes refuses both with 400. A replace body is `{"servers": {...}, "profile": ...}` and answers `{"ok": true}` or 400 with the problems joined by "; ". The config answer is an object whose `mcp_servers` is a map of objects, missing when there are none. The minimum Hermes version is 0.21.3.
+The system SHALL use `POST /api/mcp/servers`, `PUT /api/mcp/servers` and `GET /api/config` with the `profile` query parameter. An add answers the server's summary as the list does. An add for a remote server SHALL NOT send arguments or environment values, and an add for a command server SHALL NOT send an authentication mode or a token, because Hermes refuses both with 400. A replace body is `{"servers": {...}, "profile": ...}` and answers `{"ok": true}` or 400 with the problems joined by "; ". The config answer is an object whose `mcp_servers` is a map of objects, missing when there are none, and Hermes has expanded `${VAR}` references in it, so a bearer token shows in plain text; a value saved back unchanged keeps its reference in Hermes' file. The minimum Hermes version is 0.21.3.
 
 #### Scenario: No `mcp_servers` key
 
