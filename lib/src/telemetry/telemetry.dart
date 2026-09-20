@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_otel/flutter_otel.dart';
 
 import 'device_attributes.dart';
@@ -19,10 +20,10 @@ class Telemetry {
 
   bool get enabled => _sdk != null;
 
-  /// A malformed endpoint disables telemetry rather than failing app start.
+  /// An unusable endpoint disables telemetry rather than failing app start.
   static Future<Telemetry> initialize(TelemetryConfig config) async {
     final endpoint = config.enabled ? Uri.tryParse(config.otlpEndpoint) : null;
-    if (endpoint == null || !endpoint.hasScheme || endpoint.host.isEmpty) {
+    if (endpoint == null || !isExportableEndpoint(endpoint)) {
       return Telemetry._(null);
     }
 
@@ -42,6 +43,20 @@ class Telemetry {
     );
     return Telemetry._(sdk);
   }
+
+  /// The export carries a bearer header, so only https is allowed. Plain http
+  /// is accepted for loopback hosts, where the traffic never leaves the device.
+  @visibleForTesting
+  static bool isExportableEndpoint(Uri endpoint) {
+    if (endpoint.host.isEmpty) return false;
+    return switch (endpoint.scheme) {
+      'https' => true,
+      'http' => _loopbackHosts.contains(endpoint.host),
+      _ => false,
+    };
+  }
+
+  static const _loopbackHosts = {'localhost', '127.0.0.1', '::1'};
 
   /// Traces and logs every request on the Dio client it is added to.
   Interceptor? dioInterceptor() {
