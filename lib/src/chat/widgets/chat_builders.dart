@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show ChatMessage;
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../theme/hermes_theme.dart';
@@ -24,6 +25,13 @@ import 'thinking_indicator.dart';
 import 'tool_call_card.dart';
 import 'unsupported_request_card.dart';
 import 'welcome_view.dart';
+
+/// Gutters around chat messages. The package's 8 px sat tighter than the top
+/// bar and composer, and 2 px between the items of one reply ran the tool
+/// cards into the text.
+const double kChatGutter = 20;
+const double kChatTurnGap = 20;
+const double kChatItemGap = 8;
 
 /// The `flutter_chat_ui` builders that give Hermes' message kinds and empty
 /// state their assistant-ui look inside a `Chat`.
@@ -90,6 +98,27 @@ Builders buildChatBuilders({
               onAnswerClarify: onAnswerClarify,
               onSkipUnsupported: onSkipUnsupported,
             ),
+    chatMessageBuilder:
+        (
+          context,
+          message,
+          index,
+          animation,
+          child, {
+          isRemoved,
+          required isSentByMe,
+          groupStatus,
+        }) => ChatMessage(
+          message: message,
+          index: index,
+          animation: animation,
+          isRemoved: isRemoved,
+          groupStatus: groupStatus,
+          horizontalPadding: kChatGutter,
+          verticalPadding: kChatTurnGap,
+          verticalGroupedPadding: kChatItemGap,
+          child: child,
+        ),
     emptyChatListBuilder: (_) =>
         WelcomeView(greetingName: greetingName, onPick: onPickPrompt),
   );
