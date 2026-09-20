@@ -4,6 +4,7 @@ import '../../chat/widgets/relative_time.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_task_log_dialog.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
 Future<void> showKanbanTask(
@@ -163,6 +164,37 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
       await _load();
     }
   }
+
+  Future<void> _terminate(KanbanRun run) async {
+    if (!await confirmKanban(
+      context,
+      title: 'Terminate this run?',
+      confirm: 'Terminate',
+    )) {
+      return;
+    }
+    await _do(() => _repo.terminateRun(run.id, board: widget.board));
+  }
+
+  Future<void> _removeAttachment(KanbanAttachment a) async {
+    if (!await confirmKanban(
+      context,
+      title: 'Remove ${a.filename}?',
+      confirm: 'Remove',
+    )) {
+      return;
+    }
+    await _do(() => _repo.removeAttachment(a.id, board: widget.board));
+  }
+
+  void _showLog() => showDialog<void>(
+    context: context,
+    builder: (_) => KanbanTaskLogDialog(
+      repository: _repo,
+      taskId: widget.taskId,
+      board: widget.board,
+    ),
+  );
 
   Future<void> _reclaim() async {
     if (!await confirmKanban(
@@ -455,6 +487,22 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
               ],
             ),
           ),
+        if (detail.diagnostics.isNotEmpty) ...[
+          const _Heading('Needs attention'),
+          for (final d in detail.diagnostics)
+            Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              color: d.severity == 'warning'
+                  ? Colors.amber.withValues(alpha: 0.15)
+                  : theme.colorScheme.error.withValues(alpha: 0.12),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.warning_amber_rounded),
+                title: Text(d.title),
+                subtitle: d.detail.isEmpty ? null : Text(d.detail),
+              ),
+            ),
+        ],
         if (task.body != null) ...[
           const _Heading('Description'),
           SelectableText(task.body!),
@@ -534,6 +582,52 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             ),
           ],
         ),
+        if (detail.attachments.isNotEmpty) ...[
+          const _Heading('Attachments'),
+          for (final a in detail.attachments)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.attach_file),
+              title: Text(a.filename),
+              subtitle: Text(_size(a.size)),
+              trailing: IconButton(
+                tooltip: 'Remove attachment',
+                icon: const Icon(Icons.close),
+                onPressed: () => _removeAttachment(a),
+              ),
+            ),
+        ],
+        if (detail.runs.isNotEmpty)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text('Runs (${detail.runs.length})'),
+            children: [
+              for (final r in detail.runs.reversed)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    '#${r.id} · ${r.profile ?? 'worker'} · '
+                    '${r.active ? 'running' : (r.outcome ?? r.status)}',
+                  ),
+                  subtitle: r.error != null || r.summary != null
+                      ? Text(r.error ?? r.summary!)
+                      : null,
+                  trailing: r.active
+                      ? TextButton(
+                          onPressed: () => _terminate(r),
+                          child: const Text('Terminate'),
+                        )
+                      : null,
+                ),
+              TextButton.icon(
+                onPressed: _showLog,
+                icon: const Icon(Icons.terminal),
+                label: const Text('Worker log'),
+              ),
+            ],
+          ),
         if (detail.events.isNotEmpty)
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -572,6 +666,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     );
   }
 }
+
+String _size(int bytes) => bytes < 1024
+    ? '$bytes B'
+    : bytes < 1024 * 1024
+    ? '${(bytes / 1024).toStringAsFixed(1)} KB'
+    : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 
 class _Heading extends StatelessWidget {
   const _Heading(this.text);

@@ -233,4 +233,95 @@ void main() {
     );
     expect(changes, 1);
   });
+
+  void serveRich() => server
+    ..on(
+      'GET',
+      '/api/plugins/kanban/tasks/t1',
+      kanbanTaskDetailBody(
+        kanbanTaskRow(id: 't1', title: 'Migrate webhooks', status: 'running')
+          ..['diagnostics'] = [
+            {
+              'title': 'Worker stalled',
+              'severity': 'error',
+              'detail': 'No heartbeat for 10m',
+            },
+          ],
+        runs: [
+          {
+            'id': 7,
+            'status': 'running',
+            'profile': 'coder',
+            'started_at': 1780000000,
+          },
+        ],
+        attachments: [
+          {'id': 3, 'filename': 'spec.pdf', 'size': 2048},
+        ],
+      ),
+    )
+    ..on('POST', '/api/plugins/kanban/runs/7/terminate', {'ok': true})
+    ..on('DELETE', '/api/plugins/kanban/attachments/3', {'ok': true})
+    ..on('GET', '/api/plugins/kanban/tasks/t1/log', {
+      'exists': true,
+      'content': 'starting worker',
+    });
+
+  testWidgets('shows what needs attention and the attachments', (tester) async {
+    serveRich();
+    await pumpPanel(tester);
+
+    expect(find.text('Worker stalled'), findsOneWidget);
+    expect(find.text('No heartbeat for 10m'), findsOneWidget);
+    expect(find.text('spec.pdf'), findsOneWidget);
+    expect(find.text('2.0 KB'), findsOneWidget);
+  });
+
+  testWidgets('terminates the active run after confirming', (tester) async {
+    serveRich();
+    await pumpPanel(tester);
+
+    await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.tap(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Terminate'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Terminate'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('POST', '/api/plugins/kanban/runs/7/terminate'),
+      hasLength(1),
+    );
+    expect(changes, 1);
+  });
+
+  testWidgets('opens the worker log', (tester) async {
+    serveRich();
+    await pumpPanel(tester);
+
+    await tester.ensureVisible(find.textContaining('Runs ('));
+    await tester.tap(find.textContaining('Runs ('));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Worker log'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('starting worker'), findsOneWidget);
+  });
+
+  testWidgets('removes an attachment after confirming', (tester) async {
+    serveRich();
+    await pumpPanel(tester);
+
+    await tester.ensureVisible(find.byTooltip('Remove attachment'));
+    await tester.tap(find.byTooltip('Remove attachment'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Remove'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('DELETE', '/api/plugins/kanban/attachments/3'),
+      hasLength(1),
+    );
+  });
 }
