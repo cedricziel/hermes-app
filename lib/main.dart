@@ -11,6 +11,7 @@ import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
+import 'src/watch/watch_bridge.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,6 +29,12 @@ Future<void> main() async {
             interceptors: [?httpInterceptor],
             events: telemetry.events(),
           )..bootstrap(),
+        ),
+        Provider<WatchBridge?>(
+          lazy: false,
+          create: (context) =>
+              WatchBridge.forAuth(context.read<AuthController>())?..start(),
+          dispose: (_, bridge) => bridge?.dispose(),
         ),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
