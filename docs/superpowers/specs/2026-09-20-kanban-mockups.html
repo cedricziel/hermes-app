@@ -1,0 +1,606 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Hermes Kanban – mockups</title>
+    <style>
+      :root {
+        --z50: #fafafa;
+        --z100: #f4f4f5;
+        --z200: #e4e4e7;
+        --z300: #d4d4d8;
+        --z400: #a1a1aa;
+        --z500: #71717a;
+        --z700: #3f3f46;
+        --z900: #18181b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: #e9e9ec;
+        font:
+          14px/1.4 -apple-system,
+          Inter,
+          sans-serif;
+        color: var(--z900);
+      }
+      h1 {
+        margin: 0 0 4px;
+        font-size: 22px;
+      }
+      p.sub {
+        margin: 0 0 28px;
+        color: var(--z500);
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--z500);
+        margin: 32px 0 12px;
+      }
+      .row {
+        display: flex;
+        gap: 28px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+      .cap {
+        font-size: 12px;
+        color: var(--z500);
+        margin-top: 8px;
+        max-width: 340px;
+      }
+      .phone {
+        width: 340px;
+        height: 640px;
+        background: #fff;
+        border-radius: 34px;
+        border: 8px solid #111;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+      }
+      .desk {
+        width: 980px;
+        height: 560px;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid var(--z300);
+        display: flex;
+        overflow: hidden;
+      }
+      .side {
+        width: 210px;
+        background: var(--z50);
+        border-right: 1px solid var(--z200);
+        display: flex;
+        flex-direction: column;
+        padding: 12px 0;
+      }
+      .side .t {
+        padding: 7px 14px;
+        font-size: 12px;
+        color: var(--z700);
+        white-space: nowrap;
+        border-radius: 8px;
+        margin: 1px 6px;
+      }
+      .side .t.sel {
+        background: var(--z200);
+      }
+      .side .sp {
+        flex: 1;
+      }
+      .side hr {
+        border: 0;
+        border-top: 1px solid var(--z200);
+        margin: 6px 0;
+      }
+      .side .nav {
+        padding: 8px 14px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+      }
+      .side .nav.new {
+        outline: 2px dashed #2563eb;
+        outline-offset: -2px;
+        border-radius: 6px;
+        margin: 0 6px;
+      }
+      .badge {
+        font-size: 10px;
+        background: var(--z900);
+        color: #fff;
+        border-radius: 9px;
+        padding: 1px 6px;
+        margin-left: auto;
+      }
+      .bar {
+        height: 52px;
+        border-bottom: 1px solid var(--z200);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 10px;
+        font-weight: 600;
+        flex: none;
+        padding-top: 0;
+      }
+      .bar .sp {
+        flex: 1;
+      }
+      .ic {
+        color: var(--z500);
+        font-weight: 400;
+      }
+      .pill {
+        font-size: 11px;
+        border: 1px solid var(--z200);
+        border-radius: 99px;
+        padding: 3px 10px;
+        color: var(--z700);
+        white-space: nowrap;
+        background: #fff;
+      }
+      .pill.on {
+        background: var(--z900);
+        color: #fff;
+        border-color: var(--z900);
+      }
+      .chips {
+        display: flex;
+        gap: 6px;
+        padding: 10px 12px;
+        overflow: hidden;
+        flex: none;
+      }
+      .card {
+        border: 1px solid var(--z200);
+        border-radius: 14px;
+        padding: 11px 12px;
+        background: #fff;
+        margin: 0 12px 10px;
+      }
+      .card .id {
+        font-size: 11px;
+        color: var(--z400);
+        font-family: ui-monospace, monospace;
+      }
+      .card .ti {
+        font-weight: 600;
+        margin: 2px 0 6px;
+      }
+      .card .meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 11px;
+        color: var(--z500);
+        flex-wrap: wrap;
+      }
+      .tag {
+        background: var(--z100);
+        border-radius: 6px;
+        padding: 1px 6px;
+      }
+      .warn {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .p {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+      .av {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--z300);
+        display: inline-block;
+        text-align: center;
+        font-size: 10px;
+        line-height: 18px;
+        color: var(--z700);
+      }
+      .body {
+        flex: 1;
+        overflow: hidden;
+        background: #fff;
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        top: 110px;
+        background: #fff;
+        border-radius: 20px 20px 0 0;
+        border-top: 1px solid var(--z200);
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.18);
+        padding: 14px 16px;
+        overflow: hidden;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .grab {
+        width: 36px;
+        height: 4px;
+        background: var(--z300);
+        border-radius: 2px;
+        margin: 0 auto 12px;
+      }
+      .lbl {
+        font-size: 11px;
+        color: var(--z500);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 14px 0 6px;
+      }
+      .btn {
+        display: inline-block;
+        border: 1px solid var(--z300);
+        border-radius: 10px;
+        padding: 6px 12px;
+        font-size: 12px;
+        margin-right: 6px;
+        background: #fff;
+      }
+      .btn.pri {
+        background: var(--z900);
+        color: #fff;
+        border-color: var(--z900);
+      }
+      .cmt {
+        background: var(--z100);
+        border-radius: 12px;
+        padding: 8px 10px;
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+      .cols {
+        display: flex;
+        gap: 12px;
+        padding: 14px;
+        overflow: hidden;
+        flex: 1;
+        background: var(--z50);
+      }
+      .col {
+        width: 200px;
+        flex: none;
+      }
+      .col h4 {
+        margin: 0 0 8px;
+        font-size: 12px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--z700);
+      }
+      .col h4 span {
+        color: var(--z400);
+        font-weight: 400;
+      }
+      .col .card {
+        margin: 0 0 8px;
+        padding: 9px 10px;
+      }
+      .empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        color: var(--z500);
+        text-align: center;
+        padding: 30px;
+        gap: 6px;
+      }
+      .big {
+        font-size: 38px;
+      }
+      .note {
+        font-size: 11px;
+        color: #2563eb;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kanban in Hermes app — mockups</h1>
+    <p class="sub">
+      Draft for discussion. Neutral zinc look to match the chat UI. Phone =
+      single column with swipeable status chips; wide = full board.
+    </p>
+
+    <h2>1 · Entry point &amp; detection (Kanban is a top-level tab, only when the server has the plugin on)</h2>
+    <div class="row">
+      <div>
+        <div class="phone" style="height: 300px">
+          <div class="bar">Fix flaky login test</div>
+          <div class="body"></div>
+          <div style="height: 56px; border-top: 1px solid var(--z200); display: flex; justify-content: space-around; align-items: center; font-size: 12px">
+            <span><b>💬 Chat</b></span>
+            <span class="ic" style="outline: 2px dashed #2563eb; outline-offset: 6px; border-radius: 6px">▦ Kanban</span>
+          </div>
+        </div>
+        <div class="cap">Phone: bottom bar. Plugin off, hidden or an older server: no bar at all, just the chat as today.</div>
+      </div>
+      <div>
+        <div class="desk" style="width: 560px; height: 300px">
+          <div style="width: 76px; border-right: 1px solid var(--z200); background: var(--z50); display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 24px; font-size: 11px">
+            <span><b>💬<br />Chat</b></span>
+            <span style="outline: 2px dashed #2563eb; outline-offset: 6px; border-radius: 6px">▦<br />Kanban</span>
+          </div>
+          <div class="side" style="width: 180px">
+            <div class="t sel">Fix flaky login test</div>
+            <div class="t">Summarise Q3 notes</div>
+            <div class="sp"></div>
+            <hr />
+            <div class="nav">👤 Profiles</div>
+            <div class="nav">🤖 Bots</div>
+          </div>
+          <div class="empty"><div class="ic">Chat</div></div>
+        </div>
+        <div class="cap">Wide: navigation rail. Profiles and Bots stay in the chat sidebar.</div>
+      </div>
+    </div>
+    <div class="cap" style="max-width: none; margin-top: 10px">
+      Detected via <code>GET /api/dashboard/plugins</code>: the server only returns plugins that are enabled and not hidden, so an entry named <b>kanban</b> means on. Checked on connect and whenever the app returns to the foreground.
+    </div>
+
+    <h2>2 · Phone: board</h2>
+    <div class="row">
+      <div>
+        <div class="phone">
+          <div class="bar">
+            ← Kanban <span class="pill">default ▾</span><span class="sp"></span
+            ><span class="ic">⌕ ⋯</span>
+          </div>
+          <div class="chips">
+            <span class="pill">Triage 2</span><span class="pill">Todo 4</span
+            ><span class="pill">Ready 1</span
+            ><span class="pill on">Running 3</span
+            ><span class="pill">Blocked 1</span
+            ><span class="pill">Review 2</span><span class="pill">Done 18</span>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="id">t_8f3a</div>
+              <div class="ti">Migrate billing webhooks to v2</div>
+              <div class="meta">
+                <span class="av">c</span>coder<span class="tag p">P2</span
+                ><span class="tag">acme</span>💬 4 · 2/5
+              </div>
+            </div>
+            <div class="card">
+              <div class="id">t_91bc</div>
+              <div class="ti">Write release notes for 0.22</div>
+              <div class="meta">
+                <span class="av">w</span>writer<span class="tag">docs</span>💬 1
+              </div>
+            </div>
+            <div class="card">
+              <div class="id">t_a02e</div>
+              <div class="ti">Investigate slow /sessions query</div>
+              <div class="meta">
+                <span class="av">r</span>researcher<span class="tag warn"
+                  >⚠ heartbeat stale</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          Chips replace columns on narrow screens. Tap a card → detail sheet.
+          Long-press → multi-select for bulk status/archive.
+        </div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="bar">
+            ← Kanban <span class="pill">default ▾</span><span class="sp"></span
+            ><span class="ic">⌕ ⋯</span>
+          </div>
+          <div class="chips">
+            <span class="pill">Triage 2</span><span class="pill">Todo 4</span
+            ><span class="pill">Ready 1</span
+            ><span class="pill on">Running 3</span>
+          </div>
+          <div class="body">
+            <div class="card">
+              <div class="id">t_8f3a</div>
+              <div class="ti">Migrate billing webhooks to v2</div>
+              <div class="meta">coder</div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="id" style="font-size: 11px; color: var(--z400)">
+              t_8f3a · Running · coder
+            </div>
+            <div style="font-size: 17px; font-weight: 600; margin: 4px 0 8px">
+              Migrate billing webhooks to v2
+            </div>
+            <span class="btn pri">Complete</span><span class="btn">Block</span
+            ><span class="btn">Reassign</span><span class="btn">⋯</span>
+            <div class="lbl">Description</div>
+            <div style="font-size: 12px; color: var(--z700)">
+              Move the three Stripe webhooks to the v2 signing scheme. Keep
+              idempotency keys.
+            </div>
+            <div class="lbl">Depends on</div>
+            <span class="tag">t_77aa Design review ✓</span>
+            <div class="lbl">Comments (4)</div>
+            <div class="cmt"><b>coder</b> Endpoint 1 done, tests green.</div>
+            <div class="cmt"><b>you</b> Please also cover refunds.</div>
+            <div
+              style="
+                border: 1px solid var(--z200);
+                border-radius: 12px;
+                padding: 8px 10px;
+                color: var(--z400);
+                font-size: 12px;
+              "
+            >
+              Add a comment…
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          Detail sheet: status actions, description, dependencies, comments,
+          latest run summary. Edit title/assignee/priority inline.
+        </div>
+      </div>
+
+      <div>
+        <div class="phone">
+          <div class="bar">
+            ← New task<span class="sp"></span
+            ><span class="btn pri" style="margin: 0">Create</span>
+          </div>
+          <div class="body" style="padding: 14px">
+            <div class="lbl" style="margin-top: 0">Title</div>
+            <div class="card" style="margin: 0">Add dark mode to settings</div>
+            <div class="lbl">Description</div>
+            <div
+              class="card"
+              style="margin: 0; height: 80px; color: var(--z400)"
+            >
+              Optional…
+            </div>
+            <div class="lbl">Assignee</div>
+            <div class="card" style="margin: 0">Auto (triage picks) ▾</div>
+            <div class="lbl">Priority</div>
+            <span class="pill on">Normal</span> <span class="pill">High</span>
+            <span class="pill">Urgent</span>
+            <div class="lbl">Start as</div>
+            <span class="pill on">Triage</span> <span class="pill">Todo</span>
+          </div>
+        </div>
+        <div class="cap">
+          Quick-create. Default lands in Triage so the orchestrator
+          specifies/decomposes it.
+        </div>
+      </div>
+    </div>
+
+    <h2>3 · Tablet / desktop: full board</h2>
+    <div class="row">
+      <div>
+        <div class="desk">
+          <div style="width: 76px; border-right: 1px solid var(--z200); background: var(--z50); display: flex; flex-direction: column; align-items: center; gap: 18px; padding-top: 24px; font-size: 11px">
+            <span class="ic">💬<br />Chat</span>
+            <span><b>▦<br />Kanban</b></span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; min-width: 0"
+          >
+            <div class="bar">
+              Kanban <span class="pill">default ▾</span
+              ><span class="pill">All assignees ▾</span
+              ><span class="pill">☐ Archived</span><span class="sp"></span
+              ><span class="pill">Auto-decompose ●</span
+              ><span class="btn" style="margin: 0">＋ New task</span>
+            </div>
+            <div class="cols">
+              <div class="col">
+                <h4>Triage <span>2</span></h4>
+                <div class="card">
+                  <div class="id">t_b1</div>
+                  <div class="ti">Add SSO docs</div>
+                  <div class="meta">— <span class="tag">Decompose</span></div>
+                </div>
+              </div>
+              <div class="col">
+                <h4>Todo <span>4</span></h4>
+                <div class="card">
+                  <div class="id">t_c4</div>
+                  <div class="ti">Refactor auth store</div>
+                  <div class="meta">coder · 🔗 1</div>
+                </div>
+              </div>
+              <div class="col">
+                <h4>Running <span>3</span></h4>
+                <div class="card">
+                  <div class="id">t_8f</div>
+                  <div class="ti">Migrate billing webhooks</div>
+                  <div class="meta">
+                    coder <span class="tag p">P2</span> 2/5
+                  </div>
+                </div>
+                <div class="card">
+                  <div class="id">t_a0</div>
+                  <div class="ti">Slow /sessions query</div>
+                  <div class="meta">
+                    researcher <span class="tag warn">⚠</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col">
+                <h4>Blocked <span>1</span></h4>
+                <div class="card">
+                  <div class="id">t_d9</div>
+                  <div class="ti">Publish to store</div>
+                  <div class="meta">needs input</div>
+                </div>
+              </div>
+              <div class="col">
+                <h4>Review <span>2</span></h4>
+                <div class="card">
+                  <div class="id">t_e2</div>
+                  <div class="ti">Onboarding copy</div>
+                  <div class="meta">writer · 💬 2</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cap" style="max-width: none">
+          Wide layout: real columns, drag a card between columns to change
+          status (long-press-drag on touch). Detail opens as a right-hand panel.
+        </div>
+      </div>
+    </div>
+
+    <h2>4 · States</h2>
+    <div class="row">
+      <div>
+        <div class="phone" style="height: 320px">
+          <div class="bar">← Kanban</div>
+          <div class="empty">
+            <div class="big">▦</div>
+            <b>No tasks yet</b><span>Create one, or ask the agent to.</span
+            ><span class="btn pri" style="margin-top: 8px">＋ New task</span>
+          </div>
+        </div>
+        <div class="cap">Empty board.</div>
+      </div>
+      <div>
+        <div class="phone" style="height: 320px">
+          <div class="bar">← Kanban</div>
+          <div class="empty">
+            <div class="big">⚠</div>
+            <b>Kanban isn't available</b
+            ><span>The plugin was turned off on this server.</span
+            ><span class="btn">Back to chat</span>
+          </div>
+        </div>
+        <div class="cap">
+          Plugin turned off while the app was open (404) → friendly message,
+          entry disappears on next refresh.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
