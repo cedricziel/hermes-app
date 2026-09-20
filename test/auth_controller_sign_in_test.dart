@@ -14,11 +14,19 @@ import 'package:hermes_app/src/models/hermes_session.dart';
 import 'support/memory_token_store.dart';
 import 'support/recorded_events.dart';
 
-/// A gated dashboard offering one provider, with nobody signed in.
-Future<HttpServer> _startDashboard() async {
+/// A gated dashboard offering one provider, with nobody signed in. Its
+/// `/api/auth/me` answers with [me] and [meStatus] once [meGate] completes.
+Future<HttpServer> _startDashboard({
+  Object? me,
+  int meStatus = 200,
+  Future<void>? meGate,
+}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-  server.listen((request) {
+  server.listen((request) async {
+    final isMe = request.uri.path == '/api/auth/me';
+    if (isMe) await meGate;
     final body = switch (request.uri.path) {
+      '/api/auth/me' => me,
       '/api/status' => {
         'auth_required': true,
         'auth_flows': ['native_pkce'],
@@ -31,7 +39,11 @@ Future<HttpServer> _startDashboard() async {
       _ => null,
     };
     request.response
-      ..statusCode = body == null ? 404 : 200
+      ..statusCode = isMe
+          ? meStatus
+          : body == null
+          ? 404
+          : 200
       ..headers.contentType = ContentType.json
       ..write(jsonEncode(body ?? {}))
       ..close();
@@ -187,4 +199,112 @@ void main() {
       expect(store.session, isNull);
     },
   );
+
+  group('when /api/auth/me does not confirm a fresh sign-in', () {
+    const session = HermesSession(
+      accessToken: 'at',
+      refreshToken: 'rt',
+      expiresAt: 4102444800,
+      provider: 'oidc',
+      userId: 'u1',
+    );
+
+    late MemoryTokenStore store;
+
+    Future<AuthController> signInAgainst({
+      Object? me,
+      int meStatus = 200,
+      Future<void>? meGate,
+    }) async {
+      store = MemoryTokenStore();
+      dashboard = await _startDashboard(
+        me: me,
+        meStatus: meStatus,
+        meGate: meGate,
+      );
+      final controller = AuthController(
+        tokenStore: store,
+        devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+        login: (url, {provider, httpClient, cancelled}) async => session,
+        events: events.call,
+      );
+      await controller.bootstrap();
+      return controller;
+    }
+
+    test('stores the session once the identity loads', () async {
+      final controller = await signInAgainst(me: {'user_id': 'u1'});
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.state, HermesConnectionState.ready);
+      expect(controller.identity?.userId, 'u1');
+      expect(store.session, session);
+      expect(events.named('auth.sign_in.succeeded'), hasLength(1));
+    });
+
+    test('a server error is reported and nothing is stored', () async {
+      final controller = await signInAgainst(
+        me: {'detail': 'Profile store is down'},
+        meStatus: 500,
+      );
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(controller.errorMessage, 'Profile store is down');
+      expect(store.session, isNull);
+      expect(
+        events.named('auth.sign_in.failed').single['reason'],
+        'profile_load',
+      );
+    });
+
+    test('a rejected token is reported and nothing is stored', () async {
+      final controller = await signInAgainst(
+        me: {'detail': 'Not authenticated'},
+        meStatus: 401,
+      );
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(controller.errorMessage, 'Not authenticated');
+      expect(store.session, isNull);
+    });
+
+    test('a malformed body is reported and nothing is stored', () async {
+      final controller = await signInAgainst(me: [1]);
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(controller.errorMessage, 'Unexpected response from the server');
+      expect(store.session, isNull);
+      final failed = events.named('auth.sign_in.failed').single;
+      expect(failed['reason'], 'profile_load');
+    });
+
+    test(
+      'leaving the server while the identity loads stores nothing',
+      () async {
+        final gate = Completer<void>();
+        final controller = await signInAgainst(
+          me: {'user_id': 'u1'},
+          meGate: gate.future,
+        );
+
+        final signIn = controller.signInWithProvider(
+          controller.providers.single,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await controller.changeServer();
+        gate.complete();
+        await signIn;
+
+        expect(controller.state, HermesConnectionState.needsServerUrl);
+        expect(store.session, isNull);
+      },
+    );
+  });
 }

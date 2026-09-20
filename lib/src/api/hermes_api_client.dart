@@ -69,9 +69,15 @@ class HermesApiClient {
   }
 
   /// `GET /api/auth/me` — auth-required. The verified session for the
-  /// signed-in user.
-  Future<HermesIdentity> fetchMe() async {
-    final response = await _dio.get<dynamic>('/api/auth/me');
+  /// signed-in user. With [accessToken] the request carries that token
+  /// explicitly, to check one that is not the stored session yet.
+  Future<HermesIdentity> fetchMe({String? accessToken}) async {
+    final response = await _dio.get<dynamic>(
+      '/api/auth/me',
+      options: accessToken == null
+          ? null
+          : Options(headers: {'Authorization': 'Bearer $accessToken'}),
+    );
     return _parseObject(response.data, HermesIdentity.fromJson, 'identity');
   }
 
