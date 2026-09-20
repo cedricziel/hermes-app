@@ -726,4 +726,41 @@ void main() {
       );
     });
   });
+
+  group('leaving the form', () {
+    testWidgets('empties the token and the environment values it held', (
+      tester,
+    ) async {
+      await openForm(tester);
+      await tester.tap(authChoice('Bearer token'));
+      await tester.pumpAndSettle();
+      await enter(tester, 'Bearer token', 'left-behind-token');
+      final token = tester.widget<TextField>(field('Bearer token')).controller!;
+      await useCommand(tester);
+      await addVariable(tester, 'K', 'left-behind-value');
+      final value = tester.widget<TextField>(field('Value')).controller!;
+      expect(token.text, 'left-behind-token');
+      expect(value.text, 'left-behind-value');
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpAddServerScreen), findsNothing);
+      expect(token.text, isEmpty);
+      expect(value.text, isEmpty);
+      expect(posts(), 0);
+    });
+
+    testWidgets('empties a value whose row was removed', (tester) async {
+      await openForm(tester);
+      await useCommand(tester);
+      await addVariable(tester, 'K', 'removed-value');
+      final value = tester.widget<TextField>(field('Value')).controller!;
+
+      await tester.tap(find.byTooltip('Remove variable'));
+      await tester.pumpAndSettle();
+
+      expect(value.text, isEmpty);
+    });
+  });
 }

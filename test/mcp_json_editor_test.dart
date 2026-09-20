@@ -569,6 +569,28 @@ void main() {
       expect(puts(), 1);
     });
 
+    for (final (label, status) in [('400', 400), ('500', 500)]) {
+      testWidgets('after a failed save ($label) the review is asked again on '
+          'the retry, since nothing was saved', (tester) async {
+        server.on('PUT', serversPath, {'detail': 'no'}, status: status);
+        await open(tester);
+        await edit(tester, stored()..['fresh'] = {'command': 'true'});
+        await tapSave(tester);
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(puts(), 1);
+        expect(find.byType(McpCommandReview), findsNothing);
+
+        await tapSave(tester);
+
+        expect(find.byType(McpCommandReview), findsOneWidget);
+        expect(puts(), 1);
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        expect(puts(), 2);
+      });
+    }
+
     testWidgets('an unchanged command server is not reviewed again', (
       tester,
     ) async {

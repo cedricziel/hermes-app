@@ -291,6 +291,40 @@ void main() {
       expect(puts(), 1);
     });
 
+    test('makes no request when the review fails', () async {
+      final outcome = await controller.replaceServers(loaded, {
+        'notes': {'command': 'bash'},
+      }, review: (_) => throw StateError('no route'));
+
+      expect(outcome, isA<McpReplaceFailed>());
+      expect(puts(), 0);
+      expect(controller.isSaving, isFalse);
+      expect(controller.isReviewing, isFalse);
+    });
+
+    test(
+      'reviews an entry with a url and a command that lost its url',
+      () async {
+        List<McpCommandReviewItem>? shown;
+
+        await controller.replaceServers(
+          {
+            'both': {'url': 'https://a.test/mcp', 'command': 'bash'},
+          },
+          {
+            'both': {'command': 'bash'},
+          },
+          review: (items) async {
+            shown = items;
+            return false;
+          },
+        );
+
+        expect(shown!.map((i) => i.name), ['both']);
+        expect(puts(), 0);
+      },
+    );
+
     test('makes no request when the review is declined', () async {
       final outcome = await controller.replaceServers(loaded, {
         'notes': {'command': 'bash'},
