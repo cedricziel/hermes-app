@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.17](https://github.com/cedricziel/hermes-app/compare/v0.1.16...v0.1.17) (2026-09-20)
+
+
+### Bug Fixes
+
+* **chat:** refuse unhandled requests only in sessions this app replies in ([#174](https://github.com/cedricziel/hermes-app/issues/174)) ([0707cce](https://github.com/cedricziel/hermes-app/commit/0707cce05bdeb5eecadd128a134093284412f552))
+* **chat:** say that attached files are sent by name only ([#183](https://github.com/cedricziel/hermes-app/issues/183)) ([d607e74](https://github.com/cedricziel/hermes-app/commit/d607e74e5da470f47d0a63c640e856a6821ffb88))
+* **shell:** dismiss screens pushed over Kanban and put Chat in front on a launch tap ([#181](https://github.com/cedricziel/hermes-app/issues/181)) ([87535dc](https://github.com/cedricziel/hermes-app/commit/87535dc348473defe909ae24413de77451d2200d))
+
 ## [0.1.16](https://github.com/cedricziel/hermes-app/compare/v0.1.15...v0.1.16) (2026-09-20)
 
 
