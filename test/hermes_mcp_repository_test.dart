@@ -821,4 +821,28 @@ void main() {
       );
     });
   });
+
+  group('path parameters', () {
+    test('are encoded, so an awkward name cannot change the route', () async {
+      const awkward = 'a b?c/d#e%f';
+      const encoded = 'a%20b%3Fc%2Fd%23e%25f';
+      server
+        ..on('POST', '/api/mcp/servers/$encoded/auth', mcpFlowBody())
+        ..on('GET', '/api/mcp/oauth/flows/$encoded', mcpFlowBody())
+        ..on('DELETE', '/api/mcp/oauth/flows/$encoded', {'ok': true})
+        ..on('GET', '/api/actions/$encoded/status', jobStatusBody());
+
+      await repository.startSignIn(awkward);
+      await repository.flowStatus(awkward);
+      await repository.cancelFlow(awkward);
+      await repository.actionStatus(awkward);
+
+      expect(server.requests.map((r) => r.path), [
+        '/api/mcp/servers/$encoded/auth',
+        '/api/mcp/oauth/flows/$encoded',
+        '/api/mcp/oauth/flows/$encoded',
+        '/api/actions/$encoded/status',
+      ]);
+    });
+  });
 }

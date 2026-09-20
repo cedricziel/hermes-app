@@ -462,7 +462,7 @@ class HermesMcpRepository {
 
   Future<HermesMcpAction> actionStatus(String action) async {
     final response = await _api.getActionStatusApiActionsNameStatusGet(
-      name: action,
+      name: Uri.encodeComponent(action),
     );
     final body = response.data;
     if (body is! Map) {
@@ -480,7 +480,7 @@ class HermesMcpRepository {
   Future<HermesMcpFlow> startSignIn(String name, {String? profile}) async {
     final response = await _refusing(
       () => _api.authMcpServerApiMcpServersNameAuthPost(
-        name: name,
+        name: Uri.encodeComponent(name),
         profile: profile,
       ),
     );
@@ -491,7 +491,7 @@ class HermesMcpRepository {
   /// [DioException].
   Future<HermesMcpFlow> flowStatus(String flowId) async {
     final response = await _api.mcpOauthFlowStatusApiMcpOauthFlowsFlowIdGet(
-      flowId: flowId,
+      flowId: Uri.encodeComponent(flowId),
     );
     return _flow(response.data);
   }
@@ -499,7 +499,9 @@ class HermesMcpRepository {
   /// Ends a flow so its server can start another. Hermes treats a flow it no
   /// longer has as already cancelled.
   Future<void> cancelFlow(String flowId) async {
-    await _api.cancelMcpOauthFlowApiMcpOauthFlowsFlowIdDelete(flowId: flowId);
+    await _api.cancelMcpOauthFlowApiMcpOauthFlowsFlowIdDelete(
+      flowId: Uri.encodeComponent(flowId),
+    );
   }
 
   static HermesMcpFlow _flow(Object? body) {
