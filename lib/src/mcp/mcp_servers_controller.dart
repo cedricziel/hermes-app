@@ -9,7 +9,7 @@ sealed class McpTestState {
 }
 
 class McpTestRunning extends McpTestState {
-  const McpTestRunning();
+  McpTestRunning();
 }
 
 class McpTestFinished extends McpTestState {
@@ -131,16 +131,24 @@ class McpServersController extends ChangeNotifier {
   Future<void> test(HermesMcpServer server) async {
     final name = server.name;
     if (_tests[name] is McpTestRunning) return;
-    _tests[name] = const McpTestRunning();
+    final run = McpTestRunning();
+    _tests[name] = run;
     _notify();
+    McpTestState? outcome;
     try {
-      final result = await repository.testServer(server, profile: _profile);
-      _tests[name] = McpTestFinished(result);
+      outcome = McpTestFinished(
+        await repository.testServer(server, profile: _profile),
+      );
     } on Object catch (e) {
-      if (await _failure(e) == McpOutcome.gone) {
+      if (await _failure(e) != McpOutcome.gone) {
+        outcome = const McpTestUnavailable();
+      }
+    }
+    if (identical(_tests[name], run)) {
+      if (outcome == null) {
         _tests.remove(name);
       } else {
-        _tests[name] = const McpTestUnavailable();
+        _tests[name] = outcome;
       }
     }
     _notify();
