@@ -83,6 +83,10 @@ class KanbanBoardController extends ChangeNotifier {
   String get query => _query;
   bool get includeArchived => _includeArchived;
 
+  /// The last refetch failed while a board is held, so what is shown may be
+  /// stale. Without a board the full-page error covers the failure instead.
+  bool get refreshFailed => _board != null && _error != null;
+
   /// The plugin answered 404: it was switched off after the app saw it on.
   bool get unavailable =>
       _error is DioException &&

@@ -120,6 +120,73 @@ void main() {
     expect(find.text('Could not load the board'), findsNothing);
   });
 
+  const notice = 'Could not refresh. Showing the last board.';
+
+  testWidgets('a failed refresh keeps the board and offers a retry', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(1400, 900));
+    expect(find.text(notice), findsNothing);
+
+    server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 500);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(notice), findsOneWidget);
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+
+    serveTasks();
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(notice), findsNothing);
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+  });
+
+  testWidgets('a failed pull-to-refresh on a phone shows the notice', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 500);
+    await tester.fling(
+      find.text('Migrate webhooks'),
+      const Offset(0, 400),
+      1000,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(notice), findsOneWidget);
+    expect(find.text('Migrate webhooks'), findsOneWidget);
+  });
+
+  testWidgets('a wide screen has a refresh button that refetches', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(1400, 900));
+    final before = server.requestsTo('GET', '/api/plugins/kanban/board').length;
+
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+
+    expect(
+      server.requestsTo('GET', '/api/plugins/kanban/board').length,
+      before + 1,
+    );
+  });
+
+  testWidgets('a phone has no refresh button, only pull-to-refresh', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    expect(find.byTooltip('Refresh'), findsNothing);
+  });
+
   testWidgets('tapping a card opens its detail', (tester) async {
     serveTasks();
     server.on(

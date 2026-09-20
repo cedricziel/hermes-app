@@ -348,18 +348,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
               ),
       );
     }
-    return Column(
-      children: [
-        _Toolbar(controller: _controller, board: board),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) =>
-                constraints.maxWidth >= _columnsBreakpoint
-                ? _columns(context)
-                : _list(context),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= _columnsBreakpoint;
+        return Column(
+          children: [
+            if (_controller.refreshFailed)
+              _RefreshFailedNotice(onRetry: _controller.refresh),
+            _Toolbar(controller: _controller, board: board, wide: wide),
+            Expanded(child: wide ? _columns(context) : _list(context)),
+          ],
+        );
+      },
     );
   }
 
@@ -530,10 +530,17 @@ class _StatusChipsState extends State<_StatusChips> {
 }
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.controller, required this.board});
+  const _Toolbar({
+    required this.controller,
+    required this.board,
+    required this.wide,
+  });
 
   final KanbanBoardController controller;
   final KanbanBoard board;
+
+  /// A wide screen has no pull-to-refresh, so it gets a refresh button.
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
@@ -542,21 +549,33 @@ class _Toolbar extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: TextField(
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                prefixIcon: const Icon(Icons.search, size: 18),
-                hintText: 'Search tasks',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(kHermesRadius),
-                  borderSide: BorderSide.none,
+          Row(
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      hintText: 'Search tasks',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(kHermesRadius),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: controller.setQuery,
+                  ),
                 ),
               ),
-              onChanged: controller.setQuery,
-            ),
+              if (wide)
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh),
+                  onPressed: controller.refresh,
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           SingleChildScrollView(
@@ -589,6 +608,40 @@ class _Toolbar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Says the board on screen may be out of date, without covering it.
+class _RefreshFailedNotice extends StatelessWidget {
+  const _RefreshFailedNotice({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      liveRegion: true,
+      child: Material(
+        color: scheme.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, size: 18, color: scheme.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Could not refresh. Showing the last board.',
+                  style: TextStyle(color: scheme.onErrorContainer),
+                ),
+              ),
+              TextButton(onPressed: onRetry, child: const Text('Retry')),
+            ],
+          ),
+        ),
       ),
     );
   }

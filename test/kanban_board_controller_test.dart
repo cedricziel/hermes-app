@@ -210,6 +210,32 @@ void main() {
     expect(controller.error, isNotNull);
   });
 
+  test(
+    'refreshFailed tells a stale board apart until a refresh succeeds',
+    () async {
+      server.on('GET', '/api/plugins/kanban/board', {
+        'detail': 'x',
+      }, status: 500);
+      await controller.start();
+      // Nothing to keep showing: the full-page error covers this case.
+      expect(controller.refreshFailed, isFalse);
+
+      serveBoard([kanbanTaskRow(id: 't1')]);
+      await controller.refresh();
+      expect(controller.refreshFailed, isFalse);
+
+      server.on('GET', '/api/plugins/kanban/board', {
+        'detail': 'x',
+      }, status: 500);
+      await controller.refresh();
+      expect(controller.refreshFailed, isTrue);
+
+      serveBoard([kanbanTaskRow(id: 't1')]);
+      await controller.refresh();
+      expect(controller.refreshFailed, isFalse);
+    },
+  );
+
   test('drops selected tasks that left the board', () async {
     serveBoard([kanbanTaskRow(id: 't1'), kanbanTaskRow(id: 't2')]);
     await controller.start();
