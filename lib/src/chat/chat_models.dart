@@ -189,7 +189,20 @@ class ChatAttachment {
 
   /// The content, when the history embedded it (an inline data URL).
   final Uint8List? bytes;
+
+  /// The server path the app can ask Hermes for the file under: the
+  /// [remotePath] when it is absolute. A path relative to the session's
+  /// workspace, such as `attachments/x.pdf`, cannot be fetched.
+  String? get fetchPath {
+    final path = remotePath;
+    return path != null && isAbsoluteServerPath(path) ? path : null;
+  }
 }
+
+final _absoluteServerPath = RegExp(r'^(?:/|[A-Za-z]:[\\/])');
+
+/// Whether [path] is absolute on a POSIX or Windows server.
+bool isAbsoluteServerPath(String path) => _absoluteServerPath.hasMatch(path);
 
 class ChatMessage {
   ChatMessage({
