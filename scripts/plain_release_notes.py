@@ -13,8 +13,9 @@ import sys
 
 LIMIT = 4000
 
-# "([#93](url))" and "([2c79bd7](url))", which release-please appends to a line.
-_REFERENCE = re.compile(r"\s*\(\[(?:#\d+|[0-9a-f]{7,40})\]\([^)]*\)\)")
+# "([#93](url))" and "([2c79bd7](url))", which release-please appends to the end
+# of a line. One in the middle of a sentence is part of the sentence.
+_REFERENCE = re.compile(r"(?:\s*\(\[(?:#\d+|[0-9a-f]{7,40})\]\([^)]*\)\))+\s*$")
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _BOLD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
 _ITALIC = re.compile(r"\*(.+?)\*|(?<!\w)_(.+?)_(?!\w)")

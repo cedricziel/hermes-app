@@ -60,6 +60,12 @@ class PlainReleaseNotes(unittest.TestCase):
             "- fix the crash in #12 again",
         )
 
+    def test_a_parenthesized_reference_in_the_middle_stays(self):
+        self.assertEqual(
+            plain("* explain ([#12](https://example.com/12)) behavior ([#13](https://example.com/13))"),
+            "- explain (#12) behavior",
+        )
+
     def test_empty_and_blank_input_give_nothing(self):
         self.assertEqual(plain(""), "")
         self.assertEqual(plain("\n\n  \n"), "")
