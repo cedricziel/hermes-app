@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.24](https://github.com/cedricziel/hermes-app/compare/v0.1.23...v0.1.24) (2026-09-20)
+
+
+### Features
+
+* **mcp:** add custom MCP servers and edit them as JSON ([#212](https://github.com/cedricziel/hermes-app/issues/212)) ([10a25d7](https://github.com/cedricziel/hermes-app/commit/10a25d75bfc484dcfd1392920897b3ab05c01743))
+* **mcp:** install MCP servers from the catalog and sign in to them ([#204](https://github.com/cedricziel/hermes-app/issues/204)) ([3c77539](https://github.com/cedricziel/hermes-app/commit/3c7753907ebbbe2716f199f8c98d9b24e81b39a5))
+* **schedules:** notify when a scheduled task runs ([#207](https://github.com/cedricziel/hermes-app/issues/207)) ([a6d443f](https://github.com/cedricziel/hermes-app/commit/a6d443f8100d982e1170e417ffa8f415595675e8))
+
 ## [0.1.23](https://github.com/cedricziel/hermes-app/compare/v0.1.22...v0.1.23) (2026-09-20)
 
 
