@@ -195,4 +195,24 @@ void main() {
 
     await expectLater(login, throwsA(isA<NativeLoginCancelled>()));
   });
+
+  test(
+    'answers the redirect while the browser launch is still pending',
+    () async {
+      // iOS reports the launch as done only after the sheet finished loading,
+      // and with an IdP session that load is the redirect to the listener.
+      final session = await runNativeLogin(
+        'http://hermes.test:9119',
+        httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+          ..httpClientAdapter = _TokenAdapter(),
+        launchBrowser: (url) async {
+          await _hitCallback(url);
+          return true;
+        },
+        closeBrowser: () async {},
+      ).timeout(const Duration(seconds: 5));
+
+      expect(session.accessToken, 'at');
+    },
+  );
 }
