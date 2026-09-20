@@ -62,7 +62,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 
 **MCP servers** (`lib/src/mcp/`). List, switch, test and remove the MCP servers of the active profile, opened from the chat sidebar. `HermesMcpRepository` wraps the four generated calls and parses leniently. `McpServersController` holds one visit's state (the profile learned first, the list, the test results), and `McpServersScreen` and `McpServerDetail` render it, side by side from 900 logical pixels.
 
-**Notifications** (`lib/src/notifications/`). Local notifications when a reply finishes or the agent needs the user, gated by `attention_policy.dart` and user settings.
+**Notifications** (`lib/src/notifications/`). Local notifications when a reply finishes or the agent needs the user, gated by `attention_policy.dart` and user settings. A second source is `schedules/schedule_alerts.dart`: while the app is in front, `ScheduleWatcher` (owned by the shell) polls every profile's cron jobs each minute and announces a run since the last look; Hermes has no push channel, so nothing arrives while the app is closed.
 
 **Telemetry** (`lib/src/telemetry/`). OpenTelemetry to SignalDB through the `flutter_otel` git dependency, which is pinned to a commit along with its sibling packages in `dependency_overrides`. It is off unless `OTEL_EXPORTER_OTLP_ENDPOINT` is passed via `--dart-define`. When off, no SDK exists and no `traceparent` header is added. Telemetry code must never break the app (see `safely.dart`).
 

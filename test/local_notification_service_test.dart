@@ -39,6 +39,33 @@ void main() {
       );
     });
 
+    test('round-trips a scheduled task and its profile', () {
+      final target = roundTrip(
+        const NotificationTarget.job(jobId: 'j1', profile: 'work'),
+      )!;
+
+      expect(target.isJob, isTrue);
+      expect(target.jobId, 'j1');
+      expect(target.profile, 'work');
+      expect(target.threadId, isEmpty);
+    });
+
+    test('writes a scheduled task without a thread', () {
+      expect(
+        jsonDecode(
+          encodeTarget(const NotificationTarget.job(jobId: 'j1', profile: 'w')),
+        ),
+        {'j': 'j1', 'p': 'w'},
+      );
+    });
+
+    test('a chat payload is still a chat', () {
+      expect(
+        roundTrip(const NotificationTarget(threadId: 's1'))!.isJob,
+        isFalse,
+      );
+    });
+
     test('reads a plain thread id posted by an earlier build', () {
       final target = targetFromResponse(_response('s1'))!;
 

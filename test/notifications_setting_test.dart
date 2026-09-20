@@ -14,6 +14,7 @@ import 'support/fake_share_inbox.dart';
 
 void main() {
   late NotificationSettings settings;
+  final notifyTile = find.widgetWithText(SwitchListTile, 'Notify me');
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -55,11 +56,8 @@ void main() {
   ) async {
     await openDialog(tester);
 
-    expect(find.byType(SwitchListTile), findsOneWidget);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
-    );
+    expect(notifyTile, findsOneWidget);
+    expect(tester.widget<SwitchListTile>(notifyTile).value, isTrue);
   });
 
   testWidgets('the dialog says alerts need the app to be running', (
@@ -79,14 +77,11 @@ void main() {
   testWidgets('flipping the switch turns notifications off', (tester) async {
     await openDialog(tester);
 
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(notifyTile);
     await tester.pumpAndSettle();
 
     expect(settings.enabled, isFalse);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isFalse,
-    );
+    expect(tester.widget<SwitchListTile>(notifyTile).value, isFalse);
   });
 
   testWidgets('a denied permission points to system settings', (tester) async {
@@ -120,6 +115,37 @@ void main() {
     expect(
       find.text('Turn on notifications for Hermes in system settings.'),
       findsNothing,
+    );
+  });
+
+  testWidgets('the dialog has a switch for scheduled tasks, on to begin with', (
+    tester,
+  ) async {
+    await openDialog(tester);
+
+    final tile = find.byKey(const Key('schedule-alerts'));
+    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    expect(settings.scheduleAlerts, isFalse);
+  });
+
+  testWidgets('the scheduled tasks switch waits for notifications to be on', (
+    tester,
+  ) async {
+    await openDialog(tester);
+
+    await tester.tap(notifyTile);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<SwitchListTile>(find.byKey(const Key('schedule-alerts')))
+          .onChanged,
+      isNull,
     );
   });
 }

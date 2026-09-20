@@ -9,6 +9,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -38,7 +39,12 @@ void main() {
     server = FakeHermesServer();
   });
 
-  Future<void> pumpShell(WidgetTester tester, {required Size size}) async {
+  Future<void> pumpShell(
+    WidgetTester tester, {
+    required Size size,
+    NotificationSettings? settings,
+    bool settle = true,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -53,6 +59,8 @@ void main() {
             create: (_) => ShareController(inbox)..start(),
           ),
           Provider<NotificationService>.value(value: notifications),
+          if (settings != null)
+            ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
@@ -64,7 +72,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
 
   void kanbanPlugin({required bool on}) => server.on(
@@ -160,8 +168,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  int selectedTab(WidgetTester tester) =>
-      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
+  int selectedTab(WidgetTester tester) => tester
+      .widget<NavigationBar>(find.byType(NavigationBar, skipOffstage: false))
+      .selectedIndex;
 
   Future<void> flipPlugin(WidgetTester tester, {required bool on}) async {
     kanbanPlugin(on: on);
@@ -321,7 +330,9 @@ void main() {
   List<String> navigationLabels(WidgetTester tester) => [
     for (final d
         in tester
-            .widget<NavigationBar>(find.byType(NavigationBar))
+            .widget<NavigationBar>(
+              find.byType(NavigationBar, skipOffstage: false),
+            )
             .destinations)
       (d as NavigationDestination).label,
   ];
@@ -447,6 +458,142 @@ void main() {
 
       expect(selectedTab(tester), 0);
     });
+  });
+
+  group('scheduled task notifications', () {
+    void twoJobs() => server
+      ..on('GET', '/api/cron/jobs', [cronJobRow()])
+      ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+      ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+
+    testWidgets('a tap opens the job in Schedules from Chat', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      twoJobs();
+      await pumpShell(tester, size: const Size(400, 800));
+
+      notifications.tapJob('job1', profile: 'work');
+      await tester.pumpAndSettle();
+
+      expect(navigationLabels(tester), ['Chat', 'Schedules']);
+      expect(selectedTab(tester), 1);
+      expect(find.text('Say good morning'), findsOneWidget);
+    });
+
+    testWidgets('a tap for a job that is gone shows the list and says so', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      server
+        ..on('GET', '/api/cron/jobs', [])
+        ..on('GET', '/api/cron/jobs/gone', {}, status: 404);
+      await pumpShell(tester, size: const Size(400, 800));
+
+      notifications.tapJob('gone', profile: 'work');
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(find.text('This task no longer exists'), findsOneWidget);
+      expect(find.text('No scheduled tasks'), findsOneWidget);
+    });
+
+    testWidgets('a summary tap shows the list', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      twoJobs();
+      await pumpShell(tester, size: const Size(400, 800));
+
+      notifications.tapJob('');
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(find.text('Morning brief'), findsOneWidget);
+    });
+
+    testWidgets('a tap that comes before cron is detected waits for it', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      twoJobs();
+      await pumpShell(tester, size: const Size(400, 800), settle: false);
+
+      notifications.tapJob('job1', profile: 'work');
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(find.text('Say good morning'), findsOneWidget);
+    });
+
+    testWidgets('a chat tap still opens Chat', (tester) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      twoJobs();
+      await pumpShell(tester, size: const Size(400, 800));
+      await openTab(tester, 'Schedules');
+
+      notifications.tap('t2');
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+    });
+
+    testWidgets('a job that runs while the user is in Chat is announced', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: true);
+      server.on('GET', '/api/profiles/active', {
+        'active': 'work',
+        'current': 'work',
+      });
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(lastRunAt: '2026-09-20T08:00:00+00:00', lastStatus: 'ok'),
+      ]);
+      final settings = NotificationSettings();
+      await tester.runAsync(settings.load);
+      await pumpShell(tester, size: const Size(400, 800), settings: settings);
+      expect(notifications.shown, isEmpty);
+
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
+      ]);
+      await tester.pump(const Duration(minutes: 1));
+      await tester.pumpAndSettle();
+
+      expect(notifications.shown.map((n) => n.body), ['Finished']);
+      expect(notifications.shown.single.jobId, 'job1');
+      expect(
+        server.requests
+            .where((r) => r.path == '/api/cron/jobs')
+            .every((r) => r.queryParameters['profile'] == 'all'),
+        isTrue,
+      );
+    });
+
+    testWidgets(
+      'a job that runs while Schedules is in front is not announced',
+      (tester) async {
+        kanbanPlugin(on: false);
+        cronRoutes(on: true);
+        server.on('GET', '/api/cron/jobs', [
+          cronJobRow(lastRunAt: '2026-09-20T08:00:00+00:00', lastStatus: 'ok'),
+        ]);
+        final settings = NotificationSettings();
+        await tester.runAsync(settings.load);
+        await pumpShell(tester, size: const Size(400, 800), settings: settings);
+        await openTab(tester, 'Schedules');
+
+        server.on('GET', '/api/cron/jobs', [
+          cronJobRow(lastRunAt: '2026-09-21T08:00:00+00:00', lastStatus: 'ok'),
+        ]);
+        await tester.pump(const Duration(minutes: 1));
+        await tester.pumpAndSettle();
+
+        expect(notifications.shown, isEmpty);
+      },
+    );
   });
 }
 

@@ -10,18 +10,32 @@ const kApprovalBody = 'Waiting for your approval';
 const kQuestionBody = 'Has a question for you';
 const kNeedsYouBody = 'Waiting for you in Hermes';
 
-/// What to tell the user about, and for which thread.
+/// What to tell the user about, and for which thread or scheduled task.
 class AttentionNotification {
   const AttentionNotification({
     required this.threadId,
     required this.title,
     required this.body,
     this.profile,
-  });
+  }) : jobId = null;
 
+  /// A scheduled task's run. It replaces an earlier notification for the same
+  /// job, like a chat's does.
+  const AttentionNotification.job({
+    required String this.jobId,
+    required this.title,
+    required this.body,
+    this.profile,
+  }) : threadId = 'job:$jobId';
+
+  /// Names the notification: the chat's id, or `job:<id>` for a task, so the
+  /// two never replace each other.
   final String threadId;
 
-  /// The Hermes profile [threadId] belongs to, when it is known.
+  /// The scheduled task this is about, if it is about one.
+  final String? jobId;
+
+  /// The Hermes profile [threadId] or [jobId] belongs to, when it is known.
   final String? profile;
   final String title;
   final String body;

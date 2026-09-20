@@ -31,6 +31,40 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   void initState() {
     super.initState();
     if (!_controller.loaded && !_controller.loading) _controller.refresh();
+    _controller.addListener(_openRequested);
+    // A request made before this screen was built waits for it.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openRequested());
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_openRequested);
+    super.dispose();
+  }
+
+  Future<void> _openRequested() async {
+    final request = _controller.takeOpenRequest();
+    if (request == null || request.id.isEmpty || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final wide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    CronJob? job;
+    try {
+      job = await _controller.findJob(request.id, profile: request.profile);
+    } on Object {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not open that task')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (job == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This task no longer exists')),
+      );
+      return;
+    }
+    _controller.jobSaved(job);
+    if (!wide) _openNarrow(job);
   }
 
   void _openNarrow(CronJob job) {

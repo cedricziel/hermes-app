@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
@@ -35,19 +40,28 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> pumpScreen(WidgetTester tester, {required Size size}) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    required Size size,
+    NotificationSettings? settings,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildHermesLightTheme(),
-        home: SchedulesScreen(
-          controller: controller,
-          onOpenRun: (run, job) => opened.add((run, job)),
-        ),
+    Widget app = MaterialApp(
+      theme: buildHermesLightTheme(),
+      home: SchedulesScreen(
+        controller: controller,
+        onOpenRun: (run, job) => opened.add((run, job)),
       ),
     );
+    if (settings != null) {
+      app = ChangeNotifierProvider<NotificationSettings>.value(
+        value: settings,
+        child: app,
+      );
+    }
+    await tester.pumpWidget(app);
     await tester.pumpAndSettle();
   }
 
@@ -391,6 +405,48 @@ void main() {
       expect(find.text('Say good morning'), findsOneWidget);
       expect(find.text('Morning brief'), findsWidgets);
       expect(find.text('No runs yet'), findsOneWidget);
+    });
+  });
+
+  group('mute', () {
+    testWidgets('a job can be muted from its page and unmuted', (tester) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final settings = NotificationSettings();
+      await tester.runAsync(settings.load);
+      jobs([healthy()]);
+      server
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      await pumpScreen(tester, size: const Size(400, 800), settings: settings);
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('job-mute')));
+      await tester.pumpAndSettle();
+      expect(settings.isMuted('work/job1'), isTrue);
+      expect(
+        tester.widget<SwitchListTile>(find.byKey(const Key('job-mute'))).value,
+        isTrue,
+      );
+
+      await tester.tap(find.byKey(const Key('job-mute')));
+      await tester.pumpAndSettle();
+      expect(settings.isMuted('work/job1'), isFalse);
+    });
+
+    testWidgets('has no mute switch without notification settings', (
+      tester,
+    ) async {
+      jobs([healthy()]);
+      server
+        ..on('GET', '/api/cron/jobs/job1', cronJobRow())
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      await pumpScreen(tester, size: const Size(400, 800));
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('job-mute')), findsNothing);
     });
   });
 }

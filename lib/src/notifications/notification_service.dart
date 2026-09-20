@@ -12,14 +12,23 @@ enum NotificationPermission {
   unavailable,
 }
 
-/// The chat a notification was posted for. A thread id is only unique within
-/// a Hermes profile, so the profile travels with it; it is null for a
-/// notification that carries none.
+/// What a notification was posted for: a chat, or a scheduled task. A thread
+/// id is only unique within a Hermes profile, and so is a job id, so the
+/// profile travels with either; it is null for a notification that carries
+/// none.
 class NotificationTarget {
-  const NotificationTarget({required this.threadId, this.profile});
+  const NotificationTarget({required this.threadId, this.profile})
+    : jobId = null;
+
+  /// A scheduled task. It has no chat, so [threadId] is empty.
+  const NotificationTarget.job({required String this.jobId, this.profile})
+    : threadId = '';
 
   final String threadId;
+  final String? jobId;
   final String? profile;
+
+  bool get isJob => jobId != null;
 }
 
 /// Posts local notifications and reports when the user taps one.
