@@ -35,28 +35,6 @@ Future<T> _guard<T>(Future<T> Function() run) async {
 ///
 /// The plugin's routes declare no response schema, so bodies are parsed by
 /// hand into the models in `kanban_models.dart`.
-/// The plugin refused a request and said why (`{"detail": "..."}`), for
-/// example a task that cannot move to `ready` while a parent is open.
-class KanbanException implements Exception {
-  const KanbanException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
-Future<T> _guard<T>(Future<T> Function() run) async {
-  try {
-    return await run();
-  } on DioException catch (e) {
-    final data = e.response?.data;
-    final detail = data is Map ? data['detail'] : null;
-    if (detail is String) throw KanbanException(detail);
-    rethrow;
-  }
-}
-
 class KanbanRepository {
   KanbanRepository(this._api);
 
