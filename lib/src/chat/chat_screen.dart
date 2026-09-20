@@ -450,7 +450,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     subscription = transport
-        .send(threadId: threadId, text: text)
+        .send(threadId: threadId, profile: profile, text: text)
         .listen(
           (event) => _onReplyEvent(thread, reply, event, profile),
           onError: (Object _) => end(),

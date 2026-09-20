@@ -104,7 +104,7 @@ class WatchRequestHandler {
       if (thread != null && !thread.isIn(profile)) return _error('bad_request');
       var boundId = thread?.id;
       final events = chat
-          .send(threadId: boundId, text: text)
+          .send(threadId: boundId, profile: profile, text: text)
           .timeout(sendTimeout);
       await for (final event in events) {
         switch (event) {
