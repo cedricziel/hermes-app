@@ -3,7 +3,9 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
+
 ## Requirements
+
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -327,6 +329,13 @@ The system SHALL end a reply that failed or whose stream broke as an error, and 
 - **WHEN** the socket drops, the gateway answers a request with an error, or the stream ends before a completion
 - **THEN** the reply is marked as an error, keeps any text that had already streamed, and otherwise shows "Something went wrong. Try sending it again."
 - **AND** the user is notified that the reply failed when a notification is warranted, as for a failed completion (see the notifications spec)
+
+#### Scenario: The selected profile no longer exists
+
+- **WHEN** the gateway answers `session.create` or `session.resume` with the JSON-RPC error 4064 because the profile the chat is showing was deleted or never existed
+- **THEN** the reply is marked as an error and shows "That profile is no longer available. Pick another one." instead of the generic message
+- **AND** the request is not retried, the user's message stays in the thread, and the text the gateway put in the error is never shown
+- **AND** the user is notified that the reply failed when a notification is warranted, as for any other failed reply
 
 #### Scenario: Sending again after a failure
 
@@ -680,6 +689,12 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 - **AND** the gateway binds a session to the profile it was created or resumed under, so `prompt.submit` and the answer calls carry no profile
 - **AND** it requests no method to answer a secret or a sudo request
 
+#### Scenario: Unknown profile
+
+- **WHEN** `session.create` or `session.resume` carries a `profile` that names no profile on the host
+- **THEN** a Hermes newer than the ref pinned for the contract test answers with the JSON-RPC error 4064 and a message naming the profile; the system treats that code as "the selected profile no longer exists" and reads nothing else from the error
+- **AND** an older Hermes may drop the socket instead, which the system treats as any other socket drop
+
 #### Scenario: Server-to-client requests
 
 - **WHEN** the gateway sends a JSON-RPC request with a string id and a `method`
@@ -709,4 +724,3 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 
 - **WHEN** the socket closes
 - **THEN** all pending requests fail with a "connection closed" error, later requests fail at once, and frames that are not JSON-RPC are ignored
-
