@@ -70,3 +70,12 @@ Tests drive the real generated client and Dio pipeline against `test/support/fak
 ## Specs
 
 `openspec/` holds spec-driven change proposals (`openspec/specs/` for current behavior, `openspec/changes/` for work in progress). Start a change with `/opsx:propose "<idea>"`; project context for it lives in `openspec/config.yaml`. Design history lives under `openspec/changes/archive/`.
+
+## Skills
+
+Project skills live in `.claude/skills/<name>/SKILL.md` (frontmatter `name` and a `description` that says when to use it). When you learn something reusable about working in this repo, such as a workflow, a gotcha or a verification step, write it to a skill rather than to memory, so it is checked in and shared.
+
+- Amend the existing skill when the new knowledge fits it. Fix a skill that turns out to be wrong or stale as soon as you notice.
+- Create a new skill when the knowledge is a distinct, repeatable task no current skill covers. Keep the description specific enough that it triggers at the right time.
+- Use memory only for things that are personal to the user or don't belong in the repo.
+- Commit skill changes with the work that prompted them, or on their own as `docs:`.
