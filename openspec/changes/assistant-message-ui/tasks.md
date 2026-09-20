@@ -9,6 +9,10 @@
 - [x] 2.2 Add `MessageActions` (Copy, Try again) under finished assistant replies, with Try again on the latest reply only
 - [x] 2.3 Send the last prompt again from the chat screen without touching the composer
 
-## 3. Verify
+## 3. Follow-ups
 
-- [x] 3.1 Tests for the events, the reply fold, the mapper, the repository, the block and the bar; format, analyze and the full suite pass
+- [x] 3.1 Add `FollowUpChips` under the latest reply's action bar, sending through the composer's send path
+
+## 4. Verify
+
+- [x] 4.1 Tests for the events, the reply fold, the mapper, the repository, the block, the bar and the chips; format, analyze and the full suite pass

@@ -92,3 +92,17 @@ The system SHALL show an action bar below the text of a finished assistant reply
 
 - **WHEN** a reply ended in error
 - **THEN** it offers Try again and no Copy
+
+### Requirement: Follow-up chips
+
+The system SHALL show three chips below the action bar of the latest reply of the open thread, reading "Explain in more detail", "Give an example" and "Summarize this", and SHALL send the chip's text as a prompt in that thread when the user taps one. The chips SHALL NOT be shown under an earlier reply, under a reply that is still being written or under a failed reply, and SHALL NOT change with the reply.
+
+#### Scenario: Tapping a chip
+
+- **WHEN** the user taps "Give an example"
+- **THEN** "Give an example" is sent as a new turn in the open thread
+
+#### Scenario: Only the latest reply
+
+- **WHEN** a newer reply finishes, or the latest one failed
+- **THEN** the earlier reply shows no chips
