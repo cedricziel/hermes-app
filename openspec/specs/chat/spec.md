@@ -413,12 +413,17 @@ The system SHALL offer rename, pin or unpin, archive, and delete on threads the 
 
 ### Requirement: Approval requests
 
-The system SHALL show an approval request the agent raises during a turn as a card in the reply, with the request's description, its command in a monospace block, and one button per choice the agent allows (Allow once, Allow for session, Always allow, Deny).
+The system SHALL show an approval request the agent raises during a turn as a card in the reply, with the request's description, its command in a monospace block, and one button per choice the agent allows (Allow once, Allow for session, Always allow, Deny). When the request names no choices, the card SHALL offer Allow once and Deny only.
 
 #### Scenario: Approval card appears
 
 - **WHEN** an approval request arrives
 - **THEN** a card titled "Approval needed" is added to the reply, only the offered choices are shown as buttons, and the thinking indicator is hidden
+
+#### Scenario: Request without choices
+
+- **WHEN** an approval request arrives with an empty or missing choice list
+- **THEN** the card shows "Allow once" and "Deny" as buttons, and no others
 
 #### Scenario: Answering
 
