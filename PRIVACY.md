@@ -8,7 +8,7 @@ The app connects to the Hermes Agent server address you enter. What that server 
 
 Release builds send diagnostic logs and traces to a server run by the developer. They are used to find crashes and slow requests, and they are not shared with anyone else. They contain:
 
-- the app version and platform
+- the app version, whether it is a release build, and the platform: the system (iOS, macOS or Android), on Apple systems its major and minor version, and whether the device is a phone, a tablet or a desktop
 - a random ID that changes on every launch
 - for each request the app makes: the HTTP method, the API path (for example `/api/status`), the status code and how long it took
 - the type of error when a request fails
