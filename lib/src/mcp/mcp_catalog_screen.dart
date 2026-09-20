@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_catalog_controller.dart';
 import 'mcp_chip.dart';
+import 'mcp_install_panel.dart';
 import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
@@ -43,9 +44,40 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   Future<void> _open(HermesMcpCatalogEntry entry, {required bool wide}) async {
     if (wide) {
       setState(() => _selected = entry.name);
-      return;
+    } else if (entry.installed) {
+      await _openServer(entry.name);
+    } else {
+      await _openSheet(entry);
     }
-    if (entry.installed) await _openServer(entry.name);
+  }
+
+  Future<void> _openSheet(HermesMcpCatalogEntry entry) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheet) => McpInstallPanel(
+        servers: widget.servers,
+        catalog: _catalog,
+        entry: entry,
+        onInstalled: () {
+          Navigator.of(sheet).pop();
+          _announceInstalled(entry.name, wide: false);
+        },
+        onGone: () => Navigator.of(sheet).pop(),
+      ),
+    );
+  }
+
+  void _announceInstalled(String name, {required bool wide}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Installed $name'),
+        action: wide
+            ? null
+            : SnackBarAction(label: 'Open', onPressed: () => _openServer(name)),
+      ),
+    );
   }
 
   Future<void> _openServer(String name) async {
@@ -139,6 +171,15 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
             textAlign: TextAlign.center,
           ),
         ),
+      );
+    }
+    if (!entry.installed) {
+      return McpInstallPanel(
+        key: ValueKey(entry.name),
+        servers: widget.servers,
+        catalog: _catalog,
+        entry: entry,
+        onInstalled: () => _announceInstalled(entry.name, wide: true),
       );
     }
     return McpServerDetail(
