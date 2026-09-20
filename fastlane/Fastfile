@@ -51,6 +51,22 @@ def marketing_version(options)
   YAML.load_file(File.join(FLUTTER_ROOT, "pubspec.yaml"))["version"].to_s.split("+").first
 end
 
+# App Store Connect platform names, by the names deliver uses.
+STORE_PLATFORMS = { "ios" => "IOS", "osx" => "MAC_OS" }.freeze
+
+# States in which a version can still be edited and sent to review.
+SUBMITTABLE_STATES = %w[
+  PREPARE_FOR_SUBMISSION READY_FOR_REVIEW DEVELOPER_REJECTED REJECTED METADATA_REJECTED INVALID_BINARY
+].freeze
+
+# True when this version has already been sent to review or gone further, so
+# sending it again would pull it back and lose its place in the queue.
+def submitted?(platform, version)
+  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+  found = app.get_app_store_versions(filter: { platform: STORE_PLATFORMS.fetch(platform), versionString: version })
+  found.any? && found.none? { |v| SUBMITTABLE_STATES.include?(v.app_store_state || v.app_version_state) }
+end
+
 before_all do |_lane, _options|
   Dotenv.load(".env") if File.exist?(".env")
   # Without setup_ci, codesign on macOS runners hangs on a keychain prompt.
@@ -192,6 +208,51 @@ lane :sync_screenshots do |options|
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false
     )
+  end
+end
+
+desc "Send a version's TestFlight build to App Review, for iOS and macOS"
+desc "  version:X.Y.Z  the version to submit (default: pubspec.yaml)"
+desc "  dry_run:true   upload the listing and the notes but do not submit"
+desc "  RELEASE_NOTES_FILE  plain text for \"What's New\" (default: fastlane/metadata/en-US/release_notes.txt)"
+lane :submit do |options|
+  api_key = load_app_store_connect_api_key
+  version = marketing_version(options)
+  dry_run = options[:dry_run].to_s == "true"
+  notes_file = ENV["RELEASE_NOTES_FILE"].to_s
+  notes = File.read(notes_file).strip if !notes_file.empty? && File.exist?(notes_file)
+
+  %w[ios osx].each do |platform|
+    if submitted?(platform, version)
+      UI.important("#{version} is already in review or released on #{platform}; leaving it alone")
+      next
+    end
+
+    params = {
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      platform: platform,
+      app_version: version,
+      # Without a build number, deliver waits for the build of this version to
+      # finish processing and attaches it.
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      submit_for_review: !dry_run,
+      automatic_release: false,
+      # A version still waiting for review has to be pulled back before the
+      # next one can take its place.
+      reject_if_possible: true,
+      force: true,
+      precheck_include_in_app_purchases: false,
+      run_precheck_before_submit: false,
+      submission_information: { export_compliance_uses_encryption: false },
+      app_review_information: app_review_information,
+      app_rating_config_path: "fastlane/metadata/age_rating.json"
+    }
+    params[:release_notes] = { "en-US" => notes } unless notes.to_s.empty?
+
+    upload_to_app_store(**params)
   end
 end
 
