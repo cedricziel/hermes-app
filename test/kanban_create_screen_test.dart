@@ -93,4 +93,35 @@ void main() {
     expect(find.text('title too long'), findsOneWidget);
     expect(find.text('New task'), findsOneWidget);
   });
+
+  testWidgets('sizes up a draft before it is created', (tester) async {
+    server.on('POST', '/api/plugins/kanban/estimate', {
+      'ok': true,
+      'est_tokens': 4000,
+      'complexity': 'S',
+    });
+    await pump(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Fix typo');
+    await tester.pump();
+    await tester.tap(find.text('Estimate the work'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('about 4k tokens · small'), findsOneWidget);
+    expect(
+      jsonBody(
+        server.requestsTo('POST', '/api/plugins/kanban/estimate').single,
+      ),
+      containsPair('title', 'Fix typo'),
+    );
+  });
+
+  testWidgets('will not estimate a draft without a title', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('Estimate the work'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('POST', '/api/plugins/kanban/estimate'), isEmpty);
+  });
 }
