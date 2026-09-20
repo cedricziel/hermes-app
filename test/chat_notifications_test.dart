@@ -482,6 +482,28 @@ void main() {
     expect(selected(tester), 's1');
   });
 
+  testWidgets('a tap does not close a screen that sits above the chat', (
+    tester,
+  ) async {
+    await pump(tester);
+    tester.view.physicalSize = const Size(500, 900);
+    await tester.pump();
+    unawaited(
+      Navigator.of(tester.element(find.byType(Scaffold).first)).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('a screen above the chat')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    service.tap('s2');
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('a screen above the chat'), findsOneWidget);
+  });
+
   testWidgets('a notification that started the app opens its thread', (
     tester,
   ) async {

@@ -248,7 +248,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _openFromNotification(NotificationTarget target) {
     if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
-      _selectThread(target.threadId);
+      _selectThread(target.threadId, closeDrawer: false);
     } else {
       _showMessage(_couldNotOpenChat);
     }
@@ -331,9 +331,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _closeDrawerIfNarrow();
   }
 
-  void _selectThread(String id) {
+  void _selectThread(String id, {bool closeDrawer = true}) {
     setState(() => _selectedId = id);
-    _closeDrawerIfNarrow();
+    if (closeDrawer) _closeDrawerIfNarrow();
     if (_repository != null) _loadMessages(id);
   }
 
