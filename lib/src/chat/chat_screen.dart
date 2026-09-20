@@ -25,6 +25,9 @@ import '../profiles/profiles_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import 'attachments/attachment_source.dart';
+import 'attachments/attachment_surface.dart';
+import 'attachments/plugin_attachment_source.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_kinds.dart';
 import 'chat_message_mapper.dart';
@@ -65,6 +68,7 @@ class ChatScreen extends StatefulWidget {
     this.skills,
     this.plugins,
     this.onShowChat,
+    this.attachmentSource,
   });
 
   final HermesChatRepository? repository;
@@ -77,6 +81,10 @@ class ChatScreen extends StatefulWidget {
   /// Asks the host to bring the chat to the front, for a notification tap or
   /// shared content that arrives while something else is shown.
   final VoidCallback? onShowChat;
+
+  /// Where the attach control, drops and paste get their files; the platform's
+  /// plugins unless a test supplies its own.
+  final AttachmentSource? attachmentSource;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -112,6 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _emptyController = InMemoryChatController();
   final _chatControllers = <String, InMemoryChatController>{};
   final List<SharedFile> _attachments = [];
+  late final AttachmentSource _attachmentSource;
   late final ShareController _share;
   late final AttentionNotifier _attention;
   NotificationTarget? _pendingTap;
@@ -169,6 +178,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _loadThreads();
     }
+    _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared();
   }
@@ -322,6 +332,12 @@ class _ChatScreenState extends State<ChatScreen> {
       text: combined,
       selection: TextSelection.collapsed(offset: combined.length),
     );
+  }
+
+  void _addAttachments(List<SharedFile> files) {
+    final added = files.where((f) => !_attachments.contains(f)).toList();
+    if (added.isEmpty) return;
+    setState(() => _attachments.addAll(added));
   }
 
   @override
@@ -734,6 +750,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   chatController: _controllerFor(selected),
                   composerController: _composerController,
                   attachments: _attachments,
+                  attachmentSource: _attachmentSource,
+                  onAddAttachments: _addAttachments,
                   onRemoveAttachment: (file) =>
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
@@ -766,6 +784,8 @@ class _ThreadView extends StatelessWidget {
     required this.chatController,
     required this.composerController,
     required this.attachments,
+    required this.attachmentSource,
+    required this.onAddAttachments,
     required this.onRemoveAttachment,
     required this.onSend,
     required this.showTopBar,
@@ -779,6 +799,8 @@ class _ThreadView extends StatelessWidget {
   final InMemoryChatController chatController;
   final TextEditingController composerController;
   final List<SharedFile> attachments;
+  final AttachmentSource attachmentSource;
+  final ValueChanged<List<SharedFile>> onAddAttachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
   final bool showTopBar;
@@ -836,22 +858,27 @@ class _ThreadView extends StatelessWidget {
           ),
         if (showTopBar) const Divider(height: 1),
         Expanded(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: SizedBox.expand(
-                child: FlyerMaterialScope(
-                  child: SelectionArea(
-                    child: Chat(
-                      // The controller too: after a profile switch the same
-                      // id names another thread.
-                      key: ValueKey((thread?.id, chatController)),
-                      chatController: chatController,
-                      currentUserId: kUserAuthorId,
-                      resolveUser: (id) async => User(id: id),
-                      onMessageSend: onSend,
-                      theme: buildChatTheme(Theme.of(context)),
-                      builders: builders,
+          child: AttachmentSurface(
+            source: attachmentSource,
+            onAdd: onAddAttachments,
+            builder: (context, openAttachMenu) => Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: SizedBox.expand(
+                  child: FlyerMaterialScope(
+                    child: SelectionArea(
+                      child: Chat(
+                        // The controller too: after a profile switch the same
+                        // id names another thread.
+                        key: ValueKey((thread?.id, chatController)),
+                        chatController: chatController,
+                        currentUserId: kUserAuthorId,
+                        resolveUser: (id) async => User(id: id),
+                        onMessageSend: onSend,
+                        onAttachmentTap: openAttachMenu,
+                        theme: buildChatTheme(Theme.of(context)),
+                        builders: builders,
+                      ),
                     ),
                   ),
                 ),

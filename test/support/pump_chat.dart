@@ -6,6 +6,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -29,6 +30,7 @@ Future<void> pumpChatScreen(
   List<SingleChildWidget> providers = const [],
   bool settle = true,
   VoidCallback? onShowChat,
+  AttachmentSource? attachmentSource,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -59,6 +61,7 @@ Future<void> pumpChatScreen(
               : null,
           transport: transport,
           onShowChat: onShowChat,
+          attachmentSource: attachmentSource,
         ),
       ),
     ),
