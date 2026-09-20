@@ -1,1 +1,7 @@
-This app is a client for a self-hosted Hermes Agent dashboard. It needs a reachable dashboard to sign in. It is currently distributed through TestFlight only.
+Companion for Hermes Agent is a client for a Hermes Agent dashboard, an open-source AI agent server that people run themselves. The app has no backend of its own, so it only works with a server the user provides.
+
+To try the app, enter the address of a Hermes Agent dashboard on the first screen and sign in.
+
+If you need a server for the review, please contact us with the details in this submission and we will provide the address and a demo login.
+
+The app sends diagnostics to a server run by the developer, as described in the privacy policy. Everything else stays between the app and the server the user enters.
