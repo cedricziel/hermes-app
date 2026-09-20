@@ -127,6 +127,9 @@ class _ChatScreenState extends State<ChatScreen> {
   int _loadGeneration = 0;
   final _unloaded = <String>{};
 
+  /// Threads with older rows on the server, by how many rows were read so far.
+  final _olderRows = <String, int>{};
+
   /// Threads the dashboard knows by their [ChatThread.id]; a thread created
   /// here is not one until the transport reports its id.
   final _bound = <ChatThread>{};
@@ -245,6 +248,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _unloaded
           ..clear()
           ..addAll(threads.map((t) => t.id));
+        _olderRows.clear();
         _bound
           ..clear()
           ..addAll(threads);
@@ -292,17 +296,57 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!_unloaded.remove(id)) return;
     final generation = _loadGeneration;
     try {
-      final messages = await _repository!.loadMessages(id, profile: _profile);
+      final page = await _repository!.loadMessagePage(id, profile: _profile);
       if (!mounted || generation != _loadGeneration) return;
       final thread = _threads.where((t) => t.id == id).firstOrNull;
       if (thread == null) return;
-      setState(() => thread.messages.addAll(messages));
+      setState(() {
+        thread.messages.addAll(page.messages);
+        if (page.hasMore) _olderRows[id] = page.rows;
+      });
       await _controllerFor(thread).setMessages(chatThreadToFlyer(thread));
     } on Object {
       if (generation != _loadGeneration) return;
       _unloaded.add(id);
       if (!mounted) return;
       _showMessage('Could not load this chat');
+    }
+  }
+
+  Future<void> _loadOlder(String id) async {
+    final offset = _olderRows[id];
+    if (offset == null) return;
+    final generation = _loadGeneration;
+    try {
+      final page = await _repository!.loadMessagePage(
+        id,
+        profile: _profile,
+        offset: offset,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      final thread = _threads.where((t) => t.id == id).firstOrNull;
+      if (thread == null) return;
+      final held = {for (final m in thread.messages) m.id};
+      final older = [
+        for (final m in page.messages)
+          if (!held.contains(m.id)) m,
+      ];
+      setState(() {
+        thread.messages.insertAll(0, older);
+        if (page.hasMore && page.rows > 0) {
+          _olderRows[id] = offset + page.rows;
+        } else {
+          _olderRows.remove(id);
+        }
+      });
+      if (older.isEmpty) return;
+      await _controllerFor(thread).insertAllMessages([
+        for (final m in older) ...chatMessageToFlyer(m),
+      ], index: 0);
+    } on Object {
+      if (mounted && generation == _loadGeneration) {
+        _showMessage('Could not load earlier messages');
+      }
     }
   }
 
@@ -947,6 +991,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       ? null
                       : () => _retry(selected),
                   showTopBar: isWide,
+                  onLoadOlder:
+                      selected == null || !_olderRows.containsKey(selected.id)
+                      ? null
+                      : () => _loadOlder(selected.id),
                   onAnswerApproval: selected == null
                       ? null
                       : (id, choice) => _answerApproval(selected, id, choice),
@@ -982,6 +1030,7 @@ class _ThreadView extends StatelessWidget {
     required this.latestReplyId,
     required this.showTopBar,
     this.onRetry,
+    this.onLoadOlder,
     this.onAnswerApproval,
     this.onAnswerClarify,
     this.onSkipUnsupported,
@@ -999,6 +1048,7 @@ class _ThreadView extends StatelessWidget {
   final ValueListenable<String?> latestReplyId;
   final VoidCallback? onRetry;
   final bool showTopBar;
+  final Future<void> Function()? onLoadOlder;
   final Future<void> Function(String requestId, String choice)?
   onAnswerApproval;
   final Future<void> Function(
@@ -1019,6 +1069,7 @@ class _ThreadView extends StatelessWidget {
           greetingName: identity?.displayName,
           latestReplyId: latestReplyId,
           onRetry: onRetry,
+          onLoadOlder: onLoadOlder,
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,
           onSkipUnsupported: onSkipUnsupported,
