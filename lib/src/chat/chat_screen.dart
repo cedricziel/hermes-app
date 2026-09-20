@@ -134,6 +134,10 @@ class _ChatScreenState extends State<ChatScreen> {
   late final ShareController _share;
   late final AttentionNotifier _attention;
   NotificationTarget? _pendingTap;
+
+  /// Whether the held tap came from another destination, which may fetch a
+  /// session the loaded threads do not hold, unlike a notification tap.
+  bool _pendingFetch = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -210,8 +214,10 @@ class _ChatScreenState extends State<ChatScreen> {
       final launched = await _attention.takeLaunchTarget();
       if (!mounted || generation != _loadGeneration) return;
       final held = _pendingTap;
+      final fetchHeld = held != null && _pendingFetch;
       final launch = held ?? launched;
       _pendingTap = null;
+      _pendingFetch = false;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       for (final controller in _chatControllers.values) {
@@ -237,7 +243,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if (launch != null) {
         // A held tap already put Chat in front when it arrived.
         if (held == null) widget.onShowChat?.call();
-        if (_selectedId != launch.threadId) _showMessage(_couldNotOpenChat);
+        if (_selectedId != launch.threadId) {
+          if (fetchHeld) {
+            _openMissing(launch);
+          } else {
+            _showMessage(_couldNotOpenChat);
+          }
+        }
       }
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {
@@ -308,6 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
     widget.onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
+      _pendingFetch = fetchMissing;
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
       _selectThread(target.threadId, closeDrawer: false);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,7 +63,7 @@ void main() {
 
   tearDown(() => requests.dispose());
 
-  Future<void> pumpChat(WidgetTester tester) async {
+  Future<void> pumpChat(WidgetTester tester, {bool settle = true}) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -87,7 +89,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
 
   Finder inTranscript(String text) => find.descendant(
@@ -164,6 +166,40 @@ void main() {
       ['work', 'home'],
     );
   });
+
+  testWidgets(
+    'a request made while the sessions load still fetches its session',
+    (tester) async {
+      final gate = Completer<FakeResponse>();
+      server.onRequest(
+        'GET',
+        '/api/sessions',
+        (_) => gate.future,
+        query: {'profile': 'work'},
+      );
+      server.on(
+        'GET',
+        '/api/sessions/cron_job1_1',
+        sessionRow(id: 'cron_job1_1', title: 'Morning brief run'),
+      );
+      seedMessages('cron_job1_1', 'work', 'an old run');
+      await pumpChat(tester, settle: false);
+      await tester.pump();
+
+      requests.request(
+        const NotificationTarget(threadId: 'cron_job1_1', profile: 'work'),
+      );
+      await tester.pump();
+      gate.complete((
+        status: 200,
+        body: sessionListBody([sessionRow(id: 'recent', title: 'Recent chat')]),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(inTranscript('an old run'), findsOneWidget);
+      expect(find.text('Could not open that chat.'), findsNothing);
+    },
+  );
 
   testWidgets('says so when the session no longer exists', (tester) async {
     server.on('GET', '/api/sessions/cron_gone_1', {'detail': 'x'}, status: 404);

@@ -21,12 +21,14 @@ Color outcomeColor(BuildContext context, CronJob job) {
 String statusText(CronJob job, DateTime now) {
   if (job.state == CronJobState.paused) return 'Paused';
   if (job.state == CronJobState.completed) return 'Completed';
-  final at = job.lastRunAt == null ? null : relativeTime(job.lastRunAt!, now);
+  final last = job.lastRunAt;
+  // A status without a readable time still says how the run went.
+  final at = last == null ? '' : ' ${relativeTime(last, now)}';
   return switch (job.outcome) {
     CronOutcome.none => 'Not run yet',
-    CronOutcome.ok => 'Last run succeeded $at',
-    CronOutcome.failed => 'Failed $at',
-    CronOutcome.deliveryFailed => 'Ran, but delivery failed $at',
+    CronOutcome.ok => 'Last run succeeded$at',
+    CronOutcome.failed => 'Failed$at',
+    CronOutcome.deliveryFailed => 'Ran, but delivery failed$at',
   };
 }
 

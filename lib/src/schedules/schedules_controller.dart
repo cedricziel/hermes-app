@@ -262,6 +262,14 @@ class SchedulesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A call the user made can answer after the destination went away and
+  /// the controller was disposed; it must not notify then.
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    super.notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;

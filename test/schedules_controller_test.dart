@@ -262,4 +262,43 @@ void main() {
       expect(controller.jobs, isEmpty);
     });
   });
+
+  group('after disposal', () {
+    Future<SchedulesController> loaded() async {
+      server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+      final c = build();
+      await c.refresh();
+      return c;
+    }
+
+    test('a delete that answers late does not notify', () async {
+      final c = await loaded();
+      final answer = Completer<FakeResponse>();
+      server.onRequest('DELETE', '/api/cron/jobs/job1', (_) => answer.future);
+
+      final result = c.delete(c.jobs.single);
+      await pumpEventQueue();
+      c.dispose();
+      answer.complete((status: 404, body: <String, Object?>{}));
+
+      expect(await result, isNull);
+    });
+
+    test('a run request that answers 404 late does not notify', () async {
+      final c = await loaded();
+      final answer = Completer<FakeResponse>();
+      server.onRequest(
+        'POST',
+        '/api/cron/jobs/job1/trigger',
+        (_) => answer.future,
+      );
+
+      final result = c.runNow(c.jobs.single);
+      await pumpEventQueue();
+      c.dispose();
+      answer.complete((status: 404, body: <String, Object?>{}));
+
+      expect(await result, contains('no longer exists'));
+    });
+  });
 }

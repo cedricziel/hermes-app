@@ -103,6 +103,17 @@ void main() {
       expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
     });
 
+    testWidgets('a failed run without a readable time still says it failed', (
+      tester,
+    ) async {
+      jobs([cronJobRow(lastStatus: 'error', lastError: 'Boom')]);
+
+      await pumpScreen(tester, size: const Size(400, 800));
+
+      expect(find.text('Failed'), findsOneWidget);
+      expect(find.textContaining('null'), findsNothing);
+    });
+
     testWidgets('says a job has not run yet', (tester) async {
       jobs([cronJobRow()]);
 
