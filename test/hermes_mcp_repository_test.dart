@@ -576,7 +576,6 @@ void main() {
         'enable': false,
       });
       expect(request.queryParameters['profile'], 'work');
-      expect(result.background, isFalse);
       expect(result.action, isNull);
     });
 
@@ -618,7 +617,6 @@ void main() {
 
       final result = await repository.installEntry(entry());
 
-      expect(result.background, isTrue);
       expect(result.action, 'mcp-install-buildkite-ab12');
     });
 
@@ -722,7 +720,6 @@ void main() {
       final flow = await repository.startSignIn('asana', profile: 'work');
 
       expect(flow.flowId, 'f1');
-      expect(flow.serverName, 'asana');
       expect(flow.status, McpFlowStatus.authorizationRequired);
       expect(flow.authorizationUrl, 'https://auth.example/authorize?state=s1');
       expect(server.requestsTo('POST', path).single.queryParameters, {

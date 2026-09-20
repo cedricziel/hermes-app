@@ -1475,7 +1475,6 @@ void main() {
 
       final result = await repository.installEntry(context7, enable: false);
 
-      expect(result.background, isFalse);
       expect(result.name, 'context7');
       final server = (await repository.loadServers()).firstWhere(
         (s) => s.name == 'context7',
@@ -1538,7 +1537,6 @@ void main() {
         final flow = await repository.startSignIn(name);
 
         expect(flow.flowId, isNotEmpty);
-        expect(flow.serverName, name);
         expect(flow.status, McpFlowStatus.authorizationRequired);
         expect(flow.authorizationUrl, startsWith('$providerUrl/authorize?'));
         final status = await repository.flowStatus(flow.flowId);

@@ -30,7 +30,7 @@ class McpSignInScreen extends StatefulWidget {
   State<McpSignInScreen> createState() => _McpSignInScreenState();
 }
 
-enum _Phase { waiting, failed, expired }
+enum _Phase { waiting, failed, expired, done }
 
 class _McpSignInScreenState extends State<McpSignInScreen>
     with WidgetsBindingObserver {
@@ -40,13 +40,12 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   bool _browserFailed = false;
   bool _starting = false;
   bool _polling = false;
-  bool _done = false;
   Timer? _timer;
   String? _launchedUrl;
 
   HermesMcpRepository get _repository => widget.controller.repository;
 
-  bool get _settled => _done || _phase != _Phase.waiting;
+  bool get _settled => _phase != _Phase.waiting;
 
   @override
   void initState() {
@@ -114,7 +113,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
       if (!mounted || _settled) return;
       switch (flow.status) {
         case McpFlowStatus.approved:
-          _done = true;
+          _phase = _Phase.done;
           Navigator.of(context).pop(true);
           return;
         case McpFlowStatus.error:
@@ -147,7 +146,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
 
   void _cancel() {
     _cancelFlow(_flow);
-    _done = true;
+    _phase = _Phase.done;
     Navigator.of(context).pop(false);
   }
 
@@ -194,6 +193,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
                 title: 'The sign-in expired',
                 detail: 'Hermes dropped it. Start it again to get a new link.',
               ),
+              _Phase.done => const SizedBox.shrink(),
             },
           ),
         ),

@@ -74,7 +74,6 @@ class McpInstallController extends ChangeNotifier {
   static const _maxReadFailures = 3;
 
   McpInstallState _state = const McpInstallIdle();
-  bool _enable = true;
   bool _disposed = false;
   Timer? _timer;
   int _readFailures = 0;
@@ -88,7 +87,6 @@ class McpInstallController extends ChangeNotifier {
   /// build carries on after that and settles [state] when it ends.
   Future<void> install(Map<String, String> env, {required bool enable}) async {
     if (busy) return;
-    _enable = enable;
     _set(const McpInstalling());
     try {
       final result = await servers.repository.installEntry(
@@ -99,9 +97,9 @@ class McpInstallController extends ChangeNotifier {
       );
       if (result.action case final action?) {
         _set(const McpBuilding());
-        _follow(action);
+        _follow(action, enable);
       } else {
-        await _installed();
+        await _installed(enable);
       }
     } on McpRefused catch (e) {
       _set(McpInstallFailed(_couldNotInstall(e.reason)));
@@ -119,18 +117,18 @@ class McpInstallController extends ChangeNotifier {
   String _couldNotInstall([String reason = '']) =>
       reason.isNotEmpty ? reason : 'Could not install ${entry.name}';
 
-  Future<void> _installed() async {
+  Future<void> _installed(bool enable) async {
     await servers.refresh();
     _set(const McpInstalled());
     if (!_disposed) onInstalled?.call();
-    catalog.markInstalled(entry.name, enabled: _enable);
+    catalog.markInstalled(entry.name, enabled: enable);
   }
 
-  void _follow(String action) {
-    _timer = Timer(pollInterval, () => _poll(action));
+  void _follow(String action, bool enable) {
+    _timer = Timer(pollInterval, () => _poll(action, enable));
   }
 
-  Future<void> _poll(String action) async {
+  Future<void> _poll(String action, bool enable) async {
     final HermesMcpAction status;
     try {
       status = await servers.repository.actionStatus(action);
@@ -139,16 +137,16 @@ class McpInstallController extends ChangeNotifier {
       if (isMcpNotFound(e) || ++_readFailures >= _maxReadFailures) {
         await _lostTrack();
       } else {
-        _follow(action);
+        _follow(action, enable);
       }
       return;
     }
     if (_disposed) return;
     _readFailures = 0;
     if (status.running) {
-      _follow(action);
+      _follow(action, enable);
     } else if (status.exitCode == 0) {
-      await _installed();
+      await _installed(enable);
     } else if (status.exitCode == null) {
       await _lostTrack();
     } else {

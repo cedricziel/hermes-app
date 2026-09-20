@@ -144,12 +144,6 @@ class HermesMcpCatalogEntry {
 
   bool get buildsLocally => installUrl != null;
 
-  /// The URL of a remote entry, otherwise the command with its arguments.
-  String get address => switch (transport) {
-    McpTransport.remote => url ?? '',
-    _ => [?command, ...args].join(' '),
-  };
-
   HermesMcpCatalogEntry withInstalled({required bool enabled}) =>
       HermesMcpCatalogEntry(
         name: name,
@@ -186,8 +180,6 @@ class HermesMcpInstallResult {
   /// The background process building the entry on the server, or null when
   /// the install finished with the request.
   final String? action;
-
-  bool get background => action != null;
 }
 
 /// A background process on the server, as `GET /api/actions/{name}/status`
@@ -213,14 +205,12 @@ enum McpFlowStatus { starting, authorizationRequired, approved, error, unknown }
 class HermesMcpFlow {
   const HermesMcpFlow({
     required this.flowId,
-    required this.serverName,
     required this.status,
     this.authorizationUrl,
     this.error,
   });
 
   final String flowId;
-  final String serverName;
   final McpFlowStatus status;
   final String? authorizationUrl;
   final String? error;
@@ -450,13 +440,13 @@ class HermesMcpRepository {
     if (body is! Map || body['ok'] != true) {
       throw const FormatException('Unexpected MCP install response');
     }
-    final action = _text(body['action']);
+    final action = body['background'] == true ? _text(body['action']) : null;
     if (body['background'] == true && action == null) {
       throw const FormatException('Install has no action to follow');
     }
     return HermesMcpInstallResult(
       name: _text(body['name']) ?? entry.name,
-      action: body['background'] == true ? action : null,
+      action: action,
     );
   }
 
@@ -510,7 +500,6 @@ class HermesMcpRepository {
     }
     return HermesMcpFlow(
       flowId: body['flow_id'] as String,
-      serverName: _text(body['server_name']) ?? '',
       status: switch (body['status']) {
         'starting' => McpFlowStatus.starting,
         'authorization_required' => McpFlowStatus.authorizationRequired,

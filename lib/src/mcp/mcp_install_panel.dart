@@ -41,6 +41,7 @@ class McpInstallPanel extends StatefulWidget {
 class _McpInstallPanelState extends State<McpInstallPanel> {
   late final McpInstallController _install;
   late final Map<String, TextEditingController> _fields;
+  late final Listenable _changes;
   bool _enable = true;
 
   @override
@@ -57,6 +58,7 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
       for (final credential in widget.entry.requiredEnv)
         credential.name: TextEditingController(),
     };
+    _changes = Listenable.merge([_install, ..._fields.values]);
   }
 
   @override
@@ -87,7 +89,7 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
     final theme = Theme.of(context);
     final profile = widget.servers.profile;
     return ListenableBuilder(
-      listenable: Listenable.merge([_install, ..._fields.values]),
+      listenable: _changes,
       builder: (context, _) {
         final state = _install.state;
         return ListView(
