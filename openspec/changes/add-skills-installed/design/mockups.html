@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hermes App – Skills mockups</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --z50: #fafafa;
+        --z100: #f4f4f5;
+        --z200: #e4e4e7;
+        --z300: #d4d4d8;
+        --z400: #a1a1aa;
+        --z500: #71717a;
+        --z600: #52525b;
+        --z700: #3f3f46;
+        --z900: #18181b;
+        --green: #15803d;
+        --green-bg: #dcfce7;
+        --amber: #b45309;
+        --amber-bg: #fef3c7;
+        --red: #b91c1c;
+        --red-bg: #fee2e2;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        font-family: -apple-system, "Inter", "Segoe UI", Roboto, sans-serif;
+        background: #e9e9ec;
+        color: var(--z900);
+        padding: 32px;
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+      .lead {
+        color: var(--z600);
+        font-size: 14px;
+        margin-bottom: 28px;
+        max-width: 760px;
+        line-height: 1.5;
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 36px;
+      }
+      figure {
+        width: 360px;
+      }
+      figcaption {
+        font-size: 13px;
+        color: var(--z700);
+        margin-top: 10px;
+        line-height: 1.45;
+      }
+      figcaption b {
+        display: block;
+        color: var(--z900);
+        font-size: 14px;
+        margin-bottom: 2px;
+      }
+      .phone {
+        width: 360px;
+        height: 740px;
+        background: #fff;
+        border-radius: 34px;
+        border: 10px solid #111;
+        overflow: hidden;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+      }
+      .status {
+        height: 26px;
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 20px 0;
+        color: var(--z900);
+        flex: none;
+      }
+      .appbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 12px 6px 8px;
+        height: 52px;
+        flex: none;
+      }
+      .appbar .title {
+        font-size: 19px;
+        font-weight: 600;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ico {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        font-size: 18px;
+        color: var(--z900);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--z300);
+        border-radius: 8px;
+        padding: 5px 10px;
+        font-size: 12px;
+        color: var(--z700);
+        white-space: nowrap;
+      }
+      .chip.sel {
+        background: var(--z900);
+        color: #fff;
+        border-color: var(--z900);
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid var(--z200);
+        flex: none;
+      }
+      .tabs div {
+        flex: 1;
+        text-align: center;
+        padding: 12px 0;
+        font-size: 14px;
+        color: var(--z500);
+      }
+      .tabs div.sel {
+        color: var(--z900);
+        font-weight: 600;
+        border-bottom: 2px solid var(--z900);
+      }
+      .search {
+        margin: 12px 16px 8px;
+        background: var(--z100);
+        border-radius: 12px;
+        padding: 11px 14px;
+        font-size: 14px;
+        color: var(--z500);
+        flex: none;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        padding: 0 16px 8px;
+        overflow: hidden;
+        flex: none;
+      }
+      .body {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+      .cat {
+        padding: 12px 16px 4px;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--z500);
+        font-weight: 600;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--z100);
+      }
+      .row .main {
+        flex: 1;
+        min-width: 0;
+      }
+      .row .name {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .row .desc {
+        font-size: 12.5px;
+        color: var(--z500);
+        margin-top: 1px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .row .meta {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--z500);
+      }
+      .row.off .name,
+      .row.off .desc {
+        color: var(--z400);
+      }
+      .badge {
+        font-size: 10.5px;
+        padding: 1px 7px;
+        border-radius: 6px;
+        background: var(--z100);
+        color: var(--z700);
+        border: 1px solid var(--z200);
+      }
+      .badge.hub {
+        background: #eef2ff;
+        border-color: #e0e7ff;
+        color: #3730a3;
+      }
+      .badge.agent {
+        background: var(--green-bg);
+        border-color: #bbf7d0;
+        color: var(--green);
+      }
+      .badge.warn {
+        background: var(--amber-bg);
+        border-color: #fde68a;
+        color: var(--amber);
+      }
+      .sw {
+        width: 44px;
+        height: 26px;
+        border-radius: 13px;
+        background: var(--z300);
+        position: relative;
+        flex: none;
+      }
+      .sw::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+      }
+      .sw.on {
+        background: var(--z900);
+      }
+      .sw.on::after {
+        left: 21px;
+      }
+      .fab {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        background: var(--z900);
+        color: #fff;
+        border-radius: 16px;
+        padding: 14px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+      }
+      .footlink {
+        padding: 14px 16px;
+        font-size: 13px;
+        color: var(--z700);
+        text-decoration: underline;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        padding: 10px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        border: 1px solid var(--z900);
+        background: var(--z900);
+        color: #fff;
+      }
+      .btn.out {
+        background: #fff;
+        color: var(--z900);
+      }
+      .btn.red {
+        background: #fff;
+        color: var(--red);
+        border-color: #fecaca;
+      }
+      .btn.amber {
+        background: #fff;
+        color: var(--amber);
+        border-color: #f59e0b;
+      }
+      .btn.dis {
+        background: var(--z100);
+        color: var(--z400);
+        border-color: var(--z200);
+      }
+      .btn.sm {
+        padding: 7px 14px;
+        font-size: 13px;
+      }
+      .card {
+        border: 1px solid var(--z200);
+        border-radius: 12px;
+        padding: 14px;
+        margin: 0 16px 12px;
+      }
+      .card h4 {
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--z500);
+        margin-bottom: 8px;
+      }
+      .md h5 {
+        font-size: 16px;
+        margin: 2px 0 6px;
+      }
+      .md p {
+        font-size: 13px;
+        color: var(--z700);
+        line-height: 1.5;
+        margin-bottom: 8px;
+      }
+      .md ul {
+        font-size: 13px;
+        color: var(--z700);
+        padding-left: 18px;
+        line-height: 1.6;
+        margin-bottom: 8px;
+      }
+      code,
+      pre,
+      .mono {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      pre {
+        background: var(--z100);
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--z800, #27272a);
+        overflow: hidden;
+      }
+      .seg {
+        display: flex;
+        margin: 8px 16px;
+        border: 1px solid var(--z300);
+        border-radius: 20px;
+        overflow: hidden;
+        flex: none;
+      }
+      .seg div {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        font-size: 13px;
+        color: var(--z700);
+      }
+      .seg div.sel {
+        background: var(--z900);
+        color: #fff;
+      }
+      .editor {
+        flex: 1;
+        display: flex;
+        font-size: 12px;
+        line-height: 1.65;
+      }
+      .gutter {
+        width: 34px;
+        text-align: right;
+        padding: 8px 6px 0 0;
+        color: var(--z400);
+        background: var(--z50);
+        border-right: 1px solid var(--z200);
+        user-select: none;
+      }
+      .code {
+        padding: 8px 10px;
+        color: var(--z900);
+        white-space: normal; word-break: break-word; flex: 1; min-width: 0;
+        overflow: hidden;
+      }
+      .code .k {
+        color: var(--z500);
+      }
+      .code .h {
+        font-weight: 700;
+      }
+      .toolbar {
+        display: flex;
+        gap: 6px;
+        padding: 8px 12px;
+        border-top: 1px solid var(--z200);
+        background: var(--z50);
+        flex: none;
+      }
+      .toolbar span {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        border-radius: 8px;
+        background: #fff;
+        border: 1px solid var(--z200);
+        font-size: 13px;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--amber);
+        margin-left: 6px;
+      }
+      .banner {
+        margin: 0 16px 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .banner.amber {
+        background: var(--amber-bg);
+        color: #78350f;
+        border: 1px solid #fde68a;
+      }
+      .banner.red {
+        background: var(--red-bg);
+        color: #7f1d1d;
+        border: 1px solid #fecaca;
+      }
+      .banner.grey {
+        background: var(--z100);
+        color: var(--z600);
+      }
+      .finding {
+        display: flex;
+        gap: 10px;
+        padding: 8px 0;
+        border-top: 1px solid var(--z100);
+        font-size: 12.5px;
+      }
+      .finding i {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-top: 5px;
+        flex: none;
+      }
+      .sev-high {
+        background: #ea580c;
+      }
+      .sev-med {
+        background: #eab308;
+      }
+      .finding small {
+        display: block;
+        color: var(--z500);
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        margin-top: 2px;
+      }
+      .sticky {
+        padding: 12px 16px 18px;
+        border-top: 1px solid var(--z200);
+        background: #fff;
+        flex: none;
+        text-align: center;
+      }
+      .sticky .btn {
+        width: 100%;
+      }
+      .sticky small {
+        display: block;
+        margin-top: 6px;
+        color: var(--z500);
+        font-size: 11.5px;
+      }
+      .scrim {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.35);
+      }
+      .sheet {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fff;
+        border-radius: 24px 24px 0 0;
+        padding: 18px 16px 20px;
+      }
+      .grab {
+        width: 36px;
+        height: 4px;
+        background: var(--z300);
+        border-radius: 2px;
+        margin: 0 auto 14px;
+      }
+      .bar {
+        height: 6px;
+        background: var(--z200);
+        border-radius: 3px;
+        overflow: hidden;
+        margin: 12px 0;
+      }
+      .bar i {
+        display: block;
+        width: 62%;
+        height: 100%;
+        background: var(--z900);
+      }
+      .log {
+        background: var(--z900);
+        color: #d4d4d8;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 11.5px;
+        line-height: 1.6;
+        font-family: ui-monospace, Menlo, monospace;
+      }
+      .kv {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .dim {
+        opacity: 0.35;
+      }
+      .menu {
+        position: absolute;
+        right: 12px;
+        top: 6px;
+        background: #fff;
+        border: 1px solid var(--z200);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        padding: 6px 0;
+        width: 180px;
+        font-size: 14px;
+      }
+      .menu div {
+        padding: 11px 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Skills — screen proposals</h1>
+    <p class="lead">
+      Static mockups in the app's zinc theme (Material 3 shapes, monochrome,
+      colour only for status). Everything shown maps to the existing
+      <code>/api/skills*</code> routes. Six screens, phone layout; on wide
+      screens the same page pushes full-width, no new navigation.
+    </p>
+
+    <div class="grid">
+      <!-- 1. Installed -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">←</span><span class="title">Skills</span
+            ><span class="chip">default ▾</span>
+          </div>
+          <div class="tabs">
+            <div class="sel">Installed</div>
+            <div>Discover</div>
+          </div>
+          <div class="search">🔍&nbsp; Search skills</div>
+          <div class="chips">
+            <span class="chip sel">All</span><span class="chip">Enabled</span
+            ><span class="chip">Hub</span><span class="chip">Bundled</span
+            ><span class="chip">Agent</span>
+          </div>
+          <div class="body">
+            <div class="cat">apple</div>
+            <div class="row">
+              <div class="main">
+                <div class="name">apple-notes</div>
+                <div class="desc">Read and write Apple Notes via osascript</div>
+                <div class="meta">
+                  <span class="badge">Bundled</span> used 14×
+                </div>
+              </div>
+              <span class="sw on"></span>
+            </div>
+            <div class="cat">devops</div>
+            <div class="row">
+              <div class="main">
+                <div class="name">docker-compose</div>
+                <div class="desc">Manage compose stacks and read logs</div>
+                <div class="meta">
+                  <span class="badge hub">Hub</span> used 3×
+                </div>
+              </div>
+              <span class="sw on"></span>
+            </div>
+            <div class="row off">
+              <div class="main">
+                <div class="name">terraform-plan</div>
+                <div class="desc">Summarise terraform plans before apply</div>
+                <div class="meta">
+                  <span class="badge">Bundled</span> disabled
+                </div>
+              </div>
+              <span class="sw"></span>
+            </div>
+            <div class="cat">github</div>
+            <div class="row">
+              <div class="main">
+                <div class="name">github-pr-review</div>
+                <div class="desc">Review a PR and post inline comments</div>
+                <div class="meta">
+                  <span class="badge agent">Agent</span> used 27×
+                </div>
+              </div>
+              <span class="sw on"></span>
+            </div>
+            <div class="row">
+              <div class="main">
+                <div class="name">github-issues</div>
+                <div class="desc">Triage and label issues</div>
+                <div class="meta">
+                  <span class="badge">Bundled</span> used 6×
+                </div>
+              </div>
+              <span class="sw on"></span>
+            </div>
+            <div class="footlink">3 hub skills · Check for updates</div>
+            <div class="fab">＋ New skill</div>
+          </div>
+        </div>
+        <figcaption>
+          <b>1 · Installed</b>Grouped by category, search plus source chips.
+          Tapping a row opens detail; the switch toggles in place. The profile
+          chip switches which profile the whole page acts on.
+        </figcaption>
+      </figure>
+
+      <!-- 2. Detail -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">←</span><span class="title">github-pr-review</span
+            ><span class="ico">⋮</span>
+          </div>
+          <div class="body">
+            <div style="padding: 4px 16px 12px">
+              <div class="kv" style="margin: 0 0 10px">
+                <span class="chip">github</span
+                ><span class="badge agent" style="padding: 5px 9px"
+                  >Agent-authored</span
+                ><span class="chip">used 27×</span>
+              </div>
+              <div
+                class="row"
+                style="padding: 12px 0; border-top: 1px solid var(--z200)"
+              >
+                <div class="main">
+                  <div class="name">Enabled</div>
+                  <div class="desc">The agent may load this skill</div>
+                </div>
+                <span class="sw on"></span>
+              </div>
+              <div style="display: flex; gap: 10px; margin-top: 6px">
+                <span class="btn sm">✎ Edit</span
+                ><span class="btn sm red">Ask agent to delete</span>
+              </div>
+            </div>
+            <div class="card md">
+              <h4>SKILL.md</h4>
+              <h5>GitHub PR review</h5>
+              <p>
+                Review a pull request, summarise the risk and leave inline
+                comments on the lines that matter.
+              </p>
+              <p><b>When to use</b></p>
+              <ul>
+                <li>The user shares a PR link</li>
+                <li>Asked for a second pair of eyes</li>
+              </ul>
+              <pre>
+gh pr diff &lt;n&gt;
+gh pr review &lt;n&gt; --comment</pre>
+            </div>
+            <div class="banner grey">
+              Bundled and hub skills look the same, but bundled ones show only
+              the switch; hub ones add "Uninstall".
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>2 · Skill detail</b>Rendered SKILL.md, the switch and actions
+          depend on where the skill came from. Delete goes through the agent,
+          since the server has no delete route.
+        </figcaption>
+      </figure>
+
+      <!-- 3. Editor -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">✕</span
+            ><span class="title"
+              >Edit github-pr-review<span class="dot"></span></span
+            ><span style="font-weight: 600; font-size: 15px; padding: 0 6px"
+              >Save</span
+            >
+          </div>
+          <div class="seg">
+            <div class="sel">Edit</div>
+            <div>Preview</div>
+          </div>
+          <div class="editor">
+            <div class="gutter mono">
+              1<br />2<br />3<br />4<br />5<br />6<br />7<br />8<br />9<br />10<br />11<br />12<br />13<br />14<br />15<br />16
+            </div>
+            <div class="code mono"><span class="k">---</span><br><span class="k">name:</span> github-pr-review<br><span class="k">description:</span> Review a PR and post inline comments<br><span class="k">---</span><br><br><span class="h"># GitHub PR review</span><br><br>Review a pull request, summarise the risk and comment on the lines that matter.<br><br><span class="h">## When to use</span><br>- The user shares a PR link<br>- Asked for a second pair of eyes|</div>
+          </div>
+          <div class="toolbar">
+            <span>#</span><span>**</span><span>•</span><span>&lt;/&gt;</span
+            ><span>↶</span><span>↷</span>
+          </div>
+        </div>
+        <figcaption>
+          <b>3 · Editor</b>Monospaced text with Edit / Preview toggle. Save
+          writes the whole file (<code>PUT /api/skills/content</code>). Leaving
+          with unsaved changes asks to discard. Same screen serves "New skill"
+          with a name and category field on top.
+        </figcaption>
+      </figure>
+
+      <!-- 4. Discover -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">←</span><span class="title">Skills</span
+            ><span class="chip">default ▾</span>
+          </div>
+          <div class="tabs">
+            <div>Installed</div>
+            <div class="sel">Discover</div>
+          </div>
+          <div class="search">🔍&nbsp; Search the skills hub</div>
+          <div class="chips">
+            <span class="chip sel">All</span><span class="chip">Official</span
+            ><span class="chip">GitHub</span><span class="chip">ClawHub</span
+            ><span class="chip">LobeHub</span>
+          </div>
+          <div class="body">
+            <div class="cat">Featured official skills</div>
+            <div class="row">
+              <div class="main">
+                <div class="name">web-research</div>
+                <div class="desc">Search the web and cite sources</div>
+                <div class="meta">
+                  <span class="badge">Official</span
+                  ><span class="badge">search</span
+                  ><span class="badge">web</span>
+                </div>
+              </div>
+              <span class="btn sm">Install</span>
+            </div>
+            <div class="row">
+              <div class="main">
+                <div class="name">pdf-tools</div>
+                <div class="desc">Extract, merge and fill PDFs</div>
+                <div class="meta">
+                  <span class="badge">Official</span
+                  ><span class="badge">documents</span>
+                </div>
+              </div>
+              <span class="btn sm out">Installed ✓</span>
+            </div>
+            <div class="cat">Results for the hub</div>
+            <div class="row">
+              <div class="main">
+                <div class="name">web-scraper</div>
+                <div class="desc">Fetch pages and pull out tables</div>
+                <div class="meta">
+                  <span class="badge hub">Community</span
+                  ><span class="badge">acme/skills</span>
+                </div>
+              </div>
+              <span class="btn sm">View</span>
+            </div>
+            <div class="row">
+              <div class="main">
+                <div class="name">k8s-debug</div>
+                <div class="desc">Diagnose crashing pods</div>
+                <div class="meta">
+                  <span class="badge hub">Trusted</span
+                  ><span class="badge">GitHub</span>
+                </div>
+              </div>
+              <span class="btn sm">View</span>
+            </div>
+            <div class="banner grey" style="margin-top: 12px">
+              1 source timed out · <u>Retry</u>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>4 · Discover</b>Featured official catalog when the search is empty,
+          hub search results otherwise. Trust level is shown on every card;
+          Install always goes through the preview screen first.
+        </figcaption>
+      </figure>
+
+      <!-- 5. Preview + scan -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">←</span><span class="title">web-scraper</span>
+          </div>
+          <div class="body">
+            <div style="padding: 2px 16px 10px">
+              <div class="desc" style="font-size: 13px; color: var(--z600)">
+                GitHub · acme/skills
+              </div>
+              <div class="kv" style="margin-top: 6px">
+                <span class="badge hub" style="padding: 5px 9px">Community</span
+                ><span class="chip">3 files</span>
+              </div>
+            </div>
+            <div
+              class="card"
+              style="border-color: #fde68a; background: #fffbeb"
+            >
+              <h4 style="color: var(--amber)">Security scan</h4>
+              <div
+                style="font-weight: 700; color: var(--amber); font-size: 15px"
+              >
+                Caution — confirmation required
+              </div>
+              <div
+                style="font-size: 12.5px; color: var(--z700); margin: 4px 0 6px"
+              >
+                One script downloads and runs remote code.
+              </div>
+              <div class="kv" style="margin: 0 0 6px">
+                <span class="badge">0 critical</span
+                ><span class="badge warn">1 high</span
+                ><span class="badge">2 medium</span>
+              </div>
+              <div class="finding">
+                <i class="sev-high"></i>
+                <div>
+                  Downloads and executes a remote script<small
+                    >scripts/fetch.sh:12</small
+                  >
+                </div>
+              </div>
+              <div class="finding">
+                <i class="sev-med"></i>
+                <div>
+                  Writes outside the skill folder<small
+                    >scripts/fetch.sh:31</small
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="card md">
+              <h4>Files</h4>
+              <p class="mono" style="font-size: 12px">
+                SKILL.md<br />scripts/fetch.sh<br />references/notes.md
+              </p>
+            </div>
+            <div class="card md dim">
+              <h4>SKILL.md preview</h4>
+              <h5>Web scraper</h5>
+              <p>Fetch a page and return its main tables as CSV…</p>
+            </div>
+          </div>
+          <div class="sticky">
+            <span class="btn amber">Install anyway…</span
+            ><small>Server policy: ask · you will be asked to confirm</small>
+          </div>
+        </div>
+        <figcaption>
+          <b>5 · Hub skill preview + scan</b>The scan runs on open. Policy
+          <em>allow</em> gives a normal Install button, <em>ask</em> gives this
+          confirm step, <em>block</em> disables the button and shows the reason.
+        </figcaption>
+      </figure>
+
+      <!-- 6. Install progress / blocked -->
+      <figure>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+          <div class="appbar">
+            <span class="ico">←</span><span class="title">Skills</span
+            ><span class="chip">default ▾</span>
+          </div>
+          <div class="tabs">
+            <div>Installed</div>
+            <div class="sel">Discover</div>
+          </div>
+          <div class="body dim">
+            <div class="row">
+              <div class="main">
+                <div class="name">web-research</div>
+                <div class="desc">Search the web and cite sources</div>
+              </div>
+              <span class="btn sm">Install</span>
+            </div>
+            <div class="row">
+              <div class="main">
+                <div class="name">web-scraper</div>
+                <div class="desc">Fetch pages and pull out tables</div>
+              </div>
+              <span class="btn sm">View</span>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div style="font-size: 17px; font-weight: 600">
+              Installing web-scraper
+            </div>
+            <div class="bar"><i></i></div>
+            <div class="log">
+              Fetching acme/skills…<br />Scanning 3 files…<br />Installing…<br />▍
+            </div>
+            <div
+              style="
+                text-align: right;
+                margin-top: 10px;
+                font-size: 14px;
+                color: var(--z700);
+              "
+            >
+              Run in background
+            </div>
+            <div
+              style="border-top: 1px solid var(--z200); margin: 14px -16px 12px"
+            ></div>
+            <div
+              style="
+                font-size: 11px;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: var(--z500);
+                margin-bottom: 8px;
+              "
+            >
+              Other state: blocked
+            </div>
+            <div class="banner red" style="margin: 0 0 10px">
+              <b>🛡 Blocked by server policy</b><br />Contains a
+              credential-stealing pattern.
+            </div>
+            <div style="display: flex; justify-content: flex-end">
+              <span class="btn dis">Install</span>
+            </div>
+          </div>
+        </div>
+        <figcaption>
+          <b>6 · Install progress and blocked</b>Install, uninstall and update
+          are background jobs on the server. The sheet polls
+          <code>/api/actions/{name}/status</code> and shows the tail of its log;
+          on completion the Installed list refreshes.
+        </figcaption>
+      </figure>
+    </div>
+  </body>
+</html>
