@@ -34,7 +34,7 @@ void main() {
         child: MaterialApp(
           theme: buildHermesLightTheme(),
           home: KanbanScreen(
-            repository: KanbanRepository(server.client().raw),
+            repository: KanbanRepository(server.client()),
             connect: ({required since, board}) async =>
                 StreamChannelController<String>().foreign,
           ),
