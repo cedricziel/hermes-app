@@ -17,43 +17,46 @@ context: |
     never a hand-rolled Dio call. `packages/hermes_api` is generated from
     openapi/hermes-agent.openapi.json and is never hand-edited. Only routes without a response
     schema in the spec are hand-written.
-  - Telemetry is opt-in via `--dart-define` and must never break the app; failures are swallowed.
+  - Telemetry (flutter_otel, lib/src/telemetry) is opt-in via `--dart-define` and must never break
+    the app; failures are swallowed.
   - Tests run the real generated client against `FakeHermesServer` at the HTTP layer,
     not against mocks of the client.
 
 rules:
   proposal:
     - State non-goals, meaning what the change deliberately does not do.
-    - List the platforms affected (iOS, Android, macOS, Windows, Linux, watchOS) and any
-      native entitlement, manifest or Xcode project change.
-    - Name the Hermes Agent routes or RPC methods the change relies on and the minimum
-      Hermes version.
     - State the security and privacy impact (tokens, secure storage, telemetry data), or
       say "None".
+    - State the telemetry the feature emits through flutter_otel (spans, log events,
+      attributes), or say "None".
+    - Keep the change small enough for one PR. If it is not, split it into several changes.
   design:
-    - Cover platform differences and the backend contract where they shape the design.
+    - List the platforms affected (iOS, Android, macOS, Windows, Linux, watchOS) and any
+      native entitlement, manifest or Xcode project change.
     - Call out any invariant from the project context the design touches.
   specs:
     - Describe user-visible or protocol behaviour, not implementation classes.
+    - Cover the backend contract, meaning the Hermes Agent routes or RPC methods relied on,
+      the response shapes, and the minimum Hermes version.
   tasks:
-    - Group tasks so each group is one PR of roughly 500 changed lines or fewer, and give
-      each group a conventional-commit type and scope.
+    - Aim for one PR of roughly 500 changed lines or fewer, with a conventional-commit type
+      and scope.
     - Start every behaviour task with a failing test; pure refactors are exempt.
     - If the change needs new or changed API routes, include a task to update
       openapi/hermes-agent.openapi.json and run scripts/generate_hermes_api_client.sh.
+    - Include a task to add the telemetry the proposal names, or note that there is none.
+    - Include a task to update any .claude/skills entry the change makes stale (for example
+      verify-in-app or the openspec skills), and to add a new project skill when a workflow
+      keeps repeating.
     - End with a verify task covering dart format, flutter analyze, flutter test, and a
-      verify-in-app check when the change affects UI, connection or API behaviour.
+      verify-in-app check when the change affects UI, layout or connection behaviour.
 
 operations:
   apply:
     guidance:
-      - Commit after each task or small group of tasks with a semantic commit message.
-      - Tick each task's checkbox in tasks.md in the same commit that completes it.
-      - If the code has to deviate from the specs or design, update the change's artifacts
-        first (/opsx:update) instead of diverging silently.
-      - For UI, connection or API behaviour, run the verify-in-app loop before calling a
+      - Run dart format, flutter analyze and flutter test before marking a task done.
+      - For UI, layout or connection changes, run the verify-in-app loop before calling a
         task done.
   archive:
     guidance:
       - Sync the delta specs into openspec/specs/ before archiving.
-      - Archive in the same PR that completes the last task, so main never carries stale specs.
