@@ -36,9 +36,11 @@ permissions:
   contents: read
 
 env:
-  # Hermes Agent v2026.9.7 (0.21.1). Pinned to the commit so a Hermes release,
-  # or a moved tag, cannot change this job.
-  HERMES_REF: 2237be355906fbe6065ce1815711eee52b2d646e
+  # Hermes Agent v2026.9.14. Pinned to the commit so a Hermes release, or a
+  # moved tag, cannot change this job. From this release the gateway sends
+  # approvals, clarify questions, sudo and secret prompts as server-to-client
+  # requests, which the handshake test checks.
+  HERMES_REF: 345cd2b057a452236de401d3534b8502a7465e8d
   UV_NO_CONFIG: "1"
 
 jobs:
