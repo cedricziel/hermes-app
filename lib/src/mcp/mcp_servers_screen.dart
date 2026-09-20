@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
+import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
 import 'mcp_chip.dart';
 import 'mcp_presentation.dart';
@@ -42,6 +43,7 @@ class McpServersScreen extends StatefulWidget {
 class _McpServersScreenState extends State<McpServersScreen> {
   late final McpServersController _controller;
   String? _selected;
+  bool _wide = false;
 
   @override
   void initState() {
@@ -80,6 +82,18 @@ class _McpServersScreenState extends State<McpServersScreen> {
     );
   }
 
+  Future<void> _openCustomForm() async {
+    final name = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => McpAddServerScreen(servers: _controller),
+      ),
+    );
+    if (!mounted || name == null) return;
+    if (_controller.serverNamed(name) case final added?) {
+      _open(added, wide: _wide);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -92,10 +106,23 @@ class _McpServersScreenState extends State<McpServersScreen> {
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: const EdgeInsets.only(right: 8),
-                    child: TextButton.icon(
-                      onPressed: _openCatalog,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add'),
+                    child: MenuAnchor(
+                      menuChildren: [
+                        MenuItemButton(
+                          onPressed: _openCatalog,
+                          child: const Text('Browse the catalog'),
+                        ),
+                        MenuItemButton(
+                          onPressed: _openCustomForm,
+                          child: const Text('Add a custom server'),
+                        ),
+                      ],
+                      builder: (context, menu, _) => TextButton.icon(
+                        onPressed: () =>
+                            menu.isOpen ? menu.close() : menu.open(),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Add'),
+                      ),
                     ),
                   ),
           ),
@@ -143,11 +170,16 @@ class _McpServersScreenState extends State<McpServersScreen> {
       );
     }
     if (servers.isEmpty) {
-      return _EmptyState(profile: _controller.profile, onAdd: _openCatalog);
+      return _EmptyState(
+        profile: _controller.profile,
+        onBrowse: _openCatalog,
+        onAddCustom: _openCustomForm,
+      );
     }
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
+        _wide = wide;
         final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,
@@ -175,10 +207,15 @@ class _McpServersScreenState extends State<McpServersScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.profile, required this.onAdd});
+  const _EmptyState({
+    required this.profile,
+    required this.onBrowse,
+    required this.onAddCustom,
+  });
 
   final String? profile;
-  final VoidCallback onAdd;
+  final VoidCallback onBrowse;
+  final VoidCallback onAddCustom;
 
   @override
   Widget build(BuildContext context) {
@@ -201,9 +238,20 @@ class _EmptyState extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: onAdd,
-              child: const Text('Browse the catalog'),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton(
+                  onPressed: onBrowse,
+                  child: const Text('Browse the catalog'),
+                ),
+                OutlinedButton(
+                  onPressed: onAddCustom,
+                  child: const Text('Add a custom server'),
+                ),
+              ],
             ),
           ],
         ),

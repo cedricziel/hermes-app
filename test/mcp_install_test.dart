@@ -118,6 +118,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Browse the catalog'));
+    await tester.pumpAndSettle();
   }
 
   Future<void> openEntry(

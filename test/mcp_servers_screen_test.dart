@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
+import 'package:hermes_app/src/mcp/mcp_add_server_screen.dart';
 import 'package:hermes_app/src/mcp/mcp_server_detail.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -788,6 +789,113 @@ void main() {
 
       expect(find.byType(McpServerDetail), findsNothing);
       expect(find.text('No MCP servers on "work"'), findsOneWidget);
+    });
+  });
+
+  group('adding', () {
+    Future<void> tapAdd(WidgetTester tester) async {
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the Add button opens a menu of two choices', (tester) async {
+      await pumpScreen(tester);
+
+      await tapAdd(tester);
+
+      expect(find.text('Browse the catalog'), findsOneWidget);
+      expect(find.text('Add a custom server'), findsOneWidget);
+    });
+
+    testWidgets('"Add a custom server" opens the form for the profile', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await tapAdd(tester);
+
+      await tester.tap(find.text('Add a custom server'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpAddServerScreen), findsOneWidget);
+      expect(find.text('Profile: work'), findsOneWidget);
+    });
+
+    testWidgets('the empty state offers both', (tester) async {
+      listServers([]);
+      await pumpScreen(tester);
+
+      expect(find.text('Browse the catalog'), findsOneWidget);
+      await tester.tap(find.text('Add a custom server'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpAddServerScreen), findsOneWidget);
+    });
+
+    Future<void> addLinear(WidgetTester tester, {bool oauth = false}) async {
+      server.onRequest('POST', '/api/mcp/servers', (request) {
+        listServers([
+          grafana,
+          filesystem,
+          mcpServerRow(
+            name: 'linear',
+            url: 'https://mcp.linear.app/mcp',
+            auth: oauth ? 'oauth' : null,
+          ),
+        ]);
+        return (status: 200, body: mcpServerRow(name: 'linear'));
+      });
+      await tapAdd(tester);
+      await tester.tap(find.text('Add a custom server'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Name'), 'linear');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'URL'),
+        'https://mcp.linear.app/mcp',
+      );
+      if (oauth) {
+        await tester.tap(find.text('OAuth'));
+        await tester.pumpAndSettle();
+      }
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('mcp-add-server-button')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('a new server opens its detail on a narrow layout', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await addLinear(tester);
+
+      expect(find.byType(McpAddServerScreen), findsNothing);
+      expect(find.byType(McpServerDetail), findsOneWidget);
+      expect(find.text('https://mcp.linear.app/mcp'), findsOneWidget);
+    });
+
+    testWidgets('a new OAuth server shows its Sign in button', (tester) async {
+      await pumpScreen(tester);
+
+      await addLinear(tester, oauth: true);
+
+      expect(find.text('Sign in'), findsOneWidget);
+    });
+
+    testWidgets('a new server is selected on a wide layout', (tester) async {
+      await pumpScreen(tester, size: const Size(1200, 800));
+
+      await addLinear(tester);
+
+      expect(find.byType(McpAddServerScreen), findsNothing);
+      expect(find.byType(McpServerDetail), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(McpServerDetail),
+          matching: find.text('https://mcp.linear.app/mcp'),
+        ),
+        findsOneWidget,
+      );
+      expect(row('linear'), findsOneWidget);
     });
   });
 }
