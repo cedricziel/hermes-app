@@ -38,6 +38,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   var _phase = _Phase.waiting;
   String _failure = '';
   bool _browserFailed = false;
+  bool _addressRefused = false;
   bool _starting = false;
   bool _polling = false;
   Timer? _timer;
@@ -77,6 +78,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     _phase = _Phase.waiting;
     _launchedUrl = null;
     _browserFailed = false;
+    _addressRefused = false;
     _openBrowser();
     _schedule();
   }
@@ -96,14 +98,31 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     final url = _flow.authorizationUrl;
     if (url == null || url == _launchedUrl) return;
     _launchedUrl = url;
+    final uri = Uri.tryParse(url);
+    if (uri == null || !_isWebAddress(uri)) {
+      if (mounted) setState(() => _addressRefused = true);
+      return;
+    }
     var opened = false;
     try {
-      opened = await widget.controller.launchLink(Uri.parse(url));
+      opened = await widget.controller.launchLink(uri);
     } on Object {
       opened = false;
     }
-    if (mounted) setState(() => _browserFailed = !opened);
+    if (mounted) {
+      setState(() {
+        _addressRefused = false;
+        _browserFailed = !opened;
+      });
+    }
   }
+
+  /// Hermes hands over the address, but only a web address is opened: https,
+  /// or http on this device for a provider running beside it.
+  static bool _isWebAddress(Uri uri) =>
+      uri.scheme == 'https' ||
+      (uri.scheme == 'http' &&
+          const {'localhost', '127.0.0.1', '::1'}.contains(uri.host));
 
   Future<void> _poll() async {
     if (_polling || _settled) return;
@@ -220,7 +239,15 @@ class _McpSignInScreenState extends State<McpSignInScreen>
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium,
         ),
-        if (_browserFailed && url != null) ...[
+        if (_addressRefused) ...[
+          const SizedBox(height: 16),
+          Text(
+            'Hermes sent an address this app will not open, because it is '
+            'not a web address. Cancel and try again, or check the server.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall,
+          ),
+        ] else if (_browserFailed && url != null) ...[
           const SizedBox(height: 16),
           Text(
             'Could not open the browser. Open this address yourself:',
@@ -240,7 +267,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
         ],
         const SizedBox(height: 20),
         OutlinedButton(
-          onPressed: url == null
+          onPressed: url == null || _addressRefused
               ? null
               : () {
                   _launchedUrl = null;

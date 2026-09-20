@@ -16,6 +16,7 @@ void main() {
   late FakeHermesServer server;
   late List<Uri> launched;
   late bool browserWorks;
+  late bool browserOpens;
 
   const authPath = '/api/mcp/servers/asana/auth';
   const flowPath = '/api/mcp/oauth/flows/flow-1';
@@ -25,6 +26,7 @@ void main() {
   setUp(() {
     launched = [];
     browserWorks = true;
+    browserOpens = true;
     server = FakeHermesServer()
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
       ..on(
@@ -61,7 +63,7 @@ void main() {
           launchLink: (uri) async {
             launched.add(uri);
             if (!browserWorks) throw StateError('no browser');
-            return true;
+            return browserOpens;
           },
         ),
       ),
@@ -435,6 +437,18 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('a launcher that says no is the same as one that throws', (
+      tester,
+    ) async {
+      browserOpens = false;
+
+      await startSignIn(tester);
+
+      expect(find.text(approvalUrl), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('tries again on request', (tester) async {
       browserWorks = false;
       await startSignIn(tester);
@@ -458,6 +472,48 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
     });
+  });
+
+  group('addresses the browser is asked to open', () {
+    Future<void> startWith(WidgetTester tester, String address) async {
+      server.on('POST', authPath, mcpFlowBody(authorizationUrl: address));
+      await startSignIn(tester);
+    }
+
+    for (final address in [
+      'file:///etc/passwd',
+      'intent://scan/#Intent;scheme=zxing;end',
+      'javascript:alert(1)',
+      'http://auth.example/authorize',
+      'not a url',
+    ]) {
+      testWidgets('never opens $address', (tester) async {
+        await startWith(tester, address);
+
+        expect(launched, isEmpty);
+        expect(find.text('Waiting for you to approve'), findsOneWidget);
+        expect(find.textContaining('will not open'), findsOneWidget);
+        expect(find.text(address), findsNothing);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      });
+    }
+
+    for (final address in [
+      'https://auth.example/authorize?state=s1',
+      'http://localhost:8080/authorize',
+      'http://127.0.0.1:8080/authorize',
+      'http://[::1]:8080/authorize',
+    ]) {
+      testWidgets('opens $address', (tester) async {
+        await startWith(tester, address);
+
+        expect(launched, [Uri.parse(address)]);
+        expect(find.textContaining('will not open'), findsNothing);
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+      });
+    }
   });
 
   group('refusals', () {
