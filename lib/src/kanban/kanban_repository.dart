@@ -258,6 +258,39 @@ class KanbanRepository {
     ];
   }
 
+  Future<void> createBoard({
+    required String slug,
+    String? name,
+    String? description,
+  }) => _guard(
+    () => _api.createBoardEndpointApiPluginsKanbanBoardsPost(
+      createBoardBody: CreateBoardBody(
+        slug: slug,
+        name: name,
+        description: description,
+      ),
+    ),
+  );
+
+  Future<void> renameBoard(String slug, {String? name, String? description}) =>
+      _guard(
+        () => _api.renameBoardApiPluginsKanbanBoardsSlugPatch(
+          slug: slug,
+          renameBoardBody: RenameBoardBody(
+            name: name,
+            description: description,
+          ),
+        ),
+      );
+
+  /// Archives a board, or with [hardDelete] removes it for good.
+  Future<void> removeBoard(String slug, {bool hardDelete = false}) => _guard(
+    () => _api.deleteBoardApiPluginsKanbanBoardsSlugDelete(
+      slug: slug,
+      delete: hardDelete,
+    ),
+  );
+
   Future<List<KanbanBoardInfo>> listBoards() async {
     final response = await _api.listBoardsApiPluginsKanbanBoardsGet();
     final boards = _map(response.data)['boards'];

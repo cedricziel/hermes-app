@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'kanban_models.dart';
@@ -27,7 +28,13 @@ class KanbanBoardController extends ChangeNotifier {
     required this.connect,
     this.debounce = const Duration(milliseconds: 300),
     this.reconnectDelay = _defaultReconnectDelay,
+    this.prefs,
   });
+
+  /// Where the chosen board is remembered between launches; null forgets it.
+  final SharedPreferencesAsync? prefs;
+
+  static const _boardPrefsKey = 'hermes.kanban.board';
 
   final KanbanRepository repository;
   final KanbanEventsConnect connect;
@@ -117,15 +124,26 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> start() async {
-    await Future.wait([_loadBoards(), refresh()]);
+    await loadBoards();
+    await refresh();
   }
 
-  Future<void> _loadBoards() async {
+  /// Reads the board list; on the first read, opens the board chosen last
+  /// time, else the one the server has current.
+  Future<void> loadBoards() async {
     try {
       final boards = await repository.listBoards();
       if (_disposed) return;
       _boards = boards;
-      _boardSlug ??= boards.where((b) => b.isCurrent).firstOrNull?.slug;
+      if (_boardSlug == null) {
+        final saved = await prefs?.getString(_boardPrefsKey);
+        _boardSlug =
+            boards.where((b) => b.slug == saved).firstOrNull?.slug ??
+            boards.where((b) => b.isCurrent).firstOrNull?.slug;
+      } else if (!boards.any((b) => b.slug == _boardSlug)) {
+        _boardSlug = boards.where((b) => b.isCurrent).firstOrNull?.slug;
+        await _restart();
+      }
       notifyListeners();
     } catch (_) {
       // The switcher is optional; the board still loads without it.
@@ -241,6 +259,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> selectBoard(String slug) {
     _boardSlug = slug;
+    prefs?.setString(_boardPrefsKey, slug);
     return _restart();
   }
 

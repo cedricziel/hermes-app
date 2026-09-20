@@ -1,6 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
@@ -210,4 +213,119 @@ void main() {
     expect(controller.selecting, isFalse);
     expect(controller.selected, isEmpty);
   });
+
+  group('remembering the board', () {
+    late SharedPreferencesAsync prefs;
+
+    KanbanBoardController withPrefs() => KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+      prefs: prefs,
+    );
+
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      prefs = SharedPreferencesAsync();
+      serveBoard([kanbanTaskRow(id: 't1')]);
+    });
+
+    test('opens the board chosen last time', () async {
+      final first = withPrefs();
+      await first.start();
+      await first.selectBoard('ops');
+      first.dispose();
+
+      final second = withPrefs();
+      await second.start();
+
+      expect(second.boardSlug, 'ops');
+      expect(
+        server
+            .requestsTo('GET', '/api/plugins/kanban/board')
+            .last
+            .queryParameters['board'],
+        'ops',
+      );
+      second.dispose();
+    });
+
+    test(
+      'falls back to the current board when the saved one is gone',
+      () async {
+        await prefs.setString('hermes.kanban.board', 'archived-long-ago');
+        final c = withPrefs();
+
+        await c.start();
+
+        expect(c.boardSlug, 'default');
+        c.dispose();
+      },
+    );
+
+    test('moves off a board that was removed', () async {
+      final c = withPrefs();
+      await c.start();
+      await c.selectBoard('ops');
+      server.on(
+        'GET',
+        '/api/plugins/kanban/boards',
+        kanbanBoardsBody([
+          (slug: 'default', name: 'Default', total: 2, current: true),
+        ]),
+      );
+
+      await c.loadBoards();
+
+      expect(c.boardSlug, 'default');
+      c.dispose();
+    });
+  });
+
+  test('remembers the chosen board and reopens it next time', () async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final prefs = SharedPreferencesAsync();
+    KanbanBoardController build() => KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+      prefs: prefs,
+    );
+    serveBoard([kanbanTaskRow(id: 't1')]);
+
+    final first = build();
+    await first.start();
+    await first.selectBoard('ops');
+    first.dispose();
+
+    final second = build();
+    addTearDown(second.dispose);
+    await second.start();
+
+    expect(second.boardSlug, 'ops');
+  });
+
+  test(
+    'falls back to the current board when the remembered one is gone',
+    () async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.withData({
+            'hermes.kanban.board': 'gone',
+          });
+      serveBoard([kanbanTaskRow(id: 't1')]);
+      final c = KanbanBoardController(
+        repository: KanbanRepository(server.client().raw),
+        connect: ({required since, board}) async =>
+            StreamChannelController<String>().foreign,
+        prefs: SharedPreferencesAsync(),
+      );
+      addTearDown(c.dispose);
+
+      await c.start();
+
+      expect(c.boardSlug, 'default');
+    },
+  );
 }

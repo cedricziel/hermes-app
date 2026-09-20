@@ -241,4 +241,60 @@ void main() {
       {'orchestrator_profile': '', 'auto_decompose': true},
     );
   });
+
+  test('creates, renames and removes boards', () async {
+    server
+      ..on('POST', '/api/plugins/kanban/boards', {'board': {}})
+      ..on('PATCH', '/api/plugins/kanban/boards/ops', {'board': {}})
+      ..on('DELETE', '/api/plugins/kanban/boards/ops', {'result': {}});
+
+    await repository.createBoard(slug: 'ops', name: 'Ops team');
+    await repository.renameBoard('ops', name: 'Operations');
+    await repository.removeBoard('ops');
+    await repository.removeBoard('ops', hardDelete: true);
+
+    expect(
+      jsonBody(server.requestsTo('POST', '/api/plugins/kanban/boards').single),
+      containsPair('slug', 'ops'),
+    );
+    expect(
+      jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/boards/ops').single,
+      ),
+      containsPair('name', 'Operations'),
+    );
+    final deletes = server.requestsTo(
+      'DELETE',
+      '/api/plugins/kanban/boards/ops',
+    );
+    expect(deletes.map((r) => r.queryParameters['delete']), [false, true]);
+  });
+
+  test('creates, renames and removes boards', () async {
+    server
+      ..on('POST', '/api/plugins/kanban/boards', {'board': {}})
+      ..on('PATCH', '/api/plugins/kanban/boards/ops', {'board': {}})
+      ..on('DELETE', '/api/plugins/kanban/boards/ops', {'result': {}});
+
+    await repository.createBoard(slug: 'ops', name: 'Ops');
+    await repository.renameBoard('ops', name: 'Operations');
+    await repository.removeBoard('ops');
+    await repository.removeBoard('ops', hardDelete: true);
+
+    expect(
+      jsonBody(server.requestsTo('POST', '/api/plugins/kanban/boards').single),
+      containsPair('slug', 'ops'),
+    );
+    expect(
+      jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/boards/ops').single,
+      ),
+      containsPair('name', 'Operations'),
+    );
+    final deletes = server.requestsTo(
+      'DELETE',
+      '/api/plugins/kanban/boards/ops',
+    );
+    expect(deletes.map((r) => r.queryParameters['delete']), [false, true]);
+  });
 }
