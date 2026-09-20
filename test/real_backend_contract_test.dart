@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
-    show CronJobCreate, MCPServerCreate, SessionRename;
+    show CronJobCreate, MCPCatalogInstall, MCPServerCreate, SessionRename;
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -56,9 +56,12 @@ import 'support/attachment_fixtures.dart';
 /// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`. The MCP
 /// tests add servers named `contract-check-…` to the default profile and
 /// remove them again; the probes connect to a minimal MCP server this test
-/// starts on the loopback interface. The media tests write throwaway files
-/// under the backend's `images` folder and the system temp directory, so they
-/// need a backend on this machine, and delete them after.
+/// starts on the loopback interface. The catalog test installs `context7`
+/// (no credentials, no build) and removes it, and the sign-in test starts and
+/// cancels a flow against a minimal OAuth provider on the loopback interface.
+/// The media tests write throwaway files under the backend's `images` folder
+/// and the system temp directory, so they need a backend on this machine, and
+/// delete them after.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -1396,6 +1399,261 @@ void main() {
       skip: skip,
     );
   });
+
+  group('MCP catalog and sign-in', () {
+    late HermesMcpRepository repository;
+    late HttpServer provider;
+    late String providerUrl;
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final added = <String>[];
+
+    setUpAll(() async {
+      if (url == null) return;
+      repository = HermesMcpRepository(client.raw);
+      provider = await _serveMinimalOAuthProvider();
+      providerUrl = 'http://127.0.0.1:${provider.port}';
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await provider.close(force: true);
+    });
+
+    tearDown(() async {
+      for (final name in added) {
+        try {
+          await repository.removeServer(name);
+        } on DioException catch (e) {
+          if (!isMcpNotFound(e)) rethrow;
+        }
+      }
+      added.clear();
+    });
+
+    test('the catalog parses, with the shapes the app relies on', () async {
+      final catalog = await repository.loadCatalog();
+
+      expect(catalog.entries, isNotEmpty);
+      for (final entry in catalog.entries) {
+        expect(entry.description, isNotEmpty, reason: entry.name);
+        expect(
+          entry.transport,
+          isNot(McpTransport.unknown),
+          reason: entry.name,
+        );
+        expect(entry.authKind, isNot(McpAuthKind.unknown), reason: entry.name);
+        if (entry.transport == McpTransport.remote) {
+          expect(entry.url, isNotEmpty, reason: entry.name);
+        } else {
+          expect(entry.command, isNotEmpty, reason: entry.name);
+        }
+        if (entry.authKind == McpAuthKind.apiKey) {
+          expect(entry.requiredEnv, isNotEmpty, reason: entry.name);
+        }
+        if (entry.buildsLocally) {
+          expect(entry.installRef, isNotEmpty, reason: entry.name);
+          expect(entry.bootstrap, isNotEmpty, reason: entry.name);
+        }
+      }
+      expect(
+        catalog.entries.any((e) => e.authKind == McpAuthKind.oauth),
+        isTrue,
+      );
+      expect(catalog.entries.any((e) => e.buildsLocally), isTrue);
+      final context7 = catalog.entries.firstWhere((e) => e.name == 'context7');
+      expect(context7.transport, McpTransport.remote);
+      expect(context7.authKind, McpAuthKind.none);
+      expect(context7.requiredEnv, isEmpty);
+    }, skip: skip);
+
+    test('an entry that needs no credentials installs as a server', () async {
+      final context7 = (await repository.loadCatalog()).entries.firstWhere(
+        (e) => e.name == 'context7',
+      );
+      if (context7.installed) await repository.removeServer('context7');
+      added.add('context7');
+
+      final result = await repository.installEntry(context7, enable: false);
+
+      expect(result.background, isFalse);
+      expect(result.name, 'context7');
+      final server = (await repository.loadServers()).firstWhere(
+        (s) => s.name == 'context7',
+      );
+      expect(server.transport, McpTransport.remote);
+      expect(server.address, context7.url);
+      expect(server.enabled, isFalse);
+      final after = (await repository.loadCatalog()).entries.firstWhere(
+        (e) => e.name == 'context7',
+      );
+      expect(after.installed, isTrue);
+      expect(after.enabled, isFalse);
+    }, skip: skip);
+
+    test('Hermes refuses a credential the entry does not declare', () async {
+      await expectLater(
+        client.raw.installMcpCatalogEntryApiMcpCatalogInstallPost(
+          mCPCatalogInstall: MCPCatalogInstall(
+            name: 'context7',
+            env: {'NOT_DECLARED': 'x'},
+          ),
+        ),
+        throwsA(
+          isA<DioException>()
+              .having((e) => e.response?.statusCode, 'status', 400)
+              .having(
+                (e) => '${e.response?.data}',
+                'body',
+                contains('does not declare'),
+              ),
+        ),
+      );
+    }, skip: skip);
+
+    test('an entry Hermes does not have is a 404', () async {
+      expect(
+        repository.installEntry(
+          const HermesMcpCatalogEntry(
+            name: 'no-such-entry',
+            transport: McpTransport.remote,
+          ),
+        ),
+        throwsA(predicate<Object>(isMcpNotFound)),
+      );
+    }, skip: skip);
+
+    test(
+      'a sign-in starts a flow with an address, and can be cancelled',
+      () async {
+        final name = 'contract-check-signin-$stamp';
+        await client.raw.addMcpServerApiMcpServersPost(
+          mCPServerCreate: MCPServerCreate(
+            name: name,
+            url: '$providerUrl/mcp',
+            auth: 'oauth',
+          ),
+        );
+        added.add(name);
+
+        final flow = await repository.startSignIn(name);
+
+        expect(flow.flowId, isNotEmpty);
+        expect(flow.serverName, name);
+        expect(flow.status, McpFlowStatus.authorizationRequired);
+        expect(flow.authorizationUrl, startsWith('$providerUrl/authorize?'));
+        final status = await repository.flowStatus(flow.flowId);
+        expect(status.status, McpFlowStatus.authorizationRequired);
+        expect(
+          repository.startSignIn(name),
+          throwsA(
+            isA<McpRefused>()
+                .having((e) => e.status, 'status', 409)
+                .having(
+                  (e) => e.reason,
+                  'reason',
+                  contains('already in progress'),
+                ),
+          ),
+        );
+
+        await repository.cancelFlow(flow.flowId);
+
+        expect(
+          (await repository.flowStatus(flow.flowId)).status,
+          McpFlowStatus.error,
+        );
+        await repository.cancelFlow(flow.flowId);
+        await repository.cancelFlow('no-such-flow-$stamp');
+        expect(
+          repository.flowStatus('no-such-flow-$stamp'),
+          throwsA(predicate<Object>(isMcpNotFound)),
+        );
+      },
+      skip: skip,
+    );
+
+    test('a sign-in to a command server is refused with a reason', () async {
+      final name = 'contract-check-signin-cmd-$stamp';
+      await client.raw.addMcpServerApiMcpServersPost(
+        mCPServerCreate: MCPServerCreate(name: name, command: 'echo'),
+      );
+      added.add(name);
+
+      expect(
+        repository.startSignIn(name),
+        throwsA(
+          isA<McpRefused>()
+              .having((e) => e.status, 'status', 400)
+              .having((e) => e.reason, 'reason', contains('not OAuth')),
+        ),
+      );
+    }, skip: skip);
+
+    test('a sign-in to an unknown server is a 404', () async {
+      expect(
+        repository.startSignIn('contract-check-ghost-$stamp'),
+        throwsA(predicate<Object>(isMcpNotFound)),
+      );
+    }, skip: skip);
+  });
+}
+
+/// Just enough of an OAuth provider for Hermes to start a sign-in against: an
+/// MCP endpoint that answers 401 and points at its metadata, the metadata, and
+/// dynamic client registration. Nobody can approve at it, and nothing leaves
+/// the loopback interface.
+Future<HttpServer> _serveMinimalOAuthProvider() async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  final base = 'http://127.0.0.1:${server.port}';
+  server.listen((request) async {
+    final path = request.uri.path;
+    var status = HttpStatus.notFound;
+    Object? body = <String, Object?>{};
+    if (path == '/mcp') {
+      status = HttpStatus.unauthorized;
+      request.response.headers.set(
+        'WWW-Authenticate',
+        'Bearer resource_metadata="$base/.well-known/oauth-protected-resource"',
+      );
+    } else if (path.startsWith('/.well-known/oauth-protected-resource')) {
+      status = HttpStatus.ok;
+      body = {
+        'resource': '$base/mcp',
+        'authorization_servers': [base],
+      };
+    } else if (path.startsWith('/.well-known/oauth-authorization-server') ||
+        path.startsWith('/.well-known/openid-configuration')) {
+      status = HttpStatus.ok;
+      body = {
+        'issuer': base,
+        'authorization_endpoint': '$base/authorize',
+        'token_endpoint': '$base/token',
+        'registration_endpoint': '$base/register',
+        'response_types_supported': ['code'],
+        'grant_types_supported': ['authorization_code', 'refresh_token'],
+        'code_challenge_methods_supported': ['S256'],
+        'token_endpoint_auth_methods_supported': ['none'],
+      };
+    } else if (path == '/register' && request.method == 'POST') {
+      final registration = jsonDecode(await utf8.decoder.bind(request).join());
+      status = HttpStatus.created;
+      body = {
+        'client_id': 'contract-check-client',
+        'redirect_uris': registration is Map
+            ? registration['redirect_uris']
+            : [],
+        'token_endpoint_auth_method': 'none',
+        'grant_types': ['authorization_code', 'refresh_token'],
+        'response_types': ['code'],
+      };
+    }
+    request.response
+      ..statusCode = status
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode(body));
+    await request.response.close();
+  });
+  return server;
 }
 
 /// A minimal MCP server over streamable HTTP with one tool and one prompt, for
