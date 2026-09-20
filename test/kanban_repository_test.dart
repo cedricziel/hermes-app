@@ -297,4 +297,135 @@ void main() {
     );
     expect(deletes.map((r) => r.queryParameters['delete']), [false, true]);
   });
+
+  test('reads runs, attachments and diagnostics with the task', () async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/tasks/t1',
+      kanbanTaskDetailBody(
+        kanbanTaskRow(id: 't1')
+          ..['diagnostics'] = [
+            {
+              'kind': 'stale',
+              'severity': 'error',
+              'title': 'Worker stalled',
+              'detail': 'No heartbeat',
+            },
+          ],
+        runs: [
+          {
+            'id': 7,
+            'status': 'running',
+            'profile': 'coder',
+            'started_at': 1780000000,
+          },
+          {
+            'id': 6,
+            'status': 'done',
+            'outcome': 'completed',
+            'started_at': 1779990000,
+            'ended_at': 1779999000,
+          },
+        ],
+        attachments: [
+          {'id': 3, 'filename': 'spec.pdf', 'size': 2048},
+        ],
+      ),
+    );
+
+    final detail = await repository.loadTask('t1');
+
+    expect(detail.runs.first.active, isTrue);
+    expect(detail.runs.last.active, isFalse);
+    expect(detail.attachments.single.filename, 'spec.pdf');
+    expect(detail.diagnostics.single.title, 'Worker stalled');
+  });
+
+  test(
+    'reads the worker log, terminates a run and removes an attachment',
+    () async {
+      server
+        ..on('GET', '/api/plugins/kanban/tasks/t1/log', {
+          'exists': true,
+          'content': 'hello',
+          'truncated': true,
+        })
+        ..on('POST', '/api/plugins/kanban/runs/7/terminate', {'ok': true})
+        ..on('DELETE', '/api/plugins/kanban/attachments/3', {'ok': true});
+
+      final log = await repository.loadTaskLog('t1', tail: 500);
+      await repository.terminateRun(7, reason: 'stuck');
+      await repository.removeAttachment(3);
+
+      expect(log.content, 'hello');
+      expect(log.truncated, isTrue);
+      expect(
+        server
+            .requestsTo('GET', '/api/plugins/kanban/tasks/t1/log')
+            .single
+            .queryParameters['tail'],
+        500,
+      );
+      expect(
+        jsonBody(
+          server
+              .requestsTo('POST', '/api/plugins/kanban/runs/7/terminate')
+              .single,
+        ),
+        {'reason': 'stuck'},
+      );
+    },
+  );
+
+  test('says why a run cannot be terminated', () async {
+    server.on('POST', '/api/plugins/kanban/runs/7/terminate', {
+      'detail': 'run 7 already ended',
+    }, status: 409);
+
+    expect(repository.terminateRun(7), throwsA(isA<KanbanException>()));
+  });
+
+  test(
+    'reads the reason from a validation error that lists what is wrong',
+    () async {
+      server.on('POST', '/api/plugins/kanban/boards', {
+        'detail': [
+          {
+            'loc': ['body', 'slug'],
+            'msg': 'String should have at least 1 character',
+          },
+        ],
+      }, status: 422);
+
+      expect(
+        repository.createBoard(slug: ''),
+        throwsA(
+          isA<KanbanException>().having(
+            (e) => e.message,
+            'message',
+            contains('at least 1 character'),
+          ),
+        ),
+      );
+    },
+  );
+
+  test('a refused archive is an error, not a success', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {
+      'results': [
+        {'id': 't1', 'ok': false, 'error': 'archive refused'},
+      ],
+    });
+
+    expect(
+      repository.archiveTask('t1'),
+      throwsA(
+        isA<KanbanException>().having(
+          (e) => e.message,
+          'message',
+          'archive refused',
+        ),
+      ),
+    );
+  });
 }

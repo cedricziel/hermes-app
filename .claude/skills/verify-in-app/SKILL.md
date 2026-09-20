@@ -61,7 +61,40 @@ Say plainly what you could not check.
 - Debug builds use bundle ID `com.cedricziel.hermesApp.dev`. Any macOS app
   extension needs a Debug ID that starts with it (`…dev.ShareExtension`), or
   the build fails with "not prefixed with the parent app's bundle identifier".
-- Capturing needs Screen Recording permission for the terminal app.
+- Capturing needs Screen Recording permission for the terminal app. Without
+  it `screencapture` fails with "could not create image from window" and no
+  file appears. You can't grant it from the session, so use the fallback
+  below rather than retrying.
+- The first `screenshot` compiles `scripts/window-id.swift`, which can take
+  about a minute. Run it with a generous timeout, not a short one.
+- `flutter screenshot --type=skia` does not work here (Impeller), and there is
+  no rasterizer type. Don't spend rounds on it.
+
+## When the screenshot can't be taken
+
+Render the real screen in a throwaway widget test and look at the PNG. Load
+Roboto and MaterialIcons from the Flutter SDK
+(`<flutter>/bin/cache/artifacts/material_fonts/`) with a `FontLoader`, wrap
+the app in a `RepaintBoundary`, and write `boundary.toImage(pixelRatio: 1.5)`
+to `/tmp` inside `tester.runAsync`. Drive it with `FakeHermesServer` and the
+fixtures in `test/support/`. It shows layout, overflow, clipping and light or
+dark themes; it does not prove the running app, so still start the app and read
+`scripts/dev-app.sh logs`. Monospace text and the app bar title render as grey
+boxes because those fonts aren't loaded; that is the test, not the app. Delete
+the test file before committing.
+
+Seeded data helps: an empty backend hides most of what a data screen does.
+Get the session token from the page and call the routes directly:
+
+```bash
+URL=$(scripts/dev-backend.sh url)
+TOK=$(curl -s $URL/ | grep -o '__HERMES_SESSION_TOKEN__="[^"]*"' | cut -d'"' -f2)
+curl -s -X POST $URL/api/plugins/kanban/tasks -H "X-Hermes-Session-Token: $TOK" \
+  -H 'content-type: application/json' -d '{"title":"Try it","triage":true}'
+```
+
+The Kanban tab appears only because the backend lists the bundled `kanban`
+plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
 ## Hermes Agent setup
 
@@ -70,3 +103,22 @@ Agent from github.com/NousResearch/hermes-agent; `openapi/README.md` shows a
 from-source install with `uv`. The first `dev-backend.sh start` builds the
 dashboard web UI, which is slow once. Its API contract is
 `openapi/hermes-agent.openapi.json`.
+
+### Installing it without `uv`
+
+CI pins the commit in `HERMES_REF` in `.github/workflows/real-backend-contract.yml`.
+To match it in a throwaway directory, leaving your real Hermes alone:
+
+```bash
+REF=$(grep 'HERMES_REF:' .github/workflows/real-backend-contract.yml | awk '{print $2}')
+mkdir -p /tmp/hermes-agent && curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
+  | tar xz -C /tmp/hermes-agent --strip-components=1
+cd /tmp/hermes-agent
+python3.11 -m venv .venv && .venv/bin/pip install -q -e .        # Python 3.11+
+npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web
+export PATH=/tmp/hermes-agent/.venv/bin:$PATH HERMES_WEB_DIST=/tmp/hermes-agent/hermes_cli/web_dist
+```
+
+The web build matters: the dashboard page carries the session token the app
+and the contract test read, and it is not in the source tree. With `uv`, the
+workflow's `uv venv --python 3.11` and `uv pip install -e` do the same.

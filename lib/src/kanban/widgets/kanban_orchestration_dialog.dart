@@ -57,13 +57,24 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
   }
 
   Future<void> _save() async {
+    final settings = _settings!;
     final ok = await runKanbanAction(
       context,
+      // Only what changed, so a stale profile name in the server's config
+      // is not sent back (and refused) when an unrelated switch is toggled.
       () => widget.repository.saveOrchestration(
-        orchestratorProfile: _orchestrator,
-        defaultAssignee: _defaultAssignee,
-        autoDecompose: _autoDecompose,
-        autoPromoteChildren: _autoPromote,
+        orchestratorProfile: _orchestrator == settings.orchestratorProfile
+            ? null
+            : _orchestrator,
+        defaultAssignee: _defaultAssignee == settings.defaultAssignee
+            ? null
+            : _defaultAssignee,
+        autoDecompose: _autoDecompose == settings.autoDecompose
+            ? null
+            : _autoDecompose,
+        autoPromoteChildren: _autoPromote == settings.autoPromoteChildren
+            ? null
+            : _autoPromote,
       ),
     );
     if (ok && mounted) Navigator.pop(context);

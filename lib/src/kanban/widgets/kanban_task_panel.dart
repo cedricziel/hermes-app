@@ -4,6 +4,7 @@ import '../../chat/widgets/relative_time.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
+import 'kanban_task_log_dialog.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
 Future<void> showKanbanTask(
@@ -94,11 +95,11 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   /// Runs a write and reloads; reports the change to the board when it works.
-  Future<bool> _do(Future<void> Function() action) async {
+  Future<bool> _do(Future<void> Function() action, {bool reload = true}) async {
     final ok = await runKanbanAction(context, action);
     if (ok) {
       widget.onChanged?.call();
-      await _load();
+      if (reload) await _load();
     }
     return ok;
   }
@@ -164,6 +165,37 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     }
   }
 
+  Future<void> _terminate(KanbanRun run) async {
+    if (!await confirmKanban(
+      context,
+      title: 'Terminate this run?',
+      confirm: 'Terminate',
+    )) {
+      return;
+    }
+    await _do(() => _repo.terminateRun(run.id, board: widget.board));
+  }
+
+  Future<void> _removeAttachment(KanbanAttachment a) async {
+    if (!await confirmKanban(
+      context,
+      title: 'Remove ${a.filename}?',
+      confirm: 'Remove',
+    )) {
+      return;
+    }
+    await _do(() => _repo.removeAttachment(a.id, board: widget.board));
+  }
+
+  void _showLog() => showDialog<void>(
+    context: context,
+    builder: (_) => KanbanTaskLogDialog(
+      repository: _repo,
+      taskId: widget.taskId,
+      board: widget.board,
+    ),
+  );
+
   Future<void> _reclaim() async {
     if (!await confirmKanban(
       context,
@@ -176,46 +208,16 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _edit(KanbanTask task) async {
-    final title = TextEditingController(text: task.title);
-    final body = TextEditingController(text: task.body ?? '');
-    final saved = await showDialog<bool>(
+    final edited = await showDialog<(String, String)>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit task'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: title,
-              decoration: const InputDecoration(labelText: 'Title'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: body,
-              minLines: 3,
-              maxLines: 8,
-              decoration: const InputDecoration(labelText: 'Description'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _EditTaskDialog(task: task),
     );
-    if (saved != true || title.text.trim().isEmpty) return;
+    if (edited == null || edited.$1.isEmpty) return;
     await _do(
       () => _repo.updateTask(
         widget.taskId,
-        title: title.text.trim(),
-        body: body.text.trim(),
+        title: edited.$1,
+        body: edited.$2,
         board: widget.board,
       ),
     );
@@ -309,6 +311,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     }
     if (await _do(
           () => _repo.archiveTask(widget.taskId, board: widget.board),
+          reload: false,
         ) &&
         mounted) {
       Navigator.pop(context);
@@ -323,7 +326,10 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     )) {
       return;
     }
-    if (await _do(() => _repo.deleteTask(widget.taskId, board: widget.board)) &&
+    if (await _do(
+          () => _repo.deleteTask(widget.taskId, board: widget.board),
+          reload: false,
+        ) &&
         mounted) {
       Navigator.pop(context);
     }
@@ -432,9 +438,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         if (task.status == 'running')
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: OutlinedButton(
-              onPressed: _reclaim,
-              child: const Text('Reclaim'),
+            child: Wrap(
+              children: [
+                OutlinedButton(
+                  onPressed: _reclaim,
+                  child: const Text('Reclaim'),
+                ),
+              ],
             ),
           ),
         if (task.status != 'done')
@@ -455,6 +465,22 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
               ],
             ),
           ),
+        if (detail.diagnostics.isNotEmpty) ...[
+          const _Heading('Needs attention'),
+          for (final d in detail.diagnostics)
+            Card(
+              margin: const EdgeInsets.only(bottom: 6),
+              color: d.severity == 'warning'
+                  ? Colors.amber.withValues(alpha: 0.15)
+                  : theme.colorScheme.error.withValues(alpha: 0.12),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.warning_amber_rounded),
+                title: Text(d.title),
+                subtitle: d.detail.isEmpty ? null : Text(d.detail),
+              ),
+            ),
+        ],
         if (task.body != null) ...[
           const _Heading('Description'),
           SelectableText(task.body!),
@@ -534,6 +560,52 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             ),
           ],
         ),
+        if (detail.attachments.isNotEmpty) ...[
+          const _Heading('Attachments'),
+          for (final a in detail.attachments)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.attach_file),
+              title: Text(a.filename),
+              subtitle: Text(_size(a.size)),
+              trailing: IconButton(
+                tooltip: 'Remove attachment',
+                icon: const Icon(Icons.close),
+                onPressed: () => _removeAttachment(a),
+              ),
+            ),
+        ],
+        if (detail.runs.isNotEmpty)
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: Text('Runs (${detail.runs.length})'),
+            children: [
+              for (final r in detail.runs.reversed)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    '#${r.id} · ${r.profile ?? 'worker'} · '
+                    '${r.active ? 'running' : (r.outcome ?? r.status)}',
+                  ),
+                  subtitle: r.error != null || r.summary != null
+                      ? Text(r.error ?? r.summary!)
+                      : null,
+                  trailing: r.active && task.status == 'running'
+                      ? TextButton(
+                          onPressed: () => _terminate(r),
+                          child: const Text('Terminate'),
+                        )
+                      : null,
+                ),
+              TextButton.icon(
+                onPressed: _showLog,
+                icon: const Icon(Icons.terminal),
+                label: const Text('Worker log'),
+              ),
+            ],
+          ),
         if (detail.events.isNotEmpty)
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -573,6 +645,12 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 }
 
+String _size(int bytes) => bytes < 1024
+    ? '$bytes B'
+    : bytes < 1024 * 1024
+    ? '${(bytes / 1024).toStringAsFixed(1)} KB'
+    : '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+
 class _Heading extends StatelessWidget {
   const _Heading(this.text);
 
@@ -588,5 +666,58 @@ class _Heading extends StatelessWidget {
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
     ),
+  );
+}
+
+class _EditTaskDialog extends StatefulWidget {
+  const _EditTaskDialog({required this.task});
+
+  final KanbanTask task;
+
+  @override
+  State<_EditTaskDialog> createState() => _EditTaskDialogState();
+}
+
+class _EditTaskDialogState extends State<_EditTaskDialog> {
+  late final _title = TextEditingController(text: widget.task.title);
+  late final _body = TextEditingController(text: widget.task.body ?? '');
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Edit task'),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          controller: _title,
+          decoration: const InputDecoration(labelText: 'Title'),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _body,
+          minLines: 3,
+          maxLines: 8,
+          decoration: const InputDecoration(labelText: 'Description'),
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () =>
+            Navigator.pop(context, (_title.text.trim(), _body.text.trim())),
+        child: const Text('Save'),
+      ),
+    ],
   );
 }

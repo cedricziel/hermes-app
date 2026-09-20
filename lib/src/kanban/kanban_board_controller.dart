@@ -29,12 +29,15 @@ class KanbanBoardController extends ChangeNotifier {
     this.debounce = const Duration(milliseconds: 300),
     this.reconnectDelay = _defaultReconnectDelay,
     this.prefs,
+    this.prefsKey = 'hermes.kanban.board',
   });
 
   /// Where the chosen board is remembered between launches; null forgets it.
   final SharedPreferencesAsync? prefs;
 
-  static const _boardPrefsKey = 'hermes.kanban.board';
+  /// The preference the chosen board is kept under; callers scope it to the
+  /// server, since board slugs repeat across servers.
+  final String prefsKey;
 
   final KanbanRepository repository;
   final KanbanEventsConnect connect;
@@ -62,6 +65,7 @@ class KanbanBoardController extends ChangeNotifier {
   int _generation = 0;
   int _cursor = 0;
   StreamSubscription<String>? _events;
+  StreamChannel<String>? _channel;
   Timer? _refreshTimer;
   Timer? _reconnectTimer;
 
@@ -103,6 +107,8 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Ids picked for a bulk change; empty outside selection mode.
   Set<String> get selected => Set.unmodifiable(_selected);
+
+  bool isSelected(String id) => _selected.contains(id);
   bool get selecting => _selecting;
   bool _selecting = false;
 
@@ -117,6 +123,13 @@ class KanbanBoardController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Keeps only [ids] selected, so a change that failed for some tasks can
+  /// be retried on exactly those.
+  void keepSelected(Iterable<String> ids) {
+    _selected.retainAll(ids.toSet());
+    notifyListeners();
+  }
+
   void stopSelecting() {
     _selecting = false;
     _selected.clear();
@@ -125,6 +138,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> start() async {
     await loadBoards();
+    if (_disposed) return;
     await refresh();
   }
 
@@ -136,14 +150,19 @@ class KanbanBoardController extends ChangeNotifier {
       if (_disposed) return;
       _boards = boards;
       if (_boardSlug == null) {
-        final saved = await prefs?.getString(_boardPrefsKey);
+        final saved = await prefs?.getString(prefsKey);
         // A board picked while the preference was loading wins over it.
         if (_disposed || _boardSlug != null) return;
         _boardSlug =
             boards.where((b) => b.slug == saved).firstOrNull?.slug ??
             boards.where((b) => b.isCurrent).firstOrNull?.slug;
+        // The board on screen came from the server's default while no slug
+        // was known; follow the slug now chosen so writes hit what is shown.
+        if (_board != null) await _restart();
       } else if (!boards.any((b) => b.slug == _boardSlug)) {
         _boardSlug = boards.where((b) => b.isCurrent).firstOrNull?.slug;
+        _tenant = null;
+        _assignee = null;
         await _restart();
       }
       notifyListeners();
@@ -154,6 +173,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Fetches the board now and (re)starts the event stream from it.
   Future<void> refresh() async {
+    if (_disposed) return;
     final generation = _generation;
     _loading = _board == null;
     notifyListeners();
@@ -195,6 +215,7 @@ class KanbanBoardController extends ChangeNotifier {
     void retry() {
       if (_disposed || generation != _generation) return;
       _events = null;
+      _closeChannel();
       _setLive(false);
       _reconnectTimer = Timer(reconnectDelay(attempt), () {
         if (!_disposed && generation == _generation) {
@@ -205,11 +226,13 @@ class KanbanBoardController extends ChangeNotifier {
 
     try {
       final channel = await connect(since: _cursor, board: _boardSlug);
-      if (_disposed || generation != _generation) {
+      // Superseded, or another listener won the race for the stream.
+      if (_disposed || generation != _generation || _events != null) {
         unawaited(channel.sink.close());
         return;
       }
       _setLive(true);
+      _channel = channel;
       _events = channel.stream.listen(
         (frame) {
           attempt = 0;
@@ -238,6 +261,14 @@ class KanbanBoardController extends ChangeNotifier {
     }
   }
 
+  /// Closes the socket itself; cancelling the subscription alone leaves it
+  /// open.
+  void _closeChannel() {
+    final channel = _channel;
+    _channel = null;
+    if (channel != null) unawaited(channel.sink.close());
+  }
+
   void _setLive(bool live) {
     if (_live == live || _disposed) return;
     _live = live;
@@ -245,10 +276,13 @@ class KanbanBoardController extends ChangeNotifier {
   }
 
   Future<void> _restart() async {
-    _generation++;
+    final generation = ++_generation;
     _refreshTimer?.cancel();
     _reconnectTimer?.cancel();
     await _events?.cancel();
+    _closeChannel();
+    // A newer restart began while this one waited; it owns the rest.
+    if (_disposed || generation != _generation) return;
     _events = null;
     _live = false;
     _cursor = 0;
@@ -261,6 +295,10 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> selectBoard(String slug) async {
     _boardSlug = slug;
+    // Filters belong to the board they were set on; a tenant the new board
+    // lacks would hide its tasks with no way to clear it.
+    _tenant = null;
+    _assignee = null;
     await Future.wait([_restart(), _rememberBoard(slug)]);
   }
 
@@ -268,7 +306,7 @@ class KanbanBoardController extends ChangeNotifier {
   /// on the next launch; it must not stop the board from opening.
   Future<void> _rememberBoard(String slug) async {
     try {
-      await prefs?.setString(_boardPrefsKey, slug);
+      await prefs?.setString(prefsKey, slug);
     } catch (_) {}
   }
 
@@ -298,6 +336,7 @@ class KanbanBoardController extends ChangeNotifier {
     _refreshTimer?.cancel();
     _reconnectTimer?.cancel();
     _events?.cancel();
+    _closeChannel();
     super.dispose();
   }
 }

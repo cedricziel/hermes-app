@@ -74,12 +74,14 @@ Map<String, Object?> kanbanTaskDetailBody(
   List<Map<String, Object?>> comments = const [],
   List<String> parents = const [],
   List<Map<String, Object?>> events = const [],
+  List<Map<String, Object?>> runs = const [],
+  List<Map<String, Object?>> attachments = const [],
 }) => {
   'task': task,
   'comments': comments,
   'events': events,
-  'attachments': <Object?>[],
+  'attachments': attachments,
   'links': {'parents': parents, 'children': <String>[]},
   'child_results': <Object?>[],
-  'runs': <Object?>[],
+  'runs': runs,
 };

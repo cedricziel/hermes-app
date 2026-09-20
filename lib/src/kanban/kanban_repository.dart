@@ -3,10 +3,6 @@ import 'package:hermes_api/hermes_api.dart';
 
 import 'kanban_models.dart';
 
-/// Reads the Kanban plugin's boards through the generated [DefaultApi].
-///
-/// The plugin's routes declare no response schema, so bodies are parsed by
-/// hand into the models in `kanban_models.dart`.
 /// The plugin refused a request and said why (`{"detail": "..."}`), for
 /// example a task that cannot move to `ready` while a parent is open.
 class KanbanException implements Exception {
@@ -25,10 +21,20 @@ Future<T> _guard<T>(Future<T> Function() run) async {
     final data = e.response?.data;
     final detail = data is Map ? data['detail'] : null;
     if (detail is String) throw KanbanException(detail);
+    // A request the plugin could not validate lists what was wrong.
+    if (detail is List && detail.isNotEmpty && detail.first is Map) {
+      final message = (detail.first as Map)['msg'];
+      if (message is String) throw KanbanException(message);
+    }
     rethrow;
   }
 }
 
+/// Reads and changes the Kanban plugin's boards through the generated
+/// [DefaultApi].
+///
+/// The plugin's routes declare no response schema, so bodies are parsed by
+/// hand into the models in `kanban_models.dart`.
 class KanbanRepository {
   KanbanRepository(this._api);
 
@@ -113,12 +119,12 @@ class KanbanRepository {
     ),
   );
 
-  Future<void> archiveTask(String id, {String? board}) => _guard(
-    () => _api.bulkUpdateApiPluginsKanbanTasksBulkPost(
-      bulkTaskBody: BulkTaskBody(ids: [id], archive: true),
-      board: board,
-    ),
-  );
+  /// Archives a task; the plugin's refusal for it is raised as a
+  /// [KanbanException] rather than read as success.
+  Future<void> archiveTask(String id, {String? board}) async {
+    final failures = await bulkUpdate([id], archive: true, board: board);
+    if (failures.isNotEmpty) throw KanbanException(failures.first.error);
+  }
 
   /// Fans a triage task out into a set of tasks with the plugin's LLM helper.
   Future<KanbanTriageOutcome> decomposeTask(String id, {String? board}) =>
@@ -213,6 +219,37 @@ class KanbanRepository {
         );
     return KanbanOrchestration.fromJson(_map(response.data));
   });
+
+  /// The end of the worker's log for a task, at most [tail] bytes.
+  Future<KanbanTaskLog> loadTaskLog(
+    String id, {
+    int tail = 20000,
+    String? board,
+  }) => _guard(() async {
+    final response = await _api.getTaskLogApiPluginsKanbanTasksTaskIdLogGet(
+      taskId: id,
+      tail: tail,
+      board: board,
+    );
+    return KanbanTaskLog.fromJson(_map(response.data));
+  });
+
+  /// Stops an in-flight run; the plugin refuses when it already ended.
+  Future<void> terminateRun(int runId, {String? reason, String? board}) =>
+      _guard(
+        () => _api.terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(
+          runId: runId,
+          terminateRunBody: TerminateRunBody(reason: reason),
+          board: board,
+        ),
+      );
+
+  Future<void> removeAttachment(int id, {String? board}) => _guard(
+    () => _api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(
+      attachmentId: id,
+      board: board,
+    ),
+  );
 
   Future<void> deleteTask(String id, {String? board}) => _guard(
     () => _api.deleteTaskApiPluginsKanbanTasksTaskIdDelete(

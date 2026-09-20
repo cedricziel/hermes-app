@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -10,6 +11,9 @@ import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
+import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 /// Runs the repositories against a real Hermes dashboard, to check the
@@ -368,4 +372,101 @@ void main() {
     final vars = bots.expand((b) => b.envVars);
     expect(vars.every((v) => v.isSet || v.redactedValue == null), isTrue);
   }, skip: skip);
+
+  group('kanban', () {
+    const title = 'contract test task';
+
+    Future<KanbanTask?> findTask(KanbanRepository repository) async {
+      final board = await repository.loadBoard();
+      return [for (final c in board.columns) ...c.tasks]
+          .where((t) => t.title == title)
+          .firstOrNull;
+    }
+
+    Future<void> cleanUp(KanbanRepository repository) async {
+      final task = await findTask(repository);
+      if (task != null) await repository.deleteTask(task.id);
+    }
+
+    test('the bundled plugin is reported as on', () async {
+      expect(
+        await HermesPluginsRepository(client.raw).isKanbanEnabled(),
+        isTrue,
+      );
+    }, skip: skip);
+
+    test('the board and the board list parse', () async {
+      final repository = KanbanRepository(client.raw);
+
+      final board = await repository.loadBoard();
+      final boards = await repository.listBoards();
+
+      expect(board.columns.map((c) => c.name), containsAll(kanbanStatuses));
+      expect(boards, isNotEmpty);
+      expect(boards.any((b) => b.isCurrent), isTrue);
+    }, skip: skip);
+
+    test('a task can be created, changed, commented on and deleted', () async {
+      final repository = KanbanRepository(client.raw);
+      await cleanUp(repository);
+      addTearDown(() => cleanUp(repository));
+
+      await repository.createTask(title: title, body: 'from the app');
+      final created = await findTask(repository);
+      expect(created, isNotNull);
+
+      await repository.addComment(created!.id, 'hello');
+      await repository.updateTask(
+        created.id,
+        status: 'blocked',
+        blockReason: 'waiting',
+      );
+      final detail = await repository.loadTask(created.id);
+
+      expect(detail.task.title, title);
+      expect(detail.task.body, 'from the app');
+      expect(detail.task.status, 'blocked');
+      expect(detail.comments.map((c) => c.body), contains('hello'));
+      expect(detail.events, isNotEmpty);
+
+      await repository.deleteTask(created.id);
+      expect(await findTask(repository), isNull);
+    }, skip: skip);
+
+    test('a refused change carries the plugin\'s reason', () async {
+      final repository = KanbanRepository(client.raw);
+
+      expect(
+        repository.updateTask('t_missing', status: 'running'),
+        throwsA(isA<KanbanException>()),
+      );
+    }, skip: skip);
+
+    test('the orchestration settings parse', () async {
+      final settings = await KanbanRepository(client.raw).loadOrchestration();
+
+      expect(settings.activeProfile, isNotEmpty);
+    }, skip: skip);
+
+    test('the event stream announces a new task', () async {
+      final repository = KanbanRepository(client.raw);
+      await cleanUp(repository);
+      addTearDown(() => cleanUp(repository));
+      final since = (await repository.loadBoard()).latestEventId;
+      final channel = await hermesSocketConnect(
+        baseUrl: url!,
+        authRequired: false,
+        api: client,
+        path: '/api/plugins/kanban/events',
+      )({'since': '$since'});
+
+      final frame = channel.stream.first.timeout(const Duration(seconds: 15));
+      await repository.createTask(title: title);
+      final data = jsonDecode(await frame) as Map;
+      await channel.sink.close();
+
+      expect(data['events'], isNotEmpty);
+      expect(data['cursor'], greaterThan(since));
+    }, skip: skip);
+  });
 }

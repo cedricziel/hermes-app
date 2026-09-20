@@ -30,30 +30,65 @@ Future<String?> askKanbanText(
   String? initial,
   String confirm = 'OK',
   bool multiline = false,
-}) {
-  final controller = TextEditingController(text: initial);
-  return showDialog<String>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        minLines: multiline ? 3 : 1,
-        maxLines: multiline ? 6 : 1,
-        decoration: InputDecoration(hintText: hint),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, controller.text.trim()),
-          child: Text(confirm),
-        ),
-      ],
+}) => showDialog<String>(
+  context: context,
+  builder: (_) => _TextDialog(
+    title: title,
+    hint: hint,
+    initial: initial,
+    confirm: confirm,
+    multiline: multiline,
+  ),
+);
+
+class _TextDialog extends StatefulWidget {
+  const _TextDialog({
+    required this.title,
+    required this.confirm,
+    required this.multiline,
+    this.hint,
+    this.initial,
+  });
+
+  final String title;
+  final String? hint;
+  final String? initial;
+  final String confirm;
+  final bool multiline;
+
+  @override
+  State<_TextDialog> createState() => _TextDialogState();
+}
+
+class _TextDialogState extends State<_TextDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: TextField(
+      controller: _controller,
+      autofocus: true,
+      minLines: widget.multiline ? 3 : 1,
+      maxLines: widget.multiline ? 6 : 1,
+      decoration: InputDecoration(hintText: widget.hint),
     ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.pop(context, _controller.text.trim()),
+        child: Text(widget.confirm),
+      ),
+    ],
   );
 }
 

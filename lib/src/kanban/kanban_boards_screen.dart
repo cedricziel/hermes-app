@@ -30,9 +30,18 @@ class KanbanBoardsScreen extends StatelessWidget {
       confirm: 'Create',
     );
     if (name == null || name.isEmpty || !context.mounted) return;
+    final slug = slugFor(name);
+    if (slug.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Use letters or numbers in the board name.'),
+        ),
+      );
+      return;
+    }
     final ok = await runKanbanAction(
       context,
-      () => repository.createBoard(slug: slugFor(name), name: name),
+      () => repository.createBoard(slug: slug, name: name),
     );
     if (ok) await controller.loadBoards();
   }

@@ -58,6 +58,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       repository: _repository,
       connect: connect,
       prefs: SharedPreferencesAsync(),
+      prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
     )..start();
   }
 
@@ -215,7 +216,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
       );
     }
-    _controller.stopSelecting();
+    if (failures.isEmpty) {
+      _controller.stopSelecting();
+    } else {
+      // A refusal without a task id cannot say which to keep, so keep all.
+      final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);
+      if (failed.isNotEmpty) _controller.keepSelected(failed);
+    }
     _controller.refresh();
   }
 
@@ -307,7 +314,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final selecting = _controller.selecting;
     return KanbanCard(
       task: task,
-      selected: _controller.selected.contains(task.id),
+      selected: _controller.isSelected(task.id),
       onTap: selecting
           ? () => _controller.toggleSelected(task.id)
           : () => _open(task),
@@ -365,25 +372,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
         columns.where((c) => c.name == shown).firstOrNull?.tasks ?? const [];
     return Column(
       children: [
-        SizedBox(
-          height: 48,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            children: [
-              for (final c in columns)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: ChoiceChip(
-                    label: Text(
-                      '${kanbanStatusLabel(c.name)} ${c.tasks.length}',
-                    ),
-                    selected: c.name == shown,
-                    onSelected: (_) => setState(() => _status = c.name),
-                  ),
-                ),
-            ],
-          ),
+        _StatusChips(
+          columns: columns,
+          selected: shown,
+          onSelected: (name) => setState(() => _status = name),
         ),
         Expanded(
           child: RefreshIndicator(
@@ -475,6 +467,68 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 }
 
+/// The row of status chips on a narrow screen. It brings the selected chip
+/// into view when it first appears (a fresh row starts at the left, which may
+/// hide it, e.g. after the screen is rotated) and whenever the selection moves.
+class _StatusChips extends StatefulWidget {
+  const _StatusChips({
+    required this.columns,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<KanbanColumn> columns;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  State<_StatusChips> createState() => _StatusChipsState();
+}
+
+class _StatusChipsState extends State<_StatusChips> {
+  final _selectedChip = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    _reveal();
+  }
+
+  @override
+  void didUpdateWidget(_StatusChips old) {
+    super.didUpdateWidget(old);
+    if (old.selected != widget.selected) _reveal();
+  }
+
+  void _reveal() => WidgetsBinding.instance.addPostFrameCallback((_) {
+    final chip = _selectedChip.currentContext;
+    if (chip != null && mounted) Scrollable.ensureVisible(chip, alignment: 0.5);
+  });
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 48,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          for (final c in widget.columns)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: ChoiceChip(
+                key: c.name == widget.selected ? _selectedChip : null,
+                label: Text('${kanbanStatusLabel(c.name)} ${c.tasks.length}'),
+                selected: c.name == widget.selected,
+                onSelected: (_) => widget.onSelected(c.name),
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _Toolbar extends StatelessWidget {
   const _Toolbar({required this.controller, required this.board});
 
@@ -485,41 +539,54 @@ class _Toolbar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 220,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
             child: TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                prefixIcon: Icon(Icons.search, size: 18),
+                filled: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
                 hintText: 'Search tasks',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(kHermesRadius),
+                  borderSide: BorderSide.none,
+                ),
               ),
               onChanged: controller.setQuery,
             ),
           ),
-          if (board.assignees.isNotEmpty)
-            _FilterMenu(
-              label: controller.assignee ?? 'All assignees',
-              all: 'All assignees',
-              options: board.assignees,
-              onSelected: controller.setAssignee,
+          const SizedBox(height: 6),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                if (board.assignees.isNotEmpty)
+                  _FilterMenu(
+                    label: controller.assignee ?? 'All assignees',
+                    all: 'All assignees',
+                    options: board.assignees,
+                    onSelected: controller.setAssignee,
+                  ),
+                if (board.tenants.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  _FilterMenu(
+                    label: controller.tenant ?? 'All tenants',
+                    all: 'All tenants',
+                    options: board.tenants,
+                    onSelected: controller.setTenant,
+                  ),
+                ],
+                const SizedBox(width: 8),
+                FilterChip(
+                  label: const Text('Archived'),
+                  selected: controller.includeArchived,
+                  onSelected: controller.setIncludeArchived,
+                ),
+              ],
             ),
-          if (board.tenants.isNotEmpty)
-            _FilterMenu(
-              label: controller.tenant ?? 'All tenants',
-              all: 'All tenants',
-              options: board.tenants,
-              onSelected: controller.setTenant,
-            ),
-          FilterChip(
-            label: const Text('Archived'),
-            selected: controller.includeArchived,
-            onSelected: controller.setIncludeArchived,
           ),
         ],
       ),

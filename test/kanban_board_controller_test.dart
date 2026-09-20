@@ -329,6 +329,20 @@ void main() {
     },
   );
 
+  test('leaving during the board list load does not fetch the board', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    final leaving = KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+    );
+
+    final started = leaving.start();
+    leaving.dispose();
+    await started;
+
+    expect(server.requestsTo('GET', '/api/plugins/kanban/board'), isEmpty);
+  });
   test('a board picked while the saved one loads is not overwritten', () async {
     SharedPreferencesAsyncPlatform.instance = _SlowPrefs('default');
     serveBoard([kanbanTaskRow(id: 't1')]);
@@ -368,6 +382,113 @@ void main() {
       expect(c.board, isNotNull);
     },
   );
+
+  test(
+    'follows the remembered board when the first list read had failed',
+    () async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.withData({
+            'hermes.kanban.board': 'ops',
+          });
+      serveBoard([kanbanTaskRow(id: 't1')]);
+      var listCalls = 0;
+      server.onRequest('GET', '/api/plugins/kanban/boards', (_) {
+        listCalls++;
+        return listCalls == 1
+            ? (status: 500, body: {'detail': 'blip'})
+            : (
+                status: 200,
+                body: kanbanBoardsBody([
+                  (slug: 'default', name: 'Default', total: 1, current: true),
+                  (slug: 'ops', name: 'Ops', total: 0, current: false),
+                ]),
+              );
+      });
+      final c = KanbanBoardController(
+        repository: KanbanRepository(server.client().raw),
+        connect: ({required since, board}) async =>
+            StreamChannelController<String>().foreign,
+        prefs: SharedPreferencesAsync(),
+      );
+      addTearDown(c.dispose);
+      await c.start();
+      expect(c.boardSlug, isNull);
+
+      await c.loadBoards();
+
+      expect(c.boardSlug, 'ops');
+      expect(
+        server
+            .requestsTo('GET', '/api/plugins/kanban/board')
+            .last
+            .queryParameters['board'],
+        'ops',
+      );
+    },
+  );
+
+  test('two quick changes leave one event stream, not two', () async {
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    var opened = 0;
+    var open = 0;
+    final c = KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async {
+        opened++;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        final socket = StreamChannelController<String>();
+        open++;
+        socket.local.stream.listen(null, onDone: () => open--);
+        return socket.foreign;
+      },
+      debounce: Duration.zero,
+    );
+    addTearDown(c.dispose);
+    await c.start();
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final before = opened;
+
+    final first = c.selectBoard('ops');
+    final second = c.setTenant('acme');
+    await Future.wait([first, second]);
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+
+    expect(opened - before, 1);
+    expect(open, 1);
+  });
+
+  test('switching board clears the tenant and assignee filters', () async {
+    serveBoard([kanbanTaskRow(id: 't1', assignee: 'coder')]);
+    await controller.start();
+    await controller.setTenant('acme');
+    controller.setAssignee('coder');
+
+    await controller.selectBoard('ops');
+
+    expect(controller.tenant, isNull);
+    expect(controller.assignee, isNull);
+  });
+
+  test('remembers the board under the key it is given', () async {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+    final prefs = SharedPreferencesAsync();
+    serveBoard([kanbanTaskRow(id: 't1')]);
+    final c = KanbanBoardController(
+      repository: KanbanRepository(server.client().raw),
+      connect: ({required since, board}) async =>
+          StreamChannelController<String>().foreign,
+      prefs: prefs,
+      prefsKey: 'hermes.kanban.board.http://a',
+    );
+    addTearDown(c.dispose);
+    await c.start();
+
+    await c.selectBoard('ops');
+
+    expect(await prefs.getString('hermes.kanban.board.http://a'), 'ops');
+    expect(await prefs.getString('hermes.kanban.board'), isNull);
+  });
 }
 
 /// Answers the saved board late, like a slow disk.
