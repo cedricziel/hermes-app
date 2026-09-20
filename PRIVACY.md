@@ -1,6 +1,6 @@
 # Privacy
 
-Hermes Agent Companion has no account, no advertising and no third-party analytics or tracking.
+Companion for Hermes Agent has no account, no advertising and no third-party analytics or tracking.
 
 The app connects to the Hermes Agent server address you enter. What that server receives and stores is governed by whoever runs it.
 
