@@ -203,6 +203,13 @@ The system SHALL append the user's message and a thinking placeholder for the as
 - **WHEN** the user sends "hello"
 - **THEN** the transcript shows "hello" and a thinking placeholder, and the composer is emptied
 
+#### Scenario: Enter sends
+
+- **WHEN** the user presses Enter in the composer
+- **THEN** the message is sent
+- **AND WHEN** the user presses Shift+Enter
+- **THEN** a line break is added and nothing is sent
+
 #### Scenario: Whitespace-only message
 
 - **WHEN** the composer holds only whitespace and there are no attachments

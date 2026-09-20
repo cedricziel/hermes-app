@@ -27,6 +27,7 @@ WidgetBuilder buildChatComposer({
       textEditingController: controller,
       hintText: 'Message Hermes…',
       maxLines: 8,
+      sendOnEnter: true,
       attachmentIcon: const Icon(Icons.attach_file),
       attachmentIconColor: context.hermesColors.subtleText,
       sendIcon: const Icon(Icons.arrow_upward),
