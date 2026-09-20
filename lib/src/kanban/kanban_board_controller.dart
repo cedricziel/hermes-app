@@ -178,7 +178,7 @@ class KanbanBoardController extends ChangeNotifier {
   /// Fetches the board now and (re)starts the event stream from it.
   Future<void> refresh() async {
     if (_disposed) return;
-    final generation = _generation;
+    var generation = _generation;
     _loading = _board == null;
     notifyListeners();
     try {
@@ -200,12 +200,38 @@ class KanbanBoardController extends ChangeNotifier {
     } catch (e) {
       if (_disposed || generation != _generation) return;
       _error = e;
+      if (unavailable) {
+        _dropBoard();
+        // Dropping supersedes in-flight stream work; this refresh still owns
+        // the state it reports below.
+        generation = _generation;
+      }
     } finally {
       if (!_disposed && generation == _generation) {
         _loading = false;
         notifyListeners();
       }
     }
+  }
+
+  /// The plugin is gone, so what the board showed is no longer true and the
+  /// stream has nothing to deliver.
+  void _dropBoard() {
+    _generation++;
+    unawaited(_stopStream());
+    _events = null;
+    _live = false;
+    _board = null;
+  }
+
+  /// Stops the timers and closes the event stream. The synchronous part runs
+  /// before the first await, so callers need not wait for it.
+  Future<void> _stopStream() async {
+    _refreshTimer?.cancel();
+    _reconnectTimer?.cancel();
+    final events = _events;
+    _closeChannel();
+    await events?.cancel();
   }
 
   void _scheduleRefresh() {
@@ -281,10 +307,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   Future<void> _restart() async {
     final generation = ++_generation;
-    _refreshTimer?.cancel();
-    _reconnectTimer?.cancel();
-    await _events?.cancel();
-    _closeChannel();
+    await _stopStream();
     // A newer restart began while this one waited; it owns the rest.
     if (_disposed || generation != _generation) return;
     _events = null;
@@ -337,10 +360,7 @@ class KanbanBoardController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _refreshTimer?.cancel();
-    _reconnectTimer?.cancel();
-    _events?.cancel();
-    _closeChannel();
+    unawaited(_stopStream());
     super.dispose();
   }
 }

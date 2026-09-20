@@ -102,11 +102,28 @@ void main() {
     expect(find.text('Migrate webhooks'), findsNothing);
   });
 
+  const notice = 'Could not refresh. Showing the last board.';
+
   testWidgets('says so when the plugin has been turned off', (tester) async {
     server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 404);
     await pumpBoard(tester, size: const Size(400, 800));
 
     expect(find.text('Kanban isn’t available'), findsOneWidget);
+  });
+
+  testWidgets('says so when the plugin is turned off during a refresh', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(1400, 900));
+
+    server.on('GET', '/api/plugins/kanban/board', {'detail': 'x'}, status: 404);
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kanban isn’t available'), findsOneWidget);
+    expect(find.text(notice), findsNothing);
+    expect(find.text('Migrate webhooks'), findsNothing);
   });
 
   testWidgets('offers a retry when the board fails to load', (tester) async {
@@ -119,8 +136,6 @@ void main() {
 
     expect(find.text('Could not load the board'), findsNothing);
   });
-
-  const notice = 'Could not refresh. Showing the last board.';
 
   testWidgets('a failed refresh keeps the board and offers a retry', (
     tester,
