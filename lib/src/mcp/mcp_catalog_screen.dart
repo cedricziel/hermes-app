@@ -150,6 +150,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
         );
         if (!wide) return list;
         return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(width: 380, child: list),
             const VerticalDivider(width: 1),
