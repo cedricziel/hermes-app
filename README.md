@@ -140,6 +140,13 @@ flutter pub get
 flutter run
 ```
 
+### Building the iOS app
+
+The iOS app embeds a watchOS app (`ios/HermesWatch`), so Xcode needs the
+watchOS platform installed (Xcode > Settings > Components) even if you only
+run the phone app. With it in the project, `flutter build ios --simulator`
+also needs a simulator: pass one with `-d <simulator id>`.
+
 ### Notes for local/self-hosted dashboards
 
 - Android: cleartext (plain HTTP) traffic is allowed app-wide

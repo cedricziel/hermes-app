@@ -9,6 +9,9 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
+import '../notifications/attention_policy.dart';
+import '../notifications/notification_service.dart';
+import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
 import '../screens/home_screen.dart';
@@ -57,7 +60,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const double _wideBreakpoint = 900;
 
   late List<ChatThread> _threads;
@@ -86,10 +89,24 @@ class _ChatScreenState extends State<ChatScreen> {
   final _chatControllers = <String, InMemoryChatController>{};
   final List<SharedFile> _attachments = [];
   late final ShareController _share;
+  NotificationService? _notifications;
+  NotificationSettings? _notificationSettings;
+  StreamSubscription<NotificationTarget>? _notificationTaps;
+  Future<NotificationTarget?>? _launchLookup;
+  var _focused = true;
+  var _askingPermission = false;
+  Future<void>? _permissionRequest;
 
   @override
   void initState() {
     super.initState();
+    _notifications = _maybeRead<NotificationService>();
+    _notificationSettings = _maybeRead<NotificationSettings>();
+    _launchLookup = _notifications?.launchTarget();
+    _notificationTaps = _notifications?.taps.listen(_openFromNotification);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _focused = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addObserver(this);
     final api = context.read<AuthController>().api;
     _repository =
         widget.repository ??
@@ -142,6 +159,8 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       profile ??= await _activeProfile();
       final first = await _repository!.loadThreadPage(profile: profile);
+      final launch = await _launchLookup;
+      _launchLookup = null;
       if (!mounted || generation != _loadGeneration) return;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
@@ -159,7 +178,11 @@ class _ChatScreenState extends State<ChatScreen> {
           ..clear()
           ..addAll(threads);
         _loadingThreads = false;
-        _selectedId = threads.isNotEmpty ? threads.first.id : null;
+        _selectedId =
+            _isOnProfile(launch, profile) &&
+                threads.any((t) => t.id == launch!.threadId)
+            ? launch!.threadId
+            : (threads.isNotEmpty ? threads.first.id : null);
       });
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {
@@ -194,6 +217,33 @@ class _ChatScreenState extends State<ChatScreen> {
       _unloaded.add(id);
       if (!mounted) return;
       _showMessage('Could not load this chat');
+    }
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _focused = state == AppLifecycleState.resumed;
+  }
+
+  /// Whether [target] names a chat on [profile]. A thread id is only unique
+  /// within a profile, so one posted under another profile is not ours. A
+  /// notification from an earlier build carries no profile; it still matches
+  /// on its thread id alone.
+  static bool _isOnProfile(NotificationTarget? target, String? profile) =>
+      target != null && (target.profile == null || target.profile == profile);
+
+  void _openFromNotification(NotificationTarget target) {
+    if (!_isOnProfile(target, _profile)) return;
+    if (_threads.any((t) => t.id == target.threadId)) {
+      _selectThread(target.threadId);
     }
   }
 
@@ -232,6 +282,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _share.removeListener(_onShared);
+    WidgetsBinding.instance.removeObserver(this);
+    _notificationTaps?.cancel();
     for (final reply in _replies) {
       reply.cancel();
     }
@@ -373,6 +425,7 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     } else {
       _streamReply(transport, thread, placeholder, content, threadId);
+      unawaited(_askForNotificationPermission());
     }
   }
 
@@ -416,6 +469,55 @@ class _ChatScreenState extends State<ChatScreen> {
           ClarifyRequested() ||
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
+    }
+    _announce(thread, event);
+  }
+
+  void _announce(ChatThread thread, ChatEvent event) {
+    final service = _notifications;
+    if (service == null) return;
+    final settings = _notificationSettings;
+    final notification = attentionFor(
+      event: event,
+      thread: thread,
+      appFocused: _focused,
+      selectedThreadId: _selectedId,
+      enabled: settings == null || (settings.loaded && settings.enabled),
+      profile: _profile,
+    );
+    if (notification == null) return;
+    final pending = _permissionRequest;
+    unawaited(
+      pending == null
+          ? service.show(notification)
+          : pending.then((_) => service.show(notification)),
+    );
+  }
+
+  Future<void> _askForNotificationPermission() async {
+    final service = _notifications;
+    final settings = _notificationSettings;
+    if (service == null || settings == null) return;
+    if (!settings.loaded ||
+        !settings.enabled ||
+        settings.permissionAsked ||
+        _askingPermission) {
+      return;
+    }
+    _askingPermission = true;
+    try {
+      final request = service.requestPermission();
+      _permissionRequest = request
+          .then<void>((_) {}, onError: (Object _) {})
+          .whenComplete(() => _permissionRequest = null);
+      final answer = await request;
+      if (answer != NotificationPermission.unavailable) {
+        await settings.recordPermission(
+          granted: answer == NotificationPermission.granted,
+        );
+      }
+    } finally {
+      _askingPermission = false;
     }
   }
 
