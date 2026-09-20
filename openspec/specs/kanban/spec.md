@@ -166,7 +166,7 @@ When the event stream ends or fails, the system SHALL reconnect, resuming from t
 
 ### Requirement: Board failures are reported without losing the shown board
 
-While no board has been loaded the system SHALL show a progress indicator during loading. If the first load fails the system SHALL show "Could not load the board" with a Retry button. If the plugin answers 404 the system SHALL instead show "Kanban isn’t available" with the detail "The plugin was turned off on this server." and no Retry button, and SHALL NOT open the event stream. If a refresh fails while a board is already displayed, the system SHALL keep showing that board and SHALL show a notice above it reading "Could not refresh. Showing the last board." with a Retry button that refetches the board. The notice SHALL NOT block the board, and SHALL disappear once a later refetch succeeds.
+While no board has been loaded the system SHALL show a progress indicator during loading. If the first load fails the system SHALL show "Could not load the board" with a Retry button. If the plugin answers 404, on the first load or on a later refresh, the system SHALL instead show "Kanban isn’t available" with the detail "The plugin was turned off on this server." and no Retry button, and SHALL NOT open the event stream, or SHALL close it if it was open. If any other refresh fails while a board is already displayed, the system SHALL keep showing that board and SHALL show a notice above it reading "Could not refresh. Showing the last board." with a Retry button that refetches the board. The notice SHALL NOT block the board, and SHALL disappear once a later refetch succeeds.
 
 #### Scenario: Load fails, then succeeds
 
@@ -177,6 +177,13 @@ While no board has been loaded the system SHALL show a progress indicator during
 
 - **WHEN** the board request answers 404
 - **THEN** the page says the plugin was turned off on this server
+
+#### Scenario: Plugin removed while the board is displayed
+
+- **WHEN** a refetch answers 404 while the board is displayed
+- **THEN** the page says the plugin was turned off on this server instead of the board
+- **AND** the notice "Could not refresh. Showing the last board." is not shown
+- **AND** the event stream is closed
 
 #### Scenario: Refresh fails
 
