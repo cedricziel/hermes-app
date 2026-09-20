@@ -61,26 +61,26 @@ dependencies:
   flutter_otel:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel
   # Coarse device facts for the telemetry resource. It resolves device_info_plus
   # to 12.x here: 13.x needs win32 6, which flutter_secure_storage 9 rules out.
   flutter_otel_device_info:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_device_info
   # Request spans and logs that record the route only, never the server address.
   flutter_otel_instrumentation_dio:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_instrumentation_dio
   # The chat WebSocket as an upgrade span plus linked message spans.
   flutter_otel_instrumentation_messaging:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_instrumentation_messaging
   # The dashboard's /api/ws JSON-RPC socket the chat streams over.
   web_socket_channel: ^3.0.3
@@ -94,17 +94,17 @@ dependency_overrides:
   flutter_otel_api:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_api
   flutter_otel_sdk:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_sdk
   flutter_otel_exporter_otlp_http:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
-      ref: 0ce820e7d08bc31d3429bfa270ffbca9993b5522
+      ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel_exporter_otlp_http
 
 dev_dependencies:

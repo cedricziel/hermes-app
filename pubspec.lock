@@ -276,8 +276,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/flutter_otel"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -285,8 +285,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/flutter_otel_api"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -294,8 +294,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/flutter_otel_device_info"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -303,8 +303,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/flutter_otel_exporter_otlp_http"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -312,8 +312,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/flutter_otel_instrumentation_dio"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -321,8 +321,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/flutter_otel_instrumentation_messaging"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
@@ -330,8 +330,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/flutter_otel_sdk"
-      ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
-      resolved-ref: "0ce820e7d08bc31d3429bfa270ffbca9993b5522"
+      ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
+      resolved-ref: "4e755d3729444fc19a1dfe892e217aeb46216862"
       url: "https://github.com/cedricziel/flutter-otel.git"
     source: git
     version: "0.1.0"
