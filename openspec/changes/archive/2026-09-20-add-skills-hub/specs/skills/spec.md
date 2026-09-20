@@ -146,12 +146,17 @@ The system SHALL use the dashboard's hub routes and SHALL tolerate response shap
 #### Scenario: Routes used
 
 - **WHEN** the app discovers, previews, installs or updates skills
-- **THEN** it uses `GET /api/skills/hub/official` (envelope `skills`, per row `name`, `description`, `identifier`, `trust_level`, `tags`, `category`, `installed`), `GET /api/skills/hub/sources` (`sources`, `featured`, `installed`), `GET /api/skills/hub/search` (query `q`, `source`, `limit`, `profile`; envelope `results`, `source_counts`, `timed_out`, `installed`), `GET /api/skills/hub/preview` (query `identifier`; reply `skill_md`, `files`), `GET /api/skills/hub/scan` (query `identifier`; reply `verdict`, `summary`, `policy`, `policy_reason`, `findings`, `severity_counts`), `POST /api/skills/hub/install`, `POST /api/skills/hub/uninstall` and `POST /api/skills/hub/update` (each replying `name`, the job name), and `GET /api/actions/{name}/status` (reply `running`, `exit_code`, `lines`), with the selected profile passed on every call
+- **THEN** it uses `GET /api/skills/hub/official` (envelope `skills`, per row `name`, `description`, `identifier`, `trust_level`, `tags`, `category`, `installed`), `GET /api/skills/hub/sources` (`sources`, `featured`, and `installed`, a map from identifier to entry), `GET /api/skills/hub/search` (query `q`, `source`, `limit`, `profile`; envelope `results`, `source_counts`, `timed_out`, and `installed` as a map), `GET /api/skills/hub/preview` (query `identifier`; reply `skill_md`, `files`), `GET /api/skills/hub/scan` (query `identifier`; reply `verdict`, `summary`, `policy`, `policy_reason`, `findings` each with `severity`, `category`, `file`, `line`, `description`, and `severity_counts`), `POST /api/skills/hub/install`, `POST /api/skills/hub/uninstall` and `POST /api/skills/hub/update` (each replying `name`, the job name), and `GET /api/actions/{name}/status` (reply `running`, `exit_code`, `lines`), with the selected profile passed on every call
 
 #### Scenario: Rows that do not fit
 
-- **WHEN** a result or finding is missing its name or identifier
+- **WHEN** a result is missing its name or identifier
 - **THEN** it is left out
+
+#### Scenario: A finding without a description
+
+- **WHEN** a scan finding has no description
+- **THEN** it is shown under its category instead
 
 #### Scenario: Unknown job
 

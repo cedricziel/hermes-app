@@ -3,7 +3,9 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'hermes_skills_repository.dart';
 import 'skill_editor_screen.dart';
+import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
+import 'skills_hub_controller.dart';
 import 'skills_screen.dart' show SourceBadge;
 
 /// What the chat composer is given when the user asks the agent to delete a
@@ -25,9 +27,11 @@ class SkillDetailScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.name,
+    this.hub,
   });
 
   final SkillsController controller;
+  final SkillsHubController? hub;
   final String name;
 
   @override
@@ -102,10 +106,36 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
     }
   }
 
+  Future<void> _uninstall() async {
+    final hub = widget.hub;
+    if (hub == null) return;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Uninstall ${widget.name}?'),
+        content: const Text('The skill is removed from this profile.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Uninstall'),
+          ),
+        ],
+      ),
+    );
+    if (go != true || !mounted) return;
+    if (hub.uninstall(widget.name) != null) {
+      await showSkillJobSheet(context, hub);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.controller,
+      listenable: Listenable.merge([widget.controller, ?widget.hub]),
       builder: (context, _) {
         final skill = widget.controller.skill(widget.name);
         return Scaffold(
@@ -172,6 +202,19 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
                   foregroundColor: theme.colorScheme.error,
                 ),
                 child: const Text('Ask agent to delete'),
+              ),
+            ],
+          )
+        else if (skill.source == SkillSource.hub && widget.hub != null)
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: widget.hub!.busy ? null : _uninstall,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
+                child: const Text('Uninstall'),
               ),
             ],
           )
