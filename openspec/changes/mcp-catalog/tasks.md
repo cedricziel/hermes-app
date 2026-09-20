@@ -1,8 +1,8 @@
 ## 1. Prepare
 
 - [ ] 1.1 Rebase onto `origin/main` (and onto the merged `mcp-servers` once it lands) before writing code, then re-run `openspec validate mcp-catalog --strict`
-- [ ] 1.2 Add the delta `specs/mcp-servers/spec.md` with a MODIFIED "Sign in needed" requirement (the banner now offers the Sign in button and the "Signing in itself is not part of this capability" sentence goes) and an ADDED requirement for the "Add" button and the empty-state button opening the catalog; copy the full current requirement text from `openspec/specs/mcp-servers/spec.md` before editing it
-- [ ] 1.3 Note the generated client method names for the six calls in `design.md` and confirm their request models (`MCPCatalogInstall`)
+- [x] 1.2 Add the delta `specs/mcp-servers/spec.md` with a MODIFIED "Sign in needed" requirement (the banner now offers the Sign in button and the "Signing in itself is not part of this capability" sentence goes) and an ADDED requirement for the "Add" button and the empty-state button opening the catalog; copy the full current requirement text from `openspec/specs/mcp-servers/spec.md` before editing it
+- [x] 1.3 Note the generated client method names for the six calls in `design.md` and confirm their request models (`MCPCatalogInstall`)
 
 ## 2. Repository
 
