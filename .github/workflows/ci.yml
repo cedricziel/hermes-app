@@ -57,6 +57,22 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+  # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
+  # be tested on the Mac without a watch simulator.
+  test-watch:
+    name: Test watch core
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: swift test
+        working-directory: ios/HermesWatch
+        run: swift test
+
   # Builds the app together with its share extension and watch app. The extension links the
   # receive_sharing_intent package by a version-pinned path in project.pbxproj,
   # so a plugin upgrade that isn't mirrored there breaks only this build.
@@ -85,6 +101,18 @@ jobs:
 
       - name: Build simulator app with share extension and watch app
         run: flutter build ios --simulator --debug --no-codesign -d "${{ steps.simulator.outputs.udid }}"
+
+      # The project-level Release and Profile settings say iphoneos only, and a
+      # watch target that inherits that is archived with the iOS SDK. No job
+      # here archives for a device, so check the setting directly. It needs the
+      # Flutter-generated package, so it runs after the build.
+      - name: Watch target builds for watchOS in every configuration
+        run: |
+          for configuration in Debug Profile Release; do
+            xcodebuild -showBuildSettings -project ios/Runner.xcodeproj \
+              -target HermesWatch -configuration "$configuration" \
+              | grep -E 'SUPPORTED_PLATFORMS = watchos watchsimulator$'
+          done
 
   build-macos:
     name: Build macOS (debug)

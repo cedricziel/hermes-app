@@ -1,15 +1,19 @@
 import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
-/// Coarse facts about the device, attached to every log and span.
+/// Facts about the device, attached to every log and span.
 ///
-/// Deliberately limited to what tells devices apart for debugging (which
-/// system, roughly which version, phone or tablet) and nothing that
-/// identifies a person or one device: no model, name, locale or hardware ID.
-Map<String, Object> deviceAttributes() {
+/// Limited to what tells devices apart for debugging: which system and
+/// version, the hardware model (an identifier shared by every unit of it, such
+/// as `iPhone17,1`), and phone or tablet. Nothing that identifies a person or
+/// one device: no device name, vendor or hardware ID, locale, disk or memory
+/// sizes, or build fingerprint.
+Future<Map<String, Object>> deviceAttributes({DeviceInfoPlugin? plugin}) async {
+  final Map<String, Object> basics;
   try {
-    return describeDevice(
+    basics = describeDevice(
       os: Platform.operatingSystem,
       osVersion: Platform.operatingSystemVersion,
       shortestSideLogical: _shortestSideLogical(),
@@ -21,6 +25,39 @@ Map<String, Object> deviceAttributes() {
     );
   } catch (_) {
     return const {};
+  }
+  try {
+    return {...basics, ...await _hardware(plugin ?? DeviceInfoPlugin())};
+  } catch (_) {
+    // No plugin in tests, or the platform refused; the basics still stand.
+    return basics;
+  }
+}
+
+Future<Map<String, Object>> _hardware(DeviceInfoPlugin plugin) async {
+  switch (Platform.operatingSystem) {
+    case 'ios':
+      final info = await plugin.iosInfo;
+      return describeApple(
+        family: info.model,
+        identifier: info.utsname.machine,
+        simulator: !info.isPhysicalDevice,
+        iosAppOnMac: info.isiOSAppOnMac,
+      );
+    case 'macos':
+      final info = await plugin.macOsInfo;
+      return describeApple(identifier: info.model, arch: info.arch);
+    case 'android':
+      final info = await plugin.androidInfo;
+      return describeAndroid(
+        manufacturer: info.manufacturer,
+        model: info.model,
+        release: info.version.release,
+        apiLevel: info.version.sdkInt,
+        simulator: !info.isPhysicalDevice,
+      );
+    default:
+      return const {};
   }
 }
 
@@ -41,6 +78,47 @@ Map<String, Object> describeDevice({
     'app.build_mode': buildMode,
   };
 }
+
+/// What an iPhone, iPad or Mac reports. [family] is the marketing family
+/// (`iPhone`, `iPad`), which says phone or tablet more reliably than the
+/// screen does.
+@visibleForTesting
+Map<String, Object> describeApple({
+  String? family,
+  required String identifier,
+  String? arch,
+  bool? simulator,
+  bool? iosAppOnMac,
+}) {
+  final formFactor = switch (family?.toLowerCase()) {
+    final f? when f.startsWith('ipad') => 'tablet',
+    final f? when f.startsWith('iphone') || f.startsWith('ipod') => 'phone',
+    _ => null,
+  };
+  return {
+    'device.manufacturer': 'Apple',
+    'device.model.identifier': identifier,
+    'device.form_factor': ?formFactor,
+    'host.arch': ?arch,
+    'device.simulator': ?simulator,
+    'app.ios_app_on_mac': ?iosAppOnMac,
+  };
+}
+
+@visibleForTesting
+Map<String, Object> describeAndroid({
+  required String manufacturer,
+  required String model,
+  required String release,
+  required int apiLevel,
+  required bool simulator,
+}) => {
+  'device.manufacturer': manufacturer,
+  'device.model.identifier': model,
+  'os.version': release,
+  'android.os.api_level': apiLevel,
+  'device.simulator': simulator,
+};
 
 // iOS and macOS report "Version 26.0 (Build 23A344)"; other systems return a
 // kernel string that is neither short nor useful, so it is left out.

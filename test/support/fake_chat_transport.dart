@@ -9,8 +9,12 @@ class FakeChatTransport implements ChatTransport {
   bool closed = false;
 
   @override
-  Stream<ChatEvent> send({String? threadId, required String text}) {
-    final send = FakeSend(threadId: threadId, text: text);
+  Stream<ChatEvent> send({
+    String? threadId,
+    String? profile,
+    required String text,
+  }) {
+    final send = FakeSend(threadId: threadId, profile: profile, text: text);
     sends.add(send);
     return send._events.stream;
   }
@@ -73,9 +77,10 @@ class FakeChatTransport implements ChatTransport {
 }
 
 class FakeSend {
-  FakeSend({required this.threadId, required this.text});
+  FakeSend({required this.threadId, this.profile, required this.text});
 
   final String? threadId;
+  final String? profile;
   final String text;
   final _events = StreamController<ChatEvent>();
 

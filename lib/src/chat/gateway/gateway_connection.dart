@@ -2,6 +2,7 @@ import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../api/hermes_api_client.dart';
+import '../../telemetry/gateway_telemetry.dart';
 import 'hermes_gateway_transport.dart';
 
 /// The WebSocket URL of [path] (the gateway's `/api/ws` unless told
@@ -40,6 +41,7 @@ SocketConnect hermesSocketConnect({
   required bool authRequired,
   required HermesApiClient api,
   String path = '/api/ws',
+  GatewayTelemetry? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
 }) {
   Future<Map<String, String>> credential() async {
@@ -54,8 +56,15 @@ SocketConnect hermesSocketConnect({
     return {'token': token};
   }
 
-  return ([query = const {}]) async =>
-      open(gatewayUri(baseUrl, {...query, ...await credential()}, path: path));
+  return ([query = const {}]) async {
+    final uri = gatewayUri(baseUrl, {
+      ...query,
+      ...await credential(),
+    }, path: path);
+    return telemetry == null
+        ? open(uri)
+        : telemetry.connecting(() => open(uri), route: path);
+  };
 }
 
 /// Connects to the dashboard's chat gateway (`/api/ws`).
@@ -63,12 +72,14 @@ GatewayConnect hermesGatewayConnect({
   required String baseUrl,
   required bool authRequired,
   required HermesApiClient api,
+  GatewayTelemetry? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
 }) {
   final connect = hermesSocketConnect(
     baseUrl: baseUrl,
     authRequired: authRequired,
     api: api,
+    telemetry: telemetry,
     open: open,
   );
   return () => connect();

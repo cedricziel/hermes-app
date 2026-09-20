@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:stream_channel/stream_channel.dart';
 
+import '../../telemetry/gateway_telemetry.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import 'gateway_rpc_client.dart';
@@ -13,19 +14,28 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
-  HermesGatewayTransport({required this._connect});
+  HermesGatewayTransport({required this._connect, this._telemetry});
 
   final GatewayConnect _connect;
+  final GatewayTelemetry? _telemetry;
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
   final _requestSessions = <String, String>{};
 
   @override
-  Stream<ChatEvent> send({String? threadId, required String text}) async* {
+  Stream<ChatEvent> send({
+    String? threadId,
+    String? profile,
+    required String text,
+  }) async* {
     final client = await _client();
+    final scope = <String, Object?>{'profile': ?profile};
     final session = threadId == null
-        ? await client.request('session.create')
-        : await client.request('session.resume', {'session_id': threadId});
+        ? await client.request('session.create', scope)
+        : await client.request('session.resume', {
+            'session_id': threadId,
+            ...scope,
+          });
     final runtimeId = session['session_id'] as String;
 
     // Buffered from here on: events can arrive before the consumer asks for
@@ -106,7 +116,7 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<GatewayRpcClient> _openNew() async {
-    final client = GatewayRpcClient(await _connect());
+    final client = GatewayRpcClient(await _connect(), telemetry: _telemetry);
     return _open = client;
   }
 

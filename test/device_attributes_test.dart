@@ -53,4 +53,68 @@ void main() {
 
     expect(attributes, {'os.type': 'android', 'app.build_mode': 'release'});
   });
+
+  group('describeApple', () {
+    test('an iPhone is a phone with its model identifier', () {
+      expect(
+        describeApple(
+          family: 'iPhone',
+          identifier: 'iPhone17,1',
+          simulator: false,
+          iosAppOnMac: false,
+        ),
+        {
+          'device.manufacturer': 'Apple',
+          'device.model.identifier': 'iPhone17,1',
+          'device.form_factor': 'phone',
+          'device.simulator': false,
+          'app.ios_app_on_mac': false,
+        },
+      );
+    });
+
+    test('an iPad is a tablet even on a small screen', () {
+      final attributes = describeApple(
+        family: 'iPad',
+        identifier: 'iPad16,3',
+        simulator: false,
+        iosAppOnMac: false,
+      );
+
+      expect(attributes['device.form_factor'], 'tablet');
+    });
+
+    test('a Mac reports its architecture and no phone or tablet', () {
+      final attributes = describeApple(identifier: 'Mac14,2', arch: 'arm64');
+
+      expect(attributes['host.arch'], 'arm64');
+      expect(attributes, isNot(contains('device.form_factor')));
+    });
+  });
+
+  test('describeAndroid reports make, model and API level', () {
+    expect(
+      describeAndroid(
+        manufacturer: 'Google',
+        model: 'Pixel 9',
+        release: '15',
+        apiLevel: 35,
+        simulator: false,
+      ),
+      {
+        'device.manufacturer': 'Google',
+        'device.model.identifier': 'Pixel 9',
+        'os.version': '15',
+        'android.os.api_level': 35,
+        'device.simulator': false,
+      },
+    );
+  });
+
+  test('keeps the basics when the device plugin is unavailable', () async {
+    final attributes = await deviceAttributes();
+
+    expect(attributes, contains('os.type'));
+    expect(attributes, contains('app.build_mode'));
+  });
 }

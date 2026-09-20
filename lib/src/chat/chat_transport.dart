@@ -83,7 +83,15 @@ abstract interface class ChatTransport {
   /// Sends [text] to the thread [threadId], or starts a new thread when it is
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
   /// with an error if the connection or the request fails.
-  Stream<ChatEvent> send({String? threadId, required String text});
+  ///
+  /// [profile] is the Hermes profile the thread lives in. A thread id is only
+  /// unique within a profile, so it must be the one the thread was listed
+  /// under; null leaves it to the dashboard's own profile.
+  Stream<ChatEvent> send({
+    String? threadId,
+    String? profile,
+    required String text,
+  });
 
   /// Answers an approval the agent is waiting on with one of its choices.
   /// Returns false when the request is no longer pending, and throws when the

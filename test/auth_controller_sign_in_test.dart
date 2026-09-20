@@ -87,6 +87,39 @@ void main() {
     ]);
   });
 
+  test('a cancel that lands after the login returned discards it and stops the spinner', () async {
+    final store = MemoryTokenStore();
+    dashboard = await _startDashboard();
+    final controller = AuthController(
+      tokenStore: store,
+      devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+      login: (url, {provider, httpClient, cancelled}) async {
+        await cancelled;
+        return const HermesSession(
+          accessToken: 'at',
+          refreshToken: 'rt',
+          expiresAt: 4102444800,
+          provider: 'oidc',
+          userId: 'u1',
+        );
+      },
+      events: events.call,
+    );
+    await controller.bootstrap();
+
+    final signIn = controller.signInWithProvider(controller.providers.single);
+    controller.cancelSignIn();
+    await signIn;
+
+    expect(controller.state, HermesConnectionState.needsLogin);
+    expect(controller.errorMessage, isNull);
+    expect(store.session, isNull);
+    expect(events.namesStartingWith('auth.sign_in.'), [
+      'auth.sign_in.started',
+      'auth.sign_in.cancelled',
+    ]);
+  });
+
   test(
     'a flow failure shows its message and records only the reason',
     () async {
