@@ -63,19 +63,38 @@ class HermesChatRepository {
       _ => null,
     };
     return ThreadPage(
-      threads: [
-        for (final row in rows)
-          if (row['id'] case final String id when id.isNotEmpty)
-            ChatThread(
-              id: id,
-              title: _title(row),
-              updatedAt: _time(row['last_active'] ?? row['started_at']),
-              pinned: row['pinned'] == true,
-              remote: true,
-            ),
-      ],
+      threads: [for (final row in rows) ?_thread(row)],
       nextOffset: offset + limit,
       hasMore: total == null ? rows.length >= limit : offset + limit < total,
+    );
+  }
+
+  /// One session by id, or null when the dashboard does not have it. For a
+  /// session outside the pages [loadThreadPage] has read, such as an old run
+  /// of a scheduled task. [profile] must be the one the session lives under.
+  Future<ChatThread?> loadThread(String id, {String? profile}) async {
+    try {
+      final response = await _api.getSessionDetailApiSessionsSessionIdGet(
+        sessionId: id,
+        profile: profile,
+      );
+      final data = response.data;
+      return data is Map<String, dynamic> ? _thread(data) : null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  static ChatThread? _thread(Map<String, dynamic> row) {
+    final id = row['id'];
+    if (id is! String || id.isEmpty) return null;
+    return ChatThread(
+      id: id,
+      title: _title(row),
+      updatedAt: _time(row['last_active'] ?? row['started_at']),
+      pinned: row['pinned'] == true,
+      remote: true,
     );
   }
 

@@ -4,7 +4,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_api/hermes_api.dart' show MCPServerCreate, SessionRename;
+import 'package:hermes_api/hermes_api.dart'
+    show CronJobCreate, MCPServerCreate, SessionRename;
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -22,6 +23,8 @@ import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/provider_settings.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 
@@ -765,6 +768,62 @@ void main() {
     final vars = bots.expand((b) => b.envVars);
     expect(vars.every((v) => v.isSet || v.redactedValue == null), isTrue);
   }, skip: skip);
+
+  group('scheduled tasks', () {
+    test('the cron routes answer and list their delivery targets', () async {
+      final cron = HermesCronRepository(client.raw);
+
+      expect(await cron.isAvailable(), isTrue);
+      final targets = await cron.deliveryTargets();
+
+      expect(targets.first.id, 'local');
+    }, skip: skip);
+
+    test('a job can be created, read, paused, resumed and deleted', () async {
+      final cron = HermesCronRepository(client.raw);
+      final created = await client.raw.createCronJobApiCronJobsPost(
+        cronJobCreate: CronJobCreate(
+          schedule: 'every 6h',
+          prompt: 'contract test, never run',
+          name: 'contract-test',
+          paused: true,
+        ),
+      );
+      final job = CronJob.fromJson(created.data)!;
+      try {
+        expect(job.state, CronJobState.paused);
+        expect(job.scheduleDisplay, isNotEmpty);
+        expect(job.profile, isNotNull);
+
+        final listed = await cron.listJobs(profile: job.profile);
+        expect(listed.any((j) => j.id == job.id), isTrue);
+        final read = await cron.getJob(job.id, profile: job.profile);
+        expect(read.name, 'contract-test');
+        expect(read.scheduleKind, 'interval');
+
+        await cron.resume(job.id, profile: job.profile);
+        final resumed = await cron.getJob(job.id, profile: job.profile);
+        expect(resumed.isPaused, isFalse);
+        expect(resumed.nextRunAt, isNotNull);
+
+        await cron.pause(job.id, profile: job.profile);
+        expect(
+          (await cron.getJob(job.id, profile: job.profile)).isPaused,
+          isTrue,
+        );
+        expect(await cron.listRuns(job.id, profile: job.profile), isEmpty);
+      } finally {
+        await cron.delete(job.id, profile: job.profile);
+      }
+      final gone = cron.getJob(job.id, profile: job.profile);
+      await expectLater(
+        gone,
+        throwsA(
+          isA<CronException>().having((e) => e.isNotFound, '404', isTrue),
+        ),
+      );
+    }, skip: skip);
+  });
 
   group('kanban', () {
     const title = 'contract test task';
