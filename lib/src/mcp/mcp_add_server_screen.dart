@@ -9,16 +9,20 @@ import 'mcp_servers_controller.dart';
 final _envName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
 class _EnvRow {
-  _EnvRow(this.id);
+  _EnvRow(this._listener) {
+    name.addListener(_listener);
+    value.addListener(_listener);
+  }
 
-  final int id;
+  final VoidCallback _listener;
   final name = TextEditingController();
   final value = TextEditingController();
 
-  void dispose(VoidCallback listener) {
-    name.removeListener(listener);
-    value.removeListener(listener);
-    value.clear();
+  void dispose() {
+    // The screen is going away; clearing must not rebuild it.
+    value
+      ..removeListener(_listener)
+      ..clear();
     name.dispose();
     value.dispose();
   }
@@ -48,8 +52,8 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   final _token = TextEditingController();
   final _command = TextEditingController();
   final _args = TextEditingController();
+  late final _fields = [_name, _url, _token, _command, _args];
   final _env = <_EnvRow>[];
-  int _nextRow = 0;
   bool _remote = true;
   McpRemoteAuth _auth = McpRemoteAuth.none;
   bool _nameTaken = false;
@@ -58,7 +62,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   @override
   void initState() {
     super.initState();
-    for (final c in [_name, _url, _token, _command, _args]) {
+    for (final c in _fields) {
       c.addListener(_changed);
     }
     widget.servers.addListener(_changed);
@@ -67,15 +71,15 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   @override
   void dispose() {
     widget.servers.removeListener(_changed);
-    for (final c in [_name, _url, _token, _command, _args]) {
-      c.removeListener(_changed);
-    }
-    _token.clear();
-    for (final c in [_name, _url, _token, _command, _args]) {
+    // Clearing must not rebuild a screen that is being disposed.
+    _token
+      ..removeListener(_changed)
+      ..clear();
+    for (final c in _fields) {
       c.dispose();
     }
     for (final row in _env) {
-      row.dispose(_changed);
+      row.dispose();
     }
     super.dispose();
   }
@@ -85,15 +89,12 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   }
 
   void _addRow() {
-    final row = _EnvRow(_nextRow++);
-    row.name.addListener(_changed);
-    row.value.addListener(_changed);
-    setState(() => _env.add(row));
+    setState(() => _env.add(_EnvRow(_changed)));
   }
 
   void _removeRow(_EnvRow row) {
     setState(() => _env.remove(row));
-    row.dispose(_changed);
+    row.dispose();
   }
 
   bool get _saving => widget.servers.isSaving;
@@ -239,21 +240,13 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
                     : (choice) => setState(() => _remote = choice.single),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _name,
-                readOnly: _saving,
-                autocorrect: false,
-                enableSuggestions: false,
-                textInputAction: TextInputAction.done,
+              _field(
+                _name,
+                'Name',
+                errorText: _nameTaken
+                    ? 'A server with this name already exists'
+                    : null,
                 onChanged: (_) => _nameTaken = false,
-                onSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  border: const OutlineInputBorder(),
-                  errorText: _nameTaken
-                      ? 'A server with this name already exists'
-                      : null,
-                ),
               ),
               const SizedBox(height: 12),
               if (_remote)
@@ -275,24 +268,62 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
     );
   }
 
+  /// A text field of the form. Every field is read-only while saving. A
+  /// secret is obscured and kept out of the keyboard's learning, and Enter in
+  /// any field that submits goes through the same [_submit], review included.
+  Widget _field(
+    TextEditingController controller,
+    String label, {
+    String? hint,
+    String? errorText,
+    int? errorMaxLines,
+    TextInputType? keyboardType,
+    bool secret = false,
+    bool mono = false,
+    bool multiline = false,
+    bool submits = true,
+    bool next = false,
+    ValueChanged<String>? onChanged,
+  }) {
+    return TextField(
+      controller: controller,
+      readOnly: _saving,
+      obscureText: secret,
+      autocorrect: false,
+      enableSuggestions: false,
+      enableIMEPersonalizedLearning: !secret,
+      keyboardType: multiline ? TextInputType.multiline : keyboardType,
+      minLines: multiline ? 3 : null,
+      maxLines: multiline ? 8 : 1,
+      textInputAction: multiline
+          ? null
+          : next
+          ? TextInputAction.next
+          : TextInputAction.done,
+      onChanged: onChanged,
+      onSubmitted: submits ? (_) => _submit() : null,
+      style: mono ? const TextStyle(fontFamily: 'monospace') : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        border: const OutlineInputBorder(),
+        errorText: errorText,
+        errorMaxLines: errorMaxLines,
+        alignLabelWithHint: multiline ? true : null,
+      ),
+    );
+  }
+
   List<Widget> _remoteFields(ThemeData theme) {
     return [
-      TextField(
-        controller: _url,
-        readOnly: _saving,
+      _field(
+        _url,
+        'URL',
+        hint: 'https://mcp.example.com/mcp',
         keyboardType: TextInputType.url,
-        autocorrect: false,
-        enableSuggestions: false,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => _submit(),
-        decoration: InputDecoration(
-          labelText: 'URL',
-          hintText: 'https://mcp.example.com/mcp',
-          border: const OutlineInputBorder(),
-          errorText: _url.text.trim().isNotEmpty && !_validUrl
-              ? 'Enter an http or https address'
-              : null,
-        ),
+        errorText: _url.text.trim().isNotEmpty && !_validUrl
+            ? 'Enter an http or https address'
+            : null,
       ),
       const SizedBox(height: 16),
       Text('Authentication', style: theme.textTheme.labelLarge),
@@ -318,20 +349,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
           style: theme.textTheme.bodySmall,
         ),
       if (_auth == McpRemoteAuth.bearerToken) ...[
-        TextField(
-          controller: _token,
-          readOnly: _saving,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
-          enableIMEPersonalizedLearning: false,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _submit(),
-          decoration: const InputDecoration(
-            labelText: 'Bearer token',
-            border: OutlineInputBorder(),
-          ),
-        ),
+        _field(_token, 'Bearer token', secret: true),
         const SizedBox(height: 4),
         Text(
           'Kept on your Hermes server. It is never shown again.',
@@ -343,78 +361,37 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
 
   List<Widget> _commandFields(ThemeData theme) {
     return [
-      TextField(
-        controller: _command,
-        readOnly: _saving,
-        autocorrect: false,
-        enableSuggestions: false,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (_) => _submit(),
-        style: const TextStyle(fontFamily: 'monospace'),
-        decoration: const InputDecoration(
-          labelText: 'Command',
-          hintText: 'npx',
-          border: OutlineInputBorder(),
-        ),
-      ),
+      _field(_command, 'Command', hint: 'npx', mono: true),
       const SizedBox(height: 12),
-      TextField(
-        controller: _args,
-        readOnly: _saving,
-        minLines: 3,
-        maxLines: 8,
-        keyboardType: TextInputType.multiline,
-        autocorrect: false,
-        enableSuggestions: false,
-        style: const TextStyle(fontFamily: 'monospace'),
-        decoration: const InputDecoration(
-          labelText: 'Arguments (one per line)',
-          alignLabelWithHint: true,
-          border: OutlineInputBorder(),
-        ),
+      _field(
+        _args,
+        'Arguments (one per line)',
+        mono: true,
+        multiline: true,
+        submits: false,
       ),
       const SizedBox(height: 16),
       Text('Environment variables', style: theme.textTheme.labelLarge),
       for (final row in _env)
         Padding(
-          key: ValueKey('mcp-env-row-${row.id}'),
+          key: ObjectKey(row),
           padding: const EdgeInsets.only(top: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: TextField(
-                  controller: row.name,
-                  readOnly: _saving,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  textInputAction: TextInputAction.next,
-                  style: const TextStyle(fontFamily: 'monospace'),
-                  decoration: InputDecoration(
-                    labelText: 'Variable name',
-                    border: const OutlineInputBorder(),
-                    errorText: _envError(row),
-                    errorMaxLines: 2,
-                  ),
+                child: _field(
+                  row.name,
+                  'Variable name',
+                  mono: true,
+                  submits: false,
+                  next: true,
+                  errorText: _envError(row),
+                  errorMaxLines: 2,
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: row.value,
-                  readOnly: _saving,
-                  obscureText: true,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  enableIMEPersonalizedLearning: false,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _submit(),
-                  decoration: const InputDecoration(
-                    labelText: 'Value',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ),
+              Expanded(child: _field(row.value, 'Value', secret: true)),
               IconButton(
                 tooltip: 'Remove variable',
                 icon: const Icon(Icons.close),

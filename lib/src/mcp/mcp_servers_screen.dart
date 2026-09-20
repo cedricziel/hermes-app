@@ -41,8 +41,6 @@ class McpServersScreen extends StatefulWidget {
   State<McpServersScreen> createState() => _McpServersScreenState();
 }
 
-enum _MoreChoice { editAsJson }
-
 class _McpServersScreenState extends State<McpServersScreen> {
   late final McpServersController _controller;
   String? _selected;
@@ -92,7 +90,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
 
   void _openJsonEditor() {
     Navigator.of(context).push(
-      MaterialPageRoute<bool>(
+      MaterialPageRoute<void>(
         builder: (_) => McpJsonEditorScreen(servers: _controller),
       ),
     );
@@ -141,13 +139,12 @@ class _McpServersScreenState extends State<McpServersScreen> {
                           label: const Text('Add'),
                         ),
                       ),
-                      PopupMenuButton<_MoreChoice>(
+                      PopupMenuButton<void>(
                         tooltip: 'More',
-                        onSelected: (_) => _openJsonEditor(),
-                        itemBuilder: (_) => const [
+                        itemBuilder: (_) => [
                           PopupMenuItem(
-                            value: _MoreChoice.editAsJson,
-                            child: Text('Edit as JSON'),
+                            onTap: _openJsonEditor,
+                            child: const Text('Edit as JSON'),
                           ),
                         ],
                       ),

@@ -368,6 +368,8 @@ class HermesMcpRepository {
   /// is not kept.
   Future<void> addServer(McpNewServer server, {String? profile}) async {
     final body = switch (server) {
+      // args and env are null on purpose: the model's default is an empty
+      // list or map, which would be sent.
       McpNewRemoteServer() => MCPServerCreate(
         name: server.name,
         url: server.url,
