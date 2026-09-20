@@ -20,16 +20,22 @@ class TokenStore {
   final FlutterSecureStorage _storage;
 
   Future<HermesSession?> read() async {
+    final String? raw;
     try {
-      final raw = await _storage.read(key: _sessionKey);
-      if (raw == null || raw.isEmpty) return null;
+      raw = await _storage.read(key: _sessionKey);
+    } on Object {
+      // A keychain that cannot be read right now (locked, unavailable) says
+      // nothing about the stored session, so it is left alone.
+      return null;
+    }
+    if (raw == null || raw.isEmpty) return null;
+    try {
       final json = jsonDecode(raw);
       if (json is! Map<String, dynamic>) {
         throw const FormatException('stored session is not an object');
       }
       return HermesSession.fromStorageJson(json);
     } on Object {
-      // Unreadable entry or keychain failure: treat as signed out.
       try {
         await clear();
       } on Object {

@@ -57,14 +57,18 @@ void main() {
       });
     }
 
-    test('when the keychain throws', () async {
-      final storage = _FakeStorage(
-        value: '{}',
-        readError: PlatformException(code: '-25308'),
-      );
+    test(
+      'when the keychain throws, and leaves the stored value alone',
+      () async {
+        final storage = _FakeStorage(
+          value: '{}',
+          readError: PlatformException(code: '-25308'),
+        );
 
-      expect(await TokenStore(storage: storage).read(), isNull);
-    });
+        expect(await TokenStore(storage: storage).read(), isNull);
+        expect(storage.value, '{}');
+      },
+    );
 
     test('even when clearing the bad value also fails', () async {
       final storage = _FakeStorage(
