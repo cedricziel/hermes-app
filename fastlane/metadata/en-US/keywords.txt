@@ -1,1 +1,1 @@
-hermes,agent,ai,self-hosted,dashboard,llm,assistant,chat,server,client
+ai,llm,self-hosted,dashboard,assistant,chat,server,client,kanban,tools
