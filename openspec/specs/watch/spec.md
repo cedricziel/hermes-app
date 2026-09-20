@@ -69,12 +69,22 @@ The system SHALL answer a `messages` request with the last 20 messages of the ch
 
 ### Requirement: Sending from the watch
 
-The system SHALL send a message the user dictates or types on the watch into the chosen chat, or into a new chat when none is chosen, in the active Hermes profile. The text SHALL be trimmed and a blank text SHALL NOT be sent. The phone SHALL answer once the reply is complete, with the chat's thread id, the final text and whether the turn ended in failure; the reply SHALL NOT stream to the watch. While waiting the watch SHALL show the user's message and "Hermes is thinking…", and SHALL NOT send another message. The phone SHALL give up and answer `failed` when no event arrives for 60 seconds. When a send fails the watch SHALL remove the message it showed, keep its text, show the reason and offer "Try again", which sends the same text.
+The system SHALL send a message the user dictates or types on the watch into the chosen chat, or into a new chat when none is chosen, in the active Hermes profile. The text SHALL be trimmed and a blank text SHALL NOT be sent. The phone SHALL answer once the reply is complete, with the chat's thread id, the final text and whether the turn ended in failure; the reply SHALL NOT stream to the watch. When a turn that did not fail completes with a blank final text, the phone SHALL answer with the text that had streamed, or, when nothing streamed either, with "Hermes replied without any text.", so the watch never shows an empty reply; such a reply is not a failure, as for its notification. While waiting the watch SHALL show the user's message and "Hermes is thinking…", and SHALL NOT send another message. The phone SHALL give up and answer `failed` when no event arrives for 60 seconds. When a send fails the watch SHALL remove the message it showed, keep its text, show the reason and offer "Try again", which sends the same text.
 
 #### Scenario: New chat
 
 - **WHEN** the user sends "Hello" from the new chat control
 - **THEN** the phone starts a chat, answers with its thread id and the reply, and the watch shows both messages and sends the next one into that chat
+
+#### Scenario: Reply without text
+
+- **WHEN** a turn completes without failure, its final text is blank and nothing streamed
+- **THEN** the phone answers success with `failed` false and the text "Hermes replied without any text."
+
+#### Scenario: Final text empty after streaming
+
+- **WHEN** a turn completes without failure with a blank final text after "Hi there" streamed
+- **THEN** the phone answers with "Hi there"
 
 #### Scenario: Failed turn
 
