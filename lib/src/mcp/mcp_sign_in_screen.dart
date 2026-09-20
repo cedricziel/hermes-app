@@ -58,7 +58,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
-    if (!_settled) _cancelFlow(_flow);
+    if (!_settled) widget.controller.cancelSignIn(_flow);
     super.dispose();
   }
 
@@ -140,12 +140,8 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     if (mounted && !_settled) _schedule();
   }
 
-  void _cancelFlow(HermesMcpFlow flow) {
-    unawaited(_repository.cancelFlow(flow.flowId).catchError((Object _) {}));
-  }
-
   void _cancel() {
-    _cancelFlow(_flow);
+    widget.controller.cancelSignIn(_flow);
     _phase = _Phase.done;
     Navigator.of(context).pop(false);
   }
@@ -154,7 +150,10 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     if (_starting) return;
     setState(() => _starting = true);
     final start = await widget.controller.startSignIn(widget.server);
-    if (!mounted) return;
+    if (!mounted) {
+      if (start is McpSignInStarted) widget.controller.cancelSignIn(start.flow);
+      return;
+    }
     setState(() {
       _starting = false;
       switch (start) {
@@ -174,27 +173,31 @@ class _McpSignInScreenState extends State<McpSignInScreen>
   @override
   Widget build(BuildContext context) {
     final name = widget.server.name;
-    return Scaffold(
-      appBar: AppBar(title: Text('Sign in to $name')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: switch (_phase) {
-              _Phase.waiting => _waiting(context),
-              _Phase.failed => _ended(
-                context,
-                title: 'Could not sign in',
-                detail: _failure,
-              ),
-              _Phase.expired => _ended(
-                context,
-                title: 'The sign-in expired',
-                detail: 'Hermes dropped it. Start it again to get a new link.',
-              ),
-              _Phase.done => const SizedBox.shrink(),
-            },
+    return PopScope(
+      canPop: !_starting,
+      child: Scaffold(
+        appBar: AppBar(title: Text('Sign in to $name')),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: switch (_phase) {
+                _Phase.waiting => _waiting(context),
+                _Phase.failed => _ended(
+                  context,
+                  title: 'Could not sign in',
+                  detail: _failure,
+                ),
+                _Phase.expired => _ended(
+                  context,
+                  title: 'The sign-in expired',
+                  detail:
+                      'Hermes dropped it. Start it again to get a new link.',
+                ),
+                _Phase.done => const SizedBox.shrink(),
+              },
+            ),
           ),
         ),
       ),
@@ -275,7 +278,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
               : const Text('Try again'),
         ),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: _starting ? null : () => Navigator.of(context).pop(false),
           child: const Text('Close'),
         ),
       ],

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -243,6 +245,12 @@ class McpServersController extends ChangeNotifier {
       _startingSignIn.remove(name);
       _notify();
     }
+  }
+
+  /// Ends [flow] on Hermes so its server can start another sign-in. Nobody
+  /// waits for the answer; a flow Hermes has dropped is already cancelled.
+  void cancelSignIn(HermesMcpFlow flow) {
+    unawaited(repository.cancelFlow(flow.flowId).catchError((Object _) {}));
   }
 
   /// A 404 means another client removed the server: reload the list.

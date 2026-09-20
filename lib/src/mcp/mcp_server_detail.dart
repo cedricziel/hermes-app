@@ -73,6 +73,10 @@ Future<void> signInToMcpServer(
   final navigator = Navigator.of(context);
   final start = await controller.startSignIn(server);
   if (start is! McpSignInStarted) return;
+  if (!navigator.mounted) {
+    controller.cancelSignIn(start.flow);
+    return;
+  }
   final approved = await navigator.push<bool>(
     MaterialPageRoute(
       builder: (_) => McpSignInScreen(

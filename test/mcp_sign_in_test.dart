@@ -343,6 +343,85 @@ void main() {
     });
   });
 
+  group('leaving while a sign-in starts', () {
+    const secondFlow = '/api/mcp/oauth/flows/flow-2';
+
+    Future<Completer<FakeResponse>> tryAgainHeld(WidgetTester tester) async {
+      await startSignIn(tester);
+      server.on('GET', flowPath, mcpFlowBody(status: 'error', error: 'no'));
+      await poll(tester);
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', authPath, (_) => answer.future);
+      server.on('DELETE', secondFlow, {'ok': true});
+      await tester.tap(find.text('Try again'));
+      await settle(tester);
+      return answer;
+    }
+
+    testWidgets('cancels the flow that starts after the screen is gone', (
+      tester,
+    ) async {
+      final answer = await tryAgainHeld(tester);
+
+      await tester.pumpWidget(const SizedBox());
+      answer.complete((
+        status: 200,
+        body: mcpFlowBody(flowId: 'flow-2', authorizationUrl: approvalUrl),
+      ));
+      await settle(tester);
+
+      expect(
+        server.requests.where(
+          (r) => r.method == 'DELETE' && r.path == secondFlow,
+        ),
+        hasLength(1),
+      );
+      expect(launched, hasLength(1));
+    });
+
+    testWidgets('offers no way out while the new flow starts', (tester) async {
+      final answer = await tryAgainHeld(tester);
+
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, 'Close'))
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byTooltip('Back').last);
+      await settle(tester);
+      expect(find.text('Could not sign in'), findsOneWidget);
+
+      answer.complete((
+        status: 200,
+        body: mcpFlowBody(flowId: 'flow-2', authorizationUrl: approvalUrl),
+      ));
+      await settle(tester);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('the detail cancels a flow it can no longer show', (
+      tester,
+    ) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('POST', authPath, (_) => answer.future);
+      await pumpServers(tester);
+      await openDetail(tester, 'asana');
+      await tester.tap(find.text('Sign in'));
+      await settle(tester);
+
+      await tester.pumpWidget(const SizedBox());
+      answer.complete((
+        status: 200,
+        body: mcpFlowBody(authorizationUrl: approvalUrl),
+      ));
+      await settle(tester);
+
+      expect(deletes(), hasLength(1));
+    });
+  });
+
   group('when the browser cannot be opened', () {
     testWidgets('still waits, and shows the address to copy', (tester) async {
       browserWorks = false;
