@@ -79,6 +79,7 @@ class AuthController extends ChangeNotifier {
 
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
+  String? _savedServerUrl;
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -93,6 +94,10 @@ class AuthController extends ChangeNotifier {
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
+
+  /// The remembered server address, known from launch on. Unlike [baseUrl] it
+  /// does not mean the server was reached.
+  String? get savedServerUrl => _savedServerUrl;
   HermesStatus? get status => _status;
   List<AuthProviderInfo> get providers => _providers;
   HermesIdentity? get identity => _identity;
@@ -112,6 +117,7 @@ class AuthController extends ChangeNotifier {
       _setState(HermesConnectionState.needsServerUrl);
       return;
     }
+    _savedServerUrl = savedUrl;
     await connect(savedUrl, restoring: true);
   }
 
@@ -158,7 +164,10 @@ class AuthController extends ChangeNotifier {
 
     _baseUrl = normalized;
     _status = status;
-    if (remember) await _prefs.setString(_prefsBaseUrlKey, normalized);
+    if (remember) {
+      _savedServerUrl = normalized;
+      await _prefs.setString(_prefsBaseUrlKey, normalized);
+    }
 
     _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
     _tokenDio = _plainDio(normalized);
@@ -305,6 +314,7 @@ class AuthController extends ChangeNotifier {
     await _tokenStore.clear();
     await _prefs.remove(_prefsBaseUrlKey);
     _baseUrl = null;
+    _savedServerUrl = null;
     _status = null;
     _providers = const [];
     _session = null;

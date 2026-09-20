@@ -53,7 +53,7 @@ When the `HERMES_SERVER_URL` compile-time define is non-empty, the system SHALL 
 
 ### Requirement: Server URL entry and normalization
 
-The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network.
+The server setup screen SHALL require a non-empty URL before it submits. The system SHALL trim the entered text, assume `http://` when it has no scheme, accept only `http` and `https` addresses with a host, and remove trailing slashes from the path. An address that fails these rules SHALL put the app in the connection error state with a message asking for a valid http(s) URL, without contacting the network. The address field SHALL start as the saved server address when one exists, whether or not that server could be reached, and as `http://` otherwise.
 
 #### Scenario: Scheme is added
 
@@ -70,6 +70,22 @@ The server setup screen SHALL require a non-empty URL before it submits. The sys
 - **WHEN** the user submits `ftp://hermes.example`
 - **THEN** the state is connection error
 - **AND** the message is "Enter a valid http(s) URL, e.g. http://192.168.1.20:9119"
+
+#### Scenario: Field starts as http:// on a first launch
+
+- **WHEN** the setup screen is shown and no server address is saved
+- **THEN** the address field contains `http://`
+
+#### Scenario: Field is prefilled after a failed session check
+
+- **WHEN** the stored-session check fails on a network error or a server error, so the app is in the connection error state with the tokens kept
+- **THEN** the setup screen shows the saved server address in the address field
+
+#### Scenario: Field is prefilled when the saved server cannot be reached
+
+- **WHEN** the app launches with a saved address and the status request fails because the server is unreachable or answers with an error
+- **THEN** the state is connection error
+- **AND** the setup screen shows the saved server address in the address field
 
 #### Scenario: Empty field
 
