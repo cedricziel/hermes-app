@@ -15,6 +15,7 @@ class HermesApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hermes',
+      debugShowCheckedModeBanner: false,
       theme: buildHermesLightTheme(),
       darkTheme: buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
