@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.20](https://github.com/cedricziel/hermes-app/compare/v0.1.19...v0.1.20) (2026-09-20)
+
+
+### Features
+
+* **kanban:** estimate work and post task updates to a home channel ([#197](https://github.com/cedricziel/hermes-app/issues/197)) ([23638ee](https://github.com/cedricziel/hermes-app/commit/23638ee288b332c0ea4f431c61fc6402aa8d0a2a))
+* **plugins:** manage installed Hermes plugins from the app ([#191](https://github.com/cedricziel/hermes-app/issues/191)) ([e2ea4d8](https://github.com/cedricziel/hermes-app/commit/e2ea4d86d97a5dd24d219c3333e36db88dae3df1))
+* **skills:** discover, scan and install skills from the hub ([#192](https://github.com/cedricziel/hermes-app/issues/192)) ([454fe12](https://github.com/cedricziel/hermes-app/commit/454fe122905a359a014a58d081a8639725e249ab))
+
 ## [0.1.19](https://github.com/cedricziel/hermes-app/compare/v0.1.18...v0.1.19) (2026-09-20)
 
 
