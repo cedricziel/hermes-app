@@ -66,6 +66,7 @@ void main() {
     WidgetTester tester, {
     bool load = true,
     bool withProfiles = false,
+    bool settle = true,
   }) async {
     if (load) await tester.runAsync(settings.load);
     await pumpChatScreen(
@@ -73,6 +74,7 @@ void main() {
       server: server,
       transport: transport,
       withProfiles: withProfiles,
+      settle: settle,
       providers: [
         ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         Provider<NotificationService>.value(value: service),
@@ -502,6 +504,32 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('a screen above the chat'), findsOneWidget);
+  });
+
+  testWidgets('a tap made while the chats load opens its thread', (
+    tester,
+  ) async {
+    await pump(tester, settle: false);
+
+    service.tap('s2');
+    await tester.pumpAndSettle();
+
+    expect(selected(tester), 's2');
+    expect(find.text('Could not open that chat.'), findsNothing);
+  });
+
+  testWidgets('a tap closes the thread drawer that is open', (tester) async {
+    await pump(tester);
+    tester.view.physicalSize = const Size(500, 900);
+    await tester.pump();
+    tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
+    await tester.pumpAndSettle();
+    expect(find.byType(Drawer), findsOneWidget);
+
+    service.tap('s2');
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Drawer), findsNothing);
   });
 
   testWidgets('a notification that started the app opens its thread', (

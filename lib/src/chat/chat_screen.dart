@@ -92,6 +92,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<SharedFile> _attachments = [];
   late final ShareController _share;
   late final AttentionNotifier _attention;
+  NotificationTarget? _pendingTap;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -153,8 +155,10 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       profile ??= await _activeProfile();
       final first = await _repository!.loadThreadPage(profile: profile);
-      final launch = await _attention.takeLaunchTarget();
+      final launched = await _attention.takeLaunchTarget();
       if (!mounted || generation != _loadGeneration) return;
+      final launch = _pendingTap ?? launched;
+      _pendingTap = null;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       for (final controller in _chatControllers.values) {
@@ -232,9 +236,12 @@ class _ChatScreenState extends State<ChatScreen> {
       target != null && (target.profile == null || target.profile == profile);
 
   void _openFromNotification(NotificationTarget target) {
-    if (_isOnProfile(target, _profile) &&
+    if (_loadingThreads) {
+      _pendingTap = target;
+    } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
       _selectThread(target.threadId, closeDrawer: false);
+      _scaffoldKey.currentState?.closeDrawer();
     } else {
       _showMessage(_couldNotOpenChat);
     }
@@ -429,18 +436,19 @@ class _ChatScreenState extends State<ChatScreen> {
     String? threadId,
   ) {
     late final StreamSubscription<ChatEvent> subscription;
+    final profile = _profile;
     void end() {
       _replies.remove(subscription);
       if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply));
-        _announce(thread, const ReplyCompleted('', failed: true));
+        _announce(thread, const ReplyCompleted('', failed: true), profile);
       }
     }
 
     subscription = transport
         .send(threadId: threadId, text: text)
         .listen(
-          (event) => _onReplyEvent(thread, reply, event),
+          (event) => _onReplyEvent(thread, reply, event, profile),
           onError: (Object _) => end(),
           onDone: end,
           cancelOnError: true,
@@ -448,7 +456,12 @@ class _ChatScreenState extends State<ChatScreen> {
     _replies.add(subscription);
   }
 
-  void _onReplyEvent(ChatThread thread, ChatMessage reply, ChatEvent event) {
+  void _onReplyEvent(
+    ChatThread thread,
+    ChatMessage reply,
+    ChatEvent event,
+    String? profile,
+  ) {
     switch (event) {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
@@ -465,15 +478,18 @@ class _ChatScreenState extends State<ChatScreen> {
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
-    _announce(thread, event);
+    _announce(thread, event, profile);
   }
 
-  void _announce(ChatThread thread, ChatEvent event) => _attention.announce(
-    thread,
-    event,
-    selectedThreadId: _selectedId,
-    profile: _profile,
-  );
+  /// [profile] is the one the turn was sent under: the thread on screen only
+  /// counts when the chat is still on that profile.
+  void _announce(ChatThread thread, ChatEvent event, String? profile) =>
+      _attention.announce(
+        thread,
+        event,
+        selectedThreadId: profile == _profile ? _selectedId : null,
+        profile: profile,
+      );
 
   /// Gives a thread created here the id the dashboard stored it under, so it
   /// stays one row and later sends continue that session.
@@ -598,6 +614,7 @@ class _ChatScreenState extends State<ChatScreen> {
         );
 
         return Scaffold(
+          key: _scaffoldKey,
           drawer: isWide ? null : Drawer(width: 280, child: sidebar),
           appBar: isWide
               ? null
