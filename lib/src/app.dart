@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'auth/auth_controller.dart';
-import 'chat/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
 import 'settings/theme_controller.dart';
+import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
 
 class HermesApp extends StatelessWidget {
@@ -43,7 +43,7 @@ class _RootRouter extends StatelessWidget {
       case HermesConnectionState.signingIn:
         return const LoginScreen();
       case HermesConnectionState.ready:
-        return const ChatScreen();
+        return const AppShell();
     }
   }
 }
