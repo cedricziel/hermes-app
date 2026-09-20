@@ -73,6 +73,18 @@ class FakeChatTransport implements ChatTransport {
     return accepts;
   }
 
+  final stops = <String>[];
+
+  /// What [stopReply] reports; false means nothing was running.
+  bool stopsRunning = true;
+
+  @override
+  Future<bool> stopReply(String threadId) async {
+    if (answerError case final error?) throw error;
+    stops.add(threadId);
+    return stopsRunning;
+  }
+
   final skips = <(String, UnsupportedKind)>[];
 
   @override

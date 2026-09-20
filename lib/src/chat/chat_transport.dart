@@ -81,10 +81,13 @@ final class InputRequestExpired extends ChatEvent {
 /// Last event of a reply. [text] is the full final text; [failed] is true when
 /// the turn ended in an error and [text] carries the message.
 final class ReplyCompleted extends ChatEvent {
-  const ReplyCompleted(this.text, {this.failed = false});
+  const ReplyCompleted(this.text, {this.failed = false, this.stopped = false});
 
   final String text;
   final bool failed;
+
+  /// The user stopped the reply, so [text] may be short or empty.
+  final bool stopped;
 }
 
 /// The profile a message was sent under no longer exists on the dashboard, so
@@ -127,6 +130,11 @@ abstract interface class ChatTransport {
     String? questionId,
     bool multiSelect = false,
   });
+
+  /// Stops the reply being written to the thread [threadId]. The reply then
+  /// ends as [ReplyCompleted] with `stopped` set. Returns false when nothing is
+  /// running there, and throws when the call itself fails.
+  Future<bool> stopReply(String threadId);
 
   /// Skips a request the app cannot answer, a secret or a sudo password, by
   /// answering it with an empty value: Hermes carries on without it. Returns

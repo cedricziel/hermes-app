@@ -50,6 +50,9 @@ class HermesGatewayTransport implements ChatTransport {
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
 
+  /// The runtime session a reply is in flight in, by the thread it belongs to.
+  final _runtimeOf = <String, String>{};
+
   @override
   Stream<ChatEvent> send({
     String? threadId,
@@ -74,6 +77,8 @@ class HermesGatewayTransport implements ChatTransport {
     }
     final runtimeId = session['session_id'] as String;
     _replying.update(runtimeId, (count) => count + 1, ifAbsent: () => 1);
+    final storedId = threadId ?? session['stored_session_id'] as String;
+    _runtimeOf[storedId] = runtimeId;
 
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
@@ -113,6 +118,7 @@ class HermesGatewayTransport implements ChatTransport {
       mine.forEach(_awaiting.remove);
       _replying.update(runtimeId, (count) => count - 1);
       if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
+      if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
       await subscription.cancel();
       await requests.cancel();
       unawaited(inbox.close());
@@ -193,6 +199,17 @@ class HermesGatewayTransport implements ChatTransport {
       'question_id': questionId,
     });
     return result != null && result['status'] != 'expired';
+  }
+
+  @override
+  Future<bool> stopReply(String threadId) async {
+    final runtimeId = _runtimeOf[threadId];
+    final client = _connected();
+    if (runtimeId == null || client == null) return false;
+    final result = await client.request('session.interrupt', {
+      'session_id': runtimeId,
+    });
+    return result['status'] == 'interrupted';
   }
 
   @override
@@ -283,6 +300,7 @@ class HermesGatewayTransport implements ChatTransport {
       'message.complete' => ReplyCompleted(
         text('text'),
         failed: payload['status'] == 'error',
+        stopped: payload['status'] == 'interrupted',
       ),
       'approval.request' => ApprovalRequested(
         _toApproval(text('request_id'), payload),
