@@ -612,27 +612,6 @@ The system SHALL show a request for a secret value or a sudo password, whether i
 - **AND WHEN** the reply completes or its stream breaks
 - **THEN** every such card still pending is locked as expired
 
-### Requirement: Shared content
-
-The system SHALL accept content shared into the app while the chat is open or before it opens: shared text SHALL go into the composer and shared files SHALL be listed as removable attachments above it.
-
-#### Scenario: Shared text prefills the composer
-
-- **WHEN** text is shared and the composer is empty
-- **THEN** the text fills the composer
-- **AND WHEN** the composer already holds a draft
-- **THEN** the shared text is appended on a new line
-
-#### Scenario: Shared files become chips
-
-- **WHEN** files are shared
-- **THEN** each shows as a chip with its name and a remove control, and attachments alone are enough to send
-
-#### Scenario: Files are named, not uploaded
-
-- **WHEN** the user sends with attachments
-- **THEN** the message text is the typed text followed by a blank line and "Files (names only, contents not sent):" with the file names, and the attachments are cleared; file contents are not sent, and the composer says so under the chips
-
 ### Requirement: Opening a thread from a notification
 
 The system SHALL open the thread named by a tapped notification, or by the notification that launched the app, when it belongs to the profile the chat is showing. A tap that arrives while the thread list is loading SHALL be held and applied once the list has loaded, ahead of the launching notification. When the thread cannot be opened, the system SHALL show "Could not open that chat." Opening a thread this way SHALL close the thread drawer when it is open and SHALL NOT close any other screen. The behaviour of notifications themselves is specified in the notifications spec.
@@ -779,4 +758,25 @@ The system SHALL, while a reply is in flight in the open thread, show a bar abov
 
 - **WHEN** sending the interrupt fails
 - **THEN** "Could not stop the reply. Try again." is shown and "Stop" stays available
+
+### Requirement: Shared content is attached and sent
+
+The system SHALL accept content shared into the app while the chat is open or before it opens: shared text SHALL go into the composer and shared files SHALL be listed as removable attachments above it. Attachments SHALL be sent to Hermes with the message, as the `chat-attachments` spec describes, and SHALL then be cleared from the composer.
+
+#### Scenario: Shared text prefills the composer
+
+- **WHEN** text is shared and the composer is empty
+- **THEN** the text fills the composer
+- **AND WHEN** the composer already holds a draft
+- **THEN** the shared text is appended on a new line
+
+#### Scenario: Shared files become chips
+
+- **WHEN** files are shared
+- **THEN** each shows as a chip with its name and a remove control, and attachments alone are enough to send
+
+#### Scenario: Files are sent with the message
+
+- **WHEN** the user sends with attachments
+- **THEN** the attachments are sent to Hermes with the message and cleared from the composer
 

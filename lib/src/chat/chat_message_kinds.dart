@@ -20,3 +20,7 @@ const String kMetaToolName = 'name';
 const String kMetaToolSummary = 'summary';
 const String kMetaToolStatus = 'status';
 const String kMetaInputRequest = 'request';
+
+/// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
+/// `ChatAttachment` it stands for.
+const String kMetaAttachment = 'attachment';

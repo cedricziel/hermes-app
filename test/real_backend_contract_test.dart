@@ -8,6 +8,7 @@ import 'package:hermes_api/hermes_api.dart' show MCPServerCreate, SessionRename;
 
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -22,6 +23,8 @@ import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
+
+import 'support/attachment_fixtures.dart';
 
 /// Runs the repositories against a real Hermes dashboard, to check the
 /// response shapes they parse (the spec declares none for these routes), and
@@ -38,8 +41,10 @@ import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 /// bundled plugin off and on and hide and show it, then put both back, and
 /// the session tests rename, pin and archive the newest session, then undo it
 /// (a title the session had not set is left as its displayed one). Deleting
-/// is not tried. The gateway test makes two real model calls, which cost
-/// money and need a provider configured in the backend, so it also needs
+/// is not tried. The attachment tests create gateway sessions and attach
+/// images and files to them, but never submit a prompt. The gateway tests
+/// that stream a reply make real model calls, which cost money and need a
+/// provider configured in the backend, so they also need
 /// `HERMES_DEV_MODEL_CALLS=1`. The Telegram pairing test contacts the hosted
 /// setup service, so it also needs `HERMES_DEV_TELEGRAM_PAIRING=1`. The MCP
 /// tests add servers named `contract-check-…` to the default profile and
@@ -378,6 +383,165 @@ void main() {
       containsAll(['approval', 'clarify', 'sudo', 'secret']),
     );
   }, skip: skip);
+
+  group('attachments over the gateway (no model call)', () {
+    late GatewayRpcClient rpc;
+    late String sessionId;
+
+    setUp(() async {
+      if (url == null) return;
+      rpc = GatewayRpcClient(
+        await hermesGatewayConnect(
+          baseUrl: url,
+          authRequired: false,
+          api: client,
+        )(),
+      );
+      addTearDown(rpc.close);
+      sessionId =
+          (await rpc.request('session.create', const {}))['session_id']
+              as String;
+    });
+
+    test('an image is queued on the session and can be taken off', () async {
+      final attached = await rpc.request('image.attach_bytes', {
+        'session_id': sessionId,
+        'content_base64': base64Encode(kTinyPng),
+        'filename': 'contract.png',
+      });
+
+      expect(attached['attached'], isTrue);
+      expect(attached['path'], isA<String>());
+      expect(attached['count'], 1);
+
+      final detached = await rpc.request('image.detach', {
+        'session_id': sessionId,
+        'path': attached['path'],
+      });
+      expect(detached['detached'], isTrue);
+      expect(detached['count'], 0);
+    }, skip: skip);
+
+    test('a file is staged and answered with an @file reference', () async {
+      final attached = await rpc.request('file.attach', {
+        'session_id': sessionId,
+        'name': 'contract.txt',
+        'data_url': 'data:text/plain;base64,${base64Encode(utf8.encode('hi'))}',
+      });
+
+      expect(attached['attached'], isTrue);
+      expect(attached['ref_text'], startsWith('@file:'));
+    }, skip: skip);
+
+    test(
+      'a file that is not an image is refused as one with code 4016',
+      () async {
+        await expectLater(
+          rpc.request('image.attach_bytes', {
+            'session_id': sessionId,
+            'content_base64': base64Encode(utf8.encode('hi')),
+            'filename': 'notes.txt',
+          }),
+          throwsA(
+            isA<GatewayRpcException>().having((e) => e.code, 'code', 4016),
+          ),
+        );
+      },
+      skip: skip,
+    );
+
+    test('an unknown method answers with the method-not-found code', () async {
+      await expectLater(
+        rpc.request('image.attach_nothing', {'session_id': sessionId}),
+        throwsA(
+          isA<GatewayRpcException>().having(
+            (e) => e.code,
+            'code',
+            kGatewayMethodNotFound,
+          ),
+        ),
+      );
+    }, skip: skip);
+
+    test('the transport refuses an oversized file before any prompt', () async {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+
+      final events = transport.send(
+        text: 'never sent',
+        attachments: [
+          OutgoingAttachment(
+            name: 'huge.bin',
+            kind: AttachmentKind.file,
+            read: () async => Uint8List(kMaxAttachmentBytes + 1),
+          ),
+        ],
+      );
+
+      await expectLater(
+        events,
+        emitsInOrder([
+          isA<ThreadBound>(),
+          emitsError(isA<AttachmentException>()),
+        ]),
+      );
+    }, skip: skip);
+  });
+
+  test(
+    'an image and a file sent with a message come back as attachments',
+    () async {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+
+      final events = await transport
+          .send(
+            text: 'Reply with the single word: pong. Use no tools.',
+            attachments: [
+              OutgoingAttachment(
+                name: 'dot.png',
+                kind: AttachmentKind.image,
+                mimeType: 'image/png',
+                read: () async => kTinyPng,
+              ),
+              OutgoingAttachment(
+                name: 'note.txt',
+                kind: AttachmentKind.file,
+                mimeType: 'text/plain',
+                read: () async => Uint8List.fromList(utf8.encode('hello')),
+              ),
+            ],
+          )
+          .toList();
+      final bound = events.first as ThreadBound;
+      expect((events.last as ReplyCompleted).failed, isFalse);
+
+      final stored = (await HermesChatRepository(client.raw).loadMessages(
+        bound.threadId,
+      )).firstWhere((m) => m.role == ChatRole.user);
+
+      expect(stored.content, 'Reply with the single word: pong. Use no tools.');
+      expect(stored.attachments.map((a) => (a.name.endsWith('.png'), a.kind)), [
+        (true, AttachmentKind.image),
+        (false, AttachmentKind.file),
+      ]);
+      expect(stored.attachments.last.name, 'note.txt');
+    },
+    skip: modelSkip,
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
 
   test(
     'the gateway streams a reply and continues the thread it created',

@@ -148,7 +148,7 @@ Map<String, Object?> sessionRow({
 Map<String, Object?> messageRow({
   required int id,
   required String role,
-  String? content,
+  Object? content,
   List<Object?>? toolCalls,
   String? toolName,
   double timestamp = 1780000000,

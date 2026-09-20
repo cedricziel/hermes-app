@@ -5,6 +5,8 @@
 /// itself") without reshaping every widget in `lib/src/chat/widgets/`.
 library;
 
+import 'dart:typed_data';
+
 enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
@@ -157,6 +159,38 @@ final class UnsupportedRequest extends InputRequest {
       UnsupportedRequest(requestId: requestId, kind: kind, status: status);
 }
 
+enum AttachmentKind { image, file }
+
+/// A file that travelled with a message: one the user attached, or one read
+/// back from the stored thread.
+class ChatAttachment {
+  const ChatAttachment({
+    required this.name,
+    required this.kind,
+    this.path,
+    this.remotePath,
+    this.size,
+    this.bytes,
+  });
+
+  final String name;
+  final AttachmentKind kind;
+
+  /// Where the file the user picked lives on this device, for the thumbnail.
+  /// Null for an attachment read back from the server.
+  final String? path;
+
+  /// The path the server stored it under, as the thread history names it.
+  /// Null for an attachment that was just sent from here.
+  final String? remotePath;
+
+  /// Null when unknown, as for a file read back from history.
+  final int? size;
+
+  /// The content, when the history embedded it (an inline data URL).
+  final Uint8List? bytes;
+}
+
 class ChatMessage {
   ChatMessage({
     required this.id,
@@ -166,6 +200,7 @@ class ChatMessage {
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
     this.inputRequests = const [],
+    this.attachments = const [],
   });
 
   final String id;
@@ -175,6 +210,9 @@ class ChatMessage {
   MessageStatus status;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
+
+  /// What the sender attached, shown above the text.
+  final List<ChatAttachment> attachments;
 
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import 'chat_models.dart';
+import 'stored_content.dart';
 
 /// One page of the session list. Ask for the next one at [nextOffset] while
 /// [hasMore].
@@ -136,13 +137,21 @@ class HermesChatRepository {
         _ => null,
       };
       if (role == null) continue;
+      final content = row['content'];
+      // An assistant's own text is shown as it is; only what the user
+      // attached is read back from reference lines.
+      final stored = role == ChatRole.user || content is! String
+          ? parseStoredContent(content)
+          : StoredContent(content, const []);
+      if (stored == null) continue;
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
           role: role,
-          content: row['content'] as String? ?? '',
+          content: stored.text,
           createdAt: _time(row['timestamp']),
           toolCalls: _toolCalls(row['tool_calls']),
+          attachments: role == ChatRole.user ? stored.attachments : const [],
         ),
       );
     }

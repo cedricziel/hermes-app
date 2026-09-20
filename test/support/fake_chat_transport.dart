@@ -14,8 +14,14 @@ class FakeChatTransport implements ChatTransport {
     String? threadId,
     String? profile,
     required String text,
+    List<OutgoingAttachment> attachments = const [],
   }) {
-    final send = FakeSend(threadId: threadId, profile: profile, text: text);
+    final send = FakeSend(
+      threadId: threadId,
+      profile: profile,
+      text: text,
+      attachments: attachments,
+    );
     sends.add(send);
     return send._events.stream;
   }
@@ -99,11 +105,17 @@ class FakeChatTransport implements ChatTransport {
 }
 
 class FakeSend {
-  FakeSend({required this.threadId, this.profile, required this.text});
+  FakeSend({
+    required this.threadId,
+    this.profile,
+    required this.text,
+    this.attachments = const [],
+  });
 
   final String? threadId;
   final String? profile;
   final String text;
+  final List<OutgoingAttachment> attachments;
   final _events = StreamController<ChatEvent>();
 
   void emit(ChatEvent event) => _events.add(event);

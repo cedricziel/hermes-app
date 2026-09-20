@@ -3,9 +3,7 @@
 ## Purpose
 
 Describes how content shared from other apps through the operating system's share sheet reaches Hermes: the share targets per platform, the hand-off from the native side to the app, how shared items are held until the chat is ready, and how they appear in the chat composer. Sharing only fills the composer; nothing is sent until the user sends it.
-
 ## Requirements
-
 ### Requirement: Hermes is a share target on iOS, Android and macOS
 
 The system SHALL register Hermes in the share sheet of iOS (a share extension), Android (an intent filter for single and multiple `SEND` of any MIME type) and macOS (a share extension). The iOS and macOS extensions SHALL accept text, one web URL, up to 10 images and up to 10 files per share. On Linux, Windows and the web the app SHALL have no share target and SHALL ignore sharing.
@@ -106,9 +104,9 @@ When the chat screen takes shared items, it SHALL join all shared text with newl
 - **WHEN** the composer holds "Summarise:" and a URL is shared
 - **THEN** the composer holds "Summarise:" followed by the URL on the next line
 
-### Requirement: Shared files appear as removable attachments
+### Requirement: Shared files are removable attachments that are sent
 
-Shared files SHALL appear as chips above the composer input, one per file, each with a "Remove <name>" control. Attachments alone SHALL be enough to send. The chips SHALL be followed by the note "Only the file names are sent, not their contents." On send, the message text SHALL be the typed text followed, after a blank line, by "Files (names only, contents not sent): " and the comma-separated file names, and the attachments SHALL then be cleared. Only the names are sent; the file contents are not uploaded, so the agent cannot read the files.
+Shared files SHALL appear as chips above the composer input, one per file, each with a "Remove <name>" control. Attachments alone SHALL be enough to send. On send, the files SHALL be sent to Hermes with the message, as the `chat-attachments` spec describes, and the attachments SHALL then be cleared.
 
 #### Scenario: Remove an attachment
 
@@ -118,9 +116,5 @@ Shared files SHALL appear as chips above the composer input, one per file, each 
 #### Scenario: Send attachments only
 
 - **WHEN** the user sends with an attached file "report.pdf" and no typed text
-- **THEN** the sent message reads "Files (names only, contents not sent): report.pdf" and the chip is gone
+- **THEN** the file is sent, the message shows it as an attachment, and the chip is gone
 
-#### Scenario: The composer says what is sent
-
-- **WHEN** at least one file is attached
-- **THEN** the note "Only the file names are sent, not their contents." shows under the chips, and it is gone with the last chip

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:stream_channel/stream_channel.dart';
 
@@ -15,6 +16,10 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 /// The server-to-client request methods the app answers. The gateway sends
 /// many more (vault prompts, desktop bridges); those are refused at once.
 const _handledRequests = {'approval', 'clarify', 'sudo', 'secret'};
+
+/// What `image.attach_bytes` answers for a file that is not an image type it
+/// knows.
+const _unsupportedImage = 4016;
 
 /// An approval or clarify request the user still has to answer.
 class _OpenRequest {
@@ -58,6 +63,7 @@ class HermesGatewayTransport implements ChatTransport {
     String? threadId,
     String? profile,
     required String text,
+    List<OutgoingAttachment> attachments = const [],
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
@@ -104,10 +110,24 @@ class HermesGatewayTransport implements ChatTransport {
       if (threadId == null) {
         yield ThreadBound(session['stored_session_id'] as String);
       }
-      await client.request('prompt.submit', {
-        'session_id': runtimeId,
-        'text': text,
-      });
+      // Images queue on the session and the next prompt takes them, so a send
+      // that fails after queuing one must take them off again.
+      final queued = <String>[];
+      try {
+        final references = await _attach(
+          client,
+          runtimeId,
+          attachments,
+          queued,
+        );
+        await client.request('prompt.submit', {
+          'session_id': runtimeId,
+          'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
+        });
+      } on Object {
+        await _detach(client, runtimeId, queued);
+        rethrow;
+      }
       await for (final (event, serverRequest) in inbox.stream) {
         _track(event, runtimeId, mine, serverRequest: serverRequest);
         yield event;
@@ -122,6 +142,87 @@ class HermesGatewayTransport implements ChatTransport {
       await subscription.cancel();
       await requests.cancel();
       unawaited(inbox.close());
+    }
+  }
+
+  /// Makes [attachments] available to the agent: an image is queued on the
+  /// session (its path goes to [queued]), any other file is staged and its
+  /// `@file:` reference returned for the prompt text.
+  Future<List<String>> _attach(
+    GatewayRpcClient client,
+    String sessionId,
+    List<OutgoingAttachment> attachments,
+    List<String> queued,
+  ) async {
+    final references = <String>[];
+    for (final attachment in attachments) {
+      final name = attachment.name;
+      final Uint8List bytes;
+      try {
+        bytes = await attachment.read();
+      } on Object {
+        throw AttachmentException(
+          attachmentFailedMessage(name, kAttachmentUnreadable),
+        );
+      }
+      if (bytes.length > kMaxAttachmentBytes) {
+        throw AttachmentException(attachmentTooLargeMessage(name));
+      }
+      final encoded = base64Encode(bytes);
+      try {
+        if (attachment.kind == AttachmentKind.image) {
+          try {
+            final result = await client.request('image.attach_bytes', {
+              'session_id': sessionId,
+              'content_base64': encoded,
+              'filename': name,
+            });
+            if (result['path'] case final String path) queued.add(path);
+            continue;
+          } on GatewayRpcException catch (error) {
+            // Not a format the model can see, but the agent can still open it.
+            if (error.code != _unsupportedImage) rethrow;
+          }
+        }
+        final result = await client.request('file.attach', {
+          'session_id': sessionId,
+          'name': name,
+          'data_url':
+              'data:${attachment.mimeType ?? 'application/octet-stream'}'
+              ';base64,$encoded',
+        });
+        final reference = result['ref_text'];
+        if (reference is! String || reference.isEmpty) {
+          throw AttachmentException(
+            attachmentFailedMessage(name, 'the server sent no reference.'),
+          );
+        }
+        references.add(reference);
+      } on GatewayRpcException catch (error) {
+        throw AttachmentException(
+          error.code == kGatewayMethodNotFound
+              ? kAttachmentsUnsupportedMessage
+              : attachmentFailedMessage(name, error.message),
+        );
+      }
+    }
+    return references;
+  }
+
+  Future<void> _detach(
+    GatewayRpcClient client,
+    String sessionId,
+    List<String> queued,
+  ) async {
+    for (final path in queued) {
+      try {
+        await client.request('image.detach', {
+          'session_id': sessionId,
+          'path': path,
+        });
+      } on Object {
+        // Best effort: the send already failed for another reason.
+      }
     }
   }
 

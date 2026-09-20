@@ -1,5 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter_chat_core/flutter_chat_core.dart'
-    show CustomMessage, TextMessage;
+    show CustomMessage, FileMessage, ImageMessage, TextMessage;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
@@ -14,6 +16,7 @@ void main() {
     MessageStatus status = MessageStatus.sent,
     List<ToolCall> toolCalls = const [],
     List<InputRequest> inputRequests = const [],
+    List<ChatAttachment> attachments = const [],
   }) => ChatMessage(
     id: 'm1',
     role: role,
@@ -22,6 +25,7 @@ void main() {
     status: status,
     toolCalls: toolCalls,
     inputRequests: inputRequests,
+    attachments: attachments,
   );
 
   group('chatMessageToFlyer', () {
@@ -195,6 +199,107 @@ void main() {
       final text = out.single as TextMessage;
       expect(text.text, 'boom');
       expect(text.metadata, {'error': true});
+    });
+
+    test('shows a picked image as an image message before the text', () {
+      const photo = ChatAttachment(
+        name: 'photo.png',
+        kind: AttachmentKind.image,
+        path: '/tmp/photo.png',
+        size: 2048,
+      );
+
+      final out = chatMessageToFlyer(
+        message(
+          role: ChatRole.user,
+          content: 'what is this?',
+          attachments: const [photo],
+        ),
+      );
+
+      expect(out.map((m) => m.id), ['m1-attachment-0', 'm1']);
+      final image = out.first as ImageMessage;
+      expect(image.authorId, kUserAuthorId);
+      expect(image.createdAt, createdAt.toUtc());
+      expect(image.source, '/tmp/photo.png');
+      expect(image.size, 2048);
+      expect(image.metadata, {kMetaAttachment: photo});
+    });
+
+    test('shows a file as a file message with its name and size', () {
+      const report = ChatAttachment(
+        name: 'report.pdf',
+        kind: AttachmentKind.file,
+        path: '/tmp/report.pdf',
+        size: 122880,
+      );
+
+      final out = chatMessageToFlyer(
+        message(role: ChatRole.user, content: '', attachments: const [report]),
+      );
+
+      final file = out.single as FileMessage;
+      expect(file.id, 'm1-attachment-0');
+      expect(file.name, 'report.pdf');
+      expect(file.size, 122880);
+      expect(file.metadata, {kMetaAttachment: report});
+    });
+
+    test('shows an image the history embedded as an image message', () {
+      final out = chatMessageToFlyer(
+        message(
+          role: ChatRole.user,
+          content: '',
+          attachments: [
+            ChatAttachment(
+              name: 'a.png',
+              kind: AttachmentKind.image,
+              remotePath: '/srv/a.png',
+              bytes: Uint8List.fromList([1, 2, 3]),
+            ),
+          ],
+        ),
+      );
+
+      expect(out.single, isA<ImageMessage>());
+    });
+
+    test('shows an image that is not on this device as a named card', () {
+      final out = chatMessageToFlyer(
+        message(
+          role: ChatRole.user,
+          content: '',
+          attachments: const [
+            ChatAttachment(
+              name: 'a.png',
+              kind: AttachmentKind.image,
+              remotePath: '/srv/a.png',
+            ),
+          ],
+        ),
+      );
+
+      final card = out.single as FileMessage;
+      expect(card.name, 'a.png');
+      expect(card.source, '/srv/a.png');
+    });
+
+    test('numbers several attachments in order', () {
+      final out = chatMessageToFlyer(
+        message(
+          role: ChatRole.user,
+          attachments: const [
+            ChatAttachment(name: 'a.txt', kind: AttachmentKind.file),
+            ChatAttachment(name: 'b.txt', kind: AttachmentKind.file),
+          ],
+        ),
+      );
+
+      expect(out.map((m) => m.id), [
+        'm1-attachment-0',
+        'm1-attachment-1',
+        'm1',
+      ]);
     });
 
     test('emits nothing for an empty sent message without tool calls', () {
