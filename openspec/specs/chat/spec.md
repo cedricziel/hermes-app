@@ -129,6 +129,11 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 - **WHEN** an assistant row carries OpenAI-style `tool_calls`
 - **THEN** each call with a function name appears as a completed tool call card on that message, with the call's arguments string as its summary, and a null content is treated as empty text
 
+#### Scenario: Tool results are put on their calls
+
+- **WHEN** a `tool` row carries a `tool_call_id` and string content
+- **THEN** that content is the result of the call with that id, shown on its card, and the row itself is not shown
+
 #### Scenario: Timestamps
 
 - **WHEN** message or session rows carry timestamps
@@ -136,7 +141,7 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 
 ### Requirement: Rendering of messages
 
-The system SHALL render a message as its reasoning first, then tool call cards, then agent input request cards, then the text, then a thinking indicator, and SHALL render message text as markdown.
+The system SHALL render a message as its tool call cards, each after the reasoning that led to it, then the reasoning that followed the last call, then agent input request cards, then the text, then a thinking indicator, and SHALL render message text as markdown.
 
 #### Scenario: Thinking indicator
 
@@ -202,6 +207,13 @@ The system SHALL append the user's message and a thinking placeholder for the as
 
 - **WHEN** the user sends "hello"
 - **THEN** the transcript shows "hello" and a thinking placeholder, and the composer is emptied
+
+#### Scenario: Enter sends
+
+- **WHEN** the user presses Enter in the composer
+- **THEN** the message is sent
+- **AND WHEN** the user presses Shift+Enter
+- **THEN** a line break is added and nothing is sent
 
 #### Scenario: Whitespace-only message
 
@@ -787,14 +799,19 @@ The system SHALL accept content shared into the app while the chat is open or be
 
 ### Requirement: Reasoning
 
-The system SHALL show the model's reasoning, when there is any, as a block above the rest of the reply that is folded by default and opens and closes when tapped. The block SHALL read "Thinking…" while the reply is pending and "Reasoning" once it has ended. A reply without reasoning SHALL have no block.
+The system SHALL show the model's reasoning, when there is any, as blocks in the order it happened: the reasoning before each tool call sits above that call's card, and the reasoning after the last call sits below the cards and above the text. Each block SHALL be folded by default and open and close when tapped. A block SHALL read "Thinking…" while the reply is pending and "Reasoning" once it has ended. A reply without reasoning SHALL have no block.
 
 #### Scenario: Reasoning streams in
 
 - **WHEN** the gateway sends `reasoning.delta` events for the running turn
-- **THEN** their `text` is appended to the reply's reasoning in order
+- **THEN** their `text` is appended to the reasoning after the last tool call, or before the first when there is none, in order
 - **AND WHEN** it sends `reasoning.available`
-- **THEN** its `text` replaces the reasoning
+- **THEN** its `text` replaces that reasoning
+
+#### Scenario: A tool call ends a block of reasoning
+
+- **WHEN** a tool starts after reasoning arrived
+- **THEN** that reasoning stays above the tool's card, and reasoning that arrives after it opens a new block below the card
 
 #### Scenario: Reasoning does not end the wait
 
@@ -804,7 +821,7 @@ The system SHALL show the model's reasoning, when there is any, as a block above
 #### Scenario: Loaded thread
 
 - **WHEN** a session message row carries a `reasoning` string
-- **THEN** that message shows it in a reasoning block, and a `reasoning` that is not a string is read as none
+- **THEN** that message shows it in a reasoning block, above its first tool call when the row has tool calls, and a `reasoning` that is not a string is read as none
 
 #### Scenario: Spinner text is not reasoning
 

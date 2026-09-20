@@ -148,8 +148,18 @@ class HermesChatRepository {
           sessionId: sessionId,
           profile: profile,
         );
+    final rows = _rows(response.data, 'messages');
+    final results = {
+      for (final row in rows)
+        if (row case {
+          'role': 'tool',
+          'tool_call_id': final String id,
+          'content': final String content,
+        })
+          id: content,
+    };
     final messages = <ChatMessage>[];
-    for (final row in _rows(response.data, 'messages')) {
+    for (final row in rows) {
       final role = switch (row['role']) {
         'user' => ChatRole.user,
         'assistant' => ChatRole.assistant,
@@ -163,18 +173,20 @@ class HermesChatRepository {
           ? parseStoredContent(content)
           : StoredContent(content, const []);
       if (stored == null) continue;
+      final reasoning = switch (row['reasoning']) {
+        final String text => text,
+        _ => '',
+      };
+      final toolCalls = _toolCalls(row['tool_calls'], reasoning, results);
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
           role: role,
           content: stored.text,
           createdAt: _time(row['timestamp']),
-          toolCalls: _toolCalls(row['tool_calls']),
+          toolCalls: toolCalls,
           attachments: role == ChatRole.user ? stored.attachments : const [],
-          reasoning: switch (row['reasoning']) {
-            final String text => text,
-            _ => '',
-          },
+          reasoning: toolCalls.isEmpty ? reasoning : '',
         ),
       );
     }
@@ -199,12 +211,27 @@ class HermesChatRepository {
       ? DateTime.fromMillisecondsSinceEpoch((epochSeconds * 1000).round())
       : DateTime.fromMillisecondsSinceEpoch(0);
 
-  static List<ToolCall> _toolCalls(Object? raw) {
+  /// A turn's [reasoning] led to its first call, so it goes on that one. Each
+  /// call gets the [results] row that answers its id.
+  static List<ToolCall> _toolCalls(
+    Object? raw,
+    String reasoning,
+    Map<String, String> results,
+  ) {
     if (raw is! List) return const [];
-    return [
-      for (final call in raw.whereType<Map<String, dynamic>>())
-        if (call['function'] case {'name': final String name} && final Map fn)
-          ToolCall(name: name, summary: fn['arguments'] as String? ?? ''),
-    ];
+    final calls = <ToolCall>[];
+    for (final call in raw.whereType<Map<String, dynamic>>()) {
+      if (call['function'] case {'name': final String name} && final Map fn) {
+        calls.add(
+          ToolCall(
+            name: name,
+            summary: fn['arguments'] as String? ?? '',
+            result: results[call['id']] ?? '',
+            reasoning: calls.isEmpty ? reasoning : '',
+          ),
+        );
+      }
+    }
+    return calls;
   }
 }

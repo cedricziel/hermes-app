@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -85,6 +86,23 @@ void main() {
 
     expect(find.byType(Composer), findsOneWidget);
     expect(find.text('Message Hermes…'), findsOneWidget);
+  });
+
+  testWidgets('Enter sends and Shift+Enter breaks the line', (tester) async {
+    await h.pump(tester);
+    await tester.tap(find.byType(EditableText));
+    await tester.enterText(find.byType(EditableText), 'hello');
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(h.sent, isEmpty);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(h.sent, ['hello']);
   });
 
   testWidgets('shows the prefilled controller text in the field', (

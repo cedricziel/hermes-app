@@ -20,8 +20,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ToolStarted(:final name, :final summary):
       reply.toolCalls = [
         ...reply.toolCalls,
-        ToolCall(name: name, summary: summary, status: ToolCallStatus.running),
+        ToolCall(
+          name: name,
+          summary: summary,
+          status: ToolCallStatus.running,
+          reasoning: reply.reasoning,
+        ),
       ];
+      reply.reasoning = '';
     case ToolFinished(:final name, :final failed, :final result):
       _settleTool(
         reply,

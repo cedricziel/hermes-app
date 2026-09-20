@@ -21,11 +21,15 @@ class ToolCall {
     required this.summary,
     this.status = ToolCallStatus.completed,
     this.result = '',
+    this.reasoning = '',
   });
 
   final String name;
   final String summary;
   final ToolCallStatus status;
+
+  /// What the model reasoned just before it made this call.
+  final String reasoning;
 
   /// What the tool returned, as text; empty until it finishes or when the
   /// history did not keep it.
@@ -36,6 +40,7 @@ class ToolCall {
     summary: summary,
     status: status,
     result: result ?? this.result,
+    reasoning: reasoning,
   );
 }
 
@@ -238,7 +243,8 @@ class ChatMessage {
   final ChatRole role;
   String content;
 
-  /// What the model reasoned before answering, when the gateway shares it.
+  /// What the model reasoned after its last tool call, before answering, when
+  /// the gateway shares it. Earlier reasoning belongs to [toolCalls].
   String reasoning;
   final DateTime createdAt;
   MessageStatus status;
