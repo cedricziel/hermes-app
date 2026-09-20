@@ -21,4 +21,4 @@
 
 - [x] 4.1 Extend the fake server or transport tests for image, file, failure, too-large and method-not-found cases
 - [x] 4.2 Extend `test/real_backend_contract_test.dart` with `image.attach_bytes` and `file.attach` (no model call) and a history row with `@image:` content
-- [ ] 4.3 Try it in the running macOS app against the dev backend (verify-in-app skill), then archive this change so the specs update
+- [x] 4.3 Try it in the running macOS app against the dev backend (verify-in-app skill), then archive this change so the specs update
