@@ -49,6 +49,7 @@ class SkillsController extends ChangeNotifier {
   String get query => _query;
   SkillFilter get filter => _filter;
   bool get hasSkills => _skills.isNotEmpty;
+  bool get hasHubSkills => _skills.any((s) => s.source == SkillSource.hub);
 
   /// The profiles to pick from; empty when they could not be loaded.
   List<HermesProfile> get availableProfiles => _profiles;

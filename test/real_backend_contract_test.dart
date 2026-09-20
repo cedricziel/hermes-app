@@ -17,6 +17,7 @@ import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 
 /// Runs the repositories against a real Hermes dashboard, to check the
@@ -219,6 +220,21 @@ void main() {
     } finally {
       await repository.setEnabled(skill.name, skill.enabled);
     }
+  }, skip: skip);
+
+  test('the hub catalog, a preview and a scan parse', () async {
+    final repository = HermesSkillsHubRepository(client.raw);
+    final overview = await repository.overview();
+    expect(overview.official, isNotEmpty);
+    expect(overview.sources, isNotEmpty);
+
+    final skill = overview.official.first;
+    final preview = await repository.preview(skill.identifier);
+    expect(preview.skillMd, isNotEmpty);
+
+    final scan = await repository.scan(skill.identifier);
+    expect(scan.identifier, skill.identifier);
+    expect(scan.policy, InstallPolicy.allow);
   }, skip: skip);
 
   test('messaging platforms load as bots', () async {

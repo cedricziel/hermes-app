@@ -5,13 +5,20 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import 'discover_tab.dart';
+import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
+import 'hub_skill_screen.dart';
 import 'skill_detail_screen.dart';
 import 'skill_editor_screen.dart';
+import 'skill_job.dart';
+import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
+import 'skills_hub_controller.dart';
 
 /// The skills installed on a profile: switch them on and off, read and edit
-/// them, and create new ones.
+/// them, and create new ones. With a hub it has a second tab to find and
+/// install more.
 ///
 /// It starts on [chatProfile] and can look at another profile without moving
 /// the chat. It pops with a drafted chat message when the user asks the agent
@@ -20,11 +27,13 @@ class SkillsScreen extends StatefulWidget {
   const SkillsScreen({
     super.key,
     this.repository,
+    this.hubRepository,
     this.profiles,
     this.chatProfile,
   });
 
   final HermesSkillsRepository? repository;
+  final HermesSkillsHubRepository? hubRepository;
   final HermesProfilesRepository? profiles;
   final String? chatProfile;
 
@@ -32,8 +41,12 @@ class SkillsScreen extends StatefulWidget {
   State<SkillsScreen> createState() => _SkillsScreenState();
 }
 
-class _SkillsScreenState extends State<SkillsScreen> {
+class _SkillsScreenState extends State<SkillsScreen>
+    with SingleTickerProviderStateMixin {
   late final SkillsController _controller;
+  SkillsHubController? _hub;
+  late final TabController _tabs;
+  bool _hubLoaded = false;
   final _search = TextEditingController();
 
   @override
@@ -52,9 +65,44 @@ class _SkillsScreenState extends State<SkillsScreen> {
       chatProfile: widget.chatProfile,
       events: _events(),
     );
+    final hubRepository =
+        widget.hubRepository ??
+        (api == null ? null : HermesSkillsHubRepository(api));
+    if (hubRepository != null) {
+      _hub = SkillsHubController(
+        repository: hubRepository,
+        skills: _controller,
+        events: _events(),
+      )..addListener(_reportFinishedJob);
+    }
+    _tabs = TabController(length: _hub == null ? 1 : 2, vsync: this)
+      ..addListener(_onTab);
     _controller
       ..load()
       ..loadProfiles();
+  }
+
+  /// The hub loads the first time its tab is opened, not with the page.
+  void _onTab() {
+    if (_tabs.index == 1 && !_hubLoaded) {
+      _hubLoaded = true;
+      _hub?.load();
+    }
+  }
+
+  /// A job the user sent to the background says how it ended, once.
+  void _reportFinishedJob() {
+    final hub = _hub;
+    final job = hub?.job;
+    if (hub == null || job == null || job.running || hub.sheetOpen) return;
+    hub.dismissJob();
+    if (!mounted) return;
+    final text = switch (job.state) {
+      JobState.succeeded => 'Done: ${job.title}',
+      JobState.failed => 'Failed: ${job.title}',
+      _ => 'Could not confirm: ${job.title}',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   AppEventLogger _events() {
@@ -67,6 +115,8 @@ class _SkillsScreenState extends State<SkillsScreen> {
 
   @override
   void dispose() {
+    _hub?.dispose();
+    _tabs.dispose();
     _controller.dispose();
     _search.dispose();
     super.dispose();
@@ -75,11 +125,37 @@ class _SkillsScreenState extends State<SkillsScreen> {
   Future<void> _open(HermesSkill skill) async {
     final draft = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-        builder: (_) =>
-            SkillDetailScreen(controller: _controller, name: skill.name),
+        builder: (_) => SkillDetailScreen(
+          controller: _controller,
+          hub: _hub,
+          name: skill.name,
+        ),
       ),
     );
     if (draft != null && mounted) Navigator.of(context).pop(draft);
+  }
+
+  Future<void> _openHub(HubSkill skill) async {
+    final installed = _controller.skill(skill.name);
+    if (_hub!.isInstalled(skill) && installed != null) {
+      await _open(installed);
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => HubSkillScreen(hub: _hub!, skill: skill),
+      ),
+    );
+  }
+
+  Future<void> _selectProfile(String name) async {
+    await _controller.selectProfile(name);
+    if (_hubLoaded) await _hub?.reset();
+  }
+
+  Future<void> _update() async {
+    final hub = _hub!;
+    if (hub.update() != null) await showSkillJobSheet(context, hub);
   }
 
   Future<void> _create() async {
@@ -107,30 +183,66 @@ class _SkillsScreenState extends State<SkillsScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _controller,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Skills'),
-          actions: [
-            _ProfileChip(controller: _controller),
-            const SizedBox(width: 12),
-          ],
-        ),
-        floatingActionButton: _controller.status == SkillsStatus.ready
-            ? FloatingActionButton.extended(
-                onPressed: _create,
-                icon: const Icon(Icons.add),
-                label: const Text('New skill'),
-              )
-            : null,
-        body: Align(
+      listenable: Listenable.merge([_controller, ?_hub, _tabs]),
+      builder: (context, _) {
+        final hub = _hub;
+        final installed = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: _body(),
           ),
-        ),
-      ),
+        );
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Skills'),
+            actions: [
+              _ProfileChip(controller: _controller, onSelected: _selectProfile),
+              const SizedBox(width: 12),
+            ],
+            bottom: hub == null
+                ? null
+                : TabBar(
+                    controller: _tabs,
+                    tabs: const [
+                      Tab(text: 'Installed'),
+                      Tab(text: 'Discover'),
+                    ],
+                  ),
+          ),
+          floatingActionButton:
+              _controller.status == SkillsStatus.ready && _tabs.index == 0
+              ? FloatingActionButton.extended(
+                  onPressed: _create,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New skill'),
+                )
+              : null,
+          body: hub == null
+              ? installed
+              : Column(
+                  children: [
+                    if (hub.busy) _JobBar(hub: hub),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabs,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          installed,
+                          Align(
+                            alignment: Alignment.topCenter,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 720),
+                              child: DiscoverTab(hub: hub, onOpen: _openHub),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -222,6 +334,14 @@ class _SkillsScreenState extends State<SkillsScreen> {
                           onToggle: (v) => _toggle(skill, v),
                         ),
                     ],
+                    if (_hub != null && _controller.hasHubSkills)
+                      ListTile(
+                        leading: const Icon(Icons.system_update_alt),
+                        title: const Text('Check for updates'),
+                        subtitle: const Text('Updates the skills from the hub'),
+                        enabled: !_hub!.busy,
+                        onTap: _update,
+                      ),
                   ],
                 ),
         ),
@@ -239,9 +359,10 @@ class _SkillsScreenState extends State<SkillsScreen> {
 }
 
 class _ProfileChip extends StatelessWidget {
-  const _ProfileChip({required this.controller});
+  const _ProfileChip({required this.controller, required this.onSelected});
 
   final SkillsController controller;
+  final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +372,7 @@ class _ProfileChip extends StatelessWidget {
     if (others.isEmpty) return Chip(label: Text(profile));
     return PopupMenuButton<String>(
       tooltip: 'Profile',
-      onSelected: controller.selectProfile,
+      onSelected: onSelected,
       itemBuilder: (_) => [
         for (final p in others)
           CheckedPopupMenuItem(
@@ -366,6 +487,29 @@ class _Message extends StatelessWidget {
             if (action != null) ...[const SizedBox(height: 12), action!],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown while a job runs that the user has sent to the background.
+class _JobBar extends StatelessWidget {
+  const _JobBar({required this.hub});
+
+  final SkillsHubController hub;
+
+  @override
+  Widget build(BuildContext context) {
+    final job = hub.job;
+    if (job == null) return const SizedBox.shrink();
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: ListTile(
+        dense: true,
+        key: const ValueKey('job-bar'),
+        title: Text('${job.title}…'),
+        subtitle: const LinearProgressIndicator(),
+        onTap: () => showSkillJobSheet(context, hub),
       ),
     );
   }

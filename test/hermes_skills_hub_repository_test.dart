@@ -176,6 +176,7 @@ void main() {
 
       final scan = await repository.scan('github/web-scraper', profile: 'w');
 
+      expect(scan.identifier, 'github/web-scraper');
       expect(scan.policy, InstallPolicy.ask);
       expect(scan.verdict, 'caution');
       expect(scan.severityCounts['high'], 1);

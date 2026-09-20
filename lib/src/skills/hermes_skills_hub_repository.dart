@@ -96,6 +96,7 @@ class ScanFinding {
 
 class HubScan {
   const HubScan({
+    required this.identifier,
     required this.policy,
     this.verdict = '',
     this.summary = '',
@@ -104,6 +105,8 @@ class HubScan {
     this.severityCounts = const {},
   });
 
+  /// What was scanned, so an install can be held to the scan of that very skill.
+  final String identifier;
   final InstallPolicy policy;
   final String verdict;
   final String summary;
@@ -252,6 +255,7 @@ class HermesSkillsHubRepository {
             e.key as String: (e.value as num).toInt(),
     };
     return HubScan(
+      identifier: identifier,
       policy: switch (data['policy']) {
         'allow' => InstallPolicy.allow,
         'ask' => InstallPolicy.ask,
