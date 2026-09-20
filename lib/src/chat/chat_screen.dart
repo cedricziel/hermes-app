@@ -33,6 +33,8 @@ import 'widgets/chat_builders.dart';
 import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_sidebar.dart';
 
+const _couldNotOpenChat = 'Could not open that chat.';
+
 /// The chat screen — Hermes's main destination once connected and signed
 /// in: an assistant-ui-style thread UI with a persistent thread rail beside a
 /// centered message column.
@@ -184,6 +186,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? launch!.threadId
             : (threads.isNotEmpty ? threads.first.id : null);
       });
+      if (launch != null && _selectedId != launch.threadId) {
+        _showMessage(_couldNotOpenChat);
+      }
       if (_selectedId != null) _loadMessages(_selectedId!);
     } on Object {
       if (!mounted || generation != _loadGeneration) return;
@@ -241,9 +246,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       target != null && (target.profile == null || target.profile == profile);
 
   void _openFromNotification(NotificationTarget target) {
-    if (!_isOnProfile(target, _profile)) return;
-    if (_threads.any((t) => t.id == target.threadId)) {
+    if (_isOnProfile(target, _profile) &&
+        _threads.any((t) => t.id == target.threadId)) {
       _selectThread(target.threadId);
+    } else {
+      _showMessage(_couldNotOpenChat);
     }
   }
 

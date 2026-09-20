@@ -365,7 +365,9 @@ void main() {
       );
     });
 
-    testWidgets('a tap made under another profile is ignored', (tester) async {
+    testWidgets('a tap made under another profile does not open and says so', (
+      tester,
+    ) async {
       await pump(tester, withProfiles: true);
 
       service.tap('s2', profile: 'default');
@@ -373,6 +375,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
 
       expect(selected(tester), 's1');
+      expect(find.text('Could not open that chat.'), findsOneWidget);
     });
 
     testWidgets('a tap made under this profile opens its thread', (
@@ -399,15 +402,20 @@ void main() {
       expect(selected(tester), 's2');
     });
 
-    testWidgets('a launch under another profile is ignored', (tester) async {
-      service
-        ..launchThread = 's2'
-        ..launchProfile = 'default';
+    testWidgets(
+      'a launch under another profile falls back to the first and says so',
+      (tester) async {
+        service
+          ..launchThread = 's2'
+          ..launchProfile = 'default';
 
-      await pump(tester, withProfiles: true);
+        await pump(tester, withProfiles: true);
+        await tester.pump(const Duration(seconds: 1));
 
-      expect(selected(tester), 's1');
-    });
+        expect(selected(tester), 's1');
+        expect(find.text('Could not open that chat.'), findsOneWidget);
+      },
+    );
 
     testWidgets('a launch under this profile opens its thread', (tester) async {
       service
@@ -463,6 +471,17 @@ void main() {
     expect(service.shown.single.body, 'Nothing new.');
   });
 
+  testWidgets('a tap for a thread that is not listed says so', (tester) async {
+    await pump(tester);
+
+    service.tap('gone');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Could not open that chat.'), findsOneWidget);
+    expect(selected(tester), 's1');
+  });
+
   testWidgets('a notification that started the app opens its thread', (
     tester,
   ) async {
@@ -473,13 +492,16 @@ void main() {
     expect(selected(tester), 's2');
   });
 
-  testWidgets('a launch thread that is not listed falls back to the first', (
-    tester,
-  ) async {
-    service.launchThread = 'gone';
+  testWidgets(
+    'a launch thread that is not listed falls back to the first and says so',
+    (tester) async {
+      service.launchThread = 'gone';
 
-    await pump(tester);
+      await pump(tester);
+      await tester.pump(const Duration(seconds: 1));
 
-    expect(selected(tester), 's1');
-  });
+      expect(selected(tester), 's1');
+      expect(find.text('Could not open that chat.'), findsOneWidget);
+    },
+  );
 }
