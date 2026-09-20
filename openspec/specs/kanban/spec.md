@@ -309,16 +309,35 @@ The board menu SHALL list the boards and a "Manage boards…" entry that opens a
 
 ### Requirement: Runs, worker log and attachments
 
-The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments with file name and size and allow removing one after a confirmation (`DELETE .../attachments/{id}`). It SHALL list the plugin's warnings for the task under "Needs attention". Uploading and downloading attachments, cost estimates, home-channel subscriptions and the fleet-wide active-worker list are not offered.
+The task detail SHALL list the task's runs, each with its worker profile and outcome, offer Terminate for a run that is still active (`POST /api/plugins/kanban/runs/{id}/terminate`, after a confirmation), and open the tail of the worker log (`GET .../tasks/{id}/log`, at most 20000 bytes), saying so when no worker has run or the log was cut. It SHALL list the task's attachments as described under "Attachments can be added and saved". It SHALL list the plugin's warnings for the task under "Needs attention". Cost estimates, home-channel subscriptions and the fleet-wide active-worker list are not offered.
 
 #### Scenario: Terminate an active run
 
 - **WHEN** the user confirms Terminate on a running run
 - **THEN** the plugin is asked to terminate that run and the detail reloads
 
+### Requirement: Attachments can be added and saved
+
+The task detail SHALL always show an "Attachments" section listing each attachment with its file name and size, an "Attach file" action, and for each attachment a save action and a remove action. "Attach file" SHALL open the device's file dialog and, when the user picks a file, upload it with `POST /api/plugins/kanban/tasks/{id}/attachments` as a multipart form with the file's name; cancelling the dialog SHALL send nothing. The save action SHALL fetch the file with `GET /api/plugins/kanban/attachments/{id}` as raw bytes, without decoding them as text, ask the user where to save it under the attachment's name, and write it there, saying "Saved <name>" when done and nothing when the user cancels. Removing SHALL ask for a confirmation and use `DELETE /api/plugins/kanban/attachments/{id}`. While a transfer runs the section SHALL show progress and disable its actions. When the plugin refuses a transfer (a file over its size limit, a file missing on the server), the system SHALL show the plugin's `detail` text. On macOS the app SHALL hold the user-selected-files read/write entitlement so the sandbox allows these dialogs.
+
+#### Scenario: Attach a file
+
+- **WHEN** the user taps "Attach file" and picks `notes.txt`
+- **THEN** the file is uploaded under that name, the board is told the task changed and the attachment appears in the list
+
+#### Scenario: File too large
+
+- **WHEN** the plugin answers an upload with a 413 saying the file exceeds its limit
+- **THEN** that text is shown and no change is reported to the board
+
+#### Scenario: Save a file byte for byte
+
+- **WHEN** the user saves an attachment whose bytes are not valid text
+- **THEN** exactly the bytes the server sent are written to the chosen location
+
 ### Requirement: Kanban works against Hermes Agent 0.21.1 and later
 
-The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, refusal messages, the orchestration settings and the live event stream against a real dashboard.
+The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Agent 0.21.1 or later. The contract test (`test/real_backend_contract_test.dart`) SHALL check plugin detection, the board and board list, a task's lifecycle, an attachment's upload, byte-exact download and removal, refusal messages, the orchestration settings and the live event stream against a real dashboard.
 
 #### Scenario: Contract check against a real dashboard
 
