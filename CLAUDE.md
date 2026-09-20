@@ -54,7 +54,7 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 **Chat** (`lib/src/chat/`, built on `flutter_chat_ui`).
 
 - History is loaded over REST by `HermesChatRepository`. Sending and streaming go through the `ChatTransport` interface (`chat_transport.dart`), a sealed `ChatEvent` stream. The real implementation, `gateway/hermes_gateway_transport.dart`, speaks JSON-RPC over the dashboard's `/api/ws` websocket (`session.create` or `session.resume`, then `prompt.submit`, with replies as `message.delta` events). `gateway_rpc_client.dart` and `gateway_connection.dart` handle the socket.
-- Domain messages (`chat_models.dart`) map to flyer messages in `chat_message_mapper.dart`. `chat_controller_sync.dart` applies before/after diffs to the `InMemoryChatController`. Custom message kinds and cards (tool calls, approval and clarify requests) live in `chat_message_kinds.dart` and `widgets/`. The design for agent input requests is in `docs/superpowers/`.
+- Domain messages (`chat_models.dart`) map to flyer messages in `chat_message_mapper.dart`. `chat_controller_sync.dart` applies before/after diffs to the `InMemoryChatController`. Custom message kinds and cards (tool calls, approval and clarify requests) live in `chat_message_kinds.dart` and `widgets/`. The design for agent input requests is in `openspec/changes/archive/2026-09-19-agent-input-requests/`.
 - With no repository, `ChatScreen` falls back to `mock_chat_data.dart`. A canned reply is used when there is no transport.
 
 **Notifications** (`lib/src/notifications/`). Local notifications when a reply finishes or the agent needs the user, gated by `attention_policy.dart` and user settings.
@@ -69,4 +69,4 @@ Tests drive the real generated client and Dio pipeline against `test/support/fak
 
 ## Specs
 
-`openspec/` holds spec-driven change proposals (`openspec/specs/` for current behavior, `openspec/changes/` for work in progress). Start a change with `/opsx:propose "<idea>"`; project context for it lives in `openspec/config.yaml`. Earlier design docs are in `docs/superpowers/`.
+`openspec/` holds spec-driven change proposals (`openspec/specs/` for current behavior, `openspec/changes/` for work in progress). Start a change with `/opsx:propose "<idea>"`; project context for it lives in `openspec/config.yaml`. Design history lives under `openspec/changes/archive/`.
