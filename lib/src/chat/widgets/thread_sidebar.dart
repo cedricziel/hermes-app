@@ -29,6 +29,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenBots,
     this.onOpenSkills,
     this.onOpenPlugins,
+    this.onOpenMcp,
   });
 
   final List<ChatThread> threads;
@@ -40,6 +41,7 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenBots;
   final VoidCallback? onOpenSkills;
   final VoidCallback? onOpenPlugins;
+  final VoidCallback? onOpenMcp;
 
   @override
   Widget build(BuildContext context) {
@@ -146,6 +148,16 @@ class ThreadSidebar extends StatelessWidget {
                   leading: const Icon(Icons.extension_outlined, size: 18),
                   title: const Text('Plugins'),
                   onTap: onOpenPlugins,
+                ),
+              ),
+            if (onOpenMcp != null)
+              Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.power_outlined, size: 18),
+                  title: const Text('MCP servers'),
+                  onTap: onOpenMcp,
                 ),
               ),
             const _AccountFooter(),

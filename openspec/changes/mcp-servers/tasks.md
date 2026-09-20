@@ -21,8 +21,8 @@
 
 ## 4. Sidebar entry
 
-- [ ] 4.1 Add an `MCP servers` row under Bots in the chat sidebar, with an `onOpenMcp` callback that is null without a repository, and build the repository in `ChatScreen` the same way as the bots repository
-- [ ] 4.2 Add the open callback that closes the drawer on narrow layouts and pushes the screen, and extend the sidebar tests for the row being shown and hidden
+- [x] 4.1 Add an `MCP servers` row under Bots in the chat sidebar, with an `onOpenMcp` callback that is null without a repository, and build the repository in `ChatScreen` the same way as the bots repository
+- [x] 4.2 Add the open callback that closes the drawer on narrow layouts and pushes the screen, and extend the sidebar tests for the row being shown and hidden
 
 ## 5. Contract and docs
 

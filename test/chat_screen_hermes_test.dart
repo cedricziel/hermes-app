@@ -14,6 +14,8 @@ import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
+import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
+import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -86,6 +88,7 @@ void main() {
             profiles: HermesProfilesRepository(server.client().raw),
             bots: HermesBotsRepository(server.client().raw),
             plugins: HermesPluginManagerRepository(server.client().raw),
+            mcp: HermesMcpRepository(server.client().raw),
           ),
         ),
       ),
@@ -333,4 +336,50 @@ void main() {
     expect(find.byType(BotsScreen), findsNothing);
     expect(find.byType(Drawer), findsNothing);
   });
+
+  testWidgets('the sidebar opens the MCP servers of the active profile', (
+    tester,
+  ) async {
+    server
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+      ..on(
+        'GET',
+        '/api/mcp/servers',
+        mcpServerListBody([
+          mcpServerRow(name: 'grafana', url: 'https://mcp.grafana.com/mcp'),
+        ]),
+      );
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('MCP servers'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(McpServersScreen), findsOneWidget);
+    expect(find.text('Profile: work'), findsOneWidget);
+    expect(find.text('grafana'), findsWidgets);
+  });
+
+  testWidgets(
+    'a narrow layout closes the drawer when it opens the MCP servers',
+    (tester) async {
+      server
+        ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+        ..on('GET', '/api/mcp/servers', mcpServerListBody([]));
+      await pumpChat(tester);
+      tester.view.physicalSize = const Size(400, 800);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Open navigation menu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('MCP servers'));
+      await tester.pumpAndSettle();
+      expect(find.byType(McpServersScreen), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(McpServersScreen), findsNothing);
+      expect(find.byType(Drawer), findsNothing);
+    },
+  );
 }
