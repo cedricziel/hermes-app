@@ -161,6 +161,13 @@ Future<HermesSession> runNativeLogin(
       provider: provider,
     );
 
+    // Listen before the browser opens. On iOS the launch call only returns once
+    // the sheet has finished loading, and when the IdP already has a session
+    // that load is the redirect to this listener, so it cannot finish until
+    // something answers it.
+    final callback = _awaitCallback(server, expectedState: state);
+    callback.ignore();
+
     final launched = await launchBrowser(Uri.parse(authorizeUrl));
     if (!launched) {
       throw NativeLoginException(
@@ -169,7 +176,7 @@ Future<HermesSession> runNativeLogin(
       );
     }
 
-    final code = await _awaitCallback(server, expectedState: state).timeout(
+    final code = await callback.timeout(
       _loginTimeout,
       onTimeout: () {
         throw NativeLoginException(
