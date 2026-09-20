@@ -31,6 +31,18 @@ for spec in mdpi:48:108 hdpi:72:162 xhdpi:96:216 xxhdpi:144:324 xxxhdpi:192:432;
   png icon-foreground.svg "$adaptive" "$RES/mipmap-$dpi/ic_launcher_foreground.png"
 done
 
+# Launch screens: the bubble mark centred on the brand colour (set in the
+# Android launch_background/styles and the iOS storyboard).
+LAUNCH=ios/Runner/Assets.xcassets/LaunchImage.imageset
+png splash-glyph.svg 160 "$LAUNCH/LaunchImage.png"
+png splash-glyph.svg 320 "$LAUNCH/LaunchImage@2x.png"
+png splash-glyph.svg 480 "$LAUNCH/LaunchImage@3x.png"
+for spec in mdpi:160 hdpi:240 xhdpi:320 xxhdpi:480 xxxhdpi:640; do
+  IFS=: read -r dpi px <<<"$spec"
+  mkdir -p "$RES/drawable-$dpi"
+  png splash-glyph.svg "$px" "$RES/drawable-$dpi/launch_image.png"
+done
+
 # Windows: multi-size .ico.
 TMP=$(mktemp -d)
 for px in 16 24 32 48 64 128 256; do png icon.svg "$px" "$TMP/$px.png"; done
