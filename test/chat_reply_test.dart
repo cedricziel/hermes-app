@@ -297,6 +297,27 @@ void main() {
       expect(reply.status, MessageStatus.error);
     });
 
+    test('explains a profile that no longer exists', () {
+      final reply = _placeholder();
+
+      failReply(reply, const ProfileUnavailableException());
+
+      expect(reply.content, kProfileUnavailableMessage);
+      expect(
+        reply.content,
+        'That profile is no longer available. Pick another one.',
+      );
+      expect(reply.status, MessageStatus.error);
+    });
+
+    test('shows the fallback for any other error', () {
+      final reply = _placeholder();
+
+      failReply(reply, Exception('socket closed'));
+
+      expect(reply.content, kReplyFailedMessage);
+    });
+
     test('stops tools that were still running', () {
       final reply = _placeholder();
       applyReplyEvent(reply, const ToolStarted(name: 'search'));

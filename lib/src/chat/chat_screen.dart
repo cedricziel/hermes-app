@@ -449,10 +449,10 @@ class _ChatScreenState extends State<ChatScreen> {
   ) {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
-    void end() {
+    void end([Object? error]) {
       _replies.remove(subscription);
       if (reply.isPending) {
-        _updateReply(thread, reply, () => failReply(reply));
+        _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       }
     }
@@ -461,7 +461,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .send(threadId: threadId, profile: profile, text: text)
         .listen(
           (event) => _onReplyEvent(thread, reply, event, profile),
-          onError: (Object _) => end(),
+          onError: end,
           onDone: end,
           cancelOnError: true,
         );

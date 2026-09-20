@@ -87,10 +87,21 @@ final class ReplyCompleted extends ChatEvent {
   final bool failed;
 }
 
+/// The profile a message was sent under no longer exists on the dashboard, so
+/// no session could be created or resumed in it. Sending again fails the same
+/// way until another profile is picked.
+class ProfileUnavailableException implements Exception {
+  const ProfileUnavailableException();
+
+  @override
+  String toString() => 'The selected profile is no longer available';
+}
+
 abstract interface class ChatTransport {
   /// Sends [text] to the thread [threadId], or starts a new thread when it is
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
-  /// with an error if the connection or the request fails.
+  /// with an error if the connection or the request fails, a
+  /// [ProfileUnavailableException] when [profile] no longer exists.
   ///
   /// [profile] is the Hermes profile the thread lives in. A thread id is only
   /// unique within a profile, so it must be the one the thread was listed
