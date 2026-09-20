@@ -17,7 +17,10 @@ its own `HERMES_HOME`, and the app is told its server by a build flag.
 
 1. `dart format . && flutter analyze && flutter test`. Fix before going on.
    Analyze and test print a long dependency-update block; read the last lines.
-2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on PATH.
+2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on
+   PATH. Run `command -v hermes` first: if it is missing, do the install in
+   "Hermes Agent setup" below (about two minutes) before anything else. Don't
+   conclude the backend can't be run.
 3. `scripts/dev-app.sh start`. Prints `app up against <url>` when the app is
    running, and the app window stays open. A cold first build takes minutes,
    a cached one under a minute. Don't close the window: closing it quits the app.
@@ -45,8 +48,10 @@ Say plainly what you could not check.
 
 - Clicks and keys can be sent (see "Driving the window" below), but it is
   fiddly. Test input in widget tests first and use this to confirm.
-- The chat UI runs on mock data (`lib/src/chat/mock_chat_data.dart`); the real
-  backend backs the connection and status screens.
+- Threads, profiles, skills, plugins, MCP servers and Kanban come from the
+  real backend; a fresh home has none of them, so seed some (see below). Mock
+  chat data (`lib/src/chat/mock_chat_data.dart`) is only a fallback when the
+  app has no repository.
 - A fresh backend home has no model keys, so no real replies, and the
   loopback dashboard needs no sign-in, so login isn't exercised.
 
@@ -139,27 +144,39 @@ plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
 ## Hermes Agent setup
 
-`hermes` must be on PATH (tested with v0.21.1). If missing, install Hermes
-Agent from github.com/NousResearch/hermes-agent; `openapi/README.md` shows a
-from-source install with `uv`. The first `dev-backend.sh start` builds the
-dashboard web UI, which is slow once. Its API contract is
-`openapi/hermes-agent.openapi.json`.
-
-### Installing it without `uv`
-
-CI pins the commit in `HERMES_REF` in `.github/workflows/real-backend-contract.yml`.
-To match it in a throwaway directory, leaving your real Hermes alone:
+`hermes` must be on PATH (tested with v0.21.3). Nothing installs it for you,
+and the machine's `python3` is usually 3.9, too old: use `python3.11` (Homebrew
+has it). `uv` is often missing too, so the recipe below uses `venv` and `pip`.
+It builds the version CI pins (`HERMES_REF` in
+`.github/workflows/real-backend-contract.yml`) into a cache directory that
+survives between sessions, and leaves your real `~/.hermes` alone. Needs Node
+and network access.
 
 ```bash
 REF=$(grep 'HERMES_REF:' .github/workflows/real-backend-contract.yml | awk '{print $2}')
-mkdir -p /tmp/hermes-agent && curl -fsSL "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
-  | tar xz -C /tmp/hermes-agent --strip-components=1
-cd /tmp/hermes-agent
-python3.11 -m venv .venv && .venv/bin/pip install -q -e '.[mcp]'   # Python 3.11+; [mcp] lets the dashboard test MCP servers
-npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web
-export PATH=/tmp/hermes-agent/.venv/bin:$PATH HERMES_WEB_DIST=/tmp/hermes-agent/hermes_cli/web_dist
+DIR="$HOME/.cache/hermes-agent/${REF:0:7}"
+if [ ! -x "$DIR/.venv/bin/hermes" ]; then
+  mkdir -p "$DIR" && curl -fsSL --retry 3 "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$REF" \
+    | tar xz -C "$DIR" --strip-components=1
+  (cd "$DIR" && npm ci --workspace web --include=dev --no-audit --no-fund && npm run build --workspace web)
+  python3.11 -m venv "$DIR/.venv" && "$DIR/.venv/bin/pip" install -q -e "${DIR}[mcp]"
+fi
+export PATH="$DIR/.venv/bin:$PATH" HERMES_WEB_DIST="$DIR/hermes_cli/web_dist"
+scripts/dev-backend.sh start
 ```
 
-The web build matters: the dashboard page carries the session token the app
-and the contract test read, and it is not in the source tree. With `uv`, the
-workflow's `uv venv --python 3.11` and `uv pip install -e` do the same.
+Run all of it in one shell: the two `export`s must be set when
+`dev-backend.sh` and `dev-app.sh` run, and they do not carry over to the next
+Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
+
+- The web build matters: the dashboard page carries the session token the app
+  and the contract test read, and it is not in the source tree. Without
+  `HERMES_WEB_DIST` the backend has no page.
+- `[mcp]` lets the dashboard test MCP servers. In zsh write `"${DIR}[mcp]"`;
+  `"$DIR[mcp]"` is read as an array subscript and pip gets an empty path.
+- With `uv`, `uv venv --python 3.11` and `uv pip install -e` do the same as
+  the `venv` and `pip` lines. `openapi/README.md` has a from-source install
+  too.
+- A newer Hermes: bump `HERMES_REF` in the workflow (the cache path follows
+  it), not a floating tag.
+- Its API contract is `openapi/hermes-agent.openapi.json`.

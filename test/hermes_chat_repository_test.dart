@@ -395,6 +395,24 @@ void main() {
       expect(messages.map((m) => m.content), ['hi']);
     });
 
+    test(
+      'keeps an assistant turn\'s reasoning and ignores a non-string',
+      () async {
+        final messages = await load([
+          messageRow(
+            id: 1,
+            role: 'assistant',
+            content: 'a',
+            reasoning: 'Because.',
+          ),
+          messageRow(id: 2, role: 'assistant', content: 'b', reasoning: 7),
+          messageRow(id: 3, role: 'assistant', content: 'c'),
+        ]);
+
+        expect(messages.map((m) => m.reasoning), ['Because.', '', '']);
+      },
+    );
+
     test('attaches an assistant turn\'s tool calls to that message', () async {
       final messages = await load([
         messageRow(id: 1, role: 'user', content: 'check the logs'),

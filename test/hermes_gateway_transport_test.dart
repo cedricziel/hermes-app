@@ -438,6 +438,25 @@ void main() {
     expect(finished.failed, isFalse);
   });
 
+  test('reasoning events map to reasoning updates', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('reasoning.delta', sid, {'text': 'Hmm, '});
+      g.event('reasoning.delta', sid, {'text': 'ok.'});
+      g.event('reasoning.available', sid, {'text': 'Hmm, ok.'});
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    final updates = events.whereType<ReasoningUpdated>().toList();
+    expect(updates.map((e) => (e.text, e.replace)), [
+      ('Hmm, ', false),
+      ('ok.', false),
+      ('Hmm, ok.', true),
+    ]);
+  });
+
   test('a tool result carrying an error is a failed tool', () async {
     gateway.turn = (g, sid) {
       g.event('tool.complete', sid, {
@@ -485,7 +504,6 @@ void main() {
       g.event('message.delta', 'someone-else', {'text': 'not mine'});
       g.event('session.info', sid, {'model': 'm'});
       g.event('thinking.delta', sid, {'text': '( •_•) analyzing...'});
-      g.event('reasoning.delta', sid, {'text': 'hmm'});
       g.event('message.delta', sid, {'text': 'mine'});
       g.event('message.complete', 'someone-else', {'text': 'not mine'});
       g.event('message.complete', sid, {'text': 'mine', 'status': 'complete'});

@@ -15,6 +15,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReplyDelta(:final text):
       reply.content += text;
       reply.status = MessageStatus.streaming;
+    case ReasoningUpdated(:final text, :final replace):
+      reply.reasoning = replace ? text : reply.reasoning + text;
     case ToolStarted(:final name, :final summary):
       reply.toolCalls = [
         ...reply.toolCalls,

@@ -31,6 +31,28 @@ const _clarify = ClarifyRequest(
 );
 
 void main() {
+  test('reasoning deltas add up and stay thinking', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('Let me '));
+    applyReplyEvent(reply, const ReasoningUpdated('think.'));
+
+    expect(reply.reasoning, 'Let me think.');
+    expect(reply.status, MessageStatus.thinking);
+  });
+
+  test('the full reasoning replaces what streamed', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('Let me'));
+    applyReplyEvent(
+      reply,
+      const ReasoningUpdated('Let me think.', replace: true),
+    );
+
+    expect(reply.reasoning, 'Let me think.');
+  });
+
   test('stays thinking until the first text arrives', () {
     final reply = _placeholder();
 
