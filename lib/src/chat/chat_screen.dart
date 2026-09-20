@@ -340,9 +340,11 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       });
       if (older.isEmpty) return;
-      await _controllerFor(thread).insertAllMessages([
-        for (final m in older) ...chatMessageToFlyer(m),
-      ], index: 0);
+      await _controllerFor(thread).insertAllMessages(
+        [for (final m in older) ...chatMessageToFlyer(m)],
+        index: 0,
+        animated: false,
+      );
     } on Object {
       if (mounted && generation == _loadGeneration) {
         _showMessage('Could not load earlier messages');
