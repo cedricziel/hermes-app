@@ -1,0 +1,35 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Flutter/Dart app (iOS, Android, macOS, Windows, Linux), provider for state,
+  dio for HTTP, flutter_chat_ui for the chat UI.
+  Domain: client for the Hermes Agent web dashboard (`hermes dashboard`). The user enters a
+  self-hosted server URL, signs in (OIDC or password, both via the RFC 8252 native flow),
+  and chats with the agent over the dashboard's /api/ws JSON-RPC socket.
+  The REST API client in packages/hermes_api is generated from openapi/hermes-agent.openapi.json
+  and must never be hand-edited.
+  We use conventional commits (release-please builds the changelog from them).
+  Before commit: dart format, flutter analyze, flutter test.
+  See CLAUDE.md for commands and architecture.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
