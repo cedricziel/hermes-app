@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint (in practice SignalDB) so that the people who ship the app can see how sign-in, requests, the chat connection and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
+The app can export OpenTelemetry traces and logs to an OTLP HTTP endpoint over https (in practice SignalDB) so that the people who ship the app can see how sign-in, requests, the chat connection and crashes behave in the field. The server address is typed in by the user, and prompts, tokens and identities are private, so telemetry is opt-in at build time and records only coarse facts. This spec describes the behaviour as implemented today. Telemetry code must never affect what the user can do in the app.
 
 ## Requirements
 
@@ -39,13 +39,29 @@ The system SHALL parse `OTEL_EXPORTER_OTLP_HEADERS` as comma-separated `key=valu
 
 ### Requirement: An unusable endpoint disables telemetry
 
-The system SHALL treat an endpoint without a scheme or without a host as unusable, disable telemetry and continue starting the app instead of throwing.
+The system SHALL treat an endpoint as unusable, disable telemetry and continue starting the app instead of throwing, when it has no scheme or no host, when its scheme is not `https`, or when its scheme is `http` and its host is not a loopback host (`localhost`, `127.0.0.1` or `::1`). Export requests carry the configured headers, which usually include a bearer token, so the system SHALL NOT send them over cleartext to any other host.
 
 #### Scenario: Endpoint is not a URL
 
 - **WHEN** the endpoint define is `not a url`
 - **THEN** app start-up succeeds
 - **AND** telemetry is disabled and no HTTP interceptor is offered
+
+#### Scenario: Endpoint is cleartext http
+
+- **WHEN** the endpoint define is `http://collector.example.com:4318` or `http://192.168.1.20:4318`
+- **THEN** app start-up succeeds
+- **AND** telemetry is disabled and no HTTP interceptor is offered
+
+#### Scenario: Endpoint uses another scheme
+
+- **WHEN** the endpoint define is `ftp://collector.example.com`
+- **THEN** telemetry is disabled
+
+#### Scenario: Loopback collector over http
+
+- **WHEN** the endpoint define is `http://localhost:4318`, `http://127.0.0.1:4318` or `http://[::1]:4318`
+- **THEN** telemetry is enabled, because the traffic never leaves the device
 
 ### Requirement: No SDK, no interceptor, no header, no handlers when off
 
