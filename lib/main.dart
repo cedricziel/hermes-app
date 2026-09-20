@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 
 import 'src/app.dart';
 import 'src/auth/auth_controller.dart';
+import 'src/notifications/local_notification_service.dart';
+import 'src/notifications/notification_service.dart';
+import 'src/notifications/notification_settings.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
@@ -27,6 +30,11 @@ Future<void> main() async {
           )..bootstrap(),
         ),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
+        ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
+        Provider<NotificationService>(
+          create: (_) => LocalNotificationService(),
+          dispose: (_, service) => service.dispose(),
+        ),
         ChangeNotifierProvider(
           create: (_) => ShareController(createPlatformShareInbox())..start(),
         ),
