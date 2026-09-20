@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.23](https://github.com/cedricziel/hermes-app/compare/v0.1.22...v0.1.23) (2026-09-20)
+
+
+### Features
+
+* **chat:** show files and images the agent sends ([#210](https://github.com/cedricziel/hermes-app/issues/210)) ([cee2f4e](https://github.com/cedricziel/hermes-app/commit/cee2f4e308884751e0d2874b07ba9bd01e0aa687))
+* **chat:** show reasoning, reply actions and follow-up chips ([#208](https://github.com/cedricziel/hermes-app/issues/208)) ([b349ad7](https://github.com/cedricziel/hermes-app/commit/b349ad7cfa6b4caa8e01fcf50a058e70d9128f8d))
+* **plugins:** choose the memory provider and context engine from the app ([#202](https://github.com/cedricziel/hermes-app/issues/202)) ([cf00024](https://github.com/cedricziel/hermes-app/commit/cf000249a8cfeebfad817de51e78d564509c7afc))
+* **schedules:** create and edit scheduled tasks ([#206](https://github.com/cedricziel/hermes-app/issues/206)) ([c037d3f](https://github.com/cedricziel/hermes-app/commit/c037d3f09d333e3b56070f6165b5832b5681e7b5))
+* **schedules:** watch and control scheduled tasks from a Schedules tab ([#205](https://github.com/cedricziel/hermes-app/issues/205)) ([822d183](https://github.com/cedricziel/hermes-app/commit/822d18349b0e0f24db595815541122a5a91a6791))
+
 ## [0.1.22](https://github.com/cedricziel/hermes-app/compare/v0.1.21...v0.1.22) (2026-09-20)
 
 
