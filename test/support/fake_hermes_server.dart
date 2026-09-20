@@ -117,6 +117,30 @@ class _Route {
   final FutureOr<FakeResponse> Function(RequestOptions) respond;
 }
 
+/// The two routes that hand out files the agent made.
+extension HermesMediaRoutes on FakeHermesServer {
+  /// `GET /api/media?path=`: an image as a data URL.
+  void onMedia(String path, List<int> image) => on(
+    'GET',
+    '/api/media',
+    {'data_url': 'data:image/png;base64,${base64Encode(image)}'},
+    query: {'path': path},
+  );
+
+  /// `GET /api/files/download?path=`: the file's raw bytes.
+  void onDownload(String path, List<int> bytes) => on(
+    'GET',
+    '/api/files/download',
+    Uint8List.fromList(bytes),
+    query: {'path': path},
+  );
+
+  /// Refuses `GET /api/files/download` with [status], like the server does
+  /// for a missing, forbidden or oversized file.
+  void onDownloadFailure(int status) =>
+      on('GET', '/api/files/download', {'detail': 'no'}, status: status);
+}
+
 /// The JSON body a request carried (the generated client sends it encoded).
 Object? jsonBody(RequestOptions request) =>
     request.data is String ? jsonDecode(request.data as String) : request.data;
