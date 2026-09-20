@@ -69,7 +69,7 @@ On macOS the share extension SHALL copy each shared file into the App Group cont
 
 ### Requirement: Shared items wait until the chat can take them
 
-The system SHALL keep shared items pending, in the order received, until the chat screen takes them, including through server setup and sign-in. Taking the items SHALL hand them over exactly once and clear them. When the chat takes items that arrive while the Kanban destination is selected, the system SHALL select the Chat destination so the user sees them.
+The system SHALL keep shared items pending, in the order received, until the chat screen takes them, including through server setup and sign-in. Taking the items SHALL hand them over exactly once and clear them.
 
 #### Scenario: Shared before sign-in
 
@@ -80,12 +80,6 @@ The system SHALL keep shared items pending, in the order received, until the cha
 
 - **WHEN** the chat screen has taken the pending items
 - **THEN** a second take returns nothing
-
-#### Scenario: Shared while Kanban is shown
-
-- **WHEN** the user shares text or a file to Hermes while the Kanban destination is selected
-- **THEN** the Chat destination is selected
-- **AND** the text is in the composer, or the file is attached
 
 ### Requirement: Shared text fills the composer
 
