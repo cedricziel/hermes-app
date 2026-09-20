@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.22](https://github.com/cedricziel/hermes-app/compare/v0.1.21...v0.1.22) (2026-09-20)
+
+
+### Features
+
+* **chat:** attach from the file picker, camera, drop and paste ([#196](https://github.com/cedricziel/hermes-app/issues/196)) ([37e47ca](https://github.com/cedricziel/hermes-app/commit/37e47ca1a80559482cd3999d902800f94c902d6d))
+* **chat:** send attached files to Hermes ([#194](https://github.com/cedricziel/hermes-app/issues/194)) ([c74c88b](https://github.com/cedricziel/hermes-app/commit/c74c88ba7acd39bd2d751fee5648710e26178852))
+* **mcp:** manage MCP servers from the app ([#193](https://github.com/cedricziel/hermes-app/issues/193)) ([f75b93f](https://github.com/cedricziel/hermes-app/commit/f75b93fdf9c44cd804e2a2ed428d3e576cbb25e4))
+
+
+### Bug Fixes
+
+* **ios:** add location purpose string for App Store validation ([#203](https://github.com/cedricziel/hermes-app/issues/203)) ([79ea223](https://github.com/cedricziel/hermes-app/commit/79ea223e9f19202dde5ced77edb5a7891a2cb1af))
+
 ## [0.1.21](https://github.com/cedricziel/hermes-app/compare/v0.1.20...v0.1.21) (2026-09-20)
 
 
