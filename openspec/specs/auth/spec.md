@@ -337,7 +337,7 @@ The system SHALL keep the session (access token, refresh token, expiry, provider
 
 ### Requirement: Authenticated requests carry a fresh bearer token
 
-Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token has no known expiry or expires within 60 seconds, and a refresh token is available. The rotated token set SHALL replace the stored session. If that refresh fails, the request SHALL still be sent with the existing token. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
+Every request made through the authenticated client on a gated server SHALL carry `Authorization: Bearer <access token>` when a session exists. Before sending, the system SHALL refresh the session with `POST /auth/native/refresh` (body `refresh_token` and `provider`) when the access token expires within 60 seconds and a refresh token is available. An access token with no known expiry (the server left `expires_at` out) SHALL NOT be refreshed before a request; it is refreshed only after a 401. The rotated token set SHALL replace the stored session. If that refresh fails, the request SHALL still be sent with the existing token. Requests to the sign-in and refresh routes SHALL NOT use the authenticated client.
 
 #### Scenario: Token near expiry
 
@@ -355,6 +355,12 @@ Every request made through the authenticated client on a gated server SHALL carr
 
 - **WHEN** the access token is near expiry and there is no refresh token
 - **THEN** the request is sent with the existing token without a refresh
+
+#### Scenario: Token has no known expiry
+
+- **WHEN** the session has no expiry because the server left `expires_at` out, and several requests are made
+- **THEN** the requests are sent with the existing token without a refresh
+- **AND** a 401 still triggers one refresh and one retry
 
 ### Requirement: A 401 triggers one refresh and one retry
 
