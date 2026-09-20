@@ -29,6 +29,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       expireInputRequests(reply, requestId: requestId);
     case ReplyCompleted(:final text, :final failed):
       if (text.isNotEmpty) reply.content = text;
+      if (failed && reply.content.isEmpty) reply.content = kReplyFailedMessage;
       reply.status = failed ? MessageStatus.error : MessageStatus.sent;
       _settleRunningTools(
         reply,
