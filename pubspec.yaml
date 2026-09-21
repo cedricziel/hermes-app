@@ -57,31 +57,14 @@ dependencies:
   gpt_markdown: ^1.3.0
   flyer_chat_text_message: ^2.6.1
   material_ui: ^1.3.0
-  # OpenTelemetry logs and traces, exported to SignalDB. Not on pub.dev, so
-  # the siblings it depends on are pinned in dependency_overrides below.
-  flutter_otel:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/flutter_otel
+  # OpenTelemetry logs and traces, exported to SignalDB.
+  flutter_otel: ^0.1.0
   # Coarse device facts for the telemetry resource.
-  flutter_otel_device_info:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/flutter_otel_device_info
+  flutter_otel_device_info: ^0.1.0
   # Request spans and logs that record the route only, never the server address.
-  dart_otel_instrumentation_dio:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/dart_otel_instrumentation_dio
+  dart_otel_instrumentation_dio: ^0.1.0
   # The chat WebSocket as an upgrade span plus linked message spans.
-  dart_otel_instrumentation_messaging:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/dart_otel_instrumentation_messaging
+  dart_otel_instrumentation_messaging: ^0.1.0
   # The dashboard's /api/ws JSON-RPC socket the chat streams over.
   web_socket_channel: ^3.0.3
   stream_channel: ^2.1.4
@@ -101,25 +84,6 @@ dependencies:
   path_provider: ^2.1.6
   flutter_json_view: ^1.1.5
   connectivity_plus: ^7.3.1
-
-# flutter_otel declares its siblings as plain version constraints that only
-# resolve inside its own workspace, so pin them to the same commit.
-dependency_overrides:
-  dart_otel_api:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/dart_otel_api
-  dart_otel_sdk:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/dart_otel_sdk
-  dart_otel_exporter_otlp_http:
-    git:
-      url: https://github.com/cedricziel/flutter-otel.git
-      ref: e31c5db91705f8d3264f66d28f58b5d03a9e25d7
-      path: packages/dart_otel_exporter_otlp_http
 
 dev_dependencies:
   flutter_test:
