@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
+import 'package:hermes_app/src/chat/widgets/follow_up_chips.dart';
+import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -12,6 +16,11 @@ Future<void> _answers(Object? _) =>
     Future<void>.delayed(const Duration(milliseconds: 600));
 
 Future<void> _fails(Object? _) async => throw StateError('offline');
+
+Future<void> _skips() =>
+    Future<void>.delayed(const Duration(milliseconds: 600));
+
+Future<void> _skipFails() async => throw StateError('offline');
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -58,6 +67,52 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           ClarifyCard(request: batchClarify, onAnswer: _answers),
         ),
         _tool('Answered', ClarifyCard(request: answeredClarify)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'UnsupportedRequestCard',
+      useCases: [
+        _tool(
+          'Secret',
+          UnsupportedRequestCard(request: secretRequest, onSkip: _skips),
+        ),
+        _tool(
+          'Sudo',
+          UnsupportedRequestCard(request: sudoRequest, onSkip: _skips),
+        ),
+        _tool(
+          'Skip fails',
+          UnsupportedRequestCard(request: secretRequest, onSkip: _skipFails),
+        ),
+        _tool('Skipped', UnsupportedRequestCard(request: skippedSecretRequest)),
+        _tool('Expired', UnsupportedRequestCard(request: expiredSecretRequest)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ReasoningBlock',
+      useCases: [
+        _tool('Folded', const ReasoningBlock(text: reasoningText)),
+        _tool(
+          'Still reasoning',
+          const ReasoningBlock(text: reasoningText, active: true),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'FollowUpChips',
+      useCases: [_tool('Default', FollowUpChips(onPick: (_) {}))],
+    ),
+    WidgetbookComponent(
+      name: 'WelcomeView',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Greeting with name',
+          builder: (_) => WelcomeView(greetingName: 'Ada', onPick: (_) {}),
+        ),
+        WidgetbookUseCase(
+          name: 'No name',
+          builder: (_) => WelcomeView(greetingName: null, onPick: (_) {}),
+        ),
       ],
     ),
     WidgetbookComponent(
