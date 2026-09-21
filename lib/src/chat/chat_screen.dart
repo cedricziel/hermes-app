@@ -666,21 +666,11 @@ class _ChatScreenState extends State<ChatScreen> {
       createdAt: DateTime.now(),
       attachments: attachments,
     );
-    final placeholder = ChatMessage(
-      id: _newMessageId(thread),
-      role: ChatRole.assistant,
-      content: '',
-      createdAt: DateTime.now(),
-      status: MessageStatus.thinking,
-    );
-
-    final chatController = _controllerFor(thread);
-    for (final message in [userMessage, placeholder]) {
-      thread.messages.add(message);
-      for (final flyer in chatMessageToFlyer(message)) {
-        chatController.insertMessage(flyer);
-      }
+    thread.messages.add(userMessage);
+    for (final flyer in chatMessageToFlyer(userMessage)) {
+      _controllerFor(thread).insertMessage(flyer);
     }
+    final placeholder = _addPlaceholder(thread);
     setState(() {
       thread.updatedAt = DateTime.now();
       if (fromComposer) {
@@ -701,6 +691,22 @@ class _ChatScreenState extends State<ChatScreen> {
       _streamReply(transport, thread, placeholder, typed, outgoing, threadId);
       unawaited(_attention.askForPermission());
     }
+  }
+
+  /// Appends the assistant message a reply that is about to stream fills in.
+  ChatMessage _addPlaceholder(ChatThread thread) {
+    final placeholder = ChatMessage(
+      id: _newMessageId(thread),
+      role: ChatRole.assistant,
+      content: '',
+      createdAt: DateTime.now(),
+      status: MessageStatus.thinking,
+    );
+    thread.messages.add(placeholder);
+    for (final flyer in chatMessageToFlyer(placeholder)) {
+      _controllerFor(thread).insertMessage(flyer);
+    }
+    return placeholder;
   }
 
   /// The size of each of [files], or null after telling the user which one
@@ -739,6 +745,8 @@ class _ChatScreenState extends State<ChatScreen> {
       if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+      } else if (error == null) {
+        _followUps(transport, thread, profile);
       }
     }
 
@@ -751,6 +759,42 @@ class _ChatScreenState extends State<ChatScreen> {
         )
         .listen(
           (event) => _onReplyEvent(thread, reply, event, profile),
+          onError: end,
+          onDone: end,
+          cancelOnError: true,
+        );
+    _replies.add(subscription);
+  }
+
+  /// Hermes can chain turns on its own once a reply ended (a goal that goes
+  /// on, a queued prompt); each one gets a reply of its own.
+  void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    ChatMessage? reply;
+    late final StreamSubscription<ChatEvent> subscription;
+    void end([Object? error]) {
+      _replies.remove(subscription);
+      final pending = reply;
+      if (pending != null && pending.isPending) {
+        _updateReply(thread, pending, () => failReply(pending, error));
+        _announce(thread, const ReplyCompleted('', failed: true), profile);
+      }
+    }
+
+    subscription = transport
+        .followUps(thread.id)
+        .listen(
+          (event) {
+            if (event is ReplyStarted) reply = _addPlaceholder(thread);
+            final current = reply;
+            if (current == null) {
+              if (event is ThreadTitled) {
+                setState(() => thread.title = event.title);
+              }
+              return;
+            }
+            _onReplyEvent(thread, current, event, profile);
+            if (event is ReplyCompleted) reply = null;
+          },
           onError: end,
           onDone: end,
           cancelOnError: true,
