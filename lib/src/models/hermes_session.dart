@@ -18,7 +18,7 @@ class HermesSession {
     return HermesSession(
       accessToken: accessToken,
       refreshToken: json['refresh_token'] as String? ?? '',
-      expiresAt: (json['expires_at'] as num?)?.toInt() ?? 0,
+      expiresAt: _expiry(json['expires_at']),
       provider: json['provider'] as String? ?? '',
       userId: json['user_id'] as String? ?? '',
     );
@@ -28,17 +28,25 @@ class HermesSession {
     return HermesSession(
       accessToken: json['accessToken'] as String? ?? '',
       refreshToken: json['refreshToken'] as String? ?? '',
-      expiresAt: (json['expiresAt'] as num?)?.toInt() ?? 0,
+      expiresAt: _expiry(json['expiresAt']),
       provider: json['provider'] as String? ?? '',
       userId: json['userId'] as String? ?? '',
     );
   }
 
+  /// Sessions stored before [expiresAt] became nullable hold 0 for an unknown
+  /// expiry, so a non-positive value reads as unknown.
+  static int? _expiry(Object? value) {
+    final seconds = (value as num?)?.toInt();
+    return seconds == null || seconds <= 0 ? null : seconds;
+  }
+
   final String accessToken;
   final String refreshToken;
 
-  /// Unix seconds when [accessToken] expires, or 0 when the server did not say.
-  final int expiresAt;
+  /// Unix seconds when [accessToken] expires, or null when the server did not
+  /// say.
+  final int? expiresAt;
   final String provider;
   final String userId;
 
@@ -54,7 +62,8 @@ class HermesSession {
   /// before use. Mirrors the server's own 60s floor on cookie Max-Age.
   /// An unknown expiry never needs a proactive refresh; a 401 drives it.
   bool needsRefresh({int skewSeconds = 60, DateTime? now}) {
-    if (expiresAt <= 0) return false;
+    final expiresAt = this.expiresAt;
+    if (expiresAt == null) return false;
     final nowSeconds = (now ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000;
     return nowSeconds >= expiresAt - skewSeconds;
   }

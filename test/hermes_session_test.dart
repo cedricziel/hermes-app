@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/models/hermes_session.dart';
 
-HermesSession _session(int expiresAt) => HermesSession(
+HermesSession _session(int? expiresAt) => HermesSession(
   accessToken: 'a',
   refreshToken: 'r',
   expiresAt: expiresAt,
@@ -16,7 +16,7 @@ void main() {
 
   group('needsRefresh', () {
     test('is false when the expiry is unknown', () {
-      expect(_session(0).needsRefresh(now: now), isFalse);
+      expect(_session(null).needsRefresh(now: now), isFalse);
     });
 
     test('is false when the token has more than the skew left', () {
@@ -37,7 +37,38 @@ void main() {
       'access_token': 'a',
       'refresh_token': 'r',
     });
-    expect(session.expiresAt, 0);
+    expect(session.expiresAt, isNull);
     expect(session.needsRefresh(now: now), isFalse);
+  });
+
+  group('stored sessions', () {
+    Map<String, dynamic> stored(Object? expiresAt) => {
+      'accessToken': 'a',
+      'refreshToken': 'r',
+      'expiresAt': ?expiresAt,
+      'provider': 'oidc',
+      'userId': 'u1',
+    };
+
+    test('a stored 0 from before expiresAt was nullable reads as unknown', () {
+      final session = HermesSession.fromStorageJson(stored(0));
+      expect(session.expiresAt, isNull);
+      expect(session.needsRefresh(now: now), isFalse);
+    });
+
+    test('a stored expiry is kept', () {
+      expect(HermesSession.fromStorageJson(stored(1234)).expiresAt, 1234);
+    });
+
+    test('a missing expiry reads as unknown', () {
+      expect(HermesSession.fromStorageJson(stored(null)).expiresAt, isNull);
+    });
+
+    test('an unknown expiry survives a storage round trip', () {
+      final restored = HermesSession.fromStorageJson(
+        _session(null).toStorageJson(),
+      );
+      expect(restored.expiresAt, isNull);
+    });
   });
 }

@@ -7,11 +7,17 @@ class MemoryTokenStore extends TokenStore {
 
   HermesSession? session;
 
+  /// Makes [write] fail, like a keychain that cannot be written.
+  bool failWrites = false;
+
   @override
   Future<HermesSession?> read() async => session;
 
   @override
-  Future<void> write(HermesSession next) async => session = next;
+  Future<void> write(HermesSession next) async {
+    if (failWrites) throw UnsupportedError('keychain unavailable');
+    session = next;
+  }
 
   @override
   Future<void> clear() async => session = null;
