@@ -13,6 +13,9 @@ with plain `flutter test`, on phone (`phoneSize`) and desktop (`desktopSize`),
 light and dark. Read the PNGs to look for overflow, clipping, contrast and
 alignment problems; the tests themselves only assert that the flow still runs.
 
+To see one widget in every state without a flow around it, use the
+`component-catalog` skill (Widgetbook) instead.
+
 ## Writing one
 
 - `test/support/screenshot_recorder.dart`: `ScreenshotRecorder(flow)`, then

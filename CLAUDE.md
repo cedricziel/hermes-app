@@ -17,6 +17,7 @@ flutter test
 flutter test test/auth_controller_refresh_test.dart          # one file
 flutter test --plain-name "some test name"                   # one test
 dart run tool/setup_git_hooks.dart  # installs the dart_pre_commit hook (format + analyze on staged Dart files); once per clone, shared by worktrees
+flutter run -d macos -t widgetbook/main.dart   # component catalog (Widgetbook); see the `component-catalog` skill
 ```
 
 CI (`.github/workflows/ci.yml`) runs format, analyze and test, then builds Android (debug APK), iOS (simulator), macOS and Linux (release bundle, packaged by `scripts/package-linux.sh`). Releases attach a Linux tar.gz and .deb (x86_64, arm64) to the GitHub release. Every release is cut as a GitHub pre-release and its build goes to TestFlight; promoting one to a full release starts `app-store.yml`, which runs `fastlane submit` to send that version's TestFlight build to App Review on iOS and macOS (release stays manual). It needs the `REVIEW_CONTACT_*` secrets. A version already in review or released is skipped, so promoting one you submitted by hand does no harm. Run it by hand with `dry_run` (the workflow's default input) to update the listing without submitting. The iOS build needs the watchOS platform installed and an explicit simulator: `flutter build ios --simulator -d <udid>`.
@@ -73,6 +74,8 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 Tests drive the real generated client and Dio pipeline against `test/support/fake_hermes_server.dart`, an `HttpClientAdapter` with per-route responses, rather than mocking the client. Other helpers in `test/support/`: `fake_chat_transport.dart`, `memory_token_store.dart`, `fake_share_inbox.dart`, `pump_chat.dart`.
 
 `test/workflows/` walks whole user flows (onboarding, chat, kanban, skills/bots/settings) on phone and desktop, light and dark, and saves a screenshot per step to `build/workflow_screenshots/` (`workflow-screenshots` skill). Look at them after a UI change.
+
+`widgetbook/` is a Widgetbook catalog of single widgets in each state (`component-catalog` skill). Iterate on UI there first, as plain-model widgets, then wire them into screens. `test/widgetbook_test.dart` builds every use case in both themes, and `widgetbook.yml` publishes the catalog to GitHub Pages from `main` (`scripts/build-widgetbook.sh` builds it).
 
 ## Specs
 
