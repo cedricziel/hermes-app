@@ -14,6 +14,7 @@ import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
+import 'shell_navigation.dart';
 
 enum _Destination { chat, kanban, schedules }
 
@@ -207,7 +208,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _showChat();
   }
 
-  static const _labels = {
+  static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
       icon: Icons.chat_bubble_outline,
       selected: Icons.chat_bubble,
@@ -227,12 +228,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final chat = KeyedSubtree(
+    Widget chat({Widget? navigation}) => KeyedSubtree(
       key: _chatKey,
       child: ChatScreen(
         onShowChat: _showChat,
         openRequests: _openRequests,
         onOpenJob: _openJob,
+        navigation: navigation,
       ),
     );
     final destinations = [
@@ -240,54 +242,52 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
     ];
-    if (destinations.length == 1) return chat;
-
-    Widget page(_Destination destination) => switch (destination) {
-      _Destination.chat => chat,
-      _ when !_opened.contains(destination) => const SizedBox.shrink(),
-      _Destination.kanban =>
-        widget.kanbanBuilder?.call(context) ?? const KanbanScreen(),
-      _Destination.schedules =>
-        _schedulesController == null
-            ? const SizedBox.shrink()
-            : SchedulesScreen(
-                controller: _schedulesController!,
-                onOpenRun: _openRun,
-              ),
-    };
+    if (destinations.length == 1) return chat();
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= _wideBreakpoint;
         final index = destinations.indexOf(_current);
+        void select(int i) => _select(destinations[i]);
+        final navigation = ShellNavigation(
+          destinations: [for (final d in destinations) _labels[d]!],
+          selectedIndex: index,
+          onSelected: select,
+        );
+
+        Widget page(_Destination destination) {
+          final content = switch (destination) {
+            _Destination.chat => chat(navigation: wide ? navigation : null),
+            _ when !_opened.contains(destination) => const SizedBox.shrink(),
+            _Destination.kanban =>
+              widget.kanbanBuilder?.call(context) ?? const KanbanScreen(),
+            _Destination.schedules =>
+              _schedulesController == null
+                  ? const SizedBox.shrink()
+                  : SchedulesScreen(
+                      controller: _schedulesController!,
+                      onOpenRun: _openRun,
+                    ),
+          };
+          if (!wide ||
+              destination == _Destination.chat ||
+              !_opened.contains(destination)) {
+            return content;
+          }
+          return Row(
+            children: [
+              ShellSidebar(navigation: navigation),
+              const VerticalDivider(width: 1),
+              Expanded(child: content),
+            ],
+          );
+        }
+
         final pages = IndexedStack(
           index: index,
           children: [for (final d in destinations) page(d)],
         );
-        void select(int i) => _select(destinations[i]);
-        if (wide) {
-          return Scaffold(
-            body: Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: index,
-                  onDestinationSelected: select,
-                  labelType: NavigationRailLabelType.all,
-                  destinations: [
-                    for (final d in destinations)
-                      NavigationRailDestination(
-                        icon: Icon(_labels[d]!.icon),
-                        selectedIcon: Icon(_labels[d]!.selected),
-                        label: Text(_labels[d]!.label),
-                      ),
-                  ],
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(child: pages),
-              ],
-            ),
-          );
-        }
+        if (wide) return Scaffold(body: pages);
         return Scaffold(
           body: pages,
           bottomNavigationBar: NavigationBar(

@@ -25,6 +25,7 @@ class ThreadSidebar extends StatelessWidget {
     required this.onSelect,
     required this.onNewThread,
     this.housekeeping,
+    this.navigation,
     this.onOpenProfiles,
     this.onOpenBots,
     this.onOpenSkills,
@@ -37,6 +38,9 @@ class ThreadSidebar extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onNewThread;
   final ThreadHousekeeping? housekeeping;
+
+  /// The destinations of the app shell, shown under the app name.
+  final Widget? navigation;
   final VoidCallback? onOpenProfiles;
   final VoidCallback? onOpenBots;
   final VoidCallback? onOpenSkills;
@@ -70,9 +74,14 @@ class ThreadSidebar extends StatelessWidget {
                 ],
               ),
             ),
+            if (navigation != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: navigation,
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: _SidebarAction(
+              child: SidebarAction(
                 icon: Icons.add,
                 label: 'New chat',
                 onTap: onNewThread,
@@ -117,7 +126,7 @@ class ThreadSidebar extends StatelessWidget {
                   (Icons.power_outlined, 'MCP servers', onOpenMcp!),
               ],
             ),
-            const _AccountFooter(),
+            const AccountFooter(),
           ],
         ),
       ),
@@ -125,22 +134,30 @@ class ThreadSidebar extends StatelessWidget {
   }
 }
 
-/// A flat, full-width row for an action in the sidebar.
-class _SidebarAction extends StatelessWidget {
-  const _SidebarAction({
+/// A flat, full-width row for an action or destination in the sidebar.
+class SidebarAction extends StatelessWidget {
+  const SidebarAction({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
+    this.selected = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
+  /// Fills the row, as for the open destination.
+  final bool selected;
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: selected
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+                .withValues(alpha: 0.7)
+          : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -152,7 +169,13 @@ class _SidebarAction extends StatelessWidget {
               Icon(icon, size: 18),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 13)),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
             ],
           ),
@@ -184,14 +207,14 @@ class _MoreSectionState extends State<_MoreSection> {
       child: Column(
         children: [
           const Divider(height: 1),
-          _SidebarAction(
+          SidebarAction(
             icon: _open ? Icons.expand_more : Icons.chevron_right,
             label: 'More',
             onTap: () => setState(() => _open = !_open),
           ),
           if (_open)
             for (final (icon, label, onTap) in widget.entries)
-              _SidebarAction(icon: icon, label: label, onTap: onTap),
+              SidebarAction(icon: icon, label: label, onTap: onTap),
         ],
       ),
     );
@@ -446,8 +469,9 @@ class _ShowMoreRowState extends State<_ShowMoreRow> {
   }
 }
 
-class _AccountFooter extends StatelessWidget {
-  const _AccountFooter();
+/// The signed-in user with the account menu.
+class AccountFooter extends StatelessWidget {
+  const AccountFooter({super.key});
 
   @override
   Widget build(BuildContext context) {

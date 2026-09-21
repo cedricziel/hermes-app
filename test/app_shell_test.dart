@@ -9,7 +9,9 @@ import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
+import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -90,7 +92,7 @@ void main() {
     await pumpShell(tester, size: const Size(400, 800));
 
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(ShellNavigation), findsNothing);
   });
 
   testWidgets('offers a Kanban tab in a bottom bar on a phone', (tester) async {
@@ -110,13 +112,37 @@ void main() {
     expect(find.text('the board'), findsOneWidget);
   });
 
-  testWidgets('offers a Kanban tab in a rail on a wide screen', (tester) async {
+  testWidgets('lists the destinations in the sidebar on a wide screen', (
+    tester,
+  ) async {
     kanbanPlugin(on: true);
 
     await pumpShell(tester, size: const Size(1400, 900));
 
-    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
     expect(find.byType(NavigationBar), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ThreadSidebar),
+        matching: find.byType(ShellNavigation),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('keeps the destinations in place on the board of a wide screen', (
+    tester,
+  ) async {
+    kanbanPlugin(on: true);
+    await pumpShell(tester, size: const Size(1400, 900));
+    final inChat = tester.getTopLeft(find.text('Kanban'));
+
+    await tester.tap(find.text('Kanban'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('the board'), findsOneWidget);
+    expect(find.byType(ShellSidebar), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Kanban')), inChat);
   });
 
   testWidgets('drops the tab when the plugin is turned off', (tester) async {
@@ -357,13 +383,13 @@ void main() {
       expect(navigationLabels(tester), ['Chat', 'Kanban', 'Schedules']);
     });
 
-    testWidgets('is offered in a rail on a wide screen', (tester) async {
+    testWidgets('is offered in the sidebar on a wide screen', (tester) async {
       kanbanPlugin(on: false);
       cronRoutes(on: true);
 
       await pumpShell(tester, size: const Size(1400, 900));
 
-      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(ShellNavigation), findsOneWidget);
       expect(find.text('Schedules'), findsOneWidget);
     });
 

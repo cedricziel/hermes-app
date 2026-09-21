@@ -75,6 +75,7 @@ class ChatScreen extends StatefulWidget {
     this.attachmentSource,
     this.openRequests,
     this.onOpenJob,
+    this.navigation,
   });
 
   final HermesChatRepository? repository;
@@ -99,6 +100,10 @@ class ChatScreen extends StatefulWidget {
   /// Called for a tapped notification that is about a scheduled task, which
   /// the chat cannot show.
   final void Function(NotificationTarget target)? onOpenJob;
+
+  /// The shell's destinations. A wide layout shows them at the top of the
+  /// thread sidebar; a narrow one has its own bottom bar.
+  final Widget? navigation;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -949,7 +954,8 @@ class _ChatScreenState extends State<ChatScreen> {
         final isWide = constraints.maxWidth >= _wideBreakpoint;
         final selected = _selectedThread;
         _followLatestReply(selected);
-        final sidebar = ThreadSidebar(
+        ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
+          navigation: navigation,
           threads: _threads,
           selectedId: _selectedId,
           onSelect: _selectThread,
@@ -964,7 +970,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
         return Scaffold(
           key: _scaffoldKey,
-          drawer: isWide ? null : Drawer(width: 280, child: sidebar),
+          drawer: isWide ? null : Drawer(width: 280, child: buildSidebar()),
           appBar: isWide
               ? null
               : AppBar(
@@ -973,7 +979,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
           body: Row(
             children: [
-              if (isWide) SizedBox(width: 280, child: sidebar),
+              if (isWide)
+                SizedBox(
+                  width: 280,
+                  child: buildSidebar(navigation: widget.navigation),
+                ),
               if (isWide) const VerticalDivider(width: 1),
               Expanded(
                 child: _ThreadView(
