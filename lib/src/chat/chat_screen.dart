@@ -109,7 +109,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const double _wideBreakpoint = 900;
 
   late List<ChatThread> _threads;
@@ -163,6 +163,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
@@ -479,7 +480,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    _transport?.checkConnection().then((_) {}, onError: (Object _) {});
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();
