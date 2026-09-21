@@ -338,14 +338,14 @@ class AuthController extends ChangeNotifier {
     } on NativeLoginException catch (e) {
       report('failed', {
         'reason': e.reason.name,
-        'http.status_code': ?e.statusCode,
+        'http.response.status_code': ?e.statusCode,
       });
       _errorMessage = e.message;
       _setState(HermesConnectionState.needsLogin);
     } on DioException catch (e) {
       report('failed', {
         'reason': 'profile_load',
-        'http.status_code': ?e.response?.statusCode,
+        'http.response.status_code': ?e.response?.statusCode,
       });
       _errorMessage = _describeDioError(
         e,
@@ -560,7 +560,7 @@ class AuthController extends ChangeNotifier {
           _events('auth.session.refresh_failed', {
             'trigger': trigger,
             'rejected': e.rejected,
-            'http.status_code': ?e.statusCode,
+            'http.response.status_code': ?e.statusCode,
           });
           Error.throwWithStackTrace(e, stack);
         })

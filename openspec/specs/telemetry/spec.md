@@ -133,12 +133,12 @@ The system SHALL NOT include the device name, vendor or hardware identifiers, lo
 
 ### Requirement: Every HTTP request through the app's clients is traced and logged
 
-When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.method`, `http.route` (when known), `http.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.method`, `http.route` (when known), `http.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is 400 or above and `info` otherwise, so the span and the log always agree on whether a request failed, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
+When telemetry is enabled the system SHALL add one interceptor to every HTTP client the connection controller builds (the authenticated client, the token endpoint client and the page-token client) that records one client span and one log record per request. The span SHALL be named `HTTP <METHOD>` and carry `http.request.method`, `http.route` (when known), `http.response.status_code` (when there is a response) and `error.type` (when the request failed). The span status SHALL be an error for a failed request or a status of 400 or above, and OK otherwise. The log record SHALL have the body `HTTP <METHOD> [<route>] <status or error type>`, the attributes `http.request.method`, `http.route` (when known), `http.response.status_code` (when known), `http.duration_ms` and `error.type` (when failed), severity `error` when the request failed or the status is 400 or above and `info` otherwise, so the span and the log always agree on whether a request failed, and the trace and span identifiers of the request span. The span SHALL always be ended, whether the request succeeded or failed.
 
 #### Scenario: Successful request
 
 - **WHEN** the app requests `GET /api/status` and the server answers 200
-- **THEN** one span `HTTP GET` with `http.route` = `/api/status`, `http.status_code` = 200 and status OK is ended
+- **THEN** one span `HTTP GET` with `http.route` = `/api/status`, `http.response.status_code` = 200 and status OK is ended
 - **AND** one info log `HTTP GET /api/status 200` with a duration is emitted, linked to that span
 
 #### Scenario: Error response
@@ -198,7 +198,7 @@ The HTTP interceptor SHALL NOT record the URL, host, query string, fragment, req
 
 When telemetry is enabled the system SHALL trace the dashboard's chat gateway socket (`/api/ws`) like a messaging system instead of as one long trace:
 
-- Opening the socket SHALL be one client span named `HTTP GET` with `http.method` = `GET` and `http.route` = `/api/ws`. When the upgrade succeeds the span carries `http.status_code` = 101 and status OK; when opening fails it carries `error.type` (the exception type name only) and an error status, and the exception is passed on unchanged. The span is always ended.
+- Opening the socket SHALL be one client span named `HTTP GET` with `http.request.method` = `GET` and `http.route` = `/api/ws`. When the upgrade succeeds the span carries `http.response.status_code` = 101 and status OK; when opening fails it carries `error.type` (the exception type name only) and an error status, and the exception is passed on unchanged. The span is always ended.
 - Each JSON-RPC request SHALL be one producer span named `<method> send`, started when the request is sent and ended when the gateway answers. It carries `messaging.system` = `hermes.gateway`, `messaging.operation.type` = `send`, `messaging.destination.name` and `rpc.method` (the method name), `messaging.message.id` (the JSON-RPC request id), `rpc.system` = `jsonrpc` and `rpc.jsonrpc.version` = `2.0`. It ends with status OK on a result; on a JSON-RPC error it ends with an error status and `rpc.jsonrpc.error_code`; when the connection closes before an answer it ends with an error status and `error.type`.
 - Each event the gateway pushes SHALL be one instant consumer span named `<event> receive` with `messaging.system` = `hermes.gateway`, `messaging.operation.type` = `receive` and `messaging.destination.name` = the event type, ended immediately with status OK. Only the events the app handles (`message.start`, `message.complete`, `tool.start`, `tool.complete`, `session.title`, `sessions.changed`, `approval.request`, `approval.expire`, `clarify.request`, `clarify.expire`) SHALL be named after their type; any other event type SHALL be recorded as `other`.
 - Reply deltas (`message.delta`) SHALL NOT produce a span, so that streaming a reply does not emit one span per chunk.
@@ -209,7 +209,7 @@ The Kanban events socket (`/api/plugins/kanban/events`) is not traced.
 #### Scenario: Socket opens
 
 - **WHEN** the chat opens its socket to the gateway
-- **THEN** one client span `HTTP GET` with `http.route` = `/api/ws` and `http.status_code` = 101 is ended with status OK
+- **THEN** one client span `HTTP GET` with `http.route` = `/api/ws` and `http.response.status_code` = 101 is ended with status OK
 
 #### Scenario: Socket cannot be opened
 
@@ -278,9 +278,9 @@ The gateway spans SHALL record only method names, event type names, request ids,
 When telemetry is enabled the connection controller SHALL log app events as info log records whose body is the event name and whose attributes are fixed names and coarse values only. Callers SHALL NOT pass a URL, host, provider name, user identity, token or exception message. The events are:
 
 - `auth.sign_in.started` with `auth.password` (whether the provider supports password sign-in).
-- `auth.sign_in.succeeded`, `auth.sign_in.failed` and `auth.sign_in.cancelled`, each with `auth.password` and `duration_ms`. A failure adds `reason` (the login failure reason, `profile_load` when loading the profile failed, or `unexpected`) and `http.status_code` when known; an unexpected failure adds `exception.type` (the type name only).
+- `auth.sign_in.succeeded`, `auth.sign_in.failed` and `auth.sign_in.cancelled`, each with `auth.password` and `duration_ms`. A failure adds `reason` (the login failure reason, `profile_load` when loading the profile failed, or `unexpected`) and `http.response.status_code` when known; an unexpected failure adds `exception.type` (the type name only).
 - `auth.session.refreshed` with `trigger` (`proactive` or `after_401`).
-- `auth.session.refresh_failed` with `trigger`, `rejected` and `http.status_code` when known.
+- `auth.session.refresh_failed` with `trigger`, `rejected` and `http.response.status_code` when known.
 - `auth.session.expired` with `cause` (`unauthorized_after_retry`, `no_refresh_token` or `refresh_rejected`).
 - `auth.state` with `state` (the name of the new connection state) on every state change.
 

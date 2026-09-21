@@ -62,9 +62,9 @@ dependencies:
   # Coarse device facts for the telemetry resource.
   flutter_otel_device_info: ^0.1.0
   # Request spans and logs that record the route only, never the server address.
-  dart_otel_instrumentation_dio: ^0.1.0
+  dart_otel_instrumentation_dio: ^0.1.1
   # The chat WebSocket as an upgrade span plus linked message spans.
-  dart_otel_instrumentation_messaging: ^0.1.0
+  dart_otel_instrumentation_messaging: ^0.1.1
   # The dashboard's /api/ws JSON-RPC socket the chat streams over.
   web_socket_channel: ^3.0.3
   stream_channel: ^2.1.4
