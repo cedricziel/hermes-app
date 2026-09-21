@@ -1855,4 +1855,121 @@ void main() {
       expect(completed.failed, isFalse);
     });
   });
+
+  group('follow-up turns', () {
+    test('a turn Hermes chains after the reply is followed', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      final followed = transport.followUps('stored-1').toList();
+      gateway.event('message.start', 'rt-1');
+      gateway.event('message.delta', 'rt-1', {'text': 'Checking'});
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Checked',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      gateway.drop();
+
+      final events = await followed;
+      expect(events.map((e) => e.runtimeType), [
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect((events.last as ReplyCompleted).text, 'Checked');
+    });
+
+    test('a turn that started before the listener came is not lost', () async {
+      gateway.turn = (g, sid) {
+        plainReply(g, sid);
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'More'});
+      };
+      await reply();
+
+      final followed = transport.followUps('stored-1').toList();
+      await pumpEventQueue();
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'More',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      gateway.drop();
+
+      expect((await followed).map((e) => e.runtimeType), [
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+    });
+
+    test('a title that arrives after the reply is forwarded', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      final followed = transport.followUps('stored-1').toList();
+      gateway.event('session.title', 'rt-1', {'title': 'Late'});
+      await pumpEventQueue();
+      gateway.drop();
+
+      expect((await followed).single, isA<ThreadTitled>());
+    });
+
+    test('a follow-up turn can be stopped and its approval answered', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      final events = <ChatEvent>[];
+      final subscription = transport.followUps('stored-1').listen(events.add);
+      gateway.event('message.start', 'rt-1');
+      gateway.event('approval.request', 'rt-1', {
+        'request_id': 'ap-1',
+        'command': 'ls',
+      });
+      await pumpEventQueue();
+
+      expect(await transport.stopReply('stored-1'), isTrue);
+      expect(await transport.answerApproval('ap-1', 'once'), isTrue);
+      await subscription.cancel();
+    });
+
+    test('a connection lost mid-turn is an error', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      final followed = transport.followUps('stored-1').toList();
+      gateway.event('message.start', 'rt-1');
+      await pumpEventQueue();
+      gateway.drop();
+
+      await expectLater(followed, throwsA(isA<GatewayConnectionClosed>()));
+    });
+
+    test('a connection lost between turns just ends the stream', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      final followed = transport.followUps('stored-1').toList();
+      gateway.drop();
+
+      expect(await followed, isEmpty);
+    });
+
+    test('there is nothing to follow for a thread with no reply', () async {
+      expect(await transport.followUps('stored-1').toList(), isEmpty);
+    });
+
+    test('the next send takes over from the follow-up listener', () async {
+      gateway.turn = plainReply;
+      await reply();
+      final followed = transport.followUps('stored-1').toList();
+
+      final events = await reply(threadId: 'stored-1');
+      await pumpEventQueue();
+
+      expect(events.last, isA<ReplyCompleted>());
+      expect(await followed, isEmpty);
+    });
+  });
 }
