@@ -131,6 +131,9 @@ dev_dependencies:
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
   shared_preferences_platform_interface: ^2.4.1
 
+  # Component catalog (widgetbook/), run with -t widgetbook/main.dart.
+  widgetbook: ^3.25.0
+
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
