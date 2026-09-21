@@ -8,6 +8,8 @@ enum HermesClientError: Error, Equatable {
   /// The phone cannot be reached from the watch.
   case phoneUnreachable
   case failed
+  /// The dashboard ended the turn in failure and said why.
+  case replyFailed(String)
 }
 
 /// What the watch UI needs from Hermes. It has one implementation that relays
