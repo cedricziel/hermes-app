@@ -106,8 +106,8 @@ class HermesApiClient {
     return _parseObject(response.data, HermesIdentity.fromJson, 'identity');
   }
 
-  /// Throws [FormatException] for a body that is not an object or whose
-  /// fields have the wrong type.
+  /// Throws [FormatException] for a body that is not an object; [parse]
+  /// rejects wrongly typed fields the same way.
   static T _parseObject<T>(
     dynamic data,
     T Function(Map<String, dynamic>) parse,
@@ -117,10 +117,6 @@ class HermesApiClient {
     if (data is! Map<String, dynamic>) {
       throw FormatException('malformed $what body');
     }
-    try {
-      return parse(data);
-    } on TypeError {
-      throw FormatException('malformed $what fields');
-    }
+    return parse(data);
   }
 }
