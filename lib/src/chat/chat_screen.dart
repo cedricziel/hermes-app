@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
@@ -10,9 +11,6 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
-
-import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
-
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
@@ -23,12 +21,12 @@ import '../notifications/notification_settings.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
-import '../skills/hermes_skills_repository.dart';
-import '../skills/skills_screen.dart';
 import '../profiles/profiles_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import '../skills/hermes_skills_repository.dart';
+import '../skills/skills_screen.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/attachment_surface.dart';
 import 'attachments/plugin_attachment_source.dart';

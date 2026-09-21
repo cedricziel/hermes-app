@@ -1,9 +1,9 @@
+import 'package:dart_otel_instrumentation_dio/dart_otel_instrumentation_dio.dart';
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_otel_device_info/flutter_otel_device_info.dart';
-import 'package:flutter_otel_instrumentation_dio/flutter_otel_instrumentation_dio.dart';
-import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
 
 import 'telemetry_config.dart';
 

@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:stream_channel/stream_channel.dart';
-
-import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
 
 /// A server-pushed `event` notification, e.g. `message.delta`.
 class GatewayEvent {

@@ -1,9 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_channel/stream_channel.dart';
-
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 void main() {
   late StreamChannelController<String> wire;

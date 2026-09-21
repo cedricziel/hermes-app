@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
-import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/bots/bots_screen.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -12,14 +8,17 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
-import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
-import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
+import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
+import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';

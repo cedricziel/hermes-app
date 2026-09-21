@@ -1,8 +1,7 @@
 import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';

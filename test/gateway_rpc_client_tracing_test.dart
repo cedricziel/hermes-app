@@ -3,10 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_channel/stream_channel.dart';
-
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'support/recording_tracer.dart';
 

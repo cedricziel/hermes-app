@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
-
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
+import 'package:provider/provider.dart';
 
 import 'hermes_plugin_manager_repository_test.dart' show hubBody, hubRow;
 import 'support/fake_hermes_server.dart';

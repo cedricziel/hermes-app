@@ -1,5 +1,5 @@
+import 'package:dart_otel_instrumentation_dio/dart_otel_instrumentation_dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
-import 'package:flutter_otel_instrumentation_dio/flutter_otel_instrumentation_dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';

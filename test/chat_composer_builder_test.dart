@@ -3,11 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:material_ui/material_ui.dart' as mui;
-
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:material_ui/material_ui.dart' as mui;
 
 const _report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
 const _photo = SharedFile(

@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-import 'package:hermes_app/src/notifications/notification_settings.dart';
 
 /// Reads preferences like the real thing, but runs [onDenied] while the
 /// permission flags are read and always reports the scheduled task values as

@@ -1,7 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:hermes_app/src/plugins/catalog_detail.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/plugin_tag.dart';
-import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';

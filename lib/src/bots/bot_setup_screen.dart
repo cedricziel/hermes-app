@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/content_column.dart';
 import 'hermes_bots_repository.dart';
 import 'telegram_pairing_screen.dart';
-import '../widgets/content_column.dart';
 
 /// A form for the credentials and settings a platform reads from its
 /// environment. Values the dashboard already holds are never shown, only

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'job_form_controller.dart';
 import '../notifications/notification_settings.dart';
+import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';

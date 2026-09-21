@@ -2,14 +2,13 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/update/github_release_store.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:upgrader/upgrader.dart';
 import 'package:version/version.dart';
-
-import 'package:hermes_app/src/update/github_release_store.dart';
 
 const _releasePage =
     'https://github.com/cedricziel/hermes-app/releases/tag/v0.2.0';
