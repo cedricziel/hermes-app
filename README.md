@@ -138,6 +138,17 @@ dart run tool/setup_git_hooks.dart
 
 The hook is installed once per clone and is shared by all its git worktrees.
 
+### Component catalog
+
+Every widget and screen is shown in each of its states, in light and dark, on
+phone and desktop widths, in a [Widgetbook](https://www.widgetbook.io/)
+catalog. It is published at <https://cedricziel.github.io/hermes-app/> and
+needs no server. Run it locally with:
+
+```bash
+flutter run -d macos -t widgetbook/main.dart
+```
+
 ## Contributing
 
 The project uses the `oss` plugin from
