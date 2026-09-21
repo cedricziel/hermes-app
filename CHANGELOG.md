@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.30](https://github.com/cedricziel/hermes-app/compare/v0.1.29...v0.1.30) (2026-09-21)
+
+
+### Documentation
+
+* make the Widgetbook catalog the first step of UI work ([#261](https://github.com/cedricziel/hermes-app/issues/261)) ([f45d042](https://github.com/cedricziel/hermes-app/commit/f45d0426add3f91d8ea2193a50529d3f1a8aae69))
+
 ## [0.1.29](https://github.com/cedricziel/hermes-app/compare/v0.1.28...v0.1.29) (2026-09-21)
 
 
