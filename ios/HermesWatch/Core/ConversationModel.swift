@@ -46,7 +46,8 @@ final class ConversationModel {
       let result = try await client.send(threadId: threadId, text: text)
       threadId = result.threadId ?? threadId
       if result.failed {
-        takeBack(pending, error: .failed)
+        let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        takeBack(pending, error: reason.isEmpty ? .failed : .replyFailed(reason))
         return
       }
       messages.append(

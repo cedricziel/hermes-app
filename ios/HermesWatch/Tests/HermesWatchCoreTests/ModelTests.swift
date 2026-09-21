@@ -116,6 +116,16 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.phase, .loading)
   }
 
+  func testAFailedTurnWithoutAMessageFallsBackToTheGenericError() async {
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: nil, text: "  ", failed: true))
+    let model = ConversationModel(client: client, threadId: nil)
+
+    await model.send("Hello")
+
+    XCTAssertEqual(model.phase, .failed(.failed))
+  }
+
   func testAFailedTurnKeepsTheTextAndStillBindsTheThread() async {
     let client = FakeClient()
     client.sendResult = .success(SendResult(threadId: "new-1", text: "Model unavailable", failed: true))
@@ -125,7 +135,7 @@ final class ConversationModelTests: XCTestCase {
 
     XCTAssertTrue(model.messages.isEmpty)
     XCTAssertEqual(model.unsent, "Hello")
-    XCTAssertEqual(model.phase, .failed(.failed))
+    XCTAssertEqual(model.phase, .failed(.replyFailed("Model unavailable")))
     XCTAssertEqual(model.threadId, "new-1")
 
     client.sendResult = .success(SendResult(threadId: "new-1", text: "Hi", failed: false))

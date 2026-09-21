@@ -7,6 +7,7 @@ extension HermesClientError {
     case .unavailable: "Open Hermes on your iPhone, then try again."
     case .phoneUnreachable: "Can't reach your iPhone."
     case .failed: "Something went wrong."
+    case .replyFailed(let reason): reason
     }
   }
 }
