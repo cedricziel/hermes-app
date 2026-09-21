@@ -117,6 +117,22 @@ class GatewayRpcClient {
     return completer.future;
   }
 
+  /// Whether the gateway still answers within [timeout]. Any answer counts,
+  /// an error too: a socket the OS dropped while the app slept can look open
+  /// and never answer.
+  Future<bool> isResponsive(Duration timeout) async {
+    try {
+      await request('client.capabilities', {
+        'server_requests': true,
+      }).timeout(timeout);
+      return true;
+    } on GatewayRpcException {
+      return true;
+    } on Object {
+      return false;
+    }
+  }
+
   /// Answers the server request [id] with [result]. Does nothing once the
   /// socket has closed: the gateway is no longer waiting.
   void respond(String id, Map<String, Object?> result) =>

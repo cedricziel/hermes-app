@@ -43,6 +43,13 @@ class FakeGateway {
 
   bool rejectSubmit = false;
 
+  /// Requests the gateway never answers, as a socket the OS dropped while the
+  /// app slept does not.
+  final silent = <String>{};
+
+  /// Every request goes unanswered.
+  bool deaf = false;
+
   /// The runtime session of the latest `prompt.submit`.
   String lastSessionId = '';
 
@@ -122,6 +129,7 @@ class FakeGateway {
       return;
     }
     requests.add(request);
+    if (deaf || silent.contains(request['method'])) return;
     final id = request['id'];
     final params = request['params'] as Map<String, Object?>;
     switch (request['method']) {
@@ -1972,4 +1980,109 @@ void main() {
       expect(await followed, isEmpty);
     });
   });
+
+  group('after the app slept', () {
+    late List<FakeGateway> gateways;
+    late HermesGatewayTransport sleeper;
+    late void Function(FakeGateway, String) turn;
+
+    setUp(() {
+      gateways = [];
+      turn = _reply;
+      sleeper = HermesGatewayTransport(
+        connect: () async {
+          final next = FakeGateway()..turn = turn;
+          gateways.add(next);
+          return next.channel;
+        },
+        requestTimeout: const Duration(milliseconds: 50),
+        probeTimeout: const Duration(milliseconds: 50),
+      );
+    });
+
+    tearDown(() => sleeper.close());
+
+    Future<List<ChatEvent>> send() => sleeper.send(text: 'hi').toList();
+
+    test('a connection that still answers is kept', () async {
+      await send();
+
+      await sleeper.checkConnection();
+      await send();
+
+      expect(gateways, hasLength(1));
+    });
+
+    test(
+      'a connection that no longer answers is dropped and reopened',
+      () async {
+        await send();
+        gateways.single.deaf = true;
+
+        await sleeper.checkConnection();
+        await gateways.single.closedByClient;
+        await send();
+
+        expect(gateways, hasLength(2));
+      },
+    );
+
+    test('checking with no connection open opens none', () async {
+      await sleeper.checkConnection();
+
+      expect(gateways, isEmpty);
+    });
+
+    test('a gateway that predates the probe still counts as alive', () async {
+      await send();
+      gateways.single.capabilitiesUnknown = true;
+
+      await sleeper.checkConnection();
+      await send();
+
+      expect(gateways, hasLength(1));
+    });
+
+    test(
+      'a reply in flight ends when the dead connection is dropped',
+      () async {
+        turn = (_, _) {};
+        final outcome = sleeper.send(text: 'hi').toList();
+        await pumpEventQueue();
+        gateways.single.deaf = true;
+
+        await sleeper.checkConnection();
+
+        await expectLater(outcome, throwsA(isA<GatewayConnectionClosed>()));
+      },
+    );
+
+    test(
+      'a send the gateway never answers fails and the next reconnects',
+      () async {
+        await send();
+        gateways.single.silent.add('prompt.submit');
+
+        await expectLater(send(), throwsA(isA<GatewayConnectionClosed>()));
+        await send();
+
+        expect(gateways, hasLength(2));
+      },
+    );
+
+    test(
+      'a session the gateway never answers fails instead of hanging',
+      () async {
+        await send();
+        gateways.single.silent.add('session.create');
+
+        await expectLater(send(), throwsA(isA<GatewayConnectionClosed>()));
+      },
+    );
+  });
+}
+
+void _reply(FakeGateway g, String sid) {
+  g.event('message.start', sid);
+  g.event('message.complete', sid, {'text': 'Hello', 'status': 'complete'});
 }

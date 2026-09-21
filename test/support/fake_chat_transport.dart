@@ -35,6 +35,11 @@ class FakeChatTransport implements ChatTransport {
     return follow._events.stream;
   }
 
+  var connectionChecks = 0;
+
+  @override
+  Future<void> checkConnection() async => connectionChecks++;
+
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =
       <
