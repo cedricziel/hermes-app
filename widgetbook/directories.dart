@@ -8,6 +8,7 @@ import 'palette_use_cases.dart';
 import 'plugins_screen_use_cases.dart';
 import 'plugins_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
+import 'skills_bots_use_cases.dart';
 import 'schedules_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
@@ -16,6 +17,7 @@ final List<WidgetbookNode> directories = [
   kanbanNode(),
   schedulesNode(),
   schedulesScreensNode(),
+  skillsBotsNode(),
   pluginsNode(),
   pluginsScreensNode(),
   mcpNode(),
