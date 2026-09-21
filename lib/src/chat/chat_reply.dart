@@ -45,15 +45,15 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       expireInputRequests(reply, requestId: requestId);
     case ReplyCompleted(:final text, :final failed, :final stopped):
       if (text.isNotEmpty) reply.content = text;
-      if (failed && reply.content.isEmpty) reply.content = kReplyFailedMessage;
+      if (failed) {
+        _markFailed(reply, kReplyFailedMessage);
+        return;
+      }
       if (stopped && reply.content.isEmpty) {
         reply.content = kReplyStoppedMessage;
       }
-      reply.status = failed ? MessageStatus.error : MessageStatus.sent;
-      _settleRunningTools(
-        reply,
-        failed ? ToolCallStatus.error : ToolCallStatus.completed,
-      );
+      reply.status = MessageStatus.sent;
+      _settleRunningTools(reply, ToolCallStatus.completed);
       expireInputRequests(reply);
     case ReplyStarted() || ThreadBound() || ThreadTitled():
       break;
@@ -63,13 +63,15 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
 /// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
 /// is what broke it, when known: it decides the message shown.
 void failReply(ChatMessage reply, [Object? error]) {
-  if (reply.content.isEmpty) {
-    reply.content = switch (error) {
-      ProfileUnavailableException() => kProfileUnavailableMessage,
-      AttachmentException(:final message) => message,
-      _ => kReplyFailedMessage,
-    };
-  }
+  _markFailed(reply, switch (error) {
+    ProfileUnavailableException() => kProfileUnavailableMessage,
+    AttachmentException(:final message) => message,
+    _ => kReplyFailedMessage,
+  });
+}
+
+void _markFailed(ChatMessage reply, String fallbackContent) {
+  if (reply.content.isEmpty) reply.content = fallbackContent;
   reply.status = MessageStatus.error;
   _settleRunningTools(reply, ToolCallStatus.error);
   expireInputRequests(reply);
