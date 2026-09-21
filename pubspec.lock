@@ -205,18 +205,18 @@ packages:
     dependency: "direct main"
     description:
       name: dart_otel_instrumentation_dio
-      sha256: "6eeaa3020002a1a135279a5cccd2347975f132c8bc85fab33d443e56a2ba92ac"
+      sha256: "6418d639ee8215a146950d1b89ac45b0a8a3733b4013679a166c75d7c471be90"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   dart_otel_instrumentation_messaging:
     dependency: "direct main"
     description:
       name: dart_otel_instrumentation_messaging
-      sha256: c9c37fdb120537ac6063a050629d3cb68cc2380b41551f707adf78665e2ddec4
+      sha256: "580be05e27123bb06b9050f93c68ddca5f06af50a3c6a32682387b631fd216e9"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   dart_otel_sdk:
     dependency: transitive
     description:

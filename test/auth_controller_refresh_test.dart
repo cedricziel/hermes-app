@@ -220,7 +220,11 @@ void main() {
     expect(controller.state, HermesConnectionState.ready);
     expect(store.session?.refreshToken, 'refresh-1');
     expect(events.named('auth.session.refresh_failed'), [
-      {'trigger': 'after_401', 'rejected': false, 'http.status_code': 503},
+      {
+        'trigger': 'after_401',
+        'rejected': false,
+        'http.response.status_code': 503,
+      },
     ]);
     expect(events.named('auth.session.expired'), isEmpty);
   });
@@ -236,7 +240,11 @@ void main() {
     expect(controller.state, HermesConnectionState.ready);
     expect(store.session?.refreshToken, 'refresh-2');
     expect(events.named('auth.session.refresh_failed'), [
-      {'trigger': 'proactive', 'rejected': false, 'http.status_code': 503},
+      {
+        'trigger': 'proactive',
+        'rejected': false,
+        'http.response.status_code': 503,
+      },
     ]);
     expect(events.named('auth.session.expired'), isEmpty);
   });
@@ -263,7 +271,11 @@ void main() {
     expect(controller.state, HermesConnectionState.needsLogin);
     expect(store.session, isNull);
     expect(events.named('auth.session.refresh_failed'), [
-      {'trigger': 'after_401', 'rejected': true, 'http.status_code': 401},
+      {
+        'trigger': 'after_401',
+        'rejected': true,
+        'http.response.status_code': 401,
+      },
     ]);
     expect(events.named('auth.session.expired'), [
       {'cause': 'refresh_rejected'},
