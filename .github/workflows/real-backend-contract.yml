@@ -43,7 +43,7 @@ env:
   # `client.capabilities`; v2026.9.14 itself does not know that call yet, so
   # the handshake test needs a later commit. Move to the next release that has
   # it when there is one.
-  HERMES_REF: 52d203d041f9e4baad4a78013abeccd8f13a86e3
+  HERMES_REF: 7b3c7aef31da73aabab0aa7fd15fdfe7c838834e
   UV_NO_CONFIG: "1"
 
 jobs:
