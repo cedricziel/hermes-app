@@ -10,6 +10,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/pump_chat.dart' show openSidebarMore;
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
@@ -158,6 +159,7 @@ void main() {
 
   Future<void> openFromSidebar(WidgetTester tester, String entry) async {
     await openSidebar(tester);
+    await openSidebarMore(tester);
     await tester.tap(
       find.descendant(
         of: find.byType(ThreadSidebar),

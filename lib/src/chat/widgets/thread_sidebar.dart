@@ -54,7 +54,7 @@ class ThreadSidebar extends StatelessWidget {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Row(
                 children: [
                   Icon(
@@ -71,21 +71,14 @@ class ThreadSidebar extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: OutlinedButton.icon(
-                onPressed: onNewThread,
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text('New chat'),
-                style: OutlinedButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: _SidebarAction(
+                icon: Icons.add,
+                label: 'New chat',
+                onTap: onNewThread,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -110,59 +103,96 @@ class ThreadSidebar extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            if (onOpenProfiles != null)
-              Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.person_outline, size: 18),
-                  title: const Text('Profiles'),
-                  onTap: onOpenProfiles,
-                ),
-              ),
-            if (onOpenSkills != null)
-              Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.extension_outlined, size: 18),
-                  title: const Text('Skills'),
-                  onTap: onOpenSkills,
-                ),
-              ),
-            if (onOpenBots != null)
-              Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.smart_toy_outlined, size: 18),
-                  title: const Text('Bots'),
-                  onTap: onOpenBots,
-                ),
-              ),
-            if (onOpenPlugins != null)
-              Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.extension_outlined, size: 18),
-                  title: const Text('Plugins'),
-                  onTap: onOpenPlugins,
-                ),
-              ),
-            if (onOpenMcp != null)
-              Material(
-                color: Colors.transparent,
-                child: ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.power_outlined, size: 18),
-                  title: const Text('MCP servers'),
-                  onTap: onOpenMcp,
-                ),
-              ),
+            _MoreSection(
+              entries: [
+                if (onOpenProfiles != null)
+                  (Icons.person_outline, 'Profiles', onOpenProfiles!),
+                if (onOpenSkills != null)
+                  (Icons.extension_outlined, 'Skills', onOpenSkills!),
+                if (onOpenBots != null)
+                  (Icons.smart_toy_outlined, 'Bots', onOpenBots!),
+                if (onOpenPlugins != null)
+                  (Icons.extension_outlined, 'Plugins', onOpenPlugins!),
+                if (onOpenMcp != null)
+                  (Icons.power_outlined, 'MCP servers', onOpenMcp!),
+              ],
+            ),
             const _AccountFooter(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A flat, full-width row for an action in the sidebar.
+class _SidebarAction extends StatelessWidget {
+  const _SidebarAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(label, style: const TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Profiles, skills, bots, plugins and MCP servers behind one row, so the
+/// thread list keeps the height.
+class _MoreSection extends StatefulWidget {
+  const _MoreSection({required this.entries});
+
+  final List<(IconData, String, VoidCallback)> entries;
+
+  @override
+  State<_MoreSection> createState() => _MoreSectionState();
+}
+
+class _MoreSectionState extends State<_MoreSection> {
+  var _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.entries.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        children: [
+          const Divider(height: 1),
+          _SidebarAction(
+            icon: _open ? Icons.expand_more : Icons.chevron_right,
+            label: 'More',
+            onTap: () => setState(() => _open = !_open),
+          ),
+          if (_open)
+            for (final (icon, label, onTap) in widget.entries)
+              _SidebarAction(icon: icon, label: label, onTap: onTap),
+        ],
       ),
     );
   }
@@ -234,76 +264,68 @@ class _ThreadRowState extends State<_ThreadRow> {
         onTap: widget.onTap,
         onLongPress: actionable ? _openMenu : null,
         onSecondaryTap: actionable ? _openMenu : null,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            10,
-            actionable ? 3 : 9,
-            actionable ? 2 : 10,
-            actionable ? 3 : 9,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (_thread.pinned) ...[
-                          Icon(Icons.push_pin, size: 12, color: subtle),
-                          const SizedBox(width: 4),
-                        ],
-                        Expanded(
-                          child: Text(
-                            _thread.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: widget.selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              color: scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                      ],
+        child: Semantics(
+          hint: relativeTime(_thread.updatedAt),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              10,
+              actionable ? 2 : 9,
+              actionable ? 2 : 10,
+              actionable ? 2 : 9,
+            ),
+            child: Row(
+              children: [
+                if (_thread.pinned) ...[
+                  Icon(Icons.push_pin, size: 12, color: subtle),
+                  const SizedBox(width: 4),
+                ],
+                Expanded(
+                  child: Text(
+                    _thread.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: widget.selected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: scheme.onSurface,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      relativeTime(_thread.updatedAt),
-                      style: TextStyle(fontSize: 11.5, color: subtle),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              if (actionable)
-                PopupMenuButton<_ThreadAction>(
-                  key: _menu,
-                  tooltip: 'Chat actions',
-                  iconSize: 16,
-                  icon: Icon(Icons.more_horiz, color: subtle),
-                  onSelected: _run,
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: _ThreadAction.rename,
-                      child: Text('Rename'),
+                if (actionable)
+                  PopupMenuButton<_ThreadAction>(
+                    key: _menu,
+                    tooltip: 'Chat actions',
+                    iconSize: 16,
+                    padding: EdgeInsets.zero,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size.square(28),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    PopupMenuItem(
-                      value: _ThreadAction.pin,
-                      child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
-                    ),
-                    const PopupMenuItem(
-                      value: _ThreadAction.archive,
-                      child: Text('Archive'),
-                    ),
-                    const PopupMenuItem(
-                      value: _ThreadAction.delete,
-                      child: Text('Delete'),
-                    ),
-                  ],
-                ),
-            ],
+                    icon: Icon(Icons.more_horiz, color: subtle),
+                    onSelected: _run,
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: _ThreadAction.rename,
+                        child: Text('Rename'),
+                      ),
+                      PopupMenuItem(
+                        value: _ThreadAction.pin,
+                        child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
+                      ),
+                      const PopupMenuItem(
+                        value: _ThreadAction.archive,
+                        child: Text('Archive'),
+                      ),
+                      const PopupMenuItem(
+                        value: _ThreadAction.delete,
+                        child: Text('Delete'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),

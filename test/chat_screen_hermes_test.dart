@@ -22,7 +22,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
-import 'support/pump_chat.dart' show openThread;
+import 'support/pump_chat.dart' show openSidebarMore, openThread;
 
 /// The chat screen against a fake Hermes dashboard, through the real
 /// generated client: HTTP → `DefaultApi` → [HermesChatRepository] → mapper →
@@ -263,6 +263,8 @@ void main() {
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
+    await openSidebarMore(tester);
+
     await tester.tap(find.text('Profiles'));
     await tester.pumpAndSettle();
 
@@ -280,6 +282,8 @@ void main() {
     );
     await pumpChat(tester);
     await tester.pumpAndSettle();
+
+    await openSidebarMore(tester);
 
     await tester.tap(find.text('Bots'));
     await tester.pumpAndSettle();
@@ -299,6 +303,8 @@ void main() {
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
+    await openSidebarMore(tester);
+
     await tester.tap(find.text('Plugins'));
     await tester.pumpAndSettle();
 
@@ -306,10 +312,29 @@ void main() {
     expect(find.text('netbox'), findsOneWidget);
   });
 
+  testWidgets('the management entries stay behind More until it is opened', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profiles'), findsNothing);
+    expect(find.text('Bots'), findsNothing);
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profiles'), findsOneWidget);
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profiles'), findsNothing);
+  });
+
   testWidgets('the Plugins entry follows Profiles and Bots', (tester) async {
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
+    await openSidebarMore(tester);
     final profiles = tester.getTopLeft(find.text('Profiles')).dy;
     final bots = tester.getTopLeft(find.text('Bots')).dy;
     final plugins = tester.getTopLeft(find.text('Plugins')).dy;
@@ -327,6 +352,7 @@ void main() {
 
     await tester.tap(find.byTooltip('Open navigation menu'));
     await tester.pumpAndSettle();
+    await openSidebarMore(tester);
     await tester.tap(find.text('Bots'));
     await tester.pumpAndSettle();
     await tester.pageBack();
@@ -351,6 +377,8 @@ void main() {
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
+    await openSidebarMore(tester);
+
     await tester.tap(find.text('MCP servers'));
     await tester.pumpAndSettle();
 
@@ -371,6 +399,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Open navigation menu'));
       await tester.pumpAndSettle();
+      await openSidebarMore(tester);
       await tester.tap(find.text('MCP servers'));
       await tester.pumpAndSettle();
       expect(find.byType(McpServersScreen), findsOneWidget);

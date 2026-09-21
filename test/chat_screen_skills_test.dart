@@ -31,6 +31,8 @@ void main() {
   ) async {
     await pumpChatScreen(tester, server: server, withSkills: true);
 
+    await openSidebarMore(tester);
+
     await tester.tap(find.text('Skills'));
     await tester.pumpAndSettle();
 
@@ -49,6 +51,8 @@ void main() {
   ) async {
     await pumpChatScreen(tester, server: server, withSkills: true);
     await tester.enterText(find.byType(EditableText), 'half a thought');
+
+    await openSidebarMore(tester);
 
     await tester.tap(find.text('Skills'));
     await tester.pumpAndSettle();
