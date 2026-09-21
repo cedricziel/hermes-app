@@ -5,3 +5,5 @@ To try the app, enter the address of a Hermes Agent dashboard on the first scree
 If you need a server for the review, please contact us with the details in this submission and we will provide the address and a demo login.
 
 The app sends diagnostics to a server run by the developer, as described in the privacy policy. Everything else stays between the app and the server the user enters.
+
+macOS entitlement com.apple.security.network.server: sign-in follows RFC 8252 (OAuth for native apps). When the user signs in, the app opens the system browser and starts a short-lived HTTP listener bound to 127.0.0.1 on a random port to receive the redirect with the authorization code. Without the entitlement the sandbox blocks that listener and sign-in fails. The listener closes as soon as sign-in finishes, is cancelled or times out. It is never reachable from other machines. All other connections are outgoing and covered by com.apple.security.network.client.
