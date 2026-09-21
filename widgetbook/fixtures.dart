@@ -205,3 +205,41 @@ const envServer = McpCommandReviewItem(
   cwd: '/srv/tools',
   envNames: ['SEARCH_API_KEY', 'SEARCH_REGION'],
 );
+
+final threads = [
+  ChatThread(
+    id: 'thread-1',
+    title: 'Plan the release',
+    updatedAt: _now.subtract(const Duration(minutes: 4)),
+    remote: true,
+    pinned: true,
+    messages: [
+      ChatMessage(
+        id: 'm1',
+        role: ChatRole.assistant,
+        content: 'The changelog is ready for review.',
+        createdAt: _now,
+      ),
+    ],
+  ),
+  ChatThread(
+    id: 'thread-2',
+    title: 'Fix the flaky login test',
+    updatedAt: _now.subtract(const Duration(hours: 3)),
+    remote: true,
+    messages: [
+      ChatMessage(
+        id: 'm2',
+        role: ChatRole.assistant,
+        content: 'Looking at it now',
+        createdAt: _now,
+        status: MessageStatus.streaming,
+      ),
+    ],
+  ),
+  ChatThread(
+    id: 'thread-3',
+    title: 'Summarise the weekly report',
+    updatedAt: _now.subtract(const Duration(days: 2)),
+  ),
+];
