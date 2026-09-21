@@ -121,6 +121,71 @@ void main() {
     },
   );
 
+  test(
+    'marks the tasks a refetch moved to another column as arrived',
+    () async {
+      serveBoard([
+        kanbanTaskRow(id: 't1', status: 'todo'),
+        kanbanTaskRow(id: 't2', status: 'todo'),
+      ], latest: 1);
+      await controller.start();
+      expect(controller.arrived('t1'), isFalse);
+
+      serveBoard([
+        kanbanTaskRow(id: 't1', status: 'running'),
+        kanbanTaskRow(id: 't2', status: 'todo'),
+        kanbanTaskRow(id: 't3', status: 'todo'),
+      ], latest: 2);
+      await controller.refresh();
+
+      expect(controller.arrived('t1'), isTrue);
+      expect(controller.arrived('t2'), isFalse);
+      expect(controller.arrived('t3'), isTrue);
+    },
+  );
+
+  test('previewMove shows a task in its new column at once', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+    var notified = 0;
+    controller.addListener(() => notified++);
+
+    controller.previewMove('t1', 'blocked');
+
+    List<KanbanTask> tasks(String column) =>
+        controller.board!.columns.firstWhere((c) => c.name == column).tasks;
+    expect(tasks('todo'), isEmpty);
+    expect(tasks('blocked').single.status, 'blocked');
+    expect(notified, 1);
+    expect(controller.arrived('t1'), isFalse);
+  });
+
+  test('a refetch undoes a preview the server did not accept', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+
+    controller.previewMove('t1', 'blocked');
+    await controller.refresh();
+
+    expect(
+      controller.board!.columns.firstWhere((c) => c.name == 'todo').tasks,
+      hasLength(1),
+    );
+  });
+
+  test('previewMove ignores unknown tasks and columns', () async {
+    serveBoard([kanbanTaskRow(id: 't1', status: 'todo')]);
+    await controller.start();
+
+    controller.previewMove('nope', 'blocked');
+    controller.previewMove('t1', 'nowhere');
+
+    expect(
+      controller.board!.columns.firstWhere((c) => c.name == 'todo').tasks,
+      hasLength(1),
+    );
+  });
+
   test('does not refetch for a frame without events', () async {
     serveBoard([kanbanTaskRow(id: 't1')]);
     await controller.start();

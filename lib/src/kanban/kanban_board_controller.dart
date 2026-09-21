@@ -62,6 +62,10 @@ class KanbanBoardController extends ChangeNotifier {
 
   final _selected = <String>{};
 
+  /// Tasks the last refetch found in a different column than before, so the
+  /// board can show them arriving. Empty after a first load.
+  Set<String> _arrived = const {};
+
   int _generation = 0;
   int _cursor = 0;
   StreamSubscription<String>? _events;
@@ -108,6 +112,10 @@ class KanbanBoardController extends ChangeNotifier {
         KanbanColumn(name: c.name, tasks: c.tasks.where(keep).toList()),
     ];
   }
+
+  /// Whether the last refetch moved [id] here from another column, or added
+  /// it.
+  bool arrived(String id) => _arrived.contains(id);
 
   /// Ids picked for a bulk change; empty outside selection mode.
   Set<String> get selected => Set.unmodifiable(_selected);
@@ -188,6 +196,7 @@ class KanbanBoardController extends ChangeNotifier {
         includeArchived: _includeArchived,
       );
       if (_disposed || generation != _generation) return;
+      _arrived = _movedSince(_board, board);
       _board = board;
       _error = null;
       final ids = {
@@ -214,6 +223,49 @@ class KanbanBoardController extends ChangeNotifier {
     }
   }
 
+  static Set<String> _movedSince(KanbanBoard? before, KanbanBoard after) {
+    if (before == null) return const {};
+    final was = {
+      for (final c in before.columns)
+        for (final t in c.tasks) t.id: c.name,
+    };
+    return {
+      for (final c in after.columns)
+        for (final t in c.tasks)
+          if (was[t.id] != c.name) t.id,
+    };
+  }
+
+  /// Shows [id] in the [status] column now, before the server has answered,
+  /// so a dropped card does not snap back while the request runs. The refetch
+  /// that follows every move puts back whatever the server decided.
+  void previewMove(String id, String status) {
+    final board = _board;
+    if (board == null || !board.columns.any((c) => c.name == status)) return;
+    final task = board.columns
+        .expand((c) => c.tasks)
+        .where((t) => t.id == id)
+        .firstOrNull;
+    if (task == null) return;
+    _board = KanbanBoard(
+      columns: [
+        for (final c in board.columns)
+          KanbanColumn(
+            name: c.name,
+            tasks: [
+              for (final t in c.tasks)
+                if (t.id != id) t,
+              if (c.name == status) task.withStatus(status),
+            ],
+          ),
+      ],
+      tenants: board.tenants,
+      assignees: board.assignees,
+      latestEventId: board.latestEventId,
+    );
+    notifyListeners();
+  }
+
   /// The plugin is gone, so what the board showed is no longer true and the
   /// stream has nothing to deliver.
   void _dropBoard() {
@@ -222,6 +274,7 @@ class KanbanBoardController extends ChangeNotifier {
     _events = null;
     _live = false;
     _board = null;
+    _arrived = const {};
   }
 
   /// Stops the timers and closes the event stream. The synchronous part runs
@@ -316,6 +369,7 @@ class KanbanBoardController extends ChangeNotifier {
     _selected.clear();
     _selecting = false;
     _board = null;
+    _arrived = const {};
     _error = null;
     await refresh();
   }

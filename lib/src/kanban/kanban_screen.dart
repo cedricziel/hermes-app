@@ -1,3 +1,5 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,6 +46,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   String _status = 'running';
+
+  /// The card a phone is dragging by its handle, while it is.
+  String? _dragId;
 
   @override
   void initState() {
@@ -148,7 +153,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   );
 
   Future<void> _move(KanbanTask task, String status) async {
+    setState(() => _dragId = null);
     if (task.status == status) return;
+    _controller.previewMove(task.id, status);
     await runKanbanAction(
       context,
       () => _repository.updateTask(
@@ -343,8 +350,67 @@ class _KanbanScreenState extends State<KanbanScreen> {
       onLongPress: longPressSelects && !selecting
           ? () => _controller.startSelecting(task.id)
           : null,
+      handle: longPressSelects && !selecting ? _handle(task) : null,
     );
   }
+
+  /// A card in a list or a column. Its key follows the task, so a card that
+  /// a refetch moved here is a new widget and can arrive with an animation.
+  Widget _item(KanbanTask task, {required bool narrow}) => _Arrival(
+    key: ValueKey(task.id),
+    animate: _controller.arrived(task.id),
+    child: narrow ? _card(task, longPressSelects: true) : _draggable(task),
+  );
+
+  Widget _feedback(KanbanTask task) => SizedBox(
+    width: 240,
+    child: Material(
+      color: Colors.transparent,
+      elevation: 6,
+      borderRadius: BorderRadius.circular(kHermesRadius),
+      child: KanbanCard(task: task),
+    ),
+  );
+
+  /// A mouse or trackpad drags at once; a finger has to hold first, or it
+  /// could not scroll the column. Which one applies follows the pointer in
+  /// use, not the platform: a tablet takes both.
+  Widget _draggable(KanbanTask task) {
+    final childWhenDragging = Opacity(
+      opacity: 0.4,
+      child: KanbanCard(task: task),
+    );
+    return _PointerDraggable(
+      data: task,
+      feedback: _feedback(task),
+      childWhenDragging: childWhenDragging,
+      child: _TouchDraggable(
+        data: task,
+        feedback: _feedback(task),
+        childWhenDragging: childWhenDragging,
+        child: _card(task),
+      ),
+    );
+  }
+
+  /// On a phone a long press selects, so the card is dragged by its handle.
+  Widget _handle(KanbanTask task) => Draggable<KanbanTask>(
+    data: task,
+    feedback: _feedback(task),
+    onDragStarted: () => setState(() => _dragId = task.id),
+    onDragEnd: (_) => setState(() => _dragId = null),
+    child: Tooltip(
+      message: 'Drag to move',
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(
+          Icons.drag_indicator,
+          size: 20,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+      ),
+    ),
+  );
 
   Widget _body(BuildContext context) {
     final board = _controller.board;
@@ -400,22 +466,32 @@ class _KanbanScreenState extends State<KanbanScreen> {
           onSelected: (name) => setState(() => _status = name),
         ),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: _controller.refresh,
-            child: tasks.isEmpty
-                ? ListView(
-                    children: const [
-                      SizedBox(height: 80),
-                      Center(child: Text('No tasks here')),
-                    ],
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: tasks.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (_, i) =>
-                        _card(tasks[i], longPressSelects: true),
-                  ),
+          child: Stack(
+            children: [
+              RefreshIndicator(
+                onRefresh: _controller.refresh,
+                child: tasks.isEmpty
+                    ? ListView(
+                        children: const [
+                          SizedBox(height: 80),
+                          Center(child: Text('No tasks here')),
+                        ],
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: tasks.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (_, i) => _item(tasks[i], narrow: true),
+                      ),
+              ),
+              if (tasks.any((t) => t.id == _dragId))
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _DropStrip(onDrop: _move),
+                ),
+            ],
           ),
         ),
       ],
@@ -459,24 +535,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     child: ListView.separated(
                       itemCount: column.tasks.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (_, j) {
-                        final task = column.tasks[j];
-                        return LongPressDraggable<KanbanTask>(
-                          data: task,
-                          feedback: SizedBox(
-                            width: 240,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: KanbanCard(task: task),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.4,
-                            child: KanbanCard(task: task),
-                          ),
-                          child: _card(task),
-                        );
-                      },
+                      itemBuilder: (_, j) =>
+                          _item(column.tasks[j], narrow: false),
                     ),
                   ),
                 ],
@@ -485,6 +545,143 @@ class _KanbanScreenState extends State<KanbanScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// A draggable that only a mouse or trackpad starts, at once.
+class _PointerDraggable extends Draggable<KanbanTask> {
+  const _PointerDraggable({
+    required super.data,
+    required super.feedback,
+    required super.childWhenDragging,
+    required super.child,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) => ImmediateMultiDragGestureRecognizer(
+    supportedDevices: {PointerDeviceKind.mouse, PointerDeviceKind.trackpad},
+  )..onStart = onStart;
+}
+
+/// A draggable that only a finger or stylus starts, after a long press.
+class _TouchDraggable extends LongPressDraggable<KanbanTask> {
+  const _TouchDraggable({
+    required super.data,
+    required super.feedback,
+    required super.childWhenDragging,
+    required super.child,
+  });
+
+  @override
+  DelayedMultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) =>
+      DelayedMultiDragGestureRecognizer(
+          delay: delay,
+          supportedDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+        )
+        ..onStart = (position) {
+          final drag = onStart(position);
+          if (drag != null && hapticFeedbackOnStart) {
+            HapticFeedback.selectionClick();
+          }
+          return drag;
+        };
+}
+
+/// The statuses a card dragged on a phone can be dropped on. The chip row
+/// scrolls and would hide most of them, so they are laid out all at once,
+/// over the top of the list while a drag lasts.
+class _DropStrip extends StatelessWidget {
+  const _DropStrip({required this.onDrop});
+
+  final void Function(KanbanTask task, String status) onDrop;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      elevation: 4,
+      color: theme.colorScheme.surfaceContainerHigh,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final status in kanbanSettableStatuses)
+              DragTarget<KanbanTask>(
+                onWillAcceptWithDetails: (d) => d.data.status != status,
+                onAcceptWithDetails: (d) => onDrop(d.data, status),
+                builder: (context, over, rejected) => Chip(
+                  label: Text(kanbanStatusLabel(status)),
+                  backgroundColor: over.isEmpty
+                      ? null
+                      : theme.colorScheme.primaryContainer,
+                  side: BorderSide(
+                    color: over.isEmpty
+                        ? theme.colorScheme.outline
+                        : theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fades and grows its child in when it first appears, if [animate]: a card
+/// that another client just moved here, arriving where it can be seen.
+class _Arrival extends StatefulWidget {
+  const _Arrival({super.key, required this.animate, required this.child});
+
+  final bool animate;
+  final Widget child;
+
+  @override
+  State<_Arrival> createState() => _ArrivalState();
+}
+
+class _ArrivalState extends State<_Arrival>
+    with SingleTickerProviderStateMixin {
+  late final _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+    value: widget.animate ? 0 : 1,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animate) _animation.forward();
+  }
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(
+      parent: _animation,
+      curve: Curves.easeOutCubic,
+    );
+    return SizeTransition(
+      sizeFactor: curved,
+      alignment: Alignment.topCenter,
+      // The size transition loosens its child, which would shrink the card
+      // to its content instead of the column.
+      child: FadeTransition(
+        opacity: curved,
+        child: SizedBox(width: double.infinity, child: widget.child),
+      ),
     );
   }
 }

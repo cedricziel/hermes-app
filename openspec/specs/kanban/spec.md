@@ -121,10 +121,27 @@ When the Kanban page is 720 logical pixels wide or more, the system SHALL show e
 
 The system SHALL render each task as a card showing its id in a monospace font and its title, plus, when present, the assignee, a priority tag `P<n>` when the priority is above zero, the tenant, the comment count when above zero, the child progress as `done/total` when the task has children, and a warning icon with the warning count when above zero.
 
+A card of a running task SHALL also show a thin progress bar: filled to the share of children done when the task has children, otherwise a bar that keeps moving. Cards of tasks in other statuses SHALL NOT show one. The bar follows the board, so it advances as the live stream refetches it.
+
 #### Scenario: Card with metadata
 
 - **WHEN** a task has assignee "coder", priority 2, four comments and child progress 2 of 5
 - **THEN** its card shows "coder", "P2", "4" and "2/5"
+
+#### Scenario: Running task with children
+
+- **WHEN** a running task has child progress 2 of 5
+- **THEN** its card shows a progress bar filled to 40 percent
+
+#### Scenario: Running task without children
+
+- **WHEN** a running task has no children
+- **THEN** its card shows a bar with no fixed length that keeps moving
+
+#### Scenario: Task that is not running
+
+- **WHEN** a task is in Todo
+- **THEN** its card shows no progress bar
 
 ### Requirement: Search and assignee filters apply locally
 
@@ -162,6 +179,12 @@ After the first successful board load the system SHALL open a WebSocket to `/api
 
 - **WHEN** a frame with an empty event list arrives
 - **THEN** the cursor advances but the board is not refetched
+
+#### Scenario: A card moved by someone else
+
+- **WHEN** a refetch finds a task in another column than before, or a task that was not there
+- **THEN** its card fades and grows in where it now is, so the move can be seen
+- **AND** the first load of a board, and cards that did not move, are not animated
 
 ### Requirement: The event stream reconnects with backoff
 
@@ -261,12 +284,22 @@ The system SHALL let the user archive a task (as a one-task bulk archive) or del
 
 ### Requirement: Cards move between columns by dragging
 
-On a screen wide enough to show columns, the system SHALL let the user long-press a card and drag it onto another column, which changes the task's status like a move from the detail. Columns that are not user-settable (`running`, `archived`) SHALL NOT accept a drop. A refused move SHALL show the plugin's reason.
+The system SHALL let the user drag a card to another status, which changes the task's status like a move from the detail. On a screen wide enough to show columns the card is dropped onto a column: a mouse or trackpad drags it at once, a finger after a long press. On a narrow screen a long press selects the card, so each card has a handle at its top right; dragging the handle shows every status the card can be dropped on over the top of the list, and the card is dropped onto one of them. The statuses that are not user-settable (`running`, `archived`) SHALL NOT accept a drop. The card SHALL show in its new status as soon as it is dropped, without waiting for the plugin; the board is refetched afterwards, so a move the plugin refused puts the card back and shows the plugin's reason.
 
 #### Scenario: Drag to Blocked
 
 - **WHEN** the user drags a Todo card onto the Blocked column
 - **THEN** the task is patched with status `blocked`
+
+#### Scenario: Drag on a phone
+
+- **WHEN** the user drags a card by its handle onto "Blocked" in the statuses shown while dragging
+- **THEN** the task is patched with status `blocked` and the statuses disappear
+
+#### Scenario: Card shows in its new column at once
+
+- **WHEN** the user drops a card on a column and the plugin has not answered yet
+- **THEN** the card is already in that column and the column counts have changed
 
 ### Requirement: Several tasks can be changed at once
 
