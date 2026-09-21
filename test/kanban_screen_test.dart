@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -241,6 +242,45 @@ void main() {
       containsPair('status', 'blocked'),
     );
   });
+
+  // The pointer decides how a card is dragged, whatever the platform.
+  for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
+    Future<int> dragWithoutHolding(
+      WidgetTester tester,
+      PointerDeviceKind kind,
+    ) async {
+      debugDefaultTargetPlatformOverride = platform;
+      try {
+        serveTasks();
+        server.on('PATCH', '/api/plugins/kanban/tasks/t_todo', {'ok': true});
+        await pumpBoard(tester, size: const Size(1600, 900));
+
+        final gesture = await tester.startGesture(
+          tester.getCenter(find.text('Write docs')),
+          kind: kind,
+        );
+        await gesture.moveTo(tester.getCenter(find.text('Blocked  0')));
+        await tester.pump();
+        await gesture.up();
+        await tester.pumpAndSettle();
+        return server
+            .requestsTo('PATCH', '/api/plugins/kanban/tasks/t_todo')
+            .length;
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    }
+
+    testWidgets('a mouse drags a card at once on $platform', (tester) async {
+      expect(await dragWithoutHolding(tester, PointerDeviceKind.mouse), 1);
+    });
+
+    testWidgets('a finger must hold before dragging on $platform', (
+      tester,
+    ) async {
+      expect(await dragWithoutHolding(tester, PointerDeviceKind.touch), 0);
+    });
+  }
 
   testWidgets('a phone drags a card by its handle onto a status', (
     tester,

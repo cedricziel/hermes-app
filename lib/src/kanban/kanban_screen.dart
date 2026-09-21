@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -371,32 +372,25 @@ class _KanbanScreenState extends State<KanbanScreen> {
     ),
   );
 
-  /// A pointer drags at once; a finger has to hold first, or it could not
-  /// scroll the column.
+  /// A mouse or trackpad drags at once; a finger has to hold first, or it
+  /// could not scroll the column. Which one applies follows the pointer in
+  /// use, not the platform: a tablet takes both.
   Widget _draggable(KanbanTask task) {
     final childWhenDragging = Opacity(
       opacity: 0.4,
       child: KanbanCard(task: task),
     );
-    final mouse = switch (defaultTargetPlatform) {
-      TargetPlatform.macOS ||
-      TargetPlatform.windows ||
-      TargetPlatform.linux => true,
-      _ => false,
-    };
-    return mouse
-        ? Draggable<KanbanTask>(
-            data: task,
-            feedback: _feedback(task),
-            childWhenDragging: childWhenDragging,
-            child: _card(task),
-          )
-        : LongPressDraggable<KanbanTask>(
-            data: task,
-            feedback: _feedback(task),
-            childWhenDragging: childWhenDragging,
-            child: _card(task),
-          );
+    return _PointerDraggable(
+      data: task,
+      feedback: _feedback(task),
+      childWhenDragging: childWhenDragging,
+      child: _TouchDraggable(
+        data: task,
+        feedback: _feedback(task),
+        childWhenDragging: childWhenDragging,
+        child: _card(task),
+      ),
+    );
   }
 
   /// On a phone a long press selects, so the card is dragged by its handle.
@@ -553,6 +547,49 @@ class _KanbanScreenState extends State<KanbanScreen> {
       },
     );
   }
+}
+
+/// A draggable that only a mouse or trackpad starts, at once.
+class _PointerDraggable extends Draggable<KanbanTask> {
+  const _PointerDraggable({
+    required super.data,
+    required super.feedback,
+    required super.childWhenDragging,
+    required super.child,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) => ImmediateMultiDragGestureRecognizer(
+    supportedDevices: {PointerDeviceKind.mouse, PointerDeviceKind.trackpad},
+  )..onStart = onStart;
+}
+
+/// A draggable that only a finger or stylus starts, after a long press.
+class _TouchDraggable extends LongPressDraggable<KanbanTask> {
+  const _TouchDraggable({
+    required super.data,
+    required super.feedback,
+    required super.childWhenDragging,
+    required super.child,
+  });
+
+  @override
+  DelayedMultiDragGestureRecognizer createRecognizer(
+    GestureMultiDragStartCallback onStart,
+  ) =>
+      DelayedMultiDragGestureRecognizer(
+          delay: delay,
+          supportedDevices: {PointerDeviceKind.touch, PointerDeviceKind.stylus},
+        )
+        ..onStart = (position) {
+          final drag = onStart(position);
+          if (drag != null && hapticFeedbackOnStart) {
+            HapticFeedback.selectionClick();
+          }
+          return drag;
+        };
 }
 
 /// The statuses a card dragged on a phone can be dropped on. The chip row
