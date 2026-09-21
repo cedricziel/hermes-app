@@ -1,5 +1,6 @@
 import 'package:widgetbook/widgetbook.dart';
 
+import 'app_use_cases.dart';
 import 'chat_use_cases.dart';
 import 'kanban_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
@@ -13,6 +14,7 @@ import 'schedules_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
   paletteNode(),
+  appNode(),
   chatNode(),
   kanbanNode(),
   schedulesNode(),
