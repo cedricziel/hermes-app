@@ -36,7 +36,6 @@ class HermesBot {
     this.description = '',
     this.enabled = false,
     this.configured = false,
-    this.state = '',
     this.errorMessage,
     this.envVars = const [],
   });
@@ -48,7 +47,6 @@ class HermesBot {
 
   /// Whether every credential the platform requires is set.
   final bool configured;
-  final String state;
   final String? errorMessage;
   final List<HermesBotEnvVar> envVars;
 }
@@ -116,7 +114,6 @@ class HermesBotsRepository {
             description: row['description'] as String? ?? '',
             enabled: row['enabled'] as bool? ?? false,
             configured: row['configured'] as bool? ?? false,
-            state: row['state'] as String? ?? '',
             errorMessage: row['error_message'] as String?,
             envVars: _envVars(row['env_vars']),
           ),

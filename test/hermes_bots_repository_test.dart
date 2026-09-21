@@ -40,7 +40,6 @@ void main() {
       expect(telegram.description, 'Run Hermes from Telegram.');
       expect(telegram.enabled, isTrue);
       expect(telegram.configured, isTrue);
-      expect(telegram.state, 'connected');
       expect(bots.last.enabled, isFalse);
       expect(bots.last.configured, isFalse);
     });

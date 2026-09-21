@@ -6,20 +6,14 @@ class HermesProfile {
     this.displayName = '',
     this.description = '',
     this.model,
-    this.provider,
-    this.isDefault = false,
     this.skillCount = 0,
-    this.gatewayRunning = false,
   });
 
   final String name;
   final String displayName;
   final String description;
   final String? model;
-  final String? provider;
-  final bool isDefault;
   final int skillCount;
-  final bool gatewayRunning;
 
   String get label => displayName.isNotEmpty ? displayName : name;
 }
@@ -73,10 +67,7 @@ class HermesProfilesRepository {
               displayName: row['display_name'] as String? ?? '',
               description: row['description'] as String? ?? '',
               model: row['model'] as String?,
-              provider: row['provider'] as String?,
-              isDefault: row['is_default'] as bool? ?? false,
               skillCount: (row['skill_count'] as num?)?.toInt() ?? 0,
-              gatewayRunning: row['gateway_running'] as bool? ?? false,
             ),
       ],
       active: active,

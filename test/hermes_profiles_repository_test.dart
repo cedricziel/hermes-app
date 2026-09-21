@@ -25,10 +25,8 @@ void main() {
             profileRow(
               name: 'work',
               model: 'hermes-4',
-              provider: 'nous',
               description: 'Day job',
               skillCount: 12,
-              gatewayRunning: true,
             ),
           ]),
         )
@@ -40,11 +38,8 @@ void main() {
       expect(overview.profiles.map((p) => p.name), ['default', 'work']);
       final work = overview.profiles.last;
       expect(work.model, 'hermes-4');
-      expect(work.provider, 'nous');
       expect(work.description, 'Day job');
       expect(work.skillCount, 12);
-      expect(work.gatewayRunning, isTrue);
-      expect(overview.profiles.first.isDefault, isTrue);
     });
 
     test('reports the profile the dashboard is scoped to', () async {
