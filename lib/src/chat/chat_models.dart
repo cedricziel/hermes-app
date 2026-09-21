@@ -1,8 +1,7 @@
 /// Chat-side data model for the thread UI. These are UI-facing types only —
-/// deliberately independent of the transport shape Hermes Agent's REST/SSE
-/// session API will eventually use, so that API can be wired in later
-/// (see README: "the foundation for the real chat/session UI, not that UI
-/// itself") without reshaping every widget in `lib/src/chat/widgets/`.
+/// deliberately independent of the transport shape of Hermes Agent's session
+/// API, so that API can change without reshaping every widget in
+/// `lib/src/chat/widgets/`.
 library;
 
 import 'dart:typed_data';

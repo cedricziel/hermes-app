@@ -1,9 +1,7 @@
 import 'chat_models.dart';
 
-/// Placeholder content standing in for Hermes Agent's real session API, so
-/// this design preview can be reviewed and iterated on before that wiring
-/// exists. Replace with `HermesApiClient` session/message calls once the
-/// dashboard exposes them.
+/// Placeholder threads shown when [ChatScreen] has no repository. The signed-in
+/// app always has one, so this only serves tests and previews.
 List<ChatThread> buildMockThreads() {
   final now = DateTime.now();
   return [
@@ -105,12 +103,9 @@ const List<String> kStarterPrompts = [
   'Explain what this agent can do',
 ];
 
-/// A canned assistant reply used to demonstrate the thinking → streaming →
-/// sent lifecycle in the UI. Real streaming will replace this with tokens
-/// read off the session's SSE/WebSocket stream.
+/// A canned assistant reply for a [ChatScreen] without a transport. Real
+/// replies stream in through the `ChatTransport`.
 String buildMockReply(String userMessage) {
-  return 'Got it — I don\'t have a live session to work from yet, so this '
-      'is a placeholder reply standing in for "$userMessage". Once the '
-      'dashboard\'s session API is wired in, this response will stream in '
-      'from Hermes Agent instead.';
+  return 'Got it — I don\'t have a live session to work from, so this '
+      'is a placeholder reply standing in for "$userMessage".';
 }
