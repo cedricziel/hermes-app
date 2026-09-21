@@ -182,9 +182,9 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
             status: MessageStatus.error,
           ),
         ]),
-        _thread('Reply that cannot be retried', [
+        _thread('Failed reply that cannot be retried', [
           _user('u1', 'Summarise the weekly report'),
-          _reply('a1', 'Here is the summary.'),
+          _reply('a1', 'Something went wrong.', status: MessageStatus.error),
         ], canRetry: false),
         _thread('Attachments', [
           _user(
