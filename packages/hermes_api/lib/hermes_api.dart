@@ -3,11 +3,13 @@
 //
 
 export 'package:hermes_api/src/api.dart';
-export 'package:hermes_api/src/api/default_api.dart';
 export 'package:hermes_api/src/auth/api_key_auth.dart';
 export 'package:hermes_api/src/auth/basic_auth.dart';
 export 'package:hermes_api/src/auth/bearer_auth.dart';
 export 'package:hermes_api/src/auth/oauth.dart';
+
+export 'package:hermes_api/src/api/default_api.dart';
+
 export 'package:hermes_api/src/model/agent_plugin_install_body.dart';
 export 'package:hermes_api/src/model/audio_transcription_request.dart';
 export 'package:hermes_api/src/model/automation_blueprint_instantiate.dart';
@@ -43,21 +45,21 @@ export 'package:hermes_api/src/model/git_path_body.dart';
 export 'package:hermes_api/src/model/git_pr_list_body.dart';
 export 'package:hermes_api/src/model/git_worktree_add_body.dart';
 export 'package:hermes_api/src/model/git_worktree_remove_body.dart';
+export 'package:hermes_api/src/model/http_validation_error.dart';
 export 'package:hermes_api/src/model/hook_create.dart';
 export 'package:hermes_api/src/model/hook_delete.dart';
-export 'package:hermes_api/src/model/http_validation_error.dart';
 export 'package:hermes_api/src/model/import_board_body.dart';
 export 'package:hermes_api/src/model/import_request.dart';
 export 'package:hermes_api/src/model/learning_node_edit.dart';
 export 'package:hermes_api/src/model/learning_node_ref.dart';
 export 'package:hermes_api/src/model/link_body.dart';
-export 'package:hermes_api/src/model/managed_directory_create.dart';
-export 'package:hermes_api/src/model/managed_file_delete.dart';
-export 'package:hermes_api/src/model/managed_file_upload.dart';
 export 'package:hermes_api/src/model/mcp_catalog_install.dart';
 export 'package:hermes_api/src/model/mcp_enabled_toggle.dart';
 export 'package:hermes_api/src/model/mcp_server_create.dart';
 export 'package:hermes_api/src/model/mcp_servers_replace.dart';
+export 'package:hermes_api/src/model/managed_directory_create.dart';
+export 'package:hermes_api/src/model/managed_file_delete.dart';
+export 'package:hermes_api/src/model/managed_file_upload.dart';
 export 'package:hermes_api/src/model/memory_provider_config_update.dart';
 export 'package:hermes_api/src/model/memory_provider_select.dart';
 export 'package:hermes_api/src/model/memory_provider_setup_request.dart';
@@ -107,6 +109,8 @@ export 'package:hermes_api/src/model/skill_toggle.dart';
 export 'package:hermes_api/src/model/skill_uninstall_request.dart';
 export 'package:hermes_api/src/model/skills_update_request.dart';
 export 'package:hermes_api/src/model/specify_body.dart';
+export 'package:hermes_api/src/model/tts_lease_request.dart';
+export 'package:hermes_api/src/model/tts_speak_request.dart';
 export 'package:hermes_api/src/model/telegram_onboarding_apply.dart';
 export 'package:hermes_api/src/model/telegram_onboarding_start.dart';
 export 'package:hermes_api/src/model/terminal_backend_select.dart';
@@ -117,8 +121,6 @@ export 'package:hermes_api/src/model/toolset_model_select.dart';
 export 'package:hermes_api/src/model/toolset_post_setup.dart';
 export 'package:hermes_api/src/model/toolset_provider_select.dart';
 export 'package:hermes_api/src/model/toolset_toggle.dart';
-export 'package:hermes_api/src/model/tts_lease_request.dart';
-export 'package:hermes_api/src/model/tts_speak_request.dart';
 export 'package:hermes_api/src/model/update_task_body.dart';
 export 'package:hermes_api/src/model/validation_error.dart';
 export 'package:hermes_api/src/model/voice_live_session_request.dart';

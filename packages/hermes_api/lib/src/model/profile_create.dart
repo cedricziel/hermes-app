@@ -2,9 +2,9 @@
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
-import 'package:copy_with_extension/copy_with_extension.dart';
 // ignore_for_file: unused_element
 import 'package:hermes_api/src/model/mcp_server_create.dart';
+import 'package:copy_with_extension/copy_with_extension.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'profile_create.g.dart';

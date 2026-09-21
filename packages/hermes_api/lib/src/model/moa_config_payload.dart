@@ -2,10 +2,10 @@
 // AUTO-GENERATED FILE, DO NOT MODIFY!
 //
 
-import 'package:copy_with_extension/copy_with_extension.dart';
 // ignore_for_file: unused_element
 import 'package:hermes_api/src/model/moa_model_slot.dart';
 import 'package:hermes_api/src/model/moa_preset_payload.dart';
+import 'package:copy_with_extension/copy_with_extension.dart';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'moa_config_payload.g.dart';
