@@ -44,6 +44,8 @@ rules:
     - Start every behaviour task with a failing test; pure refactors are exempt.
     - If the change needs new or changed API routes, include a task to update
       openapi/hermes-agent.openapi.json and run scripts/generate_hermes_api_client.sh.
+    - For UI changes, put the Widgetbook use cases (see the component-catalog skill) before
+      the tasks that wire the widget into a screen.
     - Include a task to add the telemetry the proposal names, or note that there is none.
     - Include a task to update any .claude/skills entry the change makes stale (for example
       verify-in-app or the openspec skills), and to add a new project skill when a workflow

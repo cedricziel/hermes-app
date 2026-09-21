@@ -75,7 +75,7 @@ Tests drive the real generated client and Dio pipeline against `test/support/fak
 
 `test/workflows/` walks whole user flows (onboarding, chat, kanban, skills/bots/settings) on phone and desktop, light and dark, and saves a screenshot per step to `build/workflow_screenshots/` (`workflow-screenshots` skill). Look at them after a UI change.
 
-`widgetbook/` is a Widgetbook catalog of single widgets in each state (`component-catalog` skill). Iterate on UI there first, as plain-model widgets, then wire them into screens. `test/widgetbook_test.dart` builds every use case in both themes, and `widgetbook.yml` publishes the catalog to GitHub Pages from `main` (`scripts/build-widgetbook.sh` builds it).
+`widgetbook/` is a Widgetbook catalog of single widgets in each state (`component-catalog` skill). **UI work starts in the catalog, not in the app.** For any new widget, redesign or layout/state change, build or change it as a use case first, as a plain-model widget (models and callbacks, no controller or repository), and get every state, both themes and phone and desktop width right there. Only then wire it into a screen, and check the screen with a workflow test or `verify-in-app`. A widget a screen builds inline gets pulled out into `lib/src/*/widgets/` so it can have a use case. `test/widgetbook_test.dart` builds every use case in both themes, and `widgetbook.yml` publishes the catalog to GitHub Pages from `main` (`scripts/build-widgetbook.sh` builds it).
 
 ## Specs
 
