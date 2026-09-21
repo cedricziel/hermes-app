@@ -2,11 +2,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
-import 'package:provider/provider.dart';
-
 import 'package:hermes_app/main.dart' as app;
 import 'package:hermes_app/src/settings/theme_controller.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:provider/provider.dart';
 
 const _shotPort = String.fromEnvironment('SHOT_PORT');
 

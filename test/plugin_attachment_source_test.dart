@@ -3,11 +3,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:image_picker/image_picker.dart';
-
 import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/attachments/plugin_attachment_source.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
+import 'package:image_picker/image_picker.dart';
 
 class _FakeImagePicker implements ImagePicker {
   _FakeImagePicker({this.camera, this.cameraError, this.library = const []});

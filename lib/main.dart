@@ -1,4 +1,6 @@
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -14,10 +16,6 @@ import 'src/notifications/notification_settings.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
-
-import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
-import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
-
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';

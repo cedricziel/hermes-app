@@ -4,13 +4,12 @@ import 'dart:io' show FileSystemException;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:stream_channel/stream_channel.dart';
-
 import 'package:hermes_app/src/chat/chat_models.dart'
     show AttachmentKind, UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 /// Plays the dashboard's side of the socket: answers each RPC the way the
 /// real gateway does and pushes the events a turn produces.

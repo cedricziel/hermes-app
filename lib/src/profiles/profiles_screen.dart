@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
-import 'hermes_profiles_repository.dart';
 import '../widgets/content_column.dart';
+import 'hermes_profiles_repository.dart';
 
 /// Lists the Hermes profiles on the connected dashboard and lets the user
 /// pick the active one (the sticky default `hermes profile use` sets).

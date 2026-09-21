@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
+import '../widgets/content_column.dart';
 import 'bot_setup_screen.dart';
 import 'hermes_bots_repository.dart';
-import '../widgets/content_column.dart';
 
 /// Lists the messaging platforms Hermes can run as bots and switches them
 /// on or off. A platform that lacks credentials shows "Needs setup" and

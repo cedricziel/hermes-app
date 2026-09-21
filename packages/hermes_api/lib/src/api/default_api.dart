@@ -3,13 +3,11 @@
 //
 
 import 'dart:async';
-
 // ignore: unused_import
 import 'dart:convert';
 
-import 'package:hermes_api/src/deserialize.dart';
 import 'package:dio/dio.dart';
-
+import 'package:hermes_api/src/deserialize.dart';
 import 'package:hermes_api/src/model/agent_plugin_install_body.dart';
 import 'package:hermes_api/src/model/audio_transcription_request.dart';
 import 'package:hermes_api/src/model/automation_blueprint_instantiate.dart';
@@ -47,7 +45,6 @@ import 'package:hermes_api/src/model/git_worktree_add_body.dart';
 import 'package:hermes_api/src/model/git_worktree_remove_body.dart';
 import 'package:hermes_api/src/model/hook_create.dart';
 import 'package:hermes_api/src/model/hook_delete.dart';
-
 import 'package:hermes_api/src/model/import_board_body.dart';
 import 'package:hermes_api/src/model/import_request.dart';
 import 'package:hermes_api/src/model/learning_node_edit.dart';

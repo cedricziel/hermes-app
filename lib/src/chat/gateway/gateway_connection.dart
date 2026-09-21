@@ -1,10 +1,8 @@
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../api/hermes_api_client.dart';
-
-import 'package:flutter_otel_instrumentation_messaging/flutter_otel_instrumentation_messaging.dart';
-
 import 'hermes_gateway_transport.dart';
 
 /// The WebSocket URL of [path] (the gateway's `/api/ws` unless told

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'hermes_bots_repository.dart';
 import '../widgets/content_column.dart';
+import 'hermes_bots_repository.dart';
 
 typedef LinkLauncher = Future<bool> Function(Uri uri);
 

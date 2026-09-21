@@ -3,10 +3,9 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
-
-import 'package:hermes_app/src/auth/auth_controller.dart';
 
 /// A dashboard without the auth gate, as `hermes dashboard` serves on
 /// loopback: `/api/status` is public, every other route wants the session

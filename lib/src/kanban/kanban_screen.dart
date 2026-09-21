@@ -1,11 +1,12 @@
 import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
+import '../theme/hermes_theme.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
@@ -14,7 +15,6 @@ import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'kanban_workers_screen.dart';
-import '../theme/hermes_theme.dart';
 import 'widgets/kanban_card.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
