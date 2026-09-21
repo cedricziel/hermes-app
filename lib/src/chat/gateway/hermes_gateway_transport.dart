@@ -140,8 +140,10 @@ class HermesGatewayTransport implements ChatTransport {
         yield event;
         if (event is ReplyCompleted) {
           // The session goes on listening: Hermes may chain another turn.
+          final displaced = _idle.remove(storedId);
           _idle[storedId] = watch;
           parked = true;
+          await displaced?.close();
           return;
         }
       }
