@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.29](https://github.com/cedricziel/hermes-app/compare/v0.1.28...v0.1.29) (2026-09-21)
+
+
+### Bug Fixes
+
+* **bots:** let the pairing wait note wrap on narrow screens ([1d726e8](https://github.com/cedricziel/hermes-app/commit/1d726e8c254f6a217945821724d844d8b9bf1c90))
+* **watch:** show the message of a failed reply ([#249](https://github.com/cedricziel/hermes-app/issues/249)) ([58fea94](https://github.com/cedricziel/hermes-app/commit/58fea9433cfff36968fef22da6565f7587c7cf9f))
+
 ## [0.1.28](https://github.com/cedricziel/hermes-app/compare/v0.1.27...v0.1.28) (2026-09-21)
 
 
