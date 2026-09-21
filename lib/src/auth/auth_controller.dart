@@ -516,9 +516,16 @@ class AuthController extends ChangeNotifier {
     try {
       final refreshed = await _refreshSession(session, trigger: 'proactive');
       return refreshed.accessToken;
-    } catch (_) {
-      // Fall through with the (possibly stale) token; the server will 401
-      // and the response interceptor drives re-login.
+    } on NativeLoginException {
+      // Already reported as auth.session.refresh_failed. Fall through with the
+      // (possibly stale) token; the server will 401 and the response
+      // interceptor drives re-login.
+      return session.accessToken;
+    } on FormatException {
+      // The server answered the refresh with a token set that does not parse.
+      return session.accessToken;
+    } on StateError {
+      // The session or server changed while the refresh was in flight.
       return session.accessToken;
     }
   }

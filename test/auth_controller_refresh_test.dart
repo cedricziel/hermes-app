@@ -33,6 +33,9 @@ class _GatedDashboard {
   /// Whether the refresh route leaves `expires_at` out of its answer.
   bool omitExpiresAt = false;
 
+  /// The `expires_at` the refresh route answers with, when not an hour ahead.
+  int? refreshExpiresAt;
+
   /// How long the refresh route takes before answering.
   Duration refreshDelay = Duration.zero;
 
@@ -71,7 +74,7 @@ class _GatedDashboard {
         return _json(request, 200, {
           'access_token': validAccess,
           'refresh_token': validRefresh,
-          if (!omitExpiresAt) 'expires_at': _farFuture,
+          if (!omitExpiresAt) 'expires_at': refreshExpiresAt ?? _farFuture,
           'provider': 'oidc',
           'user_id': 'u1',
         });
@@ -108,10 +111,11 @@ HermesSession _session({
   String access = 'access-1',
   String? refresh,
   int? expiresAt,
+  bool unknownExpiry = false,
 }) => HermesSession(
   accessToken: access,
   refreshToken: refresh ?? 'refresh-1',
-  expiresAt: expiresAt ?? _farFuture,
+  expiresAt: unknownExpiry ? null : expiresAt ?? _farFuture,
   provider: 'oidc',
   userId: 'u1',
 );
@@ -154,7 +158,7 @@ void main() {
   test(
     'a session with no known expiry is not refreshed before each request',
     () async {
-      await bootstrapWith(_session(expiresAt: 0));
+      await bootstrapWith(_session(unknownExpiry: true));
 
       await controller.api!.fetchMe();
       await controller.api!.fetchMe();
@@ -168,7 +172,7 @@ void main() {
 
   test('a session with no known expiry refreshes once on a 401 and then '
       'stops refreshing', () async {
-    await bootstrapWith(_session(expiresAt: 0));
+    await bootstrapWith(_session(unknownExpiry: true));
     dashboard
       ..validAccess = 'revoked'
       ..omitExpiresAt = true;
@@ -219,6 +223,33 @@ void main() {
       {'trigger': 'after_401', 'rejected': false, 'http.status_code': 503},
     ]);
     expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a proactive refresh that fails sends the request with the current '
+      'token and keeps the session', () async {
+    dashboard.refreshExpiresAt = 1;
+    await bootstrapWith(_session(expiresAt: 1));
+    dashboard.refreshFailure = 503;
+
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.refresh_failed'), [
+      {'trigger': 'proactive', 'rejected': false, 'http.status_code': 503},
+    ]);
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a proactive refresh that fails for an unexpected reason is not '
+      'hidden', () async {
+    dashboard.refreshExpiresAt = 1;
+    await bootstrapWith(_session(expiresAt: 1));
+    store.failWrites = true;
+
+    await expectLater(controller.api!.fetchMe(), throwsA(isA<DioException>()));
+
+    expect(controller.state, HermesConnectionState.ready);
   });
 
   test('signs the user out when the refresh token is rejected', () async {
