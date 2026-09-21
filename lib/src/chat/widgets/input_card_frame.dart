@@ -34,11 +34,13 @@ class InputCardFrame extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: scheme.primary),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
+              Flexible(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
             ],
