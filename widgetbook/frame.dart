@@ -12,3 +12,10 @@ Widget frame(Widget child, {double maxWidth = 480}) => SingleChildScrollView(
     ),
   ),
 );
+
+/// Places a screen-sized widget (a sidebar, an empty state) in the space the
+/// viewport gives it, since a scrolling frame would leave it unbounded.
+Widget fill(Widget child, {double? width}) => Align(
+  alignment: Alignment.topLeft,
+  child: SizedBox(width: width, child: child),
+);
