@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -31,16 +32,20 @@ void main() {
             ..physicalSize = viewport.size * viewport.pixelRatio
             ..devicePixelRatio = viewport.pixelRatio;
           addTearDown(tester.view.reset);
+          debugDefaultTargetPlatformOverride = viewport.platform;
+          try {
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: theme,
+                home: Scaffold(body: Builder(builder: useCase.builder)),
+              ),
+            );
+            await tester.pump(const Duration(seconds: 1));
 
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: theme,
-              home: Scaffold(body: Builder(builder: useCase.builder)),
-            ),
-          );
-          await tester.pump(const Duration(seconds: 1));
-
-          expect(tester.takeException(), isNull);
+            expect(tester.takeException(), isNull);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
         });
       }
     }
