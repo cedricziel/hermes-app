@@ -5,15 +5,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/hermes_session.dart';
 
 /// Persists the native-app token set in the OS keychain (iOS/macOS) or
-/// Keystore-backed encrypted prefs (Android) — the same trust boundary
+/// Keystore-encrypted prefs (Android) — the same trust boundary
 /// Hermes Desktop uses for its own token store, and never a browser cookie.
 class TokenStore {
   TokenStore({FlutterSecureStorage? storage})
-    : _storage =
-          storage ??
-          const FlutterSecureStorage(
-            aOptions: AndroidOptions(encryptedSharedPreferences: true),
-          );
+    : _storage = storage ?? const FlutterSecureStorage();
 
   static const _sessionKey = 'hermes.session.v1';
 

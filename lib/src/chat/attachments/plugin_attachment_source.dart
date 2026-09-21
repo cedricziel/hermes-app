@@ -56,9 +56,9 @@ class PluginAttachmentSource implements AttachmentSource {
   Future<List<SharedFile>> pick(AttachOrigin origin) async {
     switch (origin) {
       case AttachOrigin.files:
-        final result = await FilePicker.pickFiles(allowMultiple: true);
+        final files = await FilePicker.pickFiles();
         return [
-          for (final file in result?.files ?? const <PlatformFile>[])
+          for (final file in files)
             if (file.path != null)
               sharedFileFromPath(file.path!, name: file.name),
         ];
