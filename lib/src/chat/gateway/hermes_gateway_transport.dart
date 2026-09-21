@@ -40,6 +40,27 @@ class _OpenRequest {
 /// A chat event, and whether it came from a server-to-client request.
 typedef _Incoming = (ChatEvent event, bool serverRequest);
 
+/// What one runtime session sends, buffered until the transport reads it.
+class _Watch {
+  _Watch(this.runtimeId, this._inbox, this._sources)
+    : events = StreamIterator(_inbox.stream);
+
+  final String runtimeId;
+  final StreamController<_Incoming> _inbox;
+  final List<StreamSubscription<Object?>> _sources;
+  final StreamIterator<_Incoming> events;
+
+  /// The requests of the running turn, so they can be answered until it ends.
+  final mine = <String>{};
+
+  Future<void> close() async {
+    for (final source in _sources) {
+      await source.cancel();
+    }
+    unawaited(_inbox.close());
+  }
+}
+
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
@@ -50,6 +71,9 @@ class HermesGatewayTransport implements ChatTransport {
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
   final _awaiting = <String, _OpenRequest>{};
+
+  /// The sessions still listened to after their reply ended, by thread.
+  final _idle = <String, _Watch>{};
 
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
@@ -81,30 +105,13 @@ class HermesGatewayTransport implements ChatTransport {
       rethrow;
     }
     final runtimeId = session['session_id'] as String;
-    _replying.update(runtimeId, (count) => count + 1, ifAbsent: () => 1);
     final storedId = threadId ?? session['stored_session_id'] as String;
-    _runtimeOf[storedId] = runtimeId;
-
+    await _idle.remove(storedId)?.close();
+    _beginReply(runtimeId, storedId);
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
-    final inbox = StreamController<_Incoming>();
-    final subscription = client.events
-        .where((event) => event.sessionId == runtimeId)
-        .map(_toChatEvent)
-        .listen((event) {
-          if (event != null) inbox.add((event, false));
-        }, onDone: inbox.close);
-    final requests = client.serverRequests
-        .where(
-          (request) =>
-              request.sessionId == runtimeId &&
-              _handledRequests.contains(request.method),
-        )
-        .map(_fromServerRequest)
-        .listen((event) {
-          if (event != null) inbox.add((event, true));
-        });
-    final mine = <String>{};
+    final watch = _watch(client, runtimeId);
+    var parked = false;
     try {
       if (threadId == null) {
         yield ThreadBound(session['stored_session_id'] as String);
@@ -127,21 +134,109 @@ class HermesGatewayTransport implements ChatTransport {
         await _detach(client, runtimeId, queued);
         rethrow;
       }
-      await for (final (event, serverRequest) in inbox.stream) {
-        _track(event, runtimeId, mine, serverRequest: serverRequest);
+      while (await watch.events.moveNext()) {
+        final (event, serverRequest) = watch.events.current;
+        _track(event, runtimeId, watch.mine, serverRequest: serverRequest);
         yield event;
-        if (event is ReplyCompleted) return;
+        if (event is ReplyCompleted) {
+          // The session goes on listening: Hermes may chain another turn.
+          _idle[storedId] = watch;
+          parked = true;
+          return;
+        }
       }
       throw const GatewayConnectionClosed();
     } finally {
-      mine.forEach(_awaiting.remove);
-      _replying.update(runtimeId, (count) => count - 1);
-      if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
-      if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
-      await subscription.cancel();
-      await requests.cancel();
-      unawaited(inbox.close());
+      _forgetRequests(watch);
+      _endReply(runtimeId, storedId);
+      if (!parked) await watch.close();
     }
+  }
+
+  @override
+  Stream<ChatEvent> followUps(String threadId) {
+    final watch = _idle[threadId];
+    if (watch == null) return const Stream.empty();
+    final out = StreamController<ChatEvent>();
+    out.onListen = () => unawaited(_relay(watch, threadId, out));
+    out.onCancel = () {
+      if (_idle[threadId] == watch) _idle.remove(threadId);
+      return watch.close();
+    };
+    return out.stream;
+  }
+
+  Future<void> _relay(
+    _Watch watch,
+    String threadId,
+    StreamController<ChatEvent> out,
+  ) async {
+    final runtimeId = watch.runtimeId;
+    var replying = false;
+    try {
+      while (await watch.events.moveNext()) {
+        final (event, serverRequest) = watch.events.current;
+        if (event is ReplyStarted && !replying) {
+          replying = true;
+          _beginReply(runtimeId, threadId);
+        }
+        _track(event, runtimeId, watch.mine, serverRequest: serverRequest);
+        if (out.isClosed) return;
+        out.add(event);
+        if (event is ReplyCompleted && replying) {
+          replying = false;
+          _forgetRequests(watch);
+          _endReply(runtimeId, threadId);
+        }
+      }
+      if (replying && !out.isClosed) {
+        out.addError(const GatewayConnectionClosed());
+      }
+    } finally {
+      _forgetRequests(watch);
+      if (replying) _endReply(runtimeId, threadId);
+      if (!out.isClosed) unawaited(out.close());
+    }
+  }
+
+  /// Starts listening to the events and requests of [runtimeId].
+  _Watch _watch(GatewayRpcClient client, String runtimeId) {
+    final inbox = StreamController<_Incoming>();
+    final sources = [
+      client.events
+          .where((event) => event.sessionId == runtimeId)
+          .map(_toChatEvent)
+          .listen((event) {
+            if (event != null) inbox.add((event, false));
+          }, onDone: inbox.close),
+      client.serverRequests
+          .where(
+            (request) =>
+                request.sessionId == runtimeId &&
+                _handledRequests.contains(request.method),
+          )
+          .map(_fromServerRequest)
+          .listen((event) {
+            if (event != null) inbox.add((event, true));
+          }),
+    ];
+    return _Watch(runtimeId, inbox, sources);
+  }
+
+  void _beginReply(String runtimeId, String storedId) {
+    _replying.update(runtimeId, (count) => count + 1, ifAbsent: () => 1);
+    _runtimeOf[storedId] = runtimeId;
+  }
+
+  void _endReply(String runtimeId, String storedId) {
+    _replying.update(runtimeId, (count) => count - 1);
+    if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
+    if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+  }
+
+  void _forgetRequests(_Watch watch) {
+    watch.mine.forEach(_awaiting.remove);
+    watch.mine.clear();
   }
 
   /// Makes [attachments] available to the agent: an image is queued on the
@@ -351,6 +446,11 @@ class HermesGatewayTransport implements ChatTransport {
   Future<void> close() async {
     final open = _open;
     _open = null;
+    final idle = _idle.values.toList();
+    _idle.clear();
+    for (final watch in idle) {
+      await watch.close();
+    }
     await open?.close();
   }
 

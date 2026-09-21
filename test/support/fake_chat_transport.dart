@@ -26,6 +26,15 @@ class FakeChatTransport implements ChatTransport {
     return send._events.stream;
   }
 
+  /// The follow-up stream asked for, by thread: feed it with [FakeFollowUps].
+  final followUpStreams = <String, FakeFollowUps>{};
+
+  @override
+  Stream<ChatEvent> followUps(String threadId) {
+    final follow = followUpStreams.putIfAbsent(threadId, FakeFollowUps.new);
+    return follow._events.stream;
+  }
+
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =
       <
@@ -125,4 +134,13 @@ class FakeSend {
 
   /// Ends the stream without an error.
   void finish() => _events.close();
+}
+
+/// The turns Hermes chains on its own, fed by hand.
+class FakeFollowUps {
+  final _events = StreamController<ChatEvent>();
+
+  void emit(ChatEvent event) => _events.add(event);
+
+  void fail([Object error = 'connection lost']) => _events.addError(error);
 }

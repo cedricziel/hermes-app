@@ -182,6 +182,14 @@ abstract interface class ChatTransport {
     List<OutgoingAttachment> attachments = const [],
   });
 
+  /// The turns Hermes starts on its own in [threadId] after the reply of the
+  /// latest [send] ended: a goal continuation, a queued prompt, finished
+  /// background work. Each one runs from [ReplyStarted] to [ReplyCompleted],
+  /// and a [ThreadTitled] may arrive between two. Empty when there is no such
+  /// reply to follow. Ends with the connection, and with an error when that
+  /// closes mid-turn; cancel it to stop listening.
+  Stream<ChatEvent> followUps(String threadId);
+
   /// Answers an approval the agent is waiting on with one of its choices.
   /// Returns false when the request is no longer pending, and throws when the
   /// call itself fails.
