@@ -1,3 +1,5 @@
+import 'json_fields.dart';
+
 /// A native-app token set minted by `/auth/native/token` (or rotated by
 /// `/auth/native/refresh`). Stored in the OS keychain/keystore — never in a
 /// browser cookie, since this app is a native RFC 8252 client, not the SPA.
@@ -70,13 +72,14 @@ class HermesIdentity {
     required this.provider,
   });
 
+  /// Throws [FormatException] when a field has the wrong type.
   factory HermesIdentity.fromJson(Map<String, dynamic> json) {
     return HermesIdentity(
-      userId: json['user_id'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      displayName: json['display_name'] as String? ?? '',
-      orgId: json['org_id'] as String? ?? '',
-      provider: json['provider'] as String? ?? '',
+      userId: jsonField(json, 'user_id', ''),
+      email: jsonField(json, 'email', ''),
+      displayName: jsonField(json, 'display_name', ''),
+      orgId: jsonField(json, 'org_id', ''),
+      provider: jsonField(json, 'provider', ''),
     );
   }
 

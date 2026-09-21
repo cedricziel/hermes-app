@@ -1,3 +1,5 @@
+import 'json_fields.dart';
+
 /// `GET /api/status` — public, unauthenticated. Tells the app whether the
 /// dashboard's auth gate is engaged and which login flows it supports before
 /// any credentials are exchanged.
@@ -9,20 +11,13 @@ class HermesStatus {
     this.version,
   });
 
+  /// Throws [FormatException] when a field has the wrong type.
   factory HermesStatus.fromJson(Map<String, dynamic> json) {
     return HermesStatus(
-      authRequired: json['auth_required'] as bool? ?? false,
-      authProviders:
-          (json['auth_providers'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      authFlows:
-          (json['auth_flows'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      version: json['version'] as String?,
+      authRequired: jsonField(json, 'auth_required', false),
+      authProviders: jsonStringList(json, 'auth_providers'),
+      authFlows: jsonStringList(json, 'auth_flows'),
+      version: jsonFieldOrNull<String>(json, 'version'),
     );
   }
 
