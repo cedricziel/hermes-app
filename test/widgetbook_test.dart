@@ -47,6 +47,9 @@ void main() {
                 home: Scaffold(body: Builder(builder: useCase.builder)),
               ),
             );
+            // The first frame builds what a `Hosted` value was waiting for and
+            // the screen then starts its own load, so give it a second frame.
+            await tester.pump(const Duration(seconds: 1));
             await tester.pump(const Duration(seconds: 1));
 
             expect(tester.takeException(), isNull);
