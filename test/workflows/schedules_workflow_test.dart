@@ -18,6 +18,7 @@ import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -141,7 +142,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byWidgetPredicate(
-            (w) => w is NavigationBar || w is NavigationRail,
+            (w) => w is NavigationBar || w is ShellNavigation,
           ),
           matching: find.text(label),
         ),
@@ -202,11 +203,11 @@ void main() {
       await shots.capture(tester, 'cron-gone-back-to-chat');
     });
 
-    testWidgets('desktop: rail with three destinations', (tester) async {
+    testWidgets('desktop: sidebar with three destinations', (tester) async {
       setKanban(true);
       final shots = ScreenshotRecorder('schedules-shell-desktop');
       await pumpShell(tester, shots, size: desktopSize);
-      await shots.capture(tester, 'chat-with-rail');
+      await shots.capture(tester, 'chat-with-sidebar-navigation');
 
       await openTab(tester, 'Schedules');
       await shots.capture(tester, 'schedules-tab');

@@ -76,3 +76,15 @@ Future<void> openThread(WidgetTester tester, String title) async {
   );
   await tester.pumpAndSettle();
 }
+
+/// Unfolds the sidebar's "More" section, which holds Profiles, Skills, Bots,
+/// Plugins and MCP servers. Does nothing when it is already open.
+Future<void> openSidebarMore(WidgetTester tester) async {
+  final closed = find.descendant(
+    of: find.byType(ThreadSidebar),
+    matching: find.byIcon(Icons.chevron_right),
+  );
+  if (closed.evaluate().isEmpty) return;
+  await tester.tap(closed);
+  await tester.pumpAndSettle();
+}

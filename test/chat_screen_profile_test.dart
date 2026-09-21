@@ -15,7 +15,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
-import 'support/pump_chat.dart' show openThread;
+import 'support/pump_chat.dart' show openSidebarMore, openThread;
 
 /// The chat follows the selected Hermes profile. Each profile keeps its own
 /// sessions, so two profiles can hold different sessions under one id.
@@ -102,6 +102,7 @@ void main() {
 
   Future<void> switchProfile(WidgetTester tester, String name) async {
     activate(name);
+    await openSidebarMore(tester);
     await tester.tap(find.text('Profiles'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(name == 'work' ? 'Work assistant' : name));
