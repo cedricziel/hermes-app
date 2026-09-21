@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/mcp/mcp_banner.dart';
 import 'package:hermes_app/src/mcp/mcp_chip.dart';
+import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'fixtures.dart';
 import 'frame.dart';
 
 WidgetbookUseCase _banner(String name, McpBanner banner) =>
@@ -48,6 +50,31 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
             tone: McpTone.success,
             icon: Icons.check_circle_outline,
             title: 'Saved',
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'McpCommandReview',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'One command',
+          builder: (_) => fill(
+            const McpCommandReview(
+              commands: [npxServer],
+              confirmLabel: 'Add server',
+            ),
+            width: 480,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Several, with environment names',
+          builder: (_) => fill(
+            const McpCommandReview(
+              commands: [npxServer, envServer],
+              confirmLabel: 'Save servers',
+            ),
+            width: 480,
           ),
         ),
       ],

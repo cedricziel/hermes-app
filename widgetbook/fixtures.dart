@@ -1,5 +1,6 @@
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
+import 'package:hermes_app/src/mcp/mcp_command_review_items.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 
@@ -176,4 +177,31 @@ const installedCatalogEntry = CatalogEntry(
   installed: true,
   updateAvailable: true,
   providesTools: ['notes_search'],
+);
+
+const pdfAttachment = ChatAttachment(
+  name: 'quarterly-report.pdf',
+  kind: AttachmentKind.file,
+  remotePath: '/home/hermes/uploads/quarterly-report.pdf',
+  size: 482113,
+);
+
+const relativeAttachment = ChatAttachment(
+  name: 'notes.txt',
+  kind: AttachmentKind.file,
+  remotePath: 'attachments/notes.txt',
+);
+
+const npxServer = McpCommandReviewItem(
+  name: 'filesystem',
+  command: 'npx',
+  args: ['-y', '@modelcontextprotocol/server-filesystem', '/srv/projects'],
+);
+
+const envServer = McpCommandReviewItem(
+  name: 'search',
+  command: '/usr/local/bin/search-mcp',
+  args: ['--port', '0'],
+  cwd: '/srv/tools',
+  envNames: ['SEARCH_API_KEY', 'SEARCH_REGION'],
 );
