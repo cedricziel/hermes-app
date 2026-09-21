@@ -714,6 +714,48 @@ void main() {
       expect(request.choices, ['once', 'session', 'deny']);
     });
 
+    for (final (label, choices) in <(String, Object?)>[
+      ('absent', null),
+      ('empty', <String>[]),
+      ('malformed', 'once'),
+    ]) {
+      test('an approval with $label choices still becomes an event, and the '
+          'card falls back to its own buttons', () async {
+        final payload = {...approvalPayload}..remove('choices');
+        if (choices != null) payload['choices'] = choices;
+        gateway.turn = (g, sid) {
+          g.event('approval.request', sid, payload);
+          g.event('message.complete', sid, {
+            'text': 'ok',
+            'status': 'complete',
+          });
+        };
+
+        final events = await reply();
+
+        final request = events.whereType<ApprovalRequested>().single.request;
+        expect(request.requestId, 'r1');
+        expect(request.command, 'rm -rf build');
+        expect(request.choices, isEmpty);
+      });
+    }
+
+    test('an approval without choices can be answered once', () async {
+      final payload = {...approvalPayload}..remove('choices');
+
+      final accepted = await answerWhileRaising(
+        (g, sid) => g.event('approval.request', sid, payload),
+        () => transport.answerApproval('r1', 'once'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.requestOf('approval.respond')['params'], {
+        'session_id': 'rt-1',
+        'request_id': 'r1',
+        'choice': 'once',
+      });
+    });
+
     test('a single clarify question becomes a one-question request', () async {
       gateway.turn = (g, sid) {
         g.event('clarify.request', sid, {
@@ -1055,6 +1097,21 @@ void main() {
       expect(request.command, 'rm -rf build');
       expect(request.description, 'delete files');
       expect(request.choices, ['once', 'session', 'deny']);
+    });
+
+    test('a server-request approval without choices has none', () async {
+      final params = {...approvalParams}..remove('choices');
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-1', 'approval', sid, params);
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(
+        events.whereType<ApprovalRequested>().single.request.choices,
+        isEmpty,
+      );
     });
 
     test('an approval is answered with a response frame', () async {
