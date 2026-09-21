@@ -217,6 +217,25 @@ void main() {
     await tester.pump();
   }
 
+  testWidgets('switching profile stops following the old profile\'s thread', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    await sendMessage(tester, 'first');
+    transport.sends.single
+      ..emit(const ThreadBound('shared'))
+      ..emit(const ReplyCompleted('ok'))
+      ..finish();
+    await tester.pumpAndSettle();
+    final follow = transport.followUpStreams['shared']!;
+    expect(follow.hasListener, isTrue);
+
+    await switchProfile(tester, 'work');
+
+    expect(follow.hasListener, isFalse);
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('a message goes to the gateway under the shown profile', (
     tester,
   ) async {
