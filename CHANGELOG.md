@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.31](https://github.com/cedricziel/hermes-app/compare/v0.1.30...v0.1.31) (2026-09-21)
+
+
+### Bug Fixes
+
+* **telemetry:** use the stable HTTP semantic-convention attribute names ([#263](https://github.com/cedricziel/hermes-app/issues/263)) ([b52edf4](https://github.com/cedricziel/hermes-app/commit/b52edf49b85d3430aeb81e34338ccf7f20691923))
+
 ## [0.1.30](https://github.com/cedricziel/hermes-app/compare/v0.1.29...v0.1.30) (2026-09-21)
 
 
