@@ -98,6 +98,29 @@ class KanbanTask {
   final int progressTotal;
   final int warningCount;
   final String? warningSeverity;
+
+  /// This task in another column, everything else as it was.
+  KanbanTask withStatus(String status) => KanbanTask(
+    id: id,
+    title: title,
+    status: status,
+    body: body,
+    assignee: assignee,
+    priority: priority,
+    tenant: tenant,
+    createdAt: createdAt,
+    startedAt: startedAt,
+    completedAt: completedAt,
+    latestSummary: latestSummary,
+    result: result,
+    commentCount: commentCount,
+    parentCount: parentCount,
+    childCount: childCount,
+    progressDone: progressDone,
+    progressTotal: progressTotal,
+    warningCount: warningCount,
+    warningSeverity: warningSeverity,
+  );
 }
 
 class KanbanColumn {
