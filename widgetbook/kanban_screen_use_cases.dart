@@ -123,12 +123,12 @@ FakeHermesServer kanbanServer({bool empty = false}) => FakeHermesServer()
   ..on('POST', '$_root/boards', {'board': {}});
 
 /// Serves the board and stays quiet: there is no event stream in the catalog.
-Future<StreamChannel<String>> _noEvents({
+Future<StreamChannel<String>> noKanbanEvents({
   required int since,
   String? board,
 }) async => StreamChannelController<String>().foreign;
 
-class _NoFiles implements KanbanFiles {
+class NoKanbanFiles implements KanbanFiles {
   @override
   Future<KanbanPickedFile?> pick() async => null;
 
@@ -158,8 +158,8 @@ WidgetbookUseCase _boardScreen(String name, {bool empty = false}) =>
           value: auth,
           child: KanbanScreen(
             repository: KanbanRepository(kanbanServer(empty: empty).client()),
-            connect: _noEvents,
-            files: _NoFiles(),
+            connect: noKanbanEvents,
+            files: NoKanbanFiles(),
           ),
         ),
       ),
@@ -179,7 +179,7 @@ List<WidgetbookNode> kanbanScreenComponents() => [
           create: () async {
             final controller = KanbanBoardController(
               repository: KanbanRepository(kanbanServer().client()),
-              connect: _noEvents,
+              connect: noKanbanEvents,
             );
             await controller.start();
             return controller;
@@ -230,7 +230,7 @@ List<WidgetbookNode> kanbanScreenComponents() => [
           body: KanbanTaskPanel(
             repository: repository,
             taskId: 't_run',
-            files: _NoFiles(),
+            files: NoKanbanFiles(),
           ),
         ),
       ),
