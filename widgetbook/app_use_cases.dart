@@ -42,18 +42,8 @@ final Uint8List _pixel = base64Decode(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
 );
 
-/// Shows [open] once the use case is on screen, for the dialogs that a
-/// function opens rather than a widget.
-Widget _dialog(Future<void> Function(BuildContext context) open) {
-  return Builder(
-    builder: (context) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) unawaited(open(context));
-      });
-      return const SizedBox.expand();
-    },
-  );
-}
+Widget _dialog(Future<void> Function(BuildContext context) open) =>
+    openOnShow(open);
 
 WidgetbookUseCase _screen(
   String name,

@@ -54,3 +54,18 @@ class _HostedState<T extends Object> extends State<Hosted<T>> {
     return widget.builder(context, value);
   }
 }
+
+/// Runs [open] once the use case is on screen, for the dialogs, sheets and
+/// snackbars that a function opens rather than a widget builds. [behind] is
+/// what the user sees underneath.
+Widget openOnShow(
+  Future<void> Function(BuildContext context) open, {
+  Widget behind = const SizedBox.expand(),
+}) => Builder(
+  builder: (context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) unawaited(open(context));
+    });
+    return Scaffold(body: behind);
+  },
+);
