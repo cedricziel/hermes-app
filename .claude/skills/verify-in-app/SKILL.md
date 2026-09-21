@@ -7,7 +7,9 @@ description: Use when a change to hermes-app should be checked in the running ap
 
 Prove a change works by looking at the real app talking to a real, throwaway
 Hermes Agent backend. Tests and `flutter analyze` come first; this is the
-check that a screen actually looks and behaves right.
+check that a screen actually looks and behaves right. For UI work this comes
+after the widget is right in the Widgetbook catalog (`component-catalog`
+skill), not instead of it.
 
 Safe with many agents at once: every command keeps its state in this
 checkout's `.dart_tool/hermes-dev/`, the backend gets an OS-assigned port and
