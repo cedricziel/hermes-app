@@ -32,10 +32,10 @@ class PlatformKanbanFiles implements KanbanFiles {
 
   @override
   Future<KanbanPickedFile?> pick() async {
-    final result = await FilePicker.pickFiles();
-    final file = result?.files.firstOrNull;
+    final file = await FilePicker.pickFile();
     if (file == null) return null;
-    if (file.size > kanbanAttachmentLimitBytes) {
+    final size = await file.length();
+    if (size != null && size > kanbanAttachmentLimitBytes) {
       throw KanbanException(
         '${file.name} is over the ${kanbanAttachmentLimitBytes ~/ (1024 * 1024)} MB limit for attachments.',
       );

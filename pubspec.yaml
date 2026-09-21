@@ -33,28 +33,28 @@ dependencies:
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.9
 
   # HTTP client for the Hermes dashboard REST API.
-  dio: ^5.7.0
+  dio: ^5.11.1
   # Generated dio-based client for the Hermes Agent REST API (see
   # openapi/hermes-agent.openapi.json and scripts/generate_hermes_api_client.sh).
   hermes_api:
     path: packages/hermes_api
   # OS keychain / keystore for the native OAuth token set.
-  flutter_secure_storage: ^9.2.2
+  flutter_secure_storage: ^11.2.0
   # Opens the system browser for the RFC 8252 native login flow.
-  url_launcher: ^6.3.1
+  url_launcher: ^6.3.2
   # Persists non-secret app settings (server URL) across launches.
-  shared_preferences: ^2.3.3
+  shared_preferences: ^2.5.5
   # App-wide state management (auth session, connection settings).
-  provider: ^6.1.2
+  provider: ^6.1.5+1
   # PKCE code_challenge (SHA-256) for the native OAuth flow.
-  crypto: ^3.0.6
+  crypto: ^3.0.7
   receive_sharing_intent: ^1.9.0
   flutter_chat_ui: ^2.12.0
   flutter_chat_core: ^2.9.1
-  gpt_markdown: ^1.2.1
+  gpt_markdown: ^1.3.0
   flyer_chat_text_message: ^2.6.1
   material_ui: ^1.3.0
   # OpenTelemetry logs and traces, exported to SignalDB. Not on pub.dev, so
@@ -64,8 +64,7 @@ dependencies:
       url: https://github.com/cedricziel/flutter-otel.git
       ref: 4e755d3729444fc19a1dfe892e217aeb46216862
       path: packages/flutter_otel
-  # Coarse device facts for the telemetry resource. It resolves device_info_plus
-  # to 12.x here: 13.x needs win32 6, which flutter_secure_storage 9 rules out.
+  # Coarse device facts for the telemetry resource.
   flutter_otel_device_info:
     git:
       url: https://github.com/cedricziel/flutter-otel.git
@@ -91,7 +90,7 @@ dependencies:
   upgrader: ^13.7.0
   version: ^3.0.2
   local_auth: ^3.0.2
-  file_picker: ^11.0.3
+  file_picker: ^13.1.0
   image_picker: ^1.2.3
   desktop_drop: ^0.8.4
   pasteboard: ^0.5.0
@@ -129,7 +128,7 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   # In-memory SharedPreferencesAsyncPlatform for widget tests.
-  shared_preferences_platform_interface: ^2.4.1
+  shared_preferences_platform_interface: ^2.4.2
 
   # Component catalog (widgetbook/), run with -t widgetbook/main.dart.
   widgetbook: ^3.25.0
@@ -141,7 +140,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   http: ^1.6.0
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.2.1
   fake_async: ^1.3.3
   # Staged-file format and analyze hook, installed by tool/setup_git_hooks.dart.
   dart_pre_commit: ^6.1.4
@@ -151,19 +150,7 @@ dart_pre_commit:
     level: major
     allowed:
       - code_assets
-      - device_info_plus
-      - device_info_plus_platform_interface
-      - file_picker
-      - flutter_secure_storage
-      - flutter_secure_storage_linux
-      - flutter_secure_storage_platform_interface
-      - flutter_secure_storage_web
-      - flutter_secure_storage_windows
-      - package_info_plus
-      - package_info_plus_platform_interface
       - record_use
-      - win32
-      - win32_registry
   pull-up-dependencies: true
   osv-scanner: false
 
