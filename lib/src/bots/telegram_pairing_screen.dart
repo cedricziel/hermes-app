@@ -221,7 +221,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: 12),
-          Text('Waiting for you in Telegram'),
+          Flexible(child: Text('Waiting for you in Telegram')),
         ],
       ),
     ];
