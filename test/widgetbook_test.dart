@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../widgetbook/directories.dart';
@@ -24,6 +26,11 @@ Iterable<(String, WidgetbookUseCase)> _useCases(
 /// overflow. The catalog is not part of the app, so nothing else would notice
 /// a use case that broke.
 void main() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
   for (final (label, useCase) in _useCases(directories)) {
     for (final MapEntry(key: mode, value: theme) in themes.entries) {
       for (final viewport in [phone, desktop]) {
@@ -43,6 +50,9 @@ void main() {
             await tester.pump(const Duration(seconds: 1));
 
             expect(tester.takeException(), isNull);
+
+            await tester.pumpWidget(const SizedBox());
+            await tester.pump(const Duration(seconds: 10));
           } finally {
             debugDefaultTargetPlatformOverride = null;
           }

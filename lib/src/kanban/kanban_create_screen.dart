@@ -146,6 +146,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                 ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String?>(
+                isExpanded: true,
                 initialValue: _assignee,
                 decoration: const InputDecoration(labelText: 'Assignee'),
                 items: [

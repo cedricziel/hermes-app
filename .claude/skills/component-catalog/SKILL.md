@@ -62,9 +62,16 @@ lower-cased names with `-` for spaces.
 
 - Directories are written by hand; there is no `widgetbook_generator` and no
   `build_runner`.
-- A use case builds the widget alone. If it needs a controller or a repository,
-  make a small constructor change on the widget (its tests unchanged) or leave
-  it out. Do not fake a repository here.
+- A use case builds the widget alone. A widget that takes plain models and
+  callbacks is built directly. A screen that needs a controller or repository
+  gets the real ones over `FakeHermesServer` (`test/support/`, which
+  `widgetbook/` may import; `lib/` may not): build a server with the routes the
+  screen calls (see `kanbanServer()` in `kanban_screen_use_cases.dart`), and
+  let `Hosted` (`host.dart`) create and dispose the controller. Never mock the
+  repository itself.
+- `test/widgetbook_test.dart` sets in-memory shared preferences, so a use case
+  may build an `AuthController`, and it unmounts each use case and lets timers
+  run out, so a screen that polls must cancel its timer on dispose.
 - Keep knobs out for now: the smoke test builds use cases without a
   Widgetbook state, so `context.knobs` would throw.
 - Nothing under `widgetbook/` may import `lib/src/telemetry/`; the catalog
