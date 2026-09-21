@@ -144,8 +144,24 @@ dev_dependencies:
   dart_pre_commit: ^6.1.4
 
 dart_pre_commit:
-  outdated: false
-  pull-up-dependencies: false
+  outdated:
+    level: major
+    allowed:
+      - code_assets
+      - device_info_plus
+      - device_info_plus_platform_interface
+      - file_picker
+      - flutter_secure_storage
+      - flutter_secure_storage_linux
+      - flutter_secure_storage_platform_interface
+      - flutter_secure_storage_web
+      - flutter_secure_storage_windows
+      - package_info_plus
+      - package_info_plus_platform_interface
+      - record_use
+      - win32
+      - win32_registry
+  pull-up-dependencies: true
   osv-scanner: false
 
 # For information on the generic Dart part of this file, see the
