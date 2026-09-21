@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.28](https://github.com/cedricziel/hermes-app/compare/v0.1.27...v0.1.28) (2026-09-21)
+
+
+### Features
+
+* **kanban:** drag cards on phones, instant moves and a progress bar on running cards ([#232](https://github.com/cedricziel/hermes-app/issues/232)) ([d290608](https://github.com/cedricziel/hermes-app/commit/d290608f66bc2b6dc54d3882c14bbba2f09a76cb))
+
+
+### Bug Fixes
+
+* **chat:** let the input card title shrink on narrow screens ([535544e](https://github.com/cedricziel/hermes-app/commit/535544e6d5b1950687e470a4c2cb16336159861a))
+* **kanban:** let the assignee dropdown fill the row ([5e3d802](https://github.com/cedricziel/hermes-app/commit/5e3d802b5a4c93ff66e42ebb8ede5d66a568e9e3))
+
+
+### Documentation
+
+* **fastlane:** explain the network.server entitlement in review notes ([#230](https://github.com/cedricziel/hermes-app/issues/230)) ([627066f](https://github.com/cedricziel/hermes-app/commit/627066fe192ebaa74afd85436cb1467c3196b869))
+* link the component catalog from the readme ([#246](https://github.com/cedricziel/hermes-app/issues/246)) ([d1fef3d](https://github.com/cedricziel/hermes-app/commit/d1fef3d116f0b88398a2364a79f8e5d68d859551))
+
 ## [0.1.27](https://github.com/cedricziel/hermes-app/compare/v0.1.26...v0.1.27) (2026-09-20)
 
 
