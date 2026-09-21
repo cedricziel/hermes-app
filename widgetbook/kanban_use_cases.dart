@@ -2,6 +2,7 @@ import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
+import 'kanban_screen_use_cases.dart';
 import 'frame.dart';
 
 WidgetbookUseCase _card(String name, KanbanCard card) =>
@@ -18,5 +19,6 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
         _card('Selected', const KanbanCard(task: busyTask, selected: true)),
       ],
     ),
+    ...kanbanScreenComponents(),
   ],
 );
