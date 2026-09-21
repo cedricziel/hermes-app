@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
+import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/follow_up_chips.dart';
+import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:provider/provider.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -21,6 +25,9 @@ Future<void> _skips() =>
     Future<void>.delayed(const Duration(milliseconds: 600));
 
 Future<void> _skipFails() async => throw StateError('offline');
+
+Widget _noStore(Widget child) =>
+    Provider<MediaStore?>.value(value: null, child: child);
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -112,6 +119,33 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         WidgetbookUseCase(
           name: 'No name',
           builder: (_) => WelcomeView(greetingName: null, onPick: (_) {}),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MessageActions',
+      useCases: [
+        _tool('Copy', const MessageActions(text: 'The build finished.')),
+        _tool(
+          'Copy and retry',
+          MessageActions(text: 'The build finished.', onRetry: () {}),
+        ),
+        _tool(
+          'Retry only (failed reply)',
+          MessageActions(text: 'Timed out', showCopy: false, onRetry: () {}),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'AttachmentCard',
+      useCases: [
+        _tool(
+          'With size',
+          _noStore(const AttachmentCard(attachment: pdfAttachment)),
+        ),
+        _tool(
+          'Size unknown',
+          _noStore(const AttachmentCard(attachment: relativeAttachment)),
         ),
       ],
     ),
