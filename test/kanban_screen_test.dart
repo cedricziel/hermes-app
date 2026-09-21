@@ -242,6 +242,158 @@ void main() {
     );
   });
 
+  testWidgets('a phone drags a card by its handle onto a status', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('PATCH', '/api/plugins/kanban/tasks/t_run', {'ok': true});
+    await pumpBoard(tester, size: const Size(400, 800));
+    expect(find.widgetWithText(Chip, 'Blocked'), findsNothing);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byIcon(Icons.drag_indicator)),
+    );
+    await gesture.moveBy(const Offset(0, 40));
+    await tester.pump();
+    await gesture.moveTo(
+      tester.getCenter(find.widgetWithText(Chip, 'Blocked')),
+    );
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(
+      jsonBody(
+        server.requestsTo('PATCH', '/api/plugins/kanban/tasks/t_run').single,
+      ),
+      containsPair('status', 'blocked'),
+    );
+    expect(find.widgetWithText(Chip, 'Blocked'), findsNothing);
+  });
+
+  testWidgets('a dropped card is in its new column before the server answers', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('PATCH', '/api/plugins/kanban/tasks/t_todo', {'ok': true});
+    await pumpBoard(tester, size: const Size(1600, 900));
+    final from = tester.getCenter(find.text('Write docs'));
+    final to = tester.getCenter(find.text('Blocked  0'));
+
+    final gesture = await tester.startGesture(from);
+    await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+    await gesture.moveTo(to);
+    await tester.pump();
+    await gesture.up();
+    // One frame: the PATCH and the refetch have not come back yet.
+    await tester.pump();
+
+    expect(find.text('Blocked  1'), findsOneWidget);
+    expect(find.text('Todo  0'), findsOneWidget);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a card another client moved arrives with an animation', (
+    tester,
+  ) async {
+    serveTasks();
+    final socket = StreamChannelController<String>();
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthController>(
+        create: (_) => AuthController(),
+        child: MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: KanbanScreen(
+            repository: KanbanRepository(server.client()),
+            connect: ({required since, board}) async => socket.foreign,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Blocked  0'), findsOneWidget);
+
+    server.on(
+      'GET',
+      '/api/plugins/kanban/board',
+      kanbanBoardBody([
+        kanbanTaskRow(id: 't_todo', title: 'Write docs', status: 'blocked'),
+      ]),
+    );
+    socket.local.sink.add(
+      '{"cursor": 1, "events": [{"id": 1, "task_id": "t_todo", "kind": "blocked"}]}',
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Blocked  1'), findsOneWidget);
+    final size = tester.widget<SizeTransition>(
+      find.ancestor(
+        of: find.text('Write docs'),
+        matching: find.byType(SizeTransition),
+      ),
+    );
+    expect(size.sizeFactor.value, inInclusiveRange(0.01, 0.99));
+
+    await tester.pumpAndSettle();
+    expect(find.text('Write docs'), findsOneWidget);
+  });
+
+  testWidgets('only running cards show a progress bar', (tester) async {
+    serveTasks();
+    await pumpBoard(tester, size: const Size(1600, 900));
+
+    final bars = tester.widgetList<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+
+    expect(bars, hasLength(1));
+    expect(bars.single.value, closeTo(0.4, 1e-9));
+  });
+
+  testWidgets('a running card without children shows a moving bar', (
+    tester,
+  ) async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/board',
+      kanbanBoardBody([
+        kanbanTaskRow(id: 't_a', title: 'Alpha', status: 'running'),
+      ]),
+    );
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthController>(
+        create: (_) => AuthController(),
+        child: MaterialApp(
+          theme: buildHermesLightTheme(),
+          home: KanbanScreen(
+            repository: KanbanRepository(server.client()),
+            connect: ({required since, board}) async =>
+                StreamChannelController<String>().foreign,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      tester
+          .widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator))
+          .value,
+      isNull,
+    );
+    // The bar never settles; take the board down before the test ends.
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('New task opens the create form', (tester) async {
     serveTasks();
     server.on('GET', '/api/plugins/kanban/assignees', {'assignees': []});
@@ -381,8 +533,18 @@ void main() {
       'GET',
       '/api/plugins/kanban/board',
       kanbanBoardBody([
-        kanbanTaskRow(id: 't_a', title: 'Alpha', status: 'running'),
-        kanbanTaskRow(id: 't_b', title: 'Beta', status: 'running'),
+        kanbanTaskRow(
+          id: 't_a',
+          title: 'Alpha',
+          status: 'running',
+          progress: {'done': 1, 'total': 2},
+        ),
+        kanbanTaskRow(
+          id: 't_b',
+          title: 'Beta',
+          status: 'running',
+          progress: {'done': 1, 'total': 2},
+        ),
       ]),
     );
     server.on('POST', '/api/plugins/kanban/tasks/bulk', {
