@@ -90,7 +90,7 @@ class AuthController extends ChangeNotifier {
   String? _baseUrl;
   String? _savedServerUrl;
   int _connectGeneration = 0;
-  Future<void> _savedServerWrites = Future.value();
+  Future<void>? _savedServerWrites;
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -408,7 +408,8 @@ class AuthController extends ChangeNotifier {
   /// Runs writes of the saved server one at a time, so a slow write from a
   /// superseded connect can't land after a newer one.
   Future<void> _writeSavedServer(Future<void> Function() write) {
-    final done = _savedServerWrites.then((_) => write());
+    final previous = _savedServerWrites;
+    final done = previous == null ? write() : previous.then((_) => write());
     _savedServerWrites = done.catchError((Object _) {});
     return done;
   }
