@@ -191,7 +191,30 @@ void main() {
       final thinking = out.single as CustomMessage;
       expect(thinking.id, 'm1-thinking');
       expect(thinking.authorId, kAssistantAuthorId);
-      expect(thinking.metadata, {kMetaKind: kKindThinking});
+      expect(thinking.metadata, {
+        kMetaKind: kKindThinking,
+        kMetaThinkingStartedAt: createdAt,
+        kMetaThinkingActivity: 'Thinking…',
+      });
+    });
+
+    test('names the running tool as the current activity', () {
+      final out = chatMessageToFlyer(
+        message(
+          content: '',
+          status: MessageStatus.thinking,
+          toolCalls: const [
+            ToolCall(
+              name: 'git_show',
+              summary: '',
+              status: ToolCallStatus.running,
+            ),
+          ],
+        ),
+      );
+
+      final thinking = out.last as CustomMessage;
+      expect(thinking.metadata![kMetaThinkingActivity], 'Running git_show…');
     });
 
     test('thinking replaces any text content', () {

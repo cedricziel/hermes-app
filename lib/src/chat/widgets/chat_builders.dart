@@ -223,7 +223,10 @@ Widget _buildCustom(
         active: metadata[kMetaReasoningActive] == true,
       );
     case kKindThinking:
-      return const ThinkingIndicator();
+      return ThinkingIndicator(
+        startedAt: metadata![kMetaThinkingStartedAt] as DateTime,
+        activity: metadata[kMetaThinkingActivity] as String,
+      );
     case kKindInputRequest:
       return switch (metadata![kMetaInputRequest]) {
         ApprovalRequest request => ApprovalCard(

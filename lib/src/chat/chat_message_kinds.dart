@@ -17,10 +17,14 @@ const String kKindReasoning = 'reasoning';
 /// `List<ToolCall>`): a run of one or more calls the agent made back to back,
 /// with no reasoning between them. A `kKindInputRequest` message carries
 /// `request` (the `InputRequest`). A `kKindReasoning` message carries `text`
-/// (String) and `active` (bool, the reply is still being written).
+/// (String) and `active` (bool, the reply is still being written). A
+/// `kKindThinking` message carries `startedAt` (DateTime, when the reply
+/// began) and `activity` (String, what it is doing right now).
 const String kMetaKind = 'kind';
 const String kMetaToolCalls = 'calls';
 const String kMetaInputRequest = 'request';
+const String kMetaThinkingStartedAt = 'startedAt';
+const String kMetaThinkingActivity = 'activity';
 
 /// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
 /// `ChatAttachment` it stands for.
