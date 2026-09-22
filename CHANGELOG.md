@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.32](https://github.com/cedricziel/hermes-app/compare/v0.1.31...v0.1.32) (2026-09-22)
+
+
+### Features
+
+* **chat:** merge the nav rail into a denser sidebar ([#266](https://github.com/cedricziel/hermes-app/issues/266)) ([9c4b0c7](https://github.com/cedricziel/hermes-app/commit/9c4b0c7744f362aaf09b215b74ad3f64d14d0696))
+
+
+### Bug Fixes
+
+* **chat:** reconnect after the app sleeps instead of hanging ([#267](https://github.com/cedricziel/hermes-app/issues/267)) ([64a4858](https://github.com/cedricziel/hermes-app/commit/64a4858c3e89a558044b35d92ed423415a57a473))
+* **chat:** show turns Hermes chains after a reply ([#265](https://github.com/cedricziel/hermes-app/issues/265)) ([6340e42](https://github.com/cedricziel/hermes-app/commit/6340e42ebaa8a26bface03c69d4d3c15814300e3))
+* **watch:** connection gate, missing notifications, stale list, background relay ([#269](https://github.com/cedricziel/hermes-app/issues/269)) ([9675a25](https://github.com/cedricziel/hermes-app/commit/9675a25af015f12fd416f62a0f61b5cf5da00b0b))
+
 ## [0.1.31](https://github.com/cedricziel/hermes-app/compare/v0.1.30...v0.1.31) (2026-09-21)
 
 
