@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
+import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +42,15 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Running', const ToolCallCard(call: runningToolCall)),
         _tool('Finished', const ToolCallCard(call: finishedToolCall)),
         _tool('Failed', const ToolCallCard(call: failedToolCall)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ToolCallGroup',
+      useCases: [
+        _tool('Single call', const ToolCallGroup(calls: [runningToolCall])),
+        _tool('Finished run', const ToolCallGroup(calls: finishedToolRun)),
+        _tool('Running', const ToolCallGroup(calls: runningToolRun)),
+        _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
       ],
     ),
     WidgetbookComponent(

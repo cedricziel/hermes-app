@@ -24,6 +24,31 @@ const failedToolCall = ToolCall(
   result: 'Request timed out after 30 s',
 );
 
+const finishedToolRun = [
+  ToolCall(name: 'terminal', summary: '{"command":"journalctl -u backup"}'),
+  ToolCall(name: 'read_file', summary: '{"path":"/etc/backup.timer"}'),
+  ToolCall(name: 'edit_file', summary: '{"path":"/etc/backup.timer"}'),
+];
+
+const runningToolRun = [
+  ToolCall(name: 'terminal', summary: '{"command":"journalctl -u backup"}'),
+  ToolCall(
+    name: 'read_file',
+    summary: '{"path":"/etc/backup.timer"}',
+    status: ToolCallStatus.running,
+  ),
+];
+
+const failedToolRun = [
+  ToolCall(name: 'terminal', summary: '{"command":"ping nas-02"}'),
+  ToolCall(
+    name: 'restic_run',
+    summary: '',
+    status: ToolCallStatus.error,
+    result: 'connection reset by peer',
+  ),
+];
+
 const pendingApproval = ApprovalRequest(
   requestId: 'approval-1',
   command: 'rm -rf build',

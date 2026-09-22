@@ -8,21 +8,18 @@ const String kUserAuthorId = 'user';
 const String kAssistantAuthorId = 'hermes';
 
 /// `metadata['kind']` values on a `CustomMessage`.
-const String kKindToolCall = 'tool_call';
+const String kKindToolGroup = 'tool_group';
 const String kKindThinking = 'thinking';
 const String kKindInputRequest = 'input_request';
 const String kKindReasoning = 'reasoning';
 
-/// Metadata keys. A `kKindToolCall` message carries `name` (String),
-/// `summary` (String) and `status` (`ToolCallStatus.name`). A
-/// `kKindInputRequest` message carries `request` (the `InputRequest`). A
-/// `kKindReasoning` message carries `text` (String) and `active` (bool, the
-/// reply is still being written).
+/// Metadata keys. A `kKindToolGroup` message carries `calls` (a
+/// `List<ToolCall>`): a run of one or more calls the agent made back to back,
+/// with no reasoning between them. A `kKindInputRequest` message carries
+/// `request` (the `InputRequest`). A `kKindReasoning` message carries `text`
+/// (String) and `active` (bool, the reply is still being written).
 const String kMetaKind = 'kind';
-const String kMetaToolName = 'name';
-const String kMetaToolSummary = 'summary';
-const String kMetaToolStatus = 'status';
-const String kMetaToolResult = 'result';
+const String kMetaToolCalls = 'calls';
 const String kMetaInputRequest = 'request';
 
 /// Carried by the `ImageMessage` or `FileMessage` of an attachment: the
