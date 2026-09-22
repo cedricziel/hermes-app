@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../core/safe_notifier.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
 import 'schedule_models.dart';
@@ -15,7 +16,7 @@ String describeSaveFailure(Object e) => switch (e) {
 /// State of the job form, for a new job or for changing [editing]. It
 /// guards against a second save while one runs, and keeps the values and the
 /// server's reason when a save is refused.
-class JobFormController extends ChangeNotifier {
+class JobFormController extends ChangeNotifier with SafeNotifier {
   JobFormController({
     required this.repository,
     this.editing,

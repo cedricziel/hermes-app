@@ -54,6 +54,19 @@ Future<HttpServer> _startDashboard({
   return server;
 }
 
+/// A [MemoryTokenStore] whose writes wait for [writeGate].
+class _GatedTokenStore extends MemoryTokenStore {
+  Completer<void>? writeGate;
+  final writeStarted = Completer<void>();
+
+  @override
+  Future<void> write(HermesSession next) async {
+    if (!writeStarted.isCompleted) writeStarted.complete();
+    await writeGate?.future;
+    await super.write(next);
+  }
+}
+
 void main() {
   late HttpServer dashboard;
   late RecordedEvents events;
@@ -219,8 +232,9 @@ void main() {
       int meStatus = 200,
       Future<void>? meGate,
       List<String?>? meAuthorization,
+      MemoryTokenStore? tokenStore,
     }) async {
-      store = MemoryTokenStore();
+      store = tokenStore ?? MemoryTokenStore();
       dashboard = await _startDashboard(
         me: me,
         meStatus: meStatus,
@@ -320,6 +334,29 @@ void main() {
         await signIn;
 
         expect(controller.state, HermesConnectionState.needsServerUrl);
+        expect(store.session, isNull);
+      },
+    );
+
+    test(
+      'leaving the server while the session is being stored keeps nothing',
+      () async {
+        final gated = _GatedTokenStore()..writeGate = Completer<void>();
+        final controller = await signInAgainst(
+          me: {'user_id': 'u1'},
+          tokenStore: gated,
+        );
+
+        final signIn = controller.signInWithProvider(
+          controller.providers.single,
+        );
+        await gated.writeStarted.future;
+        final leaving = controller.changeServer();
+        gated.writeGate!.complete();
+        await Future.wait([signIn, leaving]);
+
+        expect(controller.state, HermesConnectionState.needsServerUrl);
+        expect(controller.identity, isNull);
         expect(store.session, isNull);
       },
     );

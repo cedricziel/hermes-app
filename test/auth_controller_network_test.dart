@@ -272,4 +272,50 @@ void main() {
       }
     });
   });
+
+  test('a slow connect that ends last does not replace a newer one', () async {
+    final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    slow.listen((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'auth_required': false}))
+        ..close();
+    });
+    final fast = await _Dashboard.start();
+    addTearDown(() => slow.close(force: true));
+    addTearDown(fast.close);
+    final auth = controller();
+
+    final first = auth.connect('http://127.0.0.1:${slow.port}');
+    await auth.connect('http://127.0.0.1:${fast.port}');
+    await first;
+
+    expect(auth.baseUrl, 'http://127.0.0.1:${fast.port}');
+    expect(
+      await SharedPreferencesAsync().getString(_savedKey),
+      'http://127.0.0.1:${fast.port}',
+    );
+  });
+
+  test('changing the server while a connect runs keeps it cleared', () async {
+    final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    slow.listen((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'auth_required': false}))
+        ..close();
+    });
+    addTearDown(() => slow.close(force: true));
+    final auth = controller();
+
+    final pending = auth.connect('http://127.0.0.1:${slow.port}');
+    await auth.changeServer();
+    await pending;
+
+    expect(auth.baseUrl, isNull);
+    expect(auth.state, HermesConnectionState.needsServerUrl);
+    expect(await SharedPreferencesAsync().getString(_savedKey), isNull);
+  });
 }

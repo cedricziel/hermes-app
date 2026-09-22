@@ -89,6 +89,8 @@ class AuthController extends ChangeNotifier {
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
   String? _savedServerUrl;
+  int _connectGeneration = 0;
+  Future<void>? _savedServerWrites;
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -156,6 +158,8 @@ class AuthController extends ChangeNotifier {
     bool restoring = false,
     bool automatic = false,
   }) async {
+    final generation = ++_connectGeneration;
+    bool stale() => generation != _connectGeneration;
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
       _errorMessage =
@@ -179,6 +183,7 @@ class AuthController extends ChangeNotifier {
     try {
       status = await HermesApiClient(probeDio).fetchStatus();
     } on DioException catch (e) {
+      if (stale()) return;
       _failConnect(
         e,
         normalized,
@@ -187,16 +192,22 @@ class AuthController extends ChangeNotifier {
       );
       return;
     } on FormatException {
+      if (stale()) return;
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
       return;
     }
+    if (stale()) return;
 
     _baseUrl = normalized;
     _status = status;
     if (remember) {
-      _savedServerUrl = normalized;
-      await _prefs.setString(_prefsBaseUrlKey, normalized);
+      await _writeSavedServer(() async {
+        if (stale()) return;
+        _savedServerUrl = normalized;
+        await _prefs.setString(_prefsBaseUrlKey, normalized);
+      });
+      if (stale()) return;
     }
 
     _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
@@ -212,7 +223,9 @@ class AuthController extends ChangeNotifier {
 
     try {
       _providers = await _api!.fetchAuthProviders();
+      if (stale()) return;
     } on DioException catch (e) {
+      if (stale()) return;
       _failConnect(
         e,
         normalized,
@@ -221,12 +234,14 @@ class AuthController extends ChangeNotifier {
       );
       return;
     } on FormatException {
+      if (stale()) return;
       _errorMessage = 'Could not load sign-in options';
       _setState(HermesConnectionState.connectionError);
       return;
     }
 
     final storedSession = await _tokenStore.read();
+    if (stale()) return;
     if (storedSession == null) {
       _setState(HermesConnectionState.needsLogin);
       return;
@@ -234,13 +249,15 @@ class AuthController extends ChangeNotifier {
 
     _session = storedSession;
     try {
-      _identity = await _api!.fetchMe();
+      final identity = await _api!.fetchMe();
+      if (stale()) return;
+      _identity = identity;
       _setState(HermesConnectionState.ready);
     } on DioException catch (e) {
       // When the interceptor confirmed the credential is dead it has already
       // cleared the session and asked for a login. Anything else (network,
       // 5xx) leaves the tokens alone so the user can simply retry.
-      if (_session == null) return;
+      if (stale() || _session == null) return;
       _failConnect(
         e,
         normalized,
@@ -248,6 +265,7 @@ class AuthController extends ChangeNotifier {
         automatic: automatic,
       );
     } on FormatException {
+      if (stale()) return;
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
     }
@@ -328,6 +346,10 @@ class AuthController extends ChangeNotifier {
       final identity = await _api!.fetchMe(accessToken: session.accessToken);
       if (abandoned()) return;
       await _tokenStore.write(session);
+      if (abandoned()) {
+        await _tokenStore.clear();
+        return;
+      }
       _session = session;
       _identity = identity;
       report('succeeded');
@@ -386,12 +408,23 @@ class AuthController extends ChangeNotifier {
     );
   }
 
+  /// Runs writes of the saved server one at a time, so a slow write from a
+  /// superseded connect can't land after a newer one.
+  Future<void> _writeSavedServer(Future<void> Function() write) {
+    final previous = _savedServerWrites;
+    final done = previous == null ? write() : previous.then((_) => write());
+    _savedServerWrites = done.catchError((Object _) {});
+    return done;
+  }
+
   /// Forgets the configured server entirely and returns to setup.
   Future<void> changeServer() async {
-    await _tokenStore.clear();
-    await _prefs.remove(_prefsBaseUrlKey);
-    _baseUrl = null;
+    ++_connectGeneration;
+    cancelSignIn();
     _savedServerUrl = null;
+    await _tokenStore.clear();
+    await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
+    _baseUrl = null;
     _status = null;
     _providers = const [];
     _session = null;

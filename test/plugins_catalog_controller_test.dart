@@ -300,4 +300,17 @@ void main() {
       expect(events.every((e) => e.$2.isEmpty), isTrue);
     });
   });
+
+  test('an install finishing after dispose does not notify', () async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('POST', install, (_) => gate.future);
+    final c = CatalogController(
+      HermesPluginManagerRepository(server.client().raw),
+    );
+    final run = c.installFromCatalog('snapcompact');
+    c.dispose();
+    gate.complete((status: 200, body: {'ok': true, 'plugin_name': 'snap'}));
+
+    expect((await run)?.ok, isTrue);
+  });
 }

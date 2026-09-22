@@ -231,4 +231,38 @@ void main() {
       expect(events.single.$1, 'plugins.update.ok');
     });
   });
+
+  test('a change finishing after dispose does not notify', () async {
+    const enable = '/api/dashboard/agent-plugins/netbox/enable';
+    final gate = Completer<FakeResponse>();
+    server.onRequest('POST', enable, (_) => gate.future);
+    final c = PluginsController(
+      HermesPluginManagerRepository(server.client().raw),
+    );
+    final change = c.setEnabled('netbox', true);
+    c.dispose();
+    gate.complete((status: 200, body: {'ok': true}));
+
+    expect((await change).ok, isTrue);
+  });
+
+  test('a change that throws still clears the busy mark', () async {
+    final c = PluginsController(_Throwing(server.client().raw));
+    var heard = 0;
+    c.addListener(() => heard++);
+
+    await expectLater(c.setEnabled('netbox', true), throwsStateError);
+
+    expect(c.isBusy('netbox'), isFalse);
+    expect(heard, 2);
+    c.dispose();
+  });
+}
+
+class _Throwing extends HermesPluginManagerRepository {
+  _Throwing(super.api);
+
+  @override
+  Future<PluginActionResult> setEnabled(String name, bool enabled) =>
+      Future.error(StateError('boom'));
 }

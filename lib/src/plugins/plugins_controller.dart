@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../core/safe_notifier.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'installed_plugin.dart';
 
@@ -9,7 +10,7 @@ enum PluginsFailure { failed, unsupported }
 
 /// What the Plugins screen shows and does: the installed plugins, which one is
 /// open, and which have a change running.
-class PluginsController extends ChangeNotifier {
+class PluginsController extends ChangeNotifier with SafeNotifier {
   PluginsController(this._repository, {this._events = noopAppEventLogger});
 
   final HermesPluginManagerRepository _repository;
@@ -107,6 +108,7 @@ class PluginsController extends ChangeNotifier {
       result = await call();
     } finally {
       _busy.remove(name);
+      notifyListeners();
     }
     final outcome = !result.ok
         ? 'error'

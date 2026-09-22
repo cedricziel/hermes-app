@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../core/safe_notifier.dart';
 import 'catalog_entry.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'plugin_install_result.dart';
@@ -12,7 +13,7 @@ import 'plugins_controller.dart' show PluginsFailure;
 ///
 /// [onInstalled] is called after an install went through, or may have (a
 /// timeout), so the caller can reload what it shows.
-class CatalogController extends ChangeNotifier {
+class CatalogController extends ChangeNotifier with SafeNotifier {
   CatalogController(
     this._repository, {
     this._events = noopAppEventLogger,
@@ -121,6 +122,7 @@ class CatalogController extends ChangeNotifier {
       result = await _repository.installFromCatalog(name, enable: enable);
     } finally {
       _installing.remove(name);
+      notifyListeners();
     }
     _events('plugins.install.${_outcome(result)}', {'plugin.name': name});
     await _afterInstall(result);

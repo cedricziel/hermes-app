@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../core/safe_notifier.dart';
 import 'hermes_plugin_manager_repository.dart';
 import 'installed_plugin.dart' show PluginActionResult;
 import 'plugins_controller.dart' show PluginsFailure;
@@ -11,7 +12,7 @@ import 'provider_settings.dart';
 /// context engine settings, the user's unsaved choices, and saving them.
 ///
 /// An empty memory choice is the built-in provider, as on the server.
-class ProvidersController extends ChangeNotifier {
+class ProvidersController extends ChangeNotifier with SafeNotifier {
   ProvidersController(this._repository, {this._events = noopAppEventLogger});
 
   final HermesPluginManagerRepository _repository;
@@ -127,6 +128,7 @@ class ProvidersController extends ChangeNotifier {
       );
     } finally {
       _saving = false;
+      notifyListeners();
     }
     _events('plugins.providers.save.${result.ok ? 'ok' : 'error'}', {
       if (memory != null)

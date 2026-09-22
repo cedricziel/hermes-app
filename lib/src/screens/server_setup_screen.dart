@@ -140,6 +140,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
   }
 
   void _submit(AuthController auth) {
+    if (auth.state == HermesConnectionState.connecting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
     auth.connect(_controller.text);

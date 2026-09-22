@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
@@ -118,5 +120,28 @@ void main() {
     await job.run();
 
     expect(heard, greaterThanOrEqualTo(2));
+  });
+
+  test('a disposed job stops polling and does not notify', () async {
+    var polls = 0;
+    final waiting = Completer<void>();
+    final job = SkillJob(
+      title: 'x',
+      start: () async => const StartedJob(name: 'job', pid: 1),
+      status: (_) async {
+        polls++;
+        return const JobStatus(running: true, pid: 1);
+      },
+      wait: (_) {
+        if (!waiting.isCompleted) waiting.complete();
+        return Future<void>.delayed(const Duration(milliseconds: 5));
+      },
+    );
+    final done = job.run();
+    await waiting.future;
+    job.dispose();
+
+    await expectLater(done, completes);
+    expect(polls, 1);
   });
 }

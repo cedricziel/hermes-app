@@ -387,4 +387,26 @@ void main() {
       expect(c.job!.state, JobState.succeeded);
     });
   });
+
+  test('a job still running when the screen closes stops quietly', () async {
+    final gate = Completer<FakeResponse>();
+    server
+      ..on('POST', '/api/skills/hub/install', {'pid': 1, 'name': 'j'})
+      ..onRequest('GET', '/api/actions/j/status', (_) => gate.future);
+    final c = hub();
+    await c.load();
+
+    c.install(scraper, scanOf(InstallPolicy.allow));
+    await until(
+      () => server.requestsTo('GET', '/api/actions/j/status').isNotEmpty,
+    );
+    final skillsLoads = server.requestsTo('GET', '/api/skills').length;
+    c.dispose();
+    skills.dispose();
+    gate.complete((status: 200, body: jobStatusBody(name: 'j', pid: 1)));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(server.requestsTo('GET', '/api/actions/j/status'), hasLength(1));
+    expect(server.requestsTo('GET', '/api/skills'), hasLength(skillsLoads));
+  });
 }

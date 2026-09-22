@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/safe_notifier.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_command_review_items.dart';
@@ -137,7 +138,7 @@ enum McpOutcome {
 /// Every request carries the profile learned in [load]. A profile lookup that
 /// fails for any reason but 404 fails the load, so nothing is listed or
 /// changed unscoped.
-class McpServersController extends ChangeNotifier {
+class McpServersController extends ChangeNotifier with SafeNotifier {
   McpServersController({
     required this.repository,
     this.profiles,
@@ -152,7 +153,6 @@ class McpServersController extends ChangeNotifier {
   List<HermesMcpServer>? _servers;
   bool _loading = true;
   bool _failed = false;
-  bool _disposed = false;
   bool _saving = false;
   bool _reviewing = false;
   final _switching = <String>{};
@@ -190,16 +190,16 @@ class McpServersController extends ChangeNotifier {
   Future<void> load() async {
     _loading = true;
     _failed = false;
-    _notify();
+    notifyListeners();
     try {
       _profile = await _activeProfile();
       await _fetch();
     } on Object {
-      if (_disposed) return;
+      if (disposed) return;
       _failed = true;
     }
     _loading = false;
-    _notify();
+    notifyListeners();
   }
 
   Future<String?> _activeProfile() async {
@@ -214,7 +214,7 @@ class McpServersController extends ChangeNotifier {
 
   Future<void> _fetch() async {
     final servers = await repository.loadServers(profile: _profile);
-    if (_disposed) return;
+    if (disposed) return;
     _servers = servers;
     _tests.removeWhere((name, _) => servers.every((s) => s.name != name));
   }
@@ -226,10 +226,10 @@ class McpServersController extends ChangeNotifier {
     try {
       await _fetch();
     } on Object {
-      if (_disposed) return;
+      if (disposed) return;
       _failed = true;
     }
-    _notify();
+    notifyListeners();
   }
 
   /// Adds [server] to the profile. A command server makes Hermes run a
@@ -243,7 +243,7 @@ class McpServersController extends ChangeNotifier {
     if (_saving) return const McpAddCancelled();
     if (!_ready) return const McpAddFailed();
     _saving = true;
-    _notify();
+    notifyListeners();
     try {
       if (server is McpNewCommandServer &&
           !await _confirm(review, [McpCommandReviewItem.of(server)])) {
@@ -260,7 +260,7 @@ class McpServersController extends ChangeNotifier {
       return const McpAddFailed();
     } finally {
       _saving = false;
-      _notify();
+      notifyListeners();
     }
   }
 
@@ -269,12 +269,12 @@ class McpServersController extends ChangeNotifier {
     List<McpCommandReviewItem> commands,
   ) async {
     _reviewing = true;
-    _notify();
+    notifyListeners();
     try {
       return await review(commands);
     } finally {
       _reviewing = false;
-      _notify();
+      notifyListeners();
     }
   }
 
@@ -298,7 +298,7 @@ class McpServersController extends ChangeNotifier {
     if (_saving) return const McpReplaceCancelled();
     if (!_ready) return const McpReplaceFailed();
     _saving = true;
-    _notify();
+    notifyListeners();
     try {
       final snapshot = <String, Map<String, Object?>>{
         for (final e in (jsonDecode(jsonEncode(servers)) as Map).entries)
@@ -317,7 +317,7 @@ class McpServersController extends ChangeNotifier {
       return const McpReplaceFailed();
     } finally {
       _saving = false;
-      _notify();
+      notifyListeners();
     }
   }
 
@@ -326,7 +326,7 @@ class McpServersController extends ChangeNotifier {
   Future<McpOutcome> setEnabled(HermesMcpServer server, bool enabled) async {
     final name = server.name;
     if (!_switching.add(name)) return McpOutcome.failed;
-    _notify();
+    notifyListeners();
     try {
       await repository.setEnabled(name, enabled, profile: _profile);
       _servers = [
@@ -338,7 +338,7 @@ class McpServersController extends ChangeNotifier {
       return _failure(e);
     } finally {
       _switching.remove(name);
-      _notify();
+      notifyListeners();
     }
   }
 
@@ -347,7 +347,7 @@ class McpServersController extends ChangeNotifier {
     if (_tests[name] is McpTestRunning) return;
     final run = McpTestRunning();
     _tests[name] = run;
-    _notify();
+    notifyListeners();
     McpTestState? outcome;
     try {
       outcome = McpTestFinished(
@@ -365,7 +365,7 @@ class McpServersController extends ChangeNotifier {
         _tests[name] = outcome;
       }
     }
-    _notify();
+    notifyListeners();
   }
 
   /// Deletes the server. A server the dashboard no longer knows counts as
@@ -379,7 +379,7 @@ class McpServersController extends ChangeNotifier {
     }
     _servers = _servers?.where((s) => s.name != name).toList();
     _tests.remove(name);
-    _notify();
+    notifyListeners();
     return McpOutcome.done;
   }
 
@@ -389,7 +389,7 @@ class McpServersController extends ChangeNotifier {
     final name = server.name;
     if (!_startingSignIn.add(name)) return const McpSignInDeclined();
     _signInNotes.remove(name);
-    _notify();
+    notifyListeners();
     try {
       return McpSignInStarted(
         await repository.startSignIn(name, profile: _profile),
@@ -412,7 +412,7 @@ class McpServersController extends ChangeNotifier {
       return const McpSignInDeclined();
     } finally {
       _startingSignIn.remove(name);
-      _notify();
+      notifyListeners();
     }
   }
 
@@ -427,15 +427,5 @@ class McpServersController extends ChangeNotifier {
     if (!isMcpNotFound(error)) return McpOutcome.failed;
     await _reload();
     return McpOutcome.gone;
-  }
-
-  void _notify() {
-    if (!_disposed) notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    super.dispose();
   }
 }

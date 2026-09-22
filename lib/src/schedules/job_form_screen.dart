@@ -33,6 +33,7 @@ class JobFormScreen extends StatefulWidget {
     this.profileNames = const [],
   });
 
+  /// Owned by the screen, which disposes it.
   final JobFormController controller;
 
   /// The profiles a new job can be created in. One or none hides the choice.
@@ -83,6 +84,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     ]) {
       c.dispose();
     }
+    _form.dispose();
     super.dispose();
   }
 

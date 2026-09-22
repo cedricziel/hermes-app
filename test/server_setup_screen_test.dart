@@ -11,6 +11,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/memory_token_store.dart';
+import 'support/recorded_events.dart';
 
 /// A gated dashboard whose `/api/auth/me` answers 503, so the stored-session
 /// check fails without the tokens being rejected. With [statusFails] the
@@ -141,5 +142,38 @@ void main() {
     await tester.runAsync(() => closed.close(force: true));
 
     await restoreAndExpectSetupWith(tester, url);
+  });
+
+  testWidgets('submitting again while connecting sends nothing', (
+    tester,
+  ) async {
+    final hanging = (await tester.runAsync(
+      () => HttpServer.bind(InternetAddress.loopbackIPv4, 0),
+    ))!;
+    hanging.listen((_) {});
+    final events = RecordedEvents();
+    final auth = AuthController(
+      tokenStore: MemoryTokenStore(),
+      events: events.call,
+    );
+    await tester.runAsync(auth.bootstrap);
+    await pumpSetup(tester, auth);
+
+    await tester.enterText(
+      find.byType(TextField),
+      'http://127.0.0.1:${hanging.port}',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+    expect(auth.state, HermesConnectionState.connecting);
+    await tester.showKeyboard(find.byType(TextField));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+
+    expect(
+      events.named('auth.state').where((e) => e['state'] == 'connecting'),
+      hasLength(1),
+    );
+    await tester.runAsync(() => hanging.close(force: true));
+    await tester.pump(const Duration(seconds: 10));
   });
 }

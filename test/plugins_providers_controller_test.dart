@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
@@ -264,5 +266,20 @@ void main() {
         'context.engine': 'lossless',
       });
     });
+  });
+
+  test('a save finishing after dispose does not notify', () async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('PUT', save, (_) => gate.future);
+    final c = ProvidersController(
+      HermesPluginManagerRepository(server.client().raw),
+    );
+    await c.load();
+    c.chooseMemory('holographic');
+    final run = c.save();
+    c.dispose();
+    gate.complete((status: 200, body: {'ok': true}));
+
+    expect((await run).ok, isTrue);
   });
 }

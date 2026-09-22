@@ -120,6 +120,38 @@ void main() {
     expect(changes, 0);
   });
 
+  testWidgets('a slow reload does not replace a newer one', (tester) async {
+    await pumpPanel(tester);
+    final gate = Completer<FakeResponse>();
+    var loads = 0;
+    server.onRequest('GET', '/api/plugins/kanban/tasks/t1', (_) {
+      loads++;
+      FakeResponse detail(String title) => (
+        status: 200,
+        body: kanbanTaskDetailBody(kanbanTaskRow(id: 't1', title: title)),
+      );
+      return loads == 1 ? gate.future : detail('Newest title');
+    });
+
+    for (final text in ['one', 'two']) {
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Add a comment…').first,
+        text,
+      );
+      await tester.tap(find.byTooltip('Send'));
+      await tester.pumpAndSettle();
+    }
+    gate.complete((
+      status: 200,
+      body: kanbanTaskDetailBody(kanbanTaskRow(id: 't1', title: 'Old title')),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('Newest title'), findsOneWidget);
+    expect(find.text('Old title'), findsNothing);
+  });
+
   testWidgets('posts a comment and clears the box', (tester) async {
     await pumpPanel(tester);
 
