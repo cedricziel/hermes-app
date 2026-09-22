@@ -62,6 +62,8 @@ class KanbanBoardController extends ChangeNotifier {
 
   final _selected = <String>{};
 
+  String _status = 'running';
+
   /// Tasks the last refetch found in a different column than before, so the
   /// board can show them arriving. Empty after a first load.
   Set<String> _arrived = const {};
@@ -113,6 +115,63 @@ class KanbanBoardController extends ChangeNotifier {
         KanbanColumn(name: c.name, tasks: c.tasks.where(keep).toList()),
     ];
   }
+
+  /// The column a narrow screen lists: the one picked last, or the first
+  /// column while the board lacks it.
+  String get shownStatus {
+    final columns = this.columns;
+    if (columns.isEmpty || columns.any((c) => c.name == _status)) {
+      return _status;
+    }
+    return columns.first.name;
+  }
+
+  void showStatus(String status) {
+    _status = status;
+    notifyListeners();
+  }
+
+  /// Moves [task] to [status], showing it there before the server answers.
+  /// Throws what the server refused; the caller refreshes either way.
+  Future<void> moveTask(KanbanTask task, String status) async {
+    if (task.status == status) return;
+    previewMove(task.id, status);
+    await repository.updateTask(task.id, status: status, board: _boardSlug);
+  }
+
+  /// Applies one change to every selected task and returns the ones it could
+  /// not apply to. Selection ends when all went through; otherwise only the
+  /// refused tasks stay selected, so the change can be retried on them.
+  Future<List<KanbanBulkFailure>> bulkUpdate({
+    String? status,
+    String? assignee,
+    int? priority,
+    bool archive = false,
+  }) async {
+    final ids = _selected.toList();
+    if (ids.isEmpty) return const [];
+    final failures = await repository.bulkUpdate(
+      ids,
+      status: status,
+      assignee: assignee,
+      priority: priority,
+      archive: archive,
+      board: _boardSlug,
+    );
+    if (_disposed) return failures;
+    if (failures.isEmpty) {
+      stopSelecting();
+    } else {
+      // A refusal without a task id cannot say which to keep, so keep all.
+      final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);
+      if (failed.isNotEmpty) keepSelected(failed);
+    }
+    unawaited(refresh());
+    return failures;
+  }
+
+  /// Runs the dispatcher now instead of waiting for its next tick.
+  Future<void> dispatch() => repository.dispatch(board: _boardSlug);
 
   /// Whether the last refetch moved [id] here from another column, or added
   /// it.
