@@ -305,8 +305,8 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
       request.response
         ..headers.contentType = ContentType.json
-        ..write(jsonEncode({'auth_required': false}))
-        ..close();
+        ..write(jsonEncode({'auth_required': false}));
+      unawaited(request.response.close());
     });
     addTearDown(() => slow.close(force: true));
     final auth = controller();
