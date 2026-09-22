@@ -12,6 +12,7 @@ import 'package:widgetbook/widgetbook.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'kanban_screen_use_cases.dart';
+import 'kanban_task_use_cases.dart';
 
 WidgetbookUseCase _card(String name, KanbanCard card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card, maxWidth: 320));
@@ -173,6 +174,7 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
         _use('Reconnecting', const KanbanLiveDot(live: false)),
       ],
     ),
+    ...kanbanTaskComponents(),
     ...kanbanScreenComponents(),
   ],
 );
