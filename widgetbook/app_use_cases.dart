@@ -47,6 +47,8 @@ final Uint8List _pixel = base64Decode(
 Widget _dialog(Future<void> Function(BuildContext context) open) =>
     openOnShow(open);
 
+Future<bool> _opensLink(Uri _) async => true;
+
 WidgetbookUseCase _screen(
   String name,
   CatalogAuth Function() auth,
@@ -318,7 +320,8 @@ WidgetbookNode appNode() => WidgetbookFolder(
             _dialog(
               (context) => showDialog<void>(
                 context: context,
-                builder: (_) => const AppAboutDialog(version: '0.1.31'),
+                builder: (_) =>
+                    AppAboutDialog(version: '0.1.31', openLink: _opensLink),
               ),
             ),
           ),
@@ -330,7 +333,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
       useCases: [
         WidgetbookUseCase(
           name: 'Default',
-          builder: (_) => frame(const ReportBugLink()),
+          builder: (_) => frame(ReportBugLink(openLink: _opensLink)),
         ),
       ],
     ),
