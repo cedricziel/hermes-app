@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.35](https://github.com/cedricziel/hermes-app/compare/v0.1.34...v0.1.35) (2026-09-22)
+
+
+### Features
+
+* **models:** add a model/effort picker preview for chat ([#281](https://github.com/cedricziel/hermes-app/issues/281)) ([0632bed](https://github.com/cedricziel/hermes-app/commit/0632bededdf665552e3134ea5f63ae371a20f64a))
+* **telemetry:** report crashes with message, stack trace and breadcrumbs ([#280](https://github.com/cedricziel/hermes-app/issues/280)) ([c5e2643](https://github.com/cedricziel/hermes-app/commit/c5e2643bc23141a934798c22082b05b85c1ac637))
+
 ## [0.1.34](https://github.com/cedricziel/hermes-app/compare/v0.1.33...v0.1.34) (2026-09-22)
 
 
