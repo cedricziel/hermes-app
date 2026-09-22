@@ -90,7 +90,7 @@ class KanbanCard extends StatelessWidget {
                         _Meta(
                           Icons.warning_amber_rounded,
                           '${task.warningCount}',
-                          small?.copyWith(color: Colors.amber.shade800),
+                          small?.copyWith(color: context.hermesColors.warning),
                         ),
                     ],
                   ),

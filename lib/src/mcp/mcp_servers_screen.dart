@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/state_message.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
@@ -35,8 +37,6 @@ class McpServersScreen extends StatefulWidget {
   /// otherwise.
   final McpLinkLauncher? launchLink;
 
-  static const double wideBreakpoint = mcpWideBreakpoint;
-
   @override
   State<McpServersScreen> createState() => _McpServersScreenState();
 }
@@ -65,7 +65,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
   /// from the media instead of the body's layout, which the empty state
   /// never builds.
   bool _isWide(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= McpServersScreen.wideBreakpoint;
+      MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
 
   void _open(HermesMcpServer server) {
     if (_isWide(context)) {
@@ -204,7 +204,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,
@@ -243,46 +243,27 @@ class _EmptyState extends StatelessWidget {
   final VoidCallback onAddCustom;
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              profile == null
-                  ? 'No MCP servers'
-                  : 'No MCP servers on "$profile"',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'MCP servers give the agent extra tools, such as searching your '
-              'documents or reading a calendar.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton(
-                  onPressed: onBrowse,
-                  child: const Text('Browse the catalog'),
-                ),
-                OutlinedButton(
-                  onPressed: onAddCustom,
-                  child: const Text('Add a custom server'),
-                ),
-              ],
-            ),
-          ],
+  Widget build(BuildContext context) => StateMessage(
+    title: profile == null ? 'No MCP servers' : 'No MCP servers on "$profile"',
+    detail:
+        'MCP servers give the agent extra tools, such as searching your '
+        'documents or reading a calendar.',
+    action: Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        FilledButton(
+          onPressed: onBrowse,
+          child: const Text('Browse the catalog'),
         ),
-      ),
-    );
-  }
+        OutlinedButton(
+          onPressed: onAddCustom,
+          child: const Text('Add a custom server'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ServerList extends StatelessWidget {

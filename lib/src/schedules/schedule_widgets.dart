@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'schedule_models.dart';
-
-const _ok = Color(0xFF16A34A);
 
 Color outcomeColor(BuildContext context, CronJob job) {
   final scheme = Theme.of(context).colorScheme;
@@ -11,8 +10,8 @@ Color outcomeColor(BuildContext context, CronJob job) {
   }
   return switch (job.outcome) {
     CronOutcome.failed => scheme.error,
-    CronOutcome.deliveryFailed => Colors.amber.shade700,
-    CronOutcome.ok => _ok,
+    CronOutcome.deliveryFailed => context.hermesColors.warning,
+    CronOutcome.ok => context.hermesColors.success,
     CronOutcome.none => scheme.onSurfaceVariant,
   };
 }

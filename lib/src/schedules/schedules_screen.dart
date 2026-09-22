@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'blueprint_screens.dart';
 import 'schedule_detail.dart';
@@ -23,8 +24,6 @@ class SchedulesScreen extends StatefulWidget {
 }
 
 class _SchedulesScreenState extends State<SchedulesScreen> {
-  static const double _wideBreakpoint = 900;
-
   SchedulesController get _controller => widget.controller;
 
   @override
@@ -46,7 +45,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     final request = _controller.takeOpenRequest();
     if (request == null || request.id.isEmpty || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= _wideBreakpoint;
+    final wide = MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
     CronJob? job;
     try {
       job = await _controller.findJob(request.id, profile: request.profile);
@@ -101,7 +100,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
-        final wide = box.maxWidth >= _wideBreakpoint;
+        final wide = box.maxWidth >= kWideLayoutBreakpoint;
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {

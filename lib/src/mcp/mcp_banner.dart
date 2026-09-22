@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 /// How a banner reads: worked, needs attention, failed.
 enum McpTone { success, warning, error }
@@ -24,8 +25,8 @@ class McpBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      McpTone.success => Colors.green.shade600,
-      McpTone.warning => Colors.amber.shade700,
+      McpTone.success => context.hermesColors.success,
+      McpTone.warning => context.hermesColors.warning,
       McpTone.error => scheme.error,
     };
     return Container(

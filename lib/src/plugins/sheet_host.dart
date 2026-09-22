@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 /// The content of a details bottom sheet that follows [listenable] and closes
 /// the sheet when [isGone] says what it shows no longer exists.
@@ -45,11 +46,7 @@ class _SheetHostState extends State<SheetHost> {
   }
 }
 
-/// Where a list sits beside its details: below this width the details open
-/// in a bottom sheet.
-const pluginsWideBreakpoint = 900.0;
-
-/// A shared shell for a list with a details pane: at [pluginsWideBreakpoint]
+/// A shared shell for a list with a details pane: at [kWideLayoutBreakpoint]
 /// the [detail] (or [placeholder]) sits beside [list], below it only [list]
 /// is shown.
 class ListWithDetail extends StatelessWidget {

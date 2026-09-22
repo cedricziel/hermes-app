@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/widgets/state_message.dart';
+
+import 'package:hermes_app/src/theme/breakpoints.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,8 +50,6 @@ class KanbanScreen extends StatefulWidget {
 }
 
 class _KanbanScreenState extends State<KanbanScreen> {
-  static const double _columnsBreakpoint = 720;
-
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   String _status = 'running';
@@ -429,7 +431,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       if (_controller.loading) {
         return const Center(child: CircularProgressIndicator());
       }
-      return _Message(
+      return StateMessage(
         icon: _controller.unavailable
             ? Icons.extension_off_outlined
             : Icons.error_outline,
@@ -449,7 +451,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= _columnsBreakpoint;
+        final wide = constraints.maxWidth >= kKanbanColumnsBreakpoint;
         return Column(
           children: [
             if (_controller.refreshFailed)
@@ -944,35 +946,9 @@ class _LiveDot extends StatelessWidget {
     child: Icon(
       Icons.circle,
       size: 10,
-      color: live ? Colors.green : Colors.grey,
-    ),
-  );
-}
-
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.title,
-    this.detail,
-    this.action,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? detail;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 40),
-        const SizedBox(height: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        if (detail != null) Text(detail!),
-        if (action != null) ...[const SizedBox(height: 12), action!],
-      ],
+      color: live
+          ? context.hermesColors.success
+          : context.hermesColors.subtleText,
     ),
   );
 }

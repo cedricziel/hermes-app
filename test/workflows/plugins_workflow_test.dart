@@ -7,8 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
-import 'package:hermes_app/src/plugins/sheet_host.dart'
-    show pluginsWideBreakpoint;
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import '../hermes_plugin_manager_repository_test.dart'
@@ -144,7 +143,7 @@ void main() {
 
   Finder listRow(String name) => find.widgetWithText(ListTile, name);
 
-  bool isWide(Size size) => size.width >= pluginsWideBreakpoint;
+  bool isWide(Size size) => size.width >= kWideLayoutBreakpoint;
 
   /// Closes the bottom sheet a phone opens for a detail; the pane on desktop
   /// stays.

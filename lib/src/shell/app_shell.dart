@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -43,8 +44,6 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  static const double _wideBreakpoint = 900;
-
   final _chatKey = GlobalKey();
   final _openRequests = ChatOpenRequests();
   HermesPluginsRepository? _plugins;
@@ -245,7 +244,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= _wideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final index = destinations.indexOf(_current);
         void select(int i) => _select(destinations[i]);
         final navigation = ShellNavigation(

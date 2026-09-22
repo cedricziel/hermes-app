@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/state_message.dart';
 
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
@@ -39,8 +40,8 @@ class SchedulesList extends StatelessWidget {
   Widget _body(BuildContext context, List<CronJob> jobs) {
     if (!controller.loaded) {
       if (controller.error != null) {
-        return _Message(
-          text: controller.error!,
+        return StateMessage(
+          title: controller.error!,
           action: FilledButton(
             onPressed: controller.refresh,
             child: const Text('Try again'),
@@ -58,8 +59,8 @@ class SchedulesList extends StatelessWidget {
             children: [
               SizedBox(
                 height: box.maxHeight,
-                child: _Message(
-                  text: controller.filter == ScheduleFilter.all
+                child: StateMessage(
+                  title: controller.filter == ScheduleFilter.all
                       ? 'No scheduled tasks'
                       : 'No tasks match this filter',
                 ),
@@ -167,28 +168,6 @@ class _ErrorNote extends StatelessWidget {
       ),
     );
   }
-}
-
-class _Message extends StatelessWidget {
-  const _Message({required this.text, this.action});
-
-  final String text;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        spacing: 12,
-        children: [
-          Text(text, textAlign: TextAlign.center),
-          ?action,
-        ],
-      ),
-    ),
-  );
 }
 
 class JobTile extends StatelessWidget {

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/state_message.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -184,7 +186,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         final installed = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: kDetailContentMaxWidth),
             child: _body(),
           ),
         );
@@ -227,7 +229,9 @@ class _SkillsScreenState extends State<SkillsScreen>
                           Align(
                             alignment: Alignment.topCenter,
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 720),
+                              constraints: const BoxConstraints(
+                                maxWidth: kDetailContentMaxWidth,
+                              ),
                               child: DiscoverTab(hub: hub, onOpen: _openHub),
                             ),
                           ),
@@ -246,10 +250,12 @@ class _SkillsScreenState extends State<SkillsScreen>
       case SkillsStatus.loading:
         return const Center(child: CircularProgressIndicator());
       case SkillsStatus.unsupported:
-        return const _Message('The connected Hermes does not support skills.');
+        return const StateMessage(
+          title: 'The connected Hermes does not support skills.',
+        );
       case SkillsStatus.failed:
-        return _Message(
-          'Could not load skills',
+        return StateMessage(
+          title: 'Could not load skills',
           action: FilledButton(
             onPressed: _controller.load,
             child: const Text('Retry'),
@@ -259,7 +265,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         break;
     }
     if (!_controller.hasSkills) {
-      return const _Message('This profile has no skills yet.');
+      return const StateMessage(title: 'This profile has no skills yet.');
     }
     final groups = _controller.groups;
     return Column(
@@ -301,8 +307,8 @@ class _SkillsScreenState extends State<SkillsScreen>
         ),
         Expanded(
           child: groups.isEmpty
-              ? _Message(
-                  'No skills match.',
+              ? StateMessage(
+                  title: 'No skills match.',
                   action: TextButton(
                     onPressed: () {
                       _search.clear();
@@ -462,29 +468,6 @@ class SourceBadge extends StatelessWidget {
         SkillSource.bundled => 'Bundled',
         SkillSource.agent => 'Agent',
       }, style: Theme.of(context).textTheme.labelSmall),
-    );
-  }
-}
-
-class _Message extends StatelessWidget {
-  const _Message(this.text, {this.action});
-
-  final String text;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(text, textAlign: TextAlign.center),
-            if (action != null) ...[const SizedBox(height: 12), action!],
-          ],
-        ),
-      ),
     );
   }
 }
