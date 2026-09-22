@@ -90,6 +90,7 @@ class AuthController extends ChangeNotifier {
   String? _baseUrl;
   String? _savedServerUrl;
   int _connectGeneration = 0;
+  Future<void> _savedServerWrites = Future.value();
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -201,8 +202,11 @@ class AuthController extends ChangeNotifier {
     _baseUrl = normalized;
     _status = status;
     if (remember) {
-      _savedServerUrl = normalized;
-      await _prefs.setString(_prefsBaseUrlKey, normalized);
+      await _writeSavedServer(() async {
+        if (stale()) return;
+        _savedServerUrl = normalized;
+        await _prefs.setString(_prefsBaseUrlKey, normalized);
+      });
       if (stale()) return;
     }
 
@@ -401,11 +405,20 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Forgets the configured server entirely and returns to setup.
+  /// Runs writes of the saved server one at a time, so a slow write from a
+  /// superseded connect can't land after a newer one.
+  Future<void> _writeSavedServer(Future<void> Function() write) {
+    final done = _savedServerWrites.then((_) => write());
+    _savedServerWrites = done.catchError((Object _) {});
+    return done;
+  }
+
   Future<void> changeServer() async {
-    await _tokenStore.clear();
-    await _prefs.remove(_prefsBaseUrlKey);
-    _baseUrl = null;
+    ++_connectGeneration;
     _savedServerUrl = null;
+    await _tokenStore.clear();
+    await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
+    _baseUrl = null;
     _status = null;
     _providers = const [];
     _session = null;
