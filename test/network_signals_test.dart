@@ -29,6 +29,7 @@ void main() {
       source.add(4);
       async.elapse(const Duration(seconds: 2));
       expect(seen, [3, 4]);
+      unawaited(source.close());
     });
   });
 

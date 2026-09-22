@@ -14,7 +14,7 @@ Future<bool> runKanbanAction(
     return true;
   } on KanbanException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text(e.message)));
-  } catch (_) {
+  } on Object catch (_) {
     messenger.showSnackBar(
       const SnackBar(content: Text('Something went wrong. Try again.')),
     );

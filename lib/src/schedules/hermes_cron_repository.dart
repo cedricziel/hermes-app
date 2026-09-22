@@ -53,7 +53,7 @@ class HermesCronRepository {
     try {
       await _api.getCronDeliveryTargetsApiCronDeliveryTargetsGet();
       return true;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }

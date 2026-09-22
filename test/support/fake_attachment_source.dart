@@ -40,7 +40,7 @@ class FakeAttachmentSource implements AttachmentSource {
   Future<List<SharedFile>> pick(AttachOrigin origin) async {
     requested.add(origin);
     final failure = pickFailure;
-    if (failure != null) throw failure;
+    if (failure != null) throw failure; // ignore: only_throw_errors
     return picks[origin] ?? const [];
   }
 

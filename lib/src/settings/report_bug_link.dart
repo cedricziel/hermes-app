@@ -23,7 +23,7 @@ class ReportBugLink extends StatelessWidget {
       onPressed: () async {
         try {
           await open(_issuesUrl);
-        } catch (_) {
+        } on Object catch (_) {
           // The link failing to open is not fatal; the button stays put.
         }
       },

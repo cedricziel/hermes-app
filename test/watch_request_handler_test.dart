@@ -196,8 +196,14 @@ void main() {
       profile = null;
       final untied = await handler.handle({'op': 'threads'});
 
-      expect((tied['threads'] as List).single['id'], 'a%2Fb%20c/s1');
-      expect((untied['threads'] as List).single['id'], '/s1');
+      expect(
+        ((tied['threads'] as List).single as Map<String, Object?>)['id'],
+        'a%2Fb%20c/s1',
+      );
+      expect(
+        ((untied['threads'] as List).single as Map<String, Object?>)['id'],
+        '/s1',
+      );
     });
 
     test('reports a failed request as failed', () async {

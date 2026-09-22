@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app.dart';
@@ -91,10 +93,10 @@ void main() {
 
   test('quick successive picks leave the last one saved', () async {
     final controller = ThemeController();
-    controller.setMode(ThemeMode.dark);
-    controller.setMode(ThemeMode.light);
+    unawaited(controller.setMode(ThemeMode.dark));
+    unawaited(controller.setMode(ThemeMode.light));
     await controller.setMode(ThemeMode.system);
-    controller.setMode(ThemeMode.dark);
+    unawaited(controller.setMode(ThemeMode.dark));
     await controller.setMode(ThemeMode.light);
 
     final relaunched = ThemeController();

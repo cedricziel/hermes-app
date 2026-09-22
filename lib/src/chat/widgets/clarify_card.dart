@@ -70,7 +70,7 @@ class _ClarifyCardState extends State<ClarifyCard> {
     });
     try {
       await widget.onAnswer!(answers);
-    } catch (_) {
+    } on Object catch (_) {
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -19,7 +19,7 @@ class HermesPluginsRepository {
       final data = response.data;
       if (data is! List) return false;
       return data.any((p) => p is Map && p['name'] == kanbanPluginName);
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
