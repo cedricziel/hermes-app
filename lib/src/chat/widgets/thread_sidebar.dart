@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../notifications/notifications_dialog.dart';
+import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
@@ -495,6 +496,7 @@ class AccountFooter extends StatelessWidget {
           if (value == 'appearance') showAppearanceDialog(context);
           if (value == 'notifications') showNotificationsDialog(context);
           if (value == 'app-lock') showAppLockDialog(context);
+          if (value == 'about') showAppAboutDialog(context);
         },
         itemBuilder: (context) => [
           PopupMenuItem(
@@ -511,6 +513,7 @@ class AccountFooter extends StatelessWidget {
             child: Text('Notifications'),
           ),
           const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
+          const PopupMenuItem(value: 'about', child: Text('About')),
           if (auth.status?.authRequired ?? false)
             const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
           const PopupMenuItem(
