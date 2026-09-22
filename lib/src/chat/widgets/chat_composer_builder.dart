@@ -34,6 +34,11 @@ WidgetBuilder buildChatComposer({
       sendIconColor: scheme.primary,
       emptyFieldSendIconColor: context.hermesColors.subtleText,
       backgroundColor: scheme.surface,
+      inputBorder: mui.OutlineInputBorder(
+        borderRadius: BorderRadius.circular(kHermesRadius),
+        borderSide: BorderSide(color: scheme.outline),
+      ),
+      inputFillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
       sigmaX: 0,
       sigmaY: 0,
       allowEmptyMessage: hasAttachments,

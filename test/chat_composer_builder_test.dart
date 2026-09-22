@@ -87,6 +87,17 @@ void main() {
     expect(find.text('Message Hermes…'), findsOneWidget);
   });
 
+  testWidgets('the field has a visible border, not just a fill', (
+    tester,
+  ) async {
+    await h.pump(tester);
+
+    final composer = tester.widget<Composer>(find.byType(Composer));
+    final border = composer.inputBorder as mui.OutlineInputBorder;
+    expect(border.borderSide, isNot(BorderSide.none));
+    expect(composer.filled, isTrue);
+  });
+
   testWidgets('Enter sends and Shift+Enter breaks the line', (tester) async {
     await h.pump(tester);
     await tester.tap(find.byType(EditableText));
