@@ -20,6 +20,7 @@ class WatchRequestHandler {
     required this.repository,
     required this.transport,
     required this.activeProfile,
+    this.connecting = _never,
     this.sendTimeout = const Duration(seconds: 60),
     this.announce = _ignore,
   });
@@ -45,6 +46,11 @@ class WatchRequestHandler {
   final ChatTransport? Function() transport;
   final Future<String?> Function() activeProfile;
 
+  /// Whether the phone is still getting ready to serve, rather than signed
+  /// out: restoring its session, reaching the server, or mid sign-in. Then
+  /// the watch is told to open the phone app instead of to sign in.
+  final bool Function() connecting;
+
   /// How long a send may go without an event before it is given up on.
   final Duration sendTimeout;
 
@@ -53,6 +59,8 @@ class WatchRequestHandler {
   final void Function(AttentionNotification notification) announce;
 
   static void _ignore(AttentionNotification _) {}
+
+  static bool _never() => false;
 
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
@@ -69,7 +77,7 @@ class WatchRequestHandler {
 
   Future<Map<String, Object?>> _threads() async {
     final repo = repository();
-    if (repo == null) return _error('signed_out');
+    if (repo == null) return _noSession();
     final profile = await activeProfile();
     final threads = await repo.loadThreads(
       limit: threadLimit,
@@ -93,7 +101,7 @@ class WatchRequestHandler {
     final thread = _unbind(threadId);
     if (thread == null) return _error('bad_request');
     final repo = repository();
-    if (repo == null) return _error('signed_out');
+    if (repo == null) return _noSession();
     final profile = await activeProfile();
     if (!thread.isIn(profile)) return _error('bad_request');
     final messages = await repo.loadMessages(thread.id, profile: profile);
@@ -118,7 +126,7 @@ class WatchRequestHandler {
     final thread = threadId == null ? null : _unbind(threadId);
     if (threadId != null && thread == null) return _error('bad_request');
     final chat = transport();
-    if (chat == null) return _error('signed_out');
+    if (chat == null) return _noSession();
     String? profile;
     String? boundId;
     var title = untitledChat;
@@ -156,16 +164,17 @@ class WatchRequestHandler {
             announceEnd(event);
             return {
               'ok': true,
-              'threadId': boundId == null ? null : _bind(profile, boundId),
+              ..._threadEntry(profile, boundId),
               'text': _cut(failed ? text : _shown(text, streamed.toString())),
               'failed': failed,
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
               UnsupportedRequested():
+            announceEnd(event);
             return {
               'ok': true,
-              'threadId': boundId == null ? null : _bind(profile, boundId),
+              ..._threadEntry(profile, boundId),
               'text': cannotAnswerText,
               'failed': false,
             };
@@ -181,6 +190,11 @@ class WatchRequestHandler {
       await chat.close();
     }
   }
+
+  /// The `threadId` entry of a reply, left out when there is no thread: a null
+  /// is not a property-list type and WatchConnectivity would refuse the reply.
+  static Map<String, Object?> _threadEntry(String? profile, String? id) =>
+      id == null ? const {} : {'threadId': _bind(profile, id)};
 
   static String _bind(String? profile, String sessionId) =>
       '${Uri.encodeComponent(profile ?? '')}/$sessionId';
@@ -211,6 +225,9 @@ class WatchRequestHandler {
   static String _cut(String text) => text.length <= contentLimit
       ? text
       : '${text.substring(0, contentLimit)}…';
+
+  Map<String, Object?> _noSession() =>
+      _error(connecting() ? 'unavailable' : 'signed_out');
 
   static Map<String, Object?> _error(String code) => {
     'ok': false,

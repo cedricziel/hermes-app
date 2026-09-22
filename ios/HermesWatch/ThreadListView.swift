@@ -1,10 +1,17 @@
 import SwiftUI
 
 struct ThreadListView: View {
+  /// Where a push goes: a new chat or an existing one, by thread id.
+  private enum Route: Hashable {
+    case newChat
+    case thread(String)
+  }
+
   @State var model: ThreadListModel
+  @State private var path: [Route] = []
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: $path) {
       Group {
         switch model.state {
         case .loading:
@@ -18,26 +25,35 @@ struct ThreadListView: View {
       .navigationTitle("Hermes")
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
-          NavigationLink {
-            ConversationView(model: ConversationModel(client: model.client, threadId: nil))
-          } label: {
+          NavigationLink(value: Route.newChat) {
             Image(systemName: "square.and.pencil")
           }
         }
       }
+      .navigationDestination(for: Route.self) { route in
+        switch route {
+        case .newChat:
+          ConversationView(model: ConversationModel(client: model.client, threadId: nil))
+        case .thread(let id):
+          ConversationView(model: ConversationModel(client: model.client, threadId: id))
+        }
+      }
     }
     .task { await model.load() }
+    // A chat started or continued in a conversation belongs in the list once
+    // the user is back on it.
+    .onChange(of: path.isEmpty) { _, isEmpty in
+      if isEmpty { Task { await model.load() } }
+    }
   }
 
-  @ViewBuilder
   private func list(_ threads: [ThreadSummary]) -> some View {
-    if threads.isEmpty {
-      Text("No chats yet.")
-    } else {
-      List(threads) { thread in
-        NavigationLink {
-          ConversationView(model: ConversationModel(client: model.client, threadId: thread.id))
-        } label: {
+    List {
+      if threads.isEmpty {
+        Text("No chats yet.")
+      }
+      ForEach(threads) { thread in
+        NavigationLink(value: Route.thread(thread.id)) {
           Label {
             Text(thread.title).lineLimit(2)
           } icon: {
@@ -45,7 +61,7 @@ struct ThreadListView: View {
           }
         }
       }
-      .refreshable { await model.load() }
     }
+    .refreshable { await model.load() }
   }
 }

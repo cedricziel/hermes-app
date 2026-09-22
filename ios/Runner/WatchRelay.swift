@@ -1,4 +1,5 @@
 import Flutter
+import UIKit
 import WatchConnectivity
 
 /// Passes what the watch app asks for on to Dart over the `app.hermes/watch`
@@ -23,14 +24,31 @@ final class WatchRelay: NSObject, WCSessionDelegate {
     replyHandler: @escaping ([String: Any]) -> Void
   ) {
     DispatchQueue.main.async {
+      // A turn can take a minute, and the phone app is often in the background
+      // when the watch asks. Without a background task iOS would suspend it
+      // mid-turn and the watch would never get an answer.
+      var task = UIBackgroundTaskIdentifier.invalid
+      var replied = false
+      let reply: ([String: Any]) -> Void = { answer in
+        guard !replied else { return }
+        replied = true
+        replyHandler(answer)
+        if task != .invalid {
+          UIApplication.shared.endBackgroundTask(task)
+          task = .invalid
+        }
+      }
+      task = UIApplication.shared.beginBackgroundTask(withName: "watch-relay") {
+        reply(["ok": false, "error": "unavailable"])
+      }
       self.channel.invokeMethod("request", arguments: message) { result in
         switch result {
-        case let reply as [String: Any]:
-          replyHandler(reply)
+        case let answer as [String: Any]:
+          reply(answer)
         case let missing as NSObject where missing === FlutterMethodNotImplemented:
-          replyHandler(["ok": false, "error": "unavailable"])
+          reply(["ok": false, "error": "unavailable"])
         default:
-          replyHandler(["ok": false, "error": "failed"])
+          reply(["ok": false, "error": "failed"])
         }
       }
     }

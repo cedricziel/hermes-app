@@ -15,12 +15,14 @@ void main() {
   late WatchRequestHandler handler;
   late List<AttentionNotification> announced;
   var signedOut = false;
+  var connecting = false;
   String? profile;
 
   setUp(() {
     server = FakeHermesServer();
     transport = FakeChatTransport();
     signedOut = false;
+    connecting = false;
     profile = null;
     announced = [];
     handler = WatchRequestHandler(
@@ -28,6 +30,7 @@ void main() {
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
+      connecting: () => connecting,
       announce: announced.add,
     );
   });
@@ -38,6 +41,43 @@ void main() {
     final reply = await handler.handle({'op': 'threads'});
 
     expect(reply, {'ok': false, 'error': 'signed_out'});
+  });
+
+  test('answers a phone that is still connecting with unavailable', () async {
+    signedOut = true;
+    connecting = true;
+
+    for (final request in [
+      {'op': 'threads'},
+      {'op': 'messages', 'threadId': '/s1'},
+      {'op': 'send', 'text': 'Hi'},
+    ]) {
+      expect(await handler.handle(request), {
+        'ok': false,
+        'error': 'unavailable',
+      });
+    }
+  });
+
+  test('leaves threadId out of a reply that has no thread', () async {
+    final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+    await pumpEventQueue();
+    transport.sends.single.emit(
+      ApprovalRequested(
+        const ApprovalRequest(
+          requestId: 'r1',
+          command: 'ls',
+          description: 'list',
+          choices: ['once'],
+        ),
+      ),
+    );
+
+    final reply = await pending;
+
+    expect(reply['ok'], isTrue);
+    expect(reply.containsKey('threadId'), isFalse);
+    expect(announced, isEmpty);
   });
 
   test('rejects an unknown op and a malformed request', () async {
@@ -531,6 +571,12 @@ void main() {
   });
 
   group('requests the watch cannot answer', () {
+    const bodies = {
+      'approval': kApprovalBody,
+      'question': kQuestionBody,
+      'secret': kNeedsYouBody,
+      'sudo': kNeedsYouBody,
+    };
     const requests = <String, ChatEvent>{
       'approval': ApprovalRequested(
         ApprovalRequest(
@@ -574,7 +620,7 @@ void main() {
           'failed': false,
         });
         expect(transport.closed, isTrue);
-        expect(announced, isEmpty);
+        expect(announced.map((n) => n.body), [bodies[key]]);
       });
     }
 
@@ -589,6 +635,7 @@ void main() {
 
       expect(text, isNot(contains('rm -rf')));
       expect(text, isNot(contains('delete files')));
+      expect(announced.single.body, isNot(contains('rm -rf')));
     });
   });
 }
