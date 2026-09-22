@@ -24,7 +24,9 @@ import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
 import 'package:hermes_app/src/screens/server_setup_screen.dart';
+import 'package:hermes_app/src/settings/about_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
+import 'package:hermes_app/src/settings/report_bug_link.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/widgets/content_column.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -308,6 +310,27 @@ WidgetbookNode appNode() => WidgetbookFolder(
           name: 'App lock',
           builder: (_) =>
               withAppProviders(CatalogAuth(), _dialog(showAppLockDialog)),
+        ),
+        WidgetbookUseCase(
+          name: 'About',
+          builder: (_) => withAppProviders(
+            CatalogAuth(),
+            _dialog(
+              (context) => showDialog<void>(
+                context: context,
+                builder: (_) => const AppAboutDialog(version: '0.1.31'),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ReportBugLink',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Default',
+          builder: (_) => frame(const ReportBugLink()),
         ),
       ],
     ),
