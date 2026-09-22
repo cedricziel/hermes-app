@@ -4,6 +4,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import '../api/hermes_repositories.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
@@ -56,8 +59,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
   void initState() {
     super.initState();
     final auth = context.read<AuthController>();
-    final api = auth.api;
-    _repository = widget.repository ?? KanbanRepository(api!);
+    final repositories = widget.repository == null || widget.connect == null
+        ? HermesRepositories.of(context)
+        : null;
+    _repository = widget.repository ?? repositories!.kanban;
     KanbanEventsConnect connect;
     if (widget.connect != null) {
       connect = widget.connect!;
@@ -65,7 +70,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       final socket = hermesSocketConnect(
         baseUrl: auth.baseUrl!,
         authRequired: auth.status?.authRequired ?? true,
-        api: api!,
+        api: repositories!.api,
         path: '/api/plugins/kanban/events',
       );
       connect = ({required since, board}) =>

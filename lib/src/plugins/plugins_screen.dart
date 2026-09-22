@@ -3,7 +3,8 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
-import '../auth/auth_controller.dart';
+import '../api/hermes_repositories.dart';
+
 import 'catalog_controller.dart';
 import 'catalog_detail.dart' show LinkOpener;
 import 'catalog_tab.dart';
@@ -37,8 +38,7 @@ class _PluginsScreenState extends State<PluginsScreen> {
   void initState() {
     super.initState();
     final repository =
-        widget.repository ??
-        HermesPluginManagerRepository(context.read<AuthController>().api!.raw);
+        widget.repository ?? HermesRepositories.of(context).pluginManager;
     final events =
         widget.events ?? context.read<AppEventLogger?>() ?? noopAppEventLogger;
     _installed = PluginsController(repository, events: events)..load();

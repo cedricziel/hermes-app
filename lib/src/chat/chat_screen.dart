@@ -10,6 +10,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:provider/provider.dart';
 
+import '../api/hermes_repositories.dart';
+
 import '../auth/auth_controller.dart';
 import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
@@ -171,20 +173,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       settings: _maybeRead<NotificationSettings>(),
       onOpen: _openFromNotification,
     );
-    final api = context.read<AuthController>().api;
-    _repository =
-        widget.repository ??
-        (api == null ? null : HermesChatRepository(api.raw));
-    _profiles =
-        widget.profiles ??
-        (api == null ? null : HermesProfilesRepository(api.raw));
-    _bots = widget.bots ?? (api == null ? null : HermesBotsRepository(api.raw));
-    _skills =
-        widget.skills ?? (api == null ? null : HermesSkillsRepository(api.raw));
-    _plugins =
-        widget.plugins ??
-        (api == null ? null : HermesPluginManagerRepository(api.raw));
-    _mcp = widget.mcp ?? (api == null ? null : HermesMcpRepository(api.raw));
+    final repositories = HermesRepositories.maybeOf(context);
+    final api = repositories?.api;
+    _repository = widget.repository ?? repositories?.chat;
+    _profiles = widget.profiles ?? repositories?.profiles;
+    _bots = widget.bots ?? repositories?.bots;
+    _skills = widget.skills ?? repositories?.skills;
+    _plugins = widget.plugins ?? repositories?.pluginManager;
+    _mcp = widget.mcp ?? repositories?.mcp;
     _transport = widget.transport;
     if (_transport == null && api != null) {
       final auth = context.read<AuthController>();

@@ -3,7 +3,8 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
-import '../auth/auth_controller.dart';
+import '../api/hermes_repositories.dart';
+
 import '../profiles/hermes_profiles_repository.dart';
 import 'discover_tab.dart';
 import 'hermes_skills_hub_repository.dart';
@@ -52,22 +53,16 @@ class _SkillsScreenState extends State<SkillsScreen>
   @override
   void initState() {
     super.initState();
-    final api = widget.repository == null
-        ? context.read<AuthController>().api?.raw
+    final repositories = widget.repository == null
+        ? HermesRepositories.of(context)
         : null;
     _controller = SkillsController(
-      repository:
-          widget.repository ??
-          HermesSkillsRepository(api ?? (throw StateError('not signed in'))),
-      profiles:
-          widget.profiles ??
-          (api == null ? null : HermesProfilesRepository(api)),
+      repository: widget.repository ?? repositories!.skills,
+      profiles: widget.profiles ?? repositories?.profiles,
       chatProfile: widget.chatProfile,
       events: _events(),
     );
-    final hubRepository =
-        widget.hubRepository ??
-        (api == null ? null : HermesSkillsHubRepository(api));
+    final hubRepository = widget.hubRepository ?? repositories?.skillsHub;
     if (hubRepository != null) {
       _hub = SkillsHubController(
         repository: hubRepository,
