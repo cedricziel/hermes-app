@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.33](https://github.com/cedricziel/hermes-app/compare/v0.1.32...v0.1.33) (2026-09-22)
+
+
+### Features
+
+* **chat:** collapse a run of tool calls into one row ([#270](https://github.com/cedricziel/hermes-app/issues/270)) ([6553567](https://github.com/cedricziel/hermes-app/commit/65535675fcab771dec1738f4281822ad38b8a333))
+* **chat:** show elapsed time and current activity while a reply runs ([#273](https://github.com/cedricziel/hermes-app/issues/273)) ([7c7cc4d](https://github.com/cedricziel/hermes-app/commit/7c7cc4d67cbde855b184d0af49c9d56a448e96dc))
+
+
+### Bug Fixes
+
+* **chat:** drop the canned follow-up chips under a reply ([#275](https://github.com/cedricziel/hermes-app/issues/275)) ([577106d](https://github.com/cedricziel/hermes-app/commit/577106d87c97c76e67b49db8dcd33c22a643c917))
+* **chat:** keep text written before a tool call in its place, not lost ([#274](https://github.com/cedricziel/hermes-app/issues/274)) ([3820054](https://github.com/cedricziel/hermes-app/commit/3820054f75227be08f640a36ea6298950d7cfdd9))
+* **chat:** pick a reply back up instead of failing it when the connection drops mid-turn ([#271](https://github.com/cedricziel/hermes-app/issues/271)) ([4fe4d0b](https://github.com/cedricziel/hermes-app/commit/4fe4d0b6dc2bb6abd0ccf9186417ac415196d167))
+
 ## [0.1.32](https://github.com/cedricziel/hermes-app/compare/v0.1.31...v0.1.32) (2026-09-22)
 
 
