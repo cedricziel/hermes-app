@@ -89,6 +89,7 @@ class AuthController extends ChangeNotifier {
   HermesConnectionState _state = HermesConnectionState.initializing;
   String? _baseUrl;
   String? _savedServerUrl;
+  int _connectGeneration = 0;
   HermesStatus? _status;
   List<AuthProviderInfo> _providers = const [];
   HermesSession? _session;
@@ -156,6 +157,8 @@ class AuthController extends ChangeNotifier {
     bool restoring = false,
     bool automatic = false,
   }) async {
+    final generation = ++_connectGeneration;
+    bool stale() => generation != _connectGeneration;
     final normalized = _normalizeUrl(rawUrl);
     if (normalized == null) {
       _errorMessage =
@@ -179,6 +182,7 @@ class AuthController extends ChangeNotifier {
     try {
       status = await HermesApiClient(probeDio).fetchStatus();
     } on DioException catch (e) {
+      if (stale()) return;
       _failConnect(
         e,
         normalized,
@@ -187,16 +191,19 @@ class AuthController extends ChangeNotifier {
       );
       return;
     } on FormatException {
+      if (stale()) return;
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
       return;
     }
+    if (stale()) return;
 
     _baseUrl = normalized;
     _status = status;
     if (remember) {
       _savedServerUrl = normalized;
       await _prefs.setString(_prefsBaseUrlKey, normalized);
+      if (stale()) return;
     }
 
     _dio = _buildAuthenticatedDio(normalized, gated: status.authRequired);
@@ -212,7 +219,9 @@ class AuthController extends ChangeNotifier {
 
     try {
       _providers = await _api!.fetchAuthProviders();
+      if (stale()) return;
     } on DioException catch (e) {
+      if (stale()) return;
       _failConnect(
         e,
         normalized,
@@ -221,12 +230,14 @@ class AuthController extends ChangeNotifier {
       );
       return;
     } on FormatException {
+      if (stale()) return;
       _errorMessage = 'Could not load sign-in options';
       _setState(HermesConnectionState.connectionError);
       return;
     }
 
     final storedSession = await _tokenStore.read();
+    if (stale()) return;
     if (storedSession == null) {
       _setState(HermesConnectionState.needsLogin);
       return;
@@ -234,13 +245,15 @@ class AuthController extends ChangeNotifier {
 
     _session = storedSession;
     try {
-      _identity = await _api!.fetchMe();
+      final identity = await _api!.fetchMe();
+      if (stale()) return;
+      _identity = identity;
       _setState(HermesConnectionState.ready);
     } on DioException catch (e) {
       // When the interceptor confirmed the credential is dead it has already
       // cleared the session and asked for a login. Anything else (network,
       // 5xx) leaves the tokens alone so the user can simply retry.
-      if (_session == null) return;
+      if (stale() || _session == null) return;
       _failConnect(
         e,
         normalized,
@@ -248,6 +261,7 @@ class AuthController extends ChangeNotifier {
         automatic: automatic,
       );
     } on FormatException {
+      if (stale()) return;
       _errorMessage = _unexpectedResponseMessage;
       _setState(HermesConnectionState.connectionError);
     }
