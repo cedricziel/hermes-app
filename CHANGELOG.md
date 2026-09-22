@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.34](https://github.com/cedricziel/hermes-app/compare/v0.1.33...v0.1.34) (2026-09-22)
+
+
+### Features
+
+* add an About dialog and a Report a bug link ([#276](https://github.com/cedricziel/hermes-app/issues/276)) ([4353d29](https://github.com/cedricziel/hermes-app/commit/4353d29fbbf99e74b159a48fc9470f1acb9fe6c2))
+* **chat:** add rename, pin, archive, delete and copy transcript to the header ([#279](https://github.com/cedricziel/hermes-app/issues/279)) ([06cb86c](https://github.com/cedricziel/hermes-app/commit/06cb86c1a90fce977b4be1be71c2b69240db9030))
+
+
+### Bug Fixes
+
+* **chat:** give the composer a visible border ([#277](https://github.com/cedricziel/hermes-app/issues/277)) ([05fceb7](https://github.com/cedricziel/hermes-app/commit/05fceb743af04d323493fae2f0afa4d993933217))
+
 ## [0.1.33](https://github.com/cedricziel/hermes-app/compare/v0.1.32...v0.1.33) (2026-09-22)
 
 
