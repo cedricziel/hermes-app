@@ -73,4 +73,10 @@ void main() {
 
     expect(find.text('Sign in with Acme SSO'), findsOneWidget);
   });
+
+  testWidgets('offers a way to report a bug', (tester) async {
+    await _pumpLogin(tester, const ['native_pkce']);
+
+    expect(find.text('Report a bug'), findsOneWidget);
+  });
 }
