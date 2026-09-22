@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
         ApprovalRequest,
         ClarifyQuestion,
         ClarifyRequest,
+        ToolCall,
         ToolCallStatus,
         UnsupportedKind,
         UnsupportedRequest;
@@ -135,10 +136,8 @@ void main() {
         tester,
         messages: [
           _custom({
-            kMetaKind: kKindToolCall,
-            kMetaToolName: 'terminal',
-            kMetaToolSummary: '',
-            kMetaToolStatus: ToolCallStatus.completed.name,
+            kMetaKind: kKindToolGroup,
+            kMetaToolCalls: const [ToolCall(name: 'terminal', summary: '')],
           }),
           _text(kAssistantAuthorId, 'Reply'),
         ],
@@ -151,17 +150,17 @@ void main() {
   });
 
   group('customMessageBuilder', () {
-    testWidgets('tool_call renders a ToolCallCard from metadata', (
+    testWidgets('tool_group of one call renders a bare ToolCallCard', (
       tester,
     ) async {
       await _pumpChat(
         tester,
         messages: [
           _custom({
-            kMetaKind: kKindToolCall,
-            kMetaToolName: 'shell.exec',
-            kMetaToolSummary: 'ls -la /var/log',
-            kMetaToolStatus: ToolCallStatus.completed.name,
+            kMetaKind: kKindToolGroup,
+            kMetaToolCalls: const [
+              ToolCall(name: 'shell.exec', summary: 'ls -la /var/log'),
+            ],
           }),
         ],
       );
@@ -174,23 +173,29 @@ void main() {
       expect(find.byType(ThinkingIndicator), findsNothing);
     });
 
-    testWidgets('tool_call status is decoded from its enum name', (
+    testWidgets('tool_group of several calls collapses behind one row', (
       tester,
     ) async {
       await _pumpChat(
         tester,
         messages: [
           _custom({
-            kMetaKind: kKindToolCall,
-            kMetaToolName: 'web.search',
-            kMetaToolSummary: 'flutter chat ui',
-            kMetaToolStatus: ToolCallStatus.error.name,
+            kMetaKind: kKindToolGroup,
+            kMetaToolCalls: const [
+              ToolCall(name: 'shell.exec', summary: 'ls -la'),
+              ToolCall(name: 'web.search', summary: 'flutter chat ui'),
+            ],
           }),
         ],
       );
 
-      final card = tester.widget<ToolCallCard>(find.byType(ToolCallCard));
-      expect(card.call.status, ToolCallStatus.error);
+      expect(find.byType(ToolCallCard), findsNothing);
+      expect(find.text('Ran 2 commands'), findsOneWidget);
+
+      await tester.tap(find.text('Ran 2 commands'));
+      await tester.pump();
+
+      expect(find.byType(ToolCallCard), findsNWidgets(2));
     });
 
     testWidgets('reasoning is folded until tapped', (tester) async {

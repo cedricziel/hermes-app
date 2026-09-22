@@ -13,7 +13,6 @@ import '../chat_models.dart'
         ChatAttachment,
         ClarifyRequest,
         ToolCall,
-        ToolCallStatus,
         UnsupportedKind,
         UnsupportedRequest;
 import 'approval_card.dart';
@@ -23,7 +22,7 @@ import 'follow_up_chips.dart';
 import 'message_actions.dart';
 import 'reasoning_block.dart';
 import 'thinking_indicator.dart';
-import 'tool_call_card.dart';
+import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
 import 'welcome_view.dart';
 
@@ -216,17 +215,8 @@ Widget _buildCustom(
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
-    case kKindToolCall:
-      return ToolCallCard(
-        call: ToolCall(
-          name: metadata![kMetaToolName] as String,
-          summary: metadata[kMetaToolSummary] as String,
-          status: ToolCallStatus.values.byName(
-            metadata[kMetaToolStatus] as String,
-          ),
-          result: metadata[kMetaToolResult] as String? ?? '',
-        ),
-      );
+    case kKindToolGroup:
+      return ToolCallGroup(calls: metadata![kMetaToolCalls] as List<ToolCall>);
     case kKindReasoning:
       return ReasoningBlock(
         text: metadata![kMetaReasoningText] as String,

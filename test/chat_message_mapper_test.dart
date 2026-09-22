@@ -86,34 +86,24 @@ void main() {
       expect(out.single.authorId, kUserAuthorId);
     });
 
-    test('emits one CustomMessage per tool call before the text', () {
-      final out = chatMessageToFlyer(
-        message(
-          toolCalls: const [
-            ToolCall(name: 'shell', summary: 'ls -la'),
-            ToolCall(
-              name: 'web_search',
-              summary: 'flutter',
-              status: ToolCallStatus.running,
-            ),
-          ],
-        ),
+    test('groups consecutive calls with no reasoning between them', () {
+      const shell = ToolCall(name: 'shell', summary: 'ls -la');
+      const search = ToolCall(
+        name: 'web_search',
+        summary: 'flutter',
+        status: ToolCallStatus.running,
       );
+      final out = chatMessageToFlyer(message(toolCalls: const [shell, search]));
 
-      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-tool-1', 'm1']);
-      expect(out[2], isA<TextMessage>());
-      final first = out[0] as CustomMessage;
-      final second = out[1] as CustomMessage;
-      expect(first.authorId, kAssistantAuthorId);
-      expect(first.createdAt, createdAt.toUtc());
-      expect(first.metadata, {
-        kMetaKind: kKindToolCall,
-        kMetaToolName: 'shell',
-        kMetaToolSummary: 'ls -la',
-        kMetaToolStatus: 'completed',
-        kMetaToolResult: '',
+      expect(out.map((m) => m.id), ['m1-tool-0', 'm1']);
+      expect(out[1], isA<TextMessage>());
+      final group = out[0] as CustomMessage;
+      expect(group.authorId, kAssistantAuthorId);
+      expect(group.createdAt, createdAt.toUtc());
+      expect(group.metadata, {
+        kMetaKind: kKindToolGroup,
+        kMetaToolCalls: [shell, search],
       });
-      expect(second.metadata![kMetaToolStatus], 'running');
     });
 
     test('shows no thinking dots once a call has reasoning to show', () {
@@ -154,6 +144,31 @@ void main() {
         'm1-reasoning',
         'm1',
       ]);
+    });
+
+    test('a call with no reasoning joins the run that started before it', () {
+      const first = ToolCall(name: 'shell', summary: 'ls', reasoning: 'Look.');
+      const second = ToolCall(name: 'read', summary: 'a');
+      const third = ToolCall(
+        name: 'write',
+        summary: 'b',
+        reasoning: 'Now change it.',
+      );
+      final out = chatMessageToFlyer(
+        message(toolCalls: const [first, second, third]),
+      );
+
+      expect(out.map((m) => m.id), [
+        'm1-tool-0-reasoning',
+        'm1-tool-0',
+        'm1-tool-2-reasoning',
+        'm1-tool-2',
+        'm1',
+      ]);
+      final firstGroup = out[1] as CustomMessage;
+      expect(firstGroup.metadata![kMetaToolCalls], [first, second]);
+      final secondGroup = out[3] as CustomMessage;
+      expect(secondGroup.metadata![kMetaToolCalls], [third]);
     });
 
     test('emits tool calls without text when content is empty', () {

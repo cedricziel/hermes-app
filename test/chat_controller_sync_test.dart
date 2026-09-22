@@ -70,26 +70,21 @@ void main() {
     expect((controller.messages[1] as TextMessage).text, 'Hi there');
   });
 
-  test('tool cards appear before the text, keeping the reply\'s slot', () {
+  test('a group of tool cards appears before the text, keeping the reply\'s '
+      'slot', () {
     change(
       () => reply.toolCalls = const [
         ToolCall(name: 'a', summary: '', status: ToolCallStatus.running),
         ToolCall(name: 'b', summary: '', status: ToolCallStatus.running),
       ],
     );
-    expect(_ids(controller), [
-      't-0',
-      't-1-tool-0',
-      't-1-tool-1',
-      't-1-thinking',
-      't-2',
-    ]);
+    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1-thinking', 't-2']);
 
     change(() {
       reply.status = MessageStatus.streaming;
       reply.content = 'Done';
     });
-    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1-tool-1', 't-1', 't-2']);
+    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1', 't-2']);
   });
 
   test('a tool card changes status in place', () {
@@ -106,7 +101,8 @@ void main() {
 
     final card = controller.messages[1] as CustomMessage;
     expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1-thinking', 't-2']);
-    expect(card.metadata?[kMetaToolStatus], 'completed');
+    final calls = card.metadata?[kMetaToolCalls] as List<ToolCall>;
+    expect(calls.single.status, ToolCallStatus.completed);
   });
 
   test('a reply that is not in the controller yet is appended', () {

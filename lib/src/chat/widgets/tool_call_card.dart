@@ -43,7 +43,7 @@ class ToolCallCard extends StatelessWidget {
       trailing: expandable ? null : const SizedBox.shrink(),
       title: Row(
         children: [
-          _StatusIcon(status: call.status),
+          ToolCallStatusIcon(status: call.status),
           const SizedBox(width: 8),
           Text(
             call.name,
@@ -147,8 +147,10 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _StatusIcon extends StatelessWidget {
-  const _StatusIcon({required this.status});
+/// The status glyph a tool call or a group of them shows: a spinner while
+/// running, a check once done, an error mark once failed.
+class ToolCallStatusIcon extends StatelessWidget {
+  const ToolCallStatusIcon({super.key, required this.status});
 
   final ToolCallStatus status;
 
