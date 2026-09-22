@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
 import 'package:hermes_app/src/schedules/job_form_controller.dart';
+import 'package:hermes_app/src/schedules/job_form_screen.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 
@@ -234,5 +236,26 @@ void main() {
 
       expect(f.error, 'nope');
     });
+  });
+
+  test('delivery targets arriving after dispose do not notify', () async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/cron/delivery-targets', (_) => gate.future);
+    final form = JobFormController(repository: repository, profile: 'work');
+    final load = form.loadTargets();
+    form.dispose();
+    gate.complete((status: 200, body: {}));
+
+    await expectLater(load, completes);
+  });
+
+  testWidgets('the form screen disposes its controller', (tester) async {
+    server.on('GET', '/api/cron/delivery-targets', {});
+    final form = JobFormController(repository: repository, profile: 'work');
+    await tester.pumpWidget(MaterialApp(home: JobFormScreen(controller: form)));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+
+    expect(() => form.addListener(() {}), throwsFlutterError);
   });
 }

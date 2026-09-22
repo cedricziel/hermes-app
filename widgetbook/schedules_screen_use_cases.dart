@@ -197,7 +197,6 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
               repository: _cron(schedulesServer()),
               profile: 'work',
             ),
-            dispose: (controller) => controller.dispose(),
             builder: (_, controller) => JobFormScreen(
               controller: controller,
               profileNames: const ['work', 'home'],
