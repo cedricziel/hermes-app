@@ -2080,6 +2080,134 @@ void main() {
       },
     );
   });
+
+  group('reattaching to a running turn', () {
+    late List<FakeGateway> gateways;
+    late HermesGatewayTransport reattaching;
+
+    /// The first connection drops right after submitting, as a socket the OS
+    /// killed while the app slept does; later ones answer `session.resume`
+    /// as a server that is still running the turn does.
+    setUp(() {
+      gateways = [];
+      reattaching = HermesGatewayTransport(
+        connect: () async {
+          final next = FakeGateway();
+          if (gateways.isEmpty) {
+            next.turn = (g, sid) {
+              g.event('message.start', sid);
+              g.event('message.delta', sid, {'text': 'Thinking'});
+              g.drop();
+            };
+          } else {
+            next.resumeResult = {'session_id': 'rt-1', 'running': true};
+          }
+          gateways.add(next);
+          return next.channel;
+        },
+        requestTimeout: const Duration(milliseconds: 50),
+      );
+    });
+
+    tearDown(() => reattaching.close());
+
+    test(
+      'a reply picks back up once the resumed session says it is still running',
+      () async {
+        final result = reattaching.send(text: 'hi').toList();
+        await pumpEventQueue();
+
+        expect(gateways, hasLength(2));
+        gateways[1].event('message.delta', 'rt-1', {'text': ' more'});
+        gateways[1].event('message.complete', 'rt-1', {
+          'text': 'Thinking more',
+          'status': 'complete',
+        });
+
+        expect((await result).map((e) => e.runtimeType), [
+          ThreadBound,
+          ReplyStarted,
+          ReplyDelta,
+          ReplyDelta,
+          ReplyCompleted,
+        ]);
+      },
+    );
+
+    test('a follow-up turn picks back up the same way', () async {
+      gateways.add(FakeGateway()..turn = plainReply);
+      reattaching = HermesGatewayTransport(
+        connect: () async => gateways.length == 1
+            ? gateways.single.channel
+            : gateways.last.channel,
+        requestTimeout: const Duration(milliseconds: 50),
+      );
+      await reattaching.send(text: 'hi').toList();
+      final follow = reattaching.followUps('stored-1').toList();
+      gateways.single.event('message.start', 'rt-1');
+      gateways.single.event('message.delta', 'rt-1', {'text': 'Checking'});
+      gateways.add(
+        FakeGateway()..resumeResult = {'session_id': 'rt-1', 'running': true},
+      );
+      gateways[0].drop();
+      await pumpEventQueue();
+
+      expect(gateways, hasLength(2));
+      gateways.last.event('message.complete', 'rt-1', {
+        'text': 'Checking done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      gateways.last.drop();
+
+      expect((await follow).map((e) => e.runtimeType), [
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+    });
+
+    test(
+      'gives up when the resumed session says the turn already ended',
+      () async {
+        // The default setUp already answers a resume with `running: true`;
+        // override the second connection to say the turn ended instead.
+        reattaching = HermesGatewayTransport(
+          connect: () async {
+            final next = FakeGateway();
+            if (gateways.isEmpty) {
+              next.turn = (g, sid) => g.drop();
+            } else {
+              next.resumeResult = {'running': false};
+            }
+            gateways.add(next);
+            return next.channel;
+          },
+          requestTimeout: const Duration(milliseconds: 50),
+        );
+
+        await expectLater(
+          reattaching.send(text: 'hi').toList(),
+          throwsA(isA<GatewayConnectionClosed>()),
+        );
+      },
+    );
+
+    test('the runtime session after a reattach can still be stopped', () async {
+      final result = reattaching.send(text: 'hi').toList();
+      await pumpEventQueue();
+      gateways[1].interruptStatus = 'interrupted';
+
+      expect(await reattaching.stopReply('stored-1'), isTrue);
+      expect(gateways[1].methods, contains('session.interrupt'));
+
+      gateways[1].event('message.complete', 'rt-1', {
+        'text': 'Thinking',
+        'status': 'interrupted',
+      });
+      await result;
+    });
+  });
 }
 
 void _reply(FakeGateway g, String sid) {
