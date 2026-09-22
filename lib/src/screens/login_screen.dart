@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/auth_provider_info.dart';
+import '../settings/report_bug_link.dart';
 
 /// Sign-in screen. Every registered provider — OIDC/OAuth or the bundled
 /// username/password provider alike — signs in through the same RFC 8252
@@ -90,6 +91,8 @@ class LoginScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  const ReportBugLink(),
                 ],
               ),
             ),

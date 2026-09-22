@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/connect_failure.dart';
+import '../settings/report_bug_link.dart';
 
 final _vpnGuide = Uri.parse(
   'https://github.com/cedricziel/hermes-app#reaching-your-dashboard-over-a-vpn',
@@ -127,6 +128,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                             )
                           : const Text('Connect'),
                     ),
+                    const ReportBugLink(),
                   ],
                 ),
               ),

@@ -66,6 +66,15 @@ void main() {
     expect(fieldText(tester), 'http://');
   });
 
+  testWidgets('offers a way to report a bug', (tester) async {
+    final auth = AuthController(tokenStore: MemoryTokenStore());
+    await tester.runAsync(auth.bootstrap);
+
+    await pumpSetup(tester, auth);
+
+    expect(find.text('Report a bug'), findsOneWidget);
+  });
+
   testWidgets('is prefilled with the saved server after a failed session '
       'check', (tester) async {
     final dashboard = (await tester.runAsync(_startFlakyDashboard))!;
