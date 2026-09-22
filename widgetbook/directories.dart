@@ -13,11 +13,13 @@ import 'plugins_screen_use_cases.dart';
 import 'plugins_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
 import 'skills_bots_use_cases.dart';
+import 'state_message_use_cases.dart';
 import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
   paletteNode(),
+  stateMessageNode(),
   appNode(),
   dialogsNode(),
   chatNode(),

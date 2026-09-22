@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/widgets/state_message.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/gestures.dart';
@@ -429,7 +431,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       if (_controller.loading) {
         return const Center(child: CircularProgressIndicator());
       }
-      return _Message(
+      return StateMessage(
         icon: _controller.unavailable
             ? Icons.extension_off_outlined
             : Icons.error_outline,
@@ -947,34 +949,6 @@ class _LiveDot extends StatelessWidget {
       color: live
           ? context.hermesColors.success
           : context.hermesColors.subtleText,
-    ),
-  );
-}
-
-class _Message extends StatelessWidget {
-  const _Message({
-    required this.icon,
-    required this.title,
-    this.detail,
-    this.action,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? detail;
-  final Widget? action;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 40),
-        const SizedBox(height: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        if (detail != null) Text(detail!),
-        if (action != null) ...[const SizedBox(height: 12), action!],
-      ],
     ),
   );
 }
