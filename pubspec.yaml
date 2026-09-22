@@ -58,7 +58,7 @@ dependencies:
   flyer_chat_text_message: ^2.6.1
   material_ui: ^1.4.0
   # OpenTelemetry logs and traces, exported to SignalDB.
-  flutter_otel: ^0.1.0
+  flutter_otel: ^0.1.1
   # Coarse device facts for the telemetry resource.
   flutter_otel_device_info: ^0.1.0
   # Request spans and logs that record the route only, never the server address.
