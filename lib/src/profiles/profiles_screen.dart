@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../auth/auth_controller.dart';
+import '../api/hermes_repositories.dart';
+
 import '../widgets/content_column.dart';
 import 'hermes_profiles_repository.dart';
 
@@ -38,9 +38,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   @override
   void initState() {
     super.initState();
-    _repository =
-        widget.repository ??
-        HermesProfilesRepository(context.read<AuthController>().api!.raw);
+    _repository = widget.repository ?? HermesRepositories.of(context).profiles;
     _load();
   }
 

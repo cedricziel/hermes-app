@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../auth/auth_controller.dart';
+import '../api/hermes_repositories.dart';
+
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
@@ -67,12 +68,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    final api = context.read<AuthController>().api;
-    _plugins =
-        widget.plugins ??
-        (api == null ? null : HermesPluginsRepository(api.raw));
-    _cron = widget.cron ?? (api == null ? null : HermesCronRepository(api.raw));
-    _profiles = api == null ? null : HermesProfilesRepository(api.raw);
+    final repositories = HermesRepositories.maybeOf(context);
+    _plugins = widget.plugins ?? repositories?.plugins;
+    _cron = widget.cron ?? repositories?.cron;
+    _profiles = repositories?.profiles;
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {

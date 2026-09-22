@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'src/app.dart';
+import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
@@ -38,6 +39,10 @@ Future<void> main() async {
             events: telemetry.events(),
             networkSignals: ConnectivityNetworkSignals(),
           )..bootstrap(),
+        ),
+        ProxyProvider<AuthController, HermesRepositories?>(
+          update: (_, auth, previous) =>
+              HermesRepositories.forAuth(auth, previous),
         ),
         // Downloaded files are deleted when the session ends, so this must be
         // listening from the start, not from the first file opened.
