@@ -9,6 +9,7 @@ import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import 'relative_time.dart';
+import 'thread_actions_menu.dart';
 
 /// The thread list rail — assistant-ui's `<ThreadList />`: a "New thread"
 /// action pinned above a scrollable history, with the active thread picked
@@ -221,8 +222,6 @@ class _MoreSectionState extends State<_MoreSection> {
   }
 }
 
-enum _ThreadAction { rename, pin, archive, delete }
-
 class _ThreadRow extends StatefulWidget {
   const _ThreadRow({
     super.key,
@@ -242,35 +241,11 @@ class _ThreadRow extends StatefulWidget {
 }
 
 class _ThreadRowState extends State<_ThreadRow> {
-  final _menu = GlobalKey<PopupMenuButtonState<_ThreadAction>>();
+  final _actions = GlobalKey<ThreadActionsButtonState>();
 
   ChatThread get _thread => widget.thread;
 
-  void _openMenu() => _menu.currentState?.showButtonMenu();
-
-  Future<void> _run(_ThreadAction action) async {
-    final housekeeping = widget.housekeeping!;
-    switch (action) {
-      case _ThreadAction.rename:
-        final title = await showDialog<String>(
-          context: context,
-          builder: (_) => _RenameDialog(initial: _thread.title),
-        );
-        if (title != null && title != _thread.title) {
-          await housekeeping.rename(_thread, title);
-        }
-      case _ThreadAction.pin:
-        await housekeeping.setPinned(_thread, !_thread.pinned);
-      case _ThreadAction.archive:
-        await housekeeping.archive(_thread);
-      case _ThreadAction.delete:
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (_) => _DeleteDialog(title: _thread.title),
-        );
-        if (confirmed ?? false) await housekeeping.delete(_thread);
-    }
-  }
+  void _openMenu() => _actions.currentState?.open();
 
   @override
   Widget build(BuildContext context) {
@@ -317,114 +292,17 @@ class _ThreadRowState extends State<_ThreadRow> {
                   ),
                 ),
                 if (actionable)
-                  PopupMenuButton<_ThreadAction>(
-                    key: _menu,
-                    tooltip: 'Chat actions',
-                    iconSize: 16,
-                    padding: EdgeInsets.zero,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size.square(28),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    icon: Icon(Icons.more_horiz, color: subtle),
-                    onSelected: _run,
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: _ThreadAction.rename,
-                        child: Text('Rename'),
-                      ),
-                      PopupMenuItem(
-                        value: _ThreadAction.pin,
-                        child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
-                      ),
-                      const PopupMenuItem(
-                        value: _ThreadAction.archive,
-                        child: Text('Archive'),
-                      ),
-                      const PopupMenuItem(
-                        value: _ThreadAction.delete,
-                        child: Text('Delete'),
-                      ),
-                    ],
+                  ThreadActionsButton(
+                    key: _actions,
+                    thread: _thread,
+                    housekeeping: widget.housekeeping,
+                    dense: true,
                   ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _RenameDialog extends StatefulWidget {
-  const _RenameDialog({required this.initial});
-
-  final String initial;
-
-  @override
-  State<_RenameDialog> createState() => _RenameDialogState();
-}
-
-class _RenameDialogState extends State<_RenameDialog> {
-  late final _controller = TextEditingController(text: widget.initial);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final title = _controller.text.trim();
-    if (title.isNotEmpty) Navigator.of(context).pop(title);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Rename chat'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        onSubmitted: (_) => _save(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ListenableBuilder(
-          listenable: _controller,
-          builder: (context, _) => FilledButton(
-            onPressed: _controller.text.trim().isEmpty ? null : _save,
-            child: const Text('Save'),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DeleteDialog extends StatelessWidget {
-  const _DeleteDialog({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Delete this chat?'),
-      content: Text('"$title" and its messages will be deleted for good.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Delete'),
-        ),
-      ],
     );
   }
 }

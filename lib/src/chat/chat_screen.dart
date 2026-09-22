@@ -45,6 +45,7 @@ import 'mock_chat_data.dart';
 import 'thread_housekeeping.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_composer_builder.dart';
+import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 
 const _couldNotOpenChat = 'Could not open that chat.';
@@ -1044,7 +1045,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? null
               : AppBar(
                   title: Text(selected?.title ?? 'Hermes'),
-                  actions: [const _ConnectionInfoButton()],
+                  actions: [
+                    if (selected != null && selected.remote)
+                      ThreadActionsButton(
+                        key: const Key('header-thread-actions'),
+                        thread: selected,
+                        housekeeping: _housekeeping,
+                        includeCopyTranscript: true,
+                      ),
+                    const _ConnectionInfoButton(),
+                  ],
                 ),
           body: Row(
             children: [
@@ -1057,6 +1067,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               Expanded(
                 child: _ThreadView(
                   thread: selected,
+                  housekeeping: _housekeeping,
                   chatController: _controllerFor(selected),
                   composerController: _composerController,
                   attachments: _attachments,
@@ -1099,6 +1110,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 class _ThreadView extends StatelessWidget {
   const _ThreadView({
     required this.thread,
+    required this.housekeeping,
     required this.chatController,
     required this.composerController,
     required this.attachments,
@@ -1117,6 +1129,7 @@ class _ThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
+  final ThreadHousekeeping? housekeeping;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
   final List<SharedFile> attachments;
@@ -1179,6 +1192,13 @@ class _ThreadView extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (thread != null && thread!.remote)
+                  ThreadActionsButton(
+                    key: const Key('header-thread-actions'),
+                    thread: thread!,
+                    housekeeping: housekeeping,
+                    includeCopyTranscript: true,
+                  ),
                 const _ConnectionInfoButton(),
               ],
             ),
