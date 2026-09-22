@@ -77,6 +77,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   bool _estimating = false;
   List<KanbanHomeChannel> _channels = const [];
   final _switching = <String>{};
+  int _loadGeneration = 0;
   final _comment = TextEditingController();
 
   KanbanRepository get _repo => widget.repository;
@@ -95,16 +96,19 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     try {
       final detail = await _repo.loadTask(widget.taskId, board: widget.board);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _detail = detail;
         _failed = false;
       });
       _loadChannels();
     } catch (_) {
-      if (mounted && _detail == null) setState(() => _failed = true);
+      if (mounted && generation == _loadGeneration && _detail == null) {
+        setState(() => _failed = true);
+      }
     }
   }
 
