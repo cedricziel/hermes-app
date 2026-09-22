@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
@@ -51,6 +52,20 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Finished run', const ToolCallGroup(calls: finishedToolRun)),
         _tool('Running', const ToolCallGroup(calls: runningToolRun)),
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ChatHeader',
+      useCases: [
+        _tool('No thread', ChatHeader(thread: null, onShowConnection: () {})),
+        _tool(
+          'Thread on the server',
+          ChatHeader(thread: threads[0], onShowConnection: () {}),
+        ),
+        _tool(
+          'Local thread',
+          ChatHeader(thread: threads[2], onShowConnection: () {}),
+        ),
       ],
     ),
     WidgetbookComponent(
