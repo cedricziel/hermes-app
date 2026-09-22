@@ -64,7 +64,19 @@ class _Watch {
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
-  HermesGatewayTransport({required this._connect, this._telemetry});
+  HermesGatewayTransport({
+    required this._connect,
+    this._telemetry,
+    this.requestTimeout = const Duration(seconds: 30),
+    this.probeTimeout = const Duration(seconds: 10),
+  });
+
+  /// How long opening a session or submitting a prompt may go unanswered
+  /// before the connection is given up on.
+  final Duration requestTimeout;
+
+  /// How long a connection may take to answer [checkConnection].
+  final Duration probeTimeout;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;
@@ -93,8 +105,8 @@ class HermesGatewayTransport implements ChatTransport {
     final Map<String, Object?> session;
     try {
       session = threadId == null
-          ? await client.request('session.create', scope)
-          : await client.request('session.resume', {
+          ? await _call(client, 'session.create', scope)
+          : await _call(client, 'session.resume', {
               'session_id': threadId,
               ...scope,
             });
@@ -126,7 +138,7 @@ class HermesGatewayTransport implements ChatTransport {
           attachments,
           queued,
         );
-        await client.request('prompt.submit', {
+        await _call(client, 'prompt.submit', {
           'session_id': runtimeId,
           'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
         });
@@ -140,8 +152,10 @@ class HermesGatewayTransport implements ChatTransport {
         yield event;
         if (event is ReplyCompleted) {
           // The session goes on listening: Hermes may chain another turn.
+          final displaced = _idle.remove(storedId);
           _idle[storedId] = watch;
           parked = true;
+          await displaced?.close();
           return;
         }
       }
@@ -151,6 +165,33 @@ class HermesGatewayTransport implements ChatTransport {
       _endReply(runtimeId, storedId);
       if (!parked) await watch.close();
     }
+  }
+
+  /// Sends [method] and gives up on a gateway that does not answer: the
+  /// connection is dropped, so the next send opens a new one.
+  Future<Map<String, Object?>> _call(
+    GatewayRpcClient client,
+    String method,
+    Map<String, Object?> params,
+  ) async {
+    try {
+      return await client.request(method, params).timeout(requestTimeout);
+    } on TimeoutException {
+      await _drop(client);
+      throw const GatewayConnectionClosed();
+    }
+  }
+
+  Future<void> _drop(GatewayRpcClient client) async {
+    if (_open == client) _open = null;
+    await client.close();
+  }
+
+  @override
+  Future<void> checkConnection() async {
+    final open = _connected();
+    if (open == null || await open.isResponsive(probeTimeout)) return;
+    await _drop(open);
   }
 
   @override

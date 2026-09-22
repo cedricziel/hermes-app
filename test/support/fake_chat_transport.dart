@@ -35,6 +35,11 @@ class FakeChatTransport implements ChatTransport {
     return follow._events.stream;
   }
 
+  var connectionChecks = 0;
+
+  @override
+  Future<void> checkConnection() async => connectionChecks++;
+
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =
       <
@@ -143,4 +148,7 @@ class FakeFollowUps {
   void emit(ChatEvent event) => _events.add(event);
 
   void fail([Object error = 'connection lost']) => _events.addError(error);
+
+  /// Whether the screen is still listening.
+  bool get hasListener => _events.hasListener;
 }

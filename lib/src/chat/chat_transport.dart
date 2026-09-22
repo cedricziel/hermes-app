@@ -190,6 +190,13 @@ abstract interface class ChatTransport {
   /// closes mid-turn; cancel it to stop listening.
   Stream<ChatEvent> followUps(String threadId);
 
+  /// Makes sure the connection still works, for when the app comes back from
+  /// sleep: iOS and Android drop sockets then, often without saying so. A
+  /// connection that does not answer is closed, which ends any reply on it
+  /// with an error, and the next [send] opens a new one. Does nothing when no
+  /// connection is open.
+  Future<void> checkConnection();
+
   /// Answers an approval the agent is waiting on with one of its choices.
   /// Returns false when the request is no longer pending, and throws when the
   /// call itself fails.

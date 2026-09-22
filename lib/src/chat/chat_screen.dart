@@ -109,7 +109,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   static const double _wideBreakpoint = 900;
 
   late List<ChatThread> _threads;
@@ -138,6 +138,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final _bound = <ChatThread>{};
   var _sentMessages = 0;
   final _replies = <StreamSubscription<ChatEvent>>{};
+
+  /// The listeners for turns Hermes chains after a reply, which outlive it.
+  final _following = <StreamSubscription<ChatEvent>>{};
   String? _selectedId;
   final _composerController = TextEditingController();
   final _emptyController = InMemoryChatController();
@@ -160,6 +163,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
@@ -241,6 +245,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _pendingFetch = false;
       final threads = _housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
+      _stopFollowing();
       for (final controller in _chatControllers.values) {
         controller.dispose();
       }
@@ -475,13 +480,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    _transport?.checkConnection().then((_) {}, onError: (Object _) {});
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();
     for (final reply in _replies) {
       reply.cancel();
     }
+    _stopFollowing();
     _ownedTransport?.close();
     _composerController.dispose();
     _latestReplyId.dispose();
@@ -745,12 +758,13 @@ class _ChatScreenState extends State<ChatScreen> {
   ) {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
+    var failed = false;
     void end([Object? error]) {
       _replies.remove(subscription);
       if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
-      } else if (error == null) {
+      } else if (error == null && !failed) {
         _followUps(transport, thread, profile);
       }
     }
@@ -763,12 +777,22 @@ class _ChatScreenState extends State<ChatScreen> {
           attachments: attachments,
         )
         .listen(
-          (event) => _onReplyEvent(thread, reply, event, profile),
+          (event) {
+            if (event is ReplyCompleted && event.failed) failed = true;
+            _onReplyEvent(thread, reply, event, profile);
+          },
           onError: end,
           onDone: end,
           cancelOnError: true,
         );
     _replies.add(subscription);
+  }
+
+  void _stopFollowing() {
+    for (final subscription in _following) {
+      subscription.cancel();
+    }
+    _following.clear();
   }
 
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
@@ -777,7 +801,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
-      _replies.remove(subscription);
+      _following.remove(subscription);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -804,7 +828,7 @@ class _ChatScreenState extends State<ChatScreen> {
           onDone: end,
           cancelOnError: true,
         );
-    _replies.add(subscription);
+    _following.add(subscription);
   }
 
   void _onReplyEvent(

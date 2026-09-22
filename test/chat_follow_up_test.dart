@@ -38,7 +38,11 @@ void main() {
     matching: find.byType(EditableText),
   );
 
-  Future<FakeSend> sendAndFinish(WidgetTester tester, String reply) async {
+  Future<FakeSend> sendAndFinish(
+    WidgetTester tester,
+    String reply, {
+    bool failed = false,
+  }) async {
     await pumpChatScreen(tester, server: server, transport: transport);
     await openThread(tester, 'Run failure');
     await tester.enterText(composerField, 'Plan it');
@@ -46,7 +50,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
     final turn = transport.sends.last;
-    turn.emit(ReplyCompleted(reply));
+    turn.emit(ReplyCompleted(reply, failed: failed));
     await tester.pump();
     turn.finish();
     await tester.pump();
@@ -118,6 +122,15 @@ void main() {
 
     expect(find.text('One.'), findsOneWidget);
     expect(find.text('Stop'), findsNothing);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('a reply that completed as failed is not followed', (
+    tester,
+  ) async {
+    await sendAndFinish(tester, '', failed: true);
+
+    expect(transport.followUpStreams, isEmpty);
     await tester.pump(const Duration(seconds: 5));
   });
 
