@@ -4,11 +4,13 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'report_bug_link.dart';
 
 Future<void> showAppAboutDialog(BuildContext context) async {
-  final info = await PackageInfo.fromPlatform();
+  final version = await PackageInfo.fromPlatform()
+      .then((info) => info.version)
+      .catchError((_) => 'Unavailable');
   if (!context.mounted) return;
   await showDialog<void>(
     context: context,
-    builder: (_) => AppAboutDialog(version: info.version),
+    builder: (_) => AppAboutDialog(version: version),
   );
 }
 
