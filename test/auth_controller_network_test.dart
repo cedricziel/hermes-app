@@ -298,4 +298,25 @@ void main() {
       'http://127.0.0.1:${fast.port}',
     );
   });
+
+  test('changing the server while a connect runs keeps it cleared', () async {
+    final slow = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    slow.listen((request) async {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      request.response
+        ..headers.contentType = ContentType.json
+        ..write(jsonEncode({'auth_required': false}))
+        ..close();
+    });
+    addTearDown(() => slow.close(force: true));
+    final auth = controller();
+
+    final pending = auth.connect('http://127.0.0.1:${slow.port}');
+    await auth.changeServer();
+    await pending;
+
+    expect(auth.baseUrl, isNull);
+    expect(auth.state, HermesConnectionState.needsServerUrl);
+    expect(await SharedPreferencesAsync().getString(_savedKey), isNull);
+  });
 }
