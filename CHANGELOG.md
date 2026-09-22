@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.36](https://github.com/cedricziel/hermes-app/compare/v0.1.35...v0.1.36) (2026-09-22)
+
+
+### Bug Fixes
+
+* stop controllers acting after their screen closes, and drop stale async results ([#283](https://github.com/cedricziel/hermes-app/issues/283)) ([ceded2b](https://github.com/cedricziel/hermes-app/commit/ceded2bafcd262164fbd0c525a17bb354e321b07))
+
 ## [0.1.35](https://github.com/cedricziel/hermes-app/compare/v0.1.34...v0.1.35) (2026-09-22)
 
 
