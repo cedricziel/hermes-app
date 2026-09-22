@@ -87,9 +87,20 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         id: '${m.id}-thinking',
         authorId: authorId,
         createdAt: createdAt,
-        metadata: {kMetaKind: kKindThinking},
+        metadata: {
+          kMetaKind: kKindThinking,
+          kMetaThinkingStartedAt: m.createdAt,
+          kMetaThinkingActivity: _currentActivity(m.toolCalls),
+        },
       ),
   ];
+}
+
+/// What the reply is doing right now, for the status line shown while it has
+/// nothing else to show yet: the tool still running, or else "Thinking…".
+String _currentActivity(List<ToolCall> toolCalls) {
+  final running = toolCalls.where((c) => c.status == ToolCallStatus.running);
+  return running.isEmpty ? 'Thinking…' : 'Running ${running.last.name}…';
 }
 
 List<Message> chatThreadToFlyer(ChatThread t) => [

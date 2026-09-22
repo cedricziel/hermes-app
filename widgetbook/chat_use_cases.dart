@@ -161,7 +161,24 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     ),
     WidgetbookComponent(
       name: 'ThinkingIndicator',
-      useCases: [_tool('Default', const ThinkingIndicator())],
+      useCases: [
+        _tool(
+          'Thinking',
+          ThinkingIndicator(
+            startedAt: DateTime.now().subtract(const Duration(seconds: 4)),
+            activity: 'Thinking…',
+          ),
+        ),
+        _tool(
+          'Running a tool, over a minute in',
+          ThinkingIndicator(
+            startedAt: DateTime.now().subtract(
+              const Duration(minutes: 1, seconds: 12),
+            ),
+            activity: 'Running git_show…',
+          ),
+        ),
+      ],
     ),
   ],
 );

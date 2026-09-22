@@ -1,66 +1,74 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
 
-/// Three dots pulsing in sequence while a reply is being generated —
-/// assistant-ui's stand-in for a message that has no tokens yet.
+/// A spinner, the elapsed time and what the reply is doing right now —
+/// assistant-ui's stand-in for a message that has nothing else to show yet.
+/// Ticks once a second for as long as it is mounted.
 class ThinkingIndicator extends StatefulWidget {
-  const ThinkingIndicator({super.key});
+  const ThinkingIndicator({
+    super.key,
+    required this.startedAt,
+    required this.activity,
+  });
+
+  /// When the reply began, for the elapsed time.
+  final DateTime startedAt;
+
+  /// What the reply is doing right now, e.g. "Thinking…" or
+  /// "Running shell…".
+  final String activity;
 
   @override
   State<ThinkingIndicator> createState() => _ThinkingIndicatorState();
 }
 
-class _ThinkingIndicatorState extends State<ThinkingIndicator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+class _ThinkingIndicatorState extends State<ThinkingIndicator> {
+  late final Timer _ticker;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _ticker.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final color = context.hermesColors.subtleText;
-    return SizedBox(
-      height: 20,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(3, (i) {
-              final t = (_controller.value - i * 0.2) % 1.0;
-              final opacity = 0.3 + 0.7 * (0.5 - (t - 0.5).abs()) * 2;
-              return Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: Opacity(
-                  opacity: opacity.clamp(0.2, 1.0),
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              );
-            }),
-          );
-        },
-      ),
+    final elapsed = DateTime.now().difference(widget.startedAt);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(strokeWidth: 2, color: color),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${formatThinkingElapsed(elapsed)} · ${widget.activity}',
+          style: TextStyle(fontSize: 12.5, color: color),
+        ),
+      ],
     );
   }
+}
+
+/// The duration text: "12s" under a minute, "2m 5s" from a minute on. Never
+/// negative, for a start time that is momentarily ahead of the clock.
+String formatThinkingElapsed(Duration elapsed) {
+  final total = elapsed.isNegative ? 0 : elapsed.inSeconds;
+  final minutes = total ~/ 60;
+  final seconds = total % 60;
+  return minutes > 0 ? '${minutes}m ${seconds}s' : '${seconds}s';
 }

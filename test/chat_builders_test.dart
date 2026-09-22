@@ -239,7 +239,11 @@ void main() {
       await _pumpChat(
         tester,
         messages: [
-          _custom({kMetaKind: kKindThinking}),
+          _custom({
+            kMetaKind: kKindThinking,
+            kMetaThinkingStartedAt: DateTime.now(),
+            kMetaThinkingActivity: 'Thinking…',
+          }),
         ],
       );
 
