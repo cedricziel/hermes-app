@@ -1,6 +1,7 @@
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review_items.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 
@@ -230,6 +231,47 @@ const envServer = McpCommandReviewItem(
   cwd: '/srv/tools',
   envNames: ['SEARCH_API_KEY', 'SEARCH_REGION'],
 );
+
+const readyAnthropic = ModelProviderOption(
+  id: 'anthropic',
+  label: 'Anthropic',
+  status: ModelProviderStatus.ready,
+  models: [
+    ModelOption(
+      id: 'claude-opus-5',
+      label: 'Claude Opus 5',
+      supportedEfforts: ['low', 'medium', 'high'],
+    ),
+    ModelOption(
+      id: 'claude-sonnet-5',
+      label: 'Claude Sonnet 5',
+      supportedEfforts: ['low', 'medium', 'high'],
+    ),
+    ModelOption(id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5'),
+  ],
+);
+
+const readyOpenAi = ModelProviderOption(
+  id: 'openai',
+  label: 'OpenAI',
+  status: ModelProviderStatus.ready,
+  models: [
+    ModelOption(
+      id: 'gpt-5.1',
+      label: 'GPT-5.1',
+      supportedEfforts: ['minimal', 'low', 'medium', 'high'],
+    ),
+  ],
+);
+
+const needsSetupOpenRouter = ModelProviderOption(
+  id: 'openrouter',
+  label: 'OpenRouter',
+  models: [ModelOption(id: 'meta-llama/llama-4', label: 'Llama 4')],
+  requiredEnv: ['OPENROUTER_API_KEY'],
+);
+
+const modelProviders = [readyAnthropic, readyOpenAi, needsSetupOpenRouter];
 
 final threads = [
   ChatThread(

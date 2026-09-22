@@ -7,6 +7,7 @@ import 'dialogs_use_cases.dart';
 import 'kanban_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
+import 'model_use_cases.dart';
 import 'palette_use_cases.dart';
 import 'plugins_screen_use_cases.dart';
 import 'plugins_use_cases.dart';
@@ -30,4 +31,5 @@ final List<WidgetbookNode> directories = [
   pluginsScreensNode(),
   mcpNode(),
   mcpScreensNode(),
+  modelNode(),
 ];
