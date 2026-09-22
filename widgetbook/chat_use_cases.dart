@@ -3,7 +3,6 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
-import 'package:hermes_app/src/chat/widgets/follow_up_chips.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
@@ -114,10 +113,6 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           const ReasoningBlock(text: reasoningText, active: true),
         ),
       ],
-    ),
-    WidgetbookComponent(
-      name: 'FollowUpChips',
-      useCases: [_tool('Default', FollowUpChips(onPick: (_) {}))],
     ),
     WidgetbookComponent(
       name: 'WelcomeView',

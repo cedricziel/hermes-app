@@ -128,9 +128,9 @@ const _withDark = <_Variant>[
   (name: 'phone-dark', size: phoneSize, brightness: Brightness.dark),
 ];
 
-/// The newer chat features: reasoning, reply actions and follow-ups, files
-/// the agent sends, files the user attaches, requests the app cannot answer,
-/// the app lock, and content that does not fit.
+/// The newer chat features: reasoning, reply actions, files the agent sends,
+/// files the user attaches, requests the app cannot answer, the app lock,
+/// and content that does not fit.
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
@@ -346,10 +346,10 @@ void main() {
   }
 
   // ---------------------------------------------------------------------
-  // Reasoning, reply actions, follow-ups
+  // Reasoning and reply actions
   // ---------------------------------------------------------------------
   for (final v in _withDark) {
-    richTest('${v.name}: reasoning, reply actions, follow-ups', (tester) async {
+    richTest('${v.name}: reasoning and reply actions', (tester) async {
       final shots = ScreenshotRecorder('chat-rich-${v.name}-reasoning');
       await mockClipboard(tester);
       await pumpChat(tester, shots, v);
@@ -390,21 +390,12 @@ void main() {
           'the same way.';
       await emit(tester, reply, const ReplyCompleted(answer));
       await tester.pumpAndSettle();
-      await shots.capture(tester, 'completed-actions-follow-ups');
+      await shots.capture(tester, 'completed-actions');
 
       await tester.tap(find.byTooltip('Copy').last);
       await tester.pump();
       await shots.capture(tester, 'copied');
       expect(copied, [answer]);
-      await tester.pump(const Duration(seconds: 3));
-
-      await tester.tap(find.text('Give an example'));
-      await runFrames(tester);
-      await shots.capture(tester, 'follow-up-sent');
-      expect(transport.sends.last.text, 'Give an example');
-      await emit(tester, transport.sends.last, const ReplyCompleted('Sure.'));
-      await tester.pumpAndSettle();
-      await shots.capture(tester, 'follow-up-answered');
     });
   }
 
