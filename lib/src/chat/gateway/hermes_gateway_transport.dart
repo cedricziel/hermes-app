@@ -20,6 +20,11 @@ const _handledRequests = {'approval', 'clarify', 'sudo', 'secret'};
 /// knows.
 const _unsupportedImage = 4016;
 
+/// How many times a reply tries to reattach after its connection drops
+/// before it gives up, so a socket that keeps flapping does not retry
+/// forever.
+const _maxReattempts = 5;
+
 /// An approval or clarify request the user still has to answer.
 class _OpenRequest {
   const _OpenRequest({
@@ -49,9 +54,6 @@ class _Watch {
   final StreamController<_Incoming> _inbox;
   final List<StreamSubscription<Object?>> _sources;
   final StreamIterator<_Incoming> events;
-
-  /// The requests of the running turn, so they can be answered until it ends.
-  final mine = <String>{};
 
   Future<void> close() async {
     for (final source in _sources) {
@@ -116,13 +118,14 @@ class HermesGatewayTransport implements ChatTransport {
       }
       rethrow;
     }
-    final runtimeId = session['session_id'] as String;
+    var runtimeId = session['session_id'] as String;
     final storedId = threadId ?? session['stored_session_id'] as String;
     await _idle.remove(storedId)?.close();
     _beginReply(runtimeId, storedId);
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
-    final watch = _watch(client, runtimeId);
+    var watch = _watch(client, runtimeId);
+    final mine = <String>{};
     var parked = false;
     try {
       if (threadId == null) {
@@ -146,25 +149,58 @@ class HermesGatewayTransport implements ChatTransport {
         await _detach(client, runtimeId, queued);
         rethrow;
       }
-      while (await watch.events.moveNext()) {
-        final (event, serverRequest) = watch.events.current;
-        _track(event, runtimeId, watch.mine, serverRequest: serverRequest);
-        yield event;
-        if (event is ReplyCompleted) {
-          // The session goes on listening: Hermes may chain another turn.
-          final displaced = _idle.remove(storedId);
-          _idle[storedId] = watch;
-          parked = true;
-          await displaced?.close();
-          return;
+      for (var attempt = 0; ; attempt++) {
+        while (await watch.events.moveNext()) {
+          final (event, serverRequest) = watch.events.current;
+          _track(event, runtimeId, mine, serverRequest: serverRequest);
+          yield event;
+          if (event is ReplyCompleted) {
+            // The session goes on listening: Hermes may chain another turn.
+            final displaced = _idle.remove(storedId);
+            _idle[storedId] = watch;
+            parked = true;
+            await displaced?.close();
+            return;
+          }
         }
+        // The connection died before the turn finished. Hermes keeps running
+        // it, so pick it back up on a fresh connection rather than failing a
+        // reply that is still on its way.
+        final next = attempt < _maxReattempts
+            ? await _reattach(storedId)
+            : null;
+        if (next == null) throw const GatewayConnectionClosed();
+        await watch.close();
+        _endReply(runtimeId, storedId);
+        runtimeId = next.runtimeId;
+        _beginReply(runtimeId, storedId);
+        watch = next;
       }
-      throw const GatewayConnectionClosed();
     } finally {
-      _forgetRequests(watch);
+      _forgetRequests(mine);
       _endReply(runtimeId, storedId);
       if (!parked) await watch.close();
     }
+  }
+
+  /// Reopens the socket and resumes [storedId]'s runtime session, so a turn
+  /// still running there can be watched again. The same live agent process
+  /// keeps the same runtime id, so nothing needs remapping beyond that id.
+  /// Returns null when there is nothing left to reattach to: the server
+  /// finished or failed the turn while disconnected, the session is gone, or
+  /// the reconnect itself failed.
+  Future<_Watch?> _reattach(String storedId) async {
+    final GatewayRpcClient client;
+    final Map<String, Object?> result;
+    try {
+      client = await _client();
+      result = await _call(client, 'session.resume', {'session_id': storedId});
+    } on Object {
+      return null;
+    }
+    if (result['running'] != true) return null;
+    final runtimeId = result['session_id'] as String? ?? storedId;
+    return _watch(client, runtimeId);
   }
 
   /// Sends [method] and gives up on a gateway that does not answer: the
@@ -208,35 +244,52 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<void> _relay(
-    _Watch watch,
+    _Watch initial,
     String threadId,
     StreamController<ChatEvent> out,
   ) async {
-    final runtimeId = watch.runtimeId;
+    var watch = initial;
+    var runtimeId = watch.runtimeId;
     var replying = false;
+    final mine = <String>{};
     try {
-      while (await watch.events.moveNext()) {
-        final (event, serverRequest) = watch.events.current;
-        if (event is ReplyStarted && !replying) {
-          replying = true;
-          _beginReply(runtimeId, threadId);
+      for (var attempt = 0; ; attempt++) {
+        while (await watch.events.moveNext()) {
+          final (event, serverRequest) = watch.events.current;
+          if (event is ReplyStarted && !replying) {
+            replying = true;
+            _beginReply(runtimeId, threadId);
+          }
+          _track(event, runtimeId, mine, serverRequest: serverRequest);
+          if (out.isClosed) return;
+          out.add(event);
+          if (event is ReplyCompleted && replying) {
+            replying = false;
+            _forgetRequests(mine);
+            _endReply(runtimeId, threadId);
+          }
         }
-        _track(event, runtimeId, watch.mine, serverRequest: serverRequest);
-        if (out.isClosed) return;
-        out.add(event);
-        if (event is ReplyCompleted && replying) {
-          replying = false;
-          _forgetRequests(watch);
-          _endReply(runtimeId, threadId);
+        // Idle between turns: nothing is running to pick back up, so the
+        // connection dropping just ends the stream quietly.
+        if (!replying) return;
+        final next = attempt < _maxReattempts
+            ? await _reattach(threadId)
+            : null;
+        if (next == null) {
+          if (!out.isClosed) out.addError(const GatewayConnectionClosed());
+          return;
         }
-      }
-      if (replying && !out.isClosed) {
-        out.addError(const GatewayConnectionClosed());
+        await watch.close();
+        _endReply(runtimeId, threadId);
+        runtimeId = next.runtimeId;
+        _beginReply(runtimeId, threadId);
+        watch = next;
       }
     } finally {
-      _forgetRequests(watch);
+      _forgetRequests(mine);
       if (replying) _endReply(runtimeId, threadId);
       if (!out.isClosed) unawaited(out.close());
+      await watch.close();
     }
   }
 
@@ -275,9 +328,9 @@ class HermesGatewayTransport implements ChatTransport {
     if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
   }
 
-  void _forgetRequests(_Watch watch) {
-    watch.mine.forEach(_awaiting.remove);
-    watch.mine.clear();
+  void _forgetRequests(Set<String> mine) {
+    mine.forEach(_awaiting.remove);
+    mine.clear();
   }
 
   /// Makes [attachments] available to the agent: an image is queued on the
