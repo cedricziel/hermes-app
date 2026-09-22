@@ -21,7 +21,7 @@ class _FakeStorage extends FlutterSecureStorage {
     AppleOptions? mOptions,
     WindowsOptions? wOptions,
   }) async {
-    if (readError != null) throw readError!;
+    if (readError != null) throw readError!; // ignore: only_throw_errors
     return value;
   }
 
@@ -35,7 +35,7 @@ class _FakeStorage extends FlutterSecureStorage {
     AppleOptions? mOptions,
     WindowsOptions? wOptions,
   }) async {
-    if (deleteError != null) throw deleteError!;
+    if (deleteError != null) throw deleteError!; // ignore: only_throw_errors
     value = null;
   }
 }

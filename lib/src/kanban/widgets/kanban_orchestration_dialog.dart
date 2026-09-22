@@ -51,7 +51,7 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
         _orchestrator = settings.orchestratorProfile;
         _defaultAssignee = settings.defaultAssignee;
       });
-    } catch (_) {
+    } on Object catch (_) {
       if (mounted) setState(() => _failed = true);
     }
   }

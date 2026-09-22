@@ -26,7 +26,7 @@ class _FakeImagePicker implements ImagePicker {
   }) async {
     expect(source, ImageSource.camera);
     final error = cameraError;
-    if (error != null) throw error;
+    if (error != null) throw error; // ignore: only_throw_errors
     return camera;
   }
 

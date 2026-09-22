@@ -68,6 +68,7 @@ class KanbanBoardController extends ChangeNotifier {
 
   int _generation = 0;
   int _cursor = 0;
+  // ignore: cancel_subscriptions
   StreamSubscription<String>? _events;
   StreamChannel<String>? _channel;
   Timer? _refreshTimer;
@@ -178,7 +179,7 @@ class KanbanBoardController extends ChangeNotifier {
         await _restart();
       }
       notifyListeners();
-    } catch (_) {
+    } on Object catch (_) {
       // The switcher is optional; the board still loads without it.
     }
   }
@@ -205,8 +206,8 @@ class KanbanBoardController extends ChangeNotifier {
       };
       _selected.retainAll(ids);
       _cursor = math.max(_cursor, board.latestEventId);
-      if (_events == null) _listen();
-    } catch (e) {
+      if (_events == null) unawaited(_listen());
+    } on Object catch (e) {
       if (_disposed || generation != _generation) return;
       _error = e;
       if (unavailable) {
@@ -325,7 +326,7 @@ class KanbanBoardController extends ChangeNotifier {
         onDone: retry,
         cancelOnError: true,
       );
-    } catch (_) {
+    } on Object catch (_) {
       retry();
     }
   }
@@ -339,7 +340,7 @@ class KanbanBoardController extends ChangeNotifier {
       if (cursor is num) _cursor = math.max(_cursor, cursor.toInt());
       final events = data['events'];
       return events is List && events.isNotEmpty;
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
@@ -388,7 +389,7 @@ class KanbanBoardController extends ChangeNotifier {
   Future<void> _rememberBoard(String slug) async {
     try {
       await prefs?.setString(prefsKey, slug);
-    } catch (_) {}
+    } on Object catch (_) {}
   }
 
   Future<void> setTenant(String? tenant) {

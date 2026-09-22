@@ -50,7 +50,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
         _workers = workers;
         _failure = null;
       });
-    } catch (e) {
+    } on Object catch (e) {
       if (!mounted || load != _loads) return;
       final reason = e is KanbanException
           ? e.message

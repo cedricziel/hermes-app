@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../chat/widgets/relative_time.dart';
@@ -104,8 +106,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         _detail = detail;
         _failed = false;
       });
-      _loadChannels();
-    } catch (_) {
+      unawaited(_loadChannels());
+    } on Object catch (_) {
       if (mounted && generation == _loadGeneration && _detail == null) {
         setState(() => _failed = true);
       }
@@ -121,7 +123,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         board: widget.board,
       );
       if (mounted) setState(() => _channels = channels);
-    } catch (_) {}
+    } on Object catch (_) {}
   }
 
   Future<void> _toggleChannel(KanbanHomeChannel channel, bool on) async {
@@ -340,7 +342,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     List<String> names = const [];
     try {
       names = await _repo.loadAssignees(board: widget.board);
-    } catch (_) {}
+    } on Object catch (_) {}
     if (!mounted) return;
     final picked = await showDialog<String>(
       context: context,

@@ -67,7 +67,7 @@ class FakeChatTransport implements ChatTransport {
 
   @override
   Future<bool> answerApproval(String requestId, String choice) async {
-    if (answerError case final error?) throw error;
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
     await answerGate?.future;
     approvalAnswers.add((requestId, choice));
     return accepts;
@@ -80,7 +80,7 @@ class FakeChatTransport implements ChatTransport {
     String? questionId,
     bool multiSelect = false,
   }) async {
-    if (answerError case final error?) throw error;
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
     if (++_clarifyCalls == failClarifyCallNumber) {
       throw Exception('socket closed');
     }
@@ -100,7 +100,7 @@ class FakeChatTransport implements ChatTransport {
 
   @override
   Future<bool> stopReply(String threadId) async {
-    if (answerError case final error?) throw error;
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
     stops.add(threadId);
     return stopsRunning;
   }
@@ -109,7 +109,7 @@ class FakeChatTransport implements ChatTransport {
 
   @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
-    if (answerError case final error?) throw error;
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
     skips.add((requestId, kind));
     return accepts;
   }

@@ -27,7 +27,7 @@ class FakeKanbanFiles implements KanbanFiles {
   Future<KanbanPickedFile?> pick() async {
     pickCalls++;
     await pickGate?.future;
-    if (pickError != null) throw pickError!;
+    if (pickError != null) throw pickError!; // ignore: only_throw_errors
     return next;
   }
 

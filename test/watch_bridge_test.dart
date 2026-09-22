@@ -24,12 +24,14 @@ void main() {
   /// Calls the bridge the way the iOS runner does and decodes the reply.
   Future<Object?> fromNative(String method, Object? arguments) async {
     final reply = Completer<ByteData?>();
-    TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
-        .handlePlatformMessage(
-          WatchBridge.channelName,
-          codec.encodeMethodCall(MethodCall(method, arguments)),
-          reply.complete,
-        );
+    unawaited(
+      TestWidgetsFlutterBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            WatchBridge.channelName,
+            codec.encodeMethodCall(MethodCall(method, arguments)),
+            reply.complete,
+          ),
+    );
     final data = await reply.future;
     return data == null ? null : codec.decodeEnvelope(data);
   }
@@ -56,10 +58,13 @@ void main() {
         sessionListBody([sessionRow(id: 's1', title: 'Groceries')]),
       );
 
-      final result = await fromNative('request', {'op': 'threads'}) as Map;
+      final result = await fromNative('request', {
+        'op': 'threads',
+      }) as Map<Object?, Object?>;
 
       expect(result['ok'], isTrue);
-      expect((result['threads'] as List).single['id'], '/s1');
+      final threads = result['threads'] as List<Object?>;
+      expect((threads.single as Map<Object?, Object?>)['id'], '/s1');
     },
   );
 

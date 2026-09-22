@@ -37,7 +37,7 @@ class GithubReleaseStore extends UpgraderStore {
         ),
         appStoreListingURL: release['html_url'] as String?,
       );
-    } catch (_) {
+    } on Object catch (_) {
       return UpgraderVersionInfo();
     }
   }

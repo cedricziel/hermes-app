@@ -48,8 +48,8 @@ Future<HttpServer> _startDashboard({
           ? 404
           : 200
       ..headers.contentType = ContentType.json
-      ..write(jsonEncode(body ?? {}))
-      ..close();
+      ..write(jsonEncode(body ?? {}));
+    unawaited(request.response.close());
   });
   return server;
 }

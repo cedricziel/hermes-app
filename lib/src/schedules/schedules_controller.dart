@@ -238,7 +238,9 @@ class SchedulesController extends ChangeNotifier {
   Future<List<String>> profileNames() async {
     try {
       final overview = await profiles?.load();
-      return [for (final p in overview?.profiles ?? const []) p.name];
+      return [
+        for (final p in overview?.profiles ?? const <HermesProfile>[]) p.name,
+      ];
     } on Object {
       return const [];
     }

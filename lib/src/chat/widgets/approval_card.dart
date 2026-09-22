@@ -52,7 +52,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
       if (choice == 'always' && !await _confirmAlways()) return;
       if (!mounted) return;
       await widget.onAnswer!(choice);
-    } catch (_) {
+    } on Object catch (_) {
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

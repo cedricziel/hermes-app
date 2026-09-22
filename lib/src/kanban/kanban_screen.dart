@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -140,7 +142,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
       ),
     );
-    if (created == true) _controller.refresh();
+    if (created == true) unawaited(_controller.refresh());
   }
 
   void _open(KanbanTask task) => showKanbanTask(
@@ -164,7 +166,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         board: _controller.boardSlug,
       ),
     );
-    _controller.refresh();
+    unawaited(_controller.refresh());
   }
 
   Widget _moreMenu() => PopupMenuButton<String>(
@@ -210,7 +212,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (!ok || !mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Dispatcher nudged')));
-    _controller.refresh();
+    unawaited(_controller.refresh());
   }
 
   /// Applies one change to every selected task, reporting the ones it could
@@ -252,7 +254,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       final failed = failures.map((f) => f.id).where((id) => id.isNotEmpty);
       if (failed.isNotEmpty) _controller.keepSelected(failed);
     }
-    _controller.refresh();
+    unawaited(_controller.refresh());
   }
 
   Future<T?> _pick<T>(String title, List<(String, T)> options) => showDialog<T>(
@@ -284,7 +286,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         for (final s in kanbanSettableStatuses)
                           (kanbanStatusLabel(s), s),
                       ]);
-                      if (status != null) _bulk(status: status);
+                      if (status != null) unawaited(_bulk(status: status));
                     },
               child: const Text('Move'),
             ),
@@ -299,7 +301,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         ('Nobody', ''),
                         for (final n in names) (n, n),
                       ]);
-                      if (assignee != null) _bulk(assignee: assignee);
+                      if (assignee != null) {
+                        unawaited(_bulk(assignee: assignee));
+                      }
                     },
               child: const Text('Assign'),
             ),
@@ -313,7 +317,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         ('Normal', 0),
                         for (final p in [1, 2, 3]) ('P$p', p),
                       ]);
-                      if (priority != null) _bulk(priority: priority);
+                      if (priority != null) {
+                        unawaited(_bulk(priority: priority));
+                      }
                     },
               child: const Text('Priority'),
             ),
@@ -328,7 +334,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         title: 'Archive ${_controller.selected.length} tasks?',
                         confirm: 'Archive',
                       )) {
-                        _bulk(archive: true);
+                        unawaited(_bulk(archive: true));
                       }
                     },
               child: const Text('Archive'),

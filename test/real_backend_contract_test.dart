@@ -1172,7 +1172,7 @@ void main() {
           for (final s in [slug, '$slug-2']) {
             try {
               await repository.removeBoard(s, hardDelete: true);
-            } catch (_) {}
+            } on Object catch (_) {}
           }
         });
         await repository.createBoard(slug: slug, name: 'Contract export');
@@ -1957,7 +1957,9 @@ Future<HttpServer> _serveMinimalMcp() async {
       case 'initialize':
         result = {
           'protocolVersion':
-              (body['params'] as Map?)?['protocolVersion'] ?? '2025-03-26',
+              ((body as Map<String, dynamic>)['params']
+                  as Map<String, dynamic>?)?['protocolVersion'] ??
+              '2025-03-26',
           'capabilities': {'tools': {}, 'prompts': {}, 'resources': {}},
           'serverInfo': {'name': 'contract-check', 'version': '1.0.0'},
         };

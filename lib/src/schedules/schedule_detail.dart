@@ -94,7 +94,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
     _say(message ?? 'Run requested');
     if (message == null) {
       await Future<void>.delayed(const Duration(seconds: 2));
-      if (mounted) _loadRuns(++_load);
+      if (mounted) await _loadRuns(++_load);
     }
   }
 

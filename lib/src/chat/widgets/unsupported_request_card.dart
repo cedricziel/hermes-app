@@ -32,7 +32,7 @@ class _UnsupportedRequestCardState extends State<UnsupportedRequestCard> {
     });
     try {
       await widget.onSkip!();
-    } catch (_) {
+    } on Object catch (_) {
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
       if (mounted) setState(() => _busy = false);

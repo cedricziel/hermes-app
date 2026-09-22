@@ -86,7 +86,10 @@ void main() {
       adapter.lastRequest!.uri.toString(),
       'http://hermes.test:9119/auth/native/token',
     );
-    expect(adapter.lastRequest!.data['code'], 'auth-code');
+    expect(
+      (adapter.lastRequest!.data as Map<String, dynamic>)['code'],
+      'auth-code',
+    );
     expect(session.accessToken, 'at');
     expect(closed, 1);
   });

@@ -22,7 +22,7 @@ class LocalDeviceAuthenticator implements DeviceAuthenticator {
   Future<bool> isAvailable() async {
     try {
       return await _auth.isDeviceSupported();
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }
@@ -34,7 +34,7 @@ class LocalDeviceAuthenticator implements DeviceAuthenticator {
         localizedReason: reason,
         persistAcrossBackgrounding: true,
       );
-    } catch (_) {
+    } on Object catch (_) {
       return false;
     }
   }

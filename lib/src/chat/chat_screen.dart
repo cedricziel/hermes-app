@@ -273,13 +273,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         if (held == null) widget.onShowChat?.call();
         if (_selectedId != launch.threadId) {
           if (fetchHeld) {
-            _openMissing(launch);
+            unawaited(_openMissing(launch));
           } else {
             _showMessage(_couldNotOpenChat);
           }
         }
       }
-      if (_selectedId != null) _loadMessages(_selectedId!);
+      if (_selectedId != null) unawaited(_loadMessages(_selectedId!));
     } on Object {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {

@@ -20,12 +20,12 @@ void main() {
     final job = SkillJob(
       title: 'Installing x',
       start: () async {
-        if (startError != null) throw startError;
+        if (startError != null) throw startError; // ignore: only_throw_errors
         return started;
       },
       status: (name) async {
         final answer = answers[i < answers.length ? i++ : answers.length - 1];
-        if (answer is Exception) throw answer;
+        if (answer is Exception) throw answer; // ignore: only_throw_errors
         return answer as JobStatus?;
       },
       wait: (_) async {},
