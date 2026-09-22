@@ -164,16 +164,17 @@ class WatchRequestHandler {
             announceEnd(event);
             return {
               'ok': true,
-              'threadId': boundId == null ? null : _bind(profile, boundId),
+              ..._threadEntry(profile, boundId),
               'text': _cut(failed ? text : _shown(text, streamed.toString())),
               'failed': failed,
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
               UnsupportedRequested():
+            announceEnd(event);
             return {
               'ok': true,
-              'threadId': boundId == null ? null : _bind(profile, boundId),
+              ..._threadEntry(profile, boundId),
               'text': cannotAnswerText,
               'failed': false,
             };
@@ -189,6 +190,11 @@ class WatchRequestHandler {
       await chat.close();
     }
   }
+
+  /// The `threadId` entry of a reply, left out when there is no thread: a null
+  /// is not a property-list type and WatchConnectivity would refuse the reply.
+  static Map<String, Object?> _threadEntry(String? profile, String? id) =>
+      id == null ? const {} : {'threadId': _bind(profile, id)};
 
   static String _bind(String? profile, String sessionId) =>
       '${Uri.encodeComponent(profile ?? '')}/$sessionId';

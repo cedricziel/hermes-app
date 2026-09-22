@@ -59,6 +59,27 @@ void main() {
     }
   });
 
+  test('leaves threadId out of a reply that has no thread', () async {
+    final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+    await pumpEventQueue();
+    transport.sends.single.emit(
+      ApprovalRequested(
+        const ApprovalRequest(
+          requestId: 'r1',
+          command: 'ls',
+          description: 'list',
+          choices: ['once'],
+        ),
+      ),
+    );
+
+    final reply = await pending;
+
+    expect(reply['ok'], isTrue);
+    expect(reply.containsKey('threadId'), isFalse);
+    expect(announced, isEmpty);
+  });
+
   test('rejects an unknown op and a malformed request', () async {
     expect(await handler.handle({'op': 'nope'}), {
       'ok': false,
@@ -550,6 +571,12 @@ void main() {
   });
 
   group('requests the watch cannot answer', () {
+    const bodies = {
+      'approval': kApprovalBody,
+      'question': kQuestionBody,
+      'secret': kNeedsYouBody,
+      'sudo': kNeedsYouBody,
+    };
     const requests = <String, ChatEvent>{
       'approval': ApprovalRequested(
         ApprovalRequest(
@@ -593,7 +620,7 @@ void main() {
           'failed': false,
         });
         expect(transport.closed, isTrue);
-        expect(announced, isEmpty);
+        expect(announced.map((n) => n.body), [bodies[key]]);
       });
     }
 
@@ -608,6 +635,7 @@ void main() {
 
       expect(text, isNot(contains('rm -rf')));
       expect(text, isNot(contains('delete files')));
+      expect(announced.single.body, isNot(contains('rm -rf')));
     });
   });
 }
