@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../core/safe_notifier.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_skills_repository.dart';
 
@@ -21,7 +22,7 @@ class SkillGroup {
 ///
 /// The profile is a parameter of every call. Picking one here never switches
 /// the profile the chat uses.
-class SkillsController extends ChangeNotifier {
+class SkillsController extends ChangeNotifier with SafeNotifier {
   SkillsController({
     required this.repository,
     required String? chatProfile,
@@ -165,10 +166,11 @@ class SkillsController extends ChangeNotifier {
     final previous = skill(name)?.enabled;
     if (previous == null) return Future.value(false);
     final generation = _generation;
+    final profile = _profile;
     _set(name, enabled);
     final done = (_toggles[name] ?? Future<bool>.value(true)).then((_) async {
       try {
-        await repository.setEnabled(name, enabled, profile: _profile);
+        await repository.setEnabled(name, enabled, profile: profile);
         _log('toggle', 'ok');
         return true;
       } on Object {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../core/safe_notifier.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
 import 'skill_job.dart';
@@ -16,7 +17,7 @@ enum HubStatus { loading, ready, failed, unsupported }
 ///
 /// Install is held here, not in a widget: it goes ahead only with a scan of
 /// that very skill whose policy allows it, so no screen can skip the check.
-class SkillsHubController extends ChangeNotifier {
+class SkillsHubController extends ChangeNotifier with SafeNotifier {
   SkillsHubController({
     required this.repository,
     required this.skills,
@@ -243,6 +244,7 @@ class SkillsHubController extends ChangeNotifier {
     Map<String, Object> extra,
   ) async {
     await job.run();
+    if (disposed) return;
     _log({
       'op': op,
       ...extra,
@@ -252,6 +254,7 @@ class SkillsHubController extends ChangeNotifier {
         _ => 'unknown',
       },
     });
+    if (skills.disposed) return;
     await Future.wait([skills.load(quiet: true), load(quiet: true)]);
     notifyListeners();
   }
@@ -276,6 +279,7 @@ class SkillsHubController extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
+    _job?.dispose();
     super.dispose();
   }
 }

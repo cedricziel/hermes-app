@@ -318,4 +318,37 @@ void main() {
       );
     });
   });
+
+  test('a queued toggle goes to the profile it was made for', () async {
+    final gate = Completer<FakeResponse>();
+    final sent = <Object?>[];
+    server.onRequest('PUT', '/api/skills/toggle', (r) {
+      sent.add((jsonBody(r)! as Map)['profile']);
+      return sent.length == 1 ? gate.future : (status: 200, body: {'ok': true});
+    });
+    final c = controller();
+    await c.load();
+
+    final a = c.toggle('zeta', false);
+    final b = c.toggle('zeta', true);
+    await c.selectProfile('home');
+    gate.complete((status: 200, body: {'ok': true}));
+    await Future.wait([a, b]);
+
+    expect(sent, ['work', 'work']);
+  });
+
+  test('profiles arriving after dispose do not notify', () async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/profiles', (_) => gate.future);
+    final c = controller();
+    final done = c.loadProfiles();
+    c.dispose();
+    gate.complete((
+      status: 200,
+      body: profileListBody([profileRow(name: 'a')]),
+    ));
+
+    await expectLater(done, completes);
+  });
 }

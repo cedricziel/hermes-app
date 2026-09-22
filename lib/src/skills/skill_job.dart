@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/safe_notifier.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
 
@@ -11,7 +12,7 @@ enum JobState { starting, running, succeeded, failed, unknown }
 /// The exit code decides the outcome. A job the server no longer knows, or
 /// whose state cannot be read repeatedly, ends as [JobState.unknown]: it is
 /// never reported as a success.
-class SkillJob extends ChangeNotifier {
+class SkillJob extends ChangeNotifier with SafeNotifier {
   SkillJob({
     required this.title,
     required this.start,
@@ -52,10 +53,12 @@ class SkillJob extends ChangeNotifier {
       _finish(JobState.failed, error: 'Could not start the job');
       return;
     }
+    if (disposed) return;
     _set(JobState.running);
 
     var failures = 0;
     for (var poll = 0; poll < maxPolls; poll++) {
+      if (disposed) return;
       final JobStatus? current;
       try {
         current = await status(started.name);
