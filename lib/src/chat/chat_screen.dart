@@ -515,7 +515,9 @@ class _ThreadView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final greetingName = context.watch<AuthController>().identity?.displayName;
+    final greetingName = context.select<AuthController, String?>(
+      (auth) => auth.identity?.displayName,
+    );
     final builders =
         buildChatBuilders(
           onPickPrompt: onSend,
