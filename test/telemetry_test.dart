@@ -1,7 +1,24 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/telemetry/telemetry_config.dart';
+
+class _RecordingExporter implements LogRecordExporter {
+  final records = <LogRecord>[];
+
+  @override
+  Future<ExportResult> export(
+    List<LogRecord> records,
+    OTelResource resource,
+  ) async {
+    this.records.addAll(records);
+    return const ExportResult.success();
+  }
+
+  @override
+  Future<void> shutdown() async {}
+}
 
 void main() {
   group('TelemetryConfig.parseHeaders', () {
@@ -97,5 +114,53 @@ void main() {
         expect(telemetry.dioInterceptor(), isNull);
       });
     }
+  });
+
+  group('Telemetry.logUncaughtErrors', () {
+    TelemetryConfig config() => TelemetryConfig(
+      otlpEndpoint: 'https://collector.example.com',
+      otlpHeaders: const {},
+      serviceName: 'hermes-app',
+      serviceVersion: '',
+      deploymentEnvironment: 'test',
+    );
+
+    late FlutterExceptionHandler? previousFlutterHandler;
+
+    setUp(() {
+      previousFlutterHandler = FlutterError.onError;
+    });
+
+    tearDown(() {
+      FlutterError.onError = previousFlutterHandler;
+    });
+
+    test(
+      'attaches breadcrumbs recorded through events() to a crash record',
+      () async {
+        final exporter = _RecordingExporter();
+        final telemetry = await Telemetry.initialize(
+          config(),
+          logExporter: exporter,
+        );
+        telemetry.logUncaughtErrors();
+        telemetry.events()('auth.signed_in');
+        telemetry.events()('session.created', {'profile': 'work'});
+
+        FlutterError.onError!(
+          FlutterErrorDetails(exception: StateError('boom')),
+        );
+        await telemetry.flush();
+
+        final crash = exporter.records.singleWhere(
+          (r) => r.body == 'Uncaught Flutter error',
+        );
+        expect(crash.attributes['exception.type'], 'StateError');
+        expect(crash.attributes['breadcrumbs'], [
+          contains('auth.signed_in'),
+          contains('session.created'),
+        ]);
+      },
+    );
   });
 }
