@@ -346,6 +346,10 @@ class AuthController extends ChangeNotifier {
       final identity = await _api!.fetchMe(accessToken: session.accessToken);
       if (abandoned()) return;
       await _tokenStore.write(session);
+      if (abandoned()) {
+        await _tokenStore.clear();
+        return;
+      }
       _session = session;
       _identity = identity;
       report('succeeded');
@@ -404,7 +408,6 @@ class AuthController extends ChangeNotifier {
     );
   }
 
-  /// Forgets the configured server entirely and returns to setup.
   /// Runs writes of the saved server one at a time, so a slow write from a
   /// superseded connect can't land after a newer one.
   Future<void> _writeSavedServer(Future<void> Function() write) {
@@ -414,8 +417,10 @@ class AuthController extends ChangeNotifier {
     return done;
   }
 
+  /// Forgets the configured server entirely and returns to setup.
   Future<void> changeServer() async {
     ++_connectGeneration;
+    cancelSignIn();
     _savedServerUrl = null;
     await _tokenStore.clear();
     await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
