@@ -207,12 +207,16 @@ class _EffortSection extends StatelessWidget {
             )
           else
             SegmentedButton<String>(
+              emptySelectionAllowed: true,
               segments: [
                 for (final option in options)
                   ButtonSegment(value: option, label: Text(_label(option))),
               ],
-              selected: {selected ?? options.first},
-              onSelectionChanged: (values) => onChanged(values.first),
+              selected: {
+                if (selected != null && options.contains(selected)) selected!,
+              },
+              onSelectionChanged: (values) =>
+                  onChanged(values.isEmpty ? null : values.first),
             ),
         ],
       ),
