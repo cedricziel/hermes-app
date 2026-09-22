@@ -29,7 +29,3 @@ String? mcpAuthKindLabel(McpAuthKind kind) => switch (kind) {
   McpAuthKind.none => 'No auth',
   McpAuthKind.unknown => null,
 };
-
-/// From this width in logical pixels the MCP screens put a detail or form
-/// beside the list, or in a dialog, instead of on a page or sheet.
-const double mcpWideBreakpoint = 900;

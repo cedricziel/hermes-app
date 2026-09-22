@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_mcp_repository.dart';
@@ -35,8 +36,6 @@ class McpServersScreen extends StatefulWidget {
   /// otherwise.
   final McpLinkLauncher? launchLink;
 
-  static const double wideBreakpoint = mcpWideBreakpoint;
-
   @override
   State<McpServersScreen> createState() => _McpServersScreenState();
 }
@@ -65,7 +64,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
   /// from the media instead of the body's layout, which the empty state
   /// never builds.
   bool _isWide(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= McpServersScreen.wideBreakpoint;
+      MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
 
   void _open(HermesMcpServer server) {
     if (_isWide(context)) {
@@ -204,7 +203,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= McpServersScreen.wideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,

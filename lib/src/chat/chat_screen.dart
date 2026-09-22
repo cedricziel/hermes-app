@@ -1,4 +1,7 @@
 import 'dart:async';
+
+import 'package:hermes_app/src/theme/breakpoints.dart';
+
 import 'dart:io';
 
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
@@ -113,8 +116,6 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
-  static const double _wideBreakpoint = 900;
-
   late List<ChatThread> _threads;
   HermesChatRepository? _repository;
   HermesProfilesRepository? _profiles;
@@ -588,7 +589,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _closeDrawerIfNarrow() {
-    if (MediaQuery.sizeOf(context).width < _wideBreakpoint) {
+    if (MediaQuery.sizeOf(context).width < kWideLayoutBreakpoint) {
       _scaffoldKey.currentState?.closeDrawer();
     }
   }
@@ -1017,7 +1018,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= _wideBreakpoint;
+        final isWide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final selected = _selectedThread;
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'discover_tab.dart' show TrustBadge;
@@ -126,7 +127,9 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
           children: [
             Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
+                constraints: const BoxConstraints(
+                  maxWidth: kDetailContentMaxWidth,
+                ),
                 child: _body(context),
               ),
             ),

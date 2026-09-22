@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import 'hermes_skills_repository.dart';
@@ -147,7 +148,9 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
                   children: [
                     Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 720),
+                        constraints: const BoxConstraints(
+                          maxWidth: kDetailContentMaxWidth,
+                        ),
                         child: _details(skill),
                       ),
                     ),

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/theme/breakpoints.dart';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -46,8 +48,6 @@ class KanbanScreen extends StatefulWidget {
 }
 
 class _KanbanScreenState extends State<KanbanScreen> {
-  static const double _columnsBreakpoint = 720;
-
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   String _status = 'running';
@@ -449,7 +449,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= _columnsBreakpoint;
+        final wide = constraints.maxWidth >= kKanbanColumnsBreakpoint;
         return Column(
           children: [
             if (_controller.refreshFailed)

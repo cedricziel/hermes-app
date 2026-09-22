@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'catalog_controller.dart';
@@ -110,7 +111,7 @@ class _CatalogTabState extends State<CatalogTab>
     super.build(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= pluginsWideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/theme/breakpoints.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../chat/widgets/relative_time.dart';
@@ -25,7 +27,7 @@ Future<void> showKanbanTask(
     board: board,
     onChanged: onChanged,
   );
-  if (MediaQuery.sizeOf(context).width >= 720) {
+  if (MediaQuery.sizeOf(context).width >= kKanbanColumnsBreakpoint) {
     return showDialog<void>(
       context: context,
       builder: (_) => Dialog(

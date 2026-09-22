@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'hermes_mcp_repository.dart';
 import 'mcp_catalog_controller.dart';
@@ -9,7 +10,7 @@ import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
 
 /// Browses Hermes' approved MCP servers for the profile [servers] acts on.
-/// Below [mcpWideBreakpoint] a tapped entry opens on its own;
+/// Below [kWideLayoutBreakpoint] a tapped entry opens on its own;
 /// at or above it, beside the list.
 class McpCatalogScreen extends StatefulWidget {
   const McpCatalogScreen({super.key, required this.servers});
@@ -142,7 +143,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= mcpWideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final list = _CatalogList(
           catalog: _catalog,
           search: _search,

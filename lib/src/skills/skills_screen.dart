@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -184,7 +185,7 @@ class _SkillsScreenState extends State<SkillsScreen>
         final installed = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: kDetailContentMaxWidth),
             child: _body(),
           ),
         );
@@ -227,7 +228,9 @@ class _SkillsScreenState extends State<SkillsScreen>
                           Align(
                             alignment: Alignment.topCenter,
                             child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 720),
+                              constraints: const BoxConstraints(
+                                maxWidth: kDetailContentMaxWidth,
+                              ),
                               child: DiscoverTab(hub: hub, onOpen: _openHub),
                             ),
                           ),

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart' show RequestOptions;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -138,7 +139,7 @@ void main() {
 
   Finder row(String name) => find.byKey(ValueKey('mcp-row-$name'));
 
-  bool isWide(Size size) => size.width >= mcpWideBreakpointForTest;
+  bool isWide(Size size) => size.width >= kWideLayoutBreakpoint;
 
   /// Opens a server: a page on a phone, the pane beside the list on desktop.
   Future<void> select(WidgetTester tester, Size size, String name) async {
@@ -734,9 +735,6 @@ void main() {
     await shots.capture(tester, 'add-form');
   });
 }
-
-/// The breakpoint at which the MCP screens lay out a detail beside the list.
-const mcpWideBreakpointForTest = McpServersScreen.wideBreakpoint;
 
 Map<String, Object?> jsonBodyOf(RequestOptions request) =>
     (jsonBody(request)! as Map).cast<String, Object?>();

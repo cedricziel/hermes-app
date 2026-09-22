@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'installed_plugin.dart';
 import 'plugin_detail.dart';
@@ -57,7 +58,7 @@ class _InstalledTabState extends State<InstalledTab>
     super.build(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= pluginsWideBreakpoint;
+        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
