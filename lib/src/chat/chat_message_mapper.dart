@@ -5,17 +5,20 @@ import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'media/extract_media.dart';
 
-/// Attachments come first, then the tool calls grouped into runs, each after
-/// the reasoning that led to the run's first call, the reasoning that
-/// followed the last call, input requests, the text, the files the agent
-/// sent (read from `MEDIA:` tags in the text), and the thinking indicator.
+/// Attachments come first, then text and tool runs interleaved in the order
+/// they actually happened — a [ChatMessage.sealedProse] entry before the
+/// tool run it names, each run after the reasoning that led to its first
+/// call — then the reasoning that followed the last call, input requests,
+/// the text still being written, the files the agent sent (read from
+/// `MEDIA:` tags in the text), and the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
-/// `id-tool-N-reasoning`, `id-tool-N`, `id-reasoning`, `id-media-N`,
-/// `id-input-N`, `id-thinking`), where `N` is the index in
-/// [ChatMessage.toolCalls] of a run's first call, so a streaming reply that
-/// mutates content, status or appends another call to a run maps to ids the
-/// controller can match with `updateMessage`.
+/// `id-sealed-N`, `id-tool-N-reasoning`, `id-tool-N`, `id-reasoning`,
+/// `id-media-N`, `id-input-N`, `id-thinking`), where `N` is the index in
+/// [ChatMessage.sealedProse] or the index in [ChatMessage.toolCalls] of a
+/// run's first call, so a streaming reply that mutates content, status or
+/// appends another sealed entry or call maps to ids the controller can
+/// match with `updateMessage`.
 List<Message> chatMessageToFlyer(ChatMessage m) {
   final authorId = m.role == ChatRole.user ? kUserAuthorId : kAssistantAuthorId;
   final createdAt = m.createdAt.toUtc();
@@ -23,11 +26,26 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   final showThinking =
       thinking &&
       !m.awaitingInput &&
+      m.sealedProse.isEmpty &&
       m.reasoning.isEmpty &&
       !m.toolCalls.any((call) => call.reasoning.isNotEmpty);
   final media = m.role == ChatRole.assistant
       ? extractMedia(m.content, complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
+  final runs = _toolRuns(m.toolCalls, {
+    for (final prose in m.sealedProse) prose.beforeToolCall,
+  });
+
+  Iterable<Message> sealedBefore(int toolCallIndex) => [
+    for (final (i, prose) in m.sealedProse.indexed)
+      if (prose.beforeToolCall == toolCallIndex)
+        TextMessage(
+          id: '${m.id}-sealed-$i',
+          authorId: authorId,
+          createdAt: createdAt,
+          text: prose.text,
+        ),
+  ];
 
   return [
     for (final (i, attachment) in m.attachments.indexed)
@@ -37,7 +55,8 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt,
         attachment,
       ),
-    for (final run in _toolRuns(m.toolCalls)) ...[
+    for (final run in runs) ...[
+      ...sealedBefore(run.start),
       if (run.calls.first.reasoning.isNotEmpty)
         _reasoningMessage(
           '${m.id}-tool-${run.start}-reasoning',
@@ -53,6 +72,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: {kMetaKind: kKindToolGroup, kMetaToolCalls: run.calls},
       ),
     ],
+    ...sealedBefore(m.toolCalls.length),
     if (m.reasoning.isNotEmpty)
       _reasoningMessage(
         '${m.id}-reasoning',
@@ -107,13 +127,18 @@ List<Message> chatThreadToFlyer(ChatThread t) => [
   for (final m in t.messages) ...chatMessageToFlyer(m),
 ];
 
-/// Splits [calls] into runs: a new run starts at the first call and wherever
-/// a call carries its own reasoning (the model paused to think before it, so
-/// it reads as its own turn rather than a continuation of the last run).
-List<({int start, List<ToolCall> calls})> _toolRuns(List<ToolCall> calls) {
+/// Splits [calls] into runs: a new run starts at the first call, wherever a
+/// call carries its own reasoning (the model paused to think before it, so
+/// it reads as its own turn rather than a continuation of the last run), and
+/// wherever [sealedAt] names a call the model wrote text right before, so
+/// that text has its own gap to sit in.
+List<({int start, List<ToolCall> calls})> _toolRuns(
+  List<ToolCall> calls,
+  Set<int> sealedAt,
+) {
   final runs = <({int start, List<ToolCall> calls})>[];
   for (final (i, call) in calls.indexed) {
-    if (runs.isEmpty || call.reasoning.isNotEmpty) {
+    if (runs.isEmpty || call.reasoning.isNotEmpty || sealedAt.contains(i)) {
       runs.add((start: i, calls: [call]));
     } else {
       runs.last.calls.add(call);

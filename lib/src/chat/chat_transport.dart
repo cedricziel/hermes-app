@@ -39,6 +39,17 @@ final class ReasoningUpdated extends ChatEvent {
   final bool replace;
 }
 
+/// A checkpoint Hermes reached before its answer is done: text it wrote
+/// beside a tool call, or before continuing on. [alreadyStreamed] is true
+/// when [text] already arrived as [ReplyDelta] chunks (seal what streamed);
+/// false when it arrives only here (nothing else will deliver it).
+final class ReplyCheckpoint extends ChatEvent {
+  const ReplyCheckpoint(this.text, {required this.alreadyStreamed});
+
+  final String text;
+  final bool alreadyStreamed;
+}
+
 final class ToolStarted extends ChatEvent {
   const ToolStarted({required this.name, this.summary = ''});
 

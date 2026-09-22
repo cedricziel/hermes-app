@@ -845,6 +845,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       case ReplyStarted():
         break;
       case ReplyDelta() ||
+          ReplyCheckpoint() ||
           ReasoningUpdated() ||
           ToolStarted() ||
           ToolFinished() ||

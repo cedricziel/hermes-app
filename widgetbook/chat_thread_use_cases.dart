@@ -33,6 +33,7 @@ ChatMessage _reply(
   List<ToolCall> tools = const [],
   List<InputRequest> requests = const [],
   String reasoning = '',
+  List<SealedProse> sealedProse = const [],
 }) => ChatMessage(
   id: id,
   role: ChatRole.assistant,
@@ -42,6 +43,7 @@ ChatMessage _reply(
   toolCalls: tools,
   inputRequests: requests,
   reasoning: reasoning,
+  sealedProse: sealedProse,
 );
 
 const _markdown =
@@ -174,6 +176,45 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
             tools: const [finishedToolCall, failedToolCall],
           ),
         ]),
+        _thread('Text before a tool call', [
+          _user('u1', 'Look through /opt/data'),
+          _reply(
+            'a1',
+            '',
+            sealedProse: const [
+              SealedProse('Hey! Let me look.', beforeToolCall: 0),
+            ],
+            tools: const [
+              ToolCall(
+                name: 'terminal',
+                summary: '{"command":"ls -la /opt/data"}',
+              ),
+            ],
+          ),
+        ], replying: true),
+        _thread('Text between tool calls, streaming', [
+          _user('u1', 'Look through /opt/data'),
+          _reply(
+            'a1',
+            'Now checking home too',
+            status: MessageStatus.streaming,
+            sealedProse: const [
+              SealedProse('Hey! Let me look.', beforeToolCall: 0),
+              SealedProse('Found a few files.', beforeToolCall: 1),
+            ],
+            tools: const [
+              ToolCall(
+                name: 'terminal',
+                summary: '{"command":"ls -la /opt/data"}',
+              ),
+              ToolCall(
+                name: 'terminal',
+                summary: '{"command":"ls -laR /opt/data/home"}',
+                status: ToolCallStatus.running,
+              ),
+            ],
+          ),
+        ], replying: true),
         _thread('Failed reply', [
           _user('u1', 'Summarise the weekly report'),
           _reply(
