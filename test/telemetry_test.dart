@@ -1,3 +1,5 @@
+import 'dart:ui' show ErrorCallback;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -126,13 +128,16 @@ void main() {
     );
 
     late FlutterExceptionHandler? previousFlutterHandler;
+    late ErrorCallback? previousPlatformHandler;
 
     setUp(() {
       previousFlutterHandler = FlutterError.onError;
+      previousPlatformHandler = PlatformDispatcher.instance.onError;
     });
 
     tearDown(() {
       FlutterError.onError = previousFlutterHandler;
+      PlatformDispatcher.instance.onError = previousPlatformHandler;
     });
 
     test(
@@ -162,5 +167,30 @@ void main() {
         ]);
       },
     );
+
+    test('exports the message, stack trace and breadcrumbs of an uncaught async error', () async {
+      final exporter = _RecordingExporter();
+      final telemetry = await Telemetry.initialize(
+        config(),
+        logExporter: exporter,
+      );
+      telemetry.logUncaughtErrors();
+      telemetry.events()('auth.signed_in');
+      final stackTrace = StackTrace.current;
+
+      PlatformDispatcher.instance.onError!(
+        ArgumentError('bad input'),
+        stackTrace,
+      );
+      await telemetry.flush();
+
+      final crash = exporter.records.singleWhere(
+        (r) => r.body == 'Uncaught async error',
+      );
+      expect(crash.attributes['exception.type'], 'ArgumentError');
+      expect(crash.attributes['exception.message'], contains('bad input'));
+      expect(crash.attributes['exception.stacktrace'], stackTrace.toString());
+      expect(crash.attributes['breadcrumbs'], [contains('auth.signed_in')]);
+    });
   });
 }
