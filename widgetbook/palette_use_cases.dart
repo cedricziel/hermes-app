@@ -92,6 +92,8 @@ WidgetbookNode paletteNode() => WidgetbookComponent(
             _Swatch('surface high', s.surfaceContainerHighest, s.onSurface),
             _Swatch('outline', s.outline),
             _Swatch('error', s.error, s.onError),
+            _Swatch('success', context.hermesColors.success),
+            _Swatch('warning', context.hermesColors.warning),
           ]),
           maxWidth: 600,
         );

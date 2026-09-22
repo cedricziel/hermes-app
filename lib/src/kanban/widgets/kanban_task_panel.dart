@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/theme/hermes_theme.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
@@ -618,7 +620,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             Card(
               margin: const EdgeInsets.only(bottom: 6),
               color: d.severity == 'warning'
-                  ? Colors.amber.withValues(alpha: 0.15)
+                  ? context.hermesColors.warning.withValues(alpha: 0.15)
                   : theme.colorScheme.error.withValues(alpha: 0.12),
               child: ListTile(
                 dense: true,

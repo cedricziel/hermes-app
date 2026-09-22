@@ -164,10 +164,10 @@ class ToolCallStatusIcon extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         );
       case ToolCallStatus.completed:
-        return const Icon(
+        return Icon(
           Icons.check_circle,
           size: 14,
-          color: Color(0xFF16A34A),
+          color: context.hermesColors.success,
         );
       case ToolCallStatus.error:
         return Icon(

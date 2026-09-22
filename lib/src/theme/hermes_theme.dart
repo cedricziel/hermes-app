@@ -46,6 +46,8 @@ ThemeData buildHermesLightTheme() {
     scaffoldBackground: Colors.white,
     sidebarBackground: HermesColors.zinc50,
     subtleText: HermesColors.zinc500,
+    success: const Color(0xFF16A34A),
+    warning: const Color(0xFFB45309),
   );
 }
 
@@ -69,6 +71,8 @@ ThemeData buildHermesDarkTheme() {
     scaffoldBackground: HermesColors.zinc950,
     sidebarBackground: HermesColors.zinc900,
     subtleText: HermesColors.zinc400,
+    success: const Color(0xFF4ADE80),
+    warning: const Color(0xFFFBBF24),
   );
 }
 
@@ -77,12 +81,19 @@ ThemeData _buildTheme({
   required Color scaffoldBackground,
   required Color sidebarBackground,
   required Color subtleText,
+  required Color success,
+  required Color warning,
 }) {
   final base = ThemeData(colorScheme: scheme, useMaterial3: true);
   return base.copyWith(
     scaffoldBackgroundColor: scaffoldBackground,
     extensions: [
-      HermesChatColors(sidebar: sidebarBackground, subtleText: subtleText),
+      HermesChatColors(
+        sidebar: sidebarBackground,
+        subtleText: subtleText,
+        success: success,
+        warning: warning,
+      ),
     ],
     appBarTheme: AppBarTheme(
       backgroundColor: scaffoldBackground,
@@ -168,18 +179,33 @@ ThemeData _buildTheme({
 
 /// Chat-specific colors that don't map onto [ColorScheme]'s fixed roles
 /// (a distinct sidebar tint, a de-emphasized "muted" text color used for
-/// timestamps and hints throughout the thread view).
+/// timestamps and hints throughout the thread view, and the status colors for
+/// something that went well or needs a look).
 class HermesChatColors extends ThemeExtension<HermesChatColors> {
-  const HermesChatColors({required this.sidebar, required this.subtleText});
+  const HermesChatColors({
+    required this.sidebar,
+    required this.subtleText,
+    required this.success,
+    required this.warning,
+  });
 
   final Color sidebar;
   final Color subtleText;
+  final Color success;
+  final Color warning;
 
   @override
-  HermesChatColors copyWith({Color? sidebar, Color? subtleText}) {
+  HermesChatColors copyWith({
+    Color? sidebar,
+    Color? subtleText,
+    Color? success,
+    Color? warning,
+  }) {
     return HermesChatColors(
       sidebar: sidebar ?? this.sidebar,
       subtleText: subtleText ?? this.subtleText,
+      success: success ?? this.success,
+      warning: warning ?? this.warning,
     );
   }
 
@@ -189,11 +215,21 @@ class HermesChatColors extends ThemeExtension<HermesChatColors> {
     return HermesChatColors(
       sidebar: Color.lerp(sidebar, other.sidebar, t)!,
       subtleText: Color.lerp(subtleText, other.subtleText, t)!,
+      success: Color.lerp(success, other.success, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
     );
   }
 }
 
 extension HermesThemeX on BuildContext {
-  HermesChatColors get hermesColors =>
-      Theme.of(this).extension<HermesChatColors>()!;
+  /// Falls back to the Hermes theme's own values under a theme without them,
+  /// such as a test's plain `MaterialApp`.
+  HermesChatColors get hermesColors {
+    final theme = Theme.of(this);
+    return theme.extension<HermesChatColors>() ??
+        (theme.brightness == Brightness.dark
+                ? buildHermesDarkTheme()
+                : buildHermesLightTheme())
+            .extension<HermesChatColors>()!;
+  }
 }

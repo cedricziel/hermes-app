@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'job_draft.dart';
 import 'job_form_controller.dart';
@@ -196,7 +197,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                         Icon(
                           Icons.warning_amber,
                           size: 16,
-                          color: Colors.amber.shade700,
+                          color: context.hermesColors.warning,
                         ),
                         const Expanded(
                           child: Text(

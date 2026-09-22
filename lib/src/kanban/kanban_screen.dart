@@ -944,7 +944,9 @@ class _LiveDot extends StatelessWidget {
     child: Icon(
       Icons.circle,
       size: 10,
-      color: live ? Colors.green : Colors.grey,
+      color: live
+          ? context.hermesColors.success
+          : context.hermesColors.subtleText,
     ),
   );
 }
