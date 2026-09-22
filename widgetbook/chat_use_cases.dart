@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
@@ -50,6 +51,15 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Finished run', const ToolCallGroup(calls: finishedToolRun)),
         _tool('Running', const ToolCallGroup(calls: runningToolRun)),
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ThreadActionsButton',
+      useCases: [
+        _tool(
+          'Local thread: copy transcript only',
+          ThreadActionsButton(thread: threads[2], includeCopyTranscript: true),
+        ),
       ],
     ),
     WidgetbookComponent(

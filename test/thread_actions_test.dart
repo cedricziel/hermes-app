@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -498,6 +499,93 @@ void main() {
 
       expect(row('s1'), findsNothing);
       expect(find.text(kStarterPrompts.first), findsOneWidget);
+    });
+  });
+
+  group('the header menu', () {
+    const headerActions = Key('header-thread-actions');
+
+    Future<void> openHeaderMenu(WidgetTester tester) async {
+      await tester.tap(find.byKey(headerActions));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('shows up beside the row, for the open remote thread', (
+      tester,
+    ) async {
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
+
+      expect(find.byKey(headerActions), findsOneWidget);
+      expect(inRow('s1', find.byKey(headerActions)), findsNothing);
+    });
+
+    testWidgets('has no menu for a local draft or mock thread', (tester) async {
+      await pumpChatScreen(tester);
+
+      expect(find.byKey(headerActions), findsNothing);
+    });
+
+    testWidgets('offers copy transcript, rename, pin, archive and delete', (
+      tester,
+    ) async {
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
+
+      await openHeaderMenu(tester);
+
+      expect(find.text('Copy transcript'), findsOneWidget);
+      expect(find.text('Rename'), findsOneWidget);
+      expect(find.text('Pin'), findsOneWidget);
+      expect(find.text('Archive'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+    });
+
+    testWidgets('renames the open thread from the header', (tester) async {
+      server.on(
+        'PATCH',
+        '/api/sessions/s1',
+        sessionRow(id: 's1', title: 'Fixed'),
+      );
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
+
+      await openHeaderMenu(tester);
+      await tester.tap(find.text('Rename'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Fixed');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fixed'), findsWidgets);
+    });
+
+    testWidgets('copies the transcript and confirms it', (tester) async {
+      final copied = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
+
+      await openHeaderMenu(tester);
+      await tester.tap(find.text('Copy transcript'));
+      await tester.pump();
+
+      expect(copied, ['You: hi']);
+      expect(find.text('Transcript copied'), findsOneWidget);
     });
   });
 }
