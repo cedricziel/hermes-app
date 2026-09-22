@@ -236,10 +236,14 @@ class ChatMessage {
     this.inputRequests = const [],
     this.attachments = const [],
     this.reasoning = '',
+    this.sealedProse = const [],
   });
 
   final String id;
   final ChatRole role;
+
+  /// The text still being written: everything since the last [sealedProse]
+  /// entry, or the whole reply when it never wrote text before a tool call.
   String content;
 
   /// What the model reasoned after its last tool call, before answering, when
@@ -250,6 +254,12 @@ class ChatMessage {
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
 
+  /// Text the model wrote and then moved on from — before starting a tool
+  /// call, or checkpointed by the gateway — in the order it arrived. Empty
+  /// for a reply that never interleaved text with tool calls; [content]
+  /// alone already reads correctly then.
+  List<SealedProse> sealedProse;
+
   /// What the sender attached, shown above the text.
   final List<ChatAttachment> attachments;
 
@@ -258,6 +268,17 @@ class ChatMessage {
 
   bool get awaitingInput =>
       inputRequests.any((r) => r.status == InputRequestStatus.pending);
+}
+
+/// A run of text the model wrote before [beforeToolCall] tool calls had
+/// started (the index into [ChatMessage.toolCalls] at the moment it was
+/// sealed), so it renders in between the right two tool runs instead of
+/// always after every one of them.
+class SealedProse {
+  const SealedProse(this.text, {required this.beforeToolCall});
+
+  final String text;
+  final int beforeToolCall;
 }
 
 class ChatThread {

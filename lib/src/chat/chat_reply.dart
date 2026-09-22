@@ -15,9 +15,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReplyDelta(:final text):
       reply.content += text;
       reply.status = MessageStatus.streaming;
+    case ReplyCheckpoint(:final text, :final alreadyStreamed):
+      _seal(reply, alreadyStreamed ? reply.content : text);
+      if (alreadyStreamed) reply.content = '';
     case ReasoningUpdated(:final text, :final replace):
       reply.reasoning = replace ? text : reply.reasoning + text;
     case ToolStarted(:final name, :final summary):
+      _seal(reply, reply.content);
+      reply.content = '';
       reply.toolCalls = [
         ...reply.toolCalls,
         ToolCall(
@@ -68,6 +73,17 @@ void failReply(ChatMessage reply, [Object? error]) {
     AttachmentException(:final message) => message,
     _ => kReplyFailedMessage,
   });
+}
+
+/// Closes off [text] as its own segment, ahead of whatever tool calls have
+/// started so far, so it renders where it was actually written instead of
+/// always after every tool call the reply ever makes.
+void _seal(ChatMessage reply, String text) {
+  if (text.isEmpty) return;
+  reply.sealedProse = [
+    ...reply.sealedProse,
+    SealedProse(text, beforeToolCall: reply.toolCalls.length),
+  ];
 }
 
 void _markFailed(ChatMessage reply, String fallbackContent) {

@@ -142,6 +142,93 @@ void main() {
     expect(reply.status, MessageStatus.error);
   });
 
+  group('text written before a tool call', () {
+    test('is sealed ahead of the tool call, not lost with it', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('Hey! Let me check.'));
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+
+      expect(reply.sealedProse.single.text, 'Hey! Let me check.');
+      expect(reply.sealedProse.single.beforeToolCall, 0);
+      expect(reply.content, '');
+    });
+
+    test('a second segment written between tool calls seals separately', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('First,'));
+      applyReplyEvent(reply, const ToolStarted(name: 'a'));
+      applyReplyEvent(reply, const ToolFinished(name: 'a'));
+      applyReplyEvent(reply, const ReplyDelta('then this.'));
+      applyReplyEvent(reply, const ToolStarted(name: 'b'));
+
+      expect(reply.sealedProse.map((p) => (p.text, p.beforeToolCall)), [
+        ('First,', 0),
+        ('then this.', 1),
+      ]);
+    });
+
+    test('completion only replaces the text written since the last seal', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Hey!'));
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+
+      applyReplyEvent(reply, const ReplyCompleted('All done.', failed: false));
+
+      expect(reply.sealedProse.single.text, 'Hey!');
+      expect(reply.content, 'All done.');
+    });
+
+    test('a turn that never writes more after its tool keeps the greeting', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Hey!'));
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+
+      applyReplyEvent(reply, const ReplyCompleted('', failed: false));
+
+      expect(reply.sealedProse.single.text, 'Hey!');
+      expect(reply.content, isEmpty);
+    });
+  });
+
+  group('ReplyCheckpoint', () {
+    test(
+      'already-streamed text is sealed and cleared from what streams next',
+      () {
+        final reply = _placeholder();
+        applyReplyEvent(reply, const ReplyDelta('Hey there.'));
+
+        applyReplyEvent(
+          reply,
+          const ReplyCheckpoint('Hey there.', alreadyStreamed: true),
+        );
+
+        expect(reply.sealedProse.single.text, 'Hey there.');
+        expect(reply.content, isEmpty);
+      },
+    );
+
+    test('text that never streamed is sealed from the checkpoint itself', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(
+        reply,
+        const ReplyCheckpoint('A quick aside.', alreadyStreamed: false),
+      );
+
+      expect(reply.sealedProse.single.text, 'A quick aside.');
+    });
+
+    test('an empty checkpoint seals nothing', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyCheckpoint('', alreadyStreamed: true));
+
+      expect(reply.sealedProse, isEmpty);
+    });
+  });
+
   test('a tool runs, then completes', () {
     final reply = _placeholder();
 

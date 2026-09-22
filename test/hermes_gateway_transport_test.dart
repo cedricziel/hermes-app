@@ -465,6 +465,36 @@ void main() {
     ]);
   });
 
+  test('an interim event maps to a checkpoint', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('message.delta', sid, {'text': 'Hey!'});
+      g.event('message.interim', sid, {
+        'text': 'Hey!',
+        'already_streamed': true,
+      });
+      g.event('message.complete', sid, {'text': '', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    final checkpoint = events.whereType<ReplyCheckpoint>().single;
+    expect(checkpoint.text, 'Hey!');
+    expect(checkpoint.alreadyStreamed, isTrue);
+  });
+
+  test('an interim event missing the flag counts as not streamed', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('message.interim', sid, {'text': 'Aside.'});
+      g.event('message.complete', sid, {'text': '', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    expect(events.whereType<ReplyCheckpoint>().single.alreadyStreamed, isFalse);
+  });
+
   test('a tool result carrying an error is a failed tool', () async {
     gateway.turn = (g, sid) {
       g.event('tool.complete', sid, {

@@ -585,6 +585,10 @@ class HermesGatewayTransport implements ChatTransport {
     return switch (event.type) {
       'message.start' => const ReplyStarted(),
       'message.delta' => ReplyDelta(text('text')),
+      'message.interim' => ReplyCheckpoint(
+        text('text'),
+        alreadyStreamed: payload['already_streamed'] == true,
+      ),
       'reasoning.delta' => ReasoningUpdated(text('text')),
       'reasoning.available' => ReasoningUpdated(text('text'), replace: true),
       'tool.start' => ToolStarted(name: text('name'), summary: text('context')),

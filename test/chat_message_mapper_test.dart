@@ -18,6 +18,7 @@ void main() {
     List<InputRequest> inputRequests = const [],
     List<ChatAttachment> attachments = const [],
     String reasoning = '',
+    List<SealedProse> sealedProse = const [],
   }) => ChatMessage(
     id: 'm1',
     role: role,
@@ -28,6 +29,7 @@ void main() {
     inputRequests: inputRequests,
     attachments: attachments,
     reasoning: reasoning,
+    sealedProse: sealedProse,
   );
 
   group('chatMessageToFlyer', () {
@@ -496,6 +498,70 @@ void main() {
 
     test('emits nothing for an empty sent message without tool calls', () {
       expect(chatMessageToFlyer(message(content: '')), isEmpty);
+    });
+
+    group('text sealed ahead of a tool call', () {
+      test('renders before the tool call it preceded, not after it', () {
+        final out = chatMessageToFlyer(
+          message(
+            content: '',
+            sealedProse: const [SealedProse('Hey!', beforeToolCall: 0)],
+            toolCalls: const [ToolCall(name: 'terminal', summary: 'ls')],
+          ),
+        );
+
+        expect(out.map((m) => m.id), ['m1-sealed-0', 'm1-tool-0']);
+        expect((out.first as TextMessage).text, 'Hey!');
+      });
+
+      test('a segment sealed after every tool call still comes before the '
+          'text still being written', () {
+        final out = chatMessageToFlyer(
+          message(
+            content: 'Still going',
+            sealedProse: const [SealedProse('Checked.', beforeToolCall: 1)],
+            toolCalls: const [ToolCall(name: 'terminal', summary: 'ls')],
+          ),
+        );
+
+        expect(out.map((m) => m.id), ['m1-tool-0', 'm1-sealed-0', 'm1']);
+      });
+
+      test('several segments interleave with several tool runs in order', () {
+        final out = chatMessageToFlyer(
+          message(
+            content: 'and done.',
+            sealedProse: const [
+              SealedProse('First,', beforeToolCall: 0),
+              SealedProse('then,', beforeToolCall: 1),
+            ],
+            toolCalls: const [
+              ToolCall(name: 'a', summary: 'x'),
+              ToolCall(name: 'b', summary: 'y'),
+            ],
+          ),
+        );
+
+        expect(out.map((m) => m.id), [
+          'm1-sealed-0',
+          'm1-tool-0',
+          'm1-sealed-1',
+          'm1-tool-1',
+          'm1',
+        ]);
+      });
+
+      test('suppresses the thinking indicator once something is sealed', () {
+        final out = chatMessageToFlyer(
+          message(
+            content: '',
+            status: MessageStatus.thinking,
+            sealedProse: const [SealedProse('Hey!', beforeToolCall: 0)],
+          ),
+        );
+
+        expect(out.map((m) => m.id), ['m1-sealed-0']);
+      });
     });
 
     test('ids are stable across mutation of the same message', () {
