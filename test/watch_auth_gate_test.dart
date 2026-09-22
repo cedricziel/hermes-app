@@ -55,4 +55,20 @@ void main() {
     expect(send, {'ok': false, 'error': 'signed_out'});
     expect(requestedPaths, isEmpty);
   });
+
+  test(
+    'answers unavailable, not signed_out, before the session is restored',
+    () async {
+      final auth = AuthController(
+        tokenStore: MemoryTokenStore(),
+        devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+      );
+      expect(auth.state, HermesConnectionState.initializing);
+      final handler = WatchBridge.handlerFor(auth);
+
+      final threads = await handler.handle({'op': 'threads'});
+
+      expect(threads, {'ok': false, 'error': 'unavailable'});
+    },
+  );
 }

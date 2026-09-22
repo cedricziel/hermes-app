@@ -15,12 +15,14 @@ void main() {
   late WatchRequestHandler handler;
   late List<AttentionNotification> announced;
   var signedOut = false;
+  var connecting = false;
   String? profile;
 
   setUp(() {
     server = FakeHermesServer();
     transport = FakeChatTransport();
     signedOut = false;
+    connecting = false;
     profile = null;
     announced = [];
     handler = WatchRequestHandler(
@@ -28,6 +30,7 @@ void main() {
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
+      connecting: () => connecting,
       announce: announced.add,
     );
   });
@@ -38,6 +41,22 @@ void main() {
     final reply = await handler.handle({'op': 'threads'});
 
     expect(reply, {'ok': false, 'error': 'signed_out'});
+  });
+
+  test('answers a phone that is still connecting with unavailable', () async {
+    signedOut = true;
+    connecting = true;
+
+    for (final request in [
+      {'op': 'threads'},
+      {'op': 'messages', 'threadId': '/s1'},
+      {'op': 'send', 'text': 'Hi'},
+    ]) {
+      expect(await handler.handle(request), {
+        'ok': false,
+        'error': 'unavailable',
+      });
+    }
   });
 
   test('rejects an unknown op and a malformed request', () async {

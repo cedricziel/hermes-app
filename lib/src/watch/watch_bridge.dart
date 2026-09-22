@@ -71,6 +71,13 @@ class WatchBridge {
 
     return WatchRequestHandler(
       announce: announce,
+      connecting: () => switch (auth.state) {
+        HermesConnectionState.initializing ||
+        HermesConnectionState.connecting ||
+        HermesConnectionState.signingIn ||
+        HermesConnectionState.connectionError => true,
+        _ => false,
+      },
       repository: () {
         final api = readyApi();
         return api == null ? null : HermesChatRepository(api.raw);
