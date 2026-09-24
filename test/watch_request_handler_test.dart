@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -295,6 +298,80 @@ void main() {
 
       expect(reply, {'ok': false, 'error': 'bad_request'});
       expect(server.requests, isEmpty);
+    });
+  });
+
+  group('transcribe', () {
+    final audio = Uint8List.fromList([1, 2, 3]);
+
+    test('returns what the dashboard heard in the recording', () async {
+      profile = 'work';
+      server.on('POST', '/api/audio/transcribe', {
+        'ok': true,
+        'transcript': 'Remind me to call Sam',
+      });
+
+      final reply = await handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      expect(reply, {'ok': true, 'text': 'Remind me to call Sam'});
+      final request = server.requestsTo('POST', '/api/audio/transcribe').single;
+      expect(request.queryParameters['profile'], 'work');
+      expect(jsonDecode(request.data as String), {
+        'data_url': 'data:audio/mp4;base64,${base64Encode(audio)}',
+        'mime_type': 'audio/mp4',
+      });
+    });
+
+    test('returns empty text when no speech was heard', () async {
+      server.on('POST', '/api/audio/transcribe', {
+        'ok': true,
+        'transcript': '',
+      });
+
+      final reply = await handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      expect(reply, {'ok': true, 'text': ''});
+    });
+
+    test('refuses a request without audio', () async {
+      final reply = await handler.handle({'op': 'transcribe'});
+
+      expect(reply, {'ok': false, 'error': 'bad_request'});
+      expect(server.requests, isEmpty);
+    });
+
+    test('answers a signed-out phone with signed_out', () async {
+      signedOut = true;
+
+      final reply = await handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      expect(reply, {'ok': false, 'error': 'signed_out'});
+    });
+
+    test('reports a failed transcription', () async {
+      server.on('POST', '/api/audio/transcribe', {
+        'detail': 'No STT provider',
+      }, status: 400);
+
+      final reply = await handler.handle({
+        'op': 'transcribe',
+        'audio': audio,
+        'mimeType': 'audio/mp4',
+      });
+
+      expect(reply, {'ok': false, 'error': 'failed'});
     });
   });
 

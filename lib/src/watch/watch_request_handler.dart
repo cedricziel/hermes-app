@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
@@ -5,7 +7,7 @@ import '../notifications/attention_policy.dart';
 
 /// Answers the requests the watch app relays through the phone. Requests and
 /// replies are plain maps of property-list types, the shape WatchConnectivity
-/// carries: `{'op': 'threads' | 'messages' | 'send', ...}` in, `{'ok': true,
+/// carries: `{'op': 'threads' | 'messages' | 'send' | 'transcribe', ...}` in, `{'ok': true,
 /// ...}` or `{'ok': false, 'error': 'signed_out' | 'bad_request' | 'failed'}`
 /// out.
 ///
@@ -68,6 +70,10 @@ class WatchRequestHandler {
         'threads' => await _threads(),
         'messages' => await _messages(request['threadId']),
         'send' => await _send(request['threadId'], request['text']),
+        'transcribe' => await _transcribe(
+          request['audio'],
+          request['mimeType'],
+        ),
         _ => _error('bad_request'),
       };
     } on Object {
@@ -119,6 +125,23 @@ class WatchRequestHandler {
           },
       ],
     };
+  }
+
+  Future<Map<String, Object?>> _transcribe(
+    Object? audio,
+    Object? mimeType,
+  ) async {
+    if (audio is! Uint8List || audio.isEmpty || mimeType is! String) {
+      return _error('bad_request');
+    }
+    final repo = repository();
+    if (repo == null) return _noSession();
+    final text = await repo.transcribe(
+      audio,
+      mimeType: mimeType,
+      profile: await activeProfile(),
+    );
+    return {'ok': true, 'text': text};
   }
 
   Future<Map<String, Object?>> _send(Object? threadId, Object? text) async {
