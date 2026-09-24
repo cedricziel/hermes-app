@@ -8,6 +8,7 @@ extension HermesClientError {
     case .phoneUnreachable: "Can't reach your iPhone."
     case .failed: "Something went wrong."
     case .replyFailed(let reason): reason
+    case .noSpeech: "Didn't catch that."
     }
   }
 }

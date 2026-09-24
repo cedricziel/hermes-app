@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A7C1D2E3F4051627384950B1 /* WatchShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */; };
+		A7C1D2E3F4051627384950A1 /* VoiceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */; };
 		0AA3809677393A117BD4526D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F884F744E1BE6D3436E17C0A /* Assets.xcassets */; };
 		12AB7B237264DC0886E10BDB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9978D7CC9E15B585ACD0BBA0 /* Models.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
@@ -101,6 +103,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchShortcuts.swift; sourceTree = "<group>"; };
+		A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceRecorder.swift; sourceTree = "<group>"; };
 		1489DDDC525F33C83AEB9CF7 /* HermesWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HermesWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -231,6 +235,8 @@
 				542EFF511980215AB1E79AED /* ErrorView.swift */,
 				5DE2754C6FBF29FC3568C927 /* ThreadListView.swift */,
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
+				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
+				A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */,
 				839BF041A4C50E625124451A /* Core */,
 			);
 			name = HermesWatch;
@@ -616,6 +622,8 @@
 				3B3F0E457E5C88A69D9646B9 /* ErrorView.swift in Sources */,
 				90C55ECCF78CFBB766EB71C9 /* ThreadListView.swift in Sources */,
 				71E13F16F7691B4DE3192276 /* ConversationView.swift in Sources */,
+				A7C1D2E3F4051627384950B1 /* WatchShortcuts.swift in Sources */,
+				A7C1D2E3F4051627384950A1 /* VoiceRecorder.swift in Sources */,
 				2B8C3A3939A1E17233580438 /* ConversationModel.swift in Sources */,
 				C0DC256A998B03F622796497 /* HermesClient.swift in Sources */,
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
@@ -704,6 +712,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.cedricziel.hermesApp;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -837,6 +846,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.cedricziel.hermesApp;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -917,6 +927,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Hermes records your voice message and sends it to your Hermes server to turn it into text.";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.cedricziel.hermesApp;
 				LD_RUNPATH_SEARCH_PATHS = (

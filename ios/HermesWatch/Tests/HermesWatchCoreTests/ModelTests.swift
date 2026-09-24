@@ -6,13 +6,19 @@ final class FakeClient: HermesClient {
   var threadsResult: Result<[ThreadSummary], Error> = .success([])
   var messagesResult: Result<[ChatMessage], Error> = .success([])
   var sendResult: Result<SendResult, Error> = .success(SendResult(threadId: nil, text: "ok", failed: false))
+  var transcribeResult: Result<String, Error> = .success("")
   private(set) var sends: [(threadId: String?, text: String)] = []
+  private(set) var transcribed: [(audio: Data, mimeType: String)] = []
 
   func threads() async throws -> [ThreadSummary] { try threadsResult.get() }
   func messages(threadId: String) async throws -> [ChatMessage] { try messagesResult.get() }
   func send(threadId: String?, text: String) async throws -> SendResult {
     sends.append((threadId, text))
     return try sendResult.get()
+  }
+  func transcribe(audio: Data, mimeType: String) async throws -> String {
+    transcribed.append((audio, mimeType))
+    return try transcribeResult.get()
   }
 }
 
@@ -157,5 +163,43 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertNil(model.unsent)
     XCTAssertEqual(model.phase, .idle)
     XCTAssertEqual(model.messages.map(\.content), ["Hello", "Hi"])
+  }
+
+  func testAVoiceMessageIsTranscribedAndSent() async {
+    let client = FakeClient()
+    client.transcribeResult = .success("Remind me to call Sam")
+    client.sendResult = .success(SendResult(threadId: "t1", text: "Will do.", failed: false))
+    let model = ConversationModel(client: client, threadId: nil)
+
+    await model.sendVoice(Data([1, 2, 3]), mimeType: "audio/mp4")
+
+    XCTAssertEqual(client.transcribed.first?.audio, Data([1, 2, 3]))
+    XCTAssertEqual(client.transcribed.first?.mimeType, "audio/mp4")
+    XCTAssertEqual(client.sends.first?.text, "Remind me to call Sam")
+    XCTAssertEqual(model.messages.map(\.content), ["Remind me to call Sam", "Will do."])
+    XCTAssertEqual(model.phase, .idle)
+  }
+
+  func testAVoiceMessageWithoutSpeechIsNotSent() async {
+    let client = FakeClient()
+    client.transcribeResult = .success("  ")
+    let model = ConversationModel(client: client, threadId: nil)
+
+    await model.sendVoice(Data([1]), mimeType: "audio/mp4")
+
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertEqual(model.phase, .failed(.noSpeech))
+  }
+
+  func testAFailedTranscriptionIsReported() async {
+    let client = FakeClient()
+    client.transcribeResult = .failure(HermesClientError.phoneUnreachable)
+    let model = ConversationModel(client: client, threadId: nil)
+
+    await model.sendVoice(Data([1]), mimeType: "audio/mp4")
+
+    XCTAssertTrue(client.sends.isEmpty)
+    XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
+    XCTAssertEqual(model.unsentVoice, Data([1]))
   }
 }

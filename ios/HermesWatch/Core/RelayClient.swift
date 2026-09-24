@@ -49,6 +49,12 @@ struct RelayClient: HermesClient {
     )
   }
 
+  func transcribe(audio: Data, mimeType: String) async throws -> String {
+    let reply = try await call(["op": "transcribe", "audio": audio, "mimeType": mimeType])
+    guard let text = reply["text"] as? String else { throw HermesClientError.failed }
+    return text
+  }
+
   private func call(_ message: [String: Any]) async throws -> [String: Any] {
     let reply = try await transport.request(message)
     guard reply["ok"] as? Bool == true else {

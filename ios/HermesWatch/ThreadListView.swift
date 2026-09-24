@@ -4,10 +4,12 @@ struct ThreadListView: View {
   /// Where a push goes: a new chat or an existing one, by thread id.
   private enum Route: Hashable {
     case newChat
+    case voiceChat
     case thread(String)
   }
 
   @State var model: ThreadListModel
+  var launchRequests = LaunchRequests.shared
   @State private var path: [Route] = []
 
   var body: some View {
@@ -34,12 +36,22 @@ struct ThreadListView: View {
         switch route {
         case .newChat:
           ConversationView(model: ConversationModel(client: model.client, threadId: nil))
+        case .voiceChat:
+          ConversationView(
+            model: ConversationModel(client: model.client, threadId: nil),
+            startRecording: true
+          )
         case .thread(let id):
           ConversationView(model: ConversationModel(client: model.client, threadId: id))
         }
       }
     }
     .task { await model.load() }
+    .onChange(of: launchRequests.pending, initial: true) { _, request in
+      guard let request else { return }
+      launchRequests.pending = nil
+      path = [request == .voiceChat ? .voiceChat : .newChat]
+    }
     // A chat started or continued in a conversation belongs in the list once
     // the user is back on it.
     .onChange(of: path.isEmpty) { _, isEmpty in
