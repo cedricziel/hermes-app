@@ -1,8 +1,9 @@
 Companion for Hermes Agent is a client for a Hermes Agent dashboard, an open-source AI agent server that people run themselves. The app has no backend of its own, so it only works with a server the user provides.
 
-To try the app, enter the address of a Hermes Agent dashboard on the first screen and sign in.
-
-If you need a server for the review, please contact us with the details in this submission and we will provide the address and a demo login.
+To try the app, use our demo server:
+1. On the first screen, enter the server address: {{DEMO_SERVER_URL}}
+2. Choose "Username & Password" and sign in with the demo account above.
+3. You are now in the chat. Send any message and the agent replies. Replies come from a small self-hosted model and can take up to 30 seconds.
 
 The app sends diagnostics to a server run by the developer, as described in the privacy policy. Everything else stays between the app and the server the user enters.
 

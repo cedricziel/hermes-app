@@ -145,19 +145,27 @@ lane :bootstrap_app do
   end
 end
 
-# The person App Review contacts. Read from the environment so it stays out of
-# the repository; the notes are public and live in fastlane/metadata.
+# The person App Review contacts and the demo server App Review signs in to.
+# Read from the environment so they stay out of the repository; the notes are
+# public and live in fastlane/metadata. deliver ticks "Sign-in required" only
+# when both demo credentials are set, and clears it otherwise.
 def app_review_information
-  keys = %w[REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL]
+  keys = %w[
+    REVIEW_CONTACT_FIRST_NAME REVIEW_CONTACT_LAST_NAME REVIEW_CONTACT_PHONE REVIEW_CONTACT_EMAIL
+    REVIEW_DEMO_URL REVIEW_DEMO_USER REVIEW_DEMO_PASSWORD
+  ]
   missing = keys.select { |key| ENV[key].to_s.strip.empty? }
-  UI.user_error!("Set #{missing.join(', ')} to sync the App Review contact.") unless missing.empty?
+  UI.user_error!("Set #{missing.join(', ')} to sync the App Review information.") unless missing.empty?
 
+  notes = File.read(File.join(__dir__, "metadata", "review_information", "notes.txt")).strip
   {
     first_name: ENV["REVIEW_CONTACT_FIRST_NAME"].strip,
     last_name: ENV["REVIEW_CONTACT_LAST_NAME"].strip,
     phone_number: ENV["REVIEW_CONTACT_PHONE"].strip,
     email_address: ENV["REVIEW_CONTACT_EMAIL"].strip,
-    notes: File.read(File.join(__dir__, "metadata", "review_information", "notes.txt")).strip
+    demo_user: ENV["REVIEW_DEMO_USER"].strip,
+    demo_password: ENV["REVIEW_DEMO_PASSWORD"].strip,
+    notes: notes.gsub("{{DEMO_SERVER_URL}}", ENV["REVIEW_DEMO_URL"].strip)
   }
 end
 

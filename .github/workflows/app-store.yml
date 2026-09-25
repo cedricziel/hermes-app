@@ -16,7 +16,8 @@ name: app-store
 #
 # Needs the ASC_* secrets the TestFlight job already uses, plus the App Review
 # contact: REVIEW_CONTACT_FIRST_NAME, REVIEW_CONTACT_LAST_NAME,
-# REVIEW_CONTACT_PHONE and REVIEW_CONTACT_EMAIL.
+# REVIEW_CONTACT_PHONE and REVIEW_CONTACT_EMAIL, and the demo server App Review
+# signs in to: REVIEW_DEMO_URL, REVIEW_DEMO_USER and REVIEW_DEMO_PASSWORD.
 
 on:
   release:
@@ -83,6 +84,9 @@ jobs:
           REVIEW_CONTACT_LAST_NAME: ${{ secrets.REVIEW_CONTACT_LAST_NAME }}
           REVIEW_CONTACT_PHONE: ${{ secrets.REVIEW_CONTACT_PHONE }}
           REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
+          REVIEW_DEMO_URL: ${{ secrets.REVIEW_DEMO_URL }}
+          REVIEW_DEMO_USER: ${{ secrets.REVIEW_DEMO_USER }}
+          REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
           RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
           DRY_RUN: ${{ inputs.dry_run }}
           FASTLANE_HIDE_CHANGELOG: "true"
