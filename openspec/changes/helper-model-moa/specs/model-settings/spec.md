@@ -27,3 +27,12 @@ Tapping a MoA row SHALL open the model picker with the slot's model checked, wit
 
 - **WHEN** `PUT /api/model/moa` answers 422
 - **THEN** the row keeps its previous model and the screen says the change failed
+
+### Requirement: No mixture-of-agents save while the privacy filter is on
+
+The system SHALL NOT save the mixture of agents while `GET /api/model/moa` reports a non-empty `privacy_filter`, because `PUT /api/model/moa` has no field for it and Hermes then writes it as off. Its slots SHALL still be listed but SHALL NOT open the picker, and the section SHALL say that the privacy filter is on and the slots are changed on the server.
+
+#### Scenario: Privacy filter on
+
+- **WHEN** the answer carries `"privacy_filter": "display"` and the user taps the aggregator
+- **THEN** no picker opens and no `PUT /api/model/moa` is sent

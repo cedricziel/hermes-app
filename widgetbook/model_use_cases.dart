@@ -141,6 +141,14 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'MoA locked by the privacy filter',
+          builder: (_) => HelperModelList(
+            models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 2)),
+            onTap: (_) {},
+            moa: helperMoa(privacyFilter: true),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Saving a slot',
           builder: (_) => HelperModelList(
             models: helperModels,

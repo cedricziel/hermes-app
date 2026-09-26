@@ -190,7 +190,7 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
                 saving: _saving,
                 onTap: _open,
                 moa: _moa,
-                onTapMoa: _openMoa,
+                onTapMoa: _moa?.privacyFilterOn ?? false ? null : _openMoa,
               ),
       ),
     );

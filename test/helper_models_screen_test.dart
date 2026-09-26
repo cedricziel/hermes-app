@@ -324,6 +324,22 @@ void main() {
       );
     });
 
+    testWidgets('does not save while the privacy filter is on', (tester) async {
+      // Hermes' PUT drops privacy_filter, so a save would switch it off.
+      server.on('GET', '/api/model/moa', {
+        ...moaConfigBody(),
+        'privacy_filter': 'display',
+      });
+      await pumpScreen(tester);
+
+      expect(find.textContaining('privacy filter is on'), findsOneWidget);
+      await tester.tap(find.text('Aggregator'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('gpt-5-mini'), findsNothing);
+      expect(puts(), isEmpty);
+    });
+
     testWidgets('leaves the section out when MoA cannot be read', (
       tester,
     ) async {

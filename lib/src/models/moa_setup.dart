@@ -65,6 +65,14 @@ class MoaSetup {
 
   final Map<String, Object?> _raw;
 
+  /// Whether Hermes redacts personal data in the mixture's prompts. Its save
+  /// route has no field for this and turns it off, so the app must not save
+  /// while it is on.
+  bool get privacyFilterOn => switch (_raw['privacy_filter']) {
+    final String mode => mode.isNotEmpty,
+    _ => false,
+  };
+
   /// The name of the preset the slots belong to.
   final String preset;
   final List<MoaSlot> slots;

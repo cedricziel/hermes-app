@@ -59,6 +59,17 @@ class HelperModelList extends StatelessWidget {
               style: theme.textTheme.titleSmall,
             ),
           ),
+          if (moa.privacyFilterOn)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: Text(
+                'Hermes’ privacy filter is on, and saving here would turn it '
+                'off. Change these slots on the server.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
           for (final slot in moa.slots)
             _row(
               slot.key,

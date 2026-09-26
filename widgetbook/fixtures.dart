@@ -290,25 +290,29 @@ const helperModels = AuxiliaryModels(
 );
 
 /// A mixture of agents whose default preset is [preset], as Hermes reports it.
-MoaSetup helperMoa({String preset = 'default', bool advisorOff = false}) =>
-    MoaSetup.fromJson({
-      'default_preset': preset,
-      'active_preset': '',
-      'presets': {
-        preset: {
-          'reference_models': [
-            {'provider': 'anthropic', 'model': 'claude-sonnet-4-5'},
-            {
-              'provider': 'openrouter',
-              'model': 'openai/gpt-5.1',
-              'reasoning_effort': 'high',
-              'enabled': !advisorOff,
-            },
-          ],
-          'aggregator': {'provider': 'anthropic', 'model': 'claude-opus-4'},
+MoaSetup helperMoa({
+  String preset = 'default',
+  bool advisorOff = false,
+  bool privacyFilter = false,
+}) => MoaSetup.fromJson({
+  if (privacyFilter) 'privacy_filter': 'display',
+  'default_preset': preset,
+  'active_preset': '',
+  'presets': {
+    preset: {
+      'reference_models': [
+        {'provider': 'anthropic', 'model': 'claude-sonnet-4-5'},
+        {
+          'provider': 'openrouter',
+          'model': 'openai/gpt-5.1',
+          'reasoning_effort': 'high',
+          'enabled': !advisorOff,
         },
-      },
-    })!;
+      ],
+      'aggregator': {'provider': 'anthropic', 'model': 'claude-opus-4'},
+    },
+  },
+})!;
 
 final threads = [
   ChatThread(
