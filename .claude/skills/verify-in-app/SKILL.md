@@ -56,6 +56,8 @@ Say plainly what you could not check.
   app has no repository.
 - A fresh backend home has no model keys, so no real replies, and the
   loopback dashboard needs no sign-in, so login isn't exercised.
+- Real replies without an API key: point the throwaway home at a local
+  Ollama (see "A local model" below).
 
 ## Gotchas
 
@@ -115,6 +117,16 @@ moves the real mouse pointer, so tell the user first if they are working.
 
 ## When the screenshot can't be taken
 
+Without Screen Recording (and Accessibility) permission, the running app can
+still be inspected through its Dart VM service: `dev-app.sh logs` prints the
+`ws://127.0.0.1:<port>/<token>=/ws` address. Over that socket, `getVM` gives
+the isolate id and `ext.flutter.debugDumpApp` returns the live widget tree as
+text: grep it for keys and `Text("…")` to see what a screen shows. An
+`IconButton(… disabled, disabled …)` there means hover and long-press are
+unset, not that the button is disabled. The semantics dump is empty unless a
+screen reader is on.
+
+
 Render the real screen in a throwaway widget test and look at the PNG. Load
 Roboto and MaterialIcons from the Flutter SDK
 (`<flutter>/bin/cache/artifacts/material_fonts/`) with a `FontLoader`, wrap
@@ -164,6 +176,39 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
+
+## A local model
+
+For replies, model switching or anything that needs a turn to run, give the
+backend a local Ollama model. `ollama list` shows what is pulled; `qwen3:0.6b`
+and `qwen3:1.7b` are small and give two models to switch between. Write
+`.dart_tool/hermes-dev/home/config.yaml` before `dev-backend.sh start`:
+
+```yaml
+model:
+  default: "qwen3:1.7b"
+  provider: "local-ollama"
+  ollama_num_ctx: 65536
+providers:
+  local-ollama:
+    name: "Local Ollama"
+    base_url: "http://127.0.0.1:11434/v1"
+    api_key: "ollama"
+```
+
+- Hermes refuses a model whose context is under 64K ("has a context window
+  of 40,960 tokens"). `ollama_num_ctx` lifts it; without it every turn fails.
+- `provider: "custom"` with `base_url` (the unnamed form Hermes documents)
+  also works, and is the case to test for provider handling: its slug is
+  `custom`, and `/model <m> --provider custom` is refused without `--session`.
+- `ollama ps` after a turn shows which model actually answered.
+- The backend inherits this shell's environment, so providers with keys or
+  tokens here (Anthropic, Copilot) show as signed in. Pick only the local
+  models, or a turn is billed to a real account.
+- To drive the chat without the UI, speak the gateway's JSON-RPC directly
+  from the Hermes venv's Python (`websockets` is installed):
+  `ws://<host>/api/ws?token=<session token>`, then `session.create`,
+  `prompt.submit`, and read `event` messages until `message.complete`.
 
 ## Hermes Agent setup
 
