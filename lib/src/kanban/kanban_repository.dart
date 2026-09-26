@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../api/hermes_api_client.dart';
+import '../models/model_provider_option.dart';
 import 'kanban_models.dart';
 
 /// The plugin refused a request and said why (`{"detail": "..."}`), for
@@ -78,8 +79,22 @@ class KanbanRepository {
         return KanbanTaskDetail.fromJson(_map(response.data));
       });
 
+  /// The models a task can be pinned to. Like the dashboard, a failed request
+  /// reads as no options, which leaves a free-text model name.
+  Future<ModelOptions> loadModelOptions() async {
+    try {
+      final response = await _api.modelOptionsApiPluginsKanbanModelOptionsGet();
+      return ModelOptions.fromJson(response.data);
+    } on DioException {
+      return const ModelOptions();
+    }
+  }
+
   /// Creates a task and returns the dispatcher warning the plugin attaches
-  /// when a ready, assigned task would sit idle (null otherwise).
+  /// when a ready, assigned task would sit idle (null otherwise). [model]
+  /// pins the task to a listed model and effort; [modelName] is a model typed
+  /// by hand when the plugin lists none. Without either the assignee's
+  /// profile decides.
   Future<String?> createTask({
     required String title,
     String? body,
@@ -88,6 +103,8 @@ class KanbanRepository {
     int priority = 0,
     bool triage = false,
     List<String> parents = const [],
+    ModelChoice? model,
+    String? modelName,
     String? board,
   }) => _guard(() async {
     final response = await _api.createTaskApiPluginsKanbanTasksPost(
@@ -99,6 +116,9 @@ class KanbanRepository {
         priority: priority,
         triage: triage,
         parents: parents.toList(),
+        modelOverride: model?.modelId ?? modelName,
+        providerOverride: model?.providerId,
+        reasoningEffort: model?.effort,
       ),
       board: board,
     );
