@@ -6,6 +6,8 @@ library;
 
 import 'dart:typed_data';
 
+import '../models/model_provider_option.dart';
+
 enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
@@ -288,6 +290,7 @@ class ChatThread {
     required this.updatedAt,
     this.pinned = false,
     this.remote = false,
+    this.modelChoice,
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
 
@@ -300,6 +303,9 @@ class ChatThread {
   /// draft or mock data.
   bool remote;
   final List<ChatMessage> messages;
+
+  /// The model picked for this thread; null runs the profile's default.
+  ModelChoice? modelChoice;
 
   String get preview =>
       messages.isEmpty ? 'No messages yet' : messages.last.content;

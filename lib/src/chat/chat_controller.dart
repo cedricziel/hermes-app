@@ -7,6 +7,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
 
 import '../core/safe_notifier.dart';
+import '../models/hermes_models_repository.dart';
+import '../models/model_provider_option.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
@@ -35,6 +37,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   ChatController({
     this.repository,
     this.profiles,
+    this.models,
     this.transport,
     required this._attention,
     required this.report,
@@ -61,6 +64,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   final HermesChatRepository? repository;
   final HermesProfilesRepository? profiles;
+  final HermesModelsRepository? models;
   final ChatTransport? transport;
   final AttentionNotifier _attention;
 
@@ -90,6 +94,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   String? _profile;
   String? get profile => _profile;
   int _loadGeneration = 0;
+
+  /// The models the profile offers; null while loading or when they could
+  /// not be read.
+  ModelOptions? _modelOptions;
+  ModelOptions? get modelOptions => _modelOptions;
+
+  /// The model picked before there is a thread to hold it.
+  ModelChoice? _newChatModel;
+
+  /// The model picked for the selected thread, or for a new one.
+  ModelChoice? get modelChoice {
+    final selected = selectedThread;
+    return selected == null ? _newChatModel : selected.modelChoice;
+  }
+
+  void chooseModel(ModelChoice choice) {
+    final selected = selectedThread;
+    if (selected == null) {
+      _newChatModel = choice;
+    } else {
+      selected.modelChoice = choice;
+    }
+    notifyListeners();
+  }
+
   final _unloaded = <String>{};
 
   /// Threads with older rows on the server, by how many rows were read so far.
@@ -155,7 +184,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         controller.dispose();
       }
       _chatControllers.clear();
+      if (profile != _profile) {
+        _modelOptions = null;
+        _newChatModel = null;
+      }
       _profile = profile;
+      unawaited(_loadModelOptions(profile, generation));
       _threads = threads;
       _unloaded
         ..clear()
@@ -202,6 +236,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (e.response?.statusCode == 404) return null;
       rethrow;
     }
+  }
+
+  Future<void> _loadModelOptions(String? profile, int generation) async {
+    final models = this.models;
+    if (models == null) return;
+    final options = await models
+        .load(profile: profile)
+        .then<ModelOptions?>((o) => o, onError: (Object _) => null);
+    if (disposed || generation != _loadGeneration) return;
+    _modelOptions = options;
+    notifyListeners();
   }
 
   Future<void> _loadMessages(String id) async {
@@ -356,6 +401,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: 'New chat',
       updatedAt: DateTime.now(),
+      modelChoice: _newChatModel,
     );
     _threads.insert(0, thread);
     _selectedId = thread.id;
@@ -467,6 +513,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           title: label,
           updatedAt: DateTime.now(),
+          modelChoice: _newChatModel,
         );
     if (selected == null) {
       _threads.insert(0, thread);
@@ -577,6 +624,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           profile: profile,
           text: text,
           attachments: attachments,
+          model: thread.modelChoice,
         )
         .listen(
           (event) {

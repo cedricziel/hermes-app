@@ -17,6 +17,8 @@ import '../bots/bots_screen.dart';
 import '../bots/hermes_bots_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../models/hermes_models_repository.dart';
+import '../models/widgets/composer_model_pill.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -63,6 +65,7 @@ class ChatScreen extends StatefulWidget {
     this.repository,
     this.transport,
     this.profiles,
+    this.models,
     this.bots,
     this.skills,
     this.plugins,
@@ -77,6 +80,7 @@ class ChatScreen extends StatefulWidget {
   final HermesChatRepository? repository;
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
+  final HermesModelsRepository? models;
   final HermesBotsRepository? bots;
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
@@ -158,6 +162,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat = ChatController(
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
+      models: widget.models ?? repositories?.models,
       transport: transport,
       attention: _attention,
       report: _showMessage,
@@ -378,6 +383,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final selected = chat.selectedThread;
+        final modelOptions = chat.modelOptions;
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
@@ -431,6 +437,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
                   latestReplyId: _latestReplyId,
+                  modelPill:
+                      modelOptions == null || modelOptions.providers.isEmpty
+                      ? null
+                      : ComposerModelPill(
+                          options: modelOptions,
+                          choice: chat.modelChoice,
+                          onChanged: chat.chooseModel,
+                        ),
                   onRetry:
                       selected == null || chat.lastPromptText(selected) == null
                       ? null
@@ -487,6 +501,7 @@ class _ThreadView extends StatelessWidget {
     required this.onRemoveAttachment,
     required this.onSend,
     required this.latestReplyId,
+    this.modelPill,
     this.header,
     this.onRetry,
     this.onLoadOlder,
@@ -509,6 +524,7 @@ class _ThreadView extends StatelessWidget {
   final ValueChanged<String> onSend;
   final ValueListenable<String?> latestReplyId;
   final VoidCallback? onRetry;
+  final Widget? modelPill;
 
   /// Shown above the thread in a wide layout.
   final Widget? header;
@@ -552,6 +568,7 @@ class _ThreadView extends StatelessWidget {
             queued: queued,
             onRemoveQueued: onRemoveQueued,
             onSendQueued: onSendQueued,
+            modelPill: modelPill,
           ),
         );
 
