@@ -48,8 +48,9 @@ Say plainly what you could not check.
 
 ## What this can and can't show
 
-- Clicks and keys can be sent (see "Driving the window" below), but it is
-  fiddly. Test input in widget tests first and use this to confirm.
+- Buttons and tabs can be pressed by name, and clicks and keys can be sent
+  (see "Driving the window" below). Test input in widget tests first and use
+  this to confirm.
 - Threads, profiles, skills, plugins, MCP servers and Kanban come from the
   real backend; a fresh home has none of them, so seed some (see below). Mock
   chat data (`lib/src/chat/mock_chat_data.dart`) is only a fallback when the
@@ -80,6 +81,45 @@ Say plainly what you could not check.
   no rasterizer type. Don't spend rounds on it.
 
 ## Driving the window
+
+Try the accessibility tree first: it presses buttons, tabs, list rows and
+dialog actions by name, without moving the pointer or taking focus, so it
+works while the user keeps using the machine. Fall back to the mouse and
+keyboard below for text entry, drags and native dialogs.
+
+### Through the accessibility tree
+
+`scripts/ax.swift` reads and presses Flutter's semantics through the macOS
+Accessibility API. It needs Accessibility permission for the terminal.
+
+```bash
+xcrun swiftc -O scripts/ax.swift -o .dart_tool/hermes-dev/ax   # once
+A=.dart_tool/hermes-dev/ax
+PID=$(pgrep -f "$PWD/build/macos/.*Hermes.app/Contents/MacOS" | head -1)
+$A $PID wake              # always first
+$A $PID texts             # what is on screen, with roles and frames
+$A $PID press Kanban      # first element whose name contains the text
+screencapture -x -o -l "$($A $PID wid)" /tmp/shot.png
+```
+
+- Flutter builds its tree only after an accessibility client asks, and the
+  content appears on a later request. Until then only the window frame and
+  menus show up. `wake` asks until the content is there.
+- A name can span lines ("Kanban", then "Tab 2 of 3"). `texts` prints line
+  breaks as spaces, so press with one line of it.
+- Hit-testing a point returns the whole window. Find elements by name.
+- Setting a text field's value is accepted and ignored. Use `focus <n>` and
+  then `type` (real key events, which bring the app forward), then `key 36`
+  for Return.
+- `screencapture -l <window id>` captured each change made this way while the
+  window sat behind other apps. After a hot reload, use
+  `dev-app.sh screenshot` instead (see Gotchas).
+- `texts` doubles as an accessibility check: controls that read as
+  `AXStaticText` or have no name are what VoiceOver users get too.
+- The installed app has the same process name. Take the pid of your build,
+  never the user's app, unless they asked for it.
+
+### With the mouse and keyboard
 
 Worked for the attach menu, the native file dialog, paste and a real drag and
 drop. It needs Accessibility permission for the terminal, and it briefly
@@ -126,7 +166,6 @@ text: grep it for keys and `Text("…")` to see what a screen shows. An
 unset, not that the button is disabled. The semantics dump is empty unless a
 screen reader is on.
 
-
 Render the real screen in a throwaway widget test and look at the PNG. Load
 Roboto and MaterialIcons from the Flutter SDK
 (`<flutter>/bin/cache/artifacts/material_fonts/`) with a `FontLoader`, wrap
@@ -169,7 +208,8 @@ registration; the same few lines in Python work) and add a server with `"auth":"
 provider, so the flow ends by Cancel or after Hermes' five minute timeout. A cancelled flow keeps the server's
 "already in progress" slot for a moment until Hermes' worker ends, so an immediate second start answers 409.
 
-Screens behind a tap can't be reached by clicking (System Events clicks are refused). Add a
+Screens behind a tap: press your way there with `scripts/ax.swift` (see
+"Through the accessibility tree"). If the control has no name, add a
 temporary change that opens the screen (a post-frame callback calling the `_open…` method) or
 selects a row and runs the action in `initState`, `dev-app.sh restart` (hot reload keeps `State`),
 screenshot, then revert it. Check a diff before committing so none of it ships.
