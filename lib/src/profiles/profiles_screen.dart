@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../api/hermes_repositories.dart';
-
+import '../models/hermes_models_repository.dart';
+import '../models/model_provider_option.dart';
+import '../models/widgets/model_picker.dart';
 import '../widgets/content_column.dart';
 import 'hermes_profiles_repository.dart';
+import 'widgets/profile_tile.dart';
 
 /// Lists the Hermes profiles on the connected dashboard and lets the user
 /// pick the active one (the sticky default `hermes profile use` sets).
@@ -12,15 +15,20 @@ import 'hermes_profiles_repository.dart';
 /// the dashboard is scoped to). Picking a profile here moves the chat to it
 /// through [onSwitched]; the CLI default can change behind the chat's back
 /// (`hermes profile use`), so the screen says when the two differ.
+///
+/// Each profile's default model, the one chats started afterwards use, can be
+/// changed through [models] without switching to that profile.
 class ProfilesScreen extends StatefulWidget {
   const ProfilesScreen({
     super.key,
     this.repository,
+    this.models,
     this.chatProfile,
     this.onSwitched,
   });
 
   final HermesProfilesRepository? repository;
+  final HermesModelsRepository? models;
   final String? chatProfile;
   final ValueChanged<String>? onSwitched;
 
@@ -30,6 +38,7 @@ class ProfilesScreen extends StatefulWidget {
 
 class _ProfilesScreenState extends State<ProfilesScreen> {
   late final HermesProfilesRepository _repository;
+  late final HermesModelsRepository? _models;
   ProfilesOverview? _overview;
   late String? _chatProfile = widget.chatProfile;
   bool _loading = true;
@@ -39,6 +48,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? HermesRepositories.of(context).profiles;
+    _models = widget.models ?? HermesRepositories.maybeOf(context)?.models;
     _load();
   }
 
@@ -63,6 +73,49 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     }
   }
 
+  void _say(String message) =>
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+
+  Future<void> _changeModel(
+    HermesModelsRepository models,
+    HermesProfile profile,
+  ) async {
+    final options = await models
+        .load(profile: profile.name)
+        .then<ModelOptions?>((o) => o, onError: (Object _) => null);
+    if (!mounted) return;
+    if (options == null || options.providers.isEmpty) {
+      _say('Could not load models');
+      return;
+    }
+    final current = options.current;
+    ModelChoice? picked;
+    await showModelPicker(
+      context,
+      options: options,
+      selected: current,
+      withEffort: false,
+      title: 'Default model',
+      note:
+          'New chats in ${profile.label} start with this model. '
+          'Open chats keep theirs.',
+      onChanged: (choice) => picked = choice,
+    );
+    final choice = picked;
+    if (!mounted || choice == null) return;
+    if (current != null && choice.sameModel(current)) return;
+    try {
+      await _repository.setModel(profile.name, choice);
+    } on Object {
+      if (mounted) _say('Could not change the default model');
+      return;
+    }
+    if (!mounted) return;
+    _say('New chats in ${profile.label} use ${choice.modelId}');
+    await _load();
+  }
+
   String? get _shownInChat => _chatProfile ?? _overview?.current;
 
   Future<void> _choose(HermesProfile profile) async {
@@ -74,9 +127,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
         await _repository.setActive(name);
       } on Object {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not switch profile')),
-        );
+        _say('Could not switch profile');
         return;
       }
     }
@@ -124,25 +175,16 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
             ),
           ),
         for (final profile in overview.profiles)
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: Text(profile.label),
-            subtitle: _subtitle(profile),
-            trailing: profile.name == overview.active
-                ? const Chip(label: Text('Active'))
-                : null,
+          ProfileTile(
+            profile: profile,
+            active: profile.name == overview.active,
             onTap: () => _choose(profile),
+            onChangeModel: switch (_models) {
+              final models? => () => _changeModel(models, profile),
+              null => null,
+            },
           ),
       ],
     );
-  }
-
-  Widget? _subtitle(HermesProfile profile) {
-    final parts = [
-      if (profile.description.isNotEmpty) profile.description,
-      if (profile.model != null) profile.model!,
-      '${profile.skillCount} skills',
-    ];
-    return Text(parts.join(' · '));
   }
 }

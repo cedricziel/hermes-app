@@ -274,6 +274,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       MaterialPageRoute(
         builder: (_) => ProfilesScreen(
           repository: _profiles,
+          models: _chat.models,
           chatProfile: _chat.profile,
           onSwitched: _chat.repository == null ? null : _chat.loadThreads,
         ),

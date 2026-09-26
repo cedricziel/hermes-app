@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 
@@ -39,6 +40,7 @@ void main() {
       MaterialApp(
         home: ProfilesScreen(
           repository: HermesProfilesRepository(server.client().raw),
+          models: HermesModelsRepository(server.client().raw),
           chatProfile: chatProfile,
           onSwitched: onSwitched,
         ),
@@ -232,6 +234,119 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(switched, isEmpty);
+    });
+  });
+
+  group('the default model', () {
+    const workOptions = {
+      'model': 'claude-opus-4',
+      'provider': 'anthropic',
+      'providers': [
+        {
+          'slug': 'anthropic',
+          'name': 'Anthropic',
+          'models': ['claude-opus-4'],
+        },
+        {
+          'slug': 'openrouter',
+          'name': 'OpenRouter',
+          'models': ['gpt-5'],
+        },
+      ],
+    };
+    final changeWork = find.byKey(const Key('profile-model-work'));
+    const put = '/api/profiles/work/model';
+
+    setUp(() {
+      server
+        ..on(
+          'GET',
+          '/api/model/options',
+          workOptions,
+          query: {'profile': 'work'},
+        )
+        ..on('PUT', put, {
+          'ok': true,
+          'provider': 'openrouter',
+          'model': 'gpt-5',
+        });
+    });
+
+    testWidgets('opens the picker for that profile, saying who it affects', (
+      tester,
+    ) async {
+      await pumpProfiles(tester);
+
+      await tester.tap(changeWork);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Default model'), findsOneWidget);
+      expect(
+        find.textContaining('New chats in Work assistant'),
+        findsOneWidget,
+      );
+      expect(find.text('Reasoning effort'), findsNothing);
+    });
+
+    testWidgets('saves a picked model and reloads the list', (tester) async {
+      await pumpProfiles(tester, chatProfile: 'default');
+      final loads = server.requestsTo('GET', '/api/profiles').length;
+
+      await tester.tap(changeWork);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('gpt-5'));
+      await tester.pumpAndSettle();
+
+      expect(jsonBody(server.requestsTo('PUT', put).single), {
+        'provider': 'openrouter',
+        'model': 'gpt-5',
+      });
+      expect(server.requestsTo('GET', '/api/profiles').length, loads + 1);
+      expect(
+        find.text('New chats in Work assistant use gpt-5'),
+        findsOneWidget,
+      );
+      expect(server.requestsTo('POST', '/api/profiles/active'), isEmpty);
+    });
+
+    testWidgets('sends nothing for the current model', (tester) async {
+      await pumpProfiles(tester);
+
+      await tester.tap(changeWork);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('claude-opus-4'));
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('PUT', put), isEmpty);
+    });
+
+    testWidgets('says so when the server refuses the model', (tester) async {
+      server.on('PUT', put, {'detail': 'not configured'}, status: 400);
+      await pumpProfiles(tester);
+
+      await tester.tap(changeWork);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('gpt-5'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Could not change the default model'), findsOneWidget);
+    });
+
+    testWidgets('says so when the models cannot be loaded', (tester) async {
+      server.on(
+        'GET',
+        '/api/model/options',
+        {'detail': 'x'},
+        status: 500,
+        query: {'profile': 'work'},
+      );
+      await pumpProfiles(tester);
+
+      await tester.tap(changeWork);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Could not load models'), findsOneWidget);
+      expect(find.text('Default model'), findsNothing);
     });
   });
 
