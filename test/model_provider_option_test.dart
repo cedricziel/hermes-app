@@ -102,6 +102,22 @@ void main() {
       expect(options.current, isNull);
     });
 
+    test('reads the Kanban plugin\'s label and its capability-free rows', () {
+      final options = ModelOptions.fromJson({
+        'providers': [
+          {
+            'slug': 'anthropic',
+            'label': 'Anthropic',
+            'models': ['claude-opus-4'],
+          },
+        ],
+      });
+
+      final provider = options.providers.single;
+      expect(provider.displayLabel, 'Anthropic');
+      expect(provider.models.single.efforts, kReasoningEfforts.sublist(1));
+    });
+
     test('reads a body that is not a map as no options', () {
       expect(ModelOptions.fromJson('oops').providers, isEmpty);
       expect(ModelOptions.fromJson(null).current, isNull);
