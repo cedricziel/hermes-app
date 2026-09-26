@@ -32,6 +32,7 @@ class _FollowingChatListState extends State<FollowingChatList> {
 
   final _scroll = ScrollController();
   var _following = true;
+  var _dragging = false;
 
   @override
   void dispose() {
@@ -44,6 +45,16 @@ class _FollowingChatListState extends State<FollowingChatList> {
     if (notification is ViewportNotificationMixin && notification.depth > 0) {
       return false;
     }
+    if (notification is ScrollStartNotification) {
+      _dragging = notification.dragDetails != null;
+    } else if (notification is ScrollEndNotification) {
+      _dragging = false;
+      // Whatever grew during the drag went unfollowed.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _catchUp();
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    }
     if (notification is ScrollUpdateNotification) {
       final metrics = notification.metrics;
       if (metrics.maxScrollExtent - metrics.pixels <= _slack) {
@@ -51,15 +62,21 @@ class _FollowingChatListState extends State<FollowingChatList> {
       } else if ((notification.scrollDelta ?? 0) < 0) {
         _following = false;
       }
-    } else if (notification is ScrollMetricsNotification &&
-        _following &&
-        _scroll.hasClients) {
-      final position = _scroll.position;
-      if (position.pixels < position.maxScrollExtent) {
-        position.jumpTo(position.maxScrollExtent);
-      }
+    } else if (notification is ScrollMetricsNotification) {
+      _catchUp();
     }
     return false;
+  }
+
+  void _catchUp() {
+    if (!_following || _dragging || !_scroll.hasClients) return;
+    // Past the end too: the list first jumps to an estimated end, and once
+    // it lays out the real items the end can move up by screens. iOS would
+    // bounce back from there slowly, ignoring taps all the while.
+    final position = _scroll.position;
+    if (position.pixels != position.maxScrollExtent) {
+      position.jumpTo(position.maxScrollExtent);
+    }
   }
 
   @override
