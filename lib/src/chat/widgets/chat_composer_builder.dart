@@ -18,6 +18,7 @@ import 'queued_prompts.dart';
 /// field. The [queued] prompts are listed above it (see [QueuedPrompts]).
 /// The composer never clears the field itself: the screen does once it
 /// accepts the send, so a refused send keeps the text.
+/// [modelPill] sits below all of that, on the left.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   required List<SharedFile> attachments,
@@ -27,6 +28,7 @@ WidgetBuilder buildChatComposer({
   List<QueuedPrompt> queued = const [],
   ValueChanged<QueuedPrompt>? onRemoveQueued,
   VoidCallback? onSendQueued,
+  Widget? modelPill,
 }) {
   return (context) {
     final scheme = Theme.of(context).colorScheme;
@@ -55,7 +57,8 @@ WidgetBuilder buildChatComposer({
       sendButtonVisibilityMode: hasAttachments
           ? SendButtonVisibilityMode.always
           : SendButtonVisibilityMode.disabled,
-      topWidget: hasAttachments || onStop != null || hasQueue
+      topWidget:
+          hasAttachments || onStop != null || hasQueue || modelPill != null
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -70,6 +73,14 @@ WidgetBuilder buildChatComposer({
                   _AttachmentChips(
                     attachments: attachments,
                     onRemove: onRemoveAttachment,
+                  ),
+                if (modelPill != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: modelPill,
+                    ),
                   ),
               ],
             )

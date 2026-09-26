@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
@@ -81,7 +82,34 @@ void main() {
       )
       ..on('GET', '/api/sessions/s2/messages', messageListBody('s2', []))
       ..on('GET', '/api/sessions/s3/messages', messageListBody('s3', []))
-      ..on('GET', '/api/sessions/s4/messages', messageListBody('s4', []));
+      ..on('GET', '/api/sessions/s4/messages', messageListBody('s4', []))
+      ..on('GET', '/api/model/options', {
+        'model': 'claude-opus-4',
+        'provider': 'anthropic',
+        'providers': [
+          {
+            'slug': 'anthropic',
+            'name': 'Anthropic',
+            'models': [
+              'claude-opus-4',
+              'claude-sonnet-4-5',
+              'claude-haiku-4-5',
+            ],
+            'capabilities': {
+              'claude-opus-4': {
+                'reasoning': true,
+                'can_disable_reasoning': true,
+              },
+              'claude-haiku-4-5': {'reasoning': false},
+            },
+          },
+          {
+            'slug': 'openrouter',
+            'name': 'OpenRouter',
+            'models': ['openai/gpt-5.1', 'meta-llama/llama-4-maverick'],
+          },
+        ],
+      });
   });
 
   Future<void> pumpChat(
@@ -94,6 +122,7 @@ void main() {
     shots,
     ChatScreen(
       repository: HermesChatRepository(server.client().raw),
+      models: HermesModelsRepository(server.client().raw),
       transport: transport,
     ),
     size: size,
@@ -167,6 +196,15 @@ void main() {
 
       await openSidebarThread(tester, 's1');
       await shots.capture(tester, 'history');
+
+      await tester.tap(find.byKey(const Key('composer-model-pill')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('effort-medium')));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'model-picker');
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'model-picked');
 
       await send(tester, 'Go ahead, but only on staging.');
       await shots.capture(tester, 'sent-thinking');
