@@ -14,7 +14,7 @@ One PR, `feat(settings)`, stacked on `helper-model-settings`, under 500 changed 
 
 ## 3. Screen
 
-- [ ] 3.1 Write failing widget tests (section shown, a pick sends the whole config with one slot changed, rows disabled while saving, 422 keeps the old model, section left out when MoA fails, no `moa` provider in the picker), then wire the section into the helper models screen until they pass
+- [x] 3.1 Write failing widget tests (section shown, a pick sends the whole config with one slot changed, rows disabled while saving, 422 keeps the old model, section left out when MoA fails, no `moa` provider in the picker), then wire the section into the helper models screen until they pass
 - [ ] 3.2 Extend the helper models step of `test/workflows/management_workflow_test.dart` with the MoA section and look at the screenshots
 
 ## 4. Docs and verify

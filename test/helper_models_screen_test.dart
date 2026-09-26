@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
@@ -209,5 +211,126 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Vision'), findsOneWidget);
+  });
+
+  group('mixture of agents', () {
+    setUp(() {
+      server
+        ..on('GET', '/api/model/moa', moaConfigBody())
+        ..on('PUT', '/api/model/moa', {'ok': true})
+        ..on('GET', '/api/model/options', {
+          ..._options,
+          'providers': [
+            ...(_options['providers']! as List),
+            {
+              'slug': 'moa',
+              'name': 'Mixture of Agents',
+              'models': ['default'],
+            },
+          ],
+        });
+    });
+
+    List<Map<String, Object?>> puts() => [
+      for (final r in server.requestsTo('PUT', '/api/model/moa'))
+        jsonBody(r)! as Map<String, Object?>,
+    ];
+
+    Future<void> pickAggregator(WidgetTester tester) async {
+      await tester.tap(find.text('Aggregator'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('gpt-5-mini'));
+      await tester.pump();
+      await closePicker(tester);
+    }
+
+    testWidgets('lists the advisors and the aggregator', (tester) async {
+      await pumpScreen(tester);
+
+      expect(find.text('Mixture of agents'), findsOneWidget);
+      expect(find.text('gpt-5.5 · openai-codex'), findsOneWidget);
+      expect(
+        find.text('deepseek/deepseek-v4-pro · openrouter · High · off'),
+        findsOneWidget,
+      );
+      expect(
+        server.requestsTo('GET', '/api/model/moa').single.queryParameters,
+        {'profile': 'work'},
+      );
+    });
+
+    testWidgets('saves the whole config with the one slot changed', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.tap(find.text('Aggregator'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mixture of Agents'), findsNothing);
+      expect(find.byKey(const Key('model-default')), findsNothing);
+      await tester.tap(find.text('gpt-5-mini'));
+      await tester.pump();
+      await closePicker(tester);
+
+      final presets = puts().single['presets']! as Map;
+      expect(presets.keys, ['default', 'cheap']);
+      final preset = presets['default'] as Map;
+      expect(preset['aggregator'], containsPair('model', 'gpt-5-mini'));
+      expect(preset['reference_models'], hasLength(3));
+      expect(
+        server.requestsTo('PUT', '/api/model/moa').single.queryParameters,
+        {'profile': 'work'},
+      );
+      expect(find.text('gpt-5-mini · openai'), findsOneWidget);
+      expect(posts(), isEmpty);
+    });
+
+    testWidgets('keeps the MoA rows closed while a save runs', (tester) async {
+      final answer = Completer<FakeResponse>();
+      server.onRequest('PUT', '/api/model/moa', (_) => answer.future);
+      await pumpScreen(tester);
+
+      await tester.tap(find.text('Aggregator'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('gpt-5-mini'));
+      await tester.pump();
+      await tester.tapAt(const Offset(4, 4));
+      // The row's progress spins until the save answers, so nothing settles.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.tap(find.text('Advisor 1'));
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(BottomSheet), findsNothing);
+      answer.complete((status: 200, body: {'ok': true}));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Advisor 1'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BottomSheet), findsOneWidget);
+    });
+
+    testWidgets('a rejected config keeps the old model', (tester) async {
+      server.on('PUT', '/api/model/moa', {
+        'detail': 'Invalid MoA config',
+      }, status: 422);
+      await pumpScreen(tester);
+
+      await pickAggregator(tester);
+
+      expect(find.text('Could not change Aggregator'), findsOneWidget);
+      expect(
+        find.text('anthropic/claude-opus-4.8 · openrouter'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('leaves the section out when MoA cannot be read', (
+      tester,
+    ) async {
+      server.on('GET', '/api/model/moa', {'detail': 'no'}, status: 500);
+      await pumpScreen(tester);
+
+      expect(find.text('Vision'), findsOneWidget);
+      expect(find.text('Mixture of agents'), findsNothing);
+    });
   });
 }
