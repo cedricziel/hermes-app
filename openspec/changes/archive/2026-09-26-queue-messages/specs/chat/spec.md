@@ -87,8 +87,9 @@ The system SHALL hold the messages queued on a thread, text and attachments, in 
 
 #### Scenario: Waits for a turn Hermes starts
 
-- **WHEN** a message is queued and Hermes starts a turn of its own after the reply completes
-- **THEN** the message is sent once that turn completes
+- **WHEN** Hermes runs a turn of its own after a reply, such as a goal continuation
+- **AND WHEN** the user sends in that thread during it
+- **THEN** the message is queued and sent once that turn completes
 
 #### Scenario: Paused by stop
 
