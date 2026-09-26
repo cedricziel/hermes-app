@@ -217,6 +217,38 @@ void main() {
       await shots.capture(tester, 'failed');
     });
 
+    for (final brightness in Brightness.values) {
+      testWidgets('$name: queue prompts while replying (${brightness.name})', (
+        tester,
+      ) async {
+        final shots = ScreenshotRecorder('chat-$name-queue-${brightness.name}');
+        await pumpChat(tester, shots, size: size, brightness: brightness);
+        final reply = await startReply(tester, 's1', 'Go ahead.');
+        await emit(
+          tester,
+          reply,
+          const ReplyDelta('Re-pinning the certificate on staging first. '),
+        );
+        await send(tester, 'Then run the backup on production too.');
+        await send(tester, 'And post the result in #ops.');
+        await shots.capture(tester, 'queued');
+
+        await emit(
+          tester,
+          reply,
+          const ReplyCompleted('', stopped: true),
+          settle: false,
+        );
+        reply.finish();
+        await runFrames(tester);
+        await shots.capture(tester, 'paused');
+
+        await tester.tap(find.text('Send now'));
+        await runFrames(tester);
+        await shots.capture(tester, 'sent-next');
+      });
+    }
+
     testWidgets('$name: dark theme', (tester) async {
       final shots = ScreenshotRecorder('chat-$name-dark');
       await pumpChat(tester, shots, size: size, brightness: Brightness.dark);
