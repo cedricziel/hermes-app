@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/models/moa_setup.dart';
 
 import 'support/fake_hermes_server.dart';
 
@@ -56,6 +57,53 @@ void main() {
       const ModelChoice('openai', 'gpt-5-mini'),
     );
     expect(models.main, const ModelChoice('openai', 'gpt-5.1'));
+  });
+
+  test('loads the MoA setup of the given profile', () async {
+    server.on(
+      'GET',
+      '/api/model/moa',
+      moaConfigBody(),
+      query: {'profile': 'work'},
+    );
+
+    final moa = await repository.loadMoa(profile: 'work');
+
+    expect(moa!.slots, hasLength(3));
+  });
+
+  test('saves the whole MoA config with one slot changed', () async {
+    server.on('PUT', '/api/model/moa', {'ok': true});
+    final moa = MoaSetup.fromJson(moaConfigBody())!;
+
+    await repository.saveMoa(
+      moa.withSlot(
+        'moa-aggregator',
+        const ModelChoice('anthropic', 'claude-sonnet-4-5'),
+      ),
+      profile: 'work',
+    );
+
+    final request = server.requestsTo('PUT', '/api/model/moa').single;
+    expect(request.queryParameters, {'profile': 'work'});
+    final body = jsonBody(request)! as Map<String, Object?>;
+    expect(body['default_preset'], 'default');
+    final presets = body['presets']! as Map;
+    expect(presets.keys, ['default', 'cheap']);
+    final preset = presets['default'] as Map;
+    expect(preset['aggregator'], {
+      'provider': 'anthropic',
+      'model': 'claude-sonnet-4-5',
+      'enabled': true,
+    });
+    expect(preset['reference_temperature'], 0.7);
+    expect(preset['fanout'], 'user_turn');
+    expect((preset['reference_models'] as List)[2], {
+      'provider': 'openrouter',
+      'model': 'deepseek/deepseek-v4-pro',
+      'reasoning_effort': 'high',
+      'enabled': false,
+    });
   });
 
   group('assignAuxiliary', () {
