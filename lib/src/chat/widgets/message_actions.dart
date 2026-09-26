@@ -6,12 +6,14 @@ import 'package:flutter/services.dart';
 import '../../theme/hermes_theme.dart';
 
 /// The small row of actions under a finished reply — assistant-ui's action
-/// bar. Copy takes the reply's text; retry, when given, asks again.
+/// bar. Copy takes the reply's text; retry, when given, asks again. A reply
+/// the user [stopped] says so first, so it does not read as finished.
 class MessageActions extends StatefulWidget {
   const MessageActions({
     super.key,
     required this.text,
     this.showCopy = true,
+    this.stopped = false,
     this.onRetry,
   });
 
@@ -19,6 +21,7 @@ class MessageActions extends StatefulWidget {
 
   /// False for a failed reply that kept no text.
   final bool showCopy;
+  final bool stopped;
   final VoidCallback? onRetry;
 
   @override
@@ -47,7 +50,7 @@ class _MessageActionsState extends State<MessageActions> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.showCopy && widget.onRetry == null) {
+    if (!widget.showCopy && widget.onRetry == null && !widget.stopped) {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
@@ -65,6 +68,12 @@ class _MessageActionsState extends State<MessageActions> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (widget.stopped) ...[
+            Icon(Icons.stop_circle_outlined, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text('Stopped', style: TextStyle(color: color, fontSize: 12.5)),
+            const SizedBox(width: 8),
+          ],
           if (widget.showCopy)
             action(
               _copied ? 'Copied' : 'Copy',

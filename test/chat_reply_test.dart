@@ -100,6 +100,32 @@ void main() {
     expect(reply.status, MessageStatus.sent);
   });
 
+  test('a stopped reply with text is marked stopped', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReplyDelta('Half an ans'));
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.stopped, isTrue);
+  });
+
+  test('a stopped reply with no text is not marked twice', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.stopped, isFalse);
+  });
+
+  test('a completed reply is not marked stopped', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReplyDelta('Done'));
+
+    applyReplyEvent(reply, const ReplyCompleted(''));
+
+    expect(reply.stopped, isFalse);
+  });
+
   test('a stopped reply keeps what had streamed', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ReplyDelta('Half an ans'));

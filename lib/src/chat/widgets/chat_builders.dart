@@ -166,6 +166,7 @@ Widget _buildText(
   Widget below(bool latest) => MessageActions(
     text: message.text,
     showCopy: message.text.isNotEmpty,
+    stopped: message.metadata?[kMetaStopped] == true,
     onRetry: latest ? onRetry : null,
   );
   return Column(

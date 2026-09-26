@@ -254,6 +254,10 @@ class ChatMessage {
   String reasoning;
   final DateTime createdAt;
   MessageStatus status;
+
+  /// The user stopped this reply after some of it had streamed, so it is not
+  /// the whole answer. Known only to this app, not to reloaded history.
+  bool stopped = false;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
 
