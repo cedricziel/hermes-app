@@ -5,8 +5,10 @@ import 'package:hermes_app/src/bots/bot_setup_screen.dart';
 import 'package:hermes_app/src/bots/bots_screen.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/bots/telegram_pairing_screen.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
+import 'package:hermes_app/src/profiles/widgets/profile_tile.dart';
 import 'package:hermes_app/src/skills/discover_tab.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
@@ -67,6 +69,19 @@ FakeHermesServer skillsServer() => FakeHermesServer()
     ]),
   )
   ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
+  ..on('GET', '/api/model/options', {
+    'model': 'claude-opus-4',
+    'provider': 'anthropic',
+    'providers': [
+      {
+        'slug': 'anthropic',
+        'name': 'Anthropic',
+        'models': ['claude-opus-4', 'claude-sonnet-4-5'],
+      },
+    ],
+  })
+  ..on('PUT', '/api/profiles/default/model', {'ok': true})
+  ..on('PUT', '/api/profiles/work/model', {'ok': true})
   ..on('GET', '/api/skills/hub/official', {
     'skills': [
       hubSkillRow(
@@ -422,17 +437,79 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'ProfileTile',
+      useCases: [
+        _profileTile(
+          'Active',
+          const HermesProfile(
+            name: 'default',
+            model: 'claude-opus-4',
+            skillCount: 58,
+          ),
+          active: true,
+        ),
+        _profileTile(
+          'Inactive',
+          const HermesProfile(
+            name: 'work',
+            displayName: 'Work assistant',
+            description: 'Day job',
+            model: 'openai/gpt-5.1',
+            skillCount: 12,
+          ),
+        ),
+        _profileTile(
+          'No model',
+          const HermesProfile(name: 'scratch', skillCount: 0),
+        ),
+        _profileTile(
+          'Long text',
+          const HermesProfile(
+            name: 'research',
+            displayName: 'Long-running research assistant for papers',
+            description: 'Reads papers, keeps notes and writes summaries',
+            model: 'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
+            skillCount: 31,
+          ),
+          active: true,
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'ProfilesScreen',
       useCases: [
         WidgetbookUseCase(
           name: 'Profiles',
-          builder: (_) => ProfilesScreen(
-            repository: HermesProfilesRepository(skillsServer().client().raw),
-            chatProfile: 'default',
-            onSwitched: (_) {},
-          ),
+          builder: (_) {
+            final server = skillsServer();
+            return ProfilesScreen(
+              repository: HermesProfilesRepository(server.client().raw),
+              models: HermesModelsRepository(server.client().raw),
+              chatProfile: 'default',
+              onSwitched: (_) {},
+            );
+          },
         ),
       ],
     ),
   ],
+);
+
+WidgetbookUseCase _profileTile(
+  String name,
+  HermesProfile profile, {
+  bool active = false,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (_) => frame(
+    Material(
+      type: MaterialType.transparency,
+      child: ProfileTile(
+        profile: profile,
+        active: active,
+        onTap: () {},
+        onChangeModel: () {},
+      ),
+    ),
+  ),
 );
