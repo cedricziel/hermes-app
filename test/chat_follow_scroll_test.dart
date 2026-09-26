@@ -208,6 +208,51 @@ void main() {
     await tester.pumpAndSettle();
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+  testWidgets('a reply that grew during a drag is caught up on release', (
+    tester,
+  ) async {
+    final reply = await startReply(tester);
+    await streamLines(tester, reply, 60);
+
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(ChatAnimatedList)),
+    );
+    await drag.moveBy(const Offset(0, 30));
+    await drag.moveBy(const Offset(0, 10));
+    await tester.pump();
+    await streamLines(tester, reply, 5);
+    await drag.up();
+    await tester.pump();
+    await tester.pump();
+
+    expect(distanceFromBottom(tester), lessThan(1));
+
+    reply.finish();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('pulling past the bottom still bounces back', (tester) async {
+    final reply = await startReply(tester);
+    await streamLines(tester, reply, 60);
+    reply.finish();
+    await tester.pump(const Duration(seconds: 1));
+
+    final pull = await tester.startGesture(
+      tester.getCenter(find.byType(ChatAnimatedList)),
+    );
+    for (var i = 0; i < 5; i++) {
+      await pull.moveBy(const Offset(0, -40));
+      await tester.pump();
+    }
+    await pull.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+
+    expect(distanceFromBottom(tester), lessThan(-1));
+    await tester.pumpAndSettle();
+    expect(distanceFromBottom(tester).abs(), lessThan(1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets('a long thread opens at its latest message', (tester) async {
     server.on(
       'GET',
