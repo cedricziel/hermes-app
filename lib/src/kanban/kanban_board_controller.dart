@@ -146,6 +146,8 @@ class KanbanBoardController extends ChangeNotifier {
     String? status,
     String? assignee,
     int? priority,
+    String? effort,
+    bool clearEffort = false,
     bool archive = false,
   }) async {
     final ids = _selected.toList();
@@ -155,6 +157,8 @@ class KanbanBoardController extends ChangeNotifier {
       status: status,
       assignee: assignee,
       priority: priority,
+      effort: effort,
+      clearEffort: clearEffort,
       archive: archive,
       board: _boardSlug,
     );

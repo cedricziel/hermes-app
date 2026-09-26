@@ -138,6 +138,11 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 onMove: (status) => unawaited(_bulk(status: status)),
                 onAssign: (assignee) => unawaited(_bulk(assignee: assignee)),
                 onPriority: (priority) => unawaited(_bulk(priority: priority)),
+                onEffort: (effort) => unawaited(
+                  effort.isEmpty
+                      ? _bulk(clearEffort: true)
+                      : _bulk(effort: effort),
+                ),
                 onArchive: () => unawaited(_bulk(archive: true)),
               )
             : null,
@@ -231,6 +236,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
     String? status,
     String? assignee,
     int? priority,
+    String? effort,
+    bool clearEffort = false,
     bool archive = false,
   }) async {
     final count = _controller.selected.length;
@@ -241,6 +248,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
         status: status,
         assignee: assignee,
         priority: priority,
+        effort: effort,
+        clearEffort: clearEffort,
         archive: archive,
       );
     });
