@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -54,6 +55,20 @@ void main() {
       )
       ..on('GET', '/api/cron/blueprints', _blueprints)
       ..on('GET', '/api/cron/delivery-targets', _targets)
+      ..on('GET', '/api/model/options', {
+        'providers': [
+          {
+            'slug': 'nous',
+            'name': 'Nous Portal',
+            'models': ['hermes-4-405b', 'hermes-4-70b'],
+          },
+          {
+            'slug': 'openrouter',
+            'name': 'OpenRouter',
+            'models': ['anthropic/claude-opus-4', 'openai/gpt-5.1'],
+          },
+        ],
+      })
       ..on('GET', '/api/dashboard/plugins', <Object?>[])
       ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody(_boards))
       ..on('GET', '/api/plugins/kanban/board', kanbanBoardBody(_tasks))
@@ -85,6 +100,11 @@ void main() {
       SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       size: size,
       brightness: brightness,
+      providers: [
+        Provider<HermesRepositories?>.value(
+          value: HermesRepositories(server.client()),
+        ),
+      ],
     );
   }
 
@@ -749,7 +769,10 @@ void main() {
       await tapVisible(tester, find.byKey(const Key('job-advanced')));
       await type(tester, 'job-script', '../evil.sh');
       await type(tester, 'job-skills', 'web-search, calendar');
-      await type(tester, 'job-model', 'hermes-4');
+      await tapVisible(tester, find.byKey(const Key('job-model')));
+      await shots.capture(tester, 'model-picker');
+      await tester.tap(find.byKey(const Key('model-nous-hermes-4-70b')));
+      await _settle(tester);
       await shots.capture(tester, 'advanced');
 
       server.on('POST', '/api/cron/jobs', {
