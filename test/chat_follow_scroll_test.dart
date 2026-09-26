@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -217,7 +218,8 @@ void main() {
     final drag = await tester.startGesture(
       tester.getCenter(find.byType(ChatAnimatedList)),
     );
-    await drag.moveBy(const Offset(0, 30));
+    // Past the touch slop, then 10 px up: still within following distance.
+    await drag.moveBy(const Offset(0, kTouchSlop + 1));
     await drag.moveBy(const Offset(0, 10));
     await tester.pump();
     await streamLines(tester, reply, 5);
