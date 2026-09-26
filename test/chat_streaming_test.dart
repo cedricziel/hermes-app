@@ -5,6 +5,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart' show TextMessage;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -254,9 +255,10 @@ void main() {
       const ReplyCompleted('Model unavailable', failed: true),
     );
 
+    expect(inTranscript('Let me'), findsOneWidget);
     expect(inTranscript('Model unavailable'), findsOneWidget);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {'error': true});
+    expect(last.metadata, {kMetaError: 'Model unavailable'});
   });
 
   chatTest('a dropped stream marks the reply as an error', (tester) async {
@@ -269,7 +271,7 @@ void main() {
     expect(inTranscript(kReplyFailedMessage), findsOneWidget);
     expect(find.byType(ThinkingIndicator), findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {'error': true});
+    expect(last.metadata, {kMetaError: kReplyFailedMessage});
   });
 
   chatTest('a profile that no longer exists is explained, not retried', (
@@ -286,7 +288,7 @@ void main() {
     expect(inTranscript('Any news?'), findsOneWidget);
     expect(find.byType(ThinkingIndicator), findsNothing);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {'error': true});
+    expect(last.metadata, {kMetaError: kProfileUnavailableMessage});
     expect(transport.sends, hasLength(1));
   });
 
@@ -302,8 +304,9 @@ void main() {
     await tester.pump();
 
     expect(inTranscript('Half an ans'), findsOneWidget);
+    expect(inTranscript(kReplyFailedMessage), findsOneWidget);
     final last = transcriptMessages(tester).last as TextMessage;
-    expect(last.metadata, {'error': true});
+    expect(last.metadata, {kMetaError: kReplyFailedMessage});
   });
 
   chatTest('the user can send again after a dropped stream', (tester) async {

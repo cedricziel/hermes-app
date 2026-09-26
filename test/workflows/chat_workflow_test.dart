@@ -255,6 +255,24 @@ void main() {
       await shots.capture(tester, 'failed');
     });
 
+    testWidgets('$name: a reply cut off halfway', (tester) async {
+      final shots = ScreenshotRecorder('chat-$name-cut-off');
+      await pumpChat(tester, shots, size: size);
+      final reply = await startReply(tester, 's3', 'Draft the release notes.');
+      await emit(
+        tester,
+        reply,
+        const ReplyDelta(
+          'Here is a first draft:\n\n- **Chat:** replies keep their text '
+          'when the connection drops\n- **Kanban:** faster board loads\n\n'
+          'Shall I add the',
+        ),
+      );
+      await emit(tester, reply, const ReplyCompleted('', failed: true));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'cut-off');
+    });
+
     for (final brightness in Brightness.values) {
       testWidgets('$name: queue prompts while replying (${brightness.name})', (
         tester,
