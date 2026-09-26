@@ -33,6 +33,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenSkills,
     this.onOpenPlugins,
     this.onOpenMcp,
+    this.onOpenHelperModels,
   });
 
   final List<ChatThread> threads;
@@ -48,6 +49,7 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenSkills;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
+  final VoidCallback? onOpenHelperModels;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +128,8 @@ class ThreadSidebar extends StatelessWidget {
                   (Icons.extension_outlined, 'Plugins', onOpenPlugins!),
                 if (onOpenMcp != null)
                   (Icons.power_outlined, 'MCP servers', onOpenMcp!),
+                if (onOpenHelperModels != null)
+                  (Icons.tune, 'Helper models', onOpenHelperModels!),
               ],
             ),
             const AccountFooter(),
@@ -187,8 +191,8 @@ class SidebarAction extends StatelessWidget {
   }
 }
 
-/// Profiles, skills, bots, plugins and MCP servers behind one row, so the
-/// thread list keeps the height.
+/// Profiles, skills, bots, plugins, MCP servers and helper models behind one
+/// row, so the thread list keeps the height.
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});
 
