@@ -4,6 +4,7 @@ import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -79,6 +80,17 @@ void main() {
         ]),
       )
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
+      ..on('GET', '/api/model/options', {
+        'model': 'hermes-4',
+        'provider': 'nous',
+        'providers': [
+          {
+            'slug': 'nous',
+            'name': 'Nous Portal',
+            'models': ['hermes-4', 'hermes-4-mini'],
+          },
+        ],
+      })
       ..on(
         'GET',
         '/api/messaging/platforms',
@@ -148,6 +160,7 @@ void main() {
       ChatScreen(
         repository: HermesChatRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
+        models: HermesModelsRepository(server.client().raw),
         skills: HermesSkillsRepository(server.client().raw),
         bots: HermesBotsRepository(server.client().raw),
       ),
@@ -190,6 +203,11 @@ void main() {
       await pumpChat(tester, shots, size: size);
       await openFromSidebar(tester, 'Profiles');
       await shots.capture(tester, 'profiles');
+      await tester.tap(find.byKey(const Key('profile-model-default')));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'default-model');
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
       await popRoute(tester);
 
       await openFromSidebar(tester, 'Bots');

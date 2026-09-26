@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -91,6 +92,37 @@ void main() {
       server.on('GET', '/api/profiles', {'detail': 'boom'}, status: 500);
 
       expect(repository.load(), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('setModel', () {
+    test('puts the provider and model under the encoded name', () async {
+      server.on('PUT', '/api/profiles/my%20work/model', {
+        'ok': true,
+        'provider': 'openrouter',
+        'model': 'gpt-5',
+      });
+
+      await repository.setModel(
+        'my work',
+        const ModelChoice('openrouter', 'gpt-5', effort: 'high'),
+      );
+
+      final request = server
+          .requestsTo('PUT', '/api/profiles/my%20work/model')
+          .single;
+      expect(jsonBody(request), {'provider': 'openrouter', 'model': 'gpt-5'});
+    });
+
+    test('surfaces a refused model as a DioException', () async {
+      server.on('PUT', '/api/profiles/work/model', {
+        'detail': 'provider not configured',
+      }, status: 400);
+
+      expect(
+        repository.setModel('work', const ModelChoice('x', 'y')),
+        throwsA(isA<DioException>()),
+      );
     });
   });
 

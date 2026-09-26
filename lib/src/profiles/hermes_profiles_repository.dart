@@ -1,5 +1,7 @@
 import 'package:hermes_api/hermes_api.dart';
 
+import '../models/model_provider_option.dart';
+
 class HermesProfile {
   const HermesProfile({
     required this.name,
@@ -78,6 +80,20 @@ class HermesProfilesRepository {
   Future<void> setActive(String name) async {
     await _api.setActiveProfileEndpointApiProfilesActivePost(
       profileActiveUpdate: ProfileActiveUpdate(name: name),
+    );
+  }
+
+  /// Makes [choice] the default model of the profile [name], for chats
+  /// started afterwards. Hermes keeps no default effort for the main model,
+  /// so [ModelChoice.effort] is not sent.
+  Future<void> setModel(String name, ModelChoice choice) async {
+    await _api.updateProfileModelEndpointApiProfilesNameModelPut(
+      // The generated client puts the name into the path unencoded.
+      name: Uri.encodeComponent(name),
+      profileModelUpdate: ProfileModelUpdate(
+        provider: choice.providerId,
+        model: choice.modelId,
+      ),
     );
   }
 }
