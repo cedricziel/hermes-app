@@ -1,24 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:material_ui/material_ui.dart' as mui;
+import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
-import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
-import 'queued_prompts.dart';
+import 'chat_composer.dart';
 
-/// Builds flutter_chat_ui's [Composer] for the Hermes chat.
-///
-/// [controller] is shared with the screen so it can prefill shared text.
-/// [attachments] show as removable chips above the input, and count as
-/// sendable content on their own: the send button stays enabled and an empty
-/// message is emitted through `Chat.onMessageSend`, which the screen pairs
-/// with its pending attachments. While [replying] a send is queued, so the
-/// hint says so; [onStop] then offers to stop the reply from a bar above the
-/// field. The [queued] prompts are listed above it (see [QueuedPrompts]).
-/// The composer never clears the field itself: the screen does once it
-/// accepts the send, so a refused send keeps the text.
-/// [modelPill] sits below all of that, on the left.
+/// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
+/// the package's own [Composer]. Sends go to `Chat.onMessageSend` and the
+/// attach button to `Chat.onAttachmentTap`; see [ChatComposer] for the rest.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   required List<SharedFile> attachments,
@@ -30,70 +21,89 @@ WidgetBuilder buildChatComposer({
   VoidCallback? onSendQueued,
   Widget? modelPill,
 }) {
-  return (context) {
-    final scheme = Theme.of(context).colorScheme;
-    final hasAttachments = attachments.isNotEmpty;
-    final hasQueue = queued.isNotEmpty && onRemoveQueued != null;
-    return Composer(
-      textEditingController: controller,
-      hintText: replying ? 'Queue a message…' : 'Message Hermes…',
-      maxLines: 8,
-      sendOnEnter: true,
-      attachmentIcon: const Icon(Icons.attach_file),
-      attachmentIconColor: context.hermesColors.subtleText,
-      sendIcon: const Icon(Icons.arrow_upward),
-      sendIconColor: scheme.primary,
-      emptyFieldSendIconColor: context.hermesColors.subtleText,
-      backgroundColor: scheme.surface,
-      inputBorder: mui.OutlineInputBorder(
-        borderRadius: BorderRadius.circular(kHermesRadius),
-        borderSide: BorderSide(color: scheme.outline),
-      ),
-      inputFillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-      sigmaX: 0,
-      sigmaY: 0,
-      allowEmptyMessage: hasAttachments,
-      inputClearMode: InputClearMode.never,
-      sendButtonVisibilityMode: hasAttachments
-          ? SendButtonVisibilityMode.always
-          : SendButtonVisibilityMode.disabled,
-      topWidget:
-          hasAttachments || onStop != null || hasQueue || modelPill != null
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (onStop != null) _StopBar(onStop: onStop),
-                if (hasQueue)
-                  QueuedPrompts(
-                    prompts: queued,
-                    onRemove: onRemoveQueued,
-                    onSendNow: onSendQueued,
-                  ),
-                if (hasAttachments)
-                  _AttachmentChips(
-                    attachments: attachments,
-                    onRemove: onRemoveAttachment,
-                  ),
-                if (modelPill != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 4, 16, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: modelPill,
-                    ),
-                  ),
-              ],
-            )
-          : null,
-    );
-  };
+  return (context) => _ComposerSlot(
+    builder: (onSend, onAttach) => ChatComposer(
+      controller: controller,
+      onSend: onSend,
+      onAttach: onAttach,
+      attachments: attachments,
+      onRemoveAttachment: onRemoveAttachment,
+      replying: replying,
+      onStop: onStop,
+      queued: queued,
+      onRemoveQueued: onRemoveQueued,
+      onSendQueued: onSendQueued,
+      modelPill: modelPill,
+    ),
+  );
 }
 
-/// Supplies what flutter_chat_ui's [Composer] needs from `material_ui`, a
+/// Pins the composer to the bottom of the `Chat` stack and reports its
+/// height, without the bottom safe area, so the message list is padded to
+/// clear it, as the package's own [Composer] does. It must stay a direct child
+/// of that stack, which is why it returns the [Positioned] itself.
+class _ComposerSlot extends StatefulWidget {
+  const _ComposerSlot({required this.builder});
+
+  final Widget Function(ValueChanged<String> onSend, VoidCallback? onAttach)
+  builder;
+
+  @override
+  State<_ComposerSlot> createState() => _ComposerSlotState();
+}
+
+class _ComposerSlotState extends State<_ComposerSlot> {
+  final _key = GlobalKey();
+
+  void _measureAfterFrame() =>
+      WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+
+  void _measure() {
+    if (!mounted) return;
+    final box = _key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    context.read<ComposerHeightNotifier>().setHeight(
+      box.size.height - MediaQuery.paddingOf(context).bottom,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _measureAfterFrame();
+    final onSend = context.read<OnMessageSendCallback?>();
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: NotificationListener<SizeChangedLayoutNotification>(
+        onNotification: (_) {
+          _measureAfterFrame();
+          return true;
+        },
+        child: SizeChangedLayoutNotifier(
+          child: ColoredBox(
+            key: _key,
+            color: Theme.of(context).colorScheme.surface,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.paddingOf(context).bottom,
+              ),
+              child: widget.builder(
+                (text) => onSend?.call(text),
+                context.read<OnAttachmentTapCallback?>(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Supplies what flutter_chat_ui's message widgets need from `material_ui`, a
 /// package separate from Flutter's own material library: a `Material`
-/// ancestor, `MaterialLocalizations` and a theme seeded from the app's colors. Wrap the `Chat` in this; it cannot be
-/// added from the composer builder because [Composer] returns a `Positioned`
-/// that must stay a direct child of the chat's `Stack`.
+/// ancestor, `MaterialLocalizations` and a theme seeded from the app's
+/// colors. Wrap the `Chat` in this.
 class FlyerMaterialScope extends StatelessWidget {
   const FlyerMaterialScope({super.key, required this.child});
 
@@ -118,87 +128,6 @@ class FlyerMaterialScope extends StatelessWidget {
               ),
         ),
         child: mui.Material(type: mui.MaterialType.transparency, child: child),
-      ),
-    );
-  }
-}
-
-/// Shown while a reply is in flight, so it can be stopped.
-class _StopBar extends StatefulWidget {
-  const _StopBar({required this.onStop});
-
-  final Future<void> Function() onStop;
-
-  @override
-  State<_StopBar> createState() => _StopBarState();
-}
-
-class _StopBarState extends State<_StopBar> {
-  var _busy = false;
-
-  Future<void> _stop() async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await widget.onStop();
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Hermes is replying…',
-              style: TextStyle(color: context.hermesColors.subtleText),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: _busy ? null : _stop,
-            icon: const Icon(Icons.stop_circle_outlined),
-            label: const Text('Stop'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AttachmentChips extends StatelessWidget {
-  const _AttachmentChips({required this.attachments, required this.onRemove});
-
-  final List<SharedFile> attachments;
-  final ValueChanged<SharedFile> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final file in attachments)
-              InputChip(
-                avatar: Icon(
-                  file.isImage
-                      ? Icons.image_outlined
-                      : Icons.insert_drive_file_outlined,
-                  size: 16,
-                ),
-                label: Text(file.name),
-                deleteButtonTooltipMessage: 'Remove ${file.name}',
-                onDeleted: () => onRemove(file),
-              ),
-          ],
-        ),
       ),
     );
   }

@@ -18,7 +18,7 @@ const _shot = SharedFile(
   isImage: true,
 );
 
-final _attachButton = find.byIcon(Icons.attach_file);
+final _attachButton = find.byTooltip('Add attachment');
 
 String _composerText(WidgetTester tester) =>
     tester.widget<EditableText>(find.byType(EditableText)).controller.text;
