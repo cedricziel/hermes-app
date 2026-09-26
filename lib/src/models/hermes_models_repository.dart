@@ -2,6 +2,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import 'auxiliary_models.dart';
 import 'model_provider_option.dart';
+import 'moa_setup.dart';
 
 /// Reads the models a profile can chat with, and reads and sets its helper
 /// models, through the generated [DefaultApi]. The routes have no response
@@ -24,6 +25,20 @@ class HermesModelsRepository {
     );
     return AuxiliaryModels.fromJson(response.data);
   }
+
+  /// Null when the profile has no usable mixture-of-agents preset.
+  Future<MoaSetup?> loadMoa({String? profile}) async {
+    final response = await _api.getMoaModelsApiModelMoaGet(profile: profile);
+    return MoaSetup.fromJson(response.data);
+  }
+
+  /// Replaces the profile's whole MoA config with [setup]. Hermes answers 422
+  /// for a config it would not run.
+  Future<void> saveMoa(MoaSetup setup, {String? profile}) =>
+      _api.setMoaModelsApiModelMoaPut(
+        profile: profile,
+        moaConfigPayload: MoaConfigPayload.fromJson(setup.toJson()),
+      );
 
   /// Runs [task] on [choice], or on the main model when it is null. Returns
   /// Hermes' warning when the model is expensive and was not confirmed with

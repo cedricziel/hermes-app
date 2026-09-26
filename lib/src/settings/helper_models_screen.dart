@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/auxiliary_models.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
+import '../models/moa_setup.dart';
 import '../models/widgets/model_picker.dart';
 import '../widgets/content_column.dart';
 import '../widgets/state_message.dart';
@@ -28,6 +29,7 @@ class HelperModelsScreen extends StatefulWidget {
 
 class _HelperModelsScreenState extends State<HelperModelsScreen> {
   AuxiliaryModels? _models;
+  MoaSetup? _moa;
   ModelOptions _options = const ModelOptions();
   bool _failed = false;
   final Set<String> _saving = {};
@@ -42,15 +44,17 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
 
   Future<void> _load() async {
     setState(() => _failed = false);
-    final options = _repository
-        .load(profile: widget.profile)
-        .then<ModelOptions?>((o) => o, onError: (_) => null);
+    // Both are optional: without them the picker is empty or MoA is left out.
+    final options = _orNull(_repository.load(profile: widget.profile));
+    final moa = _orNull(_repository.loadMoa(profile: widget.profile));
     try {
       final models = await _repository.loadAuxiliary(profile: widget.profile);
       final loaded = await options;
+      final loadedMoa = await moa;
       if (!mounted) return;
       setState(() {
         _models = models;
+        _moa = loadedMoa;
         if (loaded != null) _options = loaded;
       });
     } on Object {
@@ -69,6 +73,44 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
       onUseDefault: () => pick = null,
     );
     if (mounted && pick != slot.choice) await _save(slot, pick);
+  }
+
+  static Future<T?> _orNull<T>(Future<T?> future) =>
+      future.then<T?>((value) => value, onError: (_) => null);
+
+  /// A preset may not hold Hermes' virtual `moa` provider, nor an empty slot.
+  Future<void> _openMoa(MoaSlot slot) async {
+    var pick = slot.choice;
+    await showModelPicker(
+      context,
+      title: slot.label,
+      options: ModelOptions(
+        current: _options.current,
+        providers: [
+          for (final p in _options.providers)
+            if (p.id != 'moa') p,
+        ],
+      ),
+      selected: slot.choice,
+      onChanged: (choice) => pick = choice,
+    );
+    final moa = _moa;
+    if (!mounted || moa == null || pick == slot.choice) return;
+    final next = moa.withSlot(slot.key, pick);
+    final keys = {for (final s in moa.slots) s.key};
+    setState(() => _saving.addAll(keys));
+    try {
+      await _repository.saveMoa(next, profile: widget.profile);
+      if (mounted) setState(() => _moa = next);
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not change ${slot.label}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving.removeAll(keys));
+    }
   }
 
   Future<void> _save(
@@ -143,7 +185,13 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
               )
             : models == null
             ? const Center(child: CircularProgressIndicator())
-            : HelperModelList(models: models, saving: _saving, onTap: _open),
+            : HelperModelList(
+                models: models,
+                saving: _saving,
+                onTap: _open,
+                moa: _moa,
+                onTapMoa: _openMoa,
+              ),
       ),
     );
   }
