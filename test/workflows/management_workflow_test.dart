@@ -80,17 +80,6 @@ void main() {
         ]),
       )
       ..on('GET', '/api/profiles/active', activeProfileBody(active: 'default'))
-      ..on('GET', '/api/model/options', {
-        'model': 'hermes-4',
-        'provider': 'nous',
-        'providers': [
-          {
-            'slug': 'nous',
-            'name': 'Nous Portal',
-            'models': ['hermes-4', 'hermes-4-mini'],
-          },
-        ],
-      })
       ..on(
         'GET',
         '/api/messaging/platforms',
@@ -205,7 +194,6 @@ void main() {
         models: HermesModelsRepository(server.client().raw),
         skills: HermesSkillsRepository(server.client().raw),
         bots: HermesBotsRepository(server.client().raw),
-        models: HermesModelsRepository(server.client().raw),
       ),
       size: size,
       brightness: brightness,
