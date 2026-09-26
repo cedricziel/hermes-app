@@ -3,7 +3,9 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
+
 ## Requirements
+
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -215,69 +217,6 @@ The system SHALL let the user start a local draft thread with "New chat" and SHA
 
 - **WHEN** the user sends a message in a thread the dashboard holds
 - **THEN** the message is sent under that thread's id, and it appears after the messages already loaded
-
-### Requirement: Sending a message
-
-The system SHALL append the user's message and a thinking placeholder for the assistant reply to the transcript at once when the user sends, and SHALL clear the composer. Blank text with no attachments SHALL NOT be sent. The system SHALL NOT send on a thread that has a pending reply, meaning a reply that is thinking or streaming, including one that waits for the user to answer an approval or clarify request. It SHALL tell the user why with the message "Hermes is still replying. Wait for it to finish, or answer its request." and SHALL keep the composer text and attachments. Other threads SHALL NOT be affected.
-
-#### Scenario: Send shows prompt and placeholder
-
-- **WHEN** the user sends "hello"
-- **THEN** the transcript shows "hello" and a thinking placeholder, and the composer is emptied
-
-#### Scenario: Enter sends
-
-- **WHEN** the user presses Enter in the composer
-- **THEN** the message is sent
-- **AND WHEN** the user presses Shift+Enter
-- **THEN** a line break is added and nothing is sent
-
-#### Scenario: Whitespace-only message
-
-- **WHEN** the composer holds only whitespace and there are no attachments
-- **THEN** nothing is sent
-
-#### Scenario: Send button state
-
-- **WHEN** the composer is empty and there are no attachments
-- **THEN** the send button is disabled
-- **AND WHEN** there are attachments, even with no text
-- **THEN** it is enabled
-
-#### Scenario: Overlapping sends
-
-- **WHEN** the user sends in several threads while an earlier reply in another thread is still streaming
-- **THEN** every reply streams into its own place beside its own prompt
-
-#### Scenario: Blocked while the reply streams
-
-- **WHEN** the user sends again in a thread whose reply is still streaming
-- **THEN** nothing is sent and the user is told "Hermes is still replying. Wait for it to finish, or answer its request."
-- **AND** the composer keeps its text
-
-#### Scenario: Blocked while a request is pending
-
-- **WHEN** the reply waits on an approval or clarify request that is not answered yet
-- **AND WHEN** the user sends again in that thread
-- **THEN** nothing is sent and the user is told "Hermes is still replying. Wait for it to finish, or answer its request."
-
-#### Scenario: Allowed after completion
-
-- **WHEN** the reply in a thread has completed
-- **AND WHEN** the user sends again in that thread
-- **THEN** the message is sent
-
-#### Scenario: Allowed after a broken stream
-
-- **WHEN** the reply stream of a thread broke and the reply is marked failed
-- **AND WHEN** the user sends again in that thread
-- **THEN** the message is sent
-
-#### Scenario: Other thread unaffected
-
-- **WHEN** a thread has a pending reply
-- **AND WHEN** the user switches to another thread and sends
-- **THEN** the message is sent under that other thread
 
 ### Requirement: Streaming the reply
 
@@ -888,3 +827,113 @@ The system SHALL show three chips below the action bar of the latest reply of th
 - **WHEN** a newer reply finishes, or the latest one failed
 - **THEN** the earlier reply shows no chips
 
+### Requirement: Sending a message and queueing
+
+The system SHALL append the user's message and a thinking placeholder for the assistant reply to the transcript at once when the user sends, and SHALL clear the composer. Blank text with no attachments SHALL NOT be sent. On a thread that has a pending reply, meaning a reply that is thinking or streaming, including one that waits for the user to answer an approval or clarify request, the system SHALL queue the message instead of sending it (see "Queued messages"). Other threads SHALL NOT be affected.
+
+#### Scenario: Send shows prompt and placeholder
+
+- **WHEN** the user sends "hello"
+- **THEN** the transcript shows "hello" and a thinking placeholder, and the composer is emptied
+
+#### Scenario: Enter sends
+
+- **WHEN** the user presses Enter in the composer
+- **THEN** the message is sent
+- **AND WHEN** the user presses Shift+Enter
+- **THEN** a line break is added and nothing is sent
+
+#### Scenario: Whitespace-only message
+
+- **WHEN** the composer holds only whitespace and there are no attachments
+- **THEN** nothing is sent
+
+#### Scenario: Send button state
+
+- **WHEN** the composer is empty and there are no attachments
+- **THEN** the send button is disabled
+- **AND WHEN** there are attachments, even with no text
+- **THEN** it is enabled
+
+#### Scenario: Overlapping sends
+
+- **WHEN** the user sends in several threads while an earlier reply in another thread is still streaming
+- **THEN** every reply streams into its own place beside its own prompt
+
+#### Scenario: Queued while the reply streams
+
+- **WHEN** the user sends again in a thread whose reply is still streaming
+- **THEN** nothing is sent yet, the message is queued and the composer is emptied
+
+#### Scenario: Queued while a request is pending
+
+- **WHEN** the reply waits on an approval or clarify request that is not answered yet
+- **AND WHEN** the user sends again in that thread
+- **THEN** nothing is sent yet and the message is queued
+
+#### Scenario: Allowed after completion
+
+- **WHEN** the reply in a thread has completed
+- **AND WHEN** the user sends again in that thread
+- **THEN** the message is sent
+
+#### Scenario: Allowed after a broken stream
+
+- **WHEN** the reply stream of a thread broke and the reply is marked failed
+- **AND WHEN** the user sends again in that thread with nothing queued
+- **THEN** the message is sent
+
+#### Scenario: Other thread unaffected
+
+- **WHEN** a thread has a pending reply
+- **AND WHEN** the user switches to another thread and sends
+- **THEN** the message is sent under that other thread
+
+### Requirement: Queued messages
+
+The system SHALL hold the messages queued on a thread, text and attachments, in the order they were sent, and SHALL show those of the open thread above the composer, each with a control to remove it. While the thread's reply is pending the composer's hint SHALL read "Queue a message…". When a reply ends normally, whether it answered a prompt or was a turn Hermes started on its own, and no reply is pending, the system SHALL send the first queued message as a new turn and remove it from the queue. When a reply is stopped by the user or fails, the queue SHALL pause: nothing more is sent on its own, and the queue SHALL offer "Send now", which sends its first message. A message sent on a thread whose queue is paused SHALL join the end of the queue, and the first queued message SHALL be sent. An attachment that cannot be sent SHALL be refused when the message is queued, as for a direct send. The queue SHALL be held in memory only, and SHALL be dropped when the threads are loaded again, for example on a profile switch. The queue SHALL NOT use any backend route or RPC method beyond those of a direct send (`session.resume`, `prompt.submit`).
+
+#### Scenario: Queued message shown
+
+- **WHEN** the user sends "next" while the reply is streaming
+- **THEN** "next" is listed above the composer and is not in the transcript yet
+
+#### Scenario: Sent when the reply completes
+
+- **WHEN** two messages are queued and the reply completes
+- **THEN** the first queued message is sent and moves into the transcript with a thinking placeholder
+- **AND** the second stays queued until that reply completes, and is then sent
+
+#### Scenario: Waits for a turn Hermes starts
+
+- **WHEN** Hermes runs a turn of its own after a reply, such as a goal continuation
+- **AND WHEN** the user sends in that thread during it
+- **THEN** the message is queued and sent once that turn completes
+
+#### Scenario: Paused by stop
+
+- **WHEN** a message is queued and the user stops the reply
+- **THEN** the message is not sent and the queue offers "Send now"
+- **AND WHEN** the user taps "Send now"
+- **THEN** the message is sent
+
+#### Scenario: Paused by a failure
+
+- **WHEN** a message is queued and the reply fails
+- **THEN** the message is not sent and the queue offers "Send now"
+
+#### Scenario: Send on a paused queue
+
+- **WHEN** the queue is paused with "first" queued
+- **AND WHEN** the user sends "second"
+- **THEN** "first" is sent and "second" stays queued
+
+#### Scenario: Removed from the queue
+
+- **WHEN** the user removes a queued message
+- **THEN** it is no longer listed and is never sent
+
+#### Scenario: Queue belongs to its thread
+
+- **WHEN** a thread has queued messages and the user opens another thread
+- **THEN** the other thread shows no queue, and the first thread's queue is sent there when its reply completes

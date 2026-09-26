@@ -4,6 +4,8 @@ import 'package:material_ui/material_ui.dart' as mui;
 
 import '../../share/shared_item.dart';
 import '../../theme/hermes_theme.dart';
+import '../queued_prompt.dart';
+import 'queued_prompts.dart';
 
 /// Builds flutter_chat_ui's [Composer] for the Hermes chat.
 ///
@@ -11,21 +13,28 @@ import '../../theme/hermes_theme.dart';
 /// [attachments] show as removable chips above the input, and count as
 /// sendable content on their own: the send button stays enabled and an empty
 /// message is emitted through `Chat.onMessageSend`, which the screen pairs
-/// with its pending attachments. While [onStop] is given a reply is in
-/// flight, and a bar above the field offers to stop it. The composer never clears the field itself:
-/// the screen does once it accepts the send, so a refused send keeps the text.
+/// with its pending attachments. While [replying] a send is queued, so the
+/// hint says so; [onStop] then offers to stop the reply from a bar above the
+/// field. The [queued] prompts are listed above it (see [QueuedPrompts]).
+/// The composer never clears the field itself: the screen does once it
+/// accepts the send, so a refused send keeps the text.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   required List<SharedFile> attachments,
   required ValueChanged<SharedFile> onRemoveAttachment,
+  bool replying = false,
   Future<void> Function()? onStop,
+  List<QueuedPrompt> queued = const [],
+  ValueChanged<QueuedPrompt>? onRemoveQueued,
+  VoidCallback? onSendQueued,
 }) {
   return (context) {
     final scheme = Theme.of(context).colorScheme;
     final hasAttachments = attachments.isNotEmpty;
+    final hasQueue = queued.isNotEmpty && onRemoveQueued != null;
     return Composer(
       textEditingController: controller,
-      hintText: 'Message Hermes…',
+      hintText: replying ? 'Queue a message…' : 'Message Hermes…',
       maxLines: 8,
       sendOnEnter: true,
       attachmentIcon: const Icon(Icons.attach_file),
@@ -46,11 +55,17 @@ WidgetBuilder buildChatComposer({
       sendButtonVisibilityMode: hasAttachments
           ? SendButtonVisibilityMode.always
           : SendButtonVisibilityMode.disabled,
-      topWidget: hasAttachments || onStop != null
+      topWidget: hasAttachments || onStop != null || hasQueue
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (onStop != null) _StopBar(onStop: onStop),
+                if (hasQueue)
+                  QueuedPrompts(
+                    prompts: queued,
+                    onRemove: onRemoveQueued,
+                    onSendNow: onSendQueued,
+                  ),
                 if (hasAttachments)
                   _AttachmentChips(
                     attachments: attachments,

@@ -26,12 +26,17 @@ class FakeChatTransport implements ChatTransport {
     return send._events.stream;
   }
 
-  /// The follow-up stream asked for, by thread: feed it with [FakeFollowUps].
+  /// The latest follow-up stream asked for, by thread: feed it with
+  /// [FakeFollowUps]. One asked for again after it was listened to is new,
+  /// like the gateway's after a later send.
   final followUpStreams = <String, FakeFollowUps>{};
 
   @override
   Stream<ChatEvent> followUps(String threadId) {
-    final follow = followUpStreams.putIfAbsent(threadId, FakeFollowUps.new);
+    var follow = followUpStreams[threadId];
+    if (follow == null || follow._events.hasListener) {
+      follow = followUpStreams[threadId] = FakeFollowUps();
+    }
     return follow._events.stream;
   }
 

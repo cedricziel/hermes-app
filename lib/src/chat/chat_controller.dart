@@ -18,12 +18,11 @@ import 'chat_reply.dart';
 import 'chat_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
+import 'queued_prompt.dart';
 import 'thread_housekeeping.dart';
 
 const _couldNotOpenChat = 'Could not open that chat.';
 const _couldNotStop = 'Could not stop the reply. Try again.';
-const _stillReplying =
-    'Hermes is still replying. Wait for it to finish, or answer its request.';
 
 /// The chat's state without its screen: the threads of the active profile,
 /// their messages, the replies streaming into them and the agent's input
@@ -104,6 +103,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// The listeners for turns Hermes chains after a reply, which outlive it.
   final _following = <StreamSubscription<ChatEvent>>{};
+
+  /// The prompts sent while a thread was replying, oldest first.
+  final _queues = <ChatThread, List<QueuedPrompt>>{};
   String? _selectedId;
   String? get selectedId => _selectedId;
   final _emptyController = InMemoryChatController();
@@ -159,6 +161,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(threads.map((t) => t.id));
       _olderRows.clear();
+      _queues.clear();
       _bound
         ..clear()
         ..addAll(threads);
@@ -317,6 +320,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
+    _queues.remove(thread);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -386,15 +390,52 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (prompt != null) submit(prompt, const []);
   }
 
+  /// The prompts waiting in [thread] for its reply to end.
+  List<QueuedPrompt> queuedIn(ChatThread thread) =>
+      List.unmodifiable(_queues[thread] ?? const <QueuedPrompt>[]);
+
+  /// Whether [thread] holds queued prompts that no reply will send, because
+  /// the last one was stopped or failed.
+  bool queuePaused(ChatThread thread) =>
+      !thread.isReplying && (_queues[thread]?.isNotEmpty ?? false);
+
+  void removeQueued(ChatThread thread, QueuedPrompt prompt) {
+    final queue = _queues[thread];
+    if (queue == null || !queue.remove(prompt)) return;
+    if (queue.isEmpty) _queues.remove(thread);
+    notifyListeners();
+  }
+
+  /// Sends the first queued prompt of [thread] when no reply is pending
+  /// there. One that cannot be sent stays first in the queue.
+  void sendQueued(ChatThread thread) {
+    final queue = _queues[thread];
+    if (thread.isReplying || queue == null || queue.isEmpty) return;
+    final next = queue.removeAt(0);
+    if (queue.isEmpty) _queues.remove(thread);
+    if (!_send(thread, next.text, next.files)) {
+      (_queues[thread] ??= []).insert(0, next);
+    }
+    notifyListeners();
+  }
+
   /// Sends [typed] and [files] in the selected thread, or in a new one, and
-  /// streams the reply into it. Returns false when nothing was sent, after
-  /// telling the user why.
+  /// streams the reply into it. While the thread replies, or holds a paused
+  /// queue, the prompt joins its queue instead. Returns false when it was
+  /// neither sent nor queued, after telling the user why.
   bool submit(String typed, List<SharedFile> files) {
     final selected = selectedThread;
-    if (selected != null && selected.isReplying) {
-      report(_stillReplying);
-      return false;
+    if (selected == null ||
+        !selected.isReplying && !_queues.containsKey(selected)) {
+      return _send(selected, typed, files);
     }
+    if (_sizesOrExplain(files) == null) return false;
+    (_queues[selected] ??= []).add(QueuedPrompt(typed, files));
+    selected.isReplying ? notifyListeners() : sendQueued(selected);
+    return true;
+  }
+
+  bool _send(ChatThread? selected, String typed, List<SharedFile> files) {
     final sizes = _sizesOrExplain(files);
     if (sizes == null) return false;
     final attachments = <ChatAttachment>[];
@@ -458,6 +499,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           placeholder.status = MessageStatus.sent;
           placeholder.content = buildMockReply(label);
         });
+        sendQueued(thread);
       });
     } else {
       _streamReply(transport, thread, placeholder, typed, outgoing, threadId);
@@ -514,6 +556,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
     var failed = false;
+    var stopped = false;
     void end([Object? error]) {
       _replies.remove(subscription);
       if (reply.isPending) {
@@ -521,6 +564,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       } else if (error == null && !failed) {
         _followUps(transport, thread, profile);
+        if (!stopped) sendQueued(thread);
+      } else {
+        // The queue is left paused; the screen shows it.
+        notifyListeners();
       }
     }
 
@@ -533,7 +580,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         )
         .listen(
           (event) {
-            if (event is ReplyCompleted && event.failed) failed = true;
+            if (event is ReplyCompleted) {
+              failed = event.failed;
+              stopped = event.stopped;
+            }
             _onReplyEvent(thread, reply, event, profile);
           },
           onError: end,
@@ -578,7 +628,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               return;
             }
             _onReplyEvent(thread, current, event, profile);
-            if (event is ReplyCompleted) reply = null;
+            if (event is ReplyCompleted) {
+              reply = null;
+              if (!event.failed && !event.stopped) sendQueued(thread);
+            }
           },
           onError: end,
           onDone: end,
