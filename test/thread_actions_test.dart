@@ -14,6 +14,11 @@ import 'support/pump_chat.dart';
 
 /// Rename, pin, archive and delete on the sidebar's threads, against a fake
 /// dashboard through the real generated client.
+final _renameField = find.descendant(
+  of: find.byType(AlertDialog),
+  matching: find.byType(TextField),
+);
+
 void main() {
   late FakeHermesServer server;
 
@@ -159,7 +164,7 @@ void main() {
 
       await openMenu(tester, 's2');
       await choose(tester, 'Rename');
-      await tester.enterText(find.byType(TextField), 'Renamed');
+      await tester.enterText(_renameField, 'Renamed');
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
@@ -189,7 +194,7 @@ void main() {
     Future<void> rename(WidgetTester tester, String id, String title) async {
       await openMenu(tester, id);
       await choose(tester, 'Rename');
-      await tester.enterText(find.byType(TextField), title);
+      await tester.enterText(_renameField, title);
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
     }
@@ -215,7 +220,7 @@ void main() {
       await openMenu(tester, 's2');
       await choose(tester, 'Rename');
 
-      final field = tester.widget<TextField>(find.byType(TextField));
+      final field = tester.widget<TextField>(_renameField);
       expect(field.controller!.text, 'Release notes');
     });
 
@@ -224,7 +229,7 @@ void main() {
 
       await openMenu(tester, 's2');
       await choose(tester, 'Rename');
-      await tester.enterText(find.byType(TextField), 'Something else');
+      await tester.enterText(_renameField, 'Something else');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
@@ -553,7 +558,7 @@ void main() {
       await openHeaderMenu(tester);
       await tester.tap(find.text('Rename'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Fixed');
+      await tester.enterText(_renameField, 'Fixed');
       await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 

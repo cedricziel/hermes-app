@@ -122,7 +122,7 @@ ThemeData _buildTheme({
     ),
     // A plain field gets an outline, so it reads as something to type in. A
     // field that wants none sets its own `border`; it still shows the focus
-    // outline. The chat composer is not affected: it runs on its own theme.
+    // outline. The chat composer's field turns all of its borders off.
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
       border: OutlineInputBorder(

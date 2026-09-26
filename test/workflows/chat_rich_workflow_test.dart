@@ -466,6 +466,8 @@ void main() {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -1400));
       await tester.pump(const Duration(milliseconds: 500));
       await runFrames(tester);
+      await tester.ensureVisible(find.byType(Image).first);
+      await tester.pump();
 
       await tester.tap(find.byType(Image).first);
       await _settleIo(tester);
@@ -578,7 +580,7 @@ void main() {
       await openThread(tester, 's4');
       await shots.capture(tester, 'empty-thread');
 
-      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.tap(find.byTooltip('Add attachment'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'attach-menu');
 
@@ -593,7 +595,7 @@ void main() {
         source.dragOver(false);
         source.drop([photo, long]);
       } else {
-        await tester.tap(find.byIcon(Icons.attach_file));
+        await tester.tap(find.byTooltip('Add attachment'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Photo library'));
         await tester.pumpAndSettle();
@@ -830,7 +832,7 @@ void main() {
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -6000));
       await tester.pump(const Duration(milliseconds: 500));
 
-      await tester.tap(find.byIcon(Icons.attach_file));
+      await tester.tap(find.byTooltip('Add attachment'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Choose files'));
       await tester.pumpAndSettle();

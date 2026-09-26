@@ -9,10 +9,10 @@ One PR, `feat(chat)`, under about 500 changed lines. No telemetry to add. No API
 
 ## 2. Wiring
 
-- [ ] 2.1 Build `ChatComposer` from `buildChatComposer` inside a `Positioned` that reports its height to `ComposerHeightNotifier`, and verify `test/chat_composer_builder_test.dart` and the chat screen tests pass, changing only finders that named the package `Composer`, its send button or the paper-clip icon
-- [ ] 2.2 Check the chat workflow screenshots on phone and desktop, light and dark (`workflow-screenshots` skill)
+- [x] 2.1 Build `ChatComposer` from `buildChatComposer` inside a `Positioned` that reports its height to `ComposerHeightNotifier`, and verify `test/chat_composer_builder_test.dart` and the chat screen tests pass, changing only finders that named the package `Composer`, its send button or the paper-clip icon
+- [x] 2.2 Check the chat workflow screenshots on phone and desktop, light and dark (`workflow-screenshots` skill)
 
 ## 3. Docs and verification
 
-- [ ] 3.1 Update `CLAUDE.md`'s Chat paragraph and any stale `.claude/skills` entry
+- [x] 3.1 Update `CLAUDE.md`'s Chat paragraph and any stale `.claude/skills` entry
 - [ ] 3.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, `flutter test`, and check the composer in the running app with the `verify-in-app` skill when `hermes` is available

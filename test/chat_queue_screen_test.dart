@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_ui/flutter_chat_ui.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -48,7 +48,7 @@ void main() {
   /// The cards in the transcript hold selectable text, so the composer field
   /// is found through its own widget.
   final composerField = find.descendant(
-    of: find.byType(Composer),
+    of: find.byType(ChatComposer),
     matching: find.byType(EditableText),
   );
 
