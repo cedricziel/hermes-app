@@ -6,19 +6,23 @@ import 'model_picker.dart';
 
 /// A quiet pill naming the model a chat runs on, then its reasoning effort,
 /// that opens [ModelPicker]. [choice] is the chat's own pick; without one the
-/// pill names the profile's default model from [options]. Shows nothing
-/// while [options] is null (loading, or not available) or offers no model.
+/// pill names the profile's default model from [options], or says "Profile
+/// default" when the caller can go back to it with [onUseDefault]. Shows
+/// nothing while [options] is null (loading, or not available) or offers no
+/// model.
 class ComposerModelPill extends StatelessWidget {
   const ComposerModelPill({
     super.key,
     required this.options,
     required this.choice,
     required this.onChanged,
+    this.onUseDefault,
   });
 
   final ModelOptions? options;
   final ModelChoice? choice;
   final ValueChanged<ModelChoice> onChanged;
+  final VoidCallback? onUseDefault;
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +47,7 @@ class ComposerModelPill extends StatelessWidget {
             options: options,
             selected: shown,
             onChanged: onChanged,
+            onUseDefault: onUseDefault,
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -51,7 +56,10 @@ class ComposerModelPill extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    shown?.modelId ?? 'Choose a model',
+                    shown?.modelId ??
+                        (onUseDefault == null
+                            ? 'Choose a model'
+                            : 'Profile default'),
                     style: style?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
