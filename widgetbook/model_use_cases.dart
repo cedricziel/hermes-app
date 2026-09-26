@@ -81,6 +81,35 @@ WidgetbookNode modelNode() => WidgetbookFolder(
             width: 420,
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Profile default, no effort',
+          builder: (_) => fill(
+            ModelPicker(
+              options: modelOptions,
+              selected: modelOptions.current,
+              onChanged: (_) {},
+              withEffort: false,
+              title: 'Default model',
+              note:
+                  'New chats in Work assistant start with this model. '
+                  'Open chats keep theirs.',
+            ),
+            width: 420,
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'With a default entry',
+          builder: (_) => fill(
+            ModelPicker(
+              options: modelOptions,
+              selected: null,
+              onChanged: (_) {},
+              onUseDefault: () {},
+              withEffort: false,
+            ),
+            width: 420,
+          ),
+        ),
       ],
     ),
   ],
