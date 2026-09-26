@@ -4,8 +4,8 @@ One PR, `feat(profiles)`, about 400 changed lines. No telemetry to add (see prop
 
 ## 1. Repository
 
-- [ ] 1.1 Write a failing `FakeHermesServer` test that `setModel` sends `PUT /api/profiles/{name}/model` with `{provider, model}` and an encoded name, then add it to `HermesProfilesRepository` until it passes
-- [ ] 1.2 Add the update's answer to `test/real_backend_contract_test.dart` (writing the current model back) and verify it skips without `HERMES_DEV_URL`
+- [x] 1.1 Write a failing `FakeHermesServer` test that `setModel` sends `PUT /api/profiles/{name}/model` with `{provider, model}` and an encoded name, then add it to `HermesProfilesRepository` until it passes
+- [x] 1.2 Add the update's answer to `test/real_backend_contract_test.dart` (writing the current model back) and verify it skips without `HERMES_DEV_URL`
 
 ## 2. Picker and row
 
