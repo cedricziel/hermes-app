@@ -45,6 +45,12 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           ),
         ),
         WidgetbookUseCase(
+          name: 'Profile default (Kanban task)',
+          builder: (_) => frame(
+            _Pill(choice: null, options: kanbanModelOptions, canReset: true),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Loading or unavailable (hidden)',
           builder: (_) => frame(
             ComposerModelPill(options: null, choice: null, onChanged: (_) {}),
@@ -110,6 +116,22 @@ WidgetbookNode modelNode() => WidgetbookFolder(
             width: 420,
           ),
         ),
+        WidgetbookUseCase(
+          name: 'Kanban task: default entry and effort',
+          builder: (_) => fill(
+            ModelPicker(
+              options: kanbanModelOptions,
+              selected: const ModelChoice(
+                'anthropic',
+                'claude-opus-4',
+                effort: 'xhigh',
+              ),
+              onChanged: (_) {},
+              onUseDefault: () {},
+            ),
+            width: 420,
+          ),
+        ),
       ],
     ),
   ],
@@ -117,9 +139,15 @@ WidgetbookNode modelNode() => WidgetbookFolder(
 
 /// The pill with a choice that follows what the picker reports.
 class _Pill extends StatefulWidget {
-  const _Pill({required this.choice});
+  const _Pill({
+    required this.choice,
+    this.options = modelOptions,
+    this.canReset = false,
+  });
 
   final ModelChoice? choice;
+  final ModelOptions options;
+  final bool canReset;
 
   @override
   State<_Pill> createState() => _PillState();
@@ -132,9 +160,12 @@ class _PillState extends State<_Pill> {
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
     child: ComposerModelPill(
-      options: modelOptions,
+      options: widget.options,
       choice: _choice,
       onChanged: (choice) => setState(() => _choice = choice),
+      onUseDefault: widget.canReset
+          ? () => setState(() => _choice = null)
+          : null,
     ),
   );
 }

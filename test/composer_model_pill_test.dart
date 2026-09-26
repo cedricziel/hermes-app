@@ -105,4 +105,52 @@ void main() {
 
     expect(find.byKey(const Key('composer-model-pill')), findsNothing);
   });
+
+  testWidgets('offers "Profile default" when the caller can clear a pick', (
+    tester,
+  ) async {
+    ModelChoice? choice;
+    var cleared = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => ComposerModelPill(
+              options: ModelOptions(providers: _options.providers),
+              choice: choice,
+              onChanged: (next) => setState(() => choice = next),
+              onUseDefault: () => setState(() {
+                choice = null;
+                cleared++;
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Profile default'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('model-anthropic-claude-opus-4')));
+    await tester.pumpAndSettle();
+    expect(choice, const ModelChoice('anthropic', 'claude-opus-4'));
+
+    await tester.tap(find.byKey(const Key('model-default')));
+    await tester.pumpAndSettle();
+
+    expect(cleared, 1);
+    expect(choice, isNull);
+    expect(find.text('Profile default'), findsOneWidget);
+  });
+
+  testWidgets('has no "Profile default" entry for the chat', (tester) async {
+    await _pumpPill(tester);
+
+    await tester.tap(find.byKey(const Key('composer-model-pill')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('model-default')), findsNothing);
+  });
 }

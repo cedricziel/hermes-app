@@ -258,6 +258,26 @@ const modelOptions = ModelOptions(
   ],
 );
 
+/// The Kanban plugin's list: configured providers only, no capabilities and
+/// no current model.
+const kanbanModelOptions = ModelOptions(
+  providers: [
+    ModelProviderOption(
+      id: 'anthropic',
+      label: 'Anthropic',
+      models: [
+        ModelOption(id: 'claude-opus-4'),
+        ModelOption(id: 'claude-haiku-4-5'),
+      ],
+    ),
+    ModelProviderOption(
+      id: 'openrouter',
+      label: 'OpenRouter',
+      models: [ModelOption(id: 'openai/gpt-5.1')],
+    ),
+  ],
+);
+
 final threads = [
   ChatThread(
     id: 'thread-1',
