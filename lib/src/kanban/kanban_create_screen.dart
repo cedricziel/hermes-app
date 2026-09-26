@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/model_provider_option.dart';
+import '../models/widgets/composer_model_pill.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -24,7 +26,10 @@ class KanbanCreateScreen extends StatefulWidget {
 class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
   final _title = TextEditingController();
   final _body = TextEditingController();
+  final _modelName = TextEditingController();
   List<String> _assignees = const [];
+  ModelOptions? _modelOptions;
+  ModelChoice? _model;
   String? _assignee;
   int _priority = 0;
   bool _triage = true;
@@ -41,12 +46,16 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
           if (mounted) setState(() => _assignees = names);
         })
         .catchError((_) {});
+    widget.repository.loadModelOptions().then((options) {
+      if (mounted) setState(() => _modelOptions = options);
+    });
   }
 
   @override
   void dispose() {
     _title.dispose();
     _body.dispose();
+    _modelName.dispose();
     super.dispose();
   }
 
@@ -73,6 +82,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
     final title = _title.text.trim();
     if (title.isEmpty || _saving) return;
     setState(() => _saving = true);
+    final modelName = _modelName.text.trim();
     String? warning;
     final ok = await runKanbanAction(context, () async {
       warning = await widget.repository.createTask(
@@ -82,6 +92,8 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
         tenant: widget.tenant,
         priority: _priority,
         triage: _triage,
+        model: _model,
+        modelName: modelName.isEmpty ? null : modelName,
         board: widget.board,
       );
     });
@@ -95,6 +107,39 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
     } else {
       setState(() => _saving = false);
     }
+  }
+
+  /// The model picker, or a free-text model name when the plugin lists no
+  /// models; nothing while the list loads.
+  List<Widget> _modelField(BuildContext context) {
+    final options = _modelOptions;
+    if (options == null) return const [];
+    if (options.providers.isEmpty) {
+      return [
+        const SizedBox(height: 8),
+        TextField(
+          controller: _modelName,
+          autocorrect: false,
+          decoration: const InputDecoration(
+            labelText: 'Model',
+            helperText: 'Leave empty for the profile default',
+          ),
+        ),
+      ];
+    }
+    return [
+      const SizedBox(height: 16),
+      Text('Model', style: Theme.of(context).textTheme.labelLarge),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: ComposerModelPill(
+          options: options,
+          choice: _model,
+          onChanged: (choice) => setState(() => _model = choice),
+          onUseDefault: () => setState(() => _model = null),
+        ),
+      ),
+    ];
   }
 
   @override
@@ -159,6 +204,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                 ],
                 onChanged: (v) => setState(() => _assignee = v),
               ),
+              ..._modelField(context),
               const SizedBox(height: 16),
               Text('Priority', style: Theme.of(context).textTheme.labelLarge),
               Wrap(

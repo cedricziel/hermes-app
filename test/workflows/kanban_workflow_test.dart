@@ -77,6 +77,15 @@ void main() {
         '/api/plugins/kanban/board',
         kanbanBoardBody(tasks, tenants: ['acme']),
       )
+      ..on('GET', '/api/plugins/kanban/model-options', {
+        'providers': [
+          {
+            'slug': 'anthropic',
+            'label': 'Anthropic',
+            'models': ['claude-opus-4', 'claude-haiku-4-5'],
+          },
+        ],
+      })
       ..on('GET', '/api/plugins/kanban/assignees', {
         'assignees': ['coder', 'writer'],
       })
@@ -162,6 +171,11 @@ void main() {
     await tester.tap(find.text('New task'));
     await tester.pumpAndSettle();
     await shots.capture(tester, 'create');
+    await tester.tap(find.text('Profile default'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('claude-opus-4'));
+    await tester.pumpAndSettle();
+    await shots.capture(tester, 'create-model-picker');
   });
 
   testWidgets('phone: menus', (tester) async {
