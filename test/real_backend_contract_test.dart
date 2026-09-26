@@ -1083,6 +1083,31 @@ void main() {
       );
     }, skip: skip);
 
+    test(
+      'model options carry the fields the task model picker reads',
+      () async {
+        final raw =
+            (await client.raw.modelOptionsApiPluginsKanbanModelOptionsGet())
+                    .data!
+                as Map<String, dynamic>;
+        expect(raw['providers'], isA<List<dynamic>>());
+        for (final row
+            in (raw['providers'] as List).cast<Map<String, dynamic>>()) {
+          expect(row['slug'], isA<String>());
+          expect(row['label'], isA<String>());
+          expect(row['models'], isA<List<dynamic>>());
+        }
+
+        final options = await KanbanRepository(client).loadModelOptions();
+        expect(
+          options.providers.length,
+          (raw['providers'] as List).length,
+          reason: 'the plugin lists only providers with models',
+        );
+      },
+      skip: skip,
+    );
+
     test('the board and the board list parse', () async {
       final repository = KanbanRepository(client);
 
