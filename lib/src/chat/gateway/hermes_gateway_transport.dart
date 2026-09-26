@@ -207,8 +207,10 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// Moves the session [runtimeId] from [previous] to [next], sending only
   /// what changed. Both are scoped to the session, never written to the
-  /// profile's config. The user picked [next] themselves, so a model Hermes
-  /// would ask to confirm as expensive is confirmed.
+  /// profile's config: `--session` says so for the model, and without it
+  /// Hermes refuses the unnamed `custom` provider. The user picked [next]
+  /// themselves, so a model Hermes would ask to confirm as expensive is
+  /// confirmed.
   Future<void> _switchModel(
     GatewayRpcClient client,
     String runtimeId,
@@ -219,7 +221,7 @@ class HermesGatewayTransport implements ChatTransport {
       await _call(client, 'config.set', {
         'session_id': runtimeId,
         'key': 'model',
-        'value': '${next.modelId} --provider ${next.providerId}',
+        'value': '${next.modelId} --provider ${next.providerId} --session',
         'confirm_expensive_model': true,
       });
     }
