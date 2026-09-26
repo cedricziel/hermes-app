@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import '../api/hermes_repositories.dart';
+import '../models/hermes_models_repository.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'schedule_picker.dart';
+import 'widgets/job_model_field.dart';
 
 /// Asks whether to throw away what was entered. True to discard.
 Future<bool> confirmDiscard(BuildContext context) async =>
@@ -32,7 +35,11 @@ class JobFormScreen extends StatefulWidget {
     super.key,
     required this.controller,
     this.profileNames = const [],
+    this.models,
   });
+
+  /// The models to offer; read from [HermesRepositories] when null.
+  final HermesModelsRepository? models;
 
   /// Owned by the screen, which disposes it.
   final JobFormController controller;
@@ -48,8 +55,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
   late final TextEditingController _name;
   late final TextEditingController _prompt;
   late final TextEditingController _skills;
-  late final TextEditingController _model;
-  late final TextEditingController _provider;
   late final TextEditingController _script;
   late final TextEditingController _contextFrom;
   late final TextEditingController _workdir;
@@ -63,12 +68,16 @@ class _JobFormScreenState extends State<JobFormScreen> {
     _name = TextEditingController(text: _draft.name);
     _prompt = TextEditingController(text: _draft.prompt);
     _skills = TextEditingController(text: _draft.skills.join(', '));
-    _model = TextEditingController(text: _draft.model);
-    _provider = TextEditingController(text: _draft.provider);
     _script = TextEditingController(text: _draft.script);
     _contextFrom = TextEditingController(text: _draft.contextFrom.join(', '));
     _workdir = TextEditingController(text: _draft.workdir);
     _form.loadTargets();
+    _loadModels();
+  }
+
+  void _loadModels() {
+    final models = widget.models ?? HermesRepositories.maybeOf(context)?.models;
+    if (models != null) _form.loadModels(models);
   }
 
   @override
@@ -77,8 +86,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
       _name,
       _prompt,
       _skills,
-      _model,
-      _provider,
       _script,
       _contextFrom,
       _workdir,
@@ -222,6 +229,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     onChanged: (p) {
                       _draft.profile = p;
                       _form.changed();
+                      _loadModels();
                     },
                   ),
                 ],
@@ -251,17 +259,19 @@ class _JobFormScreenState extends State<JobFormScreen> {
                       helper: 'Names, separated by commas',
                       onChanged: (v) => _draft.skills = JobDraft.parseNames(v),
                     ),
-                    _field(
-                      const Key('job-model'),
-                      _model,
-                      'Model',
-                      onChanged: (v) => _draft.model = v,
-                    ),
-                    _field(
-                      const Key('job-provider'),
-                      _provider,
-                      'Provider',
-                      onChanged: (v) => _draft.provider = v,
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: JobModelField(
+                        options: _form.modelOptions,
+                        model: _draft.model,
+                        provider: _draft.provider,
+                        onChanged: (model, provider) {
+                          _draft
+                            ..model = model
+                            ..provider = provider;
+                          _form.changed();
+                        },
+                      ),
                     ),
                     _field(
                       const Key('job-script'),

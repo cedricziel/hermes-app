@@ -14,6 +14,7 @@ Map<String, Object?> cronJobRow({
   String deliver = 'local',
   List<String> skills = const [],
   String? model,
+  String? provider,
   String profile = 'work',
 }) => {
   'id': id,
@@ -32,6 +33,7 @@ Map<String, Object?> cronJobRow({
   'deliver': deliver,
   'skills': skills,
   'model': model,
+  'provider': provider,
   'repeat': {'times': null, 'completed': 0},
   'profile': profile,
   'profile_name': profile,
