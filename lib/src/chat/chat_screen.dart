@@ -26,6 +26,7 @@ import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
+import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
@@ -116,6 +117,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
+  HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
   final _composerController = TextEditingController();
   final List<SharedFile> _attachments = [];
@@ -145,6 +147,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _skills = widget.skills ?? repositories?.skills;
     _plugins = widget.plugins ?? repositories?.pluginManager;
     _mcp = widget.mcp ?? repositories?.mcp;
+    _models = widget.models ?? repositories?.models;
     var transport = widget.transport;
     if (transport == null && api != null) {
       final auth = context.read<AuthController>();
@@ -162,7 +165,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat = ChatController(
       repository: widget.repository ?? repositories?.chat,
       profiles: _profiles,
-      models: widget.models ?? repositories?.models,
+      models: _models,
       transport: transport,
       attention: _attention,
       report: _showMessage,
@@ -319,6 +322,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
+  void _openHelperModels() {
+    _closeDrawerIfNarrow();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            HelperModelsScreen(repository: _models!, profile: _chat.profile),
+      ),
+    );
+  }
+
   void _showConnection() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const HomeScreen()));
@@ -397,6 +410,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onOpenSkills: _skills == null ? null : _openSkills,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
+          onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
         return Scaffold(

@@ -235,4 +235,27 @@ void main() {
     await send(tester, 'hi');
     expect(transport.sends.single.model, isNull);
   });
+
+  testWidgets('the sidebar opens the helper models of the chat\'s profile', (
+    tester,
+  ) async {
+    activate('work');
+    server.on('GET', '/api/model/auxiliary', {
+      'tasks': [
+        {'task': 'vision', 'provider': 'auto', 'model': ''},
+      ],
+      'main': {'provider': 'anthropic', 'model': 'claude-sonnet-4-5'},
+    });
+    await pumpChat(tester);
+
+    await openSidebarMore(tester);
+    await tester.tap(find.text('Helper models'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Same as main model (claude-sonnet-4-5)'), findsOneWidget);
+    expect(
+      server.requestsTo('GET', '/api/model/auxiliary').single.queryParameters,
+      {'profile': 'work'},
+    );
+  });
 }

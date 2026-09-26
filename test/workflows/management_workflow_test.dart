@@ -4,6 +4,7 @@ import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -132,7 +133,49 @@ void main() {
       ..on('GET', '/api/messaging/telegram/onboarding/p1', {
         'status': 'waiting',
       })
-      ..on('DELETE', '/api/messaging/telegram/onboarding/p1', {'ok': true});
+      ..on('DELETE', '/api/messaging/telegram/onboarding/p1', {'ok': true})
+      ..on('GET', '/api/model/options', {
+        'model': 'hermes-4',
+        'provider': 'nous',
+        'providers': [
+          {
+            'slug': 'nous',
+            'name': 'Nous Portal',
+            'models': ['hermes-4', 'hermes-4-mini'],
+            'capabilities': {
+              'hermes-4': {'reasoning': true},
+              'hermes-4-mini': {'reasoning': false},
+            },
+          },
+        ],
+      })
+      ..on('GET', '/api/model/auxiliary', {
+        'tasks': [
+          for (final task in [
+            'vision',
+            'compression',
+            'skills_hub',
+            'approval',
+            'mcp',
+            'title_generation',
+            'review',
+            'triage_specifier',
+            'kanban_decomposer',
+            'profile_describer',
+            'curator',
+          ])
+            {
+              'task': task,
+              'provider': task == 'title_generation' ? 'nous' : 'auto',
+              'model': task == 'title_generation' ? 'hermes-4-mini' : '',
+              'base_url': '',
+              'reasoning_effort': null,
+              'local_endpoint': false,
+            },
+        ],
+        'main': {'provider': 'nous', 'model': 'hermes-4'},
+      })
+      ..on('POST', '/api/model/set', {'ok': true, 'scope': 'auxiliary'});
   });
 
   Future<void> pumpChat(
@@ -150,6 +193,7 @@ void main() {
         profiles: HermesProfilesRepository(server.client().raw),
         skills: HermesSkillsRepository(server.client().raw),
         bots: HermesBotsRepository(server.client().raw),
+        models: HermesModelsRepository(server.client().raw),
       ),
       size: size,
       brightness: brightness,
@@ -206,6 +250,23 @@ void main() {
       await shots.capture(tester, 'pairing');
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('$name: helper models', (tester) async {
+      final shots = ScreenshotRecorder('helper-models-$name');
+      await pumpChat(tester, shots, size: size);
+      await openFromSidebar(tester, 'Helper models');
+      await shots.capture(tester, 'list');
+
+      await tester.tap(find.text('Vision'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'picker');
+
+      await tester.tap(find.text('hermes-4-mini'));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'saved');
     });
 
     testWidgets('$name: account dialogs', (tester) async {
