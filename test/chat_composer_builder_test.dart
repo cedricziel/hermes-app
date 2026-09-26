@@ -3,10 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
-import 'package:material_ui/material_ui.dart' as mui;
+import 'package:provider/provider.dart';
 
 const _report = SharedFile(path: '/tmp/a/report.pdf', name: 'report.pdf');
 const _photo = SharedFile(
@@ -62,15 +63,12 @@ class _Harness {
   }
 }
 
-// The package composer is built on material_ui, not Flutter's own material
-// library, so its buttons are a different type from `IconButton` here.
-mui.IconButton _sendButton(WidgetTester tester) =>
-    tester.widget<mui.IconButton>(
-      find.ancestor(
-        of: find.byIcon(Icons.arrow_upward),
-        matching: find.byType(mui.IconButton),
-      ),
-    );
+IconButton _sendButton(WidgetTester tester) => tester.widget<IconButton>(
+  find.ancestor(
+    of: find.byIcon(Icons.arrow_upward),
+    matching: find.byType(IconButton),
+  ),
+);
 
 void main() {
   late _Harness h;
@@ -78,24 +76,32 @@ void main() {
   setUp(() => h = _Harness());
   tearDown(() => h.dispose());
 
-  testWidgets('renders the package composer with the Hermes hint', (
+  testWidgets('renders the Hermes composer with the Hermes hint', (
     tester,
   ) async {
     await h.pump(tester);
 
-    expect(find.byType(Composer), findsOneWidget);
+    expect(find.byType(ChatComposer), findsOneWidget);
     expect(find.text('Message Hermes…'), findsOneWidget);
   });
 
-  testWidgets('the field has a visible border, not just a fill', (
+  testWidgets('reports its height to the chat, and again as it grows', (
     tester,
   ) async {
     await h.pump(tester);
+    final notifier = tester
+        .element(find.byType(ChatComposer))
+        .read<ComposerHeightNotifier>();
+    final oneLine = tester.getSize(find.byType(ChatComposer)).height;
+    expect(notifier.height, oneLine);
 
-    final composer = tester.widget<Composer>(find.byType(Composer));
-    final border = composer.inputBorder as mui.OutlineInputBorder;
-    expect(border.borderSide, isNot(BorderSide.none));
-    expect(composer.filled, isTrue);
+    await tester.enterText(find.byType(EditableText), 'a\nb\nc');
+    await tester.pump();
+    await tester.pump();
+
+    final threeLines = tester.getSize(find.byType(ChatComposer)).height;
+    expect(threeLines, greaterThan(oneLine));
+    expect(notifier.height, threeLines);
   });
 
   testWidgets('Enter sends and Shift+Enter breaks the line', (tester) async {
