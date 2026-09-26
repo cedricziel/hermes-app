@@ -10,13 +10,13 @@ One PR, `feat(settings)`, about 500 changed lines. No telemetry to add (see prop
 
 ## 2. Picker and list
 
-- [x] 2.1 Give the picker an optional title and "Same as main model" entry, with a failing widget test that picking it reports `null`; verify `test/composer_model_pill_test.dart` still passes
+- [x] 2.1 Give the picker an optional title and "Same as main model" entry, with a failing widget test that picking it reports through its own callback; verify `test/composer_model_pill_test.dart` still passes
 - [x] 2.2 Add Widgetbook use cases for the helper model list (auto and pinned rows, saving, unknown main model; the load error uses the catalogued `StateMessage`) and the picker with the "same as main" entry, and verify `test/widgetbook_test.dart` passes in both themes
 
 ## 3. Screen
 
-- [ ] 3.1 Write failing widget tests for the helper models screen (rows shown, a pick is posted once on close, "same as main" posts auto, nothing posted without a change, confirm dialog declined and accepted, load error with retry), then build the screen until they pass
-- [ ] 3.2 Add the "Helper models" entry to the sidebar's More section and open the screen on the chat's profile, with a failing test first
+- [x] 3.1 Write failing widget tests for the helper models screen (rows shown, a pick is posted once on close, "same as main" posts auto, nothing posted without a change, confirm dialog declined and accepted, load error with retry), then build the screen until they pass
+- [x] 3.2 Add the "Helper models" entry to the sidebar's More section and open the screen on the chat's profile, with a failing test first
 - [ ] 3.3 Add a helper models step to `test/workflows/management_workflow_test.dart` (phone and desktop) and look at the screenshots
 
 ## 4. Docs and verify
