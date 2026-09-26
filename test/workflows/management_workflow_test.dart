@@ -175,7 +175,8 @@ void main() {
         ],
         'main': {'provider': 'nous', 'model': 'hermes-4'},
       })
-      ..on('POST', '/api/model/set', {'ok': true, 'scope': 'auxiliary'});
+      ..on('POST', '/api/model/set', {'ok': true, 'scope': 'auxiliary'})
+      ..on('GET', '/api/model/moa', moaConfigBody());
   });
 
   Future<void> pumpChat(
@@ -267,6 +268,10 @@ void main() {
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'saved');
+
+      await tester.scrollUntilVisible(find.text('Aggregator'), 200);
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'mixture-of-agents');
     });
 
     testWidgets('$name: account dialogs', (tester) async {
