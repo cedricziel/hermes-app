@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/model_provider_option.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
@@ -14,6 +15,7 @@ class KanbanBulkBar extends StatelessWidget {
     required this.onMove,
     required this.onAssign,
     required this.onPriority,
+    required this.onEffort,
     required this.onArchive,
   });
 
@@ -24,6 +26,9 @@ class KanbanBulkBar extends StatelessWidget {
   final ValueChanged<String> onMove;
   final ValueChanged<String> onAssign;
   final ValueChanged<int> onPriority;
+
+  /// A reasoning effort, or an empty string for the profile's own.
+  final ValueChanged<String> onEffort;
   final VoidCallback onArchive;
 
   Future<T?> _pick<T>(
@@ -91,6 +96,21 @@ class KanbanBulkBar extends StatelessWidget {
                       if (priority != null) onPriority(priority);
                     },
               child: const Text('Priority'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: none
+                  ? null
+                  : () async {
+                      final effort = await _pick(context, 'Reasoning effort', [
+                        ('Profile default', ''),
+                        for (final e in kReasoningEfforts)
+                          if (e != 'none') (effortLabel(e), e),
+                      ]);
+                      if (effort != null) onEffort(effort);
+                    },
+              child: const Text('Effort'),
             ),
           ),
           Expanded(

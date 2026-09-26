@@ -471,6 +471,38 @@ void main() {
     expect(find.text('1 selected'), findsNothing);
   });
 
+  testWidgets('sets or clears the effort of the selected tasks', (
+    tester,
+  ) async {
+    serveTasks();
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {'results': []});
+    await pumpBoard(tester, size: const Size(400, 800));
+
+    Future<void> pickEffort(String label) async {
+      await tester.longPress(find.text('Migrate webhooks'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Effort'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await pickEffort('Extra High');
+    await pickEffort('Profile default');
+
+    final bodies = [
+      for (final r in server.requestsTo(
+        'POST',
+        '/api/plugins/kanban/tasks/bulk',
+      ))
+        jsonBody(r) as Map,
+    ];
+    expect(bodies[0]['ids'], ['t_run']);
+    expect(bodies[0]['reasoning_effort'], 'xhigh');
+    expect(bodies[1]['clear_reasoning_effort'], true);
+    expect(bodies[1].containsKey('reasoning_effort'), isFalse);
+  });
+
   testWidgets('tapping cards in selection mode picks them instead of opening', (
     tester,
   ) async {
