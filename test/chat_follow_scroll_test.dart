@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -116,6 +117,39 @@ void main() {
     expect(distanceFromBottom(tester), lessThan(1));
 
     reply.finish();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a queued prompt sent after a long reply comes into view', (
+    tester,
+  ) async {
+    final reply = await startReply(tester);
+    await tester.enterText(find.byType(EditableText), 'And then?');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump();
+
+    await streamLines(tester, reply, 60);
+    reply
+      ..emit(const ReplyCompleted(''))
+      ..finish();
+    await tester.pump(const Duration(seconds: 1));
+
+    final next = transport.sends.last;
+    expect(next.text, 'And then?');
+    // The queue above the composer collapses as the prompt goes out, and
+    // the list settles onto the smaller composer.
+    await tester.pump(const Duration(seconds: 1));
+    expect(distanceFromBottom(tester), lessThan(1));
+    expect(
+      tester.getRect(find.text('And then?').last).bottom,
+      lessThan(tester.getRect(find.byType(ChatComposer)).top),
+    );
+
+    next.emit(const ReplyStarted());
+    await streamLines(tester, next, 20);
+    expect(distanceFromBottom(tester), lessThan(1));
+    next.finish();
     await tester.pump(const Duration(seconds: 1));
   });
 

@@ -37,3 +37,4 @@ const String kMetaReasoningActive = 'active';
 /// still being written and so has no actions yet.
 const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';
+const String kMetaStopped = 'stopped';

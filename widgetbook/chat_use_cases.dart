@@ -179,6 +179,10 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Retry only (failed reply)',
           MessageActions(text: 'Timed out', showCopy: false, onRetry: () {}),
         ),
+        _tool(
+          'Stopped by the user',
+          MessageActions(text: 'The job hit a', stopped: true, onRetry: () {}),
+        ),
       ],
     ),
     WidgetbookComponent(

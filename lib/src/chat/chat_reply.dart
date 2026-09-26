@@ -54,6 +54,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         return;
       }
       if (text.isNotEmpty) reply.content = text;
+      reply.stopped = stopped && reply.content.isNotEmpty;
       if (stopped && reply.content.isEmpty) {
         reply.content = kReplyStoppedMessage;
       }

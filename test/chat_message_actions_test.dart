@@ -196,6 +196,28 @@ void main() {
     expect(tryAgain, findsOneWidget);
   });
 
+  chatTest('a reply stopped after some text is marked Stopped', (tester) async {
+    await send(tester, 'Any news?');
+    final reply = transport.sends.single;
+
+    await emit(tester, reply, const ReplyDelta('Nothing ne'));
+    await emit(tester, reply, const ReplyCompleted('', stopped: true));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Stopped'), findsOneWidget);
+    expect(find.text('Nothing ne'), findsOneWidget);
+  });
+
+  chatTest('a reply that completes is not marked Stopped', (tester) async {
+    await send(tester, 'Any news?');
+    final reply = transport.sends.single;
+
+    await emit(tester, reply, const ReplyCompleted('Nothing new.'));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Stopped'), findsNothing);
+  });
+
   chatTest(
     'a prompt that was only files cannot be tried again',
     (tester) async {

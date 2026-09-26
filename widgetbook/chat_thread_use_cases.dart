@@ -198,7 +198,8 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           'Stopped with a paused queue',
           [
             _user('u1', 'Why did the run fail around 02:14?'),
-            _reply('a1', 'The job hit a `ConnectionResetError`'),
+            _reply('a1', 'The job hit a `ConnectionResetError`')
+              ..stopped = true,
           ],
           queued: const [
             QueuedPrompt('Then bump the backoff cap and open a PR.', []),

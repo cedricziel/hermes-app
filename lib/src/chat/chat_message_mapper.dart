@@ -99,6 +99,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: switch (m.status) {
           MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
+          _ when m.stopped => {kMetaStopped: true},
           _ => null,
         },
       ),
