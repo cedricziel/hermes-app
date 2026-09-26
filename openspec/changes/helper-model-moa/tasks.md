@@ -10,7 +10,7 @@ One PR, `feat(settings)`, stacked on `helper-model-settings`, under 500 changed 
 
 ## 2. List
 
-- [ ] 2.1 Add the MoA section to the helper model list with Widgetbook use cases (default preset, named preset with a disabled advisor, saving), and verify `test/widgetbook_test.dart` passes in both themes
+- [x] 2.1 Add the MoA section to the helper model list with Widgetbook use cases (default preset, named preset with a disabled advisor, saving), and verify `test/widgetbook_test.dart` passes in both themes
 
 ## 3. Screen
 

@@ -3,6 +3,7 @@ import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review_items.dart';
 import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/models/moa_setup.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 
@@ -287,6 +288,27 @@ const helperModels = AuxiliaryModels(
     AuxiliarySlot(task: 'curator', choice: ModelChoice('openrouter', '')),
   ],
 );
+
+/// A mixture of agents whose default preset is [preset], as Hermes reports it.
+MoaSetup helperMoa({String preset = 'default', bool advisorOff = false}) =>
+    MoaSetup.fromJson({
+      'default_preset': preset,
+      'active_preset': '',
+      'presets': {
+        preset: {
+          'reference_models': [
+            {'provider': 'anthropic', 'model': 'claude-sonnet-4-5'},
+            {
+              'provider': 'openrouter',
+              'model': 'openai/gpt-5.1',
+              'reasoning_effort': 'high',
+              'enabled': !advisorOff,
+            },
+          ],
+          'aggregator': {'provider': 'anthropic', 'model': 'claude-opus-4'},
+        },
+      },
+    })!;
 
 final threads = [
   ChatThread(
