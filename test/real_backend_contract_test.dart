@@ -275,6 +275,32 @@ void main() {
     expect(options.providers.every((p) => p.models.isNotEmpty), isTrue);
   }, skip: skip);
 
+  test('helper model slots carry the fields the settings read', () async {
+    final profile = (await HermesProfilesRepository(
+      client.raw,
+    ).loadActive()).active;
+
+    final raw =
+        (await client.raw.getAuxiliaryModelsApiModelAuxiliaryGet(
+              profile: profile,
+            )).data!
+            as Map<String, dynamic>;
+    final tasks = (raw['tasks'] as List).cast<Map<String, dynamic>>();
+    expect(tasks, isNotEmpty);
+    for (final row in tasks) {
+      expect(row['task'], isA<String>());
+      expect(row['provider'], isA<String>());
+      expect(row['model'], isA<String>());
+      expect(row['reasoning_effort'], anyOf(isNull, isA<String>()));
+    }
+    expect(raw['main'], containsPair('model', isA<String>()));
+    expect(raw['main'], containsPair('provider', isA<String>()));
+
+    final models = await HermesModelsRepository(client.raw)
+        .loadAuxiliary(profile: profile);
+    expect(models.slots.map((s) => s.task), tasks.map((r) => r['task']));
+  }, skip: skip);
+
   test('skills load with their source, read, and switch off and on', () async {
     final repository = HermesSkillsRepository(client.raw);
     final skills = await repository.list();
