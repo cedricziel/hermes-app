@@ -122,6 +122,33 @@ WidgetbookNode modelNode() => WidgetbookFolder(
           builder: (_) => HelperModelList(models: helperModels, onTap: (_) {}),
         ),
         WidgetbookUseCase(
+          name: 'With mixture of agents',
+          builder: (_) => HelperModelList(
+            models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 3)),
+            onTap: (_) {},
+            moa: helperMoa(),
+            onTapMoa: (_) {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Named MoA preset, advisor off, saving',
+          builder: (_) => HelperModelList(
+            models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 2)),
+            onTap: (_) {},
+            moa: helperMoa(preset: 'deep-research', advisorOff: true),
+            onTapMoa: (_) {},
+            saving: const {'moa-aggregator'},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'MoA locked by the privacy filter',
+          builder: (_) => HelperModelList(
+            models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 2)),
+            onTap: (_) {},
+            moa: helperMoa(privacyFilter: true),
+          ),
+        ),
+        WidgetbookUseCase(
           name: 'Saving a slot',
           builder: (_) => HelperModelList(
             models: helperModels,
