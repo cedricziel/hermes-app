@@ -5,7 +5,7 @@ Hermes' mixture of agents (MoA) asks several advisor models and lets an aggregat
 ## What Changes
 
 - The helper models screen gains a "Mixture of agents" section below the task slots, read from `GET /api/model/moa?profile=`.
-- It shows the default preset's slots, one row each: "Advisor 1", "Advisor 2", … for the reference models and "Aggregator", each with its model, provider, effort, and "off" for a disabled advisor. A preset other than `default` is named in the section header.
+- It shows the default preset's slots, one row each: "Advisor 1", "Advisor 2", … for the reference models and "Aggregator", each with its model, provider and effort; a disabled advisor is marked "(off)". A preset other than `default` is named in the section header.
 - Tapping a row opens the shared model picker (without "Same as main model", and without Hermes' virtual `moa` provider, which a preset may not contain). Closing it with a new pick saves the whole MoA config with `PUT /api/model/moa?profile=`, changing only that slot.
 - While a MoA save runs, the MoA rows are disabled, so two saves cannot overwrite each other.
 - When the MoA config cannot be read, the section is left out and the task slots still work.

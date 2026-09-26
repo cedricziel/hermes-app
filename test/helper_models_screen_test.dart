@@ -249,8 +249,9 @@ void main() {
 
       expect(find.text('Mixture of agents'), findsOneWidget);
       expect(find.text('gpt-5.5 · openai-codex'), findsOneWidget);
+      expect(find.text('Advisor 2 (off)'), findsOneWidget);
       expect(
-        find.text('deepseek/deepseek-v4-pro · openrouter · High · off'),
+        find.text('deepseek/deepseek-v4-pro · openrouter · High'),
         findsOneWidget,
       );
       expect(

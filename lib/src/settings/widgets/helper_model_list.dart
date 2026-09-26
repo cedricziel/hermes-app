@@ -62,8 +62,8 @@ class HelperModelList extends StatelessWidget {
           for (final slot in moa.slots)
             _row(
               slot.key,
-              slot.label,
-              [_describe(slot.choice), if (!slot.enabled) 'off'].join(' · '),
+              slot.enabled ? slot.label : '${slot.label} (off)',
+              _describe(slot.choice),
               onTapMoa == null ? null : () => onTapMoa!(slot),
             ),
         ],
