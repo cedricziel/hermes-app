@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import 'gateway_rpc_client.dart';
@@ -95,19 +96,30 @@ class HermesGatewayTransport implements ChatTransport {
   /// The runtime session a reply is in flight in, by the thread it belongs to.
   final _runtimeOf = <String, String>{};
 
+  /// The model each thread was last set to from here, by thread.
+  final _modelOf = <String, ModelChoice>{};
+
   @override
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
     required String text,
     List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
     final Map<String, Object?> session;
     try {
       session = threadId == null
-          ? await _call(client, 'session.create', scope)
+          ? await _call(client, 'session.create', {
+              ...scope,
+              if (model != null) ...{
+                'model': model.modelId,
+                'provider': model.providerId,
+                'reasoning_effort': ?model.effort,
+              },
+            })
           : await _call(client, 'session.resume', {
               'session_id': threadId,
               ...scope,
@@ -121,6 +133,12 @@ class HermesGatewayTransport implements ChatTransport {
     var runtimeId = session['session_id'] as String;
     final storedId = threadId ?? session['stored_session_id'] as String;
     await _idle.remove(storedId)?.close();
+    if (model != null) {
+      if (threadId != null) {
+        await _switchModel(client, runtimeId, _modelOf[storedId], model);
+      }
+      _modelOf[storedId] = model;
+    }
     _beginReply(runtimeId, storedId);
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
@@ -180,6 +198,34 @@ class HermesGatewayTransport implements ChatTransport {
       _forgetRequests(mine);
       _endReply(runtimeId, storedId);
       if (!parked) await watch.close();
+    }
+  }
+
+  /// Moves the session [runtimeId] from [previous] to [next], sending only
+  /// what changed. Both are scoped to the session, never written to the
+  /// profile's config. The user picked [next] themselves, so a model Hermes
+  /// would ask to confirm as expensive is confirmed.
+  Future<void> _switchModel(
+    GatewayRpcClient client,
+    String runtimeId,
+    ModelChoice? previous,
+    ModelChoice next,
+  ) async {
+    if (previous == null || !previous.sameModel(next)) {
+      await _call(client, 'config.set', {
+        'session_id': runtimeId,
+        'key': 'model',
+        'value': '${next.modelId} --provider ${next.providerId}',
+        'confirm_expensive_model': true,
+      });
+    }
+    final effort = next.effort;
+    if (effort != null && effort != previous?.effort) {
+      await _call(client, 'config.set', {
+        'session_id': runtimeId,
+        'key': 'reasoning',
+        'value': effort,
+      });
     }
   }
 

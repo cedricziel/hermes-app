@@ -7,6 +7,7 @@ import '../chat/hermes_chat_repository.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../kanban/kanban_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
+import '../models/hermes_models_repository.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
@@ -26,6 +27,7 @@ class HermesRepositories {
       pluginManager = HermesPluginManagerRepository(api.raw),
       plugins = HermesPluginsRepository(api.raw),
       mcp = HermesMcpRepository(api.raw),
+      models = HermesModelsRepository(api.raw),
       cron = HermesCronRepository(api.raw),
       kanban = KanbanRepository(api);
 
@@ -38,6 +40,7 @@ class HermesRepositories {
   final HermesPluginManagerRepository pluginManager;
   final HermesPluginsRepository plugins;
   final HermesMcpRepository mcp;
+  final HermesModelsRepository models;
   final HermesCronRepository cron;
   final KanbanRepository kanban;
 

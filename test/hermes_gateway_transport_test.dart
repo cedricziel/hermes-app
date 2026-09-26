@@ -9,6 +9,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 /// Plays the dashboard's side of the socket: answers each RPC the way the
@@ -165,6 +166,11 @@ class FakeGateway {
             'server_requests': ['approval', 'clarify', 'sudo', 'secret'],
           },
         });
+      case 'config.set':
+        _send({
+          'id': id,
+          'result': {'key': params['key'], 'value': params['value']},
+        });
       case 'session.interrupt':
         _send({
           'id': id,
@@ -278,12 +284,14 @@ void main() {
     String? profile,
     String text = 'hi',
     List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
   }) => transport
       .send(
         threadId: threadId,
         profile: profile,
         text: text,
         attachments: attachments,
+        model: model,
       )
       .toList();
 
@@ -382,6 +390,99 @@ void main() {
       expect(events.last, isA<ReplyCompleted>());
     },
   );
+
+  group('model choice', () {
+    const opus = ModelChoice('anthropic', 'claude-opus-4', effort: 'high');
+
+    List<Map<String, Object?>> configSets() => [
+      for (final r in gateway.requests)
+        if (r['method'] == 'config.set') r['params'] as Map<String, Object?>,
+    ];
+
+    test('a new thread is created with the chosen model and effort', () async {
+      gateway.turn = plainReply;
+
+      await reply(profile: 'work', model: opus);
+
+      expect(gateway.requestOf('session.create')['params'], {
+        'profile': 'work',
+        'model': 'claude-opus-4',
+        'provider': 'anthropic',
+        'reasoning_effort': 'high',
+      });
+      expect(configSets(), isEmpty);
+    });
+
+    test('a new thread without an effort leaves it to the server', () async {
+      gateway.turn = plainReply;
+
+      await reply(model: const ModelChoice('openai', 'gpt-5.1'));
+
+      expect(gateway.requestOf('session.create')['params'], {
+        'model': 'gpt-5.1',
+        'provider': 'openai',
+      });
+    });
+
+    test(
+      'a resumed thread switches model and effort before the prompt',
+      () async {
+        gateway.turn = plainReply;
+
+        await reply(threadId: 'stored-2', model: opus);
+
+        expect(gateway.methods, [
+          'client.capabilities',
+          'session.resume',
+          'config.set',
+          'config.set',
+          'prompt.submit',
+        ]);
+        expect(configSets(), [
+          {
+            'session_id': 'rt-2',
+            'key': 'model',
+            'value': 'claude-opus-4 --provider anthropic',
+            'confirm_expensive_model': true,
+          },
+          {'session_id': 'rt-2', 'key': 'reasoning', 'value': 'high'},
+        ]);
+      },
+    );
+
+    test('a thread is not switched again to the choice it runs', () async {
+      gateway.turn = plainReply;
+
+      await reply(model: opus);
+      await reply(threadId: 'stored-1', model: opus);
+      await reply(threadId: 'stored-2', model: opus);
+      await reply(threadId: 'stored-2', model: opus);
+
+      expect(configSets(), hasLength(2));
+    });
+
+    test('only the effort is sent when only the effort changed', () async {
+      gateway.turn = plainReply;
+
+      await reply(model: opus);
+      await reply(
+        threadId: 'stored-1',
+        model: const ModelChoice('anthropic', 'claude-opus-4', effort: 'low'),
+      );
+
+      expect(configSets(), [
+        {'session_id': 'rt-2', 'key': 'reasoning', 'value': 'low'},
+      ]);
+    });
+
+    test('a resumed thread without a choice is left as it is', () async {
+      gateway.turn = plainReply;
+
+      await reply(threadId: 'stored-2');
+
+      expect(configSets(), isEmpty);
+    });
+  });
 
   test('a new thread is created in the given profile', () async {
     gateway.turn = plainReply;
