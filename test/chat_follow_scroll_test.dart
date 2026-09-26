@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -118,6 +119,60 @@ void main() {
     reply.finish();
     await tester.pump(const Duration(seconds: 1));
   });
+
+  testWidgets('a question arriving at the bottom can be answered right away', (
+    tester,
+  ) async {
+    final reply = await startReply(tester);
+    tester.view.physicalSize = const Size(400, 800);
+    await tester.pump();
+    await streamLines(tester, reply, 20);
+
+    reply
+      ..emit(const ReplyDelta('Was genau meinst du? Kurz zur Einordnung:'))
+      ..emit(const ToolStarted(name: 'clarify'))
+      ..emit(
+        const ClarifyRequested(
+          ClarifyRequest(
+            requestId: 'r1',
+            questions: [
+              ClarifyQuestion(
+                qid: '',
+                question: 'Was soll ich dir schicken?',
+                choices: [
+                  'Den Inhalt des heutigen Test-Briefings noch einmal',
+                  'Diese Unterhaltung / Zusammenfassung des Chats',
+                  'Etwas anderes (schreib mir kurz was)',
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    // Past the end, iOS bounces back slowly and ignores taps meanwhile.
+    for (var i = 0; i < 200; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(distanceFromBottom(tester), greaterThan(-1));
+    }
+
+    expect(distanceFromBottom(tester).abs(), lessThan(1));
+    await tester.tap(find.text('Etwas anderes (schreib mir kurz was)'));
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.widgetWithText(
+              FilterChip,
+              'Etwas anderes (schreib mir kurz was)',
+            ),
+          )
+          .selected,
+      isTrue,
+    );
+
+    reply.finish();
+    await tester.pumpAndSettle();
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   testWidgets('a long thread opens at its latest message', (tester) async {
     server.on(
