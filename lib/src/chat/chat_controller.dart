@@ -241,12 +241,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> _loadModelOptions(String? profile, int generation) async {
     final models = this.models;
     if (models == null) return;
-    ModelOptions? options;
-    try {
-      options = await models.load(profile: profile);
-    } on Object {
-      options = null;
-    }
+    final options = await models
+        .load(profile: profile)
+        .then<ModelOptions?>((o) => o, onError: (Object _) => null);
     if (disposed || generation != _loadGeneration) return;
     _modelOptions = options;
     notifyListeners();
