@@ -62,6 +62,15 @@ class ModelPicker extends StatefulWidget {
 class _ModelPickerState extends State<ModelPicker> {
   late ModelChoice? _selected = widget.selected;
 
+  @override
+  void didUpdateWidget(ModelPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected != oldWidget.selected) _selected = widget.selected;
+  }
+
+  bool _isSelected(String providerId, String modelId) =>
+      _selected?.providerId == providerId && _selected?.modelId == modelId;
+
   void _pick(ModelChoice choice) {
     setState(() => _selected = choice);
     widget.onChanged(choice);
@@ -111,12 +120,10 @@ class _ModelPickerState extends State<ModelPicker> {
                   ListTile(
                     key: Key('model-${provider.id}-${model.id}'),
                     dense: true,
+                    selected: _isSelected(provider.id, model.id),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                     title: Text(model.id, overflow: TextOverflow.ellipsis),
-                    trailing:
-                        selected != null &&
-                            selected.providerId == provider.id &&
-                            selected.modelId == model.id
+                    trailing: _isSelected(provider.id, model.id)
                         ? Icon(Icons.check, color: theme.colorScheme.primary)
                         : null,
                     onTap: () => _pickModel(provider.id, model),

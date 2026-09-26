@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
+import 'package:hermes_app/src/models/widgets/model_picker.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 const _options = ModelOptions(
@@ -104,5 +105,34 @@ void main() {
     await _pumpPill(tester, options: null);
 
     expect(find.byKey(const Key('composer-model-pill')), findsNothing);
+  });
+
+  testWidgets('the picker marks the selected model as selected, and follows '
+      'a new selection from its parent', (tester) async {
+    Widget picker(ModelChoice selected) => MaterialApp(
+      theme: buildHermesLightTheme(),
+      home: Scaffold(
+        body: ModelPicker(
+          options: _options,
+          selected: selected,
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    bool isSelected(String id) => tester
+        .widget<ListTile>(find.byKey(Key('model-anthropic-$id')))
+        .selected;
+
+    await tester.pumpWidget(
+      picker(const ModelChoice('anthropic', 'claude-opus-4')),
+    );
+    expect(isSelected('claude-opus-4'), isTrue);
+    expect(isSelected('claude-haiku-4-5'), isFalse);
+
+    await tester.pumpWidget(
+      picker(const ModelChoice('anthropic', 'claude-haiku-4-5')),
+    );
+    expect(isSelected('claude-opus-4'), isFalse);
+    expect(isSelected('claude-haiku-4-5'), isTrue);
   });
 }
