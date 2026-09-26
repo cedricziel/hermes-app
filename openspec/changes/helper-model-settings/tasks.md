@@ -10,8 +10,8 @@ One PR, `feat(settings)`, about 500 changed lines. No telemetry to add (see prop
 
 ## 2. Picker and list
 
-- [x] 2.1 Give the picker an optional title and "Same as main model" entry, with a failing widget test that picking it reports through its own callback; verify `test/composer_model_pill_test.dart` still passes
-- [x] 2.2 Add Widgetbook use cases for the helper model list (auto and pinned rows, saving, unknown main model; the load error uses the catalogued `StateMessage`) and the picker with the "same as main" entry, and verify `test/widgetbook_test.dart` passes in both themes
+- [x] 2.1 Use the picker's `title` and `onUseDefault` from the base branch (no picker change here); verify `test/composer_model_pill_test.dart` and `test/model_picker_test.dart` still pass
+- [x] 2.2 Add Widgetbook use cases for the helper model list (auto and pinned rows, saving, unknown main model; the load error uses the catalogued `StateMessage`), and verify `test/widgetbook_test.dart` passes in both themes
 
 ## 3. Screen
 
