@@ -17,7 +17,7 @@ One PR, `feat(settings)`, about 500 changed lines. No telemetry to add (see prop
 
 - [x] 3.1 Write failing widget tests for the helper models screen (rows shown, a pick is posted once on close, "same as main" posts auto, nothing posted without a change, confirm dialog declined and accepted, load error with retry), then build the screen until they pass
 - [x] 3.2 Add the "Helper models" entry to the sidebar's More section and open the screen on the chat's profile, with a failing test first
-- [ ] 3.3 Add a helper models step to `test/workflows/management_workflow_test.dart` (phone and desktop) and look at the screenshots
+- [x] 3.3 Add a helper models step to `test/workflows/management_workflow_test.dart` (phone and desktop) and look at the screenshots
 
 ## 4. Docs and verify
 
