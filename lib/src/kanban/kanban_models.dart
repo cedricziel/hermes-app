@@ -44,6 +44,9 @@ class KanbanTask {
     this.progressTotal = 0,
     this.warningCount = 0,
     this.warningSeverity,
+    this.modelOverride,
+    this.providerOverride,
+    this.reasoningEffort,
   });
 
   /// Reads a task as the plugin serialises it on the board. Tolerates missing
@@ -74,6 +77,9 @@ class KanbanTask {
       warningSeverity: warnings is Map
           ? _text(warnings['highest_severity'])
           : null,
+      modelOverride: _text(json['model_override']),
+      providerOverride: _text(json['provider_override']),
+      reasoningEffort: _text(json['reasoning_effort']),
     );
   }
 
@@ -99,6 +105,12 @@ class KanbanTask {
   final int warningCount;
   final String? warningSeverity;
 
+  /// The model, its provider and the reasoning effort the task runs on
+  /// instead of its profile's; null where the profile decides.
+  final String? modelOverride;
+  final String? providerOverride;
+  final String? reasoningEffort;
+
   /// This task in another column, everything else as it was.
   KanbanTask withStatus(String status) => KanbanTask(
     id: id,
@@ -120,6 +132,9 @@ class KanbanTask {
     progressTotal: progressTotal,
     warningCount: warningCount,
     warningSeverity: warningSeverity,
+    modelOverride: modelOverride,
+    providerOverride: providerOverride,
+    reasoningEffort: reasoningEffort,
   );
 }
 

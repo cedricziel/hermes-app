@@ -126,7 +126,9 @@ class KanbanRepository {
   });
 
   /// Changes a task. Fields left null are not sent. `status` must be one of
-  /// [kanbanSettableStatuses]; the plugin refuses `running`.
+  /// [kanbanSettableStatuses]; the plugin refuses `running`. [model] and
+  /// [modelName] set the model override as in [createTask]; the model and the
+  /// effort are cleared separately with [clearModel] and [clearEffort].
   Future<void> updateTask(
     String id, {
     String? status,
@@ -137,6 +139,10 @@ class KanbanRepository {
     String? result,
     String? summary,
     String? blockReason,
+    ModelChoice? model,
+    String? modelName,
+    bool clearModel = false,
+    bool clearEffort = false,
     String? board,
   }) => _guard(
     () => _api.updateTaskApiPluginsKanbanTasksTaskIdPatch(
@@ -150,6 +156,11 @@ class KanbanRepository {
         result: result,
         summary: summary,
         blockReason: blockReason,
+        modelOverride: model?.modelId ?? modelName,
+        providerOverride: model?.providerId,
+        reasoningEffort: model?.effort,
+        clearModelOverride: clearModel,
+        clearReasoningEffort: clearEffort,
       ),
       board: board,
     ),
@@ -203,6 +214,8 @@ class KanbanRepository {
     String? status,
     String? assignee,
     int? priority,
+    String? effort,
+    bool clearEffort = false,
     bool archive = false,
     String? board,
   }) => _guard(() async {
@@ -212,6 +225,8 @@ class KanbanRepository {
         status: status,
         assignee: assignee,
         priority: priority,
+        reasoningEffort: effort,
+        clearReasoningEffort: clearEffort,
         archive: archive,
       ),
       board: board,
