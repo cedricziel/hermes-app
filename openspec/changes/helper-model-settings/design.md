@@ -26,7 +26,7 @@ Server facts (hermes_cli/web_routers/models.py, web_server_config.py at `HERMES_
 - **Entry in the sidebar's More section.** It holds every server-side setting of the profile (Profiles, Skills, Bots, Plugins, MCP servers). `lib/src/settings/` and the Account menu hold device settings (appearance, notifications, app lock, about), so a server config screen there would mix the two. The screen file still lives in `lib/src/settings/` next to the other settings.
 - **The chat's profile.** The screen acts on `ChatController.profile`, the same profile the composer pill reads options for, so a helper model is set on the profile the user is chatting with.
 - **Save when the picker closes.** The picker reports each tap (model, then effort); saving each would post twice and could race. The screen keeps the last pick and posts once after `showModelPicker` returns, only when it differs from the slot. Alternative rejected: an explicit Save button in the picker, which would change the chat pill's behaviour.
-- **Picker generalisation.** `ModelPicker` and `showModelPicker` gain an optional `title` and an optional `defaultLabel`; with a label, an entry above the providers reports through its own `onDefault` callback, so `onChanged` keeps its non-null type. The pill passes no label.
+- **Picker as it is.** `showModelPicker` already takes a `title` and an `onUseDefault` callback (added on the base branch for all model pickers), whose "Use the profile's default" entry comes first and closes the picker. For a helper slot the profile's default is its main model, which is what `auto` means, so the screen uses it unchanged instead of adding a label of its own.
 - **Lenient parsing.** Rows without a string `task` are skipped; a missing `main` leaves the "same as main" text without a model name.
 
 Platforms: all (iOS, Android, macOS, Windows, Linux). No native, entitlement, manifest or Xcode change. watchOS unaffected.
@@ -36,5 +36,5 @@ Invariants touched: API layering. Calls go through the generated `DefaultApi`; `
 ## Risks / Trade-offs
 
 - [A slot's effort cannot be cleared] → `ModelAssignment.reasoning_effort` is generated with `includeIfNull: false`, so "no effort" omits the key and Hermes leaves the old override. The picker keeps the previous effort when the new model accepts one, so this only leaves a stale level on a model that ignores it, or on a slot switched to auto. A later regeneration could send `null`.
-- [The picker lists only authenticated providers] → a slot pinned to a provider the server no longer reports is still shown, but cannot be re-picked; "Same as main model" always works.
+- [The picker lists only authenticated providers] → a slot pinned to a provider the server no longer reports is still shown, but cannot be re-picked; the default entry always works.
 - [Profile changes while the screen is open] → the screen keeps the profile it opened with.

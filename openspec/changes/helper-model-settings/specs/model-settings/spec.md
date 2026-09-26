@@ -25,7 +25,7 @@ The system SHALL offer a "Helper models" screen from the chat sidebar's More sec
 
 ### Requirement: Changing a helper model
 
-Tapping a row SHALL open the model picker with the profile's models (`GET /api/model/options?profile=`), the slot's model checked, and a "Same as main model" entry above the providers. When the picker closes with a pick that differs from the slot, the system SHALL send `POST /api/model/set?profile=<chat profile>` with `{"scope": "auxiliary", "task": <task>, "provider", "model"}` plus `reasoning_effort` when an effort is picked, and "Same as main model" SHALL send `provider: "auto"` and an empty model. The row SHALL show the new model once the server accepts it, and the old one with an error message when it does not. When the answer carries `confirm_required: true`, the system SHALL show its `confirm_message` and resend the same body with `confirm_expensive_model: true` only when the user confirms; otherwise nothing changes.
+Tapping a row SHALL open the model picker with the profile's models (`GET /api/model/options?profile=`), titled with the task's name, the slot's model checked, and a "Use the profile's default" entry above the providers, checked while the slot is on `auto`. When the picker closes with a pick that differs from the slot, the system SHALL send `POST /api/model/set?profile=<chat profile>` with `{"scope": "auxiliary", "task": <task>, "provider", "model"}` plus `reasoning_effort` when an effort is picked, and the default entry SHALL send `provider: "auto"` and an empty model. The row SHALL show the new model once the server accepts it, and the old one with an error message when it does not. When the answer carries `confirm_required: true`, the system SHALL show its `confirm_message` and resend the same body with `confirm_expensive_model: true` only when the user confirms; otherwise nothing changes.
 
 #### Scenario: Pin a model
 
@@ -34,7 +34,7 @@ Tapping a row SHALL open the model picker with the profile's models (`GET /api/m
 
 #### Scenario: Back to the main model
 
-- **WHEN** the user picks "Same as main model" for a pinned slot
+- **WHEN** the user picks "Use the profile's default" for a pinned slot
 - **THEN** the app posts `provider: "auto"` and `model: ""` for that task and the row reads "Same as main model"
 
 #### Scenario: Expensive model declined
