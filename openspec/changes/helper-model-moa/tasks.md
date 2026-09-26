@@ -20,4 +20,4 @@ One PR, `feat(settings)`, stacked on `helper-model-settings`, under 500 changed 
 ## 4. Docs and verify
 
 - [x] 4.1 Update CLAUDE.md's helper models paragraph; no skill is made stale
-- [ ] 4.2 Run `dart format .`, `flutter analyze` and `flutter test`; run verify-in-app when `hermes` is on PATH, otherwise note it
+- [x] 4.2 Run `dart format .`, `flutter analyze` and `flutter test`; run verify-in-app when `hermes` is on PATH, otherwise note it (skipped: `hermes` is not on PATH)

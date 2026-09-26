@@ -16,7 +16,7 @@ The helper models screen SHALL read `GET /api/model/moa?profile=<chat profile>` 
 
 ### Requirement: Changing a mixture-of-agents slot
 
-Tapping a MoA row SHALL open the model picker with the slot's model checked, without a "Same as main model" entry and without the `moa` provider. When the picker closes with a different pick, the system SHALL send `PUT /api/model/moa?profile=<chat profile>` with the config as read, in which only that slot's provider, model and effort changed; every other preset, slot and setting SHALL be sent as the server reported it. A slot's `enabled` flag SHALL be kept. While the request runs, the MoA rows SHALL not open. The row SHALL show the new model once the server accepts it; on an error (for example a 422 for an invalid config) it SHALL keep the old one and say that the change failed.
+Tapping a MoA row SHALL open the model picker with the slot's model checked, without the "Use the profile's default" entry and without the `moa` provider. When the picker closes with a different pick, the system SHALL send `PUT /api/model/moa?profile=<chat profile>` with the config as read, in which only that slot's provider, model and effort changed; every other preset, slot and setting SHALL be sent as the server reported it. A slot's `enabled` flag SHALL be kept. While the request runs, the MoA rows SHALL not open. The row SHALL show the new model once the server accepts it; on an error (for example a 422 for an invalid config) it SHALL keep the old one and say that the change failed.
 
 #### Scenario: Change the aggregator
 

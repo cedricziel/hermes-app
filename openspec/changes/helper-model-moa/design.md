@@ -23,7 +23,7 @@ Server facts (hermes_cli/web_routers/models.py, moa_config.py, web_models.py at 
 
 - **Round-trip the config as read.** The app keeps the whole `GET` answer and changes only the one slot in `presets[default_preset]`, then builds the generated `MoaConfigPayload` from it with `fromJson`. Alternative rejected: a typed model of every MoA field in the app, which would silently drop any field Hermes adds later.
 - **One MoA save at a time.** Every PUT carries the whole config, so a second save built before the first returns would undo it. The MoA rows are disabled while a save runs.
-- **No "same as main" for MoA.** Hermes rejects an empty slot at write time, so the picker offers models only, and hides the virtual `moa` provider, which Hermes rejects inside a preset.
+- **No default entry for MoA.** Hermes rejects an empty slot at write time, so the picker offers models only, and hides the virtual `moa` provider, which Hermes rejects inside a preset.
 - **Section left out on failure**, like the composer pill: MoA is optional and the task slots are still useful.
 
 Platforms: all (iOS, Android, macOS, Windows, Linux). No native, entitlement, manifest or Xcode change. watchOS unaffected.
