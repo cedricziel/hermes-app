@@ -4,6 +4,8 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
 
+import '../../models/model_provider_option.dart';
+import '../../models/widgets/model_picker.dart';
 import '../kanban_errors.dart';
 import '../kanban_files.dart';
 import '../kanban_models.dart';
@@ -233,6 +235,47 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     await _run(() => _task.update(priority: picked));
   }
 
+  /// Opens the model picker and applies the last pick once it closes, so
+  /// choosing a model and then an effort is one change.
+  Future<void> _editModel(KanbanTask task) async {
+    final options = await _task.modelOptions();
+    if (!mounted) return;
+    if (options.providers.isEmpty) {
+      final name = await askKanbanText(
+        context,
+        title: 'Model',
+        hint: 'Empty for the profile default',
+        initial: task.modelOverride,
+        confirm: 'Save',
+      );
+      if (name != null && mounted) await _run(() => _task.setModelName(name));
+      return;
+    }
+    final model = task.modelOverride;
+    var picked = model == null
+        ? null
+        : ModelChoice(
+            task.providerOverride ?? '',
+            model,
+            effort: task.reasoningEffort,
+          );
+    var touched = false;
+    await showModelPicker(
+      context,
+      options: options,
+      selected: picked,
+      onChanged: (choice) {
+        picked = choice;
+        touched = true;
+      },
+      onUseDefault: () {
+        picked = null;
+        touched = true;
+      },
+    );
+    if (touched && mounted) await _run(() => _task.setModel(picked));
+  }
+
   Future<void> _addParent() async {
     final id = await askKanbanText(
       context,
@@ -296,6 +339,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             detail: detail,
             onAddParent: _addParent,
             onRemoveParent: (id) => _run(() => _task.removeParent(id)),
+            onEditModel: () => _editModel(task),
           ),
           KanbanTaskComments(
             comments: detail.comments,
