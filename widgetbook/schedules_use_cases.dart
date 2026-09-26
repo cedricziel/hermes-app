@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
+import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -44,6 +46,29 @@ WidgetbookUseCase _picker(String name, ScheduleSpec initial) =>
         );
       },
     );
+
+WidgetbookUseCase _modelField(
+  String name, {
+  ModelOptions? options = modelOptions,
+  String model = '',
+  String provider = '',
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (_) {
+    var (m, p) = (model, provider);
+    return StatefulBuilder(
+      builder: (context, setState) => frame(
+        JobModelField(
+          options: options,
+          model: m,
+          provider: p,
+          onChanged: (model, provider) =>
+              setState(() => (m, p) = (model, provider)),
+        ),
+      ),
+    );
+  },
+);
 
 WidgetbookNode schedulesNode() => WidgetbookFolder(
   name: 'Schedules',
@@ -86,6 +111,29 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
               ],
             ),
           ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'JobModelField',
+      useCases: [
+        _modelField('Profile default'),
+        _modelField(
+          'Listed model',
+          model: 'claude-opus-4',
+          provider: 'anthropic',
+        ),
+        _modelField(
+          'Model not in the list',
+          model: 'my-finetune-v3',
+          provider: 'custom:lab',
+        ),
+        _modelField('Model without a provider', model: 'gpt-4o'),
+        _modelField(
+          'List unavailable',
+          options: null,
+          model: 'claude-opus-4',
+          provider: 'anthropic',
         ),
       ],
     ),
