@@ -21,5 +21,5 @@ One PR, `feat(settings)`, about 500 changed lines. No telemetry to add (see prop
 
 ## 4. Docs and verify
 
-- [ ] 4.1 Describe the screen in CLAUDE.md's architecture section; no skill is made stale
-- [ ] 4.2 Run `dart format .`, `flutter analyze` and `flutter test`; run verify-in-app when `hermes` is on PATH, otherwise note it
+- [x] 4.1 Describe the screen in CLAUDE.md's architecture section; no skill is made stale
+- [x] 4.2 Run `dart format .`, `flutter analyze` and `flutter test`; run verify-in-app when `hermes` is on PATH, otherwise note it (skipped: `hermes` is not on PATH)
