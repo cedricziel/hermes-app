@@ -244,7 +244,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
       final name = await askKanbanText(
         context,
         title: 'Model',
-        hint: 'Empty for the profile default',
+        hint: 'Empty to clear the model',
         initial: task.modelOverride,
         confirm: 'Save',
       );

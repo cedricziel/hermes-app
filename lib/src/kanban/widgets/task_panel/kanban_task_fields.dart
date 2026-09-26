@@ -115,10 +115,13 @@ class _ModelRow extends StatelessWidget {
               ),
             ),
             if (effort != null)
-              Text(
-                ' · ${effortLabel(effort)}',
-                style: TextStyle(color: quiet),
-                maxLines: 1,
+              Flexible(
+                child: Text(
+                  ' · ${effortLabel(effort)}',
+                  style: TextStyle(color: quiet),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
             const SizedBox(width: 4),
             Icon(Icons.expand_more, size: 18, color: quiet),
