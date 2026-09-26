@@ -1,6 +1,7 @@
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review_items.dart';
+import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/plugins/catalog_entry.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
@@ -255,6 +256,35 @@ const modelOptions = ModelOptions(
         ),
       ],
     ),
+  ],
+);
+
+const helperModels = AuxiliaryModels(
+  main: ModelChoice('anthropic', 'claude-opus-4'),
+  slots: [
+    AuxiliarySlot(
+      task: 'vision',
+      choice: ModelChoice('anthropic', 'claude-haiku-4-5'),
+    ),
+    AuxiliarySlot(task: 'compression'),
+    AuxiliarySlot(task: 'skills_hub'),
+    AuxiliarySlot(task: 'approval'),
+    AuxiliarySlot(task: 'mcp'),
+    AuxiliarySlot(
+      task: 'title_generation',
+      choice: ModelChoice(
+        'openrouter',
+        'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
+      ),
+    ),
+    AuxiliarySlot(
+      task: 'review',
+      choice: ModelChoice('anthropic', 'claude-sonnet-4-5', effort: 'high'),
+    ),
+    AuxiliarySlot(task: 'triage_specifier'),
+    AuxiliarySlot(task: 'kanban_decomposer'),
+    AuxiliarySlot(task: 'profile_describer'),
+    AuxiliarySlot(task: 'curator', choice: ModelChoice('openrouter', '')),
   ],
 );
 

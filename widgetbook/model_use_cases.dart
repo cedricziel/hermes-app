@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/models/auxiliary_models.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/models/widgets/model_picker.dart';
+import 'package:hermes_app/src/settings/widgets/helper_model_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -108,6 +110,30 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               withEffort: false,
             ),
             width: 420,
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'HelperModelList',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Pinned and on the main model',
+          builder: (_) => HelperModelList(models: helperModels, onTap: (_) {}),
+        ),
+        WidgetbookUseCase(
+          name: 'Saving a slot',
+          builder: (_) => HelperModelList(
+            models: helperModels,
+            saving: const {'vision'},
+            onTap: (_) {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Main model unknown',
+          builder: (_) => HelperModelList(
+            models: AuxiliaryModels(slots: helperModels.slots.sublist(1, 3)),
+            onTap: (_) {},
           ),
         ),
       ],
