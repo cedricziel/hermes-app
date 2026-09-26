@@ -67,15 +67,6 @@ void main() {
     expect(transport.sends.last.threadId, 's1');
   });
 
-  test('a prompt is refused while the thread is still replying', () {
-    chat.newThread();
-    chat.submit('One', const []);
-
-    expect(chat.submit('Two', const []), isFalse);
-    expect(transport.sends, hasLength(1));
-    expect(reports, [contains('still replying')]);
-  });
-
   test('a reply stays in its thread after the user switches away', () async {
     chat.newThread();
     final first = chat.selectedThread!;

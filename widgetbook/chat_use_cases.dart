@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
+import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
@@ -12,6 +14,7 @@ import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -30,6 +33,16 @@ Future<void> _skipFails() async => throw StateError('offline');
 
 Widget _noStore(Widget child) =>
     Provider<MediaStore?>.value(value: null, child: child);
+
+const _queued = [
+  QueuedPrompt('Then bump the backoff cap to 30 s and open a PR.', []),
+  QueuedPrompt('Also check whether the nightly job uses the same policy.', [
+    SharedFile(path: '/tmp/nightly.yaml', name: 'nightly.yaml'),
+  ]),
+  QueuedPrompt('', [
+    SharedFile(path: '/tmp/trace.png', name: 'trace.png', isImage: true),
+  ]),
+];
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -176,6 +189,27 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool(
           'Size unknown',
           _noStore(const AttachmentCard(attachment: relativeAttachment)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'QueuedPrompts',
+      useCases: [
+        _tool(
+          'Waiting for the reply',
+          QueuedPrompts(prompts: _queued.sublist(0, 1), onRemove: (_) {}),
+        ),
+        _tool(
+          'Several, with attachments',
+          QueuedPrompts(prompts: _queued, onRemove: (_) {}),
+        ),
+        _tool(
+          'Paused after a stop',
+          QueuedPrompts(
+            prompts: _queued.sublist(0, 2),
+            onRemove: (_) {},
+            onSendNow: () {},
+          ),
         ),
       ],
     ),

@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/chat_message_kinds.dart';
 import 'package:hermes_app/src/chat/chat_message_mapper.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_theme.dart';
+import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -61,11 +62,13 @@ class _ChatThreadView extends StatefulWidget {
     this.attachments = const [],
     this.replying = false,
     this.canRetry = true,
+    this.queued = const [],
   });
 
   final List<ChatMessage> messages;
   final List<SharedFile> attachments;
   final bool replying;
+  final List<QueuedPrompt> queued;
   final bool canRetry;
 
   @override
@@ -117,7 +120,11 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                     controller: _text,
                     attachments: widget.attachments,
                     onRemoveAttachment: (_) {},
+                    replying: widget.replying,
                     onStop: widget.replying ? () async {} : null,
+                    queued: widget.queued,
+                    onRemoveQueued: (_) {},
+                    onSendQueued: widget.replying ? null : () {},
                   ),
                 ),
           ),
@@ -133,6 +140,7 @@ WidgetbookUseCase _thread(
   List<SharedFile> attachments = const [],
   bool replying = false,
   bool canRetry = true,
+  List<QueuedPrompt> queued = const [],
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => _ChatThreadView(
@@ -140,6 +148,7 @@ WidgetbookUseCase _thread(
     attachments: attachments,
     replying: replying,
     canRetry: canRetry,
+    queued: queued,
   ),
 );
 
@@ -167,6 +176,32 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
             tools: const [runningToolCall],
           ),
         ], replying: true),
+        _thread(
+          'Streaming with queued prompts',
+          [
+            _user('u1', 'Why did the run fail around 02:14?'),
+            _reply(
+              'a1',
+              'The job hit a `ConnectionResetError` while',
+              status: MessageStatus.streaming,
+            ),
+          ],
+          replying: true,
+          queued: const [
+            QueuedPrompt('Then bump the backoff cap and open a PR.', []),
+            QueuedPrompt('Does the nightly job use the same policy?', []),
+          ],
+        ),
+        _thread(
+          'Stopped with a paused queue',
+          [
+            _user('u1', 'Why did the run fail around 02:14?'),
+            _reply('a1', 'The job hit a `ConnectionResetError`'),
+          ],
+          queued: const [
+            QueuedPrompt('Then bump the backoff cap and open a PR.', []),
+          ],
+        ),
         _thread('Reasoning and tools', [
           _user('u1', 'Delete the build folder'),
           _reply(

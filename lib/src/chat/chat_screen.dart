@@ -41,6 +41,7 @@ import 'chat_transport.dart';
 import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
+import 'queued_prompt.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/chat_composer_builder.dart';
@@ -458,6 +459,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onStop: selected == null || chat.transport == null
                       ? null
                       : () => chat.stopReply(selected),
+                  queued: selected == null ? const [] : chat.queuedIn(selected),
+                  onRemoveQueued: selected == null
+                      ? null
+                      : (prompt) => chat.removeQueued(selected, prompt),
+                  onSendQueued: selected == null || !chat.queuePaused(selected)
+                      ? null
+                      : () => chat.sendQueued(selected),
                 ),
               ),
             ],
@@ -486,6 +494,9 @@ class _ThreadView extends StatelessWidget {
     this.onAnswerClarify,
     this.onSkipUnsupported,
     this.onStop,
+    this.queued = const [],
+    this.onRemoveQueued,
+    this.onSendQueued,
   });
 
   final ChatThread? thread;
@@ -512,6 +523,9 @@ class _ThreadView extends StatelessWidget {
   final Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported;
   final Future<void> Function()? onStop;
+  final List<QueuedPrompt> queued;
+  final ValueChanged<QueuedPrompt>? onRemoveQueued;
+  final VoidCallback? onSendQueued;
 
   @override
   Widget build(BuildContext context) {
@@ -533,7 +547,11 @@ class _ThreadView extends StatelessWidget {
             controller: composerController,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,
+            replying: thread?.isReplying == true,
             onStop: thread?.isReplying == true ? onStop : null,
+            queued: queued,
+            onRemoveQueued: onRemoveQueued,
+            onSendQueued: onSendQueued,
           ),
         );
 
