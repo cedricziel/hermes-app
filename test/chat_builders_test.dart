@@ -45,6 +45,7 @@ Future<void> _pumpChat(
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
   onAnswerClarify,
+  Future<bool> Function(Uri uri)? openLink,
 }) async {
   final controller = InMemoryChatController(messages: messages);
   addTearDown(controller.dispose);
@@ -63,6 +64,7 @@ Future<void> _pumpChat(
             greetingName: greetingName,
             onAnswerApproval: onAnswerApproval,
             onAnswerClarify: onAnswerClarify,
+            openLink: openLink,
           ).copyWith(composerBuilder: (_) => const SizedBox.shrink()),
         ),
       ),
@@ -385,6 +387,25 @@ void main() {
         find.textContaining('echo hello', findRichText: true),
         findsOneWidget,
       );
+    });
+
+    testWidgets('tapping a link in a reply opens it', (tester) async {
+      final opened = <Uri>[];
+      await _pumpChat(
+        tester,
+        messages: [
+          _text(kAssistantAuthorId, 'See [the docs](https://example.com/a).'),
+        ],
+        openLink: (uri) async {
+          opened.add(uri);
+          return true;
+        },
+      );
+
+      await tester.tap(find.text('the docs', findRichText: true));
+      await tester.pump();
+
+      expect(opened, [Uri.parse('https://example.com/a')]);
     });
 
     testWidgets('user text is shown without a timestamp', (tester) async {

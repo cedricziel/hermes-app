@@ -3,6 +3,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../widgets/markdown_links.dart';
 import 'discover_tab.dart' show TrustBadge;
 import 'hermes_skills_hub_repository.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
@@ -182,7 +183,10 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
             margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: GptMarkdown(skillMarkdownBody(_preview!.skillMd)),
+              child: GptMarkdown(
+                skillMarkdownBody(_preview!.skillMd),
+                onLinkTap: markdownLinkHandler(),
+              ),
             ),
           ),
         ],

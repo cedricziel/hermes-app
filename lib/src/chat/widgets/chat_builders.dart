@@ -5,7 +5,9 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ChatAnimatedList, ChatMessage;
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
+import '../../settings/report_bug_link.dart' show LinkOpener;
 import '../../theme/hermes_theme.dart';
+import '../../widgets/markdown_links.dart';
 import '../chat_message_kinds.dart';
 import '../chat_models.dart'
     show
@@ -47,6 +49,7 @@ const double kChatItemGap = 8;
 /// that can be asked again, and [onRetry] does it; while it is null nothing
 /// can. [onPickPrompt] sends what the welcome view's starter prompts pick.
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
+/// A tapped link goes to [openLink], the system browser when null.
 Builders buildChatBuilders({
   required void Function(String prompt) onPickPrompt,
   String? greetingName,
@@ -58,7 +61,9 @@ Builders buildChatBuilders({
   onAnswerClarify,
   Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported,
+  LinkOpener? openLink,
 }) {
+  final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
     chatAnimatedListBuilder: onLoadOlder == null
         ? null
@@ -76,6 +81,7 @@ Builders buildChatBuilders({
               groupStatus: groupStatus,
               latestReplyId: latestReplyId,
               onRetry: onRetry,
+              onLinkTap: onLinkTap,
             ),
     imageMessageBuilder: (
       context,
@@ -137,6 +143,7 @@ Widget _buildText(
   MessageGroupStatus? groupStatus,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
+  void Function(String url, String title)? onLinkTap,
 }) {
   final scheme = Theme.of(context).colorScheme;
   final failed = message.metadata?[kMetaError] == true;
@@ -151,6 +158,7 @@ Widget _buildText(
     showTime: false,
     showStatus: false,
     linksDecoration: TextDecoration.underline,
+    onLinkTap: onLinkTap,
     sentTextStyle: style,
     receivedTextStyle: style,
     sentBackgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
