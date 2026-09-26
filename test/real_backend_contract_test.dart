@@ -22,6 +22,7 @@ import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/provider_settings.dart';
+import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
@@ -245,6 +246,33 @@ void main() {
     await repository.setActive(overview.active);
 
     expect(overview.profiles.map((p) => p.name), contains(overview.active));
+  }, skip: skip);
+
+  test('model options carry the fields the model picker reads', () async {
+    final profile = (await HermesProfilesRepository(
+      client.raw,
+    ).loadActive()).active;
+
+    final raw =
+        (await client.raw.getModelOptionsApiModelOptionsGet(profile: profile))
+                .data!
+            as Map<String, dynamic>;
+    expect(raw['providers'], isA<List<dynamic>>());
+    expect(raw['model'], isA<String>());
+    expect(raw['provider'], isA<String>());
+    for (final row in (raw['providers'] as List).cast<Map<String, dynamic>>()) {
+      expect(row['slug'], isA<String>());
+      expect(row['models'], isA<List<dynamic>>());
+      if (row['capabilities'] case final Map<String, dynamic> caps) {
+        for (final cap in caps.values.cast<Map<String, dynamic>>()) {
+          expect(cap['reasoning'], anyOf(isNull, isA<bool>()));
+        }
+      }
+    }
+
+    final options = await HermesModelsRepository(client.raw)
+        .load(profile: profile);
+    expect(options.providers.every((p) => p.models.isNotEmpty), isTrue);
   }, skip: skip);
 
   test('skills load with their source, read, and switch off and on', () async {

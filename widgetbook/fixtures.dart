@@ -232,46 +232,31 @@ const envServer = McpCommandReviewItem(
   envNames: ['SEARCH_API_KEY', 'SEARCH_REGION'],
 );
 
-const readyAnthropic = ModelProviderOption(
-  id: 'anthropic',
-  label: 'Anthropic',
-  status: ModelProviderStatus.ready,
-  models: [
-    ModelOption(
-      id: 'claude-opus-5',
-      label: 'Claude Opus 5',
-      supportedEfforts: ['low', 'medium', 'high'],
+const modelOptions = ModelOptions(
+  current: ModelChoice('anthropic', 'claude-opus-4'),
+  providers: [
+    ModelProviderOption(
+      id: 'anthropic',
+      label: 'Anthropic',
+      models: [
+        ModelOption(id: 'claude-opus-4', canDisableReasoning: true),
+        ModelOption(id: 'claude-sonnet-4-5', canDisableReasoning: true),
+        ModelOption(id: 'claude-haiku-4-5', reasoning: false),
+      ],
     ),
-    ModelOption(
-      id: 'claude-sonnet-5',
-      label: 'Claude Sonnet 5',
-      supportedEfforts: ['low', 'medium', 'high'],
-    ),
-    ModelOption(id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5'),
-  ],
-);
-
-const readyOpenAi = ModelProviderOption(
-  id: 'openai',
-  label: 'OpenAI',
-  status: ModelProviderStatus.ready,
-  models: [
-    ModelOption(
-      id: 'gpt-5.1',
-      label: 'GPT-5.1',
-      supportedEfforts: ['minimal', 'low', 'medium', 'high'],
+    ModelProviderOption(
+      id: 'openrouter',
+      label: 'OpenRouter',
+      models: [
+        ModelOption(id: 'openai/gpt-5.1'),
+        ModelOption(
+          id: 'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
+          reasoning: false,
+        ),
+      ],
     ),
   ],
 );
-
-const needsSetupOpenRouter = ModelProviderOption(
-  id: 'openrouter',
-  label: 'OpenRouter',
-  models: [ModelOption(id: 'meta-llama/llama-4', label: 'Llama 4')],
-  requiredEnv: ['OPENROUTER_API_KEY'],
-);
-
-const modelProviders = [readyAnthropic, readyOpenAi, needsSetupOpenRouter];
 
 final threads = [
   ChatThread(
