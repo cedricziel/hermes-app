@@ -7,6 +7,7 @@ final class ConversationModel {
   enum Phase: Equatable {
     case loading
     case idle
+    case transcribing
     case sending
     case failed(HermesClientError)
   }
@@ -16,6 +17,8 @@ final class ConversationModel {
   private(set) var phase = Phase.idle
   /// Text of a message that did not go through, so it can be sent again.
   private(set) var unsent: String?
+  /// A recording that could not be transcribed, so it can be tried again.
+  private(set) var unsentVoice: Data?
 
   private let client: HermesClient
 
@@ -56,6 +59,25 @@ final class ConversationModel {
       phase = .idle
     } catch {
       takeBack(pending, error: error as? HermesClientError ?? .failed)
+    }
+  }
+
+  /// Sends what the dashboard hears in a recording as the next message.
+  func sendVoice(_ audio: Data, mimeType: String) async {
+    guard phase != .sending, phase != .loading, phase != .transcribing else { return }
+    unsentVoice = nil
+    phase = .transcribing
+    do {
+      let text = try await client.transcribe(audio: audio, mimeType: mimeType)
+      guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        phase = .failed(.noSpeech)
+        return
+      }
+      phase = .idle
+      await send(text)
+    } catch {
+      unsentVoice = audio
+      phase = .failed(error as? HermesClientError ?? .failed)
     }
   }
 

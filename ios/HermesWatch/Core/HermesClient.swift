@@ -10,6 +10,8 @@ enum HermesClientError: Error, Equatable {
   case failed
   /// The dashboard ended the turn in failure and said why.
   case replyFailed(String)
+  /// A voice message had no speech the dashboard could make out.
+  case noSpeech
 }
 
 /// What the watch UI needs from Hermes. It has one implementation that relays
@@ -19,4 +21,6 @@ protocol HermesClient {
   func threads() async throws -> [ThreadSummary]
   func messages(threadId: String) async throws -> [ChatMessage]
   func send(threadId: String?, text: String) async throws -> SendResult
+  /// What the dashboard heard in a recording, empty when it heard no speech.
+  func transcribe(audio: Data, mimeType: String) async throws -> String
 }

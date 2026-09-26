@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ConversationView: View {
   @State var model: ConversationModel
+  var startRecording = false
   @State private var draft = ""
+  @State private var recorder = VoiceRecorder()
 
   var body: some View {
     ScrollViewReader { proxy in
@@ -14,16 +16,16 @@ struct ConversationView: View {
           ForEach(model.messages) { message in
             MessageBubble(message: message).id(message.id)
           }
+          if model.phase == .transcribing {
+            Text("Transcribing…").foregroundStyle(.secondary)
+          }
           if model.phase == .sending {
             Text("Hermes is thinking…").foregroundStyle(.secondary)
           }
           if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }
           }
-          TextField("Reply", text: $draft)
-            .onSubmit { Task { await submit() } }
-            .disabled(model.phase == .sending || model.phase == .loading)
-            .id("composer")
+          composer.id("composer")
         }
       }
       .onChange(of: model.messages.count) {
@@ -32,7 +34,56 @@ struct ConversationView: View {
     }
     .navigationTitle("Chat")
     .navigationBarTitleDisplayMode(.inline)
-    .task { await model.load() }
+    .task {
+      if startRecording { await recorder.start() }
+      await model.load()
+    }
+    .onDisappear { recorder.cancel() }
+    .onChange(of: recorder.state) { _, state in
+      if state == .finished { Task { await submitRecording() } }
+    }
+  }
+
+  private var busy: Bool {
+    model.phase == .sending || model.phase == .loading || model.phase == .transcribing
+  }
+
+  @ViewBuilder
+  private var composer: some View {
+    switch recorder.state {
+    case .recording:
+      Button {
+        Task { await submitRecording() }
+      } label: {
+        Label("Stop and send", systemImage: "stop.circle.fill")
+      }
+      .tint(.red)
+    case .finished:
+      ProgressView()
+    case .idle, .denied, .failed:
+      if recorder.state == .denied {
+        Text("Allow microphone access for Hermes in Settings.").foregroundStyle(.secondary)
+      } else if recorder.state == .failed {
+        Text("Couldn't start recording.").foregroundStyle(.secondary)
+      }
+      HStack {
+        TextField("Reply", text: $draft)
+          .onSubmit { Task { await submit() } }
+        Button {
+          Task { await recorder.start() }
+        } label: {
+          Image(systemName: "mic.fill")
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Record a voice message")
+      }
+      .disabled(busy)
+    }
+  }
+
+  private func submitRecording() async {
+    guard let audio = recorder.stop() else { return }
+    await model.sendVoice(audio, mimeType: VoiceRecorder.mimeType)
   }
 
   private func submit() async {
@@ -44,6 +95,10 @@ struct ConversationView: View {
   private func retry() async {
     if let unsent = model.unsent {
       await model.send(unsent)
+    } else if let audio = model.unsentVoice {
+      await model.sendVoice(audio, mimeType: VoiceRecorder.mimeType)
+    } else if model.phase == .failed(.noSpeech) {
+      await recorder.start()
     } else {
       await model.load()
     }

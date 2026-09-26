@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
@@ -103,6 +105,26 @@ class HermesChatRepository {
       if (e.response?.statusCode == 404) return null;
       rethrow;
     }
+  }
+
+  /// What the dashboard's speech-to-text heard in [audio], empty when it
+  /// heard no speech.
+  Future<String> transcribe(
+    Uint8List audio, {
+    required String mimeType,
+    String? profile,
+  }) async {
+    final response = await _api.transcribeAudioUploadApiAudioTranscribePost(
+      audioTranscriptionRequest: AudioTranscriptionRequest(
+        dataUrl: 'data:$mimeType;base64,${base64Encode(audio)}',
+        mimeType: mimeType,
+      ),
+      profile: profile,
+    );
+    return switch (response.data) {
+      {'transcript': final String transcript} => transcript.trim(),
+      _ => '',
+    };
   }
 
   static ChatThread? _thread(Map<String, dynamic> row) {

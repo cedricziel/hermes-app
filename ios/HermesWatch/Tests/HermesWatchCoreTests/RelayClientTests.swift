@@ -137,4 +137,15 @@ final class RelayClientTests: XCTestCase {
       XCTAssertEqual(error as? HermesClientError, .failed)
     }
   }
+
+  func testTranscribeSendsTheRecordingAndReturnsTheText() async throws {
+    transport.reply = .success(["ok": true, "text": "Hello there"])
+
+    let text = try await client.transcribe(audio: Data([1, 2]), mimeType: "audio/mp4")
+
+    XCTAssertEqual(transport.requests.first?["op"] as? String, "transcribe")
+    XCTAssertEqual(transport.requests.first?["audio"] as? Data, Data([1, 2]))
+    XCTAssertEqual(transport.requests.first?["mimeType"] as? String, "audio/mp4")
+    XCTAssertEqual(text, "Hello there")
+  }
 }
