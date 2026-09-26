@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.37](https://github.com/cedricziel/hermes-app/compare/v0.1.36...v0.1.37) (2026-09-26)
+
+
+### Features
+
+* **watch:** add Action button shortcuts for voice and new chat ([#291](https://github.com/cedricziel/hermes-app/issues/291)) ([a50af19](https://github.com/cedricziel/hermes-app/commit/a50af19d17ee427b7572f892be4d6f69fb011f37))
+
+
+### Bug Fixes
+
+* **chat:** open markdown links when tapped ([#295](https://github.com/cedricziel/hermes-app/issues/295)) ([c256aa3](https://github.com/cedricziel/hermes-app/commit/c256aa37c4aa3f7069555a285c43de3a1fca6637))
+
 ## [0.1.36](https://github.com/cedricziel/hermes-app/compare/v0.1.35...v0.1.36) (2026-09-22)
 
 
