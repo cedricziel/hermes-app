@@ -120,6 +120,73 @@ void main() {
     expect((await repository.loadModelOptions()).providers, isEmpty);
   });
 
+  test('reads a task\'s model override, also after a move', () async {
+    server.on(
+      'GET',
+      '/api/plugins/kanban/tasks/t1',
+      kanbanTaskDetailBody(
+        kanbanTaskRow(id: 't1')
+          ..['model_override'] = 'claude-opus-4'
+          ..['provider_override'] = 'anthropic'
+          ..['reasoning_effort'] = 'high',
+      ),
+    );
+
+    final task = (await repository.loadTask('t1')).task.withStatus('ready');
+
+    expect(task.modelOverride, 'claude-opus-4');
+    expect(task.providerOverride, 'anthropic');
+    expect(task.reasoningEffort, 'high');
+  });
+
+  test('sets and clears a task\'s model and effort', () async {
+    server.on('PATCH', '/api/plugins/kanban/tasks/t1', {'ok': true});
+
+    await repository.updateTask(
+      't1',
+      model: const ModelChoice('anthropic', 'claude-opus-4', effort: 'high'),
+    );
+    await repository.updateTask('t1', modelName: 'gpt-5');
+    await repository.updateTask('t1', clearModel: true, clearEffort: true);
+
+    final bodies = [
+      for (final r in server.requestsTo(
+        'PATCH',
+        '/api/plugins/kanban/tasks/t1',
+      ))
+        jsonBody(r) as Map,
+    ];
+    expect(bodies[0], containsPair('model_override', 'claude-opus-4'));
+    expect(bodies[0], containsPair('provider_override', 'anthropic'));
+    expect(bodies[0], containsPair('reasoning_effort', 'high'));
+    expect(bodies[0], containsPair('clear_model_override', false));
+    expect(bodies[1], containsPair('model_override', 'gpt-5'));
+    expect(bodies[1].containsKey('provider_override'), isFalse);
+    expect(bodies[2], containsPair('clear_model_override', true));
+    expect(bodies[2], containsPair('clear_reasoning_effort', true));
+    expect(bodies[2].containsKey('model_override'), isFalse);
+  });
+
+  test('sets or clears the effort of many tasks', () async {
+    server.on('POST', '/api/plugins/kanban/tasks/bulk', {'results': []});
+
+    await repository.bulkUpdate(['t1', 't2'], effort: 'high');
+    await repository.bulkUpdate(['t1'], clearEffort: true);
+
+    final bodies = [
+      for (final r in server.requestsTo(
+        'POST',
+        '/api/plugins/kanban/tasks/bulk',
+      ))
+        jsonBody(r) as Map,
+    ];
+    expect(bodies[0], containsPair('ids', ['t1', 't2']));
+    expect(bodies[0], containsPair('reasoning_effort', 'high'));
+    expect(bodies[0], containsPair('clear_reasoning_effort', false));
+    expect(bodies[1], containsPair('clear_reasoning_effort', true));
+    expect(bodies[1].containsKey('reasoning_effort'), isFalse);
+  });
+
   test('sends only the fields that change', () async {
     server.on('PATCH', '/api/plugins/kanban/tasks/t1', {'ok': true});
 

@@ -744,4 +744,113 @@ void main() {
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNotNull);
     });
   });
+
+  group('model', () {
+    const models = '/api/plugins/kanban/model-options';
+    const taskPath = '/api/plugins/kanban/tasks/t1';
+
+    List<Map<dynamic, dynamic>> patches() => [
+      for (final r in server.requestsTo('PATCH', taskPath)) jsonBody(r) as Map,
+    ];
+
+    void taskWith(Map<String, Object?> fields) => server.on(
+      'GET',
+      taskPath,
+      kanbanTaskDetailBody(
+        kanbanTaskRow(id: 't1', title: 'Migrate webhooks')..addAll(fields),
+      ),
+    );
+
+    setUp(() {
+      server.on('GET', models, {
+        'providers': [
+          {
+            'slug': 'anthropic',
+            'label': 'Anthropic',
+            'models': ['claude-opus-4', 'claude-haiku-4-5'],
+          },
+        ],
+      });
+    });
+
+    Future<void> openModel(WidgetTester tester) async {
+      await tester.ensureVisible(find.byKey(const Key('kanban-task-model')));
+      await tester.tap(find.byKey(const Key('kanban-task-model')));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> closePicker(WidgetTester tester) async {
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sends one change with the model and effort picked', (
+      tester,
+    ) async {
+      await pumpPanel(tester);
+      expect(find.text('Profile default'), findsOneWidget);
+
+      await openModel(tester);
+      await tester.tap(find.byKey(const Key('model-anthropic-claude-opus-4')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('effort-high')));
+      await tester.pumpAndSettle();
+      expect(patches(), isEmpty);
+      await closePicker(tester);
+
+      expect(patches().single, containsPair('model_override', 'claude-opus-4'));
+      expect(patches().single, containsPair('provider_override', 'anthropic'));
+      expect(patches().single, containsPair('reasoning_effort', 'high'));
+      expect(changes, 1);
+    });
+
+    testWidgets('going back to the profile default clears both', (
+      tester,
+    ) async {
+      taskWith({
+        'model_override': 'claude-opus-4',
+        'provider_override': 'anthropic',
+        'reasoning_effort': 'none',
+      });
+      await pumpPanel(tester);
+      expect(find.text('claude-opus-4'), findsOneWidget);
+      expect(find.text(' · Off'), findsOneWidget);
+
+      await openModel(tester);
+      await tester.tap(find.byKey(const Key('model-default')));
+      await tester.pumpAndSettle();
+
+      expect(patches().single, containsPair('clear_model_override', true));
+      expect(patches().single, containsPair('clear_reasoning_effort', true));
+    });
+
+    testWidgets('sends nothing when the pick did not change', (tester) async {
+      taskWith({
+        'model_override': 'claude-opus-4',
+        'provider_override': 'anthropic',
+        'reasoning_effort': 'high',
+      });
+      await pumpPanel(tester);
+
+      await openModel(tester);
+      await tester.tap(find.byKey(const Key('effort-high')));
+      await tester.pumpAndSettle();
+      await closePicker(tester);
+
+      expect(patches(), isEmpty);
+    });
+
+    testWidgets('asks for a model name when none are listed', (tester) async {
+      server.on('GET', models, {'providers': []});
+      await pumpPanel(tester);
+
+      await openModel(tester);
+      await tester.enterText(find.byType(TextField).last, 'gpt-5');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(patches().single, containsPair('model_override', 'gpt-5'));
+      expect(patches().single.containsKey('provider_override'), isFalse);
+    });
+  });
 }

@@ -64,6 +64,7 @@ KanbanBulkBar _bulkBar(int count) => KanbanBulkBar(
   onMove: (_) {},
   onAssign: (_) {},
   onPriority: (_) {},
+  onEffort: (_) {},
   onArchive: () {},
 );
 
