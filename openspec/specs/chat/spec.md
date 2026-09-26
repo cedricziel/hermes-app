@@ -700,7 +700,7 @@ The system SHALL use the following dashboard routes, JSON-RPC methods and events
 
 ### Requirement: Stopping a reply
 
-The system SHALL, while a reply is in flight in the open thread, show a bar above the composer saying "Hermes is replying…" with a "Stop" button, and SHALL ask the gateway to interrupt that thread's running turn when the user taps it. The reply SHALL end as a completed reply that keeps what had streamed, or reads "Stopped." when nothing had, and SHALL NOT be shown as failed. The bar SHALL NOT be shown when no reply is in flight, and sending SHALL work again once the reply has ended.
+The system SHALL, while a reply is in flight in the open thread, show a bar above the composer saying "Hermes is replying…" with a "Stop" button, and SHALL ask the gateway to interrupt that thread's running turn when the user taps it. The reply SHALL end as a completed reply that keeps what had streamed, or reads "Stopped." when nothing had, and SHALL NOT be shown as failed. A stopped reply that kept streamed text SHALL be marked "Stopped" under it, so it does not read as a finished answer. The bar SHALL NOT be shown when no reply is in flight, and sending SHALL work again once the reply has ended.
 
 #### Scenario: Stop while replying
 
@@ -711,6 +711,13 @@ The system SHALL, while a reply is in flight in the open thread, show a bar abov
 
 - **WHEN** the gateway completes the turn with the status `interrupted`
 - **THEN** the reply keeps its streamed text, or reads "Stopped." when it had none, and the bar disappears
+
+#### Scenario: A stopped reply with text is marked
+
+- **WHEN** the user stops a reply after some text had streamed
+- **THEN** the reply keeps that text and shows "Stopped" under it
+- **AND WHEN** a reply completes without being stopped
+- **THEN** no such mark is shown
 
 #### Scenario: Sending again
 
@@ -937,3 +944,8 @@ The system SHALL hold the messages queued on a thread, text and attachments, in 
 
 - **WHEN** a thread has queued messages and the user opens another thread
 - **THEN** the other thread shows no queue, and the first thread's queue is sent there when its reply completes
+
+#### Scenario: A sent queued message comes into view
+
+- **WHEN** the user is at the bottom of the thread and a queued message is sent after a long reply
+- **THEN** the transcript shows the new message and follows its reply
