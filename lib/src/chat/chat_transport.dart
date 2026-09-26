@@ -5,6 +5,7 @@ library;
 
 import 'dart:typed_data';
 
+import '../models/model_provider_option.dart';
 import 'chat_models.dart';
 
 sealed class ChatEvent {
@@ -186,11 +187,15 @@ abstract interface class ChatTransport {
   /// Each of [attachments] is made available to the agent before [text] goes
   /// out. When one cannot be, nothing is sent and the stream ends with an
   /// [AttachmentException].
+  ///
+  /// [model] runs the thread on that model and effort from this message on;
+  /// null leaves the thread on whatever it runs.
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
     required String text,
     List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
   });
 
   /// The turns Hermes starts on its own in [threadId] after the reply of the

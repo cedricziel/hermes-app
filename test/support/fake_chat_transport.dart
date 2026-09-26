@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
 /// its reply stream is fed through the returned [FakeSend].
@@ -15,12 +16,14 @@ class FakeChatTransport implements ChatTransport {
     String? profile,
     required String text,
     List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
   }) {
     final send = FakeSend(
       threadId: threadId,
       profile: profile,
       text: text,
       attachments: attachments,
+      model: model,
     );
     sends.add(send);
     return send._events.stream;
@@ -129,12 +132,14 @@ class FakeSend {
     this.profile,
     required this.text,
     this.attachments = const [],
+    this.model,
   });
 
   final String? threadId;
   final String? profile;
   final String text;
   final List<OutgoingAttachment> attachments;
+  final ModelChoice? model;
   final _events = StreamController<ChatEvent>();
 
   void emit(ChatEvent event) => _events.add(event);
