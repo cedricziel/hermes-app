@@ -339,14 +339,25 @@ void main() {
       expect(out.single.metadata, {kMetaStreaming: true});
     });
 
-    test('flags error messages via metadata and keeps the text', () {
+    test('carries why a reply failed next to the text it kept', () {
       final out = chatMessageToFlyer(
-        message(content: 'boom', status: MessageStatus.error),
+        message(content: 'Half an ans', status: MessageStatus.error)
+          ..error = 'Cut off.',
       );
 
       final text = out.single as TextMessage;
-      expect(text.text, 'boom');
-      expect(text.metadata, {'error': true});
+      expect(text.text, 'Half an ans');
+      expect(text.metadata, {kMetaError: 'Cut off.'});
+    });
+
+    test('a failed reply with no text still shows why', () {
+      final out = chatMessageToFlyer(
+        message(content: '', status: MessageStatus.error)..error = 'Cut off.',
+      );
+
+      final text = out.single as TextMessage;
+      expect(text.text, isEmpty);
+      expect(text.metadata, {kMetaError: 'Cut off.'});
     });
 
     test('shows a picked image as an image message before the text', () {

@@ -3,6 +3,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
+import 'chat_reply.dart' show kReplyFailedMessage;
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
 
@@ -89,14 +90,14 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt: createdAt,
         metadata: {kMetaKind: kKindInputRequest, kMetaInputRequest: request},
       ),
-    if (!thinking && media.text.isNotEmpty)
+    if (!thinking && (media.text.isNotEmpty || m.status == MessageStatus.error))
       TextMessage(
         id: m.id,
         authorId: authorId,
         createdAt: createdAt,
         text: media.text,
         metadata: switch (m.status) {
-          MessageStatus.error => {kMetaError: true},
+          MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
           _ => null,
         },

@@ -22,6 +22,7 @@ import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
 import 'reasoning_block.dart';
+import 'reply_error_note.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
@@ -142,12 +143,8 @@ Widget _buildText(
   void Function(String url, String title)? onLinkTap,
 }) {
   final scheme = Theme.of(context).colorScheme;
-  final failed = message.metadata?[kMetaError] == true;
-  final style = TextStyle(
-    color: failed ? scheme.error : scheme.onSurface,
-    fontSize: 14.5,
-    height: 1.5,
-  );
+  final error = message.metadata?[kMetaError] as String?;
+  final style = TextStyle(color: scheme.onSurface, fontSize: 14.5, height: 1.5);
   final bubble = FlyerChatTextMessage(
     message: message,
     index: index,
@@ -168,13 +165,14 @@ Widget _buildText(
 
   Widget below(bool latest) => MessageActions(
     text: message.text,
-    showCopy: !failed,
+    showCopy: message.text.isNotEmpty,
     onRetry: latest ? onRetry : null,
   );
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      bubble,
+      if (message.text.isNotEmpty) bubble,
+      if (error != null) ReplyErrorNote(error),
       if (latestReplyId == null)
         below(false)
       else

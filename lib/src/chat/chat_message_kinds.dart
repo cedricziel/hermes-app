@@ -33,7 +33,7 @@ const String kMetaAttachment = 'attachment';
 const String kMetaReasoningText = 'text';
 const String kMetaReasoningActive = 'active';
 
-/// `metadata` keys on a reply's `TextMessage`: it failed, or it is still being
-/// written and so has no actions yet.
+/// `metadata` keys on a reply's `TextMessage`: why it failed, or that it is
+/// still being written and so has no actions yet.
 const String kMetaError = 'error';
 const String kMetaStreaming = 'streaming';

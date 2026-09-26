@@ -75,12 +75,12 @@ Future<void> _pumpChat(
   await tester.pump(const Duration(milliseconds: 500));
 }
 
-Message _errorText(String text) => Message.text(
+Message _failed(String text, String error) => Message.text(
   id: 'error-text',
   authorId: kAssistantAuthorId,
   text: text,
   createdAt: DateTime.utc(2026, 1, 1, 14, 30),
-  metadata: const {'error': true},
+  metadata: {kMetaError: error},
 );
 
 Color? _textColor(WidgetTester tester, String text) {
@@ -103,11 +103,22 @@ Color? _textColor(WidgetTester tester, String text) {
 
 void main() {
   group('textMessageBuilder', () {
-    testWidgets('a failed reply is drawn in the error colour', (tester) async {
-      await _pumpChat(tester, messages: [_errorText('Lost the connection')]);
+    testWidgets('a failed reply keeps its text and says why in the error '
+        'colour', (tester) async {
+      await _pumpChat(
+        tester,
+        messages: [_failed('Shall I run it', 'Lost the connection')],
+      );
 
       final scheme = Theme.of(tester.element(find.byType(Chat))).colorScheme;
+      expect(_textColor(tester, 'Shall I run it'), scheme.onSurface);
       expect(_textColor(tester, 'Lost the connection'), scheme.error);
+    });
+
+    testWidgets('a failed reply with no text shows only why', (tester) async {
+      await _pumpChat(tester, messages: [_failed('', 'Lost the connection')]);
+
+      expect(find.text('Lost the connection'), findsOneWidget);
     });
 
     testWidgets('a normal reply keeps the regular text colour', (tester) async {

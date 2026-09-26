@@ -239,6 +239,7 @@ class ChatMessage {
     this.attachments = const [],
     this.reasoning = '',
     this.sealedProse = const [],
+    this.error,
   });
 
   final String id;
@@ -264,6 +265,9 @@ class ChatMessage {
 
   /// What the sender attached, shown above the text.
   final List<ChatAttachment> attachments;
+
+  /// Why the reply failed, shown under whatever text it kept.
+  String? error;
 
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;

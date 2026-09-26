@@ -17,7 +17,7 @@ class MessageActions extends StatefulWidget {
 
   final String text;
 
-  /// False for a failed reply, whose text is only the error.
+  /// False for a failed reply that kept no text.
   final bool showCopy;
   final VoidCallback? onRetry;
 

@@ -35,6 +35,7 @@ ChatMessage _reply(
   List<InputRequest> requests = const [],
   String reasoning = '',
   List<SealedProse> sealedProse = const [],
+  String? error,
 }) => ChatMessage(
   id: id,
   role: ChatRole.assistant,
@@ -45,6 +46,7 @@ ChatMessage _reply(
   inputRequests: requests,
   reasoning: reasoning,
   sealedProse: sealedProse,
+  error: error,
 );
 
 const _markdown =
@@ -254,14 +256,37 @@ WidgetbookNode chatThreadNode() => WidgetbookFolder(
           _user('u1', 'Summarise the weekly report'),
           _reply(
             'a1',
-            'Something went wrong. Try again.',
+            '',
             status: MessageStatus.error,
+            error: 'Something went wrong. Try sending it again.',
           ),
         ]),
         _thread('Failed reply that cannot be retried', [
           _user('u1', 'Summarise the weekly report'),
-          _reply('a1', 'Something went wrong.', status: MessageStatus.error),
+          _reply(
+            'a1',
+            '',
+            status: MessageStatus.error,
+            error: 'That profile is no longer available. Pick another one.',
+          ),
         ], canRetry: false),
+        _thread('Reply cut off', [
+          _user('u1', 'Set up a morning briefing'),
+          _reply(
+            'a1',
+            'Done. The job **Morning briefing** runs every day at 07:00.\n\n'
+                'Shall I run it once now,',
+            status: MessageStatus.error,
+            error: 'Something went wrong. Try sending it again.',
+            tools: const [
+              ToolCall(
+                name: 'cronjob_manage',
+                summary: 'create',
+                status: ToolCallStatus.completed,
+              ),
+            ],
+          ),
+        ]),
         _thread('Attachments', [
           _user(
             'u1',

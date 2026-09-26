@@ -119,7 +119,8 @@ void main() {
       const ReplyCompleted('Model unavailable', failed: true),
     );
 
-    expect(reply.content, 'Model unavailable');
+    expect(reply.content, 'Hel');
+    expect(reply.error, 'Model unavailable');
     expect(reply.status, MessageStatus.error);
   });
 
@@ -128,7 +129,8 @@ void main() {
 
     applyReplyEvent(reply, const ReplyCompleted('', failed: true));
 
-    expect(reply.content, kReplyFailedMessage);
+    expect(reply.content, isEmpty);
+    expect(reply.error, kReplyFailedMessage);
     expect(reply.status, MessageStatus.error);
   });
 
@@ -139,6 +141,7 @@ void main() {
     applyReplyEvent(reply, const ReplyCompleted('', failed: true));
 
     expect(reply.content, 'Partial');
+    expect(reply.error, kReplyFailedMessage);
     expect(reply.status, MessageStatus.error);
   });
 
@@ -445,7 +448,8 @@ void main() {
 
       failReply(reply);
 
-      expect(reply.content, kReplyFailedMessage);
+      expect(reply.content, isEmpty);
+      expect(reply.error, kReplyFailedMessage);
       expect(reply.status, MessageStatus.error);
     });
 
@@ -456,6 +460,7 @@ void main() {
       failReply(reply);
 
       expect(reply.content, 'Half an ans');
+      expect(reply.error, kReplyFailedMessage);
       expect(reply.status, MessageStatus.error);
     });
 
@@ -464,9 +469,9 @@ void main() {
 
       failReply(reply, const ProfileUnavailableException());
 
-      expect(reply.content, kProfileUnavailableMessage);
+      expect(reply.error, kProfileUnavailableMessage);
       expect(
-        reply.content,
+        reply.error,
         'That profile is no longer available. Pick another one.',
       );
       expect(reply.status, MessageStatus.error);
@@ -477,7 +482,7 @@ void main() {
 
       failReply(reply, Exception('socket closed'));
 
-      expect(reply.content, kReplyFailedMessage);
+      expect(reply.error, kReplyFailedMessage);
     });
 
     test('stops tools that were still running', () {

@@ -184,6 +184,18 @@ void main() {
     expect(tryAgain, findsOneWidget);
   });
 
+  chatTest('a reply cut off can still copy what it kept', (tester) async {
+    await send(tester, 'Any news?');
+    final reply = transport.sends.single;
+
+    await emit(tester, reply, const ReplyDelta('Half an answer'));
+    await emit(tester, reply, const ReplyCompleted('', failed: true));
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(copy, findsNWidgets(2));
+    expect(tryAgain, findsOneWidget);
+  });
+
   chatTest(
     'a prompt that was only files cannot be tried again',
     (tester) async {
