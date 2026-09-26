@@ -3,6 +3,7 @@ import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -14,6 +15,7 @@ import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
+import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -214,6 +216,26 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'ChatComposer',
+      useCases: [
+        _composer('Empty'),
+        _composer('Text', text: 'Why did the nightly upload fail?'),
+        _composer(
+          'With attachments',
+          attachments: const [
+            SharedFile(path: '/tmp/report.pdf', name: 'report.pdf'),
+            SharedFile(
+              path: '/tmp/chart.png',
+              name: 'chart.png',
+              isImage: true,
+            ),
+          ],
+        ),
+        _composer('Replying with a queue', replying: true, queued: _queued),
+        _composer('No model pill', pill: false),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'ThinkingIndicator',
       useCases: [
         _tool(
@@ -236,3 +258,73 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     ),
   ],
 );
+
+WidgetbookUseCase _composer(
+  String name, {
+  String text = '',
+  List<SharedFile> attachments = const [],
+  bool replying = false,
+  List<QueuedPrompt> queued = const [],
+  bool pill = true,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (_) => frame(
+    _Composer(
+      text: text,
+      attachments: attachments,
+      replying: replying,
+      queued: queued,
+      pill: pill,
+    ),
+    maxWidth: 760,
+  ),
+);
+
+class _Composer extends StatefulWidget {
+  const _Composer({
+    required this.text,
+    required this.attachments,
+    required this.replying,
+    required this.queued,
+    required this.pill,
+  });
+
+  final String text;
+  final List<SharedFile> attachments;
+  final bool replying;
+  final List<QueuedPrompt> queued;
+  final bool pill;
+
+  @override
+  State<_Composer> createState() => _ComposerState();
+}
+
+class _ComposerState extends State<_Composer> {
+  late final _text = TextEditingController(text: widget.text);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ChatComposer(
+    controller: _text,
+    onSend: (_) => _text.clear(),
+    onAttach: () {},
+    attachments: widget.attachments,
+    onRemoveAttachment: (_) {},
+    replying: widget.replying,
+    onStop: widget.replying ? () => _skips() : null,
+    queued: widget.queued,
+    onRemoveQueued: (_) {},
+    modelPill: widget.pill
+        ? ComposerModelPill(
+            options: modelOptions,
+            choice: null,
+            onChanged: (_) {},
+          )
+        : null,
+  );
+}
