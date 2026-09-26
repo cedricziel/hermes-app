@@ -15,9 +15,9 @@ One PR, `feat(settings)`, stacked on `helper-model-settings`, under 500 changed 
 ## 3. Screen
 
 - [x] 3.1 Write failing widget tests (section shown, a pick sends the whole config with one slot changed, rows disabled while saving, 422 keeps the old model, section left out when MoA fails, no `moa` provider in the picker), then wire the section into the helper models screen until they pass
-- [ ] 3.2 Extend the helper models step of `test/workflows/management_workflow_test.dart` with the MoA section and look at the screenshots
+- [x] 3.2 Extend the helper models step of `test/workflows/management_workflow_test.dart` with the MoA section and look at the screenshots
 
 ## 4. Docs and verify
 
-- [ ] 4.1 Update CLAUDE.md's helper models paragraph; no skill is made stale
+- [x] 4.1 Update CLAUDE.md's helper models paragraph; no skill is made stale
 - [ ] 4.2 Run `dart format .`, `flutter analyze` and `flutter test`; run verify-in-app when `hermes` is on PATH, otherwise note it
