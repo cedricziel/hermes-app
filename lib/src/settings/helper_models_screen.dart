@@ -44,12 +44,9 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
 
   Future<void> _load() async {
     setState(() => _failed = false);
-    final options = _repository
-        .load(profile: widget.profile)
-        .then<ModelOptions?>((o) => o, onError: (_) => null);
-    final moa = _repository
-        .loadMoa(profile: widget.profile)
-        .then<MoaSetup?>((m) => m, onError: (_) => null);
+    // Both are optional: without them the picker is empty or MoA is left out.
+    final options = _orNull(_repository.load(profile: widget.profile));
+    final moa = _orNull(_repository.loadMoa(profile: widget.profile));
     try {
       final models = await _repository.loadAuxiliary(profile: widget.profile);
       final loaded = await options;
@@ -77,6 +74,9 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
     );
     if (mounted && pick != slot.choice) await _save(slot, pick);
   }
+
+  static Future<T?> _orNull<T>(Future<T?> future) =>
+      future.then<T?>((value) => value, onError: (_) => null);
 
   /// A preset may not hold Hermes' virtual `moa` provider, nor an empty slot.
   Future<void> _openMoa(MoaSlot slot) async {
