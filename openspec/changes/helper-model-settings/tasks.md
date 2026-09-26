@@ -4,9 +4,9 @@ One PR, `feat(settings)`, about 500 changed lines. No telemetry to add (see prop
 
 ## 1. Auxiliary slots
 
-- [ ] 1.1 Write a failing test for parsing the `/api/model/auxiliary` answer (auto slot, pinned slot with effort, junk rows, missing `main`), then add the slot model to `lib/src/models/` until it passes
-- [ ] 1.2 Write failing `FakeHermesServer` tests for loading the slots of a profile and for assigning a slot (request body, reset to auto, `confirm_required` answer), then add them to `HermesModelsRepository` until they pass
-- [ ] 1.3 Add the auxiliary shape to `test/real_backend_contract_test.dart` and verify it skips without `HERMES_DEV_URL`
+- [x] 1.1 Write a failing test for parsing the `/api/model/auxiliary` answer (auto slot, pinned slot with effort, junk rows, missing `main`), then add the slot model to `lib/src/models/` until it passes
+- [x] 1.2 Write failing `FakeHermesServer` tests for loading the slots of a profile and for assigning a slot (request body, reset to auto, `confirm_required` answer), then add them to `HermesModelsRepository` until they pass
+- [x] 1.3 Add the auxiliary shape to `test/real_backend_contract_test.dart` and verify it skips without `HERMES_DEV_URL`
 
 ## 2. Picker and list
 
