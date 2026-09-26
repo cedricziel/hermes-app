@@ -23,6 +23,7 @@ import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/provider_settings.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
@@ -1144,6 +1145,33 @@ void main() {
 
       await repository.deleteTask(created.id);
       expect(await findTask(repository), isNull);
+    }, skip: skip);
+
+    test('a task\'s model override is set, reported and cleared', () async {
+      final repository = KanbanRepository(client);
+      await cleanUp(repository);
+      addTearDown(() => cleanUp(repository));
+
+      // Triage keeps the dispatcher away, so the made-up model never runs.
+      await repository.createTask(
+        title: title,
+        triage: true,
+        model: const ModelChoice('contract', 'contract-model', effort: 'high'),
+      );
+      final id = (await findTask(repository))!.id;
+      final set = (await repository.loadTask(id)).task;
+      await repository.updateTask(id, clearModel: true);
+      final modelCleared = (await repository.loadTask(id)).task;
+      await repository.bulkUpdate([id], clearEffort: true);
+      final cleared = (await repository.loadTask(id)).task;
+
+      expect(set.modelOverride, 'contract-model');
+      expect(set.providerOverride, 'contract');
+      expect(set.reasoningEffort, 'high');
+      expect(modelCleared.modelOverride, isNull);
+      expect(modelCleared.providerOverride, isNull);
+      expect(modelCleared.reasoningEffort, 'high');
+      expect(cleared.reasoningEffort, isNull);
     }, skip: skip);
 
     test(
