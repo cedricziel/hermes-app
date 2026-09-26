@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.1.38](https://github.com/cedricziel/hermes-app/compare/v0.1.37...v0.1.38) (2026-09-26)
+
+
+### Features
+
+* **chat:** add a composer card with attach, model and send below the field ([#307](https://github.com/cedricziel/hermes-app/issues/307)) ([4459f6d](https://github.com/cedricziel/hermes-app/commit/4459f6d0d2729132cb9bf94374fbc7944cbef2a6))
+* **chat:** add a model pill to the composer ([#302](https://github.com/cedricziel/hermes-app/issues/302)) ([71f4c9c](https://github.com/cedricziel/hermes-app/commit/71f4c9c955af591f724de2e68fc8a04787f8d66f))
+* **chat:** queue prompts sent while Hermes replies ([#297](https://github.com/cedricziel/hermes-app/issues/297)) ([ca07101](https://github.com/cedricziel/hermes-app/commit/ca07101886e21dd78eac71f25a5a156ffd8d3f4c))
+* **chat:** send a per-chat model choice to Hermes ([#300](https://github.com/cedricziel/hermes-app/issues/300)) ([8cafa79](https://github.com/cedricziel/hermes-app/commit/8cafa79c2621f55215787d226147adb38444b507))
+* **chat:** use the composer card in the chat ([#308](https://github.com/cedricziel/hermes-app/issues/308)) ([9da65a6](https://github.com/cedricziel/hermes-app/commit/9da65a6a5c9f4e4ac60c621f886bc24ef2af63be))
+* **kanban:** change a task's model from its panel and bulk-set effort ([#309](https://github.com/cedricziel/hermes-app/issues/309)) ([f1932f5](https://github.com/cedricziel/hermes-app/commit/f1932f551ce255a01a06619f28734e824aadfd67))
+* **kanban:** choose a model and effort when creating a task ([#304](https://github.com/cedricziel/hermes-app/issues/304)) ([ce0a742](https://github.com/cedricziel/hermes-app/commit/ce0a742e7a6ff41c6a59da66790a647fe8219d87))
+* **models:** add a model pill and picker ([#301](https://github.com/cedricziel/hermes-app/issues/301)) ([d6fdfd6](https://github.com/cedricziel/hermes-app/commit/d6fdfd694e7d363628a023e7a12c66aaeb4ae76b))
+* **profiles:** change a profile's default model ([#303](https://github.com/cedricziel/hermes-app/issues/303)) ([4ae0c43](https://github.com/cedricziel/hermes-app/commit/4ae0c43ba585fda467c04f1a9f3b336ac9886de7))
+* **schedules:** choose a job's model from the profile's list ([#305](https://github.com/cedricziel/hermes-app/issues/305)) ([51371f9](https://github.com/cedricziel/hermes-app/commit/51371f94ceb4b0551f65ee6696e73be68213942c))
+* **settings:** add a helper models screen ([#306](https://github.com/cedricziel/hermes-app/issues/306)) ([6d810ab](https://github.com/cedricziel/hermes-app/commit/6d810abbf74908ff6ddaf5bf7edca746df54dc7d))
+* **settings:** change the mixture-of-agents models ([#311](https://github.com/cedricziel/hermes-app/issues/311)) ([161a659](https://github.com/cedricziel/hermes-app/commit/161a6592367740ad32304e1fa7c773f496c444fe))
+
+
+### Bug Fixes
+
+* **chat:** complete a reply Hermes finished while disconnected ([#310](https://github.com/cedricziel/hermes-app/issues/310)) ([c4018d0](https://github.com/cedricziel/hermes-app/commit/c4018d0b9087df96e148c6447aa119bdea0b8a25))
+* **chat:** decode HTML entities in replies ([#312](https://github.com/cedricziel/hermes-app/issues/312)) ([628434b](https://github.com/cedricziel/hermes-app/commit/628434b8980065082ef1c9b095001a714fce0f6d))
+* **chat:** keep a mid-chat model switch on the session ([#314](https://github.com/cedricziel/hermes-app/issues/314)) ([6b895b0](https://github.com/cedricziel/hermes-app/commit/6b895b06132ca027475b363568b6bc9b8e4bc61e))
+* **chat:** keep a streaming reply in view ([#299](https://github.com/cedricziel/hermes-app/issues/299)) ([80a0eb9](https://github.com/cedricziel/hermes-app/commit/80a0eb97a9a7a7d10e0f7530dd2da45980b5bf91))
+* **chat:** mark a reply the user stopped after it had text ([#316](https://github.com/cedricziel/hermes-app/issues/316)) ([e072868](https://github.com/cedricziel/hermes-app/commit/e07286895a4dfc900f5b9d31c62553b83ac0a44a))
+* **chat:** show why a reply failed under the text it kept ([#315](https://github.com/cedricziel/hermes-app/issues/315)) ([5937aa1](https://github.com/cedricziel/hermes-app/commit/5937aa1a41caad5b1e3a2696c76feefbe9a03180))
+* **chat:** stop the transcript freezing past its end on iOS ([#313](https://github.com/cedricziel/hermes-app/issues/313)) ([cbae19d](https://github.com/cedricziel/hermes-app/commit/cbae19d053923b8eb4b750ffe4481d59e2209043))
+
 ## [0.1.37](https://github.com/cedricziel/hermes-app/compare/v0.1.36...v0.1.37) (2026-09-26)
 
 
