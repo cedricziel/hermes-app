@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../core/safe_notifier.dart';
+import '../models/model_provider_option.dart';
 import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -40,6 +41,7 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
   List<KanbanHomeChannel> _channels = const [];
   final _switching = <String>{};
   int _loadGeneration = 0;
+  Future<ModelOptions>? _modelOptions;
 
   KanbanTaskDetail? get detail => _detail;
 
@@ -204,6 +206,47 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
 
   Future<void> delete() =>
       _write(() => repository.deleteTask(taskId, board: board), reload: false);
+
+  /// The models the task can be moved to, loaded once per panel.
+  Future<ModelOptions> modelOptions() =>
+      _modelOptions ??= repository.loadModelOptions();
+
+  /// Moves the task to [choice], or back to its profile's model and effort
+  /// when null. Sends nothing when that is what the task already runs on. A
+  /// choice without an effort leaves the task's effort as it is.
+  Future<void> setModel(ModelChoice? choice) async {
+    final task = _detail?.task;
+    if (task == null) return;
+    if (choice == null) {
+      if (task.modelOverride == null && task.reasoningEffort == null) return;
+      return _write(
+        () => repository.updateTask(
+          taskId,
+          clearModel: true,
+          clearEffort: true,
+          board: board,
+        ),
+      );
+    }
+    if (choice.modelId == task.modelOverride &&
+        choice.providerId == task.providerOverride &&
+        (choice.effort == null || choice.effort == task.reasoningEffort)) {
+      return;
+    }
+    return _write(
+      () => repository.updateTask(taskId, model: choice, board: board),
+    );
+  }
+
+  /// Moves the task to a model typed by hand; an empty name clears it.
+  Future<void> setModelName(String name) {
+    if (name == (_detail?.task.modelOverride ?? '')) return Future.value();
+    return _write(
+      () => name.isEmpty
+          ? repository.updateTask(taskId, clearModel: true, board: board)
+          : repository.updateTask(taskId, modelName: name, board: board),
+    );
+  }
 
   /// The names a task can be assigned to; none when the server will not say.
   Future<List<String>> loadAssignees() async {

@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../../../models/model_provider_option.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../kanban_models.dart';
 import 'kanban_task_heading.dart';
 
-/// What the task says: diagnostics, description, result, dependencies and
-/// subtasks.
+/// What the task says: diagnostics, description, result, model, dependencies
+/// and subtasks.
 class KanbanTaskFields extends StatelessWidget {
   const KanbanTaskFields({
     super.key,
     required this.detail,
     required this.onAddParent,
     required this.onRemoveParent,
+    required this.onEditModel,
   });
 
   final KanbanTaskDetail detail;
   final VoidCallback onAddParent;
   final ValueChanged<String> onRemoveParent;
+  final VoidCallback onEditModel;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +52,8 @@ class KanbanTaskFields extends StatelessWidget {
           const KanbanTaskHeading('Result'),
           SelectableText(task.latestSummary ?? task.result!),
         ],
+        const KanbanTaskHeading('Model'),
+        _ModelRow(task: task, onTap: onEditModel),
         const KanbanTaskHeading('Depends on'),
         Wrap(
           spacing: 6,
@@ -76,6 +81,50 @@ class KanbanTaskFields extends StatelessWidget {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// The task's model and effort override, or "Profile default", as a quiet
+/// row that opens the picker.
+class _ModelRow extends StatelessWidget {
+  const _ModelRow({required this.task, required this.onTap});
+
+  final KanbanTask task;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final quiet = context.hermesColors.subtleText;
+    final model = task.modelOverride;
+    final effort = task.reasoningEffort;
+    return InkWell(
+      key: const Key('kanban-task-model'),
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Flexible(
+              child: Text(
+                model ?? 'Profile default',
+                style: model == null ? TextStyle(color: quiet) : null,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+            if (effort != null)
+              Text(
+                ' · ${effortLabel(effort)}',
+                style: TextStyle(color: quiet),
+                maxLines: 1,
+              ),
+            const SizedBox(width: 4),
+            Icon(Icons.expand_more, size: 18, color: quiet),
+          ],
+        ),
+      ),
     );
   }
 }

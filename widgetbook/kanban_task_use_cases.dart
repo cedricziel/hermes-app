@@ -145,6 +145,7 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           detail: const KanbanTaskDetail(task: plainTask),
           onAddParent: () {},
           onRemoveParent: (_) {},
+          onEditModel: () {},
         ),
       ),
       _use(
@@ -153,6 +154,42 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
           detail: _fullDetail,
           onAddParent: () {},
           onRemoveParent: (_) {},
+          onEditModel: () {},
+        ),
+      ),
+      _use(
+        'Model and effort override, long id',
+        KanbanTaskFields(
+          detail: const KanbanTaskDetail(
+            task: KanbanTask(
+              id: 't_4c5d6e',
+              title: 'Summarise the incident report',
+              status: 'todo',
+              modelOverride:
+                  'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
+              providerOverride: 'openrouter',
+              reasoningEffort: 'xhigh',
+            ),
+          ),
+          onAddParent: () {},
+          onRemoveParent: (_) {},
+          onEditModel: () {},
+        ),
+      ),
+      _use(
+        'Effort only',
+        KanbanTaskFields(
+          detail: const KanbanTaskDetail(
+            task: KanbanTask(
+              id: 't_4c5d6f',
+              title: 'Triage the inbox',
+              status: 'todo',
+              reasoningEffort: 'low',
+            ),
+          ),
+          onAddParent: () {},
+          onRemoveParent: (_) {},
+          onEditModel: () {},
         ),
       ),
     ],
