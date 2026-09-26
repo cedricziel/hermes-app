@@ -134,7 +134,8 @@ class ModelOptions {
         if (id is String && id.isNotEmpty) _model(id, capabilities[id]),
     ];
     if (models.isEmpty) return null;
-    final name = row['name'];
+    // The Kanban plugin's list names a provider `label`, not `name`.
+    final name = row['name'] ?? row['label'];
     return ModelProviderOption(
       id: slug,
       label: name is String ? name : '',
