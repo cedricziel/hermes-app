@@ -5,7 +5,7 @@ One PR, `feat(chat)`, under about 500 changed lines. No telemetry to add. No API
 ## 1. Composer card
 
 - [x] 1.1 Write failing widget tests for `ChatComposer` (bottom row order, send enabled by text or attachments, Enter and Shift+Enter, attach callback, hint while replying), then build `lib/src/chat/widgets/chat_composer.dart` until they pass
-- [ ] 1.2 Add Widgetbook use cases for the composer (empty, text, with attachments, replying with queue, no pill) and verify `test/widgetbook_test.dart` passes in both themes and on phone and desktop
+- [x] 1.2 Add Widgetbook use cases for the composer (empty, text, with attachments, replying with queue, no pill) and verify `test/widgetbook_test.dart` passes in both themes and on phone and desktop
 
 ## 2. Wiring
 
