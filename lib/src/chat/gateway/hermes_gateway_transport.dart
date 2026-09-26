@@ -184,9 +184,13 @@ class HermesGatewayTransport implements ChatTransport {
         // The connection died before the turn finished. Hermes keeps running
         // it, so pick it back up on a fresh connection rather than failing a
         // reply that is still on its way.
-        final next = attempt < _maxReattempts
+        final (next, ended) = attempt < _maxReattempts
             ? await _reattach(storedId)
-            : null;
+            : (null, null);
+        if (ended != null) {
+          yield ended;
+          return;
+        }
         if (next == null) throw const GatewayConnectionClosed();
         await watch.close();
         _endReply(runtimeId, storedId);
@@ -232,21 +236,32 @@ class HermesGatewayTransport implements ChatTransport {
   /// Reopens the socket and resumes [storedId]'s runtime session, so a turn
   /// still running there can be watched again. The same live agent process
   /// keeps the same runtime id, so nothing needs remapping beyond that id.
-  /// Returns null when there is nothing left to reattach to: the server
-  /// finished or failed the turn while disconnected, the session is gone, or
-  /// the reconnect itself failed.
-  Future<_Watch?> _reattach(String storedId) async {
+  /// When the server finished the turn while disconnected, the reply it
+  /// stored comes back as the turn's end instead. Returns neither when there
+  /// is nothing left to pick up: the turn failed or left no reply, the
+  /// session is gone, or the reconnect itself failed.
+  Future<(_Watch?, ReplyCompleted?)> _reattach(String storedId) async {
     final GatewayRpcClient client;
     final Map<String, Object?> result;
     try {
       client = await _client();
       result = await _call(client, 'session.resume', {'session_id': storedId});
     } on Object {
-      return null;
+      return (null, null);
     }
-    if (result['running'] != true) return null;
+    if (result['running'] != true) return (null, _storedReply(result));
     final runtimeId = result['session_id'] as String? ?? storedId;
-    return _watch(client, runtimeId);
+    return (_watch(client, runtimeId), null);
+  }
+
+  /// The reply a finished turn left as the session's last message, if any.
+  ReplyCompleted? _storedReply(Map<String, Object?> resumed) {
+    if (resumed['messages']
+        case [..., {'role': 'assistant', 'text': final String text}]
+        when text.isNotEmpty) {
+      return ReplyCompleted(text);
+    }
+    return null;
   }
 
   /// Sends [method] and gives up on a gateway that does not answer: the
@@ -318,9 +333,13 @@ class HermesGatewayTransport implements ChatTransport {
         // Idle between turns: nothing is running to pick back up, so the
         // connection dropping just ends the stream quietly.
         if (!replying) return;
-        final next = attempt < _maxReattempts
+        final (next, ended) = attempt < _maxReattempts
             ? await _reattach(threadId)
-            : null;
+            : (null, null);
+        if (ended != null) {
+          if (!out.isClosed) out.add(ended);
+          return;
+        }
         if (next == null) {
           if (!out.isClosed) out.addError(const GatewayConnectionClosed());
           return;

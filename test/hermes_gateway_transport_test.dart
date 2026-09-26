@@ -2324,6 +2324,79 @@ void main() {
       },
     );
 
+    test(
+      'a turn that finished while disconnected completes with the stored reply',
+      () async {
+        reattaching = HermesGatewayTransport(
+          connect: () async {
+            final next = FakeGateway();
+            if (gateways.isEmpty) {
+              next.turn = (g, sid) {
+                g.event('message.start', sid);
+                g.event('message.delta', sid, {'text': 'Shall I'});
+                g.drop();
+              };
+            } else {
+              next.resumeResult = {
+                'session_id': 'rt-1',
+                'running': false,
+                'messages': [
+                  {'role': 'user', 'text': 'hi'},
+                  {'role': 'tool', 'name': 'cronjob_manage'},
+                  {'role': 'assistant', 'text': 'Shall I run it now?'},
+                ],
+              };
+            }
+            gateways.add(next);
+            return next.channel;
+          },
+          requestTimeout: const Duration(milliseconds: 50),
+        );
+
+        final events = await reattaching.send(text: 'hi').toList();
+
+        expect(
+          events.whereType<ReplyCompleted>().single,
+          isA<ReplyCompleted>()
+              .having((e) => e.text, 'text', 'Shall I run it now?')
+              .having((e) => e.failed, 'failed', isFalse),
+        );
+      },
+    );
+
+    test(
+      'a follow-up turn that finished while disconnected completes too',
+      () async {
+        gateways.add(FakeGateway()..turn = plainReply);
+        reattaching = HermesGatewayTransport(
+          connect: () async => gateways.length == 1
+              ? gateways.single.channel
+              : gateways.last.channel,
+          requestTimeout: const Duration(milliseconds: 50),
+        );
+        await reattaching.send(text: 'hi').toList();
+        final follow = reattaching.followUps('stored-1').toList();
+        gateways.single.event('message.start', 'rt-1');
+        gateways.single.event('message.delta', 'rt-1', {'text': 'Checking'});
+        gateways.add(
+          FakeGateway()
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'Checking done'},
+              ],
+            },
+        );
+        gateways[0].drop();
+
+        expect(
+          (await follow).last,
+          isA<ReplyCompleted>().having((e) => e.text, 'text', 'Checking done'),
+        );
+      },
+    );
+
     test('the runtime session after a reattach can still be stopped', () async {
       final result = reattaching.send(text: 'hi').toList();
       await pumpEventQueue();
