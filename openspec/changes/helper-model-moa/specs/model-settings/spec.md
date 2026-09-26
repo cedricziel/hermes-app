@@ -2,7 +2,7 @@
 
 ### Requirement: Mixture-of-agents slots
 
-The helper models screen SHALL read `GET /api/model/moa?profile=<chat profile>` (Hermes Agent at `HERMES_REF` 7b3c7ae or later), whose answer is `{"default_preset", "active_preset", "presets": {<name>: {"reference_models": [{"provider", "model", "reasoning_effort"?, "enabled"}], "aggregator": {"provider", "model", "reasoning_effort"?}, …}}, …}`, and show a "Mixture of agents" section with one row per reference model of the default preset ("Advisor 1", "Advisor 2", …) and one for its aggregator. A row SHALL show the model id, the provider, the effort label when one is set, and "off" for a disabled advisor. The section header SHALL name the preset when it is not `default`. Slots without a provider and model SHALL be skipped. When the MoA config cannot be read or has no preset, the section SHALL be left out.
+The helper models screen SHALL read `GET /api/model/moa?profile=<chat profile>` (Hermes Agent at `HERMES_REF` 7b3c7ae or later), whose answer is `{"default_preset", "active_preset", "presets": {<name>: {"reference_models": [{"provider", "model", "reasoning_effort"?, "enabled"}], "aggregator": {"provider", "model", "reasoning_effort"?}, …}}, …}`, and show a "Mixture of agents" section with one row per reference model of the default preset ("Advisor 1", "Advisor 2", …) and one for its aggregator. A row SHALL show the model id, the provider and the effort label when one is set; a disabled advisor SHALL be marked "(off)" after its name. The section header SHALL name the preset when it is not `default`. Slots without a provider and model SHALL be skipped. When the MoA config cannot be read or has no preset, the section SHALL be left out.
 
 #### Scenario: Default preset shown
 
