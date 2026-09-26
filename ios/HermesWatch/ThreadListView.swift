@@ -3,8 +3,10 @@ import SwiftUI
 struct ThreadListView: View {
   /// Where a push goes: a new chat or an existing one, by thread id.
   private enum Route: Hashable {
-    case newChat
-    case voiceChat
+    /// Each new chat gets its own id, so a shortcut run while one is open
+    /// still starts a fresh one.
+    case newChat(UUID = UUID())
+    case voiceChat(UUID = UUID())
     case thread(String)
   }
 
@@ -27,7 +29,7 @@ struct ThreadListView: View {
       .navigationTitle("Hermes")
       .toolbar {
         ToolbarItem(placement: .primaryAction) {
-          NavigationLink(value: Route.newChat) {
+          NavigationLink(value: Route.newChat()) {
             Image(systemName: "square.and.pencil")
           }
         }
@@ -50,7 +52,7 @@ struct ThreadListView: View {
     .onChange(of: launchRequests.pending, initial: true) { _, request in
       guard let request else { return }
       launchRequests.pending = nil
-      path = [request == .voiceChat ? .voiceChat : .newChat]
+      path = [request == .voiceChat ? .voiceChat() : .newChat()]
     }
     // A chat started or continued in a conversation belongs in the list once
     // the user is back on it.
