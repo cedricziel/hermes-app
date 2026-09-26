@@ -46,6 +46,35 @@ void main() {
       expect(text.metadata, isNull);
     });
 
+    test('decodes HTML entities in a reply, but not inside code', () {
+      final out = chatMessageToFlyer(
+        message(
+          content:
+              'Subject "Briefing &lt;date&gt;" &amp; more\n'
+              'Use `&lt;br&gt;` here\n'
+              '```html\n&lt;p&gt;\n```',
+          sealedProse: const [
+            SealedProse('A &quot;b&quot;', beforeToolCall: 0),
+          ],
+        ),
+      );
+
+      expect(out.whereType<TextMessage>().map((m) => m.text), [
+        'A "b"',
+        'Subject "Briefing <date>" & more\n'
+            'Use `&lt;br&gt;` here\n'
+            '```html\n&lt;p&gt;\n```',
+      ]);
+    });
+
+    test('leaves entities the user typed as they are', () {
+      final out = chatMessageToFlyer(
+        message(role: ChatRole.user, content: 'What is &lt;?'),
+      );
+
+      expect((out.single as TextMessage).text, 'What is &lt;?');
+    });
+
     test('puts the reasoning that led to a call before it', () {
       final out = chatMessageToFlyer(
         message(

@@ -86,6 +86,7 @@ dependencies:
   connectivity_plus: ^7.3.1
   # App version shown in the About dialog.
   package_info_plus: ^10.2.1
+  html_unescape: ^2.0.0
 
 dev_dependencies:
   flutter_test:

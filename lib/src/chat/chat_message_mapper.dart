@@ -3,6 +3,7 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 
 import 'chat_message_kinds.dart';
 import 'chat_models.dart';
+import 'markdown_entities.dart';
 import 'media/extract_media.dart';
 
 /// Attachments come first, then text and tool runs interleaved in the order
@@ -30,7 +31,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       m.reasoning.isEmpty &&
       !m.toolCalls.any((call) => call.reasoning.isNotEmpty);
   final media = m.role == ChatRole.assistant
-      ? extractMedia(m.content, complete: !m.isPending)
+      ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
   final runs = _toolRuns(m.toolCalls, {
     for (final prose in m.sealedProse) prose.beforeToolCall,
@@ -43,7 +44,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
           id: '${m.id}-sealed-$i',
           authorId: authorId,
           createdAt: createdAt,
-          text: prose.text,
+          text: decodeMarkdownEntities(prose.text),
         ),
   ];
 
