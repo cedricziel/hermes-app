@@ -6,10 +6,12 @@ import Observation
 /// the bit rate is low and the length capped.
 @MainActor
 @Observable
-final class VoiceRecorder {
+final class VoiceRecorder: NSObject, AVAudioRecorderDelegate {
   enum State: Equatable {
     case idle
     case recording
+    /// The length cap stopped the recording; [stop] still returns it.
+    case finished
     case denied
     case failed
   }
@@ -19,17 +21,25 @@ final class VoiceRecorder {
 
   private(set) var state = State.idle
   private var recorder: AVAudioRecorder?
+  /// Bumped by every start and cancel, so a start still waiting for the
+  /// microphone permission gives up once it is stale.
+  private var attempt = 0
   private let url = FileManager.default.temporaryDirectory.appendingPathComponent("voice.m4a")
 
   func start() async {
-    guard state != .recording else { return }
-    guard await AVAudioApplication.requestRecordPermission() else {
+    guard recorder == nil else { return }
+    attempt += 1
+    let current = attempt
+    let allowed = await AVAudioApplication.requestRecordPermission()
+    guard current == attempt, recorder == nil else { return }
+    guard allowed else {
       state = .denied
       return
     }
+    let session = AVAudioSession.sharedInstance()
     do {
-      try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .default)
-      try AVAudioSession.sharedInstance().setActive(true)
+      try session.setCategory(.playAndRecord, mode: .default)
+      try session.setActive(true)
       let recorder = try AVAudioRecorder(
         url: url,
         settings: [
@@ -39,20 +49,22 @@ final class VoiceRecorder {
           AVEncoderBitRateKey: 12_000,
         ]
       )
-      guard recorder.record(forDuration: Self.maxDuration) else {
-        state = .failed
-        return
-      }
+      recorder.delegate = self
+      guard recorder.record(forDuration: Self.maxDuration) else { throw CocoaError(.fileWriteUnknown) }
       self.recorder = recorder
       state = .recording
     } catch {
+      try? session.setActive(false)
+      try? FileManager.default.removeItem(at: url)
       state = .failed
     }
   }
 
   /// Stops and returns the recording, or nil when nothing was recorded.
   func stop() -> Data? {
+    attempt += 1
     guard let recorder else { return nil }
+    recorder.delegate = nil
     recorder.stop()
     self.recorder = nil
     state = .idle
@@ -64,5 +76,13 @@ final class VoiceRecorder {
 
   func cancel() {
     _ = stop()
+  }
+
+  nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+    Task { @MainActor in
+      guard recorder === self.recorder, self.state == .recording else { return }
+      try? AVAudioSession.sharedInstance().setActive(false)
+      self.state = .finished
+    }
   }
 }

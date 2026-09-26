@@ -39,6 +39,9 @@ struct ConversationView: View {
       await model.load()
     }
     .onDisappear { recorder.cancel() }
+    .onChange(of: recorder.state) { _, state in
+      if state == .finished { Task { await submitRecording() } }
+    }
   }
 
   private var busy: Bool {
@@ -55,6 +58,8 @@ struct ConversationView: View {
         Label("Stop and send", systemImage: "stop.circle.fill")
       }
       .tint(.red)
+    case .finished:
+      ProgressView()
     case .idle, .denied, .failed:
       if recorder.state == .denied {
         Text("Allow microphone access for Hermes in Settings.").foregroundStyle(.secondary)
