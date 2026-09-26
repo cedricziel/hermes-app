@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../widgets/markdown_links.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
 
 const newSkillTemplate = '''---
@@ -233,7 +234,10 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
 
   Widget _previewPane() => SingleChildScrollView(
     padding: const EdgeInsets.all(16),
-    child: GptMarkdown(skillMarkdownBody(_text.text)),
+    child: GptMarkdown(
+      skillMarkdownBody(_text.text),
+      onLinkTap: markdownLinkHandler(),
+    ),
   );
 
   Widget _toolbar() => SafeArea(

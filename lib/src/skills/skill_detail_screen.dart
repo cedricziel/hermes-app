@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+import '../widgets/markdown_links.dart';
 import 'hermes_skills_repository.dart';
 import 'skill_editor_screen.dart';
 import 'skill_job_sheet.dart';
@@ -242,7 +243,10 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
             margin: EdgeInsets.zero,
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: GptMarkdown(skillMarkdownBody(_content!)),
+              child: GptMarkdown(
+                skillMarkdownBody(_content!),
+                onLinkTap: markdownLinkHandler(),
+              ),
             ),
           ),
       ],
