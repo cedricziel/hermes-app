@@ -1,8 +1,7 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
-import 'package:flutter_chat_ui/flutter_chat_ui.dart'
-    show ChatAnimatedList, ChatMessage;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show ChatMessage;
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../settings/report_bug_link.dart' show LinkOpener;
@@ -20,6 +19,7 @@ import '../chat_models.dart'
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
+import 'following_chat_list.dart';
 import 'message_actions.dart';
 import 'reasoning_block.dart';
 import 'thinking_indicator.dart';
@@ -65,12 +65,8 @@ Builders buildChatBuilders({
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
   return Builders(
-    chatAnimatedListBuilder: onLoadOlder == null
-        ? null
-        : (context, itemBuilder) => ChatAnimatedList(
-            itemBuilder: itemBuilder,
-            onEndReached: onLoadOlder,
-          ),
+    chatAnimatedListBuilder: (context, itemBuilder) =>
+        FollowingChatList(itemBuilder: itemBuilder, onEndReached: onLoadOlder),
     textMessageBuilder:
         (context, message, index, {required isSentByMe, groupStatus}) =>
             _buildText(
