@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/models/model_provider_option.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
@@ -64,6 +65,59 @@ void main() {
     expect(jsonBody(request), containsPair('title', 'Add dark mode'));
     expect(jsonBody(request), containsPair('triage', true));
     expect(jsonBody(request), containsPair('priority', 2));
+  });
+
+  test('creates a task on a chosen model and effort', () async {
+    server.on('POST', '/api/plugins/kanban/tasks', {
+      'task': {'id': 't9'},
+    });
+
+    await repository.createTask(
+      title: 'Refactor',
+      model: const ModelChoice('anthropic', 'claude-opus-4', effort: 'high'),
+    );
+    await repository.createTask(title: 'Typo', modelName: 'gpt-5');
+    await repository.createTask(title: 'Plain');
+
+    final bodies = [
+      for (final r in server.requestsTo('POST', '/api/plugins/kanban/tasks'))
+        jsonBody(r) as Map,
+    ];
+    expect(bodies[0], containsPair('model_override', 'claude-opus-4'));
+    expect(bodies[0], containsPair('provider_override', 'anthropic'));
+    expect(bodies[0], containsPair('reasoning_effort', 'high'));
+    expect(bodies[1], containsPair('model_override', 'gpt-5'));
+    expect(bodies[1].containsKey('provider_override'), isFalse);
+    expect(bodies[1].containsKey('reasoning_effort'), isFalse);
+    for (final key in [
+      'model_override',
+      'provider_override',
+      'reasoning_effort',
+    ]) {
+      expect(bodies[2].containsKey(key), isFalse, reason: key);
+    }
+  });
+
+  test('reads the model options, and a failure as none', () async {
+    server.on('GET', '/api/plugins/kanban/model-options', {
+      'providers': [
+        {
+          'slug': 'anthropic',
+          'label': 'Anthropic',
+          'models': ['claude-opus-4'],
+        },
+      ],
+    });
+
+    final options = await repository.loadModelOptions();
+
+    expect(options.providers.single.displayLabel, 'Anthropic');
+    expect(options.providers.single.models.single.id, 'claude-opus-4');
+
+    server.on('GET', '/api/plugins/kanban/model-options', {
+      'detail': 'Not Found',
+    }, status: 404);
+    expect((await repository.loadModelOptions()).providers, isEmpty);
   });
 
   test('sends only the fields that change', () async {

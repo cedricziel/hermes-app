@@ -56,6 +56,15 @@ FakeHermesServer kanbanServer({bool empty = false}) => FakeHermesServer()
   ..on('GET', '$_root/assignees', {
     'assignees': ['coder', 'writer', 'reviewer'],
   })
+  ..on('GET', '$_root/model-options', {
+    'providers': [
+      {
+        'slug': 'anthropic',
+        'label': 'Anthropic',
+        'models': ['claude-opus-4', 'claude-haiku-4-5'],
+      },
+    ],
+  })
   ..on('GET', '$_root/workers/active', {
     'workers': [
       {
@@ -199,6 +208,14 @@ List<WidgetbookNode> kanbanScreenComponents() => [
       _screen(
         'Form',
         kanbanServer,
+        (repository) =>
+            KanbanCreateScreen(repository: repository, tenant: 'mobile'),
+      ),
+      _screen(
+        'Form, no model list',
+        () =>
+            kanbanServer()
+              ..on('GET', '$_root/model-options', {'providers': []}),
         (repository) =>
             KanbanCreateScreen(repository: repository, tenant: 'mobile'),
       ),
