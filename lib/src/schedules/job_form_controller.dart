@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/safe_notifier.dart';
+import '../models/hermes_models_repository.dart';
+import '../models/model_provider_option.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
 import 'schedule_models.dart';
@@ -45,6 +47,8 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
     DeliveryTarget(id: 'local', name: 'Local (save only)'),
   ];
   bool _targetsFailed = false;
+  ModelOptions? _modelOptions;
+  int _modelsLoad = 0;
 
   DateTime get now => _now();
   bool get isEditing => editing != null;
@@ -52,6 +56,9 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
   String? get error => _error;
   bool get whenTouched => _whenTouched;
   bool get targetsFailed => _targetsFailed;
+
+  /// The models of the job's profile; null while loading or unavailable.
+  ModelOptions? get modelOptions => _modelOptions;
 
   /// The server's targets, plus the one the job already has when the server
   /// no longer lists it.
@@ -90,6 +97,20 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
     } on Object {
       _targetsFailed = true;
     }
+    notifyListeners();
+  }
+
+  /// Loads the models of the draft's profile. A load that a newer one
+  /// overtook is dropped.
+  Future<void> loadModels(HermesModelsRepository models) async {
+    final load = ++_modelsLoad;
+    _modelOptions = null;
+    notifyListeners();
+    final options = await models
+        .load(profile: draft.profile)
+        .then<ModelOptions?>((o) => o, onError: (Object _) => null);
+    if (load != _modelsLoad) return;
+    _modelOptions = options;
     notifyListeners();
   }
 
