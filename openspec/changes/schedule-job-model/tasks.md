@@ -4,8 +4,8 @@ One PR, `feat(schedules)`, under about 500 changed lines. No telemetry to add (s
 
 ## 1. Picker options
 
-- [ ] 1.1 Write failing widget tests that `ModelPicker` hides effort when asked and offers a checked "Use the profile's default" entry that reports the default, then add `showEffort` and `onUseDefault` to `ModelPicker` and `showModelPicker`; the chat pill tests stay green
-- [ ] 1.2 Add Widgetbook use cases for the picker without effort and with the default entry, both themes, and verify `test/widgetbook_test.dart` passes
+- [x] 1.1 Make `ModelPicker` and `showModelPicker` able to hide effort (`withEffort`) and offer a checked "Use the profile's default" entry (`onUseDefault`), with widget tests; the chat pill tests stay green (landed on the base branch as `e08c7c9`)
+- [x] 1.2 Add Widgetbook use cases for the picker without effort and with the default entry, both themes, and verify `test/widgetbook_test.dart` passes (landed with 1.1)
 
 ## 2. Job model field
 
@@ -15,4 +15,4 @@ One PR, `feat(schedules)`, under about 500 changed lines. No telemetry to add (s
 ## 3. Docs and verification
 
 - [x] 3.1 Update the Schedules mention in `CLAUDE.md` if it names the fields, and any stale `.claude/skills` entry (none expected)
-- [ ] 3.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, `flutter test`, look at the schedules workflow screenshots, and check the form with `verify-in-app` against a dev backend when `hermes` is available
+- [ ] 3.2 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze`, `flutter test`, look at the schedules workflow screenshots, and check the form with `verify-in-app` against a dev backend when `hermes` is available. Format, analyze, tests and screenshots done; verify-in-app still open (`hermes` was not on PATH)

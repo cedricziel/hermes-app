@@ -16,7 +16,7 @@ See proposal.md. The job form (`JobFormScreen`, `JobFormController`, `JobDraft`)
 ## Decisions
 
 - **Draft stays two strings.** The picker's result is written into `JobDraft.model` and `JobDraft.provider`; `toCreate` and `diff` are unchanged, so "only what changed" and "empty clears" keep working and an untouched unlisted value is never sent. Alternative rejected: a `ModelChoice?` on the draft, which cannot hold a model without a provider.
-- **Picker options, not a second picker.** `ModelPicker` gets `showEffort` (default true) and an optional `onUseDefault` callback; when set, a "Use the profile's default" entry comes first and is checked while nothing is selected. The chat pill passes neither and is unchanged.
+- **Picker options, not a second picker.** `ModelPicker` and `showModelPicker` take `withEffort` (default true) and an optional `onUseDefault` callback (added on the base branch in `e08c7c9`); with `onUseDefault`, a "Use the profile's default" entry comes first and is checked while nothing is selected, and without effort a pick closes the picker. The chat pill passes neither and is unchanged.
 - **A plain-model field widget.** `JobModelField` in `lib/src/schedules/widgets/` takes the options (nullable), model, provider and callbacks, so the catalog can show every state. It marks a saved pair the options do not list as not in the server's list.
 - **Options loaded by the form controller.** `JobFormController.loadModels` takes the models repository (the screen passes `HermesRepositories.maybeOf(context)?.models`) and loads for the draft's profile; a failure reads as null, as in the chat. Changing the profile of a new job reloads it, and a load that finishes after a newer one is dropped.
 
