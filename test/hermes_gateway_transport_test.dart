@@ -442,7 +442,7 @@ void main() {
           {
             'session_id': 'rt-2',
             'key': 'model',
-            'value': 'claude-opus-4 --provider anthropic',
+            'value': 'claude-opus-4 --provider anthropic --session',
             'confirm_expensive_model': true,
           },
           {'session_id': 'rt-2', 'key': 'reasoning', 'value': 'high'},

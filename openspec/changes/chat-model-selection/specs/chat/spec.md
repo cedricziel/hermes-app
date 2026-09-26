@@ -40,7 +40,7 @@ The system SHALL open a picker when the pill is tapped, as a bottom sheet below 
 
 ### Requirement: Sending the chosen model
 
-The system SHALL send a chat's model choice to the gateway with the message. For a new chat, `session.create` SHALL carry `model`, `provider` and, when an effort is chosen, `reasoning_effort`. For an existing chat, after `session.resume` and before `prompt.submit`, the system SHALL call `config.set` with the runtime `session_id`, key `model` and value `<model> --provider <provider>` when the model differs from the one last applied to that chat, and with key `reasoning` and the effort as value when the effort differs. It SHALL NOT send `scope: "global"`. With no choice made, none of these fields or calls SHALL be sent. An error from `session.create` or `config.set` SHALL end the send as a failed reply, as any other gateway error does.
+The system SHALL send a chat's model choice to the gateway with the message. For a new chat, `session.create` SHALL carry `model`, `provider` and, when an effort is chosen, `reasoning_effort`. For an existing chat, after `session.resume` and before `prompt.submit`, the system SHALL call `config.set` with the runtime `session_id`, key `model` and value `<model> --provider <provider> --session` when the model differs from the one last applied to that chat, and with key `reasoning` and the effort as value when the effort differs. It SHALL NOT send `scope: "global"`. With no choice made, none of these fields or calls SHALL be sent. An error from `session.create` or `config.set` SHALL end the send as a failed reply, as any other gateway error does.
 
 #### Scenario: New chat with a choice
 
