@@ -191,9 +191,9 @@ void main() {
       ChatScreen(
         repository: HermesChatRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
+        models: HermesModelsRepository(server.client().raw),
         skills: HermesSkillsRepository(server.client().raw),
         bots: HermesBotsRepository(server.client().raw),
-        models: HermesModelsRepository(server.client().raw),
       ),
       size: size,
       brightness: brightness,
@@ -234,6 +234,11 @@ void main() {
       await pumpChat(tester, shots, size: size);
       await openFromSidebar(tester, 'Profiles');
       await shots.capture(tester, 'profiles');
+      await tester.tap(find.byKey(const Key('profile-model-default')));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'default-model');
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
       await popRoute(tester);
 
       await openFromSidebar(tester, 'Bots');
