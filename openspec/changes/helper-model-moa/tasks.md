@@ -4,9 +4,9 @@ One PR, `feat(settings)`, stacked on `helper-model-settings`, under 500 changed 
 
 ## 1. MoA config
 
-- [ ] 1.1 Write a failing test for parsing the `/api/model/moa` answer (default preset, a preset named otherwise, disabled advisor, incomplete slots, no presets) and for replacing one slot while keeping the rest, then add the MoA model to `lib/src/models/` until it passes
-- [ ] 1.2 Write failing `FakeHermesServer` tests for loading the MoA config of a profile and saving it (the PUT body keeps other presets and settings), then add them to `HermesModelsRepository` until they pass
-- [ ] 1.3 Add the MoA shape to `test/real_backend_contract_test.dart` and verify it skips without `HERMES_DEV_URL`
+- [x] 1.1 Write a failing test for parsing the `/api/model/moa` answer (default preset, a preset named otherwise, disabled advisor, incomplete slots, no presets) and for replacing one slot while keeping the rest, then add the MoA model to `lib/src/models/` until it passes
+- [x] 1.2 Write failing `FakeHermesServer` tests for loading the MoA config of a profile and saving it (the PUT body keeps other presets and settings), then add them to `HermesModelsRepository` until they pass
+- [x] 1.3 Add the MoA shape to `test/real_backend_contract_test.dart` and verify it skips without `HERMES_DEV_URL`
 
 ## 2. List
 

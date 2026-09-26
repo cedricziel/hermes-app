@@ -5,7 +5,12 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
-    show CronJobCreate, MCPCatalogInstall, MCPServerCreate, SessionRename;
+    show
+        CronJobCreate,
+        MCPCatalogInstall,
+        MCPServerCreate,
+        MoaConfigPayload,
+        SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -299,6 +304,33 @@ void main() {
     final models = await HermesModelsRepository(client.raw)
         .loadAuxiliary(profile: profile);
     expect(models.slots.map((s) => s.task), tasks.map((r) => r['task']));
+  }, skip: skip);
+
+  test('the MoA config carries the fields the settings read', () async {
+    final profile = (await HermesProfilesRepository(
+      client.raw,
+    ).loadActive()).active;
+
+    final raw =
+        (await client.raw.getMoaModelsApiModelMoaGet(profile: profile)).data!
+            as Map<String, dynamic>;
+    final name = raw['default_preset'] as String;
+    final preset = (raw['presets'] as Map<String, dynamic>)[name] as Map;
+    for (final slot in [
+      ...(preset['reference_models'] as List).cast<Map<String, dynamic>>(),
+      preset['aggregator'] as Map<String, dynamic>,
+    ]) {
+      expect(slot['provider'], isA<String>());
+      expect(slot['model'], isA<String>());
+      expect(slot['reasoning_effort'], anyOf(isNull, isA<String>()));
+    }
+
+    final moa = await HermesModelsRepository(client.raw)
+        .loadMoa(profile: profile);
+    expect(moa?.slots.last.label, 'Aggregator');
+    // The generated payload must accept what the server hands out, or a save
+    // could not be built.
+    expect(() => MoaConfigPayload.fromJson(moa!.toJson()), returnsNormally);
   }, skip: skip);
 
   test('skills load with their source, read, and switch off and on', () async {

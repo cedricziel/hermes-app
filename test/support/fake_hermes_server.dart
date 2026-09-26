@@ -531,3 +531,42 @@ Map<String, Object?> mcpFlowBody({
   'authorization_url': authorizationUrl,
   'error': error,
 };
+
+/// A `GET /api/model/moa` answer as `normalize_moa_config` shapes it.
+Map<String, Object?> moaConfigBody({String preset = 'default'}) => {
+  'default_preset': preset,
+  'active_preset': '',
+  'presets': {
+    preset: {
+      'enabled': true,
+      'reference_models': [
+        {'provider': 'openai-codex', 'model': 'gpt-5.5', 'enabled': true},
+        {'provider': '', 'model': ''},
+        {
+          'provider': 'openrouter',
+          'model': 'deepseek/deepseek-v4-pro',
+          'reasoning_effort': 'high',
+          'enabled': false,
+        },
+      ],
+      'aggregator': {
+        'provider': 'openrouter',
+        'model': 'anthropic/claude-opus-4.8',
+      },
+      'reference_temperature': 0.7,
+      'aggregator_temperature': null,
+      'reference_timeout': null,
+      'degraded_reference_policy': 'loud',
+      'fanout': 'user_turn',
+    },
+    'cheap': {
+      'reference_models': [
+        {'provider': 'nous', 'model': 'hermes-4-mini'},
+      ],
+      'aggregator': {'provider': 'nous', 'model': 'hermes-4'},
+    },
+  },
+  'reference_models': const [],
+  'aggregator': const {},
+  'privacy_filter': '',
+};
