@@ -124,4 +124,89 @@ void main() {
 
     expect(server.requestsTo('POST', '/api/plugins/kanban/estimate'), isEmpty);
   });
+
+  group('model', () {
+    Map<dynamic, dynamic> sentBody() =>
+        jsonBody(server.requestsTo('POST', '/api/plugins/kanban/tasks').single)
+            as Map;
+
+    setUp(() {
+      server.on('GET', '/api/plugins/kanban/model-options', {
+        'providers': [
+          {
+            'slug': 'anthropic',
+            'label': 'Anthropic',
+            'models': ['claude-opus-4', 'claude-haiku-4-5'],
+          },
+        ],
+      });
+    });
+
+    Future<void> openPicker(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Profile default'));
+      await tester.tap(find.text('Profile default'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> create(WidgetTester tester) async {
+      await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Task');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sends the picked model, provider and effort', (tester) async {
+      await pump(tester);
+
+      await openPicker(tester);
+      await tester.tap(find.byKey(const Key('model-anthropic-claude-opus-4')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('effort-high')));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pumpAndSettle();
+      await create(tester);
+
+      expect(sentBody(), containsPair('model_override', 'claude-opus-4'));
+      expect(sentBody(), containsPair('provider_override', 'anthropic'));
+      expect(sentBody(), containsPair('reasoning_effort', 'high'));
+    });
+
+    testWidgets('sends no model after going back to the default', (
+      tester,
+    ) async {
+      await pump(tester);
+
+      await openPicker(tester);
+      await tester.tap(find.byKey(const Key('model-anthropic-claude-opus-4')));
+      await tester.pumpAndSettle();
+      // The default entry closes the picker by itself.
+      await tester.tap(find.byKey(const Key('model-default')));
+      await tester.pumpAndSettle();
+      await create(tester);
+
+      for (final key in [
+        'model_override',
+        'provider_override',
+        'reasoning_effort',
+      ]) {
+        expect(sentBody().containsKey(key), isFalse, reason: key);
+      }
+    });
+
+    testWidgets('takes a typed model name when none are listed', (
+      tester,
+    ) async {
+      server.on('GET', '/api/plugins/kanban/model-options', {'providers': []});
+      await pump(tester);
+
+      expect(find.text('Profile default'), findsNothing);
+      await tester.enterText(find.widgetWithText(TextField, 'Model'), 'gpt-5');
+      await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Task');
+      await tester.tap(find.text('Create'));
+      await tester.pumpAndSettle();
+
+      expect(sentBody(), containsPair('model_override', 'gpt-5'));
+      expect(sentBody().containsKey('provider_override'), isFalse);
+    });
+  });
 }
