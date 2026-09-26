@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.38](https://github.com/cedricziel/hermes-app/compare/v0.1.37...v0.1.38) (2026-09-26)
+
+
+### Features
+
+* **chat:** add a model pill to the composer ([#302](https://github.com/cedricziel/hermes-app/issues/302)) ([71f4c9c](https://github.com/cedricziel/hermes-app/commit/71f4c9c955af591f724de2e68fc8a04787f8d66f))
+* **chat:** queue prompts sent while Hermes replies ([#297](https://github.com/cedricziel/hermes-app/issues/297)) ([ca07101](https://github.com/cedricziel/hermes-app/commit/ca07101886e21dd78eac71f25a5a156ffd8d3f4c))
+* **chat:** send a per-chat model choice to Hermes ([#300](https://github.com/cedricziel/hermes-app/issues/300)) ([8cafa79](https://github.com/cedricziel/hermes-app/commit/8cafa79c2621f55215787d226147adb38444b507))
+* **models:** add a model pill and picker ([#301](https://github.com/cedricziel/hermes-app/issues/301)) ([d6fdfd6](https://github.com/cedricziel/hermes-app/commit/d6fdfd694e7d363628a023e7a12c66aaeb4ae76b))
+
+
+### Bug Fixes
+
+* **chat:** complete a reply Hermes finished while disconnected ([#310](https://github.com/cedricziel/hermes-app/issues/310)) ([c4018d0](https://github.com/cedricziel/hermes-app/commit/c4018d0b9087df96e148c6447aa119bdea0b8a25))
+* **chat:** decode HTML entities in replies ([#312](https://github.com/cedricziel/hermes-app/issues/312)) ([628434b](https://github.com/cedricziel/hermes-app/commit/628434b8980065082ef1c9b095001a714fce0f6d))
+* **chat:** keep a streaming reply in view ([#299](https://github.com/cedricziel/hermes-app/issues/299)) ([80a0eb9](https://github.com/cedricziel/hermes-app/commit/80a0eb97a9a7a7d10e0f7530dd2da45980b5bf91))
+
 ## [0.1.37](https://github.com/cedricziel/hermes-app/compare/v0.1.36...v0.1.37) (2026-09-26)
 
 
