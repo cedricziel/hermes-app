@@ -5,7 +5,12 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_api/hermes_api.dart'
-    show CronJobCreate, MCPCatalogInstall, MCPServerCreate, SessionRename;
+    show
+        CronJobCreate,
+        MCPCatalogInstall,
+        MCPServerCreate,
+        ProfileModelUpdate,
+        SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -273,6 +278,34 @@ void main() {
     final options = await HermesModelsRepository(client.raw)
         .load(profile: profile);
     expect(options.providers.every((p) => p.models.isNotEmpty), isTrue);
+  }, skip: skip);
+
+  test('a profile takes its own default model back', () async {
+    final profile = (await HermesProfilesRepository(
+      client.raw,
+    ).loadActive()).active;
+    final current = (await HermesModelsRepository(
+      client.raw,
+    ).load(profile: profile)).current;
+    if (current == null) {
+      markTestSkipped('the dev backend has no default model');
+      return;
+    }
+
+    final raw = await client.raw
+        .updateProfileModelEndpointApiProfilesNameModelPut(
+          name: Uri.encodeComponent(profile),
+          profileModelUpdate: ProfileModelUpdate(
+            provider: current.providerId,
+            model: current.modelId,
+          ),
+        );
+
+    expect(raw.data, {
+      'ok': true,
+      'provider': current.providerId,
+      'model': current.modelId,
+    });
   }, skip: skip);
 
   test('skills load with their source, read, and switch off and on', () async {
