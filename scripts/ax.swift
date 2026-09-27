@@ -9,7 +9,7 @@ usage: ax <pid> <command> [args]
   wake                 ask a Flutter app to build its accessibility tree
   texts                visible elements that have a name, one per line
   dump [depth]         the whole tree
-  press <text>         press the first element whose name contains <text>
+  press <text>         press the first pressable element whose name contains <text>
   focus <n>            focus the n-th text field (0-based)
   type <text>          type real key events into the focused app
   key <code>           press one key (36 Return, 53 Escape, 48 Tab)
@@ -17,7 +17,9 @@ usage: ax <pid> <command> [args]
 """
 
 let args = CommandLine.arguments
-guard args.count >= 3, let pid = pid_t(args[1]) else {
+let needsArgument: Set = ["press", "focus", "type", "key"]
+guard args.count >= 3, let pid = pid_t(args[1]),
+      args.count > 3 || !needsArgument.contains(args[2]) else {
     print(usage)
     exit(2)
 }
@@ -78,9 +80,28 @@ func walk(_ e: AXUIElement, _ visit: (AXUIElement, Int) -> Bool, _ depth: Int = 
     children(e).forEach { walk($0, visit, depth + 1) }
 }
 
+// Key events go to whichever app is in front, so refuse to send any unless
+// it is the target.
 func activate() {
-    NSRunningApplication(processIdentifier: pid)?.activate()
-    usleep(200_000)
+    guard let target = NSRunningApplication(processIdentifier: pid), target.activate() else {
+        print("NOT_ACTIVATED"); exit(1)
+    }
+    let system = AXUIElementCreateSystemWide()
+    for _ in 0 ..< 20 {
+        usleep(100_000)
+        var front: pid_t = 0
+        if let focused = attr(system, kAXFocusedApplicationAttribute),
+           AXUIElementGetPid(focused as! AXUIElement, &front) == .success, front == pid {
+            return
+        }
+    }
+    print("NOT_ACTIVATED"); exit(1)
+}
+
+func pressable(_ e: AXUIElement) -> Bool {
+    var actions: CFArray?
+    return AXUIElementCopyActionNames(e, &actions) == .success
+        && ((actions as? [String]) ?? []).contains(kAXPressAction)
 }
 
 switch args[2] {
@@ -122,14 +143,15 @@ case "dump":
 case "press":
     var hit: AXUIElement?
     walk(app) { e, _ in
-        if hit == nil, name(e).localizedCaseInsensitiveContains(args[3]) {
+        if hit == nil, name(e).localizedCaseInsensitiveContains(args[3]), pressable(e) {
             hit = e
         }
         return hit == nil
     }
     guard let e = hit else { print("NOT_FOUND"); exit(1) }
     let r = AXUIElementPerformAction(e, kAXPressAction as CFString)
-    print(r == .success ? "pressed" : "press failed \(r.rawValue)", role(e), name(e).prefix(60))
+    guard r == .success else { print("press failed \(r.rawValue)", role(e), name(e).prefix(60)); exit(1) }
+    print("pressed", role(e), name(e).prefix(60))
 case "focus":
     var fields: [AXUIElement] = []
     walk(app) { e, _ in
@@ -139,8 +161,9 @@ case "focus":
         return true
     }
     let i = Int(args[3]) ?? 0
-    guard i < fields.count else { print("only \(fields.count) text fields"); exit(1) }
-    AXUIElementSetAttributeValue(fields[i], kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    guard fields.indices.contains(i) else { print("only \(fields.count) text fields"); exit(1) }
+    let r = AXUIElementSetAttributeValue(fields[i], kAXFocusedAttribute as CFString, kCFBooleanTrue)
+    guard r == .success else { print("focus failed \(r.rawValue)"); exit(1) }
     print("focused", describe(frame(fields[i])))
 case "type":
     activate()

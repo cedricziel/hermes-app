@@ -98,7 +98,7 @@ A=.dart_tool/hermes-dev/ax
 PID=$(pgrep -f "$PWD/build/macos/.*Hermes.app/Contents/MacOS" | head -1)
 $A $PID wake              # always first
 $A $PID texts             # what is on screen, with roles and frames
-$A $PID press Kanban      # first element whose name contains the text
+$A $PID press Kanban      # first pressable element whose name contains the text
 screencapture -x -o -l "$($A $PID wid)" /tmp/shot.png
 ```
 
