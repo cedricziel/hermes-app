@@ -20,6 +20,9 @@ class StarterPrompt {
 
   /// The chat to open, for [StarterAction.openThread].
   final String? threadId;
+
+  /// The card's text: a prompt left open for the user to finish ends in "…".
+  String get label => text.endsWith(' ') ? '${text.trimRight()}…' : text;
 }
 
 class StarterTask {

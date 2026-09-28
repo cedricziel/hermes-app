@@ -44,6 +44,7 @@ void main() {
       ),
     ]);
     expect(prompts[2].threadId, 't1');
+    expect(prompts[3].label, 'Use the nextcloud-notes skill to…');
   });
 
   test('a partial context goes first and generic prompts fill the rest', () {
