@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
-import 'package:hermes_app/src/chat/mock_chat_data.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';

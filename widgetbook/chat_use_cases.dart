@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -158,12 +159,45 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'WelcomeView',
       useCases: [
         WidgetbookUseCase(
-          name: 'Greeting with name',
-          builder: (_) => WelcomeView(greetingName: 'Ada', onPick: (_) {}),
+          name: 'Generic prompts',
+          builder: (_) => WelcomeView(
+            greetingName: 'Ada',
+            prompts: buildStarterPrompts(const StarterContext()),
+            onPick: (_) {},
+          ),
         ),
         WidgetbookUseCase(
-          name: 'No name',
-          builder: (_) => WelcomeView(greetingName: null, onPick: (_) {}),
+          name: 'Full context',
+          builder: (_) => WelcomeView(
+            greetingName: 'Ada',
+            prompts: buildStarterPrompts(
+              const StarterContext(
+                failedJob: 'Nightly backup',
+                kanbanTask: StarterTask(
+                  'Move the auth service to the new OIDC provider and retire '
+                  'the old password endpoint',
+                  blocked: true,
+                ),
+                recentChat: StarterChat(id: 't1', title: 'Telegram pairing'),
+                skill: 'nextcloud-notes',
+              ),
+            ),
+            onPick: (_) {},
+          ),
+        ),
+        WidgetbookUseCase(
+          name: 'Kanban off, no name',
+          builder: (_) => WelcomeView(
+            greetingName: null,
+            prompts: buildStarterPrompts(
+              const StarterContext(
+                failedJob: 'Nightly backup',
+                recentChat: StarterChat(id: 't1', title: 'Telegram pairing'),
+                skill: 'nextcloud-notes',
+              ),
+            ),
+            onPick: (_) {},
+          ),
         ),
       ],
     ),

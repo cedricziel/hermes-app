@@ -565,7 +565,7 @@ class _ThreadView extends StatelessWidget {
     );
     final builders =
         buildChatBuilders(
-          onPickPrompt: onSend,
+          onPickPrompt: (prompt) => onSend(prompt.text),
           greetingName: greetingName,
           latestReplyId: latestReplyId,
           onRetry: onRetry,

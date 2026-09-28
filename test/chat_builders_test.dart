@@ -13,7 +13,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
         ToolCallStatus,
         UnsupportedKind,
         UnsupportedRequest;
-import 'package:hermes_app/src/chat/mock_chat_data.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
@@ -40,7 +40,7 @@ Message _text(String authorId, String text) => Message.text(
 Future<void> _pumpChat(
   WidgetTester tester, {
   List<Message> messages = const [],
-  void Function(String prompt)? onPickPrompt,
+  ValueChanged<StarterPrompt>? onPickPrompt,
   String? greetingName,
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
@@ -444,11 +444,11 @@ void main() {
     });
 
     testWidgets('picking a starter prompt calls onPickPrompt', (tester) async {
-      final picked = <String>[];
+      final picked = <StarterPrompt>[];
       await _pumpChat(tester, onPickPrompt: picked.add);
 
       await tester.tap(find.text(kStarterPrompts.first));
-      expect(picked, [kStarterPrompts.first]);
+      expect(picked.map((p) => p.text), [kStarterPrompts.first]);
     });
 
     testWidgets('is not shown once there are messages', (tester) async {

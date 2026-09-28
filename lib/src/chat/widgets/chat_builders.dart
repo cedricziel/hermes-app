@@ -21,6 +21,7 @@ import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
+import '../starter_prompts.dart';
 import 'reasoning_block.dart';
 import 'reply_error_note.dart';
 import 'thinking_indicator.dart';
@@ -48,11 +49,13 @@ const double kChatItemGap = 8;
 ///
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
-/// can. [onPickPrompt] sends what the welcome view's starter prompts pick.
+/// can. The welcome view offers [starterPrompts], the generic ones when null,
+/// and hands a tapped one to [onPickPrompt].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
 /// A tapped link goes to [openLink], the system browser when null.
 Builders buildChatBuilders({
-  required void Function(String prompt) onPickPrompt,
+  required ValueChanged<StarterPrompt> onPickPrompt,
+  List<StarterPrompt>? starterPrompts,
   String? greetingName,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
@@ -127,8 +130,11 @@ Builders buildChatBuilders({
           verticalGroupedPadding: kChatItemGap,
           child: child,
         ),
-    emptyChatListBuilder: (_) =>
-        WelcomeView(greetingName: greetingName, onPick: onPickPrompt),
+    emptyChatListBuilder: (_) => WelcomeView(
+      greetingName: greetingName,
+      prompts: starterPrompts ?? kGenericStarterPrompts,
+      onPick: onPickPrompt,
+    ),
   );
 }
 
