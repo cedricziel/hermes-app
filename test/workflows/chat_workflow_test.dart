@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/starter_context_loader.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 
+import '../support/cron_fixtures.dart';
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
@@ -30,6 +34,28 @@ void main() {
   setUp(() {
     transport = FakeChatTransport();
     server = FakeHermesServer()
+      ..on('GET', '/api/cron/jobs', [
+        cronJobRow(
+          name: 'Nightly backup',
+          lastRunAt: '2026-09-27T03:00:00Z',
+          lastStatus: 'error',
+        ),
+      ])
+      ..on('GET', '/api/dashboard/plugins', [
+        {'name': 'kanban'},
+      ])
+      ..on(
+        'GET',
+        '/api/plugins/kanban/board',
+        kanbanBoardBody([
+          kanbanTaskRow(
+            id: 't1',
+            title: 'Rotate the staging certificates',
+            status: 'blocked',
+          ),
+        ]),
+      )
+      ..on('GET', '/api/skills', [skillRow(name: 'release-notes', usage: 7)])
       ..on(
         'GET',
         '/api/sessions',
@@ -124,6 +150,7 @@ void main() {
       repository: HermesChatRepository(server.client().raw),
       models: HermesModelsRepository(server.client().raw),
       transport: transport,
+      starterContext: StarterContextLoader(HermesRepositories(server.client())),
     ),
     size: size,
     brightness: brightness,
