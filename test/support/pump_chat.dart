@@ -5,6 +5,7 @@ import 'package:hermes_app/src/chat/attachments/attachment_source.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/starter_context_loader.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -30,6 +31,7 @@ Future<void> pumpChatScreen(
   bool settle = true,
   VoidCallback? onShowChat,
   AttachmentSource? attachmentSource,
+  StarterContextLoader? starterContext,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -61,6 +63,7 @@ Future<void> pumpChatScreen(
           transport: transport,
           onShowChat: onShowChat,
           attachmentSource: attachmentSource,
+          starterContext: starterContext,
         ),
       ),
     ),

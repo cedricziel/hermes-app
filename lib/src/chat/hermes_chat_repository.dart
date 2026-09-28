@@ -282,7 +282,7 @@ class HermesChatRepository {
       final value = row[key];
       if (value is String && value.trim().isNotEmpty) return value.trim();
     }
-    return 'Untitled chat';
+    return kUntitledChat;
   }
 
   static DateTime _time(Object? epochSeconds) => epochSeconds is num
@@ -313,3 +313,6 @@ class HermesChatRepository {
     return calls;
   }
 }
+
+/// The title of a session that has neither a title nor a preview.
+const kUntitledChat = 'Untitled chat';
