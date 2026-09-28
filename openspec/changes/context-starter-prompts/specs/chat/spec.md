@@ -47,11 +47,11 @@ The system SHALL show four starter prompts in the welcome view. It SHALL build t
 1. Scheduled jobs: a job whose last run failed. The prompt reads "Why did the scheduled job '<name>' fail on its last run?".
 2. Kanban, only while the dashboard reports the Kanban plugin as enabled: a task in the default board with status `blocked`, or else one with status `review`. The prompt reads "What's blocking the Kanban task '<title>'?" or "What's left before the Kanban task '<title>' is done?".
 3. Recent chats: the most recently active chat of the profile that has a title and is not the chat on screen. The prompt reads "Pick up '<title>'".
-4. Skills: the enabled skill with the highest use count, if its use count is above zero. The prompt reads "Use the <name> skill to ".
+4. Skills: the enabled skill with the highest use count, if its use count is above zero. The card reads "Use the <name> skill to…" and puts "Use the <name> skill to " into the composer for the user to finish.
 
 When several items of a source qualify, the system SHALL pick the most recent one (by last run time for jobs, by the board's order for tasks). The system SHALL fill the remaining slots with generic prompts that make sense on any server, in a fixed order. Each prompt SHALL show an icon for its source.
 
-The system SHALL show the generic prompts immediately and SHALL replace them with the contextual prompts once, when every source has answered, failed or timed out. A source that fails, times out, or answers with rows it cannot parse SHALL be left out without showing an error. The context SHALL be loaded again when the active profile changes, and when the welcome view is shown and the last load is more than five minutes old.
+The system SHALL show the generic prompts immediately and SHALL replace them with the contextual prompts once, when every source has answered, failed or timed out. A source that fails, times out, or answers with rows it cannot parse SHALL be left out without showing an error. The context SHALL be loaded again when the active profile changes, and when the welcome view is shown again, by a change in the chat or by the app coming back to the front, and the last load is more than five minutes old.
 
 Tapping a generic prompt SHALL send it as a message. Tapping a job, Kanban or skill prompt SHALL put its text into the composer without sending it, replacing any text already there. Tapping a recent-chat prompt SHALL open that chat.
 

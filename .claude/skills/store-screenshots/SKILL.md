@@ -59,6 +59,11 @@ version>`. Check the editable version on App Store Connect first and pass
   script can't resize it without Accessibility permission, and a size in the
   xib or in `MainFlutterWindow.swift` never reached the built app. The user
   widening it by hand works.
+- The welcome shot's starter prompts come from the backend: a failed cron job,
+  a blocked Kanban task, the latest chat and the most-used skill. The seeded
+  backend has only chats, so it shows "Pick up '<latest seeded chat>'" and
+  three generic prompts. Make the latest seeded chat the one that should be
+  named there.
 - Simulators must be `en_US` (the script sets it), or the iPad status bar shows
   the date in the system language.
 - The watch shot needs the watchOS runtime (Xcode > Settings > Components) and

@@ -45,6 +45,8 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'queued_prompt.dart';
+import 'starter_context_loader.dart';
+import 'starter_prompts.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/chat_composer_builder.dart';
@@ -76,6 +78,7 @@ class ChatScreen extends StatefulWidget {
     this.openRequests,
     this.onOpenJob,
     this.navigation,
+    this.starterContext,
   });
 
   final HermesChatRepository? repository;
@@ -86,6 +89,10 @@ class ChatScreen extends StatefulWidget {
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
   final HermesMcpRepository? mcp;
+
+  /// Reads what the welcome view's starter prompts are built from; the
+  /// connected dashboard's when null.
+  final StarterContextLoader? starterContext;
 
   /// Asks the host to bring the chat to the front, for a notification tap or
   /// shared content that arrives while something else is shown.
@@ -130,6 +137,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// once that is a finished reply.
   final _latestReplyId = ValueNotifier<String?>(null);
 
+  StarterContextLoader? _starterLoader;
+
+  /// The starter context of the profile last asked for, null until it has
+  /// loaded.
+  StarterContext? _starter;
+  ({String? profile, DateTime at})? _starterRequest;
+
   @override
   void initState() {
     super.initState();
@@ -148,6 +162,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _plugins = widget.plugins ?? repositories?.pluginManager;
     _mcp = widget.mcp ?? repositories?.mcp;
     _models = widget.models ?? repositories?.models;
+    _starterLoader =
+        widget.starterContext ??
+        (repositories == null ? null : StarterContextLoader(repositories));
     var transport = widget.transport;
     if (transport == null && api != null) {
       final auth = context.read<AuthController>();
@@ -180,8 +197,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
+
+  bool get _showsWelcome => _chat.selectedThread?.messages.isEmpty ?? true;
 
   T? _maybeRead<T>() {
     try {
@@ -244,6 +265,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     _chat.checkConnection();
+    if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
   @override
@@ -341,6 +363,64 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _closeDrawerIfNarrow() {
     if (MediaQuery.sizeOf(context).width < kWideLayoutBreakpoint) {
       _scaffoldKey.currentState?.closeDrawer();
+    }
+  }
+
+  /// Reads the starter context again for another profile, or once it is
+  /// older than the loader's max age. Called while the welcome view is shown,
+  /// on a controller change or when the app comes back.
+  void _refreshStarter() {
+    final loader = _starterLoader;
+    if (loader == null) return;
+    final profile = _chat.profile;
+    final last = _starterRequest;
+    final sameProfile = last != null && last.profile == profile;
+    if (sameProfile && DateTime.now().difference(last.at) < loader.maxAge) {
+      return;
+    }
+    if (!sameProfile) _starter = null;
+    _starterRequest = (profile: profile, at: DateTime.now());
+    loader.load(profile).then((context) {
+      if (!mounted || _chat.profile != profile) return;
+      setState(() => _starter = context);
+    });
+  }
+
+  List<StarterPrompt> _starterPrompts() {
+    final context = _starter;
+    if (context == null) return kGenericStarterPrompts;
+    ChatThread? thread;
+    for (final t in _chat.threads) {
+      if (!t.remote || t.id == _chat.selectedId || t.title == kUntitledChat) {
+        continue;
+      }
+      if (thread == null || t.updatedAt.isAfter(thread.updatedAt)) thread = t;
+    }
+    return buildStarterPrompts(
+      StarterContext(
+        failedJob: context.failedJob,
+        kanbanTask: context.kanbanTask,
+        recentChat: thread == null
+            ? null
+            : StarterChat(id: thread.id, title: thread.title),
+        skill: context.skill,
+      ),
+    );
+  }
+
+  void _pickStarter(StarterPrompt prompt) {
+    switch (prompt.action) {
+      case StarterAction.send:
+        _send(prompt.text);
+      case StarterAction.prefill:
+        setState(
+          () => _composerController.value = TextEditingValue(
+            text: prompt.text,
+            selection: TextSelection.collapsed(offset: prompt.text.length),
+          ),
+        );
+      case StarterAction.openThread:
+        _selectThread(prompt.threadId!);
     }
   }
 
@@ -451,6 +531,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onRemoveAttachment: (file) =>
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
+                  starterPrompts: _showsWelcome ? _starterPrompts() : null,
+                  onPickStarter: _pickStarter,
                   latestReplyId: _latestReplyId,
                   modelPill:
                       modelOptions == null || modelOptions.providers.isEmpty
@@ -515,6 +597,8 @@ class _ThreadView extends StatelessWidget {
     required this.onAddAttachments,
     required this.onRemoveAttachment,
     required this.onSend,
+    this.starterPrompts,
+    required this.onPickStarter,
     required this.latestReplyId,
     this.modelPill,
     this.header,
@@ -537,6 +621,8 @@ class _ThreadView extends StatelessWidget {
   final ValueChanged<List<SharedFile>> onAddAttachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
+  final List<StarterPrompt>? starterPrompts;
+  final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
   final VoidCallback? onRetry;
   final Widget? modelPill;
@@ -565,7 +651,8 @@ class _ThreadView extends StatelessWidget {
     );
     final builders =
         buildChatBuilders(
-          onPickPrompt: (prompt) => onSend(prompt.text),
+          starterPrompts: starterPrompts,
+          onPickPrompt: onPickStarter,
           greetingName: greetingName,
           latestReplyId: latestReplyId,
           onRetry: onRetry,

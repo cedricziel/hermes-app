@@ -75,7 +75,7 @@ class WelcomeView extends StatelessWidget {
                     children: [
                       for (final prompt in prompts)
                         _SuggestionCard(
-                          text: prompt.text,
+                          text: prompt.label,
                           icon: _icon(prompt.source),
                           width: width,
                           onTap: () => onPick(prompt),
