@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
+import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/share/share_controller.dart';

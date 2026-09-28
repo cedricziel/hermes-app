@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
-import '../mock_chat_data.dart';
+import '../starter_prompts.dart';
 
 /// Empty-thread state — a centered greeting plus a grid of starter prompts,
 /// the same shape as assistant-ui's default `<ThreadWelcome />`.
@@ -9,11 +9,13 @@ class WelcomeView extends StatelessWidget {
   const WelcomeView({
     super.key,
     required this.greetingName,
+    required this.prompts,
     required this.onPick,
   });
 
   final String? greetingName;
-  final ValueChanged<String> onPick;
+  final List<StarterPrompt> prompts;
+  final ValueChanged<StarterPrompt> onPick;
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +73,10 @@ class WelcomeView extends StatelessWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: [
-                      for (final prompt in kStarterPrompts)
+                      for (final prompt in prompts)
                         _SuggestionCard(
-                          text: prompt,
+                          text: prompt.text,
+                          icon: _icon(prompt.source),
                           width: width,
                           onTap: () => onPick(prompt),
                         ),
@@ -91,14 +94,24 @@ class WelcomeView extends StatelessWidget {
 
 const double _cardWidth = 290;
 
+IconData _icon(StarterSource source) => switch (source) {
+  StarterSource.generic => Icons.lightbulb_outline,
+  StarterSource.schedule => Icons.schedule,
+  StarterSource.kanban => Icons.view_kanban_outlined,
+  StarterSource.chat => Icons.chat_bubble_outline,
+  StarterSource.skill => Icons.extension_outlined,
+};
+
 class _SuggestionCard extends StatelessWidget {
   const _SuggestionCard({
     required this.text,
+    required this.icon,
     required this.width,
     required this.onTap,
   });
 
   final String text;
+  final IconData icon;
   final double width;
   final VoidCallback onTap;
 
@@ -118,9 +131,18 @@ class _SuggestionCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(kHermesRadius),
               border: Border.all(color: scheme.outline),
             ),
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 13.5, color: scheme.onSurface),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 16, color: context.hermesColors.subtleText),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    text,
+                    style: TextStyle(fontSize: 13.5, color: scheme.onSurface),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

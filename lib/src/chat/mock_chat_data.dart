@@ -96,13 +96,6 @@ List<ChatThread> buildMockThreads() {
   ];
 }
 
-const List<String> kStarterPrompts = [
-  'What changed on the server in the last 24 hours?',
-  'Summarize open issues tagged "auth"',
-  'Draft a status update for the team',
-  'Explain what this agent can do',
-];
-
 /// A canned assistant reply for a [ChatScreen] without a transport. Real
 /// replies stream in through the `ChatTransport`.
 String buildMockReply(String userMessage) {
