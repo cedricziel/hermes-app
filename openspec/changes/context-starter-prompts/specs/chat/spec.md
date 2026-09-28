@@ -51,7 +51,7 @@ The system SHALL show four starter prompts in the welcome view. It SHALL build t
 
 When several items of a source qualify, the system SHALL pick the most recent one (by last run time for jobs, by the board's order for tasks). The system SHALL fill the remaining slots with generic prompts that make sense on any server, in a fixed order. Each prompt SHALL show an icon for its source.
 
-The system SHALL show the generic prompts immediately and SHALL replace them with the contextual prompts once, when every source has answered, failed or timed out. A source that fails, times out, or answers with rows it cannot parse SHALL be left out without showing an error. The context SHALL be loaded again when the active profile changes, and when the welcome view is shown and the last load is more than five minutes old.
+The system SHALL show the generic prompts immediately and SHALL replace them with the contextual prompts once, when every source has answered, failed or timed out. A source that fails, times out, or answers with rows it cannot parse SHALL be left out without showing an error. The context SHALL be loaded again when the active profile changes, and when the welcome view is shown again, by a change in the chat or by the app coming back to the front, and the last load is more than five minutes old.
 
 Tapping a generic prompt SHALL send it as a message. Tapping a job, Kanban or skill prompt SHALL put its text into the composer without sending it, replacing any text already there. Tapping a recent-chat prompt SHALL open that chat.
 

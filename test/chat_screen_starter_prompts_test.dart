@@ -106,6 +106,32 @@ void main() {
     expect(server.requests.where((r) => r.method != 'GET'), isEmpty);
   });
 
+  testWidgets('is read again on resume once it is stale', (tester) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      starterContext: StarterContextLoader(
+        HermesRepositories(server.client()),
+        maxAge: Duration.zero,
+      ),
+    );
+    expect(server.requestsTo('GET', '/api/cron/jobs'), hasLength(1));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('GET', '/api/cron/jobs'), hasLength(2));
+  });
+
+  testWidgets('is not read again on resume while fresh', (tester) async {
+    await pump(tester);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(server.requestsTo('GET', '/api/cron/jobs'), hasLength(1));
+  });
+
   testWidgets('is read again for another profile, dropping a late answer', (
     tester,
   ) async {

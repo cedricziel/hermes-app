@@ -265,6 +265,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     _chat.checkConnection();
+    if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
   @override
@@ -365,16 +366,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Reads the starter context again for another profile, or once it is five
-  /// minutes old. Called while the welcome view is shown.
+  /// Reads the starter context again for another profile, or once it is
+  /// older than the loader's max age. Called while the welcome view is shown,
+  /// on a controller change or when the app comes back.
   void _refreshStarter() {
     final loader = _starterLoader;
     if (loader == null) return;
     final profile = _chat.profile;
     final last = _starterRequest;
     final sameProfile = last != null && last.profile == profile;
-    if (sameProfile &&
-        DateTime.now().difference(last.at) < const Duration(minutes: 5)) {
+    if (sameProfile && DateTime.now().difference(last.at) < loader.maxAge) {
       return;
     }
     if (!sameProfile) _starter = null;

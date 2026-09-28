@@ -11,10 +11,14 @@ class StarterContextLoader {
   StarterContextLoader(
     this._repositories, {
     this.timeout = const Duration(seconds: 5),
+    this.maxAge = const Duration(minutes: 5),
   });
 
   final HermesRepositories _repositories;
   final Duration timeout;
+
+  /// How long a loaded context is used before the welcome view reads it again.
+  final Duration maxAge;
 
   Future<StarterContext> load(String? profile) async {
     final (failedJob, kanbanTask, skill) = await (
