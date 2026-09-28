@@ -72,6 +72,16 @@ void main() {
     );
   });
 
+  test('a long name is cut between characters, not inside an emoji', () {
+    final name = '${'x' * 58}🙂🙂 and more';
+    final prompts = buildStarterPrompts(StarterContext(failedJob: name));
+
+    expect(
+      prompts.first.text,
+      "Why did the scheduled job '${'x' * 58}🙂…' fail on its last run?",
+    );
+  });
+
   test('a long name is cut to 60 characters', () {
     final name = 'x' * 80;
     final prompts = buildStarterPrompts(StarterContext(failedJob: name));

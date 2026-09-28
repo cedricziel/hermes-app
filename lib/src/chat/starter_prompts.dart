@@ -1,3 +1,5 @@
+import 'package:characters/characters.dart';
+
 /// Where a starter prompt came from; it picks the card's icon.
 enum StarterSource { generic, schedule, kanban, chat, skill }
 
@@ -68,9 +70,12 @@ final List<StarterPrompt> kGenericStarterPrompts = List.unmodifiable(
 const int _maxNameLength = 60;
 const int _starterPromptCount = 4;
 
-String _cut(String name) => name.length <= _maxNameLength
-    ? name
-    : '${name.substring(0, _maxNameLength - 1)}…';
+String _cut(String name) {
+  final characters = name.characters;
+  return characters.length <= _maxNameLength
+      ? name
+      : '${characters.take(_maxNameLength - 1)}…';
+}
 
 /// The welcome view's prompts: one per source that has something, in a fixed
 /// order, then generic ones up to four.
