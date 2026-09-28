@@ -26,7 +26,7 @@ This work fits in two PRs of about 300 changed lines each. PR 1 (groups 1–2) c
 
 ## 5. Screenshots, skills and verification (PR 2)
 
-- [ ] 5.1 Give the fake server in `test/workflows/chat_workflow_test.dart` a failed job, a used skill and an earlier chat so the `welcome` screenshot shows contextual prompts; run the workflow and look at `build/workflow_screenshots/` on phone and desktop in both themes (workflow-screenshots skill)
-- [ ] 5.2 Check that the store `welcome` screenshot (`scripts/store-screenshots.sh`, dev backend with seeded chats) still looks deliberate now that the prompts depend on the backend's jobs, chats and skills; if the seeding has to change, record it in `.claude/skills/store-screenshots/SKILL.md`
-- [ ] 5.3 Update `CLAUDE.md`'s Chat section with one line on where starter prompts come from
+- [x] 5.1 Give the fake server in `test/workflows/chat_workflow_test.dart` a failed job, a used skill and an earlier chat so the `welcome` screenshot shows contextual prompts; run the workflow and look at `build/workflow_screenshots/` on phone and desktop in both themes (workflow-screenshots skill)
+- [x] 5.2 Check that the store `welcome` screenshot (`scripts/store-screenshots.sh`, dev backend with seeded chats) still looks deliberate now that the prompts depend on the backend's jobs, chats and skills; if the seeding has to change, record it in `.claude/skills/store-screenshots/SKILL.md`
+- [x] 5.3 Update `CLAUDE.md`'s Chat section with one line on where starter prompts come from
 - [ ] 5.4 Verify: `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test` pass, then run the verify-in-app loop against `scripts/dev-backend.sh` with a failing cron job and check the welcome view on macOS, including the prefill and open-chat taps

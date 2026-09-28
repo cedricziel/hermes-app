@@ -33,7 +33,7 @@ The shell's `ScheduleWatcher` and its Kanban flag are not reachable from `ChatSc
 **1. Three layers: model, pure builder, loader.**
 
 - `StarterPrompt { String text; StarterSource source; StarterAction action; String? threadId }`. `StarterSource` is `generic | schedule | kanban | chat | skill` and chooses the icon. `StarterAction` is `send | prefill | openThread`.
-- `StarterContext { CronJob? failedJob; KanbanTask? kanbanTask; ChatThread? recentThread; HermesSkill? topSkill }`.
+- `StarterContext { String? failedJob; StarterTask? kanbanTask; StarterChat? recentChat; String? skill }`, plain values so the builder and the widget catalog need no domain models.
 - `buildStarterPrompts(StarterContext) -> List<StarterPrompt>` (in `lib/src/chat/starter_prompts.dart`) applies the order, the wording and the generic fill. It always returns four prompts.
 - `StarterContextLoader` picks one item per source from the repository calls, with its own filtering (failed job with the latest `lastRunAt`, first blocked task else first review task, top-used enabled skill). The recent thread is picked in the builder's caller from `ChatController.threads`, because those are already in memory.
 
