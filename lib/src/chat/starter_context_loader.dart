@@ -15,7 +15,6 @@ class StarterContextLoader {
 
   final HermesRepositories _repositories;
   final Duration timeout;
-  final _timers = <Timer>{};
 
   Future<StarterContext> load(String? profile) async {
     final (failedJob, kanbanTask, skill) = await (
@@ -30,34 +29,8 @@ class StarterContextLoader {
     );
   }
 
-  /// Stops waiting on the loads in flight; they never complete.
-  void close() {
-    for (final timer in _timers) {
-      timer.cancel();
-    }
-    _timers.clear();
-  }
-
-  /// [source]'s value, or null once it fails or [timeout] passes. The timer
-  /// is kept so [close] can cancel it.
-  Future<T?> _settle<T>(Future<T?> source) {
-    final settled = Completer<T?>();
-    void finish(T? value) {
-      if (!settled.isCompleted) settled.complete(value);
-    }
-
-    late final Timer timer;
-    timer = Timer(timeout, () {
-      _timers.remove(timer);
-      finish(null);
-    });
-    _timers.add(timer);
-    source.then(finish, onError: (_) => finish(null)).whenComplete(() {
-      timer.cancel();
-      _timers.remove(timer);
-    });
-    return settled.future;
-  }
+  Future<T?> _settle<T>(Future<T?> source) =>
+      source.timeout(timeout).then<T?>((v) => v, onError: (_) => null);
 
   Future<String?> _failedJob(String? profile) async {
     final failed =

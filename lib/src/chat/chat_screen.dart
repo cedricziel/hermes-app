@@ -139,10 +139,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   StarterContextLoader? _starterLoader;
 
-  /// The starter context of [_starterProfile], null until it has loaded.
+  /// The starter context of the profile last asked for, null until it has
+  /// loaded.
   StarterContext? _starter;
-  String? _starterProfile;
-  DateTime? _starterRequested;
+  ({String? profile, DateTime at})? _starterRequest;
 
   @override
   void initState() {
@@ -197,8 +197,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _changed() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
+
+  bool get _showsWelcome => _chat.selectedThread?.messages.isEmpty ?? true;
 
   T? _maybeRead<T>() {
     try {
@@ -273,7 +277,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..removeListener(_changed)
       ..dispose();
     _ownedTransport?.close();
-    _starterLoader?.close();
     _composerController.dispose();
     _latestReplyId.dispose();
     super.dispose();
@@ -368,15 +371,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final loader = _starterLoader;
     if (loader == null) return;
     final profile = _chat.profile;
-    final requested = _starterRequested;
-    final sameProfile = requested != null && profile == _starterProfile;
+    final last = _starterRequest;
+    final sameProfile = last != null && last.profile == profile;
     if (sameProfile &&
-        DateTime.now().difference(requested) < const Duration(minutes: 5)) {
+        DateTime.now().difference(last.at) < const Duration(minutes: 5)) {
       return;
     }
     if (!sameProfile) _starter = null;
-    _starterProfile = profile;
-    _starterRequested = DateTime.now();
+    _starterRequest = (profile: profile, at: DateTime.now());
     loader.load(profile).then((context) {
       if (!mounted || _chat.profile != profile) return;
       setState(() => _starter = context);
@@ -386,17 +388,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   List<StarterPrompt> _starterPrompts() {
     final context = _starter;
     if (context == null) return kGenericStarterPrompts;
-    final recent =
-        _chat.threads
-            .where(
-              (t) =>
-                  t.remote &&
-                  t.id != _chat.selectedId &&
-                  t.title != kUntitledChat,
-            )
-            .toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final thread = recent.firstOrNull;
+    ChatThread? thread;
+    for (final t in _chat.threads) {
+      if (!t.remote || t.id == _chat.selectedId || t.title == kUntitledChat) {
+        continue;
+      }
+      if (thread == null || t.updatedAt.isAfter(thread.updatedAt)) thread = t;
+    }
     return buildStarterPrompts(
       StarterContext(
         failedJob: context.failedJob,
@@ -479,8 +477,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final isWide = constraints.maxWidth >= kWideLayoutBreakpoint;
         final selected = chat.selectedThread;
         final modelOptions = chat.modelOptions;
-        final welcome = selected == null || selected.messages.isEmpty;
-        if (welcome) _refreshStarter();
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
@@ -534,9 +530,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onRemoveAttachment: (file) =>
                       setState(() => _attachments.remove(file)),
                   onSend: _send,
-                  starterPrompts: welcome
-                      ? _starterPrompts()
-                      : kGenericStarterPrompts,
+                  starterPrompts: _showsWelcome ? _starterPrompts() : null,
                   onPickStarter: _pickStarter,
                   latestReplyId: _latestReplyId,
                   modelPill:
@@ -602,7 +596,7 @@ class _ThreadView extends StatelessWidget {
     required this.onAddAttachments,
     required this.onRemoveAttachment,
     required this.onSend,
-    required this.starterPrompts,
+    this.starterPrompts,
     required this.onPickStarter,
     required this.latestReplyId,
     this.modelPill,
@@ -626,7 +620,7 @@ class _ThreadView extends StatelessWidget {
   final ValueChanged<List<SharedFile>> onAddAttachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
-  final List<StarterPrompt> starterPrompts;
+  final List<StarterPrompt>? starterPrompts;
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
   final VoidCallback? onRetry;
