@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
-import 'package:flutter_chat_ui/flutter_chat_ui.dart' show ChatMessage;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart'
+    show ChatMessage, ComposerHeightNotifier;
+import 'package:provider/provider.dart';
 import 'package:flyer_chat_text_message/flyer_chat_text_message.dart';
 
 import '../../settings/report_bug_link.dart' show LinkOpener;
@@ -130,10 +132,13 @@ Builders buildChatBuilders({
           verticalGroupedPadding: kChatItemGap,
           child: child,
         ),
-    emptyChatListBuilder: (_) => WelcomeView(
+    emptyChatListBuilder: (context) => WelcomeView(
       greetingName: greetingName,
       prompts: starterPrompts ?? kGenericStarterPrompts,
       onPick: onPickPrompt,
+      bottomPadding:
+          context.watch<ComposerHeightNotifier>().height +
+          MediaQuery.paddingOf(context).bottom,
     ),
   );
 }
