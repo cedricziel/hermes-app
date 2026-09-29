@@ -11,11 +11,15 @@ class WelcomeView extends StatelessWidget {
     required this.greetingName,
     required this.prompts,
     required this.onPick,
+    this.bottomPadding = 0,
   });
 
   final String? greetingName;
   final List<StarterPrompt> prompts;
   final ValueChanged<StarterPrompt> onPick;
+
+  /// Height of whatever overlays the bottom of this view, the composer in chat.
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -24,67 +28,80 @@ class WelcomeView extends StatelessWidget {
         ? 'Where should we begin?'
         : 'Where should we begin, $greetingName?';
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: scheme.primary,
-                  borderRadius: BorderRadius.circular(10),
+    return LayoutBuilder(
+      builder: (context, viewport) => SingleChildScrollView(
+        padding: EdgeInsets.only(bottom: bottomPadding),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: (viewport.maxHeight - bottomPadding).clamp(
+              0,
+              double.infinity,
+            ),
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 640),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.auto_awesome,
+                        size: 20,
+                        color: scheme.onPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      greeting,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ask Hermes Agent about your server, your codebase, or '
+                      'anything it has tools for.',
+                      style: TextStyle(
+                        color: context.hermesColors.subtleText,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        // One column at the full width when two cards do not fit.
+                        final width = constraints.maxWidth < 2 * _cardWidth + 10
+                            ? constraints.maxWidth
+                            : _cardWidth;
+                        return Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            for (final prompt in prompts)
+                              _SuggestionCard(
+                                text: prompt.label,
+                                icon: _icon(prompt.source),
+                                width: width,
+                                onTap: () => onPick(prompt),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.auto_awesome,
-                  size: 20,
-                  color: scheme.onPrimary,
-                ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                greeting,
-                style: Theme.of(context).textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Ask Hermes Agent about your server, your codebase, or '
-                'anything it has tools for.',
-                style: TextStyle(
-                  color: context.hermesColors.subtleText,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  // One column at the full width when two cards do not fit.
-                  final width = constraints.maxWidth < 2 * _cardWidth + 10
-                      ? constraints.maxWidth
-                      : _cardWidth;
-                  return Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (final prompt in prompts)
-                        _SuggestionCard(
-                          text: prompt.label,
-                          icon: _icon(prompt.source),
-                          width: width,
-                          onTap: () => onPick(prompt),
-                        ),
-                    ],
-                  );
-                },
-              ),
-            ],
+            ),
           ),
         ),
       ),
