@@ -2,9 +2,9 @@ Companion for Hermes Agent is a client for a Hermes Agent dashboard, an open-sou
 
 To try the app, use our demo server:
 1. On the first screen, enter the server address: {{DEMO_SERVER_URL}}
-2. Choose "Username & Password" and sign in with the demo account above.
+2. Choose "Sign in with username & password". The sign-in page opens in an ASWebAuthenticationSession sheet inside the app; sign in there with the demo account above.
 3. You are now in the chat. Send any message and the agent replies. Replies come from a small self-hosted model and can take up to 30 seconds.
 
 The app sends diagnostics to a server run by the developer, as described in the privacy policy. Everything else stays between the app and the server the user enters.
 
-macOS entitlement com.apple.security.network.server: sign-in follows RFC 8252 (OAuth for native apps). When the user signs in, the app opens the system browser and starts a short-lived HTTP listener bound to 127.0.0.1 on a random port to receive the redirect with the authorization code. Without the entitlement the sandbox blocks that listener and sign-in fails. The listener closes as soon as sign-in finishes, is cancelled or times out. It is never reachable from other machines. All other connections are outgoing and covered by com.apple.security.network.client.
+macOS entitlement com.apple.security.network.server: sign-in follows RFC 8252 (OAuth for native apps). When the user signs in, the app shows the server's sign-in page in an ASWebAuthenticationSession sheet and starts a short-lived HTTP listener bound to 127.0.0.1 on a random port to receive the redirect with the authorization code (the Hermes server only accepts loopback redirects). Without the entitlement the sandbox blocks that listener and sign-in fails. The listener closes as soon as sign-in finishes, is cancelled or times out. It is never reachable from other machines. All other connections are outgoing and covered by com.apple.security.network.client.
