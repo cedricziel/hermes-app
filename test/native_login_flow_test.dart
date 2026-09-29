@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/auth/native_login_flow.dart';
+import 'package:hermes_app/src/auth/sign_in_browser.dart';
 
 class _TokenAdapter implements HttpClientAdapter {
   /// When set, the token response waits for it; [requested] fires first.
@@ -42,7 +43,37 @@ class _TokenAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-Future<void> _hitCallback(Uri authorizeUrl, {String? state}) async {
+/// Plays the browser's part: [onOpen] stands in for showing the page.
+class _FakeBrowser implements SignInBrowser {
+  _FakeBrowser({
+    required this.onOpen,
+    required this.onClose,
+    this.finishedRedirect,
+  });
+
+  final Future<bool> Function(Uri url) onOpen;
+  final Future<void> Function() onClose;
+
+  /// What the flow asked to be told when the user closes the browser.
+  void Function()? dismiss;
+
+  @override
+  final Uri? finishedRedirect;
+
+  @override
+  Future<bool> open(Uri url, {required void Function() onDismissed}) {
+    dismiss = onDismissed;
+    return onOpen(url);
+  }
+
+  @override
+  Future<void> close() => onClose();
+}
+
+Future<HttpClientResponse> _hitCallback(
+  Uri authorizeUrl, {
+  String? state,
+}) async {
   final redirect = Uri.parse(authorizeUrl.queryParameters['redirect_uri']!);
   final callback = redirect.replace(
     queryParameters: {
@@ -52,9 +83,11 @@ Future<void> _hitCallback(Uri authorizeUrl, {String? state}) async {
   );
   final client = HttpClient();
   final request = await client.getUrl(callback);
+  request.followRedirects = false;
   final response = await request.close();
   await response.drain<void>();
   client.close();
+  return response;
 }
 
 void main() {
@@ -68,12 +101,14 @@ void main() {
       provider: 'oidc',
       httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
         ..httpClientAdapter = adapter,
-      launchBrowser: (url) async {
-        launched = url;
-        unawaited(_hitCallback(url));
-        return true;
-      },
-      closeBrowser: () async => closed++,
+      browser: _FakeBrowser(
+        onOpen: (url) async {
+          launched = url;
+          unawaited(_hitCallback(url));
+          return true;
+        },
+        onClose: () async => closed++,
+      ),
     );
 
     expect(launched!.path, '/auth/native/authorize');
@@ -103,11 +138,13 @@ void main() {
         runNativeLogin(
           'http://hermes.test:9119',
           httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
-          launchBrowser: (url) async {
-            unawaited(_hitCallback(url, state: 'forged'));
-            return true;
-          },
-          closeBrowser: () async => closed++,
+          browser: _FakeBrowser(
+            onOpen: (url) async {
+              unawaited(_hitCallback(url, state: 'forged'));
+              return true;
+            },
+            onClose: () async => closed++,
+          ),
         ),
         throwsA(
           isA<NativeLoginException>().having(
@@ -127,8 +164,10 @@ void main() {
       await expectLater(
         runNativeLogin(
           'http://hermes.test:9119',
-          launchBrowser: (_) async => false,
-          closeBrowser: () async {},
+          browser: _FakeBrowser(
+            onOpen: (_) async => false,
+            onClose: () async {},
+          ),
         ),
         throwsA(
           isA<NativeLoginException>().having(
@@ -147,11 +186,13 @@ void main() {
 
     final login = runNativeLogin(
       'http://hermes.test:9119',
-      launchBrowser: (_) async {
-        scheduleMicrotask(cancel.complete);
-        return true;
-      },
-      closeBrowser: () async => closed++,
+      browser: _FakeBrowser(
+        onOpen: (_) async {
+          scheduleMicrotask(cancel.complete);
+          return true;
+        },
+        onClose: () async => closed++,
+      ),
       cancelled: cancel.future,
     );
 
@@ -166,11 +207,13 @@ void main() {
         runNativeLogin(
           'http://hermes.test:9119',
           httpClient: Dio()..httpClientAdapter = _TokenAdapter(),
-          launchBrowser: (url) async {
-            unawaited(_hitCallback(url, state: 'forged'));
-            return true;
-          },
-          closeBrowser: () async => throw StateError('no web view is open'),
+          browser: _FakeBrowser(
+            onOpen: (url) async {
+              unawaited(_hitCallback(url, state: 'forged'));
+              return true;
+            },
+            onClose: () async => throw StateError('no web view is open'),
+          ),
         ),
         throwsA(isA<NativeLoginException>()),
       );
@@ -185,11 +228,13 @@ void main() {
       'http://hermes.test:9119',
       httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
         ..httpClientAdapter = adapter,
-      launchBrowser: (url) async {
-        unawaited(_hitCallback(url));
-        return true;
-      },
-      closeBrowser: () async {},
+      browser: _FakeBrowser(
+        onOpen: (url) async {
+          unawaited(_hitCallback(url));
+          return true;
+        },
+        onClose: () async {},
+      ),
       cancelled: cancel.future,
     );
     await adapter.requested.future;
@@ -208,14 +253,85 @@ void main() {
         'http://hermes.test:9119',
         httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
           ..httpClientAdapter = _TokenAdapter(),
-        launchBrowser: (url) async {
-          await _hitCallback(url);
-          return true;
-        },
-        closeBrowser: () async {},
+        browser: _FakeBrowser(
+          onOpen: (url) async {
+            await _hitCallback(url);
+            return true;
+          },
+          onClose: () async {},
+        ),
       ).timeout(const Duration(seconds: 5));
 
       expect(session.accessToken, 'at');
     },
   );
+
+  test(
+    'redirects the browser to the finished address once it has the code',
+    () async {
+      HttpClientResponse? answer;
+      final session = await runNativeLogin(
+        'http://hermes.test:9119',
+        httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+          ..httpClientAdapter = _TokenAdapter(),
+        browser: _FakeBrowser(
+          onOpen: (url) async {
+            unawaited(_hitCallback(url).then((r) => answer = r));
+            return true;
+          },
+          onClose: () async {},
+          finishedRedirect: Uri.parse('hermes-app-signin://signed-in'),
+        ),
+      );
+
+      expect(session.accessToken, 'at');
+      expect(answer!.statusCode, HttpStatus.found);
+      expect(
+        answer!.headers.value(HttpHeaders.locationHeader),
+        'hermes-app-signin://signed-in',
+      );
+    },
+  );
+
+  test('stops waiting when the user closes the browser', () async {
+    var closed = 0;
+    late _FakeBrowser browser;
+    browser = _FakeBrowser(
+      onOpen: (_) async {
+        scheduleMicrotask(() => browser.dismiss!());
+        return true;
+      },
+      onClose: () async => closed++,
+    );
+
+    await expectLater(
+      runNativeLogin('http://hermes.test:9119', browser: browser),
+      throwsA(isA<NativeLoginCancelled>()),
+    );
+    expect(closed, 1);
+  });
+
+  test('a browser closing after the redirect keeps the sign-in', () async {
+    final adapter = _TokenAdapter()..gate = Completer<void>();
+    late _FakeBrowser browser;
+    browser = _FakeBrowser(
+      onOpen: (url) async {
+        unawaited(_hitCallback(url));
+        return true;
+      },
+      onClose: () async {},
+    );
+
+    final login = runNativeLogin(
+      'http://hermes.test:9119',
+      httpClient: Dio(BaseOptions(baseUrl: 'http://hermes.test:9119'))
+        ..httpClientAdapter = adapter,
+      browser: browser,
+    );
+    await adapter.requested.future;
+    browser.dismiss!();
+    adapter.gate!.complete();
+
+    expect((await login).accessToken, 'at');
+  });
 }

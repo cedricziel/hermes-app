@@ -28,7 +28,7 @@ enum HermesConnectionState {
   /// The dashboard's auth gate is engaged and no valid session was found.
   needsLogin,
 
-  /// The RFC 8252 native login flow (system browser) is in progress.
+  /// The RFC 8252 native login flow (browser sign-in) is in progress.
   signingIn,
 
   /// Either the gate isn't engaged (loopback dev mode) or a valid session

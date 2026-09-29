@@ -2,10 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/hermes_session.dart';
 import 'pkce.dart';
+import 'sign_in_browser.dart';
 
 /// The fixed set of reasons a login or refresh can fail.
 enum NativeLoginFailure {
@@ -61,28 +61,11 @@ typedef NativeLogin = Future<HermesSession> Function(
 
 const _loginTimeout = Duration(minutes: 5);
 
-typedef BrowserLauncher = Future<bool> Function(Uri url);
-typedef BrowserCloser = Future<void> Function();
-
-// iOS suspends the app as soon as Safari takes the foreground, which freezes
-// the loopback listener before the IdP redirects back to it. An in-app
-// SFSafariViewController keeps the app active so the listener stays alive.
-Future<bool> _defaultLaunchBrowser(Uri url) => launchUrl(
-  url,
-  mode: Platform.isIOS
-      ? LaunchMode.inAppBrowserView
-      : LaunchMode.externalApplication,
-);
-
-Future<void> _defaultCloseBrowser() async {
-  if (Platform.isIOS) await closeInAppWebView();
-}
-
-// Closing the sheet is cleanup. It throws when the user already dismissed it,
-// and that must not replace the flow's own outcome.
-Future<void> _closeQuietly(BrowserCloser close) async {
+// Closing the browser is cleanup. It throws when the user already dismissed
+// it, and that must not replace the flow's own outcome.
+Future<void> _closeQuietly(SignInBrowser browser) async {
   try {
-    await close();
+    await browser.close();
   } on Object {
     // Nothing left to close.
   }
@@ -99,13 +82,13 @@ const _doneHtml = '''
 ''';
 
 /// Runs a full RFC 8252 (OAuth 2.0 for Native Apps) login against a Hermes
-/// dashboard: opens the system browser at `/auth/native/authorize` with a
+/// dashboard: opens [browser] at `/auth/native/authorize` with a
 /// fresh PKCE challenge and a loopback `redirect_uri`, waits for the
 /// authorization redirect on a local HTTP listener, then redeems the code at
 /// `/auth/native/token`. Works identically for every registered provider —
 /// OIDC providers redirect through their IdP, and the bundled
 /// username/password provider instead renders Hermes's own `/login` form in
-/// the system browser (so the OS password manager can autofill it), but
+/// the browser (so the OS password manager can autofill it), but
 /// either way this app only ever sees the final bearer token set.
 ///
 /// [baseUrl] is the dashboard's base URL (e.g. `http://192.168.1.20:9119`).
@@ -113,22 +96,22 @@ const _doneHtml = '''
 /// to let the gateway auto-select when exactly one is eligible.
 ///
 /// Completing [cancelled] abandons the flow with [NativeLoginCancelled] and
-/// releases the listener. The browser sheet gives no signal when the user
-/// dismisses it, so this is the only way out short of the timeout.
+/// releases the listener. So does the user closing a browser that reports it
+/// (see [SignInBrowser.open]).
 ///
 /// [httpClient], when given, must already point at [baseUrl]; the token
 /// exchange uses relative paths so request telemetry can record the route.
 ///
-/// [launchBrowser] and [closeBrowser] default to `url_launcher`; tests
-/// override them to play the browser's part.
+/// [browser] defaults to [SignInBrowser.platform]; tests pass their own to
+/// play the browser's part.
 Future<HermesSession> runNativeLogin(
   String baseUrl, {
   String? provider,
   Dio? httpClient,
-  BrowserLauncher launchBrowser = _defaultLaunchBrowser,
-  BrowserCloser closeBrowser = _defaultCloseBrowser,
+  SignInBrowser? browser,
   Future<void>? cancelled,
 }) async {
+  final signInBrowser = browser ?? SignInBrowser.platform();
   final dio = httpClient ?? Dio(BaseOptions(baseUrl: baseUrl));
   final pkce = PkcePair.generate();
   final state = generatePkceState();
@@ -144,12 +127,14 @@ Future<HermesSession> runNativeLogin(
   }
 
   var wasCancelled = false;
-  unawaited(
-    cancelled?.then((_) {
-      wasCancelled = true;
-      return server.close(force: true);
-    }),
-  );
+  var reachedListener = false;
+  void cancel() {
+    if (wasCancelled) return;
+    wasCancelled = true;
+    unawaited(server.close(force: true));
+  }
+
+  unawaited(cancelled?.then((_) => cancel()));
 
   try {
     final redirectUri = 'http://127.0.0.1:${server.port}/callback';
@@ -161,17 +146,27 @@ Future<HermesSession> runNativeLogin(
       provider: provider,
     );
 
-    // Listen before the browser opens. On iOS the launch call only returns once
-    // the sheet has finished loading, and when the IdP already has a session
-    // that load is the redirect to this listener, so it cannot finish until
-    // something answers it.
-    final callback = _awaitCallback(server, expectedState: state);
+    // Listen before the browser opens. When the IdP already has a session the
+    // first page load is the redirect to this listener, and a browser that
+    // only reports being open once that load finishes waits for an answer.
+    final callback = _awaitCallback(
+      server,
+      expectedState: state,
+      finishedRedirect: signInBrowser.finishedRedirect,
+    ).whenComplete(() => reachedListener = true);
     callback.ignore();
 
-    final launched = await launchBrowser(Uri.parse(authorizeUrl));
+    final launched = await signInBrowser.open(
+      Uri.parse(authorizeUrl),
+      // The sheet ends on its own once the listener has redirected it.
+      onDismissed: () {
+        if (!reachedListener) cancel();
+      },
+    );
+    if (wasCancelled) throw const NativeLoginCancelled();
     if (!launched) {
       throw NativeLoginException(
-        'Could not open the system browser for sign-in.',
+        'Could not open the browser for sign-in.',
         reason: NativeLoginFailure.browserLaunch,
       );
     }
@@ -211,7 +206,7 @@ Future<HermesSession> runNativeLogin(
     );
   } finally {
     unawaited(server.close(force: true));
-    await _closeQuietly(closeBrowser);
+    await _closeQuietly(signInBrowser);
   }
 }
 
@@ -250,19 +245,26 @@ Future<HermesSession> refreshNativeSession(
 Future<String> _awaitCallback(
   HttpServer server, {
   required String expectedState,
+  Uri? finishedRedirect,
 }) async {
   await for (final request in server) {
     final params = request.uri.queryParameters;
-    request.response
-      ..statusCode = 200
-      ..headers.contentType = ContentType.html
-      ..write(_doneHtml);
+    // Stray requests (favicon probes, etc.) carry neither.
+    final isCallback =
+        params.containsKey('code') || params.containsKey('error');
+    if (isCallback && finishedRedirect != null) {
+      request.response
+        ..statusCode = HttpStatus.found
+        ..headers.set(HttpHeaders.locationHeader, finishedRedirect.toString());
+    } else {
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.html
+        ..write(_doneHtml);
+    }
     await request.response.close();
 
-    // Ignore stray requests (favicon probes, etc.) that carry neither.
-    if (!params.containsKey('code') && !params.containsKey('error')) {
-      continue;
-    }
+    if (!isCallback) continue;
 
     final error = params['error'];
     if (error != null) {

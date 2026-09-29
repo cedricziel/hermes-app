@@ -216,9 +216,9 @@ The login screen SHALL show the server address and one button per provider from 
 - **WHEN** the advertised flows list is empty
 - **THEN** the providers are still offered
 
-### Requirement: Native sign-in uses the system browser, a loopback listener and PKCE
+### Requirement: Native sign-in uses a browser, a loopback listener and PKCE
 
-Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. The system SHALL generate a fresh PKCE verifier (32 random bytes, base64url without padding), an S256 challenge and a random state value, and SHALL bind an HTTP listener on `127.0.0.1` on an OS-assigned port. It SHALL open the system browser at `/auth/native/authorize` with the query parameters `code_challenge`, `code_challenge_method=S256`, `redirect_uri=http://127.0.0.1:<port>/callback`, `state`, and `provider` when a provider name is known. The listener SHALL be running before the browser opens. When the callback carries an authorization code and the same state, the system SHALL redeem it with `POST /auth/native/token` carrying `code` and `code_verifier`, and SHALL read the bearer token set from the answer. Whatever the outcome, the listener SHALL be closed and any in-app browser sheet SHALL be closed. On iOS the browser SHALL be an in-app browser view so the listener stays active; on other platforms it SHALL be the external browser.
+Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. The system SHALL generate a fresh PKCE verifier (32 random bytes, base64url without padding), an S256 challenge and a random state value, and SHALL bind an HTTP listener on `127.0.0.1` on an OS-assigned port. It SHALL open the sign-in browser at `/auth/native/authorize` with the query parameters `code_challenge`, `code_challenge_method=S256`, `redirect_uri=http://127.0.0.1:<port>/callback`, `state`, and `provider` when a provider name is known. The listener SHALL be running before the browser opens. When the callback carries an authorization code and the same state, the system SHALL redeem it with `POST /auth/native/token` carrying `code` and `code_verifier`, and SHALL read the bearer token set from the answer. Whatever the outcome, the listener SHALL be closed and any in-app browser sheet SHALL be closed. On iOS and macOS the browser SHALL be an `ASWebAuthenticationSession` sheet, as App Review requires for signing in on the web, which also keeps the app and its listener active; on other platforms it SHALL be the external browser.
 
 #### Scenario: Successful sign-in
 
@@ -229,8 +229,19 @@ Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. 
 
 #### Scenario: The page shown after the redirect
 
-- **WHEN** the loopback listener receives any request
+- **WHEN** the loopback listener receives any request on a platform that uses the external browser
 - **THEN** it answers 200 with a small page telling the user they can close the tab, containing no tokens
+
+#### Scenario: The sheet closes itself after the redirect
+
+- **WHEN** the loopback listener receives the callback on iOS or macOS
+- **THEN** it answers with a redirect to `hermes-app-signin://signed-in`, the session's callback scheme, which ends the sheet
+
+#### Scenario: User closes the sign-in sheet
+
+- **WHEN** the user closes the `ASWebAuthenticationSession` sheet before the callback reached the listener
+- **THEN** the sign-in is cancelled as if the user had pressed Cancel
+- **AND** a sheet ending after the callback arrived does not cancel it
 
 #### Scenario: Stray requests are ignored
 
@@ -256,8 +267,8 @@ Every provider, OIDC or password, SHALL sign in through the same RFC 8252 flow. 
 
 #### Scenario: Browser cannot be opened
 
-- **WHEN** the system browser cannot be launched
-- **THEN** the sign-in fails with "Could not open the system browser for sign-in."
+- **WHEN** the browser cannot be opened
+- **THEN** the sign-in fails with "Could not open the browser for sign-in."
 
 #### Scenario: Redirect arrives before the launch call returns
 

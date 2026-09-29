@@ -5,6 +5,7 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var watchRelay: WatchRelay?
+  private var webAuth: WebAuthSession?
 
   override func application(
     _ application: UIApplication,
@@ -18,5 +19,6 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
+    webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
   }
 }

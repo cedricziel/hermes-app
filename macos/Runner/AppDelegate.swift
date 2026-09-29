@@ -4,6 +4,7 @@ import FlutterMacOS
 @main
 class AppDelegate: FlutterAppDelegate {
     private var shareChannel: FlutterMethodChannel?
+    private var webAuth: WebAuthSession?
 
     override func applicationDidFinishLaunching(_ notification: Notification) {
         if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
@@ -18,6 +19,7 @@ class AppDelegate: FlutterAppDelegate {
                 }
             }
             shareChannel = channel
+            webAuth = WebAuthSession(messenger: controller.engine.binaryMessenger)
         }
         super.applicationDidFinishLaunching(notification)
     }

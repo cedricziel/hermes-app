@@ -7,10 +7,11 @@ import '../settings/report_bug_link.dart';
 
 /// Sign-in screen. Every registered provider — OIDC/OAuth or the bundled
 /// username/password provider alike — signs in through the same RFC 8252
-/// native flow: tapping a provider opens the system browser (so an OIDC
-/// provider can run its normal login, and so the OS password manager can
-/// autofill Hermes's own credential form), and this app only ever receives
-/// the resulting bearer token set back via the loopback redirect.
+/// native flow: tapping a provider opens a browser (a sign-in sheet on iOS and
+/// macOS; see `SignInBrowser`) so an OIDC provider can run its normal login and
+/// the OS password manager can autofill Hermes's own credential form, and this
+/// app only ever receives the resulting bearer token set back via the loopback
+/// redirect.
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
