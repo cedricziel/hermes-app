@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.39](https://github.com/cedricziel/hermes-app/compare/v0.1.38...v0.1.39) (2026-09-29)
+
+
+### Features
+
+* **chat:** show starter prompts with a source icon ([#324](https://github.com/cedricziel/hermes-app/issues/324)) ([baca99b](https://github.com/cedricziel/hermes-app/commit/baca99b7d46cb6ef410fcf54397ca5881dfeebf2))
+* **chat:** suggest starter prompts from the user's context ([#325](https://github.com/cedricziel/hermes-app/issues/325)) ([4a281af](https://github.com/cedricziel/hermes-app/commit/4a281af25f499453c86da8c84693e221fe886a06))
+
+
+### Bug Fixes
+
+* **chat:** let the empty chat's greeting scroll above the composer ([#323](https://github.com/cedricziel/hermes-app/issues/323)) ([78deca2](https://github.com/cedricziel/hermes-app/commit/78deca25337cfd9c7896d38a8763f8838bd52640))
+
+
+### Documentation
+
+* **openspec:** archive context-based starter prompts ([#327](https://github.com/cedricziel/hermes-app/issues/327)) ([7e2aa57](https://github.com/cedricziel/hermes-app/commit/7e2aa57ae0248a49e87cbd114e8dbe83ad3d0c37))
+* **skills:** drive the macOS app through its accessibility tree ([#321](https://github.com/cedricziel/hermes-app/issues/321)) ([8b1bac9](https://github.com/cedricziel/hermes-app/commit/8b1bac95a5347e2a17cf589f4ae1890ef27a268a))
+
 ## [0.1.38](https://github.com/cedricziel/hermes-app/compare/v0.1.37...v0.1.38) (2026-09-26)
 
 
