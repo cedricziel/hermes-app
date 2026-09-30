@@ -228,10 +228,7 @@ void main() {
         final reply = _placeholder();
         applyReplyEvent(reply, const ReplyDelta('Hey there.'));
 
-        applyReplyEvent(
-          reply,
-          const ReplyCheckpoint('Hey there.', alreadyStreamed: true),
-        );
+        applyReplyEvent(reply, const ReplyCheckpoint('Hey there.'));
 
         expect(reply.sealedProse.single.text, 'Hey there.');
         expect(reply.content, isEmpty);
@@ -241,18 +238,35 @@ void main() {
     test('text that never streamed is sealed from the checkpoint itself', () {
       final reply = _placeholder();
 
-      applyReplyEvent(
-        reply,
-        const ReplyCheckpoint('A quick aside.', alreadyStreamed: false),
-      );
+      applyReplyEvent(reply, const ReplyCheckpoint('A quick aside.'));
 
       expect(reply.sealedProse.single.text, 'A quick aside.');
+    });
+
+    test('a checkpoint longer than what streamed seals all of it', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Hey'));
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Hey there.'));
+
+      expect(reply.sealedProse.single.text, 'Hey there.');
+      expect(reply.content, isEmpty);
+    });
+
+    test('a checkpoint replaces streamed text it does not match', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('<think>hm</think>Hey there.'));
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Hey there.'));
+
+      expect(reply.sealedProse.single.text, 'Hey there.');
+      expect(reply.content, isEmpty);
     });
 
     test('an empty checkpoint seals nothing', () {
       final reply = _placeholder();
 
-      applyReplyEvent(reply, const ReplyCheckpoint('', alreadyStreamed: true));
+      applyReplyEvent(reply, const ReplyCheckpoint(''));
 
       expect(reply.sealedProse, isEmpty);
     });

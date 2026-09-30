@@ -15,9 +15,10 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReplyDelta(:final text):
       reply.content += text;
       reply.status = MessageStatus.streaming;
-    case ReplyCheckpoint(:final text, :final alreadyStreamed):
-      _seal(reply, alreadyStreamed ? reply.content : text);
-      if (alreadyStreamed) reply.content = '';
+    case ReplyCheckpoint(:final text):
+      if (text.isEmpty) return;
+      _seal(reply, text);
+      reply.content = '';
     case ReasoningUpdated(:final text, :final replace):
       reply.reasoning = replace ? text : reply.reasoning + text;
     case ToolStarted(:final name, :final summary):

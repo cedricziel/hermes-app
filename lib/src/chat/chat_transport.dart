@@ -41,14 +41,13 @@ final class ReasoningUpdated extends ChatEvent {
 }
 
 /// A checkpoint Hermes reached before its answer is done: text it wrote
-/// beside a tool call, or before continuing on. [alreadyStreamed] is true
-/// when [text] already arrived as [ReplyDelta] chunks (seal what streamed);
-/// false when it arrives only here (nothing else will deliver it).
+/// beside a tool call, or before continuing on. [text] is the final form of
+/// that segment and replaces whatever streamed for it, which may be only a
+/// prefix of it or hold markup Hermes strips.
 final class ReplyCheckpoint extends ChatEvent {
-  const ReplyCheckpoint(this.text, {required this.alreadyStreamed});
+  const ReplyCheckpoint(this.text);
 
   final String text;
-  final bool alreadyStreamed;
 }
 
 final class ToolStarted extends ChatEvent {
