@@ -648,7 +648,7 @@ class HermesGatewayTransport implements ChatTransport {
 
   ChatEvent? _toChatEvent(GatewayEvent event) {
     final payload = event.payload;
-    String text(String key) => payload[key] as String? ?? '';
+    String text(String key) => _plainText(payload[key]);
     return switch (event.type) {
       'message.start' => const ReplyStarted(),
       'message.delta' => ReplyDelta(text('text')),
@@ -686,6 +686,22 @@ class HermesGatewayTransport implements ChatTransport {
       _ => null,
     };
   }
+
+  /// Hermes may send text as content parts rather than a string.
+  static String _plainText(Object? value) => switch (value) {
+    null => '',
+    String() => value,
+    List() => value.map(_partText).join(),
+    Map() => _partText(value),
+    _ => '$value',
+  };
+
+  static String _partText(Object? part) => switch (part) {
+    String() => part,
+    {'text': final String text} => text,
+    {'output_text': final String text} => text,
+    _ => '',
+  };
 
   ChatEvent? _fromServerRequest(GatewayServerRequest request) {
     return switch (request.method) {
