@@ -579,21 +579,26 @@ void main() {
 
     final events = await reply();
 
-    final checkpoint = events.whereType<ReplyCheckpoint>().single;
-    expect(checkpoint.text, 'Hey!');
-    expect(checkpoint.alreadyStreamed, isTrue);
+    expect(events.whereType<ReplyCheckpoint>().single.text, 'Hey!');
   });
 
-  test('an interim event missing the flag counts as not streamed', () async {
+  test('a final text sent as content parts is joined', () async {
     gateway.turn = (g, sid) {
       g.event('message.start', sid);
-      g.event('message.interim', sid, {'text': 'Aside.'});
-      g.event('message.complete', sid, {'text': '', 'status': 'complete'});
+      g.event('message.complete', sid, {
+        'text': [
+          {'type': 'text', 'text': 'Hel'},
+          {'type': 'output_text', 'output_text': 'lo'},
+          '!',
+          {'type': 'image_url'},
+        ],
+        'status': 'complete',
+      });
     };
 
     final events = await reply();
 
-    expect(events.whereType<ReplyCheckpoint>().single.alreadyStreamed, isFalse);
+    expect(events.whereType<ReplyCompleted>().single.text, 'Hello!');
   });
 
   test('a tool result carrying an error is a failed tool', () async {
