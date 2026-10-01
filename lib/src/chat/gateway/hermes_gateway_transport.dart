@@ -654,7 +654,7 @@ class HermesGatewayTransport implements ChatTransport {
       'message.delta' => ReplyDelta(text('text')),
       'message.interim' => ReplyCheckpoint(text('text')),
       'reasoning.delta' => ReasoningUpdated(text('text')),
-      'reasoning.available' => ReasoningUpdated(text('text'), replace: true),
+      'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
       'tool.start' => ToolStarted(name: text('name'), summary: text('context')),
       'tool.complete' => ToolFinished(
         name: text('name'),

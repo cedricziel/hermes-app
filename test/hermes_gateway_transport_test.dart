@@ -559,7 +559,7 @@ void main() {
     final events = await reply();
 
     final updates = events.whereType<ReasoningUpdated>().toList();
-    expect(updates.map((e) => (e.text, e.replace)), [
+    expect(updates.map((e) => (e.text, e.fallback)), [
       ('Hmm, ', false),
       ('ok.', false),
       ('Hmm, ok.', true),

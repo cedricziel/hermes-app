@@ -160,7 +160,12 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 
 ### Requirement: Rendering of messages
 
-The system SHALL render a message as its tool call cards, each after the reasoning that led to it, then the reasoning that followed the last call, then agent input request cards, then the text, then a thinking indicator, and SHALL render message text as markdown.
+The system SHALL render a message as its tool call cards, each after the reasoning that led to it, with each agent input request card right after the tool call that was running when it arrived, then the reasoning that followed the last call, then the text, then a thinking indicator, and SHALL render message text as markdown.
+
+#### Scenario: What follows an input request renders below it
+
+- **WHEN** a reply reasons, writes text or starts tool calls after an input request arrived
+- **THEN** those render below the request's card, and the request's card stays below the tool call that asked it
 
 #### Scenario: Thinking indicator
 
@@ -835,8 +840,8 @@ The system SHALL show the model's reasoning, when there is any, as blocks in the
 
 - **WHEN** the gateway sends `reasoning.delta` events for the running turn
 - **THEN** their `text` is appended to the reasoning after the last tool call, or before the first when there is none, in order
-- **AND WHEN** it sends `reasoning.available`
-- **THEN** its `text` replaces that reasoning
+- **AND WHEN** it sends `reasoning.available`, a preview of the reply text sent after the model answered
+- **THEN** its `text` is shown as that reasoning only when no reasoning and no reply text streamed since the last tool call, and never replaces reasoning that streamed
 
 #### Scenario: A tool call ends a block of reasoning
 
