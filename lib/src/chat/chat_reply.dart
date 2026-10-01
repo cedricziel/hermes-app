@@ -25,28 +25,60 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       if (reply.reasoning.isEmpty && !_wroteSinceLastToolCall(reply)) {
         reply.reasoning = text;
       }
-    case ToolStarted(:final name, :final summary):
+    case ToolPreparing(:final name):
       _seal(reply, reply.content);
       reply.content = '';
       reply.toolCalls = [
         ...reply.toolCalls,
         ToolCall(
           name: name,
-          summary: summary,
+          summary: '',
           status: ToolCallStatus.running,
           reasoning: reply.reasoning,
+          preparing: true,
         ),
       ];
       reply.reasoning = '';
-    case ToolFinished(:final name, :final failed, :final result):
-      _settleTool(
-        reply,
-        name,
-        failed ? ToolCallStatus.error : ToolCallStatus.completed,
-        result,
+    case ToolStarted(:final id, :final name, :final summary, :final args):
+      _seal(reply, reply.content);
+      reply.content = '';
+      final prepared = reply.toolCalls.indexWhere(
+        (c) => c.preparing && c.name == name,
       );
+      if (prepared >= 0) {
+        final call = reply.toolCalls[prepared];
+        reply.toolCalls = [...reply.toolCalls]
+          ..[prepared] = call.copyWith(
+            id: id,
+            summary: summary,
+            args: args,
+            reasoning: call.reasoning + reply.reasoning,
+            preparing: false,
+            startedAt: DateTime.now(),
+          );
+      } else {
+        reply.toolCalls = [
+          ...reply.toolCalls,
+          ToolCall(
+            id: id,
+            name: name,
+            summary: summary,
+            args: args,
+            status: ToolCallStatus.running,
+            reasoning: reply.reasoning,
+            startedAt: DateTime.now(),
+          ),
+        ];
+      }
+      reply.reasoning = '';
+    case ToolFinished():
+      _settleTool(reply, event);
     case ApprovalRequested(:final request):
-      _addInputRequest(reply, request);
+      final call = _callAwaiting(reply, request);
+      _addInputRequest(
+        reply,
+        call == null ? request : request.forToolCall(call),
+      );
     case ClarifyRequested(:final request):
       _addInputRequest(reply, request);
     case UnsupportedRequested(:final request):
@@ -64,7 +96,10 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         reply.content = kReplyStoppedMessage;
       }
       reply.status = MessageStatus.sent;
-      _settleRunningTools(reply, ToolCallStatus.completed);
+      _settleRunningTools(
+        reply,
+        stopped ? ToolCallStatus.cancelled : ToolCallStatus.completed,
+      );
       expireInputRequests(reply);
     case ReplyStarted() || ThreadBound() || ThreadTitled():
       break;
@@ -119,25 +154,61 @@ void _markFailed(ChatMessage reply, String error) {
   expireInputRequests(reply);
 }
 
-void _settleTool(
-  ChatMessage reply,
-  String name,
-  ToolCallStatus status,
-  String result,
-) {
-  final i = reply.toolCalls.indexWhere(
-    (c) => c.name == name && c.status == ToolCallStatus.running,
-  );
+/// Finishes the running call [event] names: by id when Hermes sent one,
+/// else the earliest running call of that name.
+void _settleTool(ChatMessage reply, ToolFinished event) {
+  bool running(ToolCall c) =>
+      c.status == ToolCallStatus.running && !c.preparing;
+  var i = event.id.isEmpty
+      ? -1
+      : reply.toolCalls.indexWhere((c) => running(c) && c.id == event.id);
+  if (i < 0) {
+    i = reply.toolCalls.indexWhere((c) => running(c) && c.name == event.name);
+  }
   if (i < 0) return;
+  final call = reply.toolCalls[i];
   reply.toolCalls = [...reply.toolCalls]
-    ..[i] = reply.toolCalls[i].withStatus(status, result: result);
+    ..[i] = call.copyWith(
+      status: event.failed ? ToolCallStatus.error : ToolCallStatus.completed,
+      result: event.result,
+      resultData: event.resultData,
+      diff: event.diff,
+      duration: event.duration ?? _ranFor(call),
+    );
 }
 
+/// Ends every call still running. One the model was still writing never ran,
+/// so it ends cancelled whatever [status] is.
 void _settleRunningTools(ChatMessage reply, ToolCallStatus status) {
   reply.toolCalls = [
     for (final call in reply.toolCalls)
-      call.status == ToolCallStatus.running ? call.withStatus(status) : call,
+      if (call.status != ToolCallStatus.running)
+        call
+      else if (call.preparing)
+        call.copyWith(status: ToolCallStatus.cancelled, preparing: false)
+      else
+        call.copyWith(status: status, duration: _ranFor(call)),
   ];
+}
+
+Duration? _ranFor(ToolCall call) {
+  final startedAt = call.startedAt;
+  return startedAt == null ? null : DateTime.now().difference(startedAt);
+}
+
+/// The running call [request] holds up: the latest one of the tool it names,
+/// or, when it names none, the only call running. Null when that cannot be
+/// told.
+int? _callAwaiting(ChatMessage reply, ApprovalRequest request) {
+  final running = [
+    for (final (i, c) in reply.toolCalls.indexed)
+      if (c.status == ToolCallStatus.running && !c.preparing) (i, c),
+  ];
+  if (request.toolName.isNotEmpty) {
+    final named = running.where((e) => e.$2.name == request.toolName);
+    return named.isEmpty ? null : named.last.$1;
+  }
+  return running.length == 1 ? running.single.$1 : null;
 }
 
 void recordApproval(ChatMessage reply, String requestId, String choice) =>

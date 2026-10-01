@@ -655,11 +655,21 @@ class HermesGatewayTransport implements ChatTransport {
       'message.interim' => ReplyCheckpoint(text('text')),
       'reasoning.delta' => ReasoningUpdated(text('text')),
       'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
-      'tool.start' => ToolStarted(name: text('name'), summary: text('context')),
+      'tool.generating' => ToolPreparing(text('name')),
+      'tool.start' => ToolStarted(
+        id: text('tool_id'),
+        name: text('name'),
+        summary: text('context'),
+        args: _args(payload['args']),
+      ),
       'tool.complete' => ToolFinished(
+        id: text('tool_id'),
         name: text('name'),
         failed: _toolFailed(payload['result']),
         result: _toolResult(payload['result']),
+        resultData: payload['result'],
+        diff: text('inline_diff'),
+        duration: _seconds(payload['duration_s']),
       ),
       'session.title' => ThreadTitled(text('title')),
       'message.complete' => ReplyCompleted(
@@ -719,7 +729,15 @@ class HermesGatewayTransport implements ChatTransport {
         command: fields['command'] as String? ?? '',
         description: fields['description'] as String? ?? '',
         choices: _strings(fields['choices']),
+        toolName: fields['tool_name'] as String? ?? '',
       );
+
+  static Map<String, Object?>? _args(Object? value) =>
+      value is Map && value.isNotEmpty ? value.cast<String, Object?>() : null;
+
+  static Duration? _seconds(Object? value) => value is num && value >= 0
+      ? Duration(microseconds: (value * 1e6).round())
+      : null;
 
   UnsupportedRequested _unsupported(String requestId, UnsupportedKind kind) =>
       UnsupportedRequested(

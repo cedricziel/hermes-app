@@ -139,6 +139,69 @@ void main() {
       });
     });
 
+    test('puts an approval that holds up a call inside that call\'s run', () {
+      const terminal = ToolCall(
+        name: 'terminal',
+        summary: 'rm -rf build',
+        status: ToolCallStatus.running,
+      );
+      const held = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: '',
+        choices: ['once', 'deny'],
+        toolCallIndex: 1,
+      );
+      const loose = ApprovalRequest(
+        requestId: 'r2',
+        command: 'reboot',
+        description: '',
+        choices: ['once', 'deny'],
+      );
+      final m = message(
+        content: '',
+        status: MessageStatus.thinking,
+        toolCalls: const [
+          ToolCall(name: 'read_file', summary: 'a'),
+          terminal,
+        ],
+      )..inputRequests = const [held, loose];
+
+      final out = chatMessageToFlyer(m);
+
+      expect(out.map((m) => m.id), ['m1-tool-0', 'm1-input-1']);
+      final group = out[0] as CustomMessage;
+      expect(group.metadata![kMetaToolApprovals], {1: held});
+    });
+
+    test('an approval held by a call does not split its run', () {
+      const held = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: '',
+        choices: ['once', 'deny'],
+        toolCallIndex: 0,
+      );
+      final m =
+          message(
+              content: '',
+              status: MessageStatus.thinking,
+              toolCalls: const [
+                ToolCall(name: 'terminal', summary: 'rm -rf build'),
+                ToolCall(name: 'read_file', summary: 'a'),
+              ],
+            )
+            ..inputRequests = const [held]
+            ..inputRequestSlots = {'r1': (toolCalls: 1, sealed: 0)};
+
+      final out = chatMessageToFlyer(m);
+
+      expect(out.map((m) => m.id), ['m1-tool-0']);
+      final group = out.single as CustomMessage;
+      expect(group.metadata![kMetaToolCalls], hasLength(2));
+      expect(group.metadata![kMetaToolApprovals], {0: held});
+    });
+
     test('shows no thinking dots once a call has reasoning to show', () {
       final out = chatMessageToFlyer(
         message(

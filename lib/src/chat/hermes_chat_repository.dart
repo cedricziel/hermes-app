@@ -300,17 +300,51 @@ class HermesChatRepository {
     final calls = <ToolCall>[];
     for (final call in raw.whereType<Map<String, dynamic>>()) {
       if (call['function'] case {'name': final String name} && final Map fn) {
+        final arguments = fn['arguments'] as String? ?? '';
+        final args = switch (_decode(arguments)) {
+          final Map<String, Object?> map when map.isNotEmpty => map,
+          _ => null,
+        };
+        final id = call['id'] is String ? call['id'] as String : '';
+        final result = results[id] ?? '';
         calls.add(
           ToolCall(
+            id: id,
             name: name,
-            summary: fn['arguments'] as String? ?? '',
-            result: results[call['id']] ?? '',
+            summary: args == null ? arguments : _preview(args),
+            args: args,
+            result: result,
+            resultData: _decode(result),
             reasoning: calls.isEmpty ? reasoning : '',
           ),
         );
       }
     }
     return calls;
+  }
+
+  static Object? _decode(String text) {
+    final trimmed = text.trimLeft();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return null;
+    try {
+      return jsonDecode(trimmed);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// The argument a call works on, for its one-line summary: the command,
+  /// path, query or URL when it has one, else its first text argument.
+  static String _preview(Map<String, Object?> args) {
+    for (final key in const ['command', 'path', 'query', 'url', 'pattern']) {
+      if (args[key] case final String value when value.trim().isNotEmpty) {
+        return value.trim();
+      }
+    }
+    for (final value in args.values) {
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return '';
   }
 }
 

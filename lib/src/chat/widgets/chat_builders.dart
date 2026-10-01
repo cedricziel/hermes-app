@@ -219,7 +219,13 @@ Widget _buildCustom(
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
     case kKindToolGroup:
-      return ToolCallGroup(calls: metadata![kMetaToolCalls] as List<ToolCall>);
+      return ToolCallGroup(
+        calls: metadata![kMetaToolCalls] as List<ToolCall>,
+        approvals:
+            metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
+            const {},
+        onAnswerApproval: onAnswerApproval,
+      );
     case kKindReasoning:
       return ReasoningBlock(
         text: metadata![kMetaReasoningText] as String,

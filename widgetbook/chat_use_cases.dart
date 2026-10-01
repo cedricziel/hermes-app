@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/chat_models.dart' show ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
@@ -57,8 +58,43 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       name: 'ToolCallCard',
       useCases: [
         _tool('Running', const ToolCallCard(call: runningToolCall)),
+        _tool('Running, timed', ToolCallCard(call: timedToolCall())),
+        _tool('Preparing', const ToolCallCard(call: preparingToolCall)),
         _tool('Finished', const ToolCallCard(call: finishedToolCall)),
         _tool('Failed', const ToolCallCard(call: failedToolCall)),
+        _tool('Cancelled', const ToolCallCard(call: cancelledToolCall)),
+        _tool(
+          'Waiting on approval',
+          ToolCallCard(
+            call: approvalToolCall,
+            approval: pendingApproval,
+            onAnswerApproval: (_) async {},
+          ),
+        ),
+        _tool(
+          'Approval answered',
+          ToolCallCard(
+            call: approvalToolCall.withStatus(ToolCallStatus.completed),
+            approval: pendingApproval.answered('once'),
+            initiallyOpen: true,
+          ),
+        ),
+        _tool(
+          'Terminal',
+          const ToolCallCard(call: terminalToolCall, initiallyOpen: true),
+        ),
+        _tool(
+          'Web search',
+          const ToolCallCard(call: webSearchToolCall, initiallyOpen: true),
+        ),
+        _tool(
+          'Todo list',
+          const ToolCallCard(call: todoToolCall, initiallyOpen: true),
+        ),
+        _tool(
+          'Diff',
+          const ToolCallCard(call: diffToolCall, initiallyOpen: true),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -68,6 +104,15 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool('Finished run', const ToolCallGroup(calls: finishedToolRun)),
         _tool('Running', const ToolCallGroup(calls: runningToolRun)),
         _tool('Failed', const ToolCallGroup(calls: failedToolRun)),
+        _tool('Cancelled', const ToolCallGroup(calls: cancelledToolRun)),
+        _tool(
+          'Waiting on approval',
+          ToolCallGroup(
+            calls: waitingToolRun,
+            approvals: const {1: pendingApproval},
+            onAnswerApproval: (_, _) async {},
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(

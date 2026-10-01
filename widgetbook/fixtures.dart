@@ -15,9 +15,108 @@ const runningToolCall = ToolCall(
 
 const finishedToolCall = ToolCall(
   name: 'read_file',
-  summary: '{"path":"lib/main.dart"}',
+  summary: 'lib/main.dart',
+  args: {'path': 'lib/main.dart'},
   result: 'void main() {\n  runApp(const App());\n}',
   reasoning: 'Check how the app starts before changing it.',
+  duration: Duration(milliseconds: 420),
+);
+
+/// A call that has been running for [seconds], for the live elapsed time.
+ToolCall timedToolCall({int seconds = 12}) => ToolCall(
+  name: 'terminal',
+  summary: 'flutter test',
+  args: const {'command': 'flutter test'},
+  status: ToolCallStatus.running,
+  startedAt: DateTime.now().subtract(Duration(seconds: seconds)),
+);
+
+const preparingToolCall = ToolCall(
+  name: 'terminal',
+  summary: '',
+  status: ToolCallStatus.running,
+  preparing: true,
+);
+
+const cancelledToolCall = ToolCall(
+  name: 'terminal',
+  summary: 'restic backup /srv',
+  status: ToolCallStatus.cancelled,
+  duration: Duration(seconds: 74),
+);
+
+const approvalToolCall = ToolCall(
+  name: 'terminal',
+  summary: 'rm -rf build',
+  args: {'command': 'rm -rf build'},
+  status: ToolCallStatus.running,
+);
+
+const terminalToolCall = ToolCall(
+  name: 'terminal',
+  summary: 'systemctl status backup',
+  status: ToolCallStatus.error,
+  args: {'command': 'systemctl status backup'},
+  result:
+      'backup.service - Nightly backup\n   Active: failed (Result: exit-code)',
+  resultData: {
+    'output': 'backup.service - Nightly backup\n   Active: failed (Result: exit-code)',
+    'exit_code': 3,
+    'error': null,
+  },
+  duration: Duration(milliseconds: 180),
+);
+
+const webSearchToolCall = ToolCall(
+  name: 'web_search',
+  summary: 'restic connection reset by peer',
+  args: {'query': 'restic connection reset by peer'},
+  resultData: {
+    'success': true,
+    'data': {
+      'web': [
+        {
+          'title': 'Backups fail with "connection reset by peer"',
+          'url': 'https://forum.restic.net/t/connection-reset/4512',
+          'description':
+              'Raising the backend timeout and limiting connections fixed it.',
+        },
+        {
+          'title': 'Tuning restic for flaky links',
+          'url': 'https://restic.readthedocs.io/en/stable/tuning.html',
+          'description': 'Options for retries, connections and pack size.',
+        },
+      ],
+    },
+  },
+  duration: Duration(milliseconds: 2300),
+);
+
+const todoToolCall = ToolCall(
+  name: 'todo_list',
+  summary: '',
+  resultData: {
+    'todos': [
+      {'id': '1', 'content': 'Read the backup logs', 'status': 'completed'},
+      {'id': '2', 'content': 'Raise the retry cap', 'status': 'in_progress'},
+      {'id': '3', 'content': 'Open a PR', 'status': 'pending'},
+      {'id': '4', 'content': 'Page the on-call', 'status': 'cancelled'},
+    ],
+  },
+);
+
+const diffToolCall = ToolCall(
+  name: 'patch',
+  summary: '/etc/backup.timer',
+  args: {'path': '/etc/backup.timer'},
+  diff:
+      'a/etc/backup.timer → b/etc/backup.timer\n'
+      '@@ -3,3 +3,3 @@\n'
+      ' [Timer]\n'
+      '-OnCalendar=*-*-* 02:00\n'
+      '+OnCalendar=*-*-* 03:30\n'
+      ' Persistent=true',
+  duration: Duration(milliseconds: 90),
 );
 
 const failedToolCall = ToolCall(
@@ -40,6 +139,20 @@ const runningToolRun = [
     summary: '{"path":"/etc/backup.timer"}',
     status: ToolCallStatus.running,
   ),
+];
+
+const waitingToolRun = [
+  ToolCall(name: 'read_file', summary: 'Makefile'),
+  approvalToolCall,
+];
+
+const cancelledToolRun = [
+  ToolCall(
+    name: 'terminal',
+    summary: 'ping nas-02',
+    status: ToolCallStatus.cancelled,
+  ),
+  ToolCall(name: 'restic_run', summary: '', status: ToolCallStatus.cancelled),
 ];
 
 const failedToolRun = [

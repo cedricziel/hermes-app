@@ -2,21 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
-Future<void> _pump(WidgetTester tester, List<ToolCall> calls) =>
-    tester.pumpWidget(
-      MaterialApp(
-        theme: buildHermesLightTheme(),
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(width: 320, child: ToolCallGroup(calls: calls)),
-          ),
+Future<void> _pump(
+  WidgetTester tester,
+  List<ToolCall> calls, {
+  Map<int, ApprovalRequest> approvals = const {},
+}) => tester.pumpWidget(
+  MaterialApp(
+    theme: buildHermesLightTheme(),
+    home: Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: 320,
+          child: ToolCallGroup(calls: calls, approvals: approvals),
         ),
       ),
-    );
+    ),
+  ),
+);
 
 void main() {
   testWidgets('a single call renders as a bare ToolCallCard', (tester) async {
@@ -35,15 +42,15 @@ void main() {
       ToolCall(name: 'write_file', summary: 'b.dart'),
     ]);
 
-    expect(find.text('Ran 3 commands'), findsOneWidget);
+    expect(find.text('Used 3 tools'), findsOneWidget);
     expect(find.byType(ToolCallCard), findsNothing);
 
-    await tester.tap(find.text('Ran 3 commands'));
+    await tester.tap(find.text('Used 3 tools'));
     await tester.pump();
 
     expect(find.byType(ToolCallCard), findsNWidgets(3));
 
-    await tester.tap(find.text('Ran 3 commands'));
+    await tester.tap(find.text('Used 3 tools'));
     await tester.pump();
 
     expect(find.byType(ToolCallCard), findsNothing);
@@ -58,7 +65,7 @@ void main() {
     ]);
 
     expect(find.text('Running git_show…'), findsOneWidget);
-    expect(find.text('Ran 2 commands'), findsNothing);
+    expect(find.text('Used 2 tools'), findsNothing);
   });
 
   testWidgets('a failed call in a finished group is not mistaken for '
@@ -68,7 +75,7 @@ void main() {
       ToolCall(name: 'web_search', summary: '', status: ToolCallStatus.error),
     ]);
 
-    await tester.tap(find.text('Ran 2 commands'));
+    await tester.tap(find.text('Used 2 tools'));
     await tester.pump();
 
     final failed = tester.widget<ToolCallCard>(
@@ -77,5 +84,42 @@ void main() {
       ),
     );
     expect(failed.call.status, ToolCallStatus.error);
+  });
+
+  testWidgets('a call waiting on an approval keeps the group open', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const [
+        ToolCall(name: 'read_file', summary: 'a'),
+        ToolCall(
+          name: 'terminal',
+          summary: 'rm -rf build',
+          status: ToolCallStatus.running,
+        ),
+      ],
+      approvals: const {
+        1: ApprovalRequest(
+          requestId: 'r1',
+          command: 'rm -rf build',
+          description: '',
+          choices: ['once', 'deny'],
+        ),
+      },
+    );
+
+    expect(find.text('Waiting on terminal'), findsOneWidget);
+    expect(find.byType(ToolCallCard), findsNWidgets(2));
+    expect(find.byType(ApprovalCard), findsOneWidget);
+  });
+
+  testWidgets('a run that was all cancelled shows a stop mark', (tester) async {
+    await _pump(tester, const [
+      ToolCall(name: 'a', summary: '', status: ToolCallStatus.cancelled),
+      ToolCall(name: 'b', summary: '', status: ToolCallStatus.cancelled),
+    ]);
+
+    expect(find.byIcon(Icons.block), findsOneWidget);
   });
 }

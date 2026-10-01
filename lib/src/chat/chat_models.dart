@@ -12,7 +12,9 @@ enum ChatRole { user, assistant }
 
 enum MessageStatus { sent, thinking, streaming, error }
 
-enum ToolCallStatus { running, completed, error }
+/// Where a tool call stands. [cancelled] is a call the reply stopped before
+/// it finished, or one the model began to write but never ran.
+enum ToolCallStatus { running, completed, error, cancelled }
 
 /// A single tool invocation surfaced inline in an assistant message, e.g.
 /// Hermes running a shell command or a web search on the user's behalf.
@@ -20,14 +22,32 @@ class ToolCall {
   const ToolCall({
     required this.name,
     required this.summary,
+    this.id = '',
     this.status = ToolCallStatus.completed,
+    this.args,
     this.result = '',
+    this.resultData,
+    this.diff = '',
     this.reasoning = '',
+    this.preparing = false,
+    this.startedAt,
+    this.duration,
   });
 
+  /// Hermes' id for the call, which its result answers. Empty when the
+  /// server sent none.
+  final String id;
+
   final String name;
+
+  /// A one-line preview of what the call works on, such as the command or
+  /// the path.
   final String summary;
+
   final ToolCallStatus status;
+
+  /// The arguments the model passed, when known.
+  final Map<String, Object?>? args;
 
   /// What the model reasoned just before it made this call.
   final String reasoning;
@@ -36,13 +56,53 @@ class ToolCall {
   /// history did not keep it.
   final String result;
 
-  ToolCall withStatus(ToolCallStatus status, {String? result}) => ToolCall(
+  /// [result] as the tool returned it, a decoded JSON object or list when it
+  /// was one, for the cards that show a tool's result in its own shape.
+  final Object? resultData;
+
+  /// A unified diff of the file the call changed, for edits; may carry ANSI
+  /// colour codes.
+  final String diff;
+
+  /// The model is still writing the call's arguments; it has not run yet.
+  final bool preparing;
+
+  /// When the call began running, for its elapsed time. Unknown for calls
+  /// read from history.
+  final DateTime? startedAt;
+
+  /// How long the call ran, once it finished.
+  final Duration? duration;
+
+  ToolCall copyWith({
+    String? id,
+    String? summary,
+    ToolCallStatus? status,
+    Map<String, Object?>? args,
+    String? result,
+    Object? resultData,
+    String? diff,
+    String? reasoning,
+    bool? preparing,
+    DateTime? startedAt,
+    Duration? duration,
+  }) => ToolCall(
+    id: id ?? this.id,
     name: name,
-    summary: summary,
-    status: status,
+    summary: summary ?? this.summary,
+    status: status ?? this.status,
+    args: args ?? this.args,
     result: result ?? this.result,
-    reasoning: reasoning,
+    resultData: resultData ?? this.resultData,
+    diff: diff ?? this.diff,
+    reasoning: reasoning ?? this.reasoning,
+    preparing: preparing ?? this.preparing,
+    startedAt: startedAt ?? this.startedAt,
+    duration: duration ?? this.duration,
   );
+
+  ToolCall withStatus(ToolCallStatus status, {String? result}) =>
+      copyWith(status: status, result: result);
 }
 
 enum InputRequestStatus { pending, answered, expired }
@@ -69,10 +129,31 @@ final class ApprovalRequest extends InputRequest {
     required this.choices,
     super.status,
     this.choice,
+    this.toolName = '',
+    this.toolCallIndex,
   });
 
   final String command;
   final String description;
+
+  /// The tool that asked, when Hermes names it.
+  final String toolName;
+
+  /// The index, in its reply's [ChatMessage.toolCalls], of the running call
+  /// this approval holds up, so the card can show it inside that call. Null
+  /// when it could not be told which call asked.
+  final int? toolCallIndex;
+
+  ApprovalRequest forToolCall(int index) => ApprovalRequest(
+    requestId: requestId,
+    command: command,
+    description: description,
+    choices: choices,
+    status: status,
+    choice: choice,
+    toolName: toolName,
+    toolCallIndex: index,
+  );
 
   /// What the agent lets the user pick: some of `once`, `session`, `always`,
   /// and `deny`.
@@ -88,6 +169,8 @@ final class ApprovalRequest extends InputRequest {
     choices: choices,
     status: InputRequestStatus.answered,
     choice: choice,
+    toolName: toolName,
+    toolCallIndex: toolCallIndex,
   );
 
   @override
@@ -98,6 +181,8 @@ final class ApprovalRequest extends InputRequest {
     choices: choices,
     status: status,
     choice: choice,
+    toolName: toolName,
+    toolCallIndex: toolCallIndex,
   );
 }
 
