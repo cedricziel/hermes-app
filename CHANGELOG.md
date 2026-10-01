@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.40](https://github.com/cedricziel/hermes-app/compare/v0.1.39...v0.1.40) (2026-10-01)
+
+
+### Features
+
+* **chat:** render tool calls the way assistant-ui does ([#333](https://github.com/cedricziel/hermes-app/issues/333)) ([5700f7a](https://github.com/cedricziel/hermes-app/commit/5700f7a198c6d1a4aff3694b5417fe379e1182f7))
+
+
+### Bug Fixes
+
+* **auth:** sign in through ASWebAuthenticationSession on iOS and macOS ([#329](https://github.com/cedricziel/hermes-app/issues/329)) ([eabe85d](https://github.com/cedricziel/hermes-app/commit/eabe85dcf16e6fcfb838a6f5699919a5f4483212))
+* **chat:** keep reasoning that streamed and render it after input requests ([#332](https://github.com/cedricziel/hermes-app/issues/332)) ([ecb433a](https://github.com/cedricziel/hermes-app/commit/ecb433aee1e2b0415ac2f0de4b9c62f9333f0c63))
+* **chat:** read interim and final reply text the way Hermes sends it ([#331](https://github.com/cedricziel/hermes-app/issues/331)) ([67ea7e7](https://github.com/cedricziel/hermes-app/commit/67ea7e7d149bf3998af0a61d089e7058d0cf8c64))
+
 ## [0.1.39](https://github.com/cedricziel/hermes-app/compare/v0.1.38...v0.1.39) (2026-09-29)
 
 
