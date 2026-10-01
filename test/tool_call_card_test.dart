@@ -285,6 +285,74 @@ void main() {
       expect(find.text('Input'), findsNothing);
     });
 
+    testWidgets('a refused command shows why', (tester) async {
+      await _pump(
+        tester,
+        const ToolCall(
+          name: 'terminal',
+          summary: 'chmod',
+          status: ToolCallStatus.error,
+          args: {'command': 'chmod -R 777 /srv'},
+          resultData: {
+            'output': '',
+            'exit_code': -1,
+            'error': 'BLOCKED: Command denied by user.',
+          },
+        ),
+      );
+
+      await tester.tap(find.text('terminal'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('BLOCKED: Command denied by user.'), findsOneWidget);
+      expect(find.text('Exit code -1'), findsOneWidget);
+    });
+
+    testWidgets('a patch read from history shows the diff in its result', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const ToolCall(
+          name: 'patch',
+          summary: 'a.txt',
+          resultData: {'success': true, 'diff': '-old\n+new'},
+        ),
+      );
+
+      await tester.tap(find.text('patch'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ToolDiffBody), findsOneWidget);
+      expect(
+        find.textContaining('-old\n+new', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a diff drops Hermes\' review heading', (tester) async {
+      await _pump(
+        tester,
+        const ToolCall(
+          name: 'patch',
+          summary: 'a.txt',
+          diff: '  \u250a review diff\na/a.txt \u2192 b/a.txt\n-old\n+new',
+        ),
+      );
+
+      await tester.tap(find.text('patch'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('review diff', findRichText: true),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('a/a.txt', findRichText: true),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('a web search lists what it found', (tester) async {
       await _pump(
         tester,

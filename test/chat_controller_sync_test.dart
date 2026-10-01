@@ -78,7 +78,8 @@ void main() {
         ToolCall(name: 'b', summary: '', status: ToolCallStatus.running),
       ],
     );
-    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-1-thinking', 't-2']);
+    // The running calls show the activity, so there is no thinking line.
+    expect(_ids(controller), ['t-0', 't-1-tool-0', 't-2']);
 
     change(() {
       reply.status = MessageStatus.streaming;

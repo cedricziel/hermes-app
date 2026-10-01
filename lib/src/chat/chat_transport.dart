@@ -79,6 +79,7 @@ final class ToolFinished extends ChatEvent {
     required this.name,
     this.id = '',
     this.failed = false,
+    this.interrupted = false,
     this.result = '',
     this.resultData,
     this.diff = '',
@@ -90,6 +91,10 @@ final class ToolFinished extends ChatEvent {
   final String id;
   final String name;
   final bool failed;
+
+  /// The run was killed before it finished, as by stopping the reply.
+  final bool interrupted;
+
   final String result;
 
   /// The result as Hermes sent it, a decoded JSON value.

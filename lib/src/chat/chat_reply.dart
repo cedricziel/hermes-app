@@ -17,6 +17,21 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       reply.status = MessageStatus.streaming;
     case ReplyCheckpoint(:final text):
       if (text.isEmpty) return;
+      final sealed = reply.sealedProse;
+      if (reply.content.isEmpty &&
+          sealed.isNotEmpty &&
+          sealed.last.awaitingCheckpoint) {
+        // The text was sealed when a tool call began; this is its final form.
+        // It stays marked until the call starts, so the reasoning fallback
+        // Hermes repeats it in is still kept out.
+        reply.sealedProse = [...sealed]
+          ..last = SealedProse(
+            text,
+            beforeToolCall: sealed.last.beforeToolCall,
+            awaitingCheckpoint: true,
+          );
+        return;
+      }
       _seal(reply, text);
       reply.content = '';
     case ReasoningUpdated(:final text, fallback: false):
@@ -26,7 +41,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         reply.reasoning = text;
       }
     case ToolPreparing(:final name):
-      _seal(reply, reply.content);
+      _seal(reply, reply.content, awaitingCheckpoint: true);
       reply.content = '';
       reply.toolCalls = [
         ...reply.toolCalls,
@@ -40,12 +55,17 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       ];
       reply.reasoning = '';
     case ToolStarted(:final id, :final name, :final summary, :final args):
+      _closeCheckpoint(reply);
       _seal(reply, reply.content);
       reply.content = '';
       final prepared = reply.toolCalls.indexWhere(
         (c) => c.preparing && c.name == name,
       );
       if (prepared >= 0) {
+        // Calls run in the order the model wrote them, so one written before
+        // this that never started ran without reporting (Hermes runs some
+        // agent-level tools that way).
+        _settleUnreported(reply, before: prepared);
         final call = reply.toolCalls[prepared];
         reply.toolCalls = [...reply.toolCalls]
           ..[prepared] = call.copyWith(
@@ -57,6 +77,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
             startedAt: DateTime.now(),
           );
       } else {
+        _settleUnreported(reply, before: reply.toolCalls.length);
         reply.toolCalls = [
           ...reply.toolCalls,
           ToolCall(
@@ -72,6 +93,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       }
       reply.reasoning = '';
     case ToolFinished():
+      _closeCheckpoint(reply);
       _settleTool(reply, event);
     case ApprovalRequested(:final request):
       final call = _callAwaiting(reply, request);
@@ -119,11 +141,37 @@ void failReply(ChatMessage reply, [Object? error]) {
 /// Closes off [text] as its own segment, ahead of whatever tool calls have
 /// started so far, so it renders where it was actually written instead of
 /// always after every tool call the reply ever makes.
-void _seal(ChatMessage reply, String text) {
+void _seal(ChatMessage reply, String text, {bool awaitingCheckpoint = false}) {
   if (text.isEmpty) return;
   reply.sealedProse = [
     ...reply.sealedProse,
-    SealedProse(text, beforeToolCall: reply.toolCalls.length),
+    SealedProse(
+      text,
+      beforeToolCall: reply.toolCalls.length,
+      awaitingCheckpoint: awaitingCheckpoint,
+    ),
+  ];
+}
+
+/// Once a tool runs, a checkpoint can no longer be for text sealed before it.
+void _closeCheckpoint(ChatMessage reply) {
+  final sealed = reply.sealedProse;
+  if (sealed.isEmpty || !sealed.last.awaitingCheckpoint) return;
+  reply.sealedProse = [...sealed]
+    ..last = SealedProse(
+      sealed.last.text,
+      beforeToolCall: sealed.last.beforeToolCall,
+    );
+}
+
+/// Ends the calls before [before] that the model wrote but that never
+/// reported a start: they ran unreported, so they read as done.
+void _settleUnreported(ChatMessage reply, {required int before}) {
+  reply.toolCalls = [
+    for (final (i, call) in reply.toolCalls.indexed)
+      i < before && call.preparing
+          ? call.copyWith(status: ToolCallStatus.completed, preparing: false)
+          : call,
   ];
 }
 
@@ -131,7 +179,11 @@ void _seal(ChatMessage reply, String text) {
 /// being written or already sealed by a checkpoint.
 bool _wroteSinceLastToolCall(ChatMessage reply) =>
     reply.content.isNotEmpty ||
-    reply.sealedProse.any((p) => p.beforeToolCall == reply.toolCalls.length);
+    reply.sealedProse.any(
+      // Text sealed as the model began a call it has not run yet still
+      // counts: the call has not started.
+      (p) => p.beforeToolCall == reply.toolCalls.length || p.awaitingCheckpoint,
+    );
 
 /// Adds [request] where the reply is now, after the tool calls started and
 /// the text sealed so far, so what the reply does after it renders below its
@@ -169,7 +221,11 @@ void _settleTool(ChatMessage reply, ToolFinished event) {
   final call = reply.toolCalls[i];
   reply.toolCalls = [...reply.toolCalls]
     ..[i] = call.copyWith(
-      status: event.failed ? ToolCallStatus.error : ToolCallStatus.completed,
+      status: event.interrupted
+          ? ToolCallStatus.cancelled
+          : event.failed
+          ? ToolCallStatus.error
+          : ToolCallStatus.completed,
       result: event.result,
       resultData: event.resultData,
       diff: event.diff,
@@ -177,15 +233,21 @@ void _settleTool(ChatMessage reply, ToolFinished event) {
     );
 }
 
-/// Ends every call still running. One the model was still writing never ran,
-/// so it ends cancelled whatever [status] is.
+/// Ends every call still running. One that never reported a start either
+/// ran unreported, when the reply ended normally, or never ran, when it was
+/// stopped or failed.
 void _settleRunningTools(ChatMessage reply, ToolCallStatus status) {
   reply.toolCalls = [
     for (final call in reply.toolCalls)
       if (call.status != ToolCallStatus.running)
         call
       else if (call.preparing)
-        call.copyWith(status: ToolCallStatus.cancelled, preparing: false)
+        call.copyWith(
+          status: status == ToolCallStatus.completed
+              ? ToolCallStatus.completed
+              : ToolCallStatus.cancelled,
+          preparing: false,
+        )
       else
         call.copyWith(status: status, duration: _ranFor(call)),
   ];

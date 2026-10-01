@@ -544,6 +544,72 @@ void main() {
       expect(call.args, isNull);
     });
 
+    test('reads how a call ended from its result', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          toolCalls: [
+            functionCall('ok', '{}'),
+            functionCall('exit', '{}'),
+            functionCall('blocked', '{}'),
+            functionCall('stopped', '{}'),
+            functionCall('unanswered', '{}'),
+          ],
+        ),
+        messageRow(
+          id: 2,
+          role: 'tool',
+          toolCallId: 'call_ok',
+          content: '{"output":"a","exit_code":0,"error":null}',
+        ),
+        messageRow(
+          id: 3,
+          role: 'tool',
+          toolCallId: 'call_exit',
+          content: '{"output":"failing","exit_code":3,"error":null}',
+        ),
+        messageRow(
+          id: 4,
+          role: 'tool',
+          toolCallId: 'call_blocked',
+          content: '{"output":"","exit_code":-1,"error":"BLOCKED: denied"}',
+        ),
+        messageRow(
+          id: 5,
+          role: 'tool',
+          toolCallId: 'call_stopped',
+          content:
+              '{"output":"[Command interrupted]","exit_code":130,"error":null}',
+        ),
+      ]);
+
+      expect(messages.single.toolCalls.map((c) => c.status), [
+        ToolCallStatus.completed,
+        ToolCallStatus.error,
+        ToolCallStatus.error,
+        ToolCallStatus.cancelled,
+        ToolCallStatus.completed,
+      ]);
+    });
+
+    test('puts text a turn wrote ahead of the calls it made', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          content: 'Checking first.',
+          toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+        ),
+      ]);
+
+      final m = messages.single;
+      expect(m.content, isEmpty);
+      expect(m.sealedProse.map((p) => (p.text, p.beforeToolCall)), [
+        ('Checking first.', 0),
+      ]);
+    });
+
     test('puts a tool result row on the call it answers', () async {
       final messages = await load([
         messageRow(

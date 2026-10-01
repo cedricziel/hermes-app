@@ -31,7 +31,9 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       !m.awaitingInput &&
       m.sealedProse.isEmpty &&
       m.reasoning.isEmpty &&
-      !m.toolCalls.any((call) => call.reasoning.isNotEmpty);
+      !m.toolCalls.any((call) => call.reasoning.isNotEmpty) &&
+      // A running call's own card shows what is happening and for how long.
+      !m.toolCalls.any((call) => call.status == ToolCallStatus.running);
   final media = m.role == ChatRole.assistant
       ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
@@ -152,20 +154,10 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: {
           kMetaKind: kKindThinking,
           kMetaThinkingStartedAt: m.createdAt,
-          kMetaThinkingActivity: _currentActivity(m.toolCalls),
+          kMetaThinkingActivity: 'Thinking…',
         },
       ),
   ];
-}
-
-/// What the reply is doing right now, for the status line shown while it has
-/// nothing else to show yet: the tool still running or being written, or
-/// else "Thinking…".
-String _currentActivity(List<ToolCall> toolCalls) {
-  final running = toolCalls.where((c) => c.status == ToolCallStatus.running);
-  if (running.isEmpty) return 'Thinking…';
-  final call = running.last;
-  return '${call.preparing ? 'Preparing' : 'Running'} ${call.name}…';
 }
 
 List<Message> chatThreadToFlyer(ChatThread t) => [

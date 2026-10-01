@@ -294,7 +294,7 @@ void main() {
       });
     });
 
-    test('names the running tool as the current activity', () {
+    test('leaves the thinking line out while a call runs', () {
       final out = chatMessageToFlyer(
         message(
           content: '',
@@ -309,8 +309,7 @@ void main() {
         ),
       );
 
-      final thinking = out.last as CustomMessage;
-      expect(thinking.metadata![kMetaThinkingActivity], 'Running git_show…');
+      expect(out.map((m) => m.id), ['m1-tool-0']);
     });
 
     test('thinking replaces any text content', () {

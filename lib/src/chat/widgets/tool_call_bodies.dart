@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
+import '../tool_result.dart';
 
 /// What an opened [ToolCall] card shows for the tools that have a view of
 /// their own — assistant-ui's per-tool renderers. Null for any other tool,
@@ -10,7 +11,15 @@ import '../chat_models.dart';
 ///
 /// A call that changed a file shows its diff, whatever the tool.
 Widget? toolCallBody(ToolCall call) {
-  if (call.diff.trim().isNotEmpty) return ToolDiffBody(diff: call.diff);
+  // Live calls carry Hermes' rendered diff; a patch read from history has
+  // only the plain one in its result.
+  final diff = call.diff.trim().isNotEmpty
+      ? call.diff
+      : switch (call.resultData) {
+          {'diff': final String diff} when diff.trim().isNotEmpty => diff,
+          _ => '',
+        };
+  if (diff.isNotEmpty) return ToolDiffBody(diff: diff);
   return switch (call.name) {
     'terminal' => TerminalToolBody.of(call),
     'web_search' => WebSearchToolBody.of(call),
@@ -64,18 +73,20 @@ class ToolBodyFrame extends StatelessWidget {
   }
 }
 
-/// A shell command: the command line, what it printed, and its exit code
-/// when that was not 0.
+/// A shell command: the command line, what it printed, why Hermes refused or
+/// failed it, and its exit code when that was not 0.
 class TerminalToolBody extends StatelessWidget {
   const TerminalToolBody({
     super.key,
     required this.command,
     required this.output,
+    this.error = '',
     this.exitCode,
   });
 
   final String command;
   final String output;
+  final String error;
   final int? exitCode;
 
   static TerminalToolBody? of(ToolCall call) {
@@ -88,6 +99,7 @@ class TerminalToolBody extends StatelessWidget {
         {'output': final String output} => output,
         _ => call.result,
       },
+      error: toolResultError(data),
       exitCode: switch (data) {
         {'exit_code': final int code} => code,
         _ => null,
@@ -124,6 +136,13 @@ class TerminalToolBody extends StatelessWidget {
             SelectableText(
               output.trimRight(),
               style: _mono.copyWith(color: scheme.onSurface),
+            ),
+          ],
+          if (error.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            SelectableText(
+              error,
+              style: TextStyle(fontSize: 12, color: scheme.error),
             ),
           ],
           if (failed) ...[
@@ -325,7 +344,13 @@ class ToolDiffBody extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final success = context.hermesColors.success;
-    final lines = diff.replaceAll(_ansi, '').trimRight().split('\n');
+    final lines = diff
+        .replaceAll(_ansi, '')
+        .trimRight()
+        .split('\n')
+        // Hermes heads its terminal rendering with a "┊ review diff" line.
+        .where((line) => !line.trimLeft().startsWith('┊'))
+        .toList();
     return ToolBodyFrame(
       child: SelectableText.rich(
         TextSpan(

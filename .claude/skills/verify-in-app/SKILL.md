@@ -217,6 +217,61 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
+## Scripted tool calls
+
+Tool-call rendering (cards, groups, approvals inside a call, diffs, stop)
+needs a model that calls tools. `scripts/fake_tool_model.py` is one: a
+scripted OpenAI-compatible endpoint (its docstring lists the turns). Write
+this home config before `dev-backend.sh start`, run the script, and send any
+prompt; "slow" in the prompt runs `sleep 60` for trying Stop.
+
+```yaml
+model:
+  default: "fake-tools"
+  provider: "custom"
+  base_url: "http://127.0.0.1:18555/v1"
+  api_key: "fake"
+  context_length: 131072
+```
+
+- Its commands run on this machine: keep `SANDBOX` (default
+  `/tmp/hermes-verify`) a throwaway directory holding `backup.timer` with an
+  `OnCalendar=*-*-* 02:00` line and a `sandbox/` folder.
+- Hermes holds `chmod -R 777` for approval only for a client that sent
+  `client.capabilities` with `server_requests: true`, as the app does. A bare
+  websocket script without it sees the command blocked instead.
+- Hermes runs some agent-level tools (`todo_list`) without `tool.start` or
+  `tool.complete`: only `tool.generating` arrives.
+
+## On Linux (cloud containers)
+
+The macOS loop above does not run here; build the Linux app and drive it under
+Xvfb instead.
+
+- Packages: `libgtk-3-dev libsecret-1-dev libjsoncpp-dev` (as CI), plus
+  `xdotool gnome-keyring dbus-x11 lsof` and ImageMagick's `import`.
+- Dart does not read `SSL_CERT_FILE`; behind a TLS-intercepting proxy
+  `pub get` hangs retrying until the proxy's CA is in
+  `/etc/ssl/certs/ca-certificates.crt`.
+- If codeload.github.com is refused, `git archive` the pinned `HERMES_REF`
+  from a clone into `$DIR` instead of the tarball in "Hermes Agent setup".
+- `flutter build linux --debug --dart-define=HERMES_SERVER_URL=http://127.0.0.1:$PORT`
+  with `HERMES_DEV_PORT=$PORT scripts/dev-backend.sh start`, so the URL is
+  known before the build.
+- `export DISPLAY=:99` in the shell first: the app, `xdotool` and `import`
+  all need it.
+- Run it with `Xvfb :99 -screen 0 1400x900x24 &`, then, under
+  `dbus-run-session`, unlock a keyring (`echo -n x | gnome-keyring-daemon
+  --unlock --components=secrets`) and start
+  `build/linux/x64/debug/bundle/hermes_app`. Without a
+  system bus the `dbus` package logs an unhandled `SocketException` at start;
+  the app works regardless.
+- Drive with `xdotool mousemove X Y click 1`, `xdotool type`, `xdotool key
+  Return`; screenshot with `import -window root -crop 1280x720+0+0 out.png`
+  (the window opens at 1280x720 at the origin).
+- Never `pkill -f` a pattern that appears in your own command line: it kills
+  the shell running it. Kill by `pgrep -x hermes_app` and the like.
+
 ## A local model
 
 For replies, model switching or anything that needs a turn to run, give the
