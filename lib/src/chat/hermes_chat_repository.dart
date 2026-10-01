@@ -7,6 +7,7 @@ import 'package:hermes_api/hermes_api.dart';
 
 import 'chat_models.dart';
 import 'stored_content.dart';
+import 'tool_result.dart';
 
 /// One page of the session list. Ask for the next one at [nextOffset] while
 /// [hasMore].
@@ -256,11 +257,17 @@ class HermesChatRepository {
         _ => '',
       };
       final toolCalls = _toolCalls(row['tool_calls'], reasoning, results);
+      // A turn's text was written before the calls it made, so it renders
+      // ahead of them, as it did live.
+      final before = role == ChatRole.assistant && toolCalls.isNotEmpty;
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
           role: role,
-          content: stored.text,
+          content: before ? '' : stored.text,
+          sealedProse: before && stored.text.trim().isNotEmpty
+              ? [SealedProse(stored.text, beforeToolCall: 0)]
+              : const [],
           createdAt: _time(row['timestamp']),
           toolCalls: toolCalls,
           attachments: role == ChatRole.user ? stored.attachments : const [],
@@ -306,15 +313,19 @@ class HermesChatRepository {
           _ => null,
         };
         final id = call['id'] is String ? call['id'] as String : '';
-        final result = results[id] ?? '';
+        final result = results[id];
+        final data = result == null ? null : _decode(result);
         calls.add(
           ToolCall(
             id: id,
             name: name,
             summary: args == null ? arguments : _preview(args),
             args: args,
-            result: result,
-            resultData: _decode(result),
+            status: result == null
+                ? ToolCallStatus.completed
+                : toolResultStatus(data ?? result),
+            result: result ?? '',
+            resultData: data,
             reasoning: calls.isEmpty ? reasoning : '',
           ),
         );

@@ -8,6 +8,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
+import '../tool_result.dart';
 import 'gateway_rpc_client.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
@@ -665,7 +666,9 @@ class HermesGatewayTransport implements ChatTransport {
       'tool.complete' => ToolFinished(
         id: text('tool_id'),
         name: text('name'),
-        failed: _toolFailed(payload['result']),
+        failed: toolResultStatus(payload['result']) == ToolCallStatus.error,
+        interrupted:
+            toolResultStatus(payload['result']) == ToolCallStatus.cancelled,
         result: _toolResult(payload['result']),
         resultData: payload['result'],
         diff: text('inline_diff'),
@@ -743,14 +746,6 @@ class HermesGatewayTransport implements ChatTransport {
       UnsupportedRequested(
         UnsupportedRequest(requestId: requestId, kind: kind),
       );
-
-  /// The gateway sends no failure flag; a tool that failed puts a message in
-  /// the `error` field of its result.
-  bool _toolFailed(Object? result) {
-    if (result is! Map) return false;
-    final error = result['error'];
-    return error != null && error != '';
-  }
 
   /// A result is a string or a JSON object; an object with an `output` shows
   /// that, since the rest is bookkeeping such as the exit code.

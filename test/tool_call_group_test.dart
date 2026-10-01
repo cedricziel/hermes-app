@@ -68,6 +68,43 @@ void main() {
     expect(find.text('Used 2 tools'), findsNothing);
   });
 
+  testWidgets('names the call that runs, not one still being written', (
+    tester,
+  ) async {
+    await _pump(tester, const [
+      ToolCall(name: 'terminal', summary: 'ls', status: ToolCallStatus.running),
+      ToolCall(
+        name: 'patch',
+        summary: '',
+        status: ToolCallStatus.running,
+        preparing: true,
+      ),
+    ]);
+
+    expect(find.text('Running terminal…'), findsOneWidget);
+  });
+
+  testWidgets('a group whose calls are all being written says so', (
+    tester,
+  ) async {
+    await _pump(tester, const [
+      ToolCall(
+        name: 'terminal',
+        summary: '',
+        status: ToolCallStatus.running,
+        preparing: true,
+      ),
+      ToolCall(
+        name: 'patch',
+        summary: '',
+        status: ToolCallStatus.running,
+        preparing: true,
+      ),
+    ]);
+
+    expect(find.text('Preparing terminal…'), findsOneWidget);
+  });
+
   testWidgets('a failed call in a finished group is not mistaken for '
       'success', (tester) async {
     await _pump(tester, const [

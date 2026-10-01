@@ -376,10 +376,18 @@ class ChatMessage {
 /// sealed), so it renders in between the right two tool runs instead of
 /// always after every one of them.
 class SealedProse {
-  const SealedProse(this.text, {required this.beforeToolCall});
+  const SealedProse(
+    this.text, {
+    required this.beforeToolCall,
+    this.awaitingCheckpoint = false,
+  });
 
   final String text;
   final int beforeToolCall;
+
+  /// Sealed from what streamed, when the model began writing a tool call;
+  /// Hermes' checkpoint for the same text is still to come and replaces it.
+  final bool awaitingCheckpoint;
 }
 
 /// How many tool calls had started and how many [ChatMessage.sealedProse]

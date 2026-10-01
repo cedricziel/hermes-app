@@ -625,6 +625,40 @@ void main() {
     expect(events.whereType<ReplyCompleted>().single.text, 'Hello!');
   });
 
+  test('a command that exited non-zero is a failed tool', () async {
+    gateway.turn = (g, sid) {
+      g.event('tool.complete', sid, {
+        'name': 'terminal',
+        'result': {'output': 'failing', 'exit_code': 3, 'error': null},
+      });
+      g.event('message.complete', sid, {'text': 'x', 'status': 'complete'});
+    };
+
+    final finished = (await reply()).whereType<ToolFinished>().single;
+
+    expect(finished.failed, isTrue);
+    expect(finished.interrupted, isFalse);
+  });
+
+  test('a command killed by stopping the reply is interrupted', () async {
+    gateway.turn = (g, sid) {
+      g.event('tool.complete', sid, {
+        'name': 'terminal',
+        'result': {
+          'output': '[Command interrupted]',
+          'exit_code': 130,
+          'error': null,
+        },
+      });
+      g.event('message.complete', sid, {'text': '', 'status': 'interrupted'});
+    };
+
+    final finished = (await reply()).whereType<ToolFinished>().single;
+
+    expect(finished.interrupted, isTrue);
+    expect(finished.failed, isFalse);
+  });
+
   test('a tool result carrying an error is a failed tool', () async {
     gateway.turn = (g, sid) {
       g.event('tool.complete', sid, {

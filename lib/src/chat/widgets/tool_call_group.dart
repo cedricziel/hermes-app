@@ -66,11 +66,15 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
         : calls.every((c) => c.status == ToolCallStatus.cancelled)
         ? ToolCallStatus.cancelled
         : ToolCallStatus.completed;
+    // Calls run in order, so the one running is the first that started; the
+    // rest are still being written.
+    final started = running.where((c) => !c.preparing);
     final label = waiting.isNotEmpty
         ? 'Waiting on ${waiting.first.name}'
+        : started.isNotEmpty
+        ? 'Running ${started.first.name}…'
         : running.isNotEmpty
-        ? '${running.last.preparing ? 'Preparing' : 'Running'} '
-              '${running.last.name}…'
+        ? 'Preparing ${running.first.name}…'
         : 'Used ${calls.length} tools';
     final open = _open || waiting.isNotEmpty;
 

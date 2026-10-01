@@ -498,14 +498,101 @@ void main() {
     ]);
   });
 
-  test('a call that was only being written ends cancelled', () {
+  test('a call that never reported a start ran unreported when the reply '
+      'ends normally', () {
     final reply = _placeholder();
-    applyReplyEvent(reply, const ToolPreparing('terminal'));
+    applyReplyEvent(reply, const ToolPreparing('memory'));
 
     applyReplyEvent(reply, const ReplyCompleted('Done'));
 
-    expect(reply.toolCalls.single.status, ToolCallStatus.cancelled);
+    expect(reply.toolCalls.single.status, ToolCallStatus.completed);
     expect(reply.toolCalls.single.preparing, isFalse);
+  });
+
+  test('a call that never started ends cancelled when the reply is '
+      'stopped', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolPreparing('terminal'));
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.toolCalls.single.status, ToolCallStatus.cancelled);
+  });
+
+  test('a later call starting settles an earlier one that never reported', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolPreparing('memory'));
+    applyReplyEvent(reply, const ToolPreparing('patch'));
+
+    applyReplyEvent(reply, const ToolStarted(id: 'p', name: 'patch'));
+
+    expect(reply.toolCalls.map((c) => (c.status, c.preparing)), [
+      (ToolCallStatus.completed, false),
+      (ToolCallStatus.running, false),
+    ]);
+  });
+
+  test('an interrupted call ends cancelled', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(id: 't', name: 'terminal'));
+
+    applyReplyEvent(
+      reply,
+      const ToolFinished(id: 't', name: 'terminal', interrupted: true),
+    );
+
+    expect(reply.toolCalls.single.status, ToolCallStatus.cancelled);
+  });
+
+  group('text written before a tool call', () {
+    test('is sealed once when Hermes checkpoints it after the call began', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Checking the box first. '));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Checking the box first.'));
+
+      expect(reply.sealedProse.map((p) => (p.text, p.beforeToolCall)), [
+        ('Checking the box first.', 0),
+      ]);
+      expect(reply.content, isEmpty);
+    });
+
+    test('takes the checkpoint as its final form', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('**Look** first'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Look first.'));
+
+      expect(reply.sealedProse.single.text, 'Look first.');
+    });
+
+    test('keeps the fallback reasoning Hermes sends with it out', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Checking the box first.'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+
+      applyReplyEvent(
+        reply,
+        const ReasoningUpdated('Checking the box first.', fallback: true),
+      );
+
+      expect(reply.reasoning, isEmpty);
+    });
+
+    test('is not replaced by a checkpoint after a call ran', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('First.'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+      applyReplyEvent(reply, const ToolFinished(name: 'terminal'));
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Second.'));
+
+      expect(reply.sealedProse.map((p) => p.text), ['First.', 'Second.']);
+    });
   });
 
   group('an approval', () {
