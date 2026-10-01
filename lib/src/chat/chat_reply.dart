@@ -22,7 +22,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ReasoningUpdated(:final text, fallback: false):
       reply.reasoning += text;
     case ReasoningUpdated(:final text, fallback: true):
-      if (reply.reasoning.isEmpty && reply.content.isEmpty) {
+      if (reply.reasoning.isEmpty && !_wroteSinceLastToolCall(reply)) {
         reply.reasoning = text;
       }
     case ToolStarted(:final name, :final summary):
@@ -92,12 +92,22 @@ void _seal(ChatMessage reply, String text) {
   ];
 }
 
-/// Adds [request] where the reply is now, after the tool calls started so
-/// far, so what the reply does after it renders below its card.
+/// Whether reply text streamed since the last tool call started, still
+/// being written or already sealed by a checkpoint.
+bool _wroteSinceLastToolCall(ChatMessage reply) =>
+    reply.content.isNotEmpty ||
+    reply.sealedProse.any((p) => p.beforeToolCall == reply.toolCalls.length);
+
+/// Adds [request] where the reply is now, after the tool calls started and
+/// the text sealed so far, so what the reply does after it renders below its
+/// card.
 void _addInputRequest(ChatMessage reply, InputRequest request) {
   reply.inputRequests = [...reply.inputRequests, request];
   reply.inputRequestSlots = {
-    request.requestId: reply.toolCalls.length,
+    request.requestId: (
+      toolCalls: reply.toolCalls.length,
+      sealed: reply.sealedProse.length,
+    ),
     ...reply.inputRequestSlots,
   };
 }

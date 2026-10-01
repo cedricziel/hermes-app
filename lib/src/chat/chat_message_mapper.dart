@@ -35,34 +35,48 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   final media = m.role == ChatRole.assistant
       ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
-  int slotOf(InputRequest request) =>
-      m.inputRequestSlots[request.requestId] ?? m.toolCalls.length;
+  InputRequestSlot slotOf(InputRequest request) =>
+      m.inputRequestSlots[request.requestId] ??
+      (toolCalls: m.toolCalls.length, sealed: m.sealedProse.length);
   final runs = _toolRuns(m.toolCalls, {
     for (final prose in m.sealedProse) prose.beforeToolCall,
-    for (final request in m.inputRequests) slotOf(request),
+    for (final request in m.inputRequests) slotOf(request).toolCalls,
   });
 
-  Iterable<Message> inputsBefore(int toolCallIndex) => [
-    for (final (i, request) in m.inputRequests.indexed)
-      if (slotOf(request) == toolCallIndex)
-        CustomMessage(
-          id: '${m.id}-input-$i',
-          authorId: authorId,
-          createdAt: createdAt,
-          metadata: {kMetaKind: kKindInputRequest, kMetaInputRequest: request},
-        ),
-  ];
-
-  Iterable<Message> sealedBefore(int toolCallIndex) => [
-    for (final (i, prose) in m.sealedProse.indexed)
-      if (prose.beforeToolCall == toolCallIndex)
-        TextMessage(
-          id: '${m.id}-sealed-$i',
-          authorId: authorId,
-          createdAt: createdAt,
-          text: decodeMarkdownEntities(prose.text),
-        ),
-  ];
+  // The text sealed and the requests that arrived before tool call
+  // [toolCallIndex] started, in the order they arrived: a request goes before
+  // the first entry sealed after it.
+  Iterable<Message> before(int toolCallIndex) {
+    final sealed = [
+      for (final (i, prose) in m.sealedProse.indexed)
+        if (prose.beforeToolCall == toolCallIndex) i,
+    ];
+    int placeOf(InputRequestSlot slot) =>
+        sealed.firstWhere((i) => i >= slot.sealed, orElse: () => -1);
+    return [
+      for (final place in [...sealed, -1]) ...[
+        for (final (i, request) in m.inputRequests.indexed)
+          if (slotOf(request) case final slot
+              when slot.toolCalls == toolCallIndex && placeOf(slot) == place)
+            CustomMessage(
+              id: '${m.id}-input-$i',
+              authorId: authorId,
+              createdAt: createdAt,
+              metadata: {
+                kMetaKind: kKindInputRequest,
+                kMetaInputRequest: request,
+              },
+            ),
+        if (place >= 0)
+          TextMessage(
+            id: '${m.id}-sealed-$place',
+            authorId: authorId,
+            createdAt: createdAt,
+            text: decodeMarkdownEntities(m.sealedProse[place].text),
+          ),
+      ],
+    ];
+  }
 
   return [
     for (final (i, attachment) in m.attachments.indexed)
@@ -73,8 +87,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         attachment,
       ),
     for (final run in runs) ...[
-      ...inputsBefore(run.start),
-      ...sealedBefore(run.start),
+      ...before(run.start),
       if (run.calls.first.reasoning.isNotEmpty)
         _reasoningMessage(
           '${m.id}-tool-${run.start}-reasoning',
@@ -90,8 +103,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: {kMetaKind: kKindToolGroup, kMetaToolCalls: run.calls},
       ),
     ],
-    ...inputsBefore(m.toolCalls.length),
-    ...sealedBefore(m.toolCalls.length),
+    ...before(m.toolCalls.length),
     if (m.reasoning.isNotEmpty)
       _reasoningMessage(
         '${m.id}-reasoning',

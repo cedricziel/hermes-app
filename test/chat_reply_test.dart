@@ -65,6 +65,19 @@ void main() {
     expect(reply.reasoning, isEmpty);
   });
 
+  test('a fallback does not repeat reply text a checkpoint sealed', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyDelta('Here is the answer'));
+    applyReplyEvent(reply, const ReplyCheckpoint('Here is the answer'));
+    applyReplyEvent(
+      reply,
+      const ReasoningUpdated('Here is the answer', fallback: true),
+    );
+
+    expect(reply.reasoning, isEmpty);
+  });
+
   test('a fallback shows when nothing streamed', () {
     final reply = _placeholder();
 
@@ -422,7 +435,10 @@ void main() {
     applyReplyEvent(reply, const ToolStarted(name: 'clarify'));
     applyReplyEvent(reply, const ClarifyRequested(_clarify));
 
-    expect(reply.inputRequestSlots, {'r1': 1, 'r2': 2});
+    expect(reply.inputRequestSlots, {
+      'r1': (toolCalls: 1, sealed: 0),
+      'r2': (toolCalls: 2, sealed: 0),
+    });
   });
 
   test('an expire event ends only the matching pending request', () {
