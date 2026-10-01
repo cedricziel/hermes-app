@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.41](https://github.com/cedricziel/hermes-app/compare/v0.1.40...v0.1.41) (2026-10-01)
+
+
+### Bug Fixes
+
+* **chat:** tool calls as Hermes really reports them ([#334](https://github.com/cedricziel/hermes-app/issues/334)) ([298e0bd](https://github.com/cedricziel/hermes-app/commit/298e0bd0043d65ce5acf02a374fe91e17471231d))
+
 ## [0.1.40](https://github.com/cedricziel/hermes-app/compare/v0.1.39...v0.1.40) (2026-10-01)
 
 
