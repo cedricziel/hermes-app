@@ -258,10 +258,12 @@ Xvfb instead.
 - `flutter build linux --debug --dart-define=HERMES_SERVER_URL=http://127.0.0.1:$PORT`
   with `HERMES_DEV_PORT=$PORT scripts/dev-backend.sh start`, so the URL is
   known before the build.
+- `export DISPLAY=:99` in the shell first: the app, `xdotool` and `import`
+  all need it.
 - Run it with `Xvfb :99 -screen 0 1400x900x24 &`, then, under
   `dbus-run-session`, unlock a keyring (`echo -n x | gnome-keyring-daemon
   --unlock --components=secrets`) and start
-  `build/linux/x64/debug/bundle/hermes_app` with `DISPLAY=:99`. Without a
+  `build/linux/x64/debug/bundle/hermes_app`. Without a
   system bus the `dbus` package logs an unhandled `SocketException` at start;
   the app works regardless.
 - Drive with `xdotool mousemove X Y click 1`, `xdotool type`, `xdotool key

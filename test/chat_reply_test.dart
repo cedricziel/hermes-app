@@ -532,6 +532,19 @@ void main() {
     ]);
   });
 
+  test('a call starting that was never prepared settles earlier unreported '
+      'ones too', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolPreparing('memory'));
+
+    applyReplyEvent(reply, const ToolStarted(id: 't', name: 'terminal'));
+
+    expect(reply.toolCalls.map((c) => (c.name, c.status, c.preparing)), [
+      ('memory', ToolCallStatus.completed, false),
+      ('terminal', ToolCallStatus.running, false),
+    ]);
+  });
+
   test('an interrupted call ends cancelled', () {
     final reply = _placeholder();
     applyReplyEvent(reply, const ToolStarted(id: 't', name: 'terminal'));
@@ -580,6 +593,23 @@ void main() {
       );
 
       expect(reply.reasoning, isEmpty);
+    });
+
+    test('keeps the fallback reasoning out after its checkpoint too', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ReplyDelta('Checking.'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ReplyCheckpoint('Checking.'));
+
+      applyReplyEvent(
+        reply,
+        const ReasoningUpdated('Checking.', fallback: true),
+      );
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+
+      expect(reply.reasoning, isEmpty);
+      expect(reply.toolCalls.single.reasoning, isEmpty);
+      expect(reply.sealedProse.single.text, 'Checking.');
     });
 
     test('is not replaced by a checkpoint after a call ran', () {

@@ -22,9 +22,14 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
           sealed.isNotEmpty &&
           sealed.last.awaitingCheckpoint) {
         // The text was sealed when a tool call began; this is its final form.
-        reply.sealedProse = [
-          ...sealed,
-        ]..last = SealedProse(text, beforeToolCall: sealed.last.beforeToolCall);
+        // It stays marked until the call starts, so the reasoning fallback
+        // Hermes repeats it in is still kept out.
+        reply.sealedProse = [...sealed]
+          ..last = SealedProse(
+            text,
+            beforeToolCall: sealed.last.beforeToolCall,
+            awaitingCheckpoint: true,
+          );
         return;
       }
       _seal(reply, text);
@@ -72,6 +77,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
             startedAt: DateTime.now(),
           );
       } else {
+        _settleUnreported(reply, before: reply.toolCalls.length);
         reply.toolCalls = [
           ...reply.toolCalls,
           ToolCall(
