@@ -396,6 +396,177 @@ void main() {
     expect(reply.toolCalls.single.status, ToolCallStatus.completed);
   });
 
+  test('a finished tool closes the call with its id, not the first of its '
+      'name', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(id: 'a', name: 'search'));
+    applyReplyEvent(reply, const ToolStarted(id: 'b', name: 'search'));
+
+    applyReplyEvent(
+      reply,
+      const ToolFinished(id: 'b', name: 'search', result: 'second'),
+    );
+
+    expect(reply.toolCalls.map((c) => c.status), [
+      ToolCallStatus.running,
+      ToolCallStatus.completed,
+    ]);
+    expect(reply.toolCalls.last.result, 'second');
+  });
+
+  test('a finished tool with an unknown id falls back to its name', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(name: 'search'));
+
+    applyReplyEvent(reply, const ToolFinished(id: 'x', name: 'search'));
+
+    expect(reply.toolCalls.single.status, ToolCallStatus.completed);
+  });
+
+  test('a started call keeps its id and arguments, and a finished one its '
+      'result data, diff and duration', () {
+    final reply = _placeholder();
+    applyReplyEvent(
+      reply,
+      const ToolStarted(id: 'c1', name: 'patch', args: {'path': 'a.txt'}),
+    );
+    final started = reply.toolCalls.single;
+    expect(started.id, 'c1');
+    expect(started.args, {'path': 'a.txt'});
+    expect(started.startedAt, isNotNull);
+
+    applyReplyEvent(
+      reply,
+      const ToolFinished(
+        id: 'c1',
+        name: 'patch',
+        resultData: {'success': true},
+        diff: '+x',
+        duration: Duration(milliseconds: 1500),
+      ),
+    );
+
+    final done = reply.toolCalls.single;
+    expect(done.resultData, {'success': true});
+    expect(done.diff, '+x');
+    expect(done.duration, const Duration(milliseconds: 1500));
+    expect(done.args, {'path': 'a.txt'});
+  });
+
+  test('a finished call Hermes did not time is timed from its start', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(name: 'search'));
+
+    applyReplyEvent(reply, const ToolFinished(name: 'search'));
+
+    expect(reply.toolCalls.single.duration, isNotNull);
+  });
+
+  test('a call the model is still writing shows as preparing, and its start '
+      'fills it in', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ReasoningUpdated('Look.'));
+
+    applyReplyEvent(reply, const ToolPreparing('terminal'));
+    expect(reply.toolCalls.single.preparing, isTrue);
+    expect(reply.toolCalls.single.status, ToolCallStatus.running);
+    expect(reply.toolCalls.single.reasoning, 'Look.');
+
+    applyReplyEvent(
+      reply,
+      const ToolStarted(id: 't1', name: 'terminal', summary: 'ls'),
+    );
+    final call = reply.toolCalls.single;
+    expect(call.preparing, isFalse);
+    expect(call.id, 't1');
+    expect(call.summary, 'ls');
+    expect(call.reasoning, 'Look.');
+    expect(call.startedAt, isNotNull);
+  });
+
+  test('a stopped reply cancels the calls still running', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolStarted(name: 'a'));
+    applyReplyEvent(reply, const ToolFinished(name: 'a'));
+    applyReplyEvent(reply, const ToolStarted(name: 'b'));
+
+    applyReplyEvent(reply, const ReplyCompleted('', stopped: true));
+
+    expect(reply.toolCalls.map((c) => c.status), [
+      ToolCallStatus.completed,
+      ToolCallStatus.cancelled,
+    ]);
+  });
+
+  test('a call that was only being written ends cancelled', () {
+    final reply = _placeholder();
+    applyReplyEvent(reply, const ToolPreparing('terminal'));
+
+    applyReplyEvent(reply, const ReplyCompleted('Done'));
+
+    expect(reply.toolCalls.single.status, ToolCallStatus.cancelled);
+    expect(reply.toolCalls.single.preparing, isFalse);
+  });
+
+  group('an approval', () {
+    test('goes on the running call of the tool it names', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+      applyReplyEvent(reply, const ToolStarted(name: 'browser'));
+
+      applyReplyEvent(
+        reply,
+        const ApprovalRequested(
+          ApprovalRequest(
+            requestId: 'r1',
+            command: 'x',
+            description: '',
+            choices: [],
+            toolName: 'terminal',
+          ),
+        ),
+      );
+
+      final approval = reply.inputRequests.single as ApprovalRequest;
+      expect(approval.toolCallIndex, 0);
+    });
+
+    test('that names no tool goes on the only call running', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ToolStarted(name: 'a'));
+      applyReplyEvent(reply, const ToolFinished(name: 'a'));
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+
+      applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+      final approval = reply.inputRequests.single as ApprovalRequest;
+      expect(approval.toolCallIndex, 1);
+    });
+
+    test('stays on its own when it cannot be told which call asked', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ToolStarted(name: 'a'));
+      applyReplyEvent(reply, const ToolStarted(name: 'b'));
+
+      applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+      final approval = reply.inputRequests.single as ApprovalRequest;
+      expect(approval.toolCallIndex, isNull);
+    });
+
+    test('keeps its call once answered', () {
+      final reply = _placeholder();
+      applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+      applyReplyEvent(reply, const ApprovalRequested(_approval));
+
+      recordApproval(reply, 'r1', 'once');
+
+      final approval = reply.inputRequests.single as ApprovalRequest;
+      expect(approval.choice, 'once');
+      expect(approval.toolCallIndex, 0);
+    });
+  });
+
   test('thread events do not touch the reply', () {
     final reply = _placeholder();
 

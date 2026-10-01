@@ -524,8 +524,24 @@ void main() {
 
       final call = messages.last.toolCalls.single;
       expect(call.name, 'search_logs');
-      expect(call.summary, '{"query":"02:14"}');
+      expect(call.summary, '02:14');
+      expect(call.args, {'query': '02:14'});
       expect(call.status, ToolCallStatus.completed);
+    });
+
+    test('keeps arguments that are not a JSON object as the summary', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          content: 'a',
+          toolCalls: [functionCall('shell', 'ls -la')],
+        ),
+      ]);
+
+      final call = messages.single.toolCalls.single;
+      expect(call.summary, 'ls -la');
+      expect(call.args, isNull);
     });
 
     test('puts a tool result row on the call it answers', () async {

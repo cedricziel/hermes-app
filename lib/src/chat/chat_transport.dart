@@ -52,23 +52,54 @@ final class ReplyCheckpoint extends ChatEvent {
   final String text;
 }
 
-final class ToolStarted extends ChatEvent {
-  const ToolStarted({required this.name, this.summary = ''});
+/// The model began writing a call to [name]; its arguments are still coming.
+final class ToolPreparing extends ChatEvent {
+  const ToolPreparing(this.name);
 
   final String name;
+}
+
+final class ToolStarted extends ChatEvent {
+  const ToolStarted({
+    required this.name,
+    this.summary = '',
+    this.id = '',
+    this.args,
+  });
+
+  /// Hermes' id for the call; empty when it sent none.
+  final String id;
+  final String name;
   final String summary;
+  final Map<String, Object?>? args;
 }
 
 final class ToolFinished extends ChatEvent {
   const ToolFinished({
     required this.name,
+    this.id = '',
     this.failed = false,
     this.result = '',
+    this.resultData,
+    this.diff = '',
+    this.duration,
   });
 
+  /// The id of the call this finishes; empty when Hermes sent none, and the
+  /// call is then told by [name].
+  final String id;
   final String name;
   final bool failed;
   final String result;
+
+  /// The result as Hermes sent it, a decoded JSON value.
+  final Object? resultData;
+
+  /// A unified diff of the file the call changed, for edits.
+  final String diff;
+
+  /// How long the call ran, when Hermes timed it.
+  final Duration? duration;
 }
 
 /// The dashboard named (or renamed) the thread.

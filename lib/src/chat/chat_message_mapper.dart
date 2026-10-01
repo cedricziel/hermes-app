@@ -38,9 +38,21 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   InputRequestSlot slotOf(InputRequest request) =>
       m.inputRequestSlots[request.requestId] ??
       (toolCalls: m.toolCalls.length, sealed: m.sealedProse.length);
+  // An approval that holds up one of the calls shows inside that call's
+  // card rather than on its own.
+  final approvals = <int, ApprovalRequest>{
+    for (final request in m.inputRequests)
+      if (request case ApprovalRequest(:final int toolCallIndex)
+          when toolCallIndex < m.toolCalls.length)
+        toolCallIndex: request,
+  };
+  final standalone = [
+    for (final (i, request) in m.inputRequests.indexed)
+      if (!approvals.containsValue(request)) (i, request),
+  ];
   final runs = _toolRuns(m.toolCalls, {
     for (final prose in m.sealedProse) prose.beforeToolCall,
-    for (final request in m.inputRequests) slotOf(request).toolCalls,
+    for (final (_, request) in standalone) slotOf(request).toolCalls,
   });
 
   // The text sealed and the requests that arrived before tool call
@@ -55,7 +67,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         sealed.firstWhere((i) => i >= slot.sealed, orElse: () => -1);
     return [
       for (final place in [...sealed, -1]) ...[
-        for (final (i, request) in m.inputRequests.indexed)
+        for (final (i, request) in standalone)
           if (slotOf(request) case final slot
               when slot.toolCalls == toolCallIndex && placeOf(slot) == place)
             CustomMessage(
@@ -100,7 +112,12 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         id: '${m.id}-tool-${run.start}',
         authorId: authorId,
         createdAt: createdAt,
-        metadata: {kMetaKind: kKindToolGroup, kMetaToolCalls: run.calls},
+        metadata: {
+          kMetaKind: kKindToolGroup,
+          kMetaToolCalls: run.calls,
+          if (_approvalsOf(run, approvals) case final held when held.isNotEmpty)
+            kMetaToolApprovals: held,
+        },
       ),
     ],
     ...before(m.toolCalls.length),
@@ -142,10 +159,13 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
 }
 
 /// What the reply is doing right now, for the status line shown while it has
-/// nothing else to show yet: the tool still running, or else "Thinking…".
+/// nothing else to show yet: the tool still running or being written, or
+/// else "Thinking…".
 String _currentActivity(List<ToolCall> toolCalls) {
   final running = toolCalls.where((c) => c.status == ToolCallStatus.running);
-  return running.isEmpty ? 'Thinking…' : 'Running ${running.last.name}…';
+  if (running.isEmpty) return 'Thinking…';
+  final call = running.last;
+  return '${call.preparing ? 'Preparing' : 'Running'} ${call.name}…';
 }
 
 List<Message> chatThreadToFlyer(ChatThread t) => [
@@ -171,6 +191,13 @@ List<({int start, List<ToolCall> calls})> _toolRuns(
   }
   return runs;
 }
+
+/// The approvals of [approvals] (by index in the reply's calls) that hold up
+/// a call of [run], by the call's position in the run.
+Map<int, ApprovalRequest> _approvalsOf(
+  ({int start, List<ToolCall> calls}) run,
+  Map<int, ApprovalRequest> approvals,
+) => {for (final (i, _) in run.calls.indexed) i: ?approvals[run.start + i]};
 
 Message _reasoningMessage(
   String id,

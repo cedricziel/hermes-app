@@ -532,6 +532,8 @@ void main() {
         'tool_id': 'call_1',
         'name': 'terminal',
         'result': {'output': 'a\nb', 'exit_code': 0, 'error': null},
+        'duration_s': 1.25,
+        'inline_diff': '+x',
       });
       g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
     };
@@ -539,12 +541,34 @@ void main() {
     final events = await reply();
 
     final started = events.whereType<ToolStarted>().single;
+    expect(started.id, 'call_1');
     expect(started.name, 'terminal');
     expect(started.summary, 'ls -la');
+    expect(started.args, {'command': 'ls -la'});
     final finished = events.whereType<ToolFinished>().single;
+    expect(finished.id, 'call_1');
     expect(finished.name, 'terminal');
     expect(finished.failed, isFalse);
     expect(finished.result, 'a\nb');
+    expect(finished.resultData, {
+      'output': 'a\nb',
+      'exit_code': 0,
+      'error': null,
+    });
+    expect(finished.diff, '+x');
+    expect(finished.duration, const Duration(milliseconds: 1250));
+  });
+
+  test('a tool the model is still writing maps to a preparing event', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('tool.generating', sid, {'name': 'terminal'});
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    expect(events.whereType<ToolPreparing>().single.name, 'terminal');
   });
 
   test('reasoning events map to reasoning updates', () async {
@@ -841,6 +865,7 @@ void main() {
       'command': 'rm -rf build',
       'description': 'delete files',
       'choices': ['once', 'session', 'deny'],
+      'tool_name': 'terminal',
     };
 
     test('an approval request becomes an event', () async {
@@ -856,6 +881,7 @@ void main() {
       expect(request.command, 'rm -rf build');
       expect(request.description, 'delete files');
       expect(request.choices, ['once', 'session', 'deny']);
+      expect(request.toolName, 'terminal');
     });
 
     for (final (label, choices) in <(String, Object?)>[

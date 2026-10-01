@@ -705,6 +705,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ReplyDelta() ||
           ReplyCheckpoint() ||
           ReasoningUpdated() ||
+          ToolPreparing() ||
           ToolStarted() ||
           ToolFinished() ||
           ReplyCompleted() ||

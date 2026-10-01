@@ -203,9 +203,9 @@ void main() {
       );
 
       expect(find.byType(ToolCallCard), findsNothing);
-      expect(find.text('Ran 2 commands'), findsOneWidget);
+      expect(find.text('Used 2 tools'), findsOneWidget);
 
-      await tester.tap(find.text('Ran 2 commands'));
+      await tester.tap(find.text('Used 2 tools'));
       await tester.pump();
 
       expect(find.byType(ToolCallCard), findsNWidgets(2));

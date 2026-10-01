@@ -6,16 +6,30 @@ import 'tool_call_card.dart';
 
 /// A run of tool calls the agent made back to back, with no reasoning
 /// between them — assistant-ui folds a burst of tool use into one row
-/// ("Ran 3 commands") instead of a card per call.
+/// ("Used 3 tools") instead of a card per call.
 ///
 /// A single call in the run, whether finished or still running, shows as its
 /// own [ToolCallCard] with no group chrome. Two or more collapse behind a
 /// header naming the call still running, or how many ran once none are; it
 /// starts folded and opens on tap, showing each call's own [ToolCallCard].
+/// While a call waits on the user's approval the group stays open, so the
+/// question is never folded away.
 class ToolCallGroup extends StatefulWidget {
-  const ToolCallGroup({super.key, required this.calls});
+  const ToolCallGroup({
+    super.key,
+    required this.calls,
+    this.approvals = const {},
+    this.onAnswerApproval,
+  });
 
   final List<ToolCall> calls;
+
+  /// The approvals that hold up a call, by its position in [calls].
+  final Map<int, ApprovalRequest> approvals;
+
+  /// Sends the answer to one of [approvals].
+  final Future<void> Function(String requestId, String choice)?
+  onAnswerApproval;
 
   @override
   State<ToolCallGroup> createState() => _ToolCallGroupState();
@@ -27,17 +41,38 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
   @override
   Widget build(BuildContext context) {
     final calls = widget.calls;
-    if (calls.length == 1) return ToolCallCard(call: calls.single);
+    Widget card(int i) {
+      final approval = widget.approvals[i];
+      final answer = widget.onAnswerApproval;
+      return ToolCallCard(
+        call: calls[i],
+        approval: approval,
+        onAnswerApproval: approval == null || answer == null
+            ? null
+            : (choice) => answer(approval.requestId, choice),
+      );
+    }
 
+    if (calls.length == 1) return card(0);
+
+    final waiting = widget.approvals.entries
+        .where((e) => e.value.status == InputRequestStatus.pending)
+        .map((e) => calls[e.key]);
     final running = calls.where((c) => c.status == ToolCallStatus.running);
     final status = running.isNotEmpty
         ? ToolCallStatus.running
         : calls.any((c) => c.status == ToolCallStatus.error)
         ? ToolCallStatus.error
+        : calls.every((c) => c.status == ToolCallStatus.cancelled)
+        ? ToolCallStatus.cancelled
         : ToolCallStatus.completed;
-    final label = running.isNotEmpty
-        ? 'Running ${running.last.name}…'
-        : 'Ran ${calls.length} commands';
+    final label = waiting.isNotEmpty
+        ? 'Waiting on ${waiting.first.name}'
+        : running.isNotEmpty
+        ? '${running.last.preparing ? 'Preparing' : 'Running'} '
+              '${running.last.name}…'
+        : 'Used ${calls.length} tools';
+    final open = _open || waiting.isNotEmpty;
 
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
@@ -55,7 +90,10 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  ToolCallStatusIcon(status: status),
+                  ToolCallStatusIcon(
+                    status: status,
+                    waiting: waiting.isNotEmpty,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     label,
@@ -67,7 +105,7 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
                   ),
                   const SizedBox(width: 2),
                   Icon(
-                    _open ? Icons.expand_less : Icons.chevron_right,
+                    open ? Icons.expand_less : Icons.chevron_right,
                     size: 16,
                     color: subtle,
                   ),
@@ -76,14 +114,14 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
             ),
           ),
         ),
-        if (_open)
+        if (open)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final call in calls) ...[
-                  ToolCallCard(call: call),
+                for (final (i, _) in calls.indexed) ...[
+                  card(i),
                   const SizedBox(height: 6),
                 ],
               ],
