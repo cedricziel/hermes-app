@@ -19,8 +19,12 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       if (text.isEmpty) return;
       _seal(reply, text);
       reply.content = '';
-    case ReasoningUpdated(:final text, :final replace):
-      reply.reasoning = replace ? text : reply.reasoning + text;
+    case ReasoningUpdated(:final text, fallback: false):
+      reply.reasoning += text;
+    case ReasoningUpdated(:final text, fallback: true):
+      if (reply.reasoning.isEmpty && reply.content.isEmpty) {
+        reply.reasoning = text;
+      }
     case ToolStarted(:final name, :final summary):
       _seal(reply, reply.content);
       reply.content = '';
@@ -42,11 +46,11 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         result,
       );
     case ApprovalRequested(:final request):
-      reply.inputRequests = [...reply.inputRequests, request];
+      _addInputRequest(reply, request);
     case ClarifyRequested(:final request):
-      reply.inputRequests = [...reply.inputRequests, request];
+      _addInputRequest(reply, request);
     case UnsupportedRequested(:final request):
-      reply.inputRequests = [...reply.inputRequests, request];
+      _addInputRequest(reply, request);
     case InputRequestExpired(:final requestId):
       expireInputRequests(reply, requestId: requestId);
     case ReplyCompleted(:final text, :final failed, :final stopped):
@@ -86,6 +90,16 @@ void _seal(ChatMessage reply, String text) {
     ...reply.sealedProse,
     SealedProse(text, beforeToolCall: reply.toolCalls.length),
   ];
+}
+
+/// Adds [request] where the reply is now, after the tool calls started so
+/// far, so what the reply does after it renders below its card.
+void _addInputRequest(ChatMessage reply, InputRequest request) {
+  reply.inputRequests = [...reply.inputRequests, request];
+  reply.inputRequestSlots = {
+    request.requestId: reply.toolCalls.length,
+    ...reply.inputRequestSlots,
+  };
 }
 
 void _markFailed(ChatMessage reply, String error) {

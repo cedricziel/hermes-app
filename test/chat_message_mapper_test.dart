@@ -16,6 +16,7 @@ void main() {
     MessageStatus status = MessageStatus.sent,
     List<ToolCall> toolCalls = const [],
     List<InputRequest> inputRequests = const [],
+    Map<String, int> inputRequestSlots = const {},
     List<ChatAttachment> attachments = const [],
     String reasoning = '',
     List<SealedProse> sealedProse = const [],
@@ -27,6 +28,7 @@ void main() {
     status: status,
     toolCalls: toolCalls,
     inputRequests: inputRequests,
+    inputRequestSlots: inputRequestSlots,
     attachments: attachments,
     reasoning: reasoning,
     sealedProse: sealedProse,
@@ -290,6 +292,39 @@ void main() {
         kMetaKind: kKindInputRequest,
         kMetaInputRequest: approval,
       });
+    });
+
+    test('what follows a request renders below its card', () {
+      const approval = ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      );
+
+      final out = chatMessageToFlyer(
+        message(
+          content: 'Done.',
+          reasoning: 'All clean now.',
+          toolCalls: const [
+            ToolCall(name: 'shell', summary: 'rm', reasoning: 'Clean up.'),
+            ToolCall(name: 'shell', summary: 'ls'),
+          ],
+          inputRequests: [approval.answered('once')],
+          inputRequestSlots: const {'r1': 1},
+          sealedProse: const [SealedProse('Deleted.', beforeToolCall: 1)],
+        ),
+      );
+
+      expect(out.map((m) => m.id), [
+        'm1-tool-0-reasoning',
+        'm1-tool-0',
+        'm1-input-0',
+        'm1-sealed-0',
+        'm1-tool-1',
+        'm1-reasoning',
+        'm1',
+      ]);
     });
 
     test('hides the thinking indicator while a request is pending', () {

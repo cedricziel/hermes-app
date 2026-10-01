@@ -31,13 +31,15 @@ final class ReplyDelta extends ChatEvent {
   final String text;
 }
 
-/// The model's reasoning: [text] is appended to what has streamed so far, or
-/// replaces it when [replace] is set.
+/// The model's reasoning: [text] is appended to what has streamed so far.
+/// A [fallback] is only a preview Hermes sends after the model answered (its
+/// `reasoning.available`, the start of the reply text), for providers that
+/// stream nothing: it is shown only when no reasoning or text streamed.
 final class ReasoningUpdated extends ChatEvent {
-  const ReasoningUpdated(this.text, {this.replace = false});
+  const ReasoningUpdated(this.text, {this.fallback = false});
 
   final String text;
-  final bool replace;
+  final bool fallback;
 }
 
 /// A checkpoint Hermes reached before its answer is done: text it wrote

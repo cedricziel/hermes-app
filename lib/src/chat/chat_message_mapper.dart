@@ -7,12 +7,13 @@ import 'chat_reply.dart' show kReplyFailedMessage;
 import 'markdown_entities.dart';
 import 'media/extract_media.dart';
 
-/// Attachments come first, then text and tool runs interleaved in the order
-/// they actually happened — a [ChatMessage.sealedProse] entry before the
-/// tool run it names, each run after the reasoning that led to its first
-/// call — then the reasoning that followed the last call, input requests,
-/// the text still being written, the files the agent sent (read from
-/// `MEDIA:` tags in the text), and the thinking indicator.
+/// Attachments come first, then input requests, text and tool runs
+/// interleaved in the order they actually happened — an input request after
+/// the call that asked it ([ChatMessage.inputRequestSlots]), a
+/// [ChatMessage.sealedProse] entry before the tool run it names, each run
+/// after the reasoning that led to its first call — then the reasoning that
+/// followed the last call, the text still being written, the files the agent
+/// sent (read from `MEDIA:` tags in the text), and the thinking indicator.
 ///
 /// Ids derive only from [ChatMessage.id] (`id`, `id-attachment-N`,
 /// `id-sealed-N`, `id-tool-N-reasoning`, `id-tool-N`, `id-reasoning`,
@@ -34,9 +35,23 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
   final media = m.role == ChatRole.assistant
       ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
+  int slotOf(InputRequest request) =>
+      m.inputRequestSlots[request.requestId] ?? m.toolCalls.length;
   final runs = _toolRuns(m.toolCalls, {
     for (final prose in m.sealedProse) prose.beforeToolCall,
+    for (final request in m.inputRequests) slotOf(request),
   });
+
+  Iterable<Message> inputsBefore(int toolCallIndex) => [
+    for (final (i, request) in m.inputRequests.indexed)
+      if (slotOf(request) == toolCallIndex)
+        CustomMessage(
+          id: '${m.id}-input-$i',
+          authorId: authorId,
+          createdAt: createdAt,
+          metadata: {kMetaKind: kKindInputRequest, kMetaInputRequest: request},
+        ),
+  ];
 
   Iterable<Message> sealedBefore(int toolCallIndex) => [
     for (final (i, prose) in m.sealedProse.indexed)
@@ -58,6 +73,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         attachment,
       ),
     for (final run in runs) ...[
+      ...inputsBefore(run.start),
       ...sealedBefore(run.start),
       if (run.calls.first.reasoning.isNotEmpty)
         _reasoningMessage(
@@ -74,6 +90,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: {kMetaKind: kKindToolGroup, kMetaToolCalls: run.calls},
       ),
     ],
+    ...inputsBefore(m.toolCalls.length),
     ...sealedBefore(m.toolCalls.length),
     if (m.reasoning.isNotEmpty)
       _reasoningMessage(
@@ -82,13 +99,6 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         createdAt,
         m.reasoning,
         active: m.isPending,
-      ),
-    for (final (i, request) in m.inputRequests.indexed)
-      CustomMessage(
-        id: '${m.id}-input-$i',
-        authorId: authorId,
-        createdAt: createdAt,
-        metadata: {kMetaKind: kKindInputRequest, kMetaInputRequest: request},
       ),
     if (!thinking && (media.text.isNotEmpty || m.status == MessageStatus.error))
       TextMessage(
@@ -133,8 +143,8 @@ List<Message> chatThreadToFlyer(ChatThread t) => [
 /// Splits [calls] into runs: a new run starts at the first call, wherever a
 /// call carries its own reasoning (the model paused to think before it, so
 /// it reads as its own turn rather than a continuation of the last run), and
-/// wherever [sealedAt] names a call the model wrote text right before, so
-/// that text has its own gap to sit in.
+/// wherever [sealedAt] names a call the model wrote text or asked the user
+/// something right before, so that has its own gap to sit in.
 List<({int start, List<ToolCall> calls})> _toolRuns(
   List<ToolCall> calls,
   Set<int> sealedAt,

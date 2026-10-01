@@ -41,16 +41,39 @@ void main() {
     expect(reply.status, MessageStatus.thinking);
   });
 
-  test('the full reasoning replaces what streamed', () {
+  test('a fallback does not replace reasoning that streamed', () {
     final reply = _placeholder();
 
-    applyReplyEvent(reply, const ReasoningUpdated('Let me'));
+    applyReplyEvent(reply, const ReasoningUpdated('Let me think.'));
     applyReplyEvent(
       reply,
-      const ReasoningUpdated('Let me think.', replace: true),
+      const ReasoningUpdated('Here is the answer', fallback: true),
     );
 
     expect(reply.reasoning, 'Let me think.');
+  });
+
+  test('a fallback does not repeat reply text that streamed', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReplyDelta('Here is the answer'));
+    applyReplyEvent(
+      reply,
+      const ReasoningUpdated('Here is the answer', fallback: true),
+    );
+
+    expect(reply.reasoning, isEmpty);
+  });
+
+  test('a fallback shows when nothing streamed', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(
+      reply,
+      const ReasoningUpdated('Checking the logs', fallback: true),
+    );
+
+    expect(reply.reasoning, 'Checking the logs');
   });
 
   test('stays thinking until the first text arrives', () {
@@ -303,10 +326,10 @@ void main() {
     applyReplyEvent(reply, const ReasoningUpdated('Check the logs.'));
     applyReplyEvent(reply, const ToolStarted(name: 'search'));
     applyReplyEvent(reply, const ReasoningUpdated('Found it.'));
-    applyReplyEvent(reply, const ReasoningUpdated('Found it!', replace: true));
+    applyReplyEvent(reply, const ReasoningUpdated('Done', fallback: true));
 
     expect(reply.toolCalls.single.reasoning, 'Check the logs.');
-    expect(reply.reasoning, 'Found it!');
+    expect(reply.reasoning, 'Found it.');
   });
 
   test('settling a call keeps its reasoning', () {
@@ -387,6 +410,19 @@ void main() {
     applyReplyEvent(reply, const ClarifyRequested(_clarify));
 
     expect(reply.inputRequests.map((r) => r.requestId), ['r1', 'r2']);
+  });
+
+  test('a request keeps its place among the tool calls', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ToolStarted(name: 'terminal'));
+    applyReplyEvent(reply, const ApprovalRequested(_approval));
+    applyReplyEvent(reply, const ToolFinished(name: 'terminal'));
+    applyReplyEvent(reply, const ReasoningUpdated('It ran.'));
+    applyReplyEvent(reply, const ToolStarted(name: 'clarify'));
+    applyReplyEvent(reply, const ClarifyRequested(_clarify));
+
+    expect(reply.inputRequestSlots, {'r1': 1, 'r2': 2});
   });
 
   test('an expire event ends only the matching pending request', () {

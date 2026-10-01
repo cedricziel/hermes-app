@@ -236,6 +236,7 @@ class ChatMessage {
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
     this.inputRequests = const [],
+    this.inputRequestSlots = const {},
     this.attachments = const [],
     this.reasoning = '',
     this.sealedProse = const [],
@@ -260,6 +261,11 @@ class ChatMessage {
   bool stopped = false;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
+
+  /// How many tool calls had started when each of [inputRequests] arrived, by
+  /// request id, so its card renders after the call that asked and before
+  /// whatever followed. A request missing here renders after every call.
+  Map<String, int> inputRequestSlots;
 
   /// Text the model wrote and then moved on from — before starting a tool
   /// call, or checkpointed by the gateway — in the order it arrived. Empty
