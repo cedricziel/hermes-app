@@ -14,7 +14,7 @@ import 'frame.dart';
 import 'kanban_screen_use_cases.dart';
 import 'kanban_task_use_cases.dart';
 
-WidgetbookUseCase _card(String name, KanbanCard card) =>
+WidgetbookUseCase _card(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card, maxWidth: 320));
 
 Widget _material(Widget child) => Builder(
@@ -91,6 +91,15 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
             handle: KanbanDragHandle(task: plainTask),
           ),
         ),
+        _card(
+          'With drag handle (Material)',
+          _material(
+            const KanbanCard(
+              task: plainTask,
+              handle: KanbanDragHandle(task: plainTask),
+            ),
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -101,6 +110,7 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
       name: 'KanbanBoardToolbar',
       useCases: [
         _use('No filters', _toolbar()),
+        _use('Material (Android)', _material(_toolbar())),
         _use(
           'Filters',
           _toolbar(
@@ -138,6 +148,16 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
             columns: _columns,
             selected: 'triage',
             onSelected: (_) {},
+          ),
+        ),
+        _use(
+          'Material (Android)',
+          _material(
+            KanbanStatusChips(
+              columns: _columns,
+              selected: 'todo',
+              onSelected: (_) {},
+            ),
           ),
         ),
         _use(
