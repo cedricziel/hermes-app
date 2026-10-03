@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
+
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
 
@@ -162,4 +164,39 @@ void main() {
       expect(tester.getSize(row).height, lessThan(44));
     });
   }
+
+  testWidgets('a sheet left open after its row is gone runs nothing', (
+    tester,
+  ) async {
+    final actions = <Object>[];
+    final present = ValueNotifier(true);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: ValueListenableBuilder(
+            valueListenable: present,
+            builder: (_, here, _) => here
+                ? SwipeableThreadRow(
+                    title: 'Release notes',
+                    pinned: false,
+                    onAction: actions.add,
+                    child: const SizedBox(height: 44, child: Text('Row')),
+                  )
+                : const SizedBox(),
+          ),
+        ),
+      ),
+    );
+    await tester.longPress(find.text('Row'));
+    await tester.pumpAndSettle();
+
+    present.value = false;
+    await tester.pump();
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+
+    expect(actions, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
 }
