@@ -6,6 +6,7 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_filter_bar.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -70,6 +71,33 @@ WidgetbookUseCase _modelField(
   },
 );
 
+WidgetbookUseCase _filterBar(
+  String name, {
+  String? activeProfile = 'work',
+  int failingCount = 2,
+  ScheduleFilter filter = ScheduleFilter.all,
+  double maxWidth = 400,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (_) {
+    var all = false;
+    var current = filter;
+    return StatefulBuilder(
+      builder: (context, setState) => frame(
+        ScheduleFilterBar(
+          activeProfile: activeProfile,
+          allProfiles: all,
+          filter: current,
+          failingCount: failingCount,
+          onAllProfilesChanged: (value) => setState(() => all = value),
+          onFilterChanged: (value) => setState(() => current = value),
+        ),
+        maxWidth: maxWidth,
+      ),
+    );
+  },
+);
+
 WidgetbookNode schedulesNode() => WidgetbookFolder(
   name: 'Schedules',
   children: [
@@ -81,6 +109,27 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
         _tile('Paused', pausedJob),
         _tile('Never run, no name', neverRunJob),
         _tile('Selected', nightlyJob, selected: true),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ScheduleFilterBar',
+      useCases: [
+        _filterBar('Active profile'),
+        _filterBar('No active profile', activeProfile: null),
+        _filterBar(
+          'Paused selected, nothing failing',
+          failingCount: 0,
+          filter: ScheduleFilter.paused,
+        ),
+        _filterBar(
+          'Long profile name, list column',
+          activeProfile: 'research-assistant-staging',
+        ),
+        _filterBar(
+          'Long profile name, narrow',
+          activeProfile: 'research-assistant-staging-with-a-very-long-name',
+          maxWidth: 280,
+        ),
       ],
     ),
     WidgetbookComponent(
