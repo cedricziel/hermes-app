@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
+import '../widgets/row_actions.dart';
+import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
@@ -81,21 +83,25 @@ class SchedulesList extends StatelessWidget {
       );
     }
     final apple = platformChromeOf(context).isApple;
-    Widget tile(CronJob job, {required bool grouped}) => JobTile(
-      job: job,
-      now: controller.now,
-      showProfile: controller.showProfiles,
-      selected: job.key == selectedKey,
-      grouped: grouped,
-      onTap: () => onSelect(job),
-      onPausedChanged: (paused) async {
-        final message = await controller.setPaused(job, paused);
-        if (message != null && context.mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(SnackBar(content: Text(message)));
-        }
-      },
+    Widget tile(CronJob job, {required bool grouped}) => RowActions(
+      title: job.title,
+      actions: scheduleRowActions(context, controller, job),
+      child: JobTile(
+        job: job,
+        now: controller.now,
+        showProfile: controller.showProfiles,
+        selected: job.key == selectedKey,
+        grouped: grouped,
+        onTap: () => onSelect(job),
+        onPausedChanged: (paused) async {
+          final message = await controller.setPaused(job, paused);
+          if (message != null && context.mounted) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(message)));
+          }
+        },
+      ),
     );
     return RefreshIndicator(
       onRefresh: controller.refresh,
