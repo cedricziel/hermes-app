@@ -43,7 +43,7 @@ No utility classes. Use the components for controls and cards; for your own layo
 
 Type classes: `h-headline-sm`, `h-title-lg`, `h-title-md`, `h-title-sm`, `h-body-lg`, `h-body-md`, `h-body-sm`, `h-label-lg`, `h-label-md`, `h-label-sm`, `h-mono`, `h-muted`, and `h-divider` for an `<hr>`.
 
-Layout rules from the app: list and detail side by side from 900px wide (`ListDetailLayout`), Kanban columns from 720px; phone layouts use a top app bar and a bottom navigation bar (`AppShell layout="phone"`). Desktop sidebar is 280px. One filled `Button` per view; secondary actions are `outlined`, dismissive ones `text`.
+Layout rules from the app: list and detail side by side from 900px wide (`ListDetailLayout`), Kanban columns from 720px; phone layouts have no bottom bar: a top app bar whose menu button opens the sidebar as a drawer (`AppShell layout="phone" drawerOpen`). Desktop sidebar is 280px. One filled `Button` per view; secondary actions are `outlined`, dismissive ones `text`.
 
 ## Where the truth lives
 

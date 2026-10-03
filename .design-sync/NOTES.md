@@ -14,6 +14,10 @@
 - Icons are Material Symbols Outlined from Google Fonts (`@import` in `tokens.css`), giving `[FONT_REMOTE]`. The
   font is the system stack (SF on Apple, like the Flutter app); no font files ship.
 - Playwright must match the cached chromium build: chromium-1243 -> `playwright@1.63.0` in `.ds-sync/`.
+  In a claude.ai/code cloud container the browsers live in `/opt/pw-browsers` (chromium-1194), which needs
+  `playwright@1.56.1` instead; check `ls /opt/pw-browsers ~/.cache/ms-playwright` before installing.
+- Cloud containers can't reach Google Fonts, so captured sheets show Material Symbols as ligature text
+  ("chat_bubble" etc.). That's the sandbox, not the preview: grade layout and tokens, and say so in the grade note.
 - The worktree's shell guard rejects commands that contain the substring "git" (e.g. `.gitignore`, github URLs)
   in compound commands; use the Edit/Write tools or a node script for those.
 - Flutter reference screenshots: `flutter test test/workflows/` writes `build/workflow_screenshots/`; they use
