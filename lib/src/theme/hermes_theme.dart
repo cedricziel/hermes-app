@@ -87,6 +87,7 @@ ThemeData _buildTheme({
   final base = ThemeData(colorScheme: scheme, useMaterial3: true);
   return base.copyWith(
     scaffoldBackgroundColor: scaffoldBackground,
+    adaptations: [_AppleSwitchAdaptation(scheme)],
     extensions: [
       HermesChatColors(
         sidebar: sidebarBackground,
@@ -232,5 +233,37 @@ extension HermesThemeX on BuildContext {
                 ? buildHermesDarkTheme()
                 : buildHermesLightTheme())
             .extension<HermesChatColors>()!;
+  }
+}
+
+/// Keeps the iOS/macOS toggle's native shape and motion but swaps its green
+/// for the zinc primary; the thumb takes `onPrimary` so it stays visible on
+/// the near-white dark-mode track.
+class _AppleSwitchAdaptation extends Adaptation<SwitchThemeData> {
+  const _AppleSwitchAdaptation(this.scheme);
+
+  final ColorScheme scheme;
+
+  @override
+  SwitchThemeData adapt(ThemeData theme, SwitchThemeData defaultValue) {
+    switch (theme.platform) {
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return SwitchThemeData(
+          trackColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? scheme.primary : null,
+          ),
+          thumbColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.selected) ? scheme.onPrimary : null,
+          ),
+        );
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return defaultValue;
+    }
   }
 }

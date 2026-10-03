@@ -26,7 +26,7 @@ class _NotificationsDialog extends StatelessWidget {
     return SimpleDialog(
       title: const Text('Notifications'),
       children: [
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: const Text('Notify me'),
           subtitle: const Text(
             'When a reply finishes or Hermes needs you, while the app is not '
@@ -36,7 +36,7 @@ class _NotificationsDialog extends StatelessWidget {
           value: settings.enabled,
           onChanged: (value) => settings.setEnabled(value),
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           key: const Key('schedule-alerts'),
           title: const Text('Scheduled tasks'),
           subtitle: const Text(

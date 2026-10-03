@@ -109,7 +109,7 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
                     ? null
                     : (value) => setState(() => _trust = value ?? false),
               ),
-              SwitchListTile(
+              SwitchListTile.adaptive(
                 key: const Key('git-enable-switch'),
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Enable after install'),
@@ -122,7 +122,7 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
                 tilePadding: EdgeInsets.zero,
                 title: const Text('Advanced'),
                 children: [
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     key: const Key('git-force-switch'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Overwrite existing (force)'),

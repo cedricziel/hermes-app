@@ -266,13 +266,13 @@ class _ExportDialogState extends State<_ExportDialog> {
               helperText: 'Empty uses the server’s export folder',
             ),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Include attachments'),
             value: _attachments,
             onChanged: (v) => setState(() => _attachments = v),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Include worker logs'),
             value: _logs,
@@ -341,7 +341,7 @@ class _ImportDialogState extends State<_ImportDialog> {
               labelText: 'New board slug (optional)',
             ),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
             title: const Text('Open it afterwards'),
             value: _open,

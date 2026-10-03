@@ -332,7 +332,7 @@ class _InstallActionsState extends State<InstallActions> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           key: const Key('catalog-enable-switch'),
           contentPadding: EdgeInsets.zero,
           title: const Text('Enable after install'),

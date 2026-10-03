@@ -108,7 +108,7 @@ class _BotsScreenState extends State<BotsScreen> {
             title: Text(bot.name),
             subtitle: _subtitle(bot),
             onTap: () => _setUp(bot),
-            trailing: Switch(
+            trailing: Switch.adaptive(
               value: bot.enabled,
               onChanged: bot.configured || bot.enabled
                   ? (v) => _toggle(bot, v)

@@ -199,7 +199,7 @@ class JobTile extends StatelessWidget {
                   MergeSemantics(
                     child: Semantics(
                       label: job.title,
-                      child: Switch(
+                      child: Switch.adaptive(
                         value:
                             !job.isPaused &&
                             job.state != CronJobState.completed,

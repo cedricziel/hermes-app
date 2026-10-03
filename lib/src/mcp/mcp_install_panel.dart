@@ -139,7 +139,7 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
               ),
             ],
             const SizedBox(height: 8),
-            SwitchListTile(
+            SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('Turn on after installing'),
               value: _enable,
