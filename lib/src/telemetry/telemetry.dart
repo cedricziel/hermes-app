@@ -38,6 +38,50 @@ MessagingConnectionTracer gatewayTracer(Tracer? tracer) =>
       knownEvents: _knownGatewayEvents,
     );
 
+// The kinds the Kanban plugin writes to its task_events table. Heartbeats
+// come every few seconds from each running worker and say nothing new.
+const _knownKanbanEvents = {
+  'archived',
+  'assigned',
+  'attached',
+  'blocked',
+  'changes_requested',
+  'claim_rejected',
+  'claimed',
+  'commented',
+  'completed',
+  'created',
+  'decomposed',
+  'dependency_wait',
+  'edited',
+  'gave_up',
+  'linked',
+  'promoted',
+  'reclaimed',
+  'reconciled',
+  'reprioritized',
+  'review_requested',
+  'scheduled',
+  'spawned',
+  'stale',
+  'status',
+  'timed_out',
+  'unblocked',
+  'unlinked',
+};
+
+/// How the Kanban plugin's event socket is traced, on [tracer] or, when
+/// null, nowhere. A type of its own so it is provided apart from the chat
+/// gateway's tracer.
+class KanbanEventsTracer extends MessagingConnectionTracer {
+  KanbanEventsTracer(super.tracer)
+    : super(
+        system: 'hermes.kanban',
+        skippedNames: const {'heartbeat'},
+        knownEvents: _knownKanbanEvents,
+      );
+}
+
 class Telemetry {
   Telemetry._(this._sdk);
 
@@ -110,6 +154,13 @@ class Telemetry {
 
   /// Traces the gateway socket; does nothing when disabled.
   MessagingConnectionTracer gateway() => gatewayTracer(_sdk?.getTracer());
+
+  /// Traces the Kanban event socket; null when disabled, so its frames are
+  /// not decoded for nothing.
+  KanbanEventsTracer? kanbanEvents() {
+    final sdk = _sdk;
+    return sdk == null ? null : KanbanEventsTracer(sdk.getTracer());
+  }
 
   /// Logs app events such as sign-in outcomes, and keeps them as breadcrumbs
   /// for [logUncaughtErrors]; does nothing when disabled.

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -30,6 +32,7 @@ class KanbanBoardController extends ChangeNotifier {
     this.reconnectDelay = _defaultReconnectDelay,
     this.prefs,
     this.prefsKey = 'hermes.kanban.board',
+    this.log = noopAppEventLogger,
   });
 
   /// Where the chosen board is remembered between launches; null forgets it.
@@ -43,6 +46,9 @@ class KanbanBoardController extends ChangeNotifier {
   final KanbanEventsConnect connect;
   final Duration debounce;
   final Duration Function(int attempt) reconnectDelay;
+
+  /// Where reconnects of the event stream are logged.
+  final AppEventLogger log;
 
   static Duration _defaultReconnectDelay(int attempt) =>
       Duration(seconds: math.min(30, 1 << math.min(attempt, 5)));
@@ -364,7 +370,12 @@ class KanbanBoardController extends ChangeNotifier {
       _events = null;
       _closeChannel();
       _setLive(false);
-      _reconnectTimer = Timer(reconnectDelay(attempt), () {
+      final delay = reconnectDelay(attempt);
+      log('kanban.events.reconnect', {
+        'attempt': attempt + 1,
+        'delay_ms': delay.inMilliseconds,
+      });
+      _reconnectTimer = Timer(delay, () {
         if (!_disposed && generation == _generation) {
           _listen(attempt: attempt + 1);
         }

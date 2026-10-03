@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
@@ -32,6 +34,22 @@ void main() {
         kanbanBoardBody(tasks, latestEventId: latest),
       );
 
+  KanbanBoardController makeController({
+    Duration Function(int attempt)? reconnectDelay,
+    AppEventLogger log = noopAppEventLogger,
+  }) => KanbanBoardController(
+    repository: KanbanRepository(server.client()),
+    connect: ({required since, board}) async {
+      connects.add((since: since, board: board));
+      final socket = StreamChannelController<String>();
+      sockets.add(socket);
+      return socket.foreign;
+    },
+    debounce: Duration.zero,
+    reconnectDelay: reconnectDelay ?? (_) => Duration.zero,
+    log: log,
+  );
+
   setUp(() {
     server = FakeHermesServer()
       ..on(
@@ -44,17 +62,7 @@ void main() {
       );
     connects = [];
     sockets = [];
-    controller = KanbanBoardController(
-      repository: KanbanRepository(server.client()),
-      connect: ({required since, board}) async {
-        connects.add((since: since, board: board));
-        final socket = StreamChannelController<String>();
-        sockets.add(socket);
-        return socket.foreign;
-      },
-      debounce: Duration.zero,
-      reconnectDelay: (_) => Duration.zero,
-    );
+    controller = makeController();
   });
 
   tearDown(() => controller.dispose());
@@ -207,6 +215,25 @@ void main() {
     expect(connects, hasLength(2));
     expect(connects.last.since, 9);
     expect(controller.live, isTrue);
+  });
+
+  test('logs each reconnect with its attempt and backoff', () async {
+    final logged = <(String, Map<String, Object>)>[];
+    controller.dispose();
+    controller = makeController(
+      reconnectDelay: (attempt) => Duration(milliseconds: 5 + attempt),
+      log: (name, [attributes = const {}]) => logged.add((name, attributes)),
+    );
+    serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
+    await controller.start();
+    await until(() => controller.live);
+
+    await sockets.single.local.sink.close();
+    await until(() => connects.length == 2 && controller.live);
+
+    final (name, attributes) = logged.single;
+    expect(name, 'kanban.events.reconnect');
+    expect(attributes, {'attempt': 1, 'delay_ms': 5});
   });
 
   test('filters by search text and assignee without refetching', () async {
