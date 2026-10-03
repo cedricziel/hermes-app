@@ -1,0 +1,53 @@
+.h-tool-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: var(--h-font);
+  color: var(--h-fg);
+}
+
+.h-tool-group__line {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-tool-group__line:hover {
+  background: var(--h-hover);
+}
+
+.h-tool-group__line:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 0;
+}
+
+.h-tool-group__label {
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.h-tool-group__chevron {
+  flex: none;
+  margin-left: 2px;
+  color: var(--h-muted);
+}
+
+.h-tool-group__list {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 6px;
+  padding-top: 4px;
+}

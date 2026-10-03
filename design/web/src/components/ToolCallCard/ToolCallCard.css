@@ -1,0 +1,258 @@
+.h-tool-call {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-sm);
+  background: color-mix(in srgb, var(--h-surface-high) 40%, transparent);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  box-sizing: border-box;
+}
+
+.h-tool-call__header {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  min-width: 0;
+}
+
+.h-tool-call__header:hover:not(:disabled) {
+  background: var(--h-hover);
+}
+
+.h-tool-call__header:disabled {
+  cursor: default;
+}
+
+.h-tool-call__header:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-tool-status {
+  flex: none;
+}
+
+.h-tool-status--waiting {
+  color: var(--h-warning);
+}
+
+.h-tool-status--done {
+  color: var(--h-success);
+}
+
+.h-tool-status--error {
+  color: var(--h-error);
+}
+
+.h-tool-status--cancelled {
+  color: var(--h-muted);
+}
+
+.h-tool-status--running {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin: 1px;
+  box-sizing: border-box;
+  border: 2px solid var(--h-primary);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: h-tool-spin 0.9s linear infinite;
+}
+
+@keyframes h-tool-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.h-tool-call__name {
+  flex: none;
+  margin-left: 8px;
+  font-family: var(--h-font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--h-fg);
+}
+
+.h-tool-call__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--h-muted);
+}
+
+.h-tool-call__time {
+  flex: none;
+  padding-left: 8px;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--h-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.h-tool-call__chevron {
+  flex: none;
+  margin-left: 16px;
+  color: var(--h-muted);
+  transition: transform 160ms ease;
+}
+
+.h-tool-call__chevron--open {
+  transform: rotate(180deg);
+}
+
+.h-tool-call__section {
+  border-top: 1px solid var(--h-border);
+  padding: 8px 10px 10px;
+}
+
+.h-tool-call__section-label {
+  margin-bottom: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--h-muted);
+}
+
+.h-tool-call__section-body {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.h-tool-call__mono {
+  font-family: var(--h-font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--h-fg);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.h-tool-call__mono strong {
+  font-weight: 600;
+}
+
+.h-tool-call__prompt {
+  color: var(--h-muted);
+}
+
+.h-tool-call__spaced {
+  margin-top: 6px;
+}
+
+.h-tool-call__error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--h-error);
+}
+
+.h-tool-call__exit {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--h-error);
+}
+
+.h-tool-call__hit {
+  margin-bottom: 8px;
+}
+
+.h-tool-call__hit-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--h-fg);
+}
+
+.h-tool-call__hit-url {
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--h-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-tool-call__hit-description {
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--h-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.h-tool-call__todo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--h-fg);
+}
+
+.h-tool-call__todo-icon {
+  margin-top: 1px;
+  flex: none;
+  color: var(--h-muted);
+}
+
+.h-tool-call__todo--completed .h-tool-call__todo-icon {
+  color: var(--h-success);
+}
+
+.h-tool-call__todo--in_progress .h-tool-call__todo-icon {
+  color: var(--h-primary);
+}
+
+.h-tool-call__todo--cancelled {
+  color: var(--h-muted);
+  text-decoration: line-through;
+}
+
+.h-tool-call__diff--file {
+  color: var(--h-muted);
+  font-weight: 600;
+}
+
+.h-tool-call__diff--hunk {
+  color: var(--h-muted);
+}
+
+.h-tool-call__diff--add {
+  color: var(--h-success);
+  background: color-mix(in srgb, var(--h-success) 10%, transparent);
+}
+
+.h-tool-call__diff--remove {
+  color: var(--h-error);
+  background: color-mix(in srgb, var(--h-error) 10%, transparent);
+}
+
+.h-tool-call__approval {
+  padding: 0 8px 8px;
+}
+
+.h-tool-call__approval--answered {
+  padding-top: 8px;
+}
