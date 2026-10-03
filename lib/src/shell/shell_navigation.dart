@@ -110,18 +110,29 @@ class ShellMenu extends InheritedWidget {
   static Widget? button(BuildContext context) {
     final menu = context.dependOnInheritedWidgetOfExactType<ShellMenu>();
     if (menu == null) return null;
-    final button = IconButton(
-      key: const Key('shell-menu'),
-      tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-      icon: const Icon(Icons.menu),
-      onPressed: menu.onOpen,
+    return clearOfWindowControls(
+      context,
+      IconButton(
+        key: const Key('shell-menu'),
+        tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        icon: const Icon(Icons.menu),
+        onPressed: menu.onOpen,
+      ),
     );
-    if (menu.leadingInset == 0) return button;
+  }
+
+  /// [leading] moved clear of the window controls when the page sits in a
+  /// collapsed Mac sidebar layout, otherwise as it is.
+  static Widget clearOfWindowControls(BuildContext context, Widget leading) {
+    final inset =
+        context.dependOnInheritedWidgetOfExactType<ShellMenu>()?.leadingInset ??
+        0;
+    if (inset == 0) return leading;
     return Align(
       alignment: Alignment.centerRight,
       child: Padding(
-        padding: EdgeInsets.only(left: menu.leadingInset),
-        child: button,
+        padding: EdgeInsets.only(left: inset),
+        child: leading,
       ),
     );
   }

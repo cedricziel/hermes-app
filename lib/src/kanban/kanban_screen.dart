@@ -134,10 +134,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
       builder: (context, _) => Scaffold(
         appBar: _controller.selecting
             ? AppBar(
-                leading: NamedIconButton(
-                  label: 'Cancel selection',
-                  icon: Icons.close,
-                  onPressed: _controller.stopSelecting,
+                leading: ShellMenu.clearOfWindowControls(
+                  context,
+                  NamedIconButton(
+                    label: 'Cancel selection',
+                    icon: Icons.close,
+                    onPressed: _controller.stopSelecting,
+                  ),
                 ),
                 title: Text('${_controller.selected.length} selected'),
               )

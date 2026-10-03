@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -25,7 +26,11 @@ void main() {
       ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody([]));
   });
 
-  Future<void> pumpBoard(WidgetTester tester, {required Size size}) async {
+  Future<void> pumpBoard(
+    WidgetTester tester, {
+    required Size size,
+    double windowControlsInset = 0,
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -33,11 +38,21 @@ void main() {
       ChangeNotifierProvider<AuthController>(
         create: (_) => AuthController(),
         child: MaterialApp(
-          theme: buildHermesLightTheme(),
-          home: KanbanScreen(
-            repository: KanbanRepository(server.client()),
-            connect: ({required since, board}) async =>
-                StreamChannelController<String>().foreign,
+          theme: buildHermesLightTheme().copyWith(
+            appBarTheme: AppBarTheme(
+              leadingWidth: windowControlsInset == 0
+                  ? null
+                  : windowControlsInset + 56,
+            ),
+          ),
+          home: ShellMenu(
+            onOpen: () {},
+            leadingInset: windowControlsInset,
+            child: KanbanScreen(
+              repository: KanbanRepository(server.client()),
+              connect: ({required since, board}) async =>
+                  StreamChannelController<String>().foreign,
+            ),
           ),
         ),
       ),
@@ -697,5 +712,20 @@ void main() {
       namedButton('Cancel selection'),
     );
     handle.dispose();
+  });
+
+  testWidgets('selection mode clears the window controls of a Mac window', (
+    tester,
+  ) async {
+    serveTasks();
+    await pumpBoard(
+      tester,
+      size: const Size(400, 800),
+      windowControlsInset: 78,
+    );
+    await tester.longPress(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(find.byIcon(Icons.close)).dx, greaterThan(78));
   });
 }
