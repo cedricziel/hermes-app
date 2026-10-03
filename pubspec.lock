@@ -205,10 +205,10 @@ packages:
     dependency: "direct main"
     description:
       name: dart_otel_instrumentation_dio
-      sha256: "6418d639ee8215a146950d1b89ac45b0a8a3733b4013679a166c75d7c471be90"
+      sha256: "276443e0c453ab9219f2bf23f07e041590afdb20f4bbdbfedbd062d082d2f2fe"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.1"
+    version: "0.1.2"
   dart_otel_instrumentation_messaging:
     dependency: "direct main"
     description:
