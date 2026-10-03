@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/accessibility.dart';
+
 class _FakeAuthController extends AuthController {
   _FakeAuthController(this._status);
 
@@ -78,5 +80,17 @@ void main() {
     await _pumpLogin(tester, const ['native_pkce']);
 
     expect(find.text('Report a bug'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get Change server by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _pumpLogin(tester, const ['native_pkce']);
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.dns_outlined)),
+      namedButton('Change server'),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }
