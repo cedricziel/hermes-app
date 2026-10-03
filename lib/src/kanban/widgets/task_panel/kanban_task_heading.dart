@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 /// A section title in the task panel.
 class KanbanTaskHeading extends StatelessWidget {
   const KanbanTaskHeading(this.text, {super.key});
@@ -16,7 +18,8 @@ class KanbanTaskHeading extends StatelessWidget {
         semanticsLabel: text,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           letterSpacing: 0.8,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          color: Theme.of(context).colorScheme.onSurface
+              .withValues(alpha: kHermesMutedAlpha),
         ),
       ),
     ),
