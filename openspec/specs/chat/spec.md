@@ -605,6 +605,7 @@ The system SHALL show a clarify request as a card "Hermes has a question" with o
 
 - **WHEN** sending one question of a batch fails after earlier ones were accepted
 - **THEN** the card stays open with "Could not send your answer. Try again.", and retrying sends the whole batch again from its first question
+- **AND** resending an answer the gateway already accepted is harmless, because the gateway stores batch answers per `question_id` and overwrites them in place until the last question is answered (`clarify.lock`, and `clarify.respond` with a `question_id` on gateways from before server-to-client requests)
 
 #### Scenario: Expired request
 
