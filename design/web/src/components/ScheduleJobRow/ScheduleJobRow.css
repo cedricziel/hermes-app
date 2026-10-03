@@ -1,0 +1,186 @@
+.h-schedule-job-row {
+  --h-schedule-job-row-tone: var(--h-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius);
+  background: transparent;
+  color: var(--h-fg);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.h-schedule-job-row:hover {
+  background: var(--h-hover);
+}
+
+.h-schedule-job-row--selected,
+.h-schedule-job-row--selected:hover {
+  background: var(--h-surface-high);
+}
+
+.h-schedule-job-row:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+.h-schedule-job-row--error {
+  --h-schedule-job-row-tone: var(--h-error);
+}
+.h-schedule-job-row--warning {
+  --h-schedule-job-row-tone: var(--h-warning);
+}
+.h-schedule-job-row--success {
+  --h-schedule-job-row-tone: var(--h-success);
+}
+
+.h-schedule-job-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.h-schedule-job-row__titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.h-schedule-job-row__title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.h-schedule-job-row__chip {
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--h-surface-high);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.h-schedule-job-row__schedule {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-secondary);
+}
+
+.h-schedule-job-row__divider {
+  border: 0;
+  border-top: 1px solid var(--h-border);
+  margin: 5px 0;
+}
+
+.h-schedule-job-row__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.h-schedule-job-row__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--h-schedule-job-row-tone);
+}
+
+.h-schedule-job-row--muted .h-schedule-job-row__dot {
+  background: var(--h-fg);
+}
+
+.h-schedule-job-row__status-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--h-schedule-job-row-tone);
+}
+
+.h-schedule-job-row--muted .h-schedule-job-row__status-text {
+  color: var(--h-fg);
+}
+
+.h-schedule-job-row__next {
+  color: var(--h-secondary);
+  white-space: nowrap;
+}
+
+.h-schedule-job-row__reason {
+  font-family: var(--h-font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--h-schedule-job-row-tone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-schedule-job-row__switch {
+  position: relative;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--h-border);
+  border-radius: 16px;
+  background: var(--h-surface-high);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.h-schedule-job-row__thumb {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--h-fg) 30%, var(--h-surface-high));
+  transform: translateY(-50%);
+  transition:
+    left 120ms ease,
+    width 120ms ease,
+    height 120ms ease;
+}
+
+.h-schedule-job-row__switch--on {
+  border-color: var(--h-primary);
+  background: var(--h-primary);
+}
+
+.h-schedule-job-row__switch--on .h-schedule-job-row__thumb {
+  left: 22px;
+  width: 24px;
+  height: 24px;
+  background: var(--h-on-primary);
+}
+
+.h-schedule-job-row__switch:disabled {
+  cursor: default;
+  border-color: color-mix(in srgb, var(--h-fg) 12%, transparent);
+  background: color-mix(in srgb, var(--h-surface-high) 50%, transparent);
+}
+
+.h-schedule-job-row__switch:disabled .h-schedule-job-row__thumb {
+  background: color-mix(in srgb, var(--h-fg) 38%, transparent);
+}
+
+.h-schedule-job-row__switch:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
