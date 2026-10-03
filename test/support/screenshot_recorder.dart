@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -52,6 +53,28 @@ Future<void> _loadFonts() async {
   final icons = FontLoader('MaterialIcons')
     ..addFont(read('MaterialIcons-Regular.otf'));
   await icons.load();
+
+  final cupertino = FontLoader('packages/cupertino_icons/CupertinoIcons')
+    ..addFont(_readCupertinoIcons());
+  await cupertino.load();
+}
+
+Future<ByteData> _readCupertinoIcons() async {
+  final config = jsonDecode(
+    await File('.dart_tool/package_config.json').readAsString(),
+  ) as Map<String, dynamic>;
+  final package = (config['packages'] as List)
+      .cast<Map<String, dynamic>>()
+      .firstWhere((p) => p['name'] == 'cupertino_icons');
+  final rootUri = package['rootUri'] as String;
+  final root = Uri.parse(rootUri.endsWith('/') ? rootUri : '$rootUri/');
+  final bytes = await File.fromUri(
+    Directory.current.uri
+        .resolve('.dart_tool/package_config.json')
+        .resolveUri(root)
+        .resolve('assets/CupertinoIcons.ttf'),
+  ).readAsBytes();
+  return ByteData.sublistView(bytes);
 }
 
 /// [theme] with Roboto set on the text the theme leaves without a family

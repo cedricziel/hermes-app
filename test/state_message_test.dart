@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
 void main() {
@@ -9,7 +10,7 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: StateMessage(
-            icon: Icons.error_outline,
+            icon: AppIcons.error,
             title: 'Could not load',
             detail: 'The server did not answer.',
             action: FilledButton(

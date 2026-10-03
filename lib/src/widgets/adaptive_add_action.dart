@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import 'named_icon_button.dart';
 
@@ -29,7 +29,7 @@ class AdaptiveAddAction {
     if (!platformChromeOf(context).isApple) return null;
     return NamedIconButton(
       label: toolbarLabel ?? label,
-      icon: CupertinoIcons.add,
+      icon: AppIcons.add,
       onPressed: onPressed,
     );
   }
@@ -38,7 +38,7 @@ class AdaptiveAddAction {
     if (platformChromeOf(context).isApple) return null;
     return FloatingActionButton.extended(
       onPressed: onPressed,
-      icon: const Icon(Icons.add),
+      icon: const AppIcon(AppIcons.add),
       label: Text(label),
     );
   }

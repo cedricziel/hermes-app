@@ -191,6 +191,10 @@ abstract final class AppIcons {
   );
   static const play = AppIconSet(Icons.play_arrow, CupertinoIcons.play_fill);
   static const pause = AppIconSet(Icons.pause, CupertinoIcons.pause_fill);
+  static const moreVertical = AppIconSet(
+    Icons.more_vert,
+    CupertinoIcons.ellipsis,
+  );
   static const more = AppIconSet(Icons.more_horiz, CupertinoIcons.ellipsis);
   static const image = AppIconSet(Icons.image_outlined, CupertinoIcons.photo);
   static const brokenImage = AppIconSet(
@@ -325,6 +329,10 @@ abstract final class AppIcons {
     Icons.arrow_right,
     CupertinoIcons.chevron_right,
   );
+
+  /// Apple platforms have no matching glyph, so both keep the Material one.
+  static const toggleOn = AppIconSet(Icons.toggle_on, Icons.toggle_on);
+  static const toggleOff = AppIconSet(Icons.toggle_off, Icons.toggle_off);
   static const tree = AppIconSet(
     Icons.account_tree_outlined,
     CupertinoIcons.arrow_branch,
@@ -424,6 +432,9 @@ abstract final class AppIcons {
     'sparkle': sparkle,
     'dropDown': dropDown,
     'dropRight': dropRight,
+    'moreVertical': moreVertical,
+    'toggleOn': toggleOn,
+    'toggleOff': toggleOff,
     'tree': tree,
   };
 }

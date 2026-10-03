@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
+
 /// An [IconButton] whose [label] is its accessible name and, unless [tooltip]
 /// is given, its tooltip.
 ///
@@ -27,7 +29,7 @@ class NamedIconButton extends StatelessWidget {
 
   /// A shorter hover text than [label], which screen readers never get.
   final String? tooltip;
-  final IconData icon;
+  final AppIconSet icon;
   final VoidCallback? onPressed;
   final Color? color;
   final ButtonStyle? style;
@@ -49,7 +51,7 @@ class NamedIconButton extends StatelessWidget {
       message: tooltip ?? label,
       excludeFromSemantics: true,
       child: button(
-        icon: Icon(icon, semanticLabel: label),
+        icon: AppIcon(icon, semanticLabel: label),
         color: color,
         style: style,
         iconSize: iconSize,

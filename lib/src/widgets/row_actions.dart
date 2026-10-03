@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+
+import '../theme/app_icons.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -15,7 +18,7 @@ class RowAction {
   });
 
   final String label;
-  final IconData icon;
+  final AppIconSet icon;
   final VoidCallback onPressed;
 
   /// Offered as a trailing swipe action and drawn in red.
@@ -106,7 +109,7 @@ class RowActions extends StatelessWidget {
                             onPressed: (_) => action.onPressed(),
                             backgroundColor: CupertinoColors.destructiveRed,
                             foregroundColor: CupertinoColors.white,
-                            icon: action.icon,
+                            icon: action.icon.of(context),
                             label: action.label,
                           ),
                       ],

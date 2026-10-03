@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -11,7 +13,7 @@ WidgetbookNode stateMessageNode() => WidgetbookComponent(
       name: 'Empty',
       builder: (_) => fill(
         const StateMessage(
-          icon: Icons.inbox_outlined,
+          icon: AppIconSet(Icons.inbox_outlined, CupertinoIcons.tray),
           title: 'No scheduled tasks',
           detail: 'Tasks you schedule for the agent show up here.',
         ),
@@ -21,7 +23,7 @@ WidgetbookNode stateMessageNode() => WidgetbookComponent(
       name: 'Error with retry',
       builder: (_) => fill(
         StateMessage(
-          icon: Icons.error_outline,
+          icon: AppIcons.error,
           title: 'Could not load the board',
           detail: 'The server did not answer.',
           action: FilledButton(onPressed: () {}, child: const Text('Retry')),

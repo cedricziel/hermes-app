@@ -10,6 +10,7 @@ import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/settings/theme_controller.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -18,6 +19,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'fake_device_authenticator.dart';
 import 'fake_notification_service.dart';
+import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 import 'screenshot_recorder.dart';
 
@@ -161,7 +163,7 @@ Future<void> popRoute(WidgetTester tester) {
 /// it is always there.
 Future<void> openSidebar(WidgetTester tester) async {
   if (find.byType(ThreadSidebar).evaluate().isNotEmpty) return;
-  await tester.tap(find.byIcon(Icons.menu).first);
+  await tester.tap(findAppIcon(AppIcons.menu).first);
   await tester.pumpAndSettle();
 }
 

@@ -10,6 +10,7 @@ import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_runs.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -46,15 +47,15 @@ void main() {
       tester,
       ShellNavigation(
         destinations: const [
-          (icon: Icons.chat_outlined, selected: Icons.chat, label: 'Chat'),
+          (icon: AppIcons.chat, selected: AppIcons.chatFilled, label: 'Chat'),
           (
-            icon: Icons.view_kanban_outlined,
-            selected: Icons.view_kanban,
+            icon: AppIcons.kanban,
+            selected: AppIcons.kanbanFilled,
             label: 'Kanban',
           ),
           (
-            icon: Icons.schedule_outlined,
-            selected: Icons.schedule,
+            icon: AppIcons.scheduleOutlined,
+            selected: AppIcons.schedule,
             label: 'Schedules',
           ),
         ],

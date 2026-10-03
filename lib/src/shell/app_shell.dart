@@ -17,6 +17,7 @@ import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
+import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import 'shell_navigation.dart';
 
@@ -213,18 +214,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
-      icon: Icons.chat_bubble_outline,
-      selected: Icons.chat_bubble,
+      icon: AppIcons.chat,
+      selected: AppIcons.chatFilled,
       label: 'Chat',
     ),
     _Destination.kanban: (
-      icon: Icons.view_kanban_outlined,
-      selected: Icons.view_kanban,
+      icon: AppIcons.kanban,
+      selected: AppIcons.kanbanFilled,
       label: 'Kanban',
     ),
     _Destination.schedules: (
-      icon: Icons.schedule_outlined,
-      selected: Icons.schedule,
+      icon: AppIcons.scheduleOutlined,
+      selected: AppIcons.schedule,
       label: 'Schedules',
     ),
   };

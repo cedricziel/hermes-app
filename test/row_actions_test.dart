@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/row_actions.dart';
 
 void main() {
@@ -21,12 +22,12 @@ void main() {
               actions: [
                 RowAction(
                   label: 'Turn off',
-                  icon: Icons.pause,
+                  icon: AppIcons.pause,
                   onPressed: () => done.add('off'),
                 ),
                 RowAction(
                   label: 'Delete',
-                  icon: Icons.delete,
+                  icon: AppIcons.delete,
                   destructive: true,
                   onPressed: () => done.add('delete'),
                 ),
