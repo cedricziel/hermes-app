@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 import '../hermes_profiles_repository.dart';
@@ -38,7 +39,7 @@ class ProfileTile extends StatelessWidget {
       return _buildIos(context, parts.join(' · '));
     }
     return ListTile(
-      leading: const Icon(Icons.person_outline),
+      leading: const AppIcon(AppIcons.person),
       title: Text(profile.label),
       subtitle: Text(parts.join(' · ')),
       trailing: Row(
@@ -49,7 +50,7 @@ class ProfileTile extends StatelessWidget {
             NamedIconButton(
               key: Key('profile-model-${profile.name}'),
               label: 'Change default model',
-              icon: Icons.tune,
+              icon: AppIcons.tune,
               onPressed: onChangeModel,
             ),
         ],

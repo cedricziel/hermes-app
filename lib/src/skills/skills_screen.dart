@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_add_action.dart';
 import '../widgets/adaptive_back_button.dart';
 import '../widgets/adaptive_tab_bar.dart';
@@ -278,7 +279,7 @@ class _SkillsScreenState extends State<SkillsScreen>
             controller: _search,
             onChanged: _controller.setQuery,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const AppIcon(AppIcons.search),
               hintText: 'Search skills',
               filled: true,
               isDense: true,
@@ -339,7 +340,7 @@ class _SkillsScreenState extends State<SkillsScreen>
                     ],
                     if (_hub != null && _controller.hasHubSkills)
                       ListTile(
-                        leading: const Icon(Icons.system_update_alt),
+                        leading: const AppIcon(AppIcons.install),
                         title: const Text('Check for updates'),
                         subtitle: const Text('Updates the skills from the hub'),
                         enabled: !_hub!.busy,
@@ -394,7 +395,7 @@ class _ProfileChip extends StatelessWidget {
             child: Chip(
               label: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text(profile), const Icon(Icons.arrow_drop_down)],
+                children: [Text(profile), const AppIcon(AppIcons.dropDown)],
               ),
             ),
           ),

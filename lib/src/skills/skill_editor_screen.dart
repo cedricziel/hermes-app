@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/markdown_links.dart';
 import '../widgets/named_icon_button.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
@@ -251,7 +252,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
           valueListenable: _undo,
           builder: (context, value, _) => NamedIconButton(
             label: 'Undo',
-            icon: Icons.undo,
+            icon: AppIcons.undo,
             onPressed: value.canUndo ? _undo.undo : null,
           ),
         ),
@@ -259,7 +260,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
           valueListenable: _undo,
           builder: (context, value, _) => NamedIconButton(
             label: 'Redo',
-            icon: Icons.redo,
+            icon: AppIcons.redo,
             onPressed: value.canRedo ? _undo.redo : null,
           ),
         ),
