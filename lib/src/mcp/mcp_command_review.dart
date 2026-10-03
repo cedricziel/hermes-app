@@ -4,8 +4,8 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review_items.dart';
 
-/// Shows [McpCommandReview] as a bottom sheet below
-/// [kWideLayoutBreakpoint] and as a dialog at or above it. True only
+/// Shows [McpCommandReview] as a bottom sheet on a compact
+/// layout and as a dialog on a wide one (see [isWideLayout]). True only
 /// when the user confirms; going back, tapping outside or the system back
 /// gesture all answer false.
 Future<bool> showMcpCommandReview(
@@ -15,7 +15,7 @@ Future<bool> showMcpCommandReview(
 }) async {
   Widget review(BuildContext context) =>
       McpCommandReview(commands: commands, confirmLabel: confirmLabel);
-  final wide = MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
+  final wide = isWideLayout(context);
   final confirmed = wide
       ? await showDialog<bool>(
           context: context,

@@ -50,6 +50,7 @@ void main() {
     NotificationSettings? settings,
     bool settle = true,
     WidgetBuilder? kanbanBuilder,
+    TargetPlatform? platform,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -69,7 +70,7 @@ void main() {
             ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
         child: MaterialApp(
-          theme: buildHermesLightTheme(),
+          theme: buildHermesLightTheme().copyWith(platform: platform),
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -192,6 +193,52 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  group('on an iPad', () {
+    for (final size in const [Size(834, 1194), Size(744, 1133)]) {
+      testWidgets('shows the sidebar in portrait at ${size.width.toInt()}', (
+        tester,
+      ) async {
+        kanbanPlugin(on: true);
+
+        await pumpShell(tester, size: size, platform: TargetPlatform.iOS);
+
+        expect(
+          find.descendant(
+            of: find.byType(ThreadSidebar),
+            matching: find.byType(ShellNavigation),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byTooltip('Open navigation menu'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('keeps the drawer on an iPhone', (tester) async {
+      kanbanPlugin(on: true);
+
+      await pumpShell(
+        tester,
+        size: const Size(390, 844),
+        platform: TargetPlatform.iOS,
+      );
+
+      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+    });
+
+    testWidgets('keeps the drawer on Android at 834', (tester) async {
+      kanbanPlugin(on: true);
+
+      await pumpShell(
+        tester,
+        size: const Size(834, 1194),
+        platform: TargetPlatform.android,
+      );
+
+      expect(find.byTooltip('Open navigation menu'), findsWidgets);
+    });
   });
 
   testWidgets('keeps the destinations in place on the board of a wide screen', (

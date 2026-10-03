@@ -111,7 +111,7 @@ class _CatalogTabState extends State<CatalogTab>
     super.build(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
+        final wide = isWideLayout(context, width: constraints.maxWidth);
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
