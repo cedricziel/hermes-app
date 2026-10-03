@@ -32,6 +32,10 @@ import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
 import 'welcome_view.dart';
 
+/// The widest the messages and the composer grow; a wider window centers the
+/// column, since long lines of prose are harder to read.
+const double kChatColumnMaxWidth = 680;
+
 /// Gutters around chat messages. The package's 8 px sat tighter than the top
 /// bar and composer, and 2 px between the items of one reply ran the tool
 /// cards into the text.
