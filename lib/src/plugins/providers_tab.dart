@@ -242,7 +242,11 @@ class _Needs extends StatelessWidget {
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsets.only(bottom: 12),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        title: Text('What it needs', style: theme.textTheme.bodyMedium),
+        title: Text(
+          'What it needs',
+          semanticsLabel: 'What ${option.name} needs',
+          style: theme.textTheme.bodyMedium,
+        ),
         children: [
           if (!option.namesRequirements)
             const Text('The server did not say what it needs.')

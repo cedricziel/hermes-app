@@ -523,11 +523,14 @@ void main() {
 
     expect(
       tester.getSemantics(needs),
-      disclosure('What it needs', open: false),
+      disclosure('What byterover needs', open: false),
     );
     await tester.tap(needs);
     await tester.pumpAndSettle();
-    expect(tester.getSemantics(needs), disclosure('What it needs', open: true));
+    expect(
+      tester.getSemantics(needs),
+      disclosure('What byterover needs', open: true),
+    );
     expect(
       tester.getSemantics(
         find.descendant(
