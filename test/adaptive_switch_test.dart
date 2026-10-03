@@ -51,7 +51,8 @@ void main() {
       ),
     );
     // The adaptive Switch is still a Switch; only its painter knows the look.
-    return (tester.widget<CustomPaint>(painter).painter as dynamic).isCupertino
+    return (tester.widget<CustomPaint>(painter.first).painter as dynamic)
+            .isCupertino
         as bool;
   }
 
