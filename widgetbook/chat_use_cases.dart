@@ -15,6 +15,8 @@ import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
+import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
+import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
@@ -169,6 +171,32 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Local thread: copy transcript only',
           ThreadActionsButton(thread: threads[2], includeCopyTranscript: true),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SwipeableThreadRow',
+      useCases: [
+        for (final (name, pinned) in [('Unpinned', false), ('Pinned', true)])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) => frame(
+              SwipeableThreadRow(
+                title: 'Release notes',
+                pinned: pinned,
+                onAction: (_) {},
+                child: SidebarRow(
+                  selected: false,
+                  onTap: () {},
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  child: const Text('Release notes'),
+                ),
+              ),
+              maxWidth: 300,
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(

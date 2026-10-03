@@ -41,6 +41,7 @@ Future<void> pumpChatScreen(
   VoidCallback? onShowChat,
   AttachmentSource? attachmentSource,
   StarterContextLoader? starterContext,
+  TargetPlatform? platform,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -58,7 +59,7 @@ Future<void> pumpChatScreen(
         ...providers,
       ],
       child: MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme().copyWith(platform: platform),
         home: ChatScreen(
           repository: server == null
               ? null

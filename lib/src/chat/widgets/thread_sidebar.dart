@@ -10,11 +10,13 @@ import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
+import 'swipeable_thread_row.dart';
 import 'thread_actions_menu.dart';
 import 'thread_search_view.dart';
 
@@ -317,20 +319,26 @@ class _ThreadRowState extends State<_ThreadRow> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
-    final actionable = widget.housekeeping != null;
-    return Semantics(
+    final chrome = platformChromeOf(context);
+    final housekeeping = widget.housekeeping;
+    final touch = chrome == PlatformChrome.ios;
+    final swipeable = touch && housekeeping != null;
+    final inlineButton = housekeeping != null && !touch;
+    final row = Semantics(
       hint: relativeTime(_thread.updatedAt),
       child: SidebarRow(
         selected: widget.selected,
         onTap: widget.onTap,
-        onLongPress: actionable ? _openMenu : null,
-        onSecondaryTap: actionable ? _openMenu : null,
-        padding: EdgeInsets.fromLTRB(
-          10,
-          actionable ? 2 : 9,
-          actionable ? 2 : 10,
-          actionable ? 2 : 9,
-        ),
+        onLongPress: inlineButton ? _openMenu : null,
+        onSecondaryTap: inlineButton ? _openMenu : null,
+        padding: touch
+            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 9)
+            : EdgeInsets.fromLTRB(
+                10,
+                inlineButton ? 2 : 9,
+                inlineButton ? 2 : 10,
+                inlineButton ? 2 : 9,
+              ),
         child: Row(
           children: [
             if (_thread.pinned) ...[
@@ -351,16 +359,28 @@ class _ThreadRowState extends State<_ThreadRow> {
                 ),
               ),
             ),
-            if (actionable)
+            if (inlineButton)
               ThreadActionsButton(
                 key: _actions,
                 thread: _thread,
-                housekeeping: widget.housekeeping,
+                housekeeping: housekeeping,
                 dense: true,
               ),
           ],
         ),
       ),
+    );
+    if (!swipeable) return row;
+    return SwipeableThreadRow(
+      title: _thread.title,
+      pinned: _thread.pinned,
+      onAction: (action) => runThreadAction(
+        context,
+        action,
+        thread: _thread,
+        housekeeping: housekeeping,
+      ),
+      child: row,
     );
   }
 }
