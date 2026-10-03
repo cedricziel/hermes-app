@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import '../widgets/adaptive_add_action.dart';
 import '../widgets/adaptive_back_button.dart';
+import '../widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -209,12 +210,9 @@ class _SkillsScreenState extends State<SkillsScreen>
             ],
             bottom: hub == null
                 ? null
-                : TabBar(
+                : AdaptiveTabBar(
                     controller: _tabs,
-                    tabs: const [
-                      Tab(text: 'Installed'),
-                      Tab(text: 'Discover'),
-                    ],
+                    labels: const ['Installed', 'Discover'],
                   ),
           ),
           floatingActionButton: canAdd ? add.floatingButton(context) : null,
