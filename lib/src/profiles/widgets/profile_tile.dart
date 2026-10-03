@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/named_icon_button.dart';
 import '../hermes_profiles_repository.dart';
 
 /// One row of the Profiles screen: the profile's label, its description,
@@ -35,10 +36,10 @@ class ProfileTile extends StatelessWidget {
         children: [
           if (active) const Chip(label: Text('Active')),
           if (onChangeModel != null)
-            IconButton(
+            NamedIconButton(
               key: Key('profile-model-${profile.name}'),
-              tooltip: 'Change default model',
-              icon: const Icon(Icons.tune),
+              label: 'Change default model',
+              icon: Icons.tune,
               onPressed: onChangeModel,
             ),
         ],
