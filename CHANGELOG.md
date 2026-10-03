@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.1.43](https://github.com/cedricziel/hermes-app/compare/v0.1.42...v0.1.43) (2026-10-03)
+
+
+### Features
+
+* **chat:** search chats from the sidebar ([#349](https://github.com/cedricziel/hermes-app/issues/349)) ([448893a](https://github.com/cedricziel/hermes-app/commit/448893a7cc44f2ebb9089217568ad1d82cbfb3bf))
+* **kanban:** pause the board's event stream while it is not on screen ([#352](https://github.com/cedricziel/hermes-app/issues/352)) ([7ba08ad](https://github.com/cedricziel/hermes-app/commit/7ba08ad3956d24c98f7d5379f1e3c479524154aa))
+* **kanban:** trace the live event stream ([#343](https://github.com/cedricziel/hermes-app/issues/343)) ([e593c65](https://github.com/cedricziel/hermes-app/commit/e593c65306fcbd14dea95906a1775864f6d3eaef))
+* **shell:** move Chat, Kanban and Schedules from the bottom bar into the drawer ([#364](https://github.com/cedricziel/hermes-app/issues/364)) ([78d0fe5](https://github.com/cedricziel/hermes-app/commit/78d0fe50c00d33487ef1580f4f9b6c1166bd72e0))
+
+
+### Bug Fixes
+
+* **a11y:** give nav items and icon buttons proper roles and names ([#350](https://github.com/cedricziel/hermes-app/issues/350)) ([cec298e](https://github.com/cedricziel/hermes-app/commit/cec298e582635d35784248e11be973a5a6863a2d))
+* **chat:** name icon buttons, menus and tool call headers for screen readers ([#361](https://github.com/cedricziel/hermes-app/issues/361)) ([c91e885](https://github.com/cedricziel/hermes-app/commit/c91e885478fad7196b15802805de56c18c652d89))
+* **kanban:** let All tenants and All assignees clear the filter ([#360](https://github.com/cedricziel/hermes-app/issues/360)) ([1621775](https://github.com/cedricziel/hermes-app/commit/1621775aa3a4ab3792de4f8dcbde5663464e6527))
+* **kanban:** name the remaining icon buttons and sections in kanban, schedules, login and search ([#363](https://github.com/cedricziel/hermes-app/issues/363)) ([87c3354](https://github.com/cedricziel/hermes-app/commit/87c3354496120e0a05dc84c9ec53c929e29b8ac6))
+* **schedules:** count a run with a queued delivery as succeeded ([#355](https://github.com/cedricziel/hermes-app/issues/355)) ([2498803](https://github.com/cedricziel/hermes-app/commit/2498803e3e2c627251004ce2c7775c136e9c490c))
+* **schedules:** explain why a blocked job has no runs ([#345](https://github.com/cedricziel/hermes-app/issues/345)) ([572047e](https://github.com/cedricziel/hermes-app/commit/572047e7ca749fa455e6faf198dcc80c01bb7c40))
+* **schedules:** wrap the filter chips so Paused stays visible ([#344](https://github.com/cedricziel/hermes-app/issues/344)) ([984f31c](https://github.com/cedricziel/hermes-app/commit/984f31cddfbce3a81f8afce426db19b955ea7882))
+* **settings:** name icon buttons, switches and sections in bots, plugins, MCP, skills and profiles ([#362](https://github.com/cedricziel/hermes-app/issues/362)) ([3c9e0f0](https://github.com/cedricziel/hermes-app/commit/3c9e0f01e12c961d60f369e7c0e9f5d545d91f83))
+* **theme:** left-align page titles on every platform ([#342](https://github.com/cedricziel/hermes-app/issues/342)) ([d104ea5](https://github.com/cedricziel/hermes-app/commit/d104ea57fc0f5e68a0cfd1fd782bd58e69e774aa)), closes [#319](https://github.com/cedricziel/hermes-app/issues/319)
+
+
+### Documentation
+
+* **chat:** record that batch clarify retries rely on per-question overwrites ([#348](https://github.com/cedricziel/hermes-app/issues/348)) ([5a4b34d](https://github.com/cedricziel/hermes-app/commit/5a4b34dfb939a76610fcf80b34a928021f161793))
+
 ## [0.1.42](https://github.com/cedricziel/hermes-app/compare/v0.1.41...v0.1.42) (2026-10-03)
 
 
