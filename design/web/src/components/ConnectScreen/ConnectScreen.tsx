@@ -2,6 +2,7 @@ import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import { TextField } from "../TextField/TextField";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./ConnectScreen.css";
 
 /** A sign-in method the server offers, as listed by `/api/auth/providers`. */
@@ -53,6 +54,8 @@ export interface ConnectScreenProps {
   onOpenVpnGuide?: () => void;
   /** "Report a bug" link at the bottom of both steps. */
   onReportBug?: () => void;
+  /** `apple`: the sign-in bar is 44px tall (56px on `material`), the iOS navigation bar height. Inherits the provider's platform. */
+  platform?: Platform;
 }
 
 function Spinner({ size, stroke }: { size: number; stroke: number }) {
@@ -87,7 +90,9 @@ export function ConnectScreen({
   onChangeServer,
   onOpenVpnGuide,
   onReportBug,
+  platform,
 }: ConnectScreenProps) {
+  const apple = usePlatform(platform) === "apple";
   const reportBug = (
     <Button variant="text" onClick={onReportBug}>
       Report a bug
@@ -156,7 +161,12 @@ export function ConnectScreen({
 
   return (
     <div className="h-connect-screen">
-      <header className="h-connect-screen__bar">
+      <header
+        className={cx(
+          "h-connect-screen__bar",
+          apple && "h-connect-screen__bar--apple",
+        )}
+      >
         <span className="h-connect-screen__bar-title">Sign in</span>
         <IconButton
           icon="dns"
