@@ -17,6 +17,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/pump_chat.dart';
 
 const _longTitle =
     'Why did the nightly backup of the analytics warehouse fail on the '
@@ -163,7 +164,7 @@ void main() {
   }
 
   Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(EditableText), text);
+    await tester.enterText(composerField, text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await runFrames(tester);

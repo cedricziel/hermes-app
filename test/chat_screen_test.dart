@@ -16,6 +16,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/attachment_fixtures.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/pump_chat.dart';
 
 Widget _wrap(Widget child, {ShareController? share}) {
   return MultiProvider(
@@ -236,7 +237,7 @@ void main() {
     await tester.pumpAndSettle();
 
     Future<void> send(String text) async {
-      await tester.enterText(find.byType(EditableText), text);
+      await tester.enterText(composerField, text);
       await tester.pump();
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();
@@ -279,7 +280,7 @@ void main() {
     final sendButtonFinder = find.byIcon(Icons.arrow_upward);
     expect(sendButtonFinder, findsOneWidget);
 
-    await tester.enterText(find.byType(EditableText), 'Hello Hermes');
+    await tester.enterText(composerField, 'Hello Hermes');
     await tester.pump();
 
     await tester.tap(sendButtonFinder);
@@ -289,7 +290,7 @@ void main() {
       findsOneWidget,
     );
 
-    final field = tester.widget<EditableText>(find.byType(EditableText));
+    final field = tester.widget<EditableText>(composerField);
     expect(field.controller.text, isEmpty);
 
     // Let the pending mock-reply timer fire so it doesn't leak past the
@@ -319,7 +320,7 @@ void main() {
       await tester.pumpWidget(_wrap(const ChatScreen(), share: share));
       await tester.pumpAndSettle();
 
-      final field = tester.widget<EditableText>(find.byType(EditableText));
+      final field = tester.widget<EditableText>(composerField);
       expect(field.controller.text, 'Look at this\nhttps://example.com');
       expect(share.hasPending, isFalse);
     });
@@ -334,12 +335,12 @@ void main() {
 
       await tester.pumpWidget(_wrap(const ChatScreen(), share: share));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(EditableText), 'Summarise:');
+      await tester.enterText(composerField, 'Summarise:');
 
       inbox.emit([const SharedText('https://example.com')]);
       await tester.pumpAndSettle();
 
-      final field = tester.widget<EditableText>(find.byType(EditableText));
+      final field = tester.widget<EditableText>(composerField);
       expect(field.controller.text, 'Summarise:\nhttps://example.com');
     });
 

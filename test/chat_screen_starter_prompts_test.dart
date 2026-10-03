@@ -61,7 +61,7 @@ void main() {
       .toList();
 
   String composerText(WidgetTester tester) =>
-      tester.widget<EditableText>(find.byType(EditableText)).controller.text;
+      tester.widget<EditableText>(composerField).controller.text;
 
   testWidgets('shows the generic prompts until the context has loaded', (
     tester,
@@ -86,7 +86,7 @@ void main() {
     tester,
   ) async {
     await pump(tester);
-    await tester.enterText(find.byType(EditableText), 'half a thought');
+    await tester.enterText(composerField, 'half a thought');
 
     await tester.tap(find.text(jobPrompt));
     await tester.pumpAndSettle();

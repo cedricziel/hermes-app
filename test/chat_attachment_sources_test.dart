@@ -21,7 +21,7 @@ const _shot = SharedFile(
 final _attachButton = find.byTooltip('Add attachment');
 
 String _composerText(WidgetTester tester) =>
-    tester.widget<EditableText>(find.byType(EditableText)).controller.text;
+    tester.widget<EditableText>(composerField).controller.text;
 
 /// Puts [text] on the clipboard the framework reads from; the test binding
 /// has no clipboard of its own.
@@ -55,7 +55,7 @@ Future<void> _on(TargetPlatform platform, Future<void> Function() body) async {
 
 /// Pastes with the chord of the platform under test.
 Future<void> _paste(WidgetTester tester, LogicalKeyboardKey modifier) async {
-  await tester.tap(find.byType(EditableText));
+  await tester.tap(composerField);
   await tester.pump();
   await tester.sendKeyDownEvent(modifier);
   await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
@@ -132,7 +132,7 @@ void main() {
     testWidgets('cancelling the picker changes nothing', (tester) async {
       final source = FakeAttachmentSource();
       await pumpChatScreen(tester, attachmentSource: source);
-      await tester.enterText(find.byType(EditableText), 'draft');
+      await tester.enterText(composerField, 'draft');
 
       await tester.tap(_attachButton);
       await tester.pumpAndSettle();

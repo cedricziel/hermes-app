@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/starter_context_loader.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -18,6 +19,12 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'fake_hermes_server.dart';
 import 'fake_share_inbox.dart';
+
+/// The composer's editable text; the sidebar's search field is another one.
+final composerField = find.descendant(
+  of: find.byKey(chatComposerFieldKey),
+  matching: find.byType(EditableText),
+);
 
 /// Mounts the chat screen at desktop width. Without a [server] the screen
 /// falls back to its mock data.

@@ -14,7 +14,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
-import 'support/pump_chat.dart' show openThread;
+import 'support/pump_chat.dart' show composerField, openThread;
 
 /// The action bar under a finished reply: copy, and asking again on the
 /// latest one.
@@ -98,7 +98,7 @@ void main() {
   }
 
   Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(EditableText), text);
+    await tester.enterText(composerField, text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
