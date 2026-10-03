@@ -18,6 +18,56 @@
   padding: 0 4px 0 0;
 }
 
+/* iOS navigation bar: 44px, the title centred over the bar, a hairline below. */
+.h-chat-header--apple.h-chat-header--phone {
+  position: relative;
+  height: 44px;
+  padding: 0 4px;
+  border-bottom: 0.5px solid var(--h-border);
+}
+
+.h-chat-header--apple.h-chat-header--phone .h-chat-header__leading {
+  width: 44px;
+  margin-right: 0;
+}
+
+.h-chat-header--apple.h-chat-header--phone .h-chat-header__title {
+  position: absolute;
+  inset: 0 96px;
+  display: block;
+  text-align: center;
+  font-size: 17px;
+  line-height: 44px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.h-chat-header--apple.h-chat-header--phone .h-chat-header__info {
+  margin: 0 0 0 auto;
+}
+
+.h-chat-header--apple.h-chat-header--phone .h-thread-actions {
+  margin: 0 0 0 auto;
+}
+
+.h-chat-header--apple.h-chat-header--phone
+  .h-thread-actions
+  + .h-chat-header__info {
+  margin-left: 0;
+}
+
+/* Mac unified toolbar: 52px, no rule; the sidebar sits under the traffic lights. */
+.h-chat-header--apple.h-chat-header--desktop {
+  height: 52px;
+  padding: 0 12px 0 20px;
+  border-bottom: 0;
+}
+
+.h-chat-header--apple.h-chat-header--collapsed {
+  padding-left: 78px;
+  gap: 8px;
+}
+
 .h-chat-header__leading {
   display: inline-flex;
   justify-content: center;

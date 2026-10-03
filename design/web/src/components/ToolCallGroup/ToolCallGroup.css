@@ -19,6 +19,10 @@
   cursor: pointer;
 }
 
+.h-tool-group--apple .h-tool-group__line {
+  min-height: 44px;
+}
+
 .h-tool-group__line:hover {
   background: var(--h-hover);
 }

@@ -70,6 +70,48 @@ export const EmptyAndPaging = () => (
   </div>
 );
 
+/** Apple touch (left): 44px rows, no inline "…" (swipe and long press in the app). Mac (right): 52px strip under the traffic lights, compact rows. */
+export const AppleTouchAndMac = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
+    <div style={frame}>
+      <ThreadSidebar
+        layout="phone"
+        threads={threads}
+        selectedId="nightly"
+        account="Ada Lovelace"
+      />
+    </div>
+    <div style={{ ...frame, position: "relative" }}>
+      <ThreadSidebar
+        threads={threads}
+        selectedId="nightly"
+        account="Ada Lovelace"
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** The row menu on Apple: iOS pull-down (left, long press) and the compact Mac menu (right, "…" or right-click). */
+export const AppleMenus = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
+    <div style={{ ...frame, marginRight: 40 }}>
+      <ThreadSidebar
+        layout="phone"
+        threads={threads}
+        selectedId="backup"
+        defaultMenuThreadId="nightly"
+      />
+    </div>
+    <div style={{ ...frame, marginRight: 80 }}>
+      <ThreadSidebar
+        threads={threads}
+        selectedId="backup"
+        defaultMenuThreadId="nightly"
+      />
+    </div>
+  </HermesProvider>
+);
+
 export const Dark = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
     <div style={{ ...frame, border: "1px solid var(--h-border)" }}>

@@ -19,3 +19,18 @@ export function usePlatform(platform?: Platform): Platform {
 export function cx(...names: Array<string | false | null | undefined>) {
   return names.filter(Boolean).join(" ");
 }
+
+/** What a Mac `AppShell` tells its sidebar and the page's header about the collapsible sidebar. */
+export interface ShellChrome {
+  /** The sidebar is hidden: the header then leaves room for the traffic lights and shows the toggle. */
+  sidebarCollapsed: boolean;
+  /** Present only inside a Mac `AppShell`; hides or shows the sidebar. */
+  toggleSidebar?: () => void;
+}
+
+export const ShellChromeContext = createContext<ShellChrome>({
+  sidebarCollapsed: false,
+});
+
+/** Width in px a Mac window's traffic lights take at the top left, which the sidebar and a collapsed header leave free. */
+export const TRAFFIC_LIGHT_GAP = 78;

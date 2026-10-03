@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../Icon/Icon";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./ReasoningBlock.css";
 
 export interface ReasoningBlockProps {
@@ -11,6 +12,8 @@ export interface ReasoningBlockProps {
   defaultOpen?: boolean;
   /** Overrides the header text (`Reasoning`, or `Thinking…` while `active`). */
   label?: string;
+  /** `apple`: the header toggle is at least 44px tall, the iOS minimum tap target. Inherits the provider's platform. */
+  platform?: Platform;
 }
 
 /**
@@ -23,10 +26,14 @@ export function ReasoningBlock({
   active = false,
   defaultOpen = false,
   label,
+  platform,
 }: ReasoningBlockProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const apple = usePlatform(platform) === "apple";
   return (
-    <div className="h-reasoning-block">
+    <div
+      className={cx("h-reasoning-block", apple && "h-reasoning-block--apple")}
+    >
       <button
         type="button"
         className="h-reasoning-block__header"

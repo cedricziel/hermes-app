@@ -21,6 +21,13 @@ export const ThinkingOpen = () => (
   </div>
 );
 
+/** Apple: the toggle is 44px tall. */
+export const ApplePlatform = () => (
+  <HermesProvider platform="apple" style={{ width: 640 }}>
+    <ReasoningBlock text={reasoning} defaultOpen />
+  </HermesProvider>
+);
+
 export const Dark = () => (
   <HermesProvider
     theme="dark"

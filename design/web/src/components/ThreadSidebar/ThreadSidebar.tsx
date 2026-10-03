@@ -1,4 +1,5 @@
 import {
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -8,7 +9,27 @@ import {
 } from "react";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
+import {
+  ShellChromeContext,
+  cx,
+  usePlatform,
+  type Platform,
+} from "../../platform";
 import "./ThreadSidebar.css";
+
+/**
+ * Which device a component is laid out for. `phone` is touch (iPhone, iPad):
+ * 44px bars and rows, iOS menus. `desktop` is pointer (Mac, and every
+ * Material platform): compact rows, Mac menus. Only matters under `apple`.
+ */
+export type DeviceLayout = "desktop" | "phone";
+
+type MenuVariant = "material" | "ios" | "mac";
+
+function menuVariant(apple: boolean, layout: DeviceLayout): MenuVariant {
+  if (!apple) return "material";
+  return layout === "phone" ? "ios" : "mac";
+}
 
 /** One chat in the sidebar's thread list. */
 export interface ThreadItem {
@@ -65,6 +86,7 @@ interface MenuItem<T extends string> {
   label: string;
   disabled?: boolean;
   divider?: boolean;
+  destructive?: boolean;
 }
 
 function PopupMenu<T extends string>({
@@ -72,16 +94,22 @@ function PopupMenu<T extends string>({
   onSelect,
   className,
   style,
+  variant = "material",
 }: {
   items: MenuItem<T>[];
   onSelect: (value: T) => void;
   className?: string;
   style?: CSSProperties;
+  variant?: MenuVariant;
 }) {
   return (
     <div
       role="menu"
-      className={["h-popup-menu", className].filter(Boolean).join(" ")}
+      className={cx(
+        "h-popup-menu",
+        variant !== "material" && `h-popup-menu--${variant}`,
+        className,
+      )}
       style={style}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -97,6 +125,7 @@ function PopupMenu<T extends string>({
             className={[
               "h-popup-menu__item",
               item.disabled ? "h-popup-menu__item--info" : null,
+              item.destructive ? "h-popup-menu__item--destructive" : null,
             ]
               .filter(Boolean)
               .join(" ")}
@@ -141,7 +170,11 @@ function threadMenuItems(
           { value: "rename" as const, label: "Rename" },
           { value: "pin" as const, label: pinned ? "Unpin" : "Pin" },
           { value: "archive" as const, label: "Archive" },
-          { value: "delete" as const, label: "Delete" },
+          {
+            value: "delete" as const,
+            label: "Delete",
+            destructive: true,
+          },
         ]
       : []),
   ];
@@ -158,6 +191,10 @@ export interface ThreadActionsButtonProps {
   defaultOpen?: boolean;
   /** Called with the picked entry; the menu closes. */
   onAction?: (action: ThreadAction) => void;
+  /** `apple` draws the menu as an iOS pull-down (`layout="phone"`: rounded panel, 44px rows, Delete in red) or a compact Mac menu (`desktop`: 24px rows, 13px text, 6px radius). Inherits the provider's platform. */
+  platform?: Platform;
+  /** Which Apple menu `platform="apple"` draws; see `platform`. Default `desktop`. */
+  layout?: DeviceLayout;
 }
 
 /**
@@ -171,7 +208,10 @@ export function ThreadActionsButton({
   includeCopyTranscript = false,
   defaultOpen = false,
   onAction,
+  platform,
+  layout = "desktop",
 }: ThreadActionsButtonProps) {
+  const variant = menuVariant(usePlatform(platform) === "apple", layout);
   const [open, setOpen] = useState(defaultOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
@@ -185,6 +225,7 @@ export function ThreadActionsButton({
       />
       {open ? (
         <PopupMenu
+          variant={variant}
           className="h-thread-actions__menu"
           items={threadMenuItems(pinned, actionable, includeCopyTranscript)}
           onSelect={(a) => {
@@ -237,8 +278,28 @@ export function SidebarAction({
   );
 }
 
-/** The sidebar's top line: the Hermes hub mark and the app name. */
-export function SidebarBrand() {
+export interface SidebarBrandProps {
+  /** The Mac sidebar: no brand row, a 52px strip that leaves 78px for the traffic lights and ends in a hide-sidebar button (when inside an `AppShell`). */
+  mac?: boolean;
+}
+
+/** The sidebar's top line: the Hermes hub mark and the app name. On the Mac sidebar (`mac`) it is the empty strip beside the traffic lights instead. */
+export function SidebarBrand({ mac = false }: SidebarBrandProps) {
+  const { toggleSidebar } = useContext(ShellChromeContext);
+  if (mac)
+    return (
+      <div className="h-sidebar-brand h-sidebar-brand--mac">
+        <span className="h-sidebar-brand__spacer" />
+        {toggleSidebar ? (
+          <IconButton
+            icon="left_panel_close"
+            label="Hide sidebar"
+            tone="muted"
+            onClick={toggleSidebar}
+          />
+        ) : null}
+      </div>
+    );
   return (
     <div className="h-sidebar-brand">
       <Icon name="hub" size={18} />
@@ -258,6 +319,10 @@ export interface AccountFooterProps {
   defaultMenuOpen?: boolean;
   /** Called with the picked menu entry. */
   onAction?: (action: AccountAction) => void;
+  /** Apple menu style for the account menu; see `ThreadActionsButton`. Inherits the provider's platform. */
+  platform?: Platform;
+  /** Which Apple menu `platform="apple"` draws. Default `desktop`. */
+  layout?: DeviceLayout;
 }
 
 /** The sidebar footer: an avatar, the account label and a "…" that opens the account menu over it. */
@@ -267,7 +332,10 @@ export function AccountFooter({
   authRequired = false,
   defaultMenuOpen = false,
   onAction,
+  platform,
+  layout = "desktop",
 }: AccountFooterProps) {
+  const variant = menuVariant(usePlatform(platform) === "apple", layout);
   const [open, setOpen] = useState(defaultMenuOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
@@ -299,6 +367,7 @@ export function AccountFooter({
       </button>
       {open ? (
         <PopupMenu
+          variant={variant}
           className="h-account-footer__menu"
           items={items}
           onSelect={(a) => {
@@ -350,6 +419,20 @@ export interface ThreadSidebarProps {
   onLoadMore?: () => void;
   /** An account menu entry was picked. */
   onAccountAction?: (action: AccountAction) => void;
+  /**
+   * `apple` changes the sidebar to Apple's conventions, and what changes
+   * depends on `layout`. Touch (`phone`, iPhone and iPad): thread rows are at
+   * least 44px tall and have no inline "…" button; in the app a row swipes
+   * right to pin or unpin and left to delete, and a long press opens an action
+   * sheet with Rename, Pin, Archive and Delete (right-click opens the same
+   * menu here, as a stand-in). Mac (`desktop`): the sidebar starts at the top
+   * of the window, drops the brand row for a 52px strip that leaves 78px for
+   * the traffic lights, keeps the "…" button and uses the compact Mac menu.
+   * Inherits the provider's platform.
+   */
+  platform?: Platform;
+  /** Touch (`phone`) or pointer (`desktop`, default) rows and menus under `platform="apple"`. Has no effect on `material`. */
+  layout?: DeviceLayout;
 }
 
 /**
@@ -376,7 +459,13 @@ export function ThreadSidebar({
   onThreadAction,
   onLoadMore,
   onAccountAction,
+  platform,
+  layout = "desktop",
 }: ThreadSidebarProps) {
+  const apple = usePlatform(platform) === "apple";
+  const touch = apple && layout === "phone";
+  const mac = apple && layout === "desktop";
+  const variant = menuVariant(apple, layout);
   const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const [menuId, setMenuId] = useState<string | undefined>(defaultMenuThreadId);
   const [menuTop, setMenuTop] = useState<number | null>(null);
@@ -400,8 +489,15 @@ export function ThreadSidebar({
   const menuThread = threads.find((t) => t.id === menuId);
 
   return (
-    <nav className="h-thread-sidebar" aria-label="Chats">
-      <SidebarBrand />
+    <nav
+      className={cx(
+        "h-thread-sidebar",
+        touch && "h-thread-sidebar--touch",
+        mac && "h-thread-sidebar--mac",
+      )}
+      aria-label="Chats"
+    >
+      <SidebarBrand mac={mac} />
       {navigation ? (
         <>
           <div className="h-thread-sidebar__pad">{navigation}</div>
@@ -419,6 +515,7 @@ export function ThreadSidebar({
         {threads.map((t) => {
           const selected = t.id === selectedId;
           const actionable = t.remote !== false;
+          const inlineMore = actionable && !touch;
           return (
             <div
               key={t.id}
@@ -430,7 +527,7 @@ export function ThreadSidebar({
                 "h-thread-row",
                 rowRadiusClass,
                 selected ? "h-thread-row--selected" : null,
-                actionable ? "h-thread-row--actionable" : null,
+                inlineMore ? "h-thread-row--actionable" : null,
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -456,7 +553,7 @@ export function ThreadSidebar({
                 />
               ) : null}
               <span className="h-thread-row__title">{t.title}</span>
-              {actionable ? (
+              {inlineMore ? (
                 <button
                   type="button"
                   className="h-thread-row__more"
@@ -495,7 +592,11 @@ export function ThreadSidebar({
       </div>
       {menuThread && menuTop !== null ? (
         <PopupMenu
-          className="h-thread-sidebar__menu"
+          variant={variant}
+          className={cx(
+            "h-thread-sidebar__menu",
+            touch && "h-thread-sidebar__menu--touch",
+          )}
           style={{ top: menuTop }}
           items={threadMenuItems(!!menuThread.pinned, true, false)}
           onSelect={(a) => {
@@ -531,6 +632,8 @@ export function ThreadSidebar({
         authRequired={authRequired}
         defaultMenuOpen={defaultAccountMenuOpen}
         onAction={onAccountAction}
+        platform={apple ? "apple" : "material"}
+        layout={layout}
       />
     </nav>
   );

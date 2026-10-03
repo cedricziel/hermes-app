@@ -4,6 +4,7 @@ import {
   ApprovalCard,
   type ApprovalCardProps,
 } from "../ApprovalCard/ApprovalCard";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./ToolCallCard.css";
 
 /** Where a tool call stands. */
@@ -127,6 +128,8 @@ export interface ToolCallCardProps extends ToolCallItem {
   children?: ReactNode;
   /** Called with the new open state when the header is clicked. */
   onToggle?: (open: boolean) => void;
+  /** `apple`: the header is 44px tall, the iOS minimum tap target (36px on `material`). Inherits the provider's platform. */
+  platform?: Platform;
   className?: string;
 }
 
@@ -251,7 +254,7 @@ function renderBody(body: ToolCallBody) {
   }
 }
 
-/** A compact inline card for one tool the agent ran: status icon, tool name, argument summary and time in a 36px header that opens on click to what the tool was given and returned, in the tool's own view when it has one. An approval that holds the call up shows inside the card, under the header while pending. */
+/** A compact inline card for one tool the agent ran: status icon, tool name, argument summary and time in a 36px header (44px under `platform="apple"`) that opens on click to what the tool was given and returned, in the tool's own view when it has one. An approval that holds the call up shows inside the card, under the header while pending. */
 export function ToolCallCard({
   name,
   summary = "",
@@ -266,8 +269,10 @@ export function ToolCallCard({
   waiting,
   children,
   onToggle,
+  platform,
   className,
 }: ToolCallCardProps) {
+  const apple = usePlatform(platform) === "apple";
   const isWaiting =
     waiting ?? (!!approval && (approval.status ?? "pending") === "pending");
   const pendingApproval = approval && isWaiting;
@@ -305,7 +310,9 @@ export function ToolCallCard({
     onToggle?.(!open);
   };
   return (
-    <div className={["h-tool-call", className].filter(Boolean).join(" ")}>
+    <div
+      className={cx("h-tool-call", apple && "h-tool-call--apple", className)}
+    >
       <button
         type="button"
         className="h-tool-call__header"

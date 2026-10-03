@@ -1,8 +1,15 @@
+import { useContext } from "react";
 import { IconButton } from "../IconButton/IconButton";
 import {
   ThreadActionsButton,
   type ThreadAction,
 } from "../ThreadSidebar/ThreadSidebar";
+import {
+  ShellChromeContext,
+  cx,
+  usePlatform,
+  type Platform,
+} from "../../platform";
 import "./ChatHeader.css";
 
 export interface ChatHeaderProps {
@@ -17,10 +24,21 @@ export interface ChatHeaderProps {
   /** The open chat is pinned; its menu then reads "Unpin". */
   pinned?: boolean;
   /**
-   * `desktop`: the 76px bar above a wide chat, 15px title, bottom border.
-   * `phone`: the 64px app bar with a menu button that opens the sidebar drawer.
+   * `desktop`: the bar above a wide chat (iPad landscape, Mac, Windows,
+   * Linux). `phone`: the narrow bar with a menu button that opens the sidebar
+   * drawer. Heights: material 76px desktop and 64px phone, apple 52px Mac
+   * toolbar and 44px phone navigation bar.
    */
   layout?: "desktop" | "phone";
+  /**
+   * `material` (default): 15px title, bottom border (desktop); 16px left
+   * aligned title (phone). `apple` phone: a 44px navigation bar, the 17px
+   * semibold title centred, a hairline under it. `apple` desktop: the 52px
+   * unified Mac toolbar, no rule underneath; inside an `AppShell` whose
+   * sidebar is collapsed it leaves 78px for the traffic lights and shows the
+   * sidebar toggle. Inherits the provider's platform.
+   */
+  platform?: Platform;
   /** Open the "…" menu initially, for previews. */
   defaultMenuOpen?: boolean;
   /** The phone menu button was pressed (opens the thread drawer). */
@@ -41,14 +59,26 @@ export function ChatHeader({
   remote = true,
   pinned = false,
   layout = "desktop",
+  platform,
   defaultMenuOpen = false,
   onOpenMenu,
   onShowConnection,
   onThreadAction,
 }: ChatHeaderProps) {
+  const apple = usePlatform(platform) === "apple";
+  const { sidebarCollapsed, toggleSidebar } = useContext(ShellChromeContext);
   const hasMenu = title != null && remote;
+  const mac = apple && layout === "desktop";
+  const showToggle = mac && sidebarCollapsed;
   return (
-    <header className={`h-chat-header h-chat-header--${layout}`}>
+    <header
+      className={cx(
+        "h-chat-header",
+        `h-chat-header--${layout}`,
+        apple && "h-chat-header--apple",
+        showToggle && "h-chat-header--collapsed",
+      )}
+    >
       {layout === "phone" ? (
         <span className="h-chat-header__leading">
           <IconButton
@@ -58,6 +88,13 @@ export function ChatHeader({
           />
         </span>
       ) : null}
+      {showToggle ? (
+        <IconButton
+          icon="left_panel_open"
+          label="Show sidebar"
+          onClick={toggleSidebar}
+        />
+      ) : null}
       <h1 className="h-chat-header__title">{title ?? "Hermes"}</h1>
       {hasMenu ? (
         <ThreadActionsButton
@@ -66,6 +103,8 @@ export function ChatHeader({
           includeCopyTranscript
           defaultOpen={defaultMenuOpen}
           onAction={onThreadAction}
+          platform={apple ? "apple" : "material"}
+          layout={layout}
         />
       ) : null}
       <span className="h-chat-header__info">

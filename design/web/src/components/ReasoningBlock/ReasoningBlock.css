@@ -16,6 +16,10 @@
   cursor: pointer;
 }
 
+.h-reasoning-block--apple .h-reasoning-block__header {
+  min-height: 44px;
+}
+
 .h-reasoning-block__header:hover {
   background: var(--h-hover);
 }

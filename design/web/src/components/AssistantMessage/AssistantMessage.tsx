@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./AssistantMessage.css";
 
 export interface AssistantMessageProps {
@@ -26,6 +27,12 @@ export interface AssistantMessageProps {
   onCopy?: () => void;
   /** Shows the "Try again" action (only on the latest reply) and is called by it. */
   onRetry?: () => void;
+  /**
+   * `apple`: the copy and retry buttons are 44x44px (the glyph stays 16px),
+   * the iOS minimum tap target; text is 17px Body when the provider's ramp is
+   * `ios`. Inherits the provider's platform.
+   */
+  platform?: Platform;
 }
 
 /**
@@ -43,13 +50,20 @@ export function AssistantMessage({
   copied = false,
   onCopy,
   onRetry,
+  platform,
 }: AssistantMessageProps) {
+  const apple = usePlatform(platform) === "apple";
   const body = children ?? (text ? <Markdown source={text} /> : null);
   const copyVisible = showCopy ?? Boolean(text || children);
   const actionsVisible =
     !streaming && (copyVisible || Boolean(onRetry) || stopped);
   return (
-    <div className="h-assistant-message">
+    <div
+      className={cx(
+        "h-assistant-message",
+        apple && "h-assistant-message--apple",
+      )}
+    >
       {body ? <div className="h-assistant-message__body">{body}</div> : null}
       {error ? (
         <div className="h-assistant-message__error" role="alert">
