@@ -444,3 +444,22 @@
 .h-kanban-task-panel__delete:hover:not(:disabled) {
   color: var(--h-error);
 }
+
+/* Apple: detent sheet (iPhone) and form sheet (iPad, Mac). */
+.h-kanban-task-panel--apple.h-kanban-task-panel--sheet {
+  margin-top: auto;
+  border-radius: 12px 12px 0 0;
+}
+
+.h-kanban-task-panel--apple .h-kanban-task-panel__handle {
+  width: 36px;
+  height: 5px;
+  margin: 6px auto 10px;
+  border-radius: 3px;
+}
+
+.h-kanban-task-panel--apple.h-kanban-task-panel--dialog {
+  max-width: 560px;
+  padding-top: 0;
+  border-radius: 12px;
+}

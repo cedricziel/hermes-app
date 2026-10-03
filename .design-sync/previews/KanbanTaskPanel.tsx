@@ -154,3 +154,32 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+const sheetFrame = {
+  width: 380,
+  height: 540,
+  position: "relative" as const,
+  display: "flex",
+  flexDirection: "column" as const,
+  background: "var(--h-scrim)",
+  overflow: "hidden",
+};
+
+/** iPhone: the medium (half) and large detents of the Apple sheet, with the 36x5 grabber and 12px radius. */
+export const AppleSheetDetents = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
+    <div style={sheetFrame}>
+      <KanbanTaskPanel frame="sheet" detent="medium" task={running} channels={channels} />
+    </div>
+    <div style={sheetFrame}>
+      <KanbanTaskPanel frame="sheet" task={running} channels={channels} />
+    </div>
+  </HermesProvider>
+);
+
+/** iPad and Mac: a 560px form sheet with a 12px radius, and Apple toggles in the Notify section. */
+export const AppleFormSheet = () => (
+  <HermesProvider platform="apple" style={{ width: 560 }}>
+    <KanbanTaskPanel height={540} task={running} channels={channels} />
+  </HermesProvider>
+);

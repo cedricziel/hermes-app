@@ -6,6 +6,7 @@ import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import type { KanbanTaskItem } from "../KanbanCard/KanbanCard";
 import { kanbanStatusLabel } from "../KanbanStatusChips/KanbanStatusChips";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./KanbanTaskPanel.css";
 
 /** The task shown in the panel: a board task plus what only the detail view shows. */
@@ -104,6 +105,16 @@ export interface KanbanTaskPanelProps {
    * `sheet`: the phone bottom sheet with its drag handle. `plain`: no frame.
    */
   frame?: "dialog" | "sheet" | "plain";
+  /**
+   * `apple` presents the task the way iOS does. `sheet` (iPhone): a bottom
+   * sheet with a 36x5 grabber, a 12px top radius and two detents, see
+   * `detent`. `dialog` (iPad, Mac): a centred form sheet, 560px wide, 12px
+   * radius. The switches are Apple toggles. The panel's content is the same.
+   * Inherits the provider's platform.
+   */
+  platform?: Platform;
+  /** Apple `sheet` only: `medium` fills half the parent's height, `large` all of it (the default). The sheet snaps between them and a swipe down past medium closes it. */
+  detent?: "medium" | "large";
   /** Height of the frame in px; the content scrolls inside it. Defaults to 720 for a dialog; `auto` grows to fit the content. */
   height?: number | "auto";
   /** Problems listed first under "Needs attention". */
@@ -202,6 +213,8 @@ export function KanbanTaskPanel({
   task,
   state = "ready",
   frame = "dialog",
+  platform,
+  detent = "large",
   height,
   diagnostics = [],
   parents = [],
@@ -246,12 +259,23 @@ export function KanbanTaskPanel({
   const [historyOpen, setHistoryOpen] = useState(defaultHistoryOpen);
   const [comment, setComment] = useState("");
 
-  const frameClass = [
+  const apple = usePlatform(platform) === "apple";
+  const frameClass = cx(
     "h-kanban-task-panel",
     `h-kanban-task-panel--${frame}`,
-  ].join(" ");
+    apple && "h-kanban-task-panel--apple",
+  );
+  const sized =
+    apple && frame === "sheet" && height === undefined
+      ? detent === "medium"
+        ? "50%"
+        : "100%"
+      : undefined;
   const frameStyle = {
-    height: height === "auto" ? undefined : (height ?? (frame === "dialog" ? 720 : undefined)),
+    height:
+      height === "auto"
+        ? undefined
+        : (height ?? sized ?? (frame === "dialog" ? 720 : undefined)),
   };
 
   if (state !== "ready" || !task) {
@@ -511,7 +535,10 @@ export function KanbanTaskPanel({
                 <input
                   type="checkbox"
                   role="switch"
-                  className="h-kanban-task-panel__switch"
+                  className={cx(
+                    "h-kanban-task-panel__switch",
+                    apple && "h-apple-switch",
+                  )}
                   checked={c.subscribed}
                   disabled={c.switching}
                   onChange={(e) => onToggleChannel?.(c, e.target.checked)}

@@ -4,6 +4,7 @@ import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import { TextField } from "../TextField/TextField";
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./KanbanToolbar.css";
 
 /** A board in the board switcher. */
@@ -63,6 +64,8 @@ export interface KanbanToolbarProps {
   onManageBoards?: () => void;
   /** Close button pressed in selection mode. */
   onExitSelection?: () => void;
+  /** `apple`: the search is the iOS search field (rounded 10px, 36px tall, tinted fill). Inherits the provider's platform. */
+  platform?: Platform;
 }
 
 /**
@@ -95,13 +98,15 @@ export function KanbanToolbar({
   onBoardChange,
   onManageBoards,
   onExitSelection,
+  platform,
 }: KanbanToolbarProps) {
+  const apple = usePlatform(platform) === "apple";
   const [open, setOpen] = useState(defaultOpenMenu);
   const toggle = (menu: "assignee" | "tenant" | "board") =>
     setOpen(open === menu ? undefined : menu);
   const selecting = selectedCount !== undefined;
   return (
-    <div className="h-kanban-toolbar">
+    <div className={cx("h-kanban-toolbar", apple && "h-kanban-toolbar--apple")}>
       {showAppBar ? (
         <div className="h-kanban-toolbar__appbar">
           {selecting ? (
@@ -300,11 +305,18 @@ export interface KanbanBulkBarProps {
   onEffort?: () => void;
   /** Archive pressed (the app confirms "Archive N tasks?"). */
   onArchive?: () => void;
+  /**
+   * `apple` (iPhone): a 44px toolbar of icon-and-label buttons that reaches
+   * the screen edge, instead of the 80px bar of five text buttons. Inherits
+   * the provider's platform.
+   */
+  platform?: Platform;
 }
 
 /**
  * The bottom bar of Kanban selection mode: Move, Assign, Priority, Effort and
- * Archive as five equal text buttons. Shown with `KanbanToolbar`'s
+ * Archive as five equal text buttons (a 44px icon-and-label toolbar under
+ * `platform="apple"`). Shown with `KanbanToolbar`'s
  * `selectedCount` set.
  */
 export function KanbanBulkBar({
@@ -314,21 +326,24 @@ export function KanbanBulkBar({
   onPriority,
   onEffort,
   onArchive,
+  platform,
 }: KanbanBulkBarProps) {
   const none = selectedCount === 0;
-  const actions: [string, (() => void) | undefined][] = [
-    ["Move", onMove],
-    ["Assign", onAssign],
-    ["Priority", onPriority],
-    ["Effort", onEffort],
-    ["Archive", onArchive],
+  const apple = usePlatform(platform) === "apple";
+  const actions: [string, string, (() => void) | undefined][] = [
+    ["Move", "drive_file_move", onMove],
+    ["Assign", "person_add", onAssign],
+    ["Priority", "flag", onPriority],
+    ["Effort", "speed", onEffort],
+    ["Archive", "archive", onArchive],
   ];
   return (
-    <div className="h-kanban-bulk-bar">
-      {actions.map(([label, run]) => (
+    <div className={cx("h-kanban-bulk-bar", apple && "h-kanban-bulk-bar--apple")}>
+      {actions.map(([label, icon, run]) => (
         <Button
           key={label}
           variant="text"
+          icon={apple ? icon : undefined}
           disabled={none}
           onClick={run}
           className="h-kanban-bulk-bar__action"
