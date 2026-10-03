@@ -60,10 +60,20 @@ void main() {
       expect(job(cronJobRow()).outcome, CronOutcome.none);
     });
 
+    test('is ok for a run whose delivery Hermes queued', () {
+      final queued = job(cronJobRow(lastStatus: 'delivery_queued'));
+      expect(queued.outcome, CronOutcome.ok);
+      expect(queued.isFailing, isFalse);
+    });
+
     test('is failed for an error and for other non-ok statuses', () {
       expect(job(cronJobRow(lastStatus: 'error')).outcome, CronOutcome.failed);
       expect(
         job(cronJobRow(lastStatus: 'blocked_config')).outcome,
+        CronOutcome.failed,
+      );
+      expect(
+        job(cronJobRow(lastStatus: 'something_new')).outcome,
         CronOutcome.failed,
       );
     });

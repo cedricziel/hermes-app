@@ -141,12 +141,20 @@ void main() {
             deliveryError: 'no home channel',
           ),
         ),
+        job(
+          ran(
+            '2026-09-20T08:00:00+00:00',
+            name: 'D',
+            status: 'delivery_queued',
+          ),
+        ),
       ]);
 
       expect(alerts.map((a) => (a.title, a.body)), [
         ('A', 'Finished'),
         ('B', 'Failed'),
         ('C', 'Result could not be delivered'),
+        ('D', 'Finished'),
       ]);
       expect(alerts.every((a) => !a.body.contains('timeout')), isTrue);
     });
