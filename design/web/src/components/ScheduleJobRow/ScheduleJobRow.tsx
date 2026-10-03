@@ -1,3 +1,4 @@
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./ScheduleJobRow.css";
 
 /** A cron job of a Hermes profile, as the Schedules list shows it. */
@@ -35,6 +36,15 @@ export interface ScheduleJobRowProps {
   onClick?: () => void;
   /** The switch was flipped; `true` pauses the job, `false` resumes it. */
   onPausedChange?: (paused: boolean) => void;
+  /**
+   * `apple`: an inset grouped list row instead of a bordered card. Stack the
+   * rows as siblings in one container: the first and last get the group's
+   * 10px corners, a hairline separates the rest, and the switch is the Apple
+   * toggle. In the app a row swipes to reveal Delete, long-presses (iOS) or
+   * right-clicks (Mac) for Run now, Pause/Resume and Delete. Inherits the
+   * provider's platform.
+   */
+  platform?: Platform;
 }
 
 function statusText(job: ScheduleJob): string {
@@ -78,7 +88,9 @@ export function ScheduleJobRow({
   showProfile = false,
   onClick,
   onPausedChange,
+  platform,
 }: ScheduleJobRowProps) {
+  const apple = usePlatform(platform) === "apple";
   const on = job.state === "scheduled";
   const locked = job.state === "completed";
   const failing = job.outcome === "failed" || job.outcome === "deliveryFailed";
@@ -89,6 +101,7 @@ export function ScheduleJobRow({
     "h-schedule-job-row",
     `h-schedule-job-row--${tone(job)}`,
     selected ? "h-schedule-job-row--selected" : null,
+    apple ? "h-schedule-job-row--apple" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -120,12 +133,11 @@ export function ScheduleJobRow({
           aria-checked={on}
           aria-label={on ? "Pause" : "Resume"}
           disabled={locked}
-          className={[
+          className={cx(
             "h-schedule-job-row__switch",
-            on ? "h-schedule-job-row__switch--on" : null,
-          ]
-            .filter(Boolean)
-            .join(" ")}
+            on && "h-schedule-job-row__switch--on",
+            apple && "h-apple-switch",
+          )}
           onClick={(e) => {
             e.stopPropagation();
             onPausedChange?.(on);

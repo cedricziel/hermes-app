@@ -1,5 +1,7 @@
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
+import { cx, usePlatform, type Platform } from "../../platform";
+import type { DeviceLayout } from "../ThreadSidebar/ThreadSidebar";
 import "./ProfileTile.css";
 
 /** A Hermes profile: its own config, skills, memory and chats on the server. */
@@ -25,6 +27,17 @@ export interface ProfileTileProps {
   onClick?: () => void;
   /** Shows a tune button that changes the profile's default model, and calls this when pressed. */
   onChangeModel?: () => void;
+  /**
+   * `apple` with `layout="phone"` (iOS): a compact row at least 44px tall with
+   * no leading icon, a trailing checkmark on the active profile instead of
+   * the "Active" chip, and no tune button; in the app "Change default model"
+   * moves to a long-press action sheet. `apple` with `layout="desktop"`
+   * (macOS) keeps this tile with SF-style glyphs. Inherits the provider's
+   * platform.
+   */
+  platform?: Platform;
+  /** Touch (`phone`) or pointer (`desktop`, default) row under `platform="apple"`. */
+  layout?: DeviceLayout;
 }
 
 /**
@@ -37,7 +50,10 @@ export function ProfileTile({
   active = false,
   onClick,
   onChangeModel,
+  platform,
+  layout = "desktop",
 }: ProfileTileProps) {
+  const ios = usePlatform(platform) === "apple" && layout === "phone";
   const parts = [
     profile.description,
     profile.model,
@@ -45,7 +61,7 @@ export function ProfileTile({
   ].filter(Boolean);
   return (
     <div
-      className="h-profile-tile"
+      className={cx("h-profile-tile", ios && "h-profile-tile--ios")}
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -56,14 +72,19 @@ export function ProfileTile({
         }
       }}
     >
-      <Icon name="person" size={24} className="h-profile-tile__icon" />
+      {ios ? null : (
+        <Icon name="person" size={24} className="h-profile-tile__icon" />
+      )}
       <div className="h-profile-tile__body">
         <div className="h-profile-tile__title">
           {profile.displayName || profile.name}
         </div>
         <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
       </div>
-      {active || onChangeModel ? (
+      {ios && active ? (
+        <Icon name="check" size={20} className="h-profile-tile__check" />
+      ) : null}
+      {!ios && (active || onChangeModel) ? (
         <div className="h-profile-tile__trailing">
           {active ? <span className="h-profile-tile__chip">Active</span> : null}
           {onChangeModel ? (

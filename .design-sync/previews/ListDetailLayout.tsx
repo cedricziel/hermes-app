@@ -223,3 +223,85 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+const appleRows = (
+  <>
+    <McpServerRow
+      platform="apple"
+      server={{
+        name: "grafana",
+        transport: "remote",
+        address: "https://mcp.grafana.com/mcp",
+        auth: "OAuth",
+        enabled: true,
+      }}
+    />
+    <McpServerRow
+      platform="apple"
+      server={{
+        name: "filesystem",
+        transport: "command",
+        address: "npx -y @modelcontextprotocol/server-filesystem /srv/notes",
+        enabled: false,
+      }}
+    />
+  </>
+);
+
+const phoneFrame = {
+  width: 390,
+  height: 420,
+  border: "1px solid var(--h-border)",
+  overflow: "hidden",
+} as const;
+
+/** Material (left) and iOS (right): back arrow vs chevron with the parent's title, FAB vs "+" in the bar, underline tabs vs segmented control, Material vs Apple switches. */
+export const PlatformCompare = () => (
+  <div style={{ display: "flex", gap: 20 }}>
+    <div style={phoneFrame}>
+      <ListDetailLayout
+        layout="list"
+        title="MCP servers"
+        onBack={() => {}}
+        tabs={["Installed", "Catalog"]}
+        list={
+          <>
+            <McpServerRow
+              server={{
+                name: "grafana",
+                transport: "remote",
+                address: "https://mcp.grafana.com/mcp",
+                auth: "OAuth",
+                enabled: true,
+              }}
+            />
+            <McpServerRow
+              server={{
+                name: "filesystem",
+                transport: "command",
+                address: "npx -y @modelcontextprotocol/server-filesystem",
+                enabled: false,
+              }}
+            />
+          </>
+        }
+        onAdd={() => {}}
+        addLabel="Add server"
+      />
+    </div>
+    <HermesProvider platform="apple">
+      <div style={phoneFrame}>
+        <ListDetailLayout
+          layout="list"
+          title="MCP servers"
+          onBack={() => {}}
+          backLabel="Chats"
+          tabs={["Installed", "Catalog"]}
+          list={appleRows}
+          onAdd={() => {}}
+          addLabel="Add server"
+        />
+      </div>
+    </HermesProvider>
+  </div>
+);

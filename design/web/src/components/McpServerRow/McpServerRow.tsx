@@ -1,3 +1,4 @@
+import { cx, usePlatform, type Platform } from "../../platform";
 import "./McpServerRow.css";
 
 /** An MCP server configured on the active Hermes profile. */
@@ -37,6 +38,13 @@ export interface McpServerRowProps {
   onClick?: () => void;
   /** The switch was flipped to this value. */
   onEnabledChange?: (enabled: boolean) => void;
+  /**
+   * `apple`: the enabled switch is the iOS and macOS toggle (51x31, a thumb
+   * that keeps its size, a zinc primary track). In the app the row also
+   * swipes to reveal Remove and long-presses (right-clicks on a Mac) for
+   * Turn on/off and Remove. Inherits the provider's platform.
+   */
+  platform?: Platform;
 }
 
 /**
@@ -51,7 +59,9 @@ export function McpServerRow({
   switching = false,
   onClick,
   onEnabledChange,
+  platform,
 }: McpServerRowProps) {
+  const apple = usePlatform(platform) === "apple";
   const auth =
     server.auth || (server.transport === "remote" ? "No auth" : undefined);
   const chips: { label: string; warning?: boolean }[] = [
@@ -127,12 +137,11 @@ export function McpServerRow({
         aria-checked={server.enabled}
         aria-label={`${server.name} enabled`}
         disabled={switching}
-        className={[
+        className={cx(
           "h-mcp-server-row__switch",
-          server.enabled ? "h-mcp-server-row__switch--on" : null,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+          server.enabled && "h-mcp-server-row__switch--on",
+          apple && "h-apple-switch",
+        )}
         onClick={(e) => {
           e.stopPropagation();
           onEnabledChange?.(!server.enabled);

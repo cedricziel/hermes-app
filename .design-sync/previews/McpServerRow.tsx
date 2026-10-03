@@ -109,3 +109,24 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** Material (top) and Apple (bottom) enabled switches: 52x32 with a growing thumb vs the 51x31 toggle. */
+export const PlatformSwitch = () => {
+  const server = {
+    name: "grafana",
+    transport: "remote" as const,
+    address: "https://mcp.grafana.com/mcp",
+    auth: "OAuth",
+    enabled: true,
+  };
+  return (
+    <div style={pane}>
+      <McpServerRow server={server} />
+      <McpServerRow server={{ ...server, name: "asana", enabled: false }} />
+      <HermesProvider platform="apple">
+        <McpServerRow server={server} />
+        <McpServerRow server={{ ...server, name: "asana", enabled: false }} />
+      </HermesProvider>
+    </div>
+  );
+};

@@ -157,3 +157,46 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+const jobs = [
+  {
+    id: "price-watch",
+    title: "Price watch",
+    deliverTo: "Local",
+    scheduleText: "Every 30 minutes",
+    state: "scheduled" as const,
+    outcome: "failed" as const,
+    lastRun: "40 min ago",
+    nextRun: "in 20 min",
+    failureReason: "Provider timeout",
+  },
+  {
+    id: "morning-brief",
+    title: "Morning brief",
+    deliverTo: "Telegram",
+    scheduleText: "Weekdays at 08:00",
+    state: "scheduled" as const,
+    outcome: "ok" as const,
+    lastRun: "2 h ago",
+    nextRun: "in 3 h",
+  },
+  {
+    id: "weekly",
+    title: "Weekly digest",
+    deliverTo: "Local",
+    scheduleText: "Fridays at 17:00",
+    state: "paused" as const,
+    outcome: "none" as const,
+  },
+];
+
+/** Apple: one inset grouped list. Rows are siblings; the first and last get the group's corners. */
+export const InsetGrouped = () => (
+  <HermesProvider platform="apple" style={{ width: 390, padding: "16px 0" }}>
+    <div>
+      {jobs.map((job) => (
+        <ScheduleJobRow key={job.id} job={job} />
+      ))}
+    </div>
+  </HermesProvider>
+);
