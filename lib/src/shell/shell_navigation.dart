@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../chat/widgets/thread_sidebar.dart';
+import '../macos/mac_sidebar.dart';
 import '../theme/hermes_theme.dart';
 
 /// One place the shell can show: the icon pair and the label of its entry.
@@ -51,27 +52,31 @@ class ShellSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 280,
-      color: context.hermesColors.sidebar,
+      color: macSidebarColor(context, context.hermesColors.sidebar),
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.hub_outlined,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurface,
+            macSidebarHeader(context) ??
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.hub_outlined,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Hermes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Hermes',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
+                ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: navigation,
@@ -88,23 +93,51 @@ class ShellSidebar extends StatelessWidget {
 /// Opens the shell's navigation drawer from a page other than Chat on a
 /// narrow layout, where there is no sidebar. Chat has a drawer of its own.
 class ShellMenu extends InheritedWidget {
-  const ShellMenu({super.key, required this.onOpen, required super.child});
+  const ShellMenu({
+    super.key,
+    required this.onOpen,
+    this.leadingInset = 0,
+    required super.child,
+  });
 
   final VoidCallback onOpen;
+
+  /// Room to leave before the button, for a window control in the corner.
+  final double leadingInset;
 
   /// The menu button for the app bar of a page the shell shows, or null when
   /// the page is not inside a narrow shell and keeps its default leading.
   static Widget? button(BuildContext context) {
     final menu = context.dependOnInheritedWidgetOfExactType<ShellMenu>();
     if (menu == null) return null;
-    return IconButton(
-      key: const Key('shell-menu'),
-      tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-      icon: const Icon(Icons.menu),
-      onPressed: menu.onOpen,
+    return clearOfWindowControls(
+      context,
+      IconButton(
+        key: const Key('shell-menu'),
+        tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+        icon: const Icon(Icons.menu),
+        onPressed: menu.onOpen,
+      ),
+    );
+  }
+
+  /// [leading] moved clear of the window controls when the page sits in a
+  /// collapsed Mac sidebar layout, otherwise as it is.
+  static Widget clearOfWindowControls(BuildContext context, Widget leading) {
+    final inset =
+        context.dependOnInheritedWidgetOfExactType<ShellMenu>()?.leadingInset ??
+        0;
+    if (inset == 0) return leading;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Padding(
+        padding: EdgeInsets.only(left: inset),
+        child: leading,
+      ),
     );
   }
 
   @override
-  bool updateShouldNotify(ShellMenu oldWidget) => onOpen != oldWidget.onOpen;
+  bool updateShouldNotify(ShellMenu oldWidget) =>
+      onOpen != oldWidget.onOpen || leadingInset != oldWidget.leadingInset;
 }

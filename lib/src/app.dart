@@ -4,6 +4,7 @@ import 'package:upgrader/upgrader.dart';
 
 import 'app_lock/app_lock_gate.dart';
 import 'auth/auth_controller.dart';
+import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
 import 'settings/theme_controller.dart';
@@ -35,7 +36,8 @@ class HermesApp extends StatelessWidget {
       theme: lightTheme ?? buildHermesLightTheme(),
       darkTheme: darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => AppLockGate(child: child!),
+      builder: (context, child) =>
+          MacWindowChrome(child: AppLockGate(child: child!)),
       home: _RootRouter(updateChecker: updateChecker),
     );
   }
