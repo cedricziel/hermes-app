@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/content_column.dart';
+import '../widgets/disclosure_tile.dart';
+import '../widgets/named_icon_button.dart';
 import 'hermes_bots_repository.dart';
 import 'telegram_pairing_screen.dart';
 
@@ -116,7 +118,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
                     ],
                     for (final v in basic) _field(v),
                     if (advanced.isNotEmpty)
-                      ExpansionTile(
+                      DisclosureTile(
                         title: const Text('Advanced'),
                         maintainState: true,
                         initiallyExpanded: advanced.any(
@@ -176,9 +178,9 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
           helperText: helper.join('\n'),
           helperMaxLines: 4,
           suffixIcon: v.isSet && !v.required
-              ? IconButton(
-                  tooltip: cleared ? 'Keep ${v.label}' : 'Clear ${v.label}',
-                  icon: Icon(cleared ? Icons.undo : Icons.delete_outline),
+              ? NamedIconButton(
+                  label: cleared ? 'Keep ${v.label}' : 'Clear ${v.label}',
+                  icon: cleared ? Icons.undo : Icons.delete_outline,
                   onPressed: () => _toggleCleared(v.key),
                 )
               : null,
