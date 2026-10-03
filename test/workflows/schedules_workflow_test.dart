@@ -18,6 +18,7 @@ import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -158,15 +159,36 @@ void main() {
       ],
     );
 
-    Future<void> openTab(WidgetTester tester, String label) async {
+    // A phone keeps the destinations in a drawer: Chat's own, or the shell's
+    // on another page.
+    Future<void> openMenu(WidgetTester tester) async {
       await tester.tap(
-        find.descendant(
-          of: find.byWidgetPredicate(
-            (w) => w is NavigationBar || w is ShellNavigation,
-          ),
-          matching: find.text(label),
-        ),
+        find.byTooltip('Open navigation menu').hitTestable().first,
       );
+      await _settle(tester);
+    }
+
+    Future<void> closeMenu(WidgetTester tester) async {
+      tester
+          .state<ScaffoldState>(
+            find
+                .ancestor(
+                  of: find.byType(Drawer),
+                  matching: find.byType(Scaffold),
+                )
+                .first,
+          )
+          .closeDrawer();
+      await _settle(tester);
+    }
+
+    Future<void> openTab(WidgetTester tester, String label) async {
+      final rows = find.descendant(
+        of: find.byType(ShellNavigation),
+        matching: find.text(label),
+      );
+      if (rows.hitTestable().evaluate().isEmpty) await openMenu(tester);
+      await tester.tap(rows.hitTestable().first);
       await _settle(tester);
     }
 
@@ -182,10 +204,15 @@ void main() {
       setKanban(true);
       final shots = ScreenshotRecorder('schedules-shell-phone');
       await pumpShell(tester, shots, size: phoneSize);
-      await shots.capture(tester, 'chat-with-three-tabs');
+      await shots.capture(tester, 'chat-without-a-bottom-bar');
+      await openMenu(tester);
+      await shots.capture(tester, 'chat-drawer-with-destinations');
 
       await openTab(tester, 'Schedules');
       await shots.capture(tester, 'schedules-tab');
+      await openMenu(tester);
+      await shots.capture(tester, 'schedules-drawer');
+      await closeMenu(tester);
 
       await _openTile(tester, 'Price watch');
       await shots.capture(tester, 'task-opened-over-the-tabs');
@@ -198,7 +225,33 @@ void main() {
       // duplicate FloatingActionButton hero assertion.
       await openTab(tester, 'Kanban');
       await shots.capture(tester, 'kanban-tab');
+      await openMenu(tester);
+      await shots.capture(tester, 'kanban-drawer');
     });
+
+    // A tablet held upright is below the wide breakpoint, so it gets the
+    // phone's drawer; turned sideways it gets the desktop's sidebar.
+    for (final (flow, size) in [
+      ('tablet-portrait', const Size(820, 1180)),
+      ('tablet-landscape', const Size(1180, 820)),
+    ]) {
+      testWidgets('$flow: Chat, Kanban and Schedules', (tester) async {
+        setKanban(true);
+        final shots = ScreenshotRecorder('schedules-shell-$flow');
+        await pumpShell(tester, shots, size: size);
+        await shots.capture(tester, 'chat');
+        if (size.width < kWideLayoutBreakpoint) {
+          await openMenu(tester);
+          await shots.capture(tester, 'chat-drawer');
+        }
+        await openTab(tester, 'Schedules');
+        await shots.capture(tester, 'schedules');
+        if (size.width < kWideLayoutBreakpoint) {
+          await openMenu(tester);
+          await shots.capture(tester, 'schedules-drawer');
+        }
+      });
+    }
 
     testWidgets('phone: the tab follows what the server has', (tester) async {
       setCron(false);
@@ -262,6 +315,10 @@ void main() {
         final shots = ScreenshotRecorder(flow);
         await pumpShell(tester, shots, size: size, brightness: Brightness.dark);
         await shots.capture(tester, 'chat');
+        if (size.width < kWideLayoutBreakpoint) {
+          await openMenu(tester);
+          await shots.capture(tester, 'chat-drawer');
+        }
         await openTab(tester, 'Schedules');
         await shots.capture(tester, 'schedules');
       });

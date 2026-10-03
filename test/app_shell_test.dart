@@ -86,30 +86,89 @@ void main() {
         : <Object?>[],
   );
 
+  /// Opens the drawer of a narrow layout: Chat's own, or the shell's on
+  /// another page.
+  Future<void> openMenu(WidgetTester tester) async {
+    await tester.tap(
+      find.byTooltip('Open navigation menu').hitTestable().first,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeMenu(WidgetTester tester) async {
+    tester
+        .state<ScaffoldState>(
+          find
+              .ancestor(
+                of: find.byType(Drawer),
+                matching: find.byType(Scaffold),
+              )
+              .first,
+        )
+        .closeDrawer();
+    await tester.pumpAndSettle();
+  }
+
+  /// The destinations in the drawer of a narrow layout, or null without any.
+  Future<List<String>?> navigationLabels(WidgetTester tester) async {
+    await openMenu(tester);
+    final found = find.byType(ShellNavigation);
+    final labels = found.evaluate().isEmpty
+        ? null
+        : [
+            for (final d in tester.widget<ShellNavigation>(found).destinations)
+              d.label,
+          ];
+    await closeMenu(tester);
+    return labels;
+  }
+
+  Future<void> openTab(WidgetTester tester, String label) async {
+    await openMenu(tester);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ShellNavigation),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('shows no navigation while the plugin is off', (tester) async {
     kanbanPlugin(on: false);
 
     await pumpShell(tester, size: const Size(400, 800));
 
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.byType(ShellNavigation), findsNothing);
+    expect(await navigationLabels(tester), isNull);
   });
 
-  testWidgets('offers a Kanban tab in a bottom bar on a phone', (tester) async {
+  testWidgets('offers Kanban in the drawer on a phone, with no bottom bar', (
+    tester,
+  ) async {
     kanbanPlugin(on: true);
 
     await pumpShell(tester, size: const Size(400, 800));
 
-    expect(find.byType(NavigationBar), findsOneWidget);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Kanban'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    expect(find.byType(NavigationBar), findsNothing);
+    await openTab(tester, 'Kanban');
 
     expect(find.text('the board'), findsOneWidget);
+    expect(find.byType(Drawer), findsNothing);
+  });
+
+  testWidgets('a page other than Chat opens the destinations from its menu', (
+    tester,
+  ) async {
+    kanbanPlugin(on: true);
+    await pumpShell(tester, size: const Size(400, 800));
+    await openTab(tester, 'Kanban');
+    expect(find.byKey(const Key('shell-menu')), findsOneWidget);
+
+    await openTab(tester, 'Chat');
+
+    expect(find.text('the board'), findsNothing);
+    expect(find.byKey(const Key('shell-menu')), findsNothing);
   });
 
   testWidgets('lists the destinations in the sidebar on a wide screen', (
@@ -148,14 +207,14 @@ void main() {
   testWidgets('drops the tab when the plugin is turned off', (tester) async {
     kanbanPlugin(on: true);
     await pumpShell(tester, size: const Size(400, 800));
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(await navigationLabels(tester), ['Chat', 'Kanban']);
 
     kanbanPlugin(on: false);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(await navigationLabels(tester), isNull);
   });
 
   testWidgets('ignores a slower answer that a newer check has superseded', (
@@ -180,22 +239,18 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(await navigationLabels(tester), isNull);
   });
 
-  Future<void> openKanban(WidgetTester tester) async {
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Kanban'),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
+  Future<void> openKanban(WidgetTester tester) => openTab(tester, 'Kanban');
 
+  /// The page in front: its index among the destinations. The shell's stack
+  /// is the outermost one, and is offstage while a page is pushed over it.
   int selectedTab(WidgetTester tester) => tester
-      .widget<NavigationBar>(find.byType(NavigationBar, skipOffstage: false))
-      .selectedIndex;
+      .widget<IndexedStack>(
+        find.byType(IndexedStack, skipOffstage: false).first,
+      )
+      .index!;
 
   Future<void> flipPlugin(WidgetTester tester, {required bool on}) async {
     kanbanPlugin(on: on);
@@ -295,13 +350,7 @@ void main() {
     await openKanban(tester);
     await tester.enterText(find.byType(TextField), 'deploy');
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Chat'),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await openTab(tester, 'Chat');
     await openKanban(tester);
 
     expect(find.text('deploy'), findsOneWidget);
@@ -342,26 +391,6 @@ void main() {
       ],
     });
 
-  Future<void> openTab(WidgetTester tester, String label) async {
-    await tester.tap(
-      find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text(label),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
-  List<String> navigationLabels(WidgetTester tester) => [
-    for (final d
-        in tester
-            .widget<NavigationBar>(
-              find.byType(NavigationBar, skipOffstage: false),
-            )
-            .destinations)
-      (d as NavigationDestination).label,
-  ];
-
   group('Schedules', () {
     testWidgets('is offered without Kanban when the server has cron routes', (
       tester,
@@ -371,7 +400,7 @@ void main() {
 
       await pumpShell(tester, size: const Size(400, 800));
 
-      expect(navigationLabels(tester), ['Chat', 'Schedules']);
+      expect(await navigationLabels(tester), ['Chat', 'Schedules']);
     });
 
     testWidgets('sits next to Kanban when both are on', (tester) async {
@@ -380,7 +409,7 @@ void main() {
 
       await pumpShell(tester, size: const Size(400, 800));
 
-      expect(navigationLabels(tester), ['Chat', 'Kanban', 'Schedules']);
+      expect(await navigationLabels(tester), ['Chat', 'Kanban', 'Schedules']);
     });
 
     testWidgets('is offered in the sidebar on a wide screen', (tester) async {
@@ -401,7 +430,7 @@ void main() {
 
       await pumpShell(tester, size: const Size(400, 800));
 
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(await navigationLabels(tester), isNull);
     });
 
     testWidgets('does not load jobs until its tab is opened', (tester) async {
@@ -451,8 +480,8 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
 
-      expect(find.byType(NavigationBar), findsNothing);
       expect(find.text('Morning brief'), findsNothing);
+      expect(await navigationLabels(tester), isNull);
     });
 
     testWidgets('opening a run brings Chat to the front', (tester) async {
@@ -500,7 +529,6 @@ void main() {
       notifications.tapJob('job1', profile: 'work');
       await tester.pumpAndSettle();
 
-      expect(navigationLabels(tester), ['Chat', 'Schedules']);
       expect(selectedTab(tester), 1);
       expect(find.text('Say good morning'), findsOneWidget);
     });
@@ -648,6 +676,8 @@ class _BoardState extends State<_Board> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
+      // A page the shell shows puts the shell's menu in its app bar.
+      ?ShellMenu.button(context),
       const Text('the board'),
       const TextField(),
       TextButton(

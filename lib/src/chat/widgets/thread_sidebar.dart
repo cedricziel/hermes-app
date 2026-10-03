@@ -78,11 +78,13 @@ class ThreadSidebar extends StatelessWidget {
                 ],
               ),
             ),
-            if (navigation != null)
+            if (navigation != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: navigation,
               ),
+              const Divider(height: 17, indent: 16, endIndent: 16),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: SidebarAction(

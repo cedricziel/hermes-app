@@ -109,8 +109,8 @@ class ChatScreen extends StatefulWidget {
   /// the chat cannot show.
   final void Function(NotificationTarget target)? onOpenJob;
 
-  /// The shell's destinations. A wide layout shows them at the top of the
-  /// thread sidebar; a narrow one has its own bottom bar.
+  /// The shell's destinations, shown at the top of the thread sidebar: next to
+  /// the chat on a wide layout, in the drawer on a narrow one.
   final Widget? navigation;
 
   @override
@@ -496,7 +496,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         return Scaffold(
           key: _scaffoldKey,
-          drawer: isWide ? null : Drawer(width: 280, child: buildSidebar()),
+          drawer: isWide
+              ? null
+              : Drawer(
+                  width: 280,
+                  child: buildSidebar(navigation: widget.navigation),
+                ),
           appBar: isWide
               ? null
               : AppBar(

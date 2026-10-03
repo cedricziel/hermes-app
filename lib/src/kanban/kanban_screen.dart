@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
+import '../shell/shell_navigation.dart';
 import '../theme/hermes_theme.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
@@ -110,6 +111,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 title: Text('${_controller.selected.length} selected'),
               )
             : AppBar(
+                leading: ShellMenu.button(context),
                 title: const Text('Kanban'),
                 actions: [
                   if (_controller.boards.isNotEmpty)
