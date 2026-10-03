@@ -148,6 +148,7 @@ class SidebarAction extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.selected = false,
+    this.expanded,
   });
 
   final IconData icon;
@@ -157,33 +158,41 @@ class SidebarAction extends StatelessWidget {
   /// Fills the row, as for the open destination.
   final bool selected;
 
+  /// Whether the section this row opens is open; null for a plain action.
+  final bool? expanded;
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? Theme.of(context).colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.7)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      selected: selected,
+      expanded: expanded,
+      child: Material(
+        color: selected
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.7)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -216,6 +225,7 @@ class _MoreSectionState extends State<_MoreSection> {
           SidebarAction(
             icon: _open ? Icons.expand_more : Icons.chevron_right,
             label: 'More',
+            expanded: _open,
             onTap: () => setState(() => _open = !_open),
           ),
           if (_open)
