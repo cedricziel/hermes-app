@@ -27,3 +27,8 @@ export * from './components/McpServerRow/McpServerRow';
 export * from './components/PluginRow/PluginRow';
 export * from './components/ProfileTile/ProfileTile';
 export * from './components/ListDetailLayout/ListDetailLayout';
+export * from './components/KanbanCard/KanbanCard';
+export * from './components/KanbanStatusChips/KanbanStatusChips';
+export * from './components/KanbanColumn/KanbanColumn';
+export * from './components/KanbanToolbar/KanbanToolbar';
+export * from './components/KanbanTaskPanel/KanbanTaskPanel';

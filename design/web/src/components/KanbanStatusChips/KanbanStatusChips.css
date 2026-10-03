@@ -1,0 +1,49 @@
+.h-kanban-status-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 48px;
+  padding: 0 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.h-kanban-status-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.h-kanban-status-chips__chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--h-border);
+  border-radius: 8px;
+  background: var(--h-surface);
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.h-kanban-status-chips__chip:hover {
+  background: color-mix(in srgb, var(--h-fg) 6%, var(--h-surface));
+}
+
+.h-kanban-status-chips__chip--selected,
+.h-kanban-status-chips__chip--selected:hover {
+  padding-left: 8px;
+  border-color: var(--h-secondary);
+  background: var(--h-secondary);
+  color: var(--h-on-primary);
+}
+
+.h-kanban-status-chips__chip:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}

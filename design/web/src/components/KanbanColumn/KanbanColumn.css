@@ -1,0 +1,49 @@
+.h-kanban-column {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--h-radius);
+}
+
+.h-kanban-column--drop {
+  background: var(--h-surface-high);
+}
+
+.h-kanban-column__header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 0 8px 4px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--h-fg);
+}
+
+.h-kanban-column__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.h-kanban-column__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.h-kanban-column--list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.h-kanban-column__empty {
+  padding-top: 68px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-fg);
+}
