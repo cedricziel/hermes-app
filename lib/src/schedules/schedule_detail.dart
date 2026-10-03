@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
+import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
@@ -122,21 +122,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
     if (saved != null && mounted) _controller.jobSaved(saved);
   }
 
-  Future<void> _delete() async {
-    final job = widget.job;
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Delete this task?',
-      message:
-          '“${job.title}” will no longer run. Its past runs stay as chats.',
-      confirmLabel: 'Delete',
-      destructive: true,
-      filled: false,
-    );
-    if (!confirmed) return;
-    final message = await _controller.delete(job);
-    if (message != null) _say(message);
-  }
+  Future<void> _delete() => deleteScheduleJob(context, _controller, widget.job);
 
   @override
   Widget build(BuildContext context) {

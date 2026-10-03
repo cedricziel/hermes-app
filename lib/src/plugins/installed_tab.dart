@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'installed_plugin.dart';
+import 'plugin_actions.dart';
 import 'plugin_detail.dart';
 import 'plugin_tag.dart';
 import 'plugins_controller.dart';
 import 'sheet_host.dart';
+import '../widgets/row_actions.dart';
 
 /// The installed plugins, with a details view for each: a bottom sheet on a
 /// narrow screen, a pane beside the list on a wide one.
@@ -130,10 +132,14 @@ class _InstalledTabState extends State<InstalledTab>
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final plugin = plugins[index];
-                return _PluginRow(
-                  plugin: plugin,
-                  selected: wide && plugin.name == _controller.selectedName,
-                  onTap: () => _open(plugin, wide: wide),
+                return RowActions(
+                  title: plugin.name,
+                  actions: pluginRowActions(context, _controller, plugin),
+                  child: _PluginRow(
+                    plugin: plugin,
+                    selected: wide && plugin.name == _controller.selectedName,
+                    onTap: () => _open(plugin, wide: wide),
+                  ),
                 );
               },
             ),

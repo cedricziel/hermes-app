@@ -7,6 +7,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import '../widgets/named_popup_menu_button.dart';
+import '../widgets/row_actions.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
@@ -309,17 +310,41 @@ class _ServerList extends StatelessWidget {
           ),
         ),
         for (final server in servers)
-          _ServerRow(
-            key: ValueKey('mcp-row-${server.name}'),
-            server: server,
-            tested: switch (controller.testOf(server.name)) {
-              McpTestFinished(:final result) => result,
-              _ => null,
-            },
-            selected: server.name == selected,
-            switching: controller.isSwitching(server.name),
-            onTap: () => onOpen(server),
-            onSwitch: (on) => switchMcpServer(context, controller, server, on),
+          RowActions(
+            key: ValueKey('mcp-actions-${server.name}'),
+            title: server.name,
+            actions: [
+              if (!controller.isSwitching(server.name))
+                RowAction(
+                  label: server.enabled ? 'Turn off' : 'Turn on',
+                  icon: server.enabled ? Icons.toggle_off : Icons.toggle_on,
+                  onPressed: () => switchMcpServer(
+                    context,
+                    controller,
+                    server,
+                    !server.enabled,
+                  ),
+                ),
+              RowAction(
+                label: 'Remove',
+                icon: Icons.delete_outline,
+                destructive: true,
+                onPressed: () => removeMcpServer(context, controller, server),
+              ),
+            ],
+            child: _ServerRow(
+              key: ValueKey('mcp-row-${server.name}'),
+              server: server,
+              tested: switch (controller.testOf(server.name)) {
+                McpTestFinished(:final result) => result,
+                _ => null,
+              },
+              selected: server.name == selected,
+              switching: controller.isSwitching(server.name),
+              onTap: () => onOpen(server),
+              onSwitch: (on) =>
+                  switchMcpServer(context, controller, server, on),
+            ),
           ),
       ],
     );
