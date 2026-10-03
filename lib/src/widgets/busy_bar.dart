@@ -19,6 +19,7 @@ class BusyBar extends StatelessWidget {
         value: 1,
         minHeight: minHeight,
         color: color.withValues(alpha: 0.4),
+        backgroundColor: Colors.transparent,
       );
     }
     return LinearProgressIndicator(value: value, minHeight: minHeight);
