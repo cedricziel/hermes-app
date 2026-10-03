@@ -9,11 +9,15 @@ class KanbanTaskHeading extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 16, bottom: 6),
-    child: Text(
-      text.toUpperCase(),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        letterSpacing: 0.8,
-        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+    child: Semantics(
+      header: true,
+      child: Text(
+        text.toUpperCase(),
+        semanticsLabel: text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          letterSpacing: 0.8,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
       ),
     ),
   );

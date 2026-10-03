@@ -196,11 +196,18 @@ class JobTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Switch(
-                    value: !job.isPaused && job.state != CronJobState.completed,
-                    onChanged: job.state == CronJobState.completed
-                        ? null
-                        : (on) => onPausedChanged(!on),
+                  MergeSemantics(
+                    child: Semantics(
+                      label: job.title,
+                      child: Switch(
+                        value:
+                            !job.isPaused &&
+                            job.state != CronJobState.completed,
+                        onChanged: job.state == CronJobState.completed
+                            ? null
+                            : (on) => onPausedChanged(!on),
+                      ),
+                    ),
                   ),
                 ],
               ),

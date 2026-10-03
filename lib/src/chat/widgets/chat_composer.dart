@@ -5,6 +5,7 @@ import '../../share/shared_item.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import 'queued_prompts.dart';
+import '../../widgets/named_icon_button.dart';
 
 /// The chat composer: a card with the text field on top and, below it,
 /// attach, [modelPill], and send. The stop bar, the [queued] prompts and the
@@ -132,9 +133,9 @@ class _ChatComposerState extends State<ChatComposer> {
                   Row(
                     children: [
                       if (widget.onAttach case final onAttach?)
-                        IconButton(
-                          tooltip: 'Add attachment',
-                          icon: const Icon(Icons.add),
+                        NamedIconButton(
+                          label: 'Add attachment',
+                          icon: Icons.add,
                           color: subtle,
                           onPressed: onAttach,
                         ),
@@ -146,9 +147,10 @@ class _ChatComposerState extends State<ChatComposer> {
                       ),
                       ListenableBuilder(
                         listenable: widget.controller,
-                        builder: (context, _) => IconButton.filled(
-                          tooltip: 'Send',
-                          icon: const Icon(Icons.arrow_upward),
+                        builder: (context, _) => NamedIconButton(
+                          label: 'Send',
+                          icon: Icons.arrow_upward,
+                          filled: true,
                           // The app's icon button theme would paint the arrow
                           // in onSurface, invisible on a dark primary.
                           style: IconButton.styleFrom(
