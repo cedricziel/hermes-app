@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// The search field and filters over the board.
@@ -51,19 +53,29 @@ class KanbanBoardToolbar extends StatelessWidget {
               Flexible(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      isDense: true,
-                      filled: true,
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      hintText: 'Search tasks',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(kHermesRadius),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                    onChanged: onQueryChanged,
-                  ),
+                  child: platformChromeOf(context).isApple
+                      ? CupertinoSearchTextField(
+                          placeholder: 'Search tasks',
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          onChanged: onQueryChanged,
+                        )
+                      : TextField(
+                          decoration: InputDecoration(
+                            isDense: true,
+                            filled: true,
+                            prefixIcon: const Icon(Icons.search, size: 18),
+                            hintText: 'Search tasks',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                kHermesRadius,
+                              ),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          onChanged: onQueryChanged,
+                        ),
                 ),
               ),
               if (wide)
