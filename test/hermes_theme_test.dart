@@ -17,4 +17,37 @@ void main() {
       expect(input.contentPadding, isNot(EdgeInsets.zero));
     });
   }
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final actions in [0, 1, 3]) {
+      testWidgets(
+        'on ${platform.name}, a title with $actions actions starts at the left',
+        (tester) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: buildHermesLightTheme().copyWith(platform: platform),
+              home: Scaffold(
+                appBar: AppBar(
+                  automaticallyImplyLeading: false,
+                  title: const Text('Schedules'),
+                  actions: [
+                    for (var i = 0; i < actions; i++)
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(Icons.refresh),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+
+          expect(
+            tester.getTopLeft(find.text('Schedules')).dx,
+            NavigationToolbar.kMiddleSpacing,
+          );
+        },
+      );
+    }
+  }
 }
