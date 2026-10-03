@@ -55,6 +55,23 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
+  testWidgets(
+    'a bar already on screen stills when iOS Reduce Motion turns on',
+    (tester) async {
+      await pump(tester, const BusyBar());
+      expect(bar(tester).value, isNull);
+
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(reduceMotion: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      await tester.pump();
+
+      expect(bar(tester).value, 1);
+    },
+  );
+
   testWidgets('a known amount is shown as it is under Reduce Motion', (
     tester,
   ) async {
