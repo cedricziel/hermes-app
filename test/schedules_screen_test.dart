@@ -298,6 +298,29 @@ void main() {
       expect(find.text('No runs yet'), findsOneWidget);
     });
 
+    testWidgets('says a blocked job was stopped before it ran', (tester) async {
+      final blocked = cronJobRow(
+        lastRunAt: '2026-09-20T09:00:00+00:00',
+        lastStatus: 'blocked_config',
+        lastError:
+            "[blocked_config:silent] attached skill 'google-workspace' is not "
+            'ready: missing credential file',
+        nextRunAt: '2026-09-21T08:00:00+00:00',
+      );
+      jobs([blocked]);
+      server
+        ..on('GET', '/api/cron/jobs/job1', blocked)
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      await pumpScreen(tester, size: const Size(400, 800));
+
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No runs yet'), findsNothing);
+      expect(find.textContaining('blocked this task'), findsOneWidget);
+      expect(find.textContaining('[blocked_config'), findsNothing);
+    });
+
     testWidgets('run now asks for a run and says it was requested', (
       tester,
     ) async {

@@ -6,6 +6,7 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
+import 'package:hermes_app/src/schedules/widgets/run_history_empty.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_filter_bar.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -106,6 +107,7 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
       useCases: [
         _tile('Succeeded', nightlyJob),
         _tile('Failed, with profile', failingJob, showProfile: true),
+        _tile('Blocked', blockedJob),
         _tile('Paused', pausedJob),
         _tile('Never run, no name', neverRunJob),
         _tile('Selected', nightlyJob, selected: true),
@@ -129,6 +131,19 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
           'Long profile name, narrow',
           activeProfile: 'research-assistant-staging-with-a-very-long-name',
           maxWidth: 280,
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'RunHistoryEmpty',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Never run',
+          builder: (_) => frame(RunHistoryEmpty(job: neverRunJob)),
+        ),
+        WidgetbookUseCase(
+          name: 'Blocked before it ran',
+          builder: (_) => frame(RunHistoryEmpty(job: blockedJob)),
         ),
       ],
     ),
