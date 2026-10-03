@@ -37,6 +37,7 @@ void main() {
   KanbanBoardController makeController({
     Duration Function(int attempt)? reconnectDelay,
     AppEventLogger log = noopAppEventLogger,
+    Duration debounce = Duration.zero,
   }) => KanbanBoardController(
     repository: KanbanRepository(server.client()),
     connect: ({required since, board}) async {
@@ -45,7 +46,7 @@ void main() {
       sockets.add(socket);
       return socket.foreign;
     },
-    debounce: Duration.zero,
+    debounce: debounce,
     reconnectDelay: reconnectDelay ?? (_) => Duration.zero,
     log: log,
   );
@@ -234,6 +235,87 @@ void main() {
     final (name, attributes) = logged.single;
     expect(name, 'kanban.events.reconnect');
     expect(attributes, {'attempt': 1, 'delay_ms': 5});
+  });
+
+  group('while not active', () {
+    test('closes the event stream and does not reopen it', () async {
+      serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
+      await controller.start();
+      await until(() => controller.live);
+      var closed = false;
+      sockets.single.local.stream.listen(null, onDone: () => closed = true);
+
+      controller.active = false;
+      await controller.refresh();
+      await pump();
+
+      expect(closed, isTrue);
+      expect(controller.live, isFalse);
+      expect(connects, hasLength(1));
+    });
+
+    test('reopens the stream after the last event seen', () async {
+      serveBoard([kanbanTaskRow(id: 't1')], latest: 1);
+      await controller.start();
+      sockets.single.local.sink.add(jsonEncode(frame(9, events: false)));
+      await pump();
+
+      controller.active = false;
+      await pump();
+      controller.active = true;
+      await until(() => controller.live);
+
+      expect(connects, hasLength(2));
+      expect(connects.last.since, 9);
+    });
+
+    test('catches up with what changed while paused', () async {
+      serveBoard([kanbanTaskRow(id: 't1', status: 'todo')], latest: 1);
+      await controller.start();
+      controller.active = false;
+      await pump();
+
+      serveBoard([kanbanTaskRow(id: 't1', status: 'running')], latest: 4);
+      controller.active = true;
+      await until(() => controller.live);
+      sockets.last.local.sink.add(jsonEncode(frame(4)));
+      await until(() => boardFetches() == 2);
+      await pump();
+
+      expect(connects.last.since, 1);
+      expect(
+        controller.board!.columns.firstWhere((c) => c.name == 'running').tasks,
+        hasLength(1),
+      );
+    });
+
+    test('still refetches for events that came just before', () async {
+      controller.dispose();
+      controller = makeController(debounce: const Duration(milliseconds: 200));
+      serveBoard([kanbanTaskRow(id: 't1', status: 'todo')], latest: 1);
+      await controller.start();
+      await until(() => controller.live);
+
+      sockets.single.local.sink.add(jsonEncode(frame(2)));
+      await pump();
+      controller.active = false;
+      await until(() => boardFetches() == 2);
+    });
+
+    test('loads the board but opens its stream only once active', () async {
+      serveBoard([kanbanTaskRow(id: 't1')], latest: 5);
+      controller.active = false;
+
+      await controller.start();
+      await pump();
+
+      expect(controller.board, isNotNull);
+      expect(connects, isEmpty);
+
+      controller.active = true;
+      await until(() => controller.live);
+      expect(connects.single.since, 5);
+    });
   });
 
   test('filters by search text and assignee without refetching', () async {
