@@ -712,7 +712,9 @@ class _ThreadView extends StatelessWidget {
             onAdd: onAddAttachments,
             builder: (context, openAttachMenu) => Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
+                constraints: const BoxConstraints(
+                  maxWidth: kChatColumnMaxWidth,
+                ),
                 child: SizedBox.expand(
                   child: FlyerMaterialScope(
                     child: SelectionArea(

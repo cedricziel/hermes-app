@@ -235,7 +235,13 @@ void main() {
       await pumpChat(tester, shots, size: size);
       await openFromSidebar(tester, 'Profiles');
       await shots.capture(tester, 'profiles');
-      await tester.tap(find.byKey(const Key('profile-model-default')));
+      if (workflowPlatform == TargetPlatform.iOS) {
+        await tester.longPress(find.text('default'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Change default model'));
+      } else {
+        await tester.tap(find.byKey(const Key('profile-model-default')));
+      }
       await tester.pumpAndSettle();
       await shots.capture(tester, 'default-model');
       await tester.tapAt(const Offset(4, 4));
