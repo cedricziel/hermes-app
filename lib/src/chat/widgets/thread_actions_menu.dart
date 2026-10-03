@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_popup_menu_button.dart';
@@ -36,11 +37,11 @@ class ThreadActionsButton extends StatefulWidget {
 }
 
 class ThreadActionsButtonState extends State<ThreadActionsButton> {
-  final _menu = GlobalKey<PopupMenuButtonState<ThreadAction>>();
+  final _menu = AdaptiveMenuController();
 
   /// Opens the menu from outside, for a long press or a secondary click
   /// elsewhere on the row this button sits in.
-  void open() => _menu.currentState?.showButtonMenu();
+  void open() => _menu.open();
 
   ChatThread get _thread => widget.thread;
 
@@ -88,7 +89,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
     return NamedPopupMenuButton<ThreadAction>(
-      menuKey: _menu,
+      controller: _menu,
       label: 'Chat actions for ${_thread.title}',
       tooltip: 'Chat actions',
       icon: Icons.more_horiz,

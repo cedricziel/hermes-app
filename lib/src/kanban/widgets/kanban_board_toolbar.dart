@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_icon_button.dart';
@@ -128,7 +129,7 @@ class KanbanFilterMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     // PopupMenuButton reads a null result as a dismissed menu, so each entry
     // wraps its value in a record that is never null itself.
-    return PopupMenuButton<({String? option})>(
+    return AdaptivePopupMenuButton<({String? option})>(
       onSelected: (choice) => onSelected(choice.option),
       itemBuilder: (_) => [
         PopupMenuItem(value: (option: null), child: Text(all)),

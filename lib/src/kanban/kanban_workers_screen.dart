@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../chat/widgets/relative_time.dart';
 import '../widgets/named_icon_button.dart';
@@ -193,7 +194,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                             board: widget.board,
                             onChanged: widget.onChanged,
                           ).then((_) => _load()),
-                          trailing: PopupMenuButton<String>(
+                          trailing: AdaptivePopupMenuButton<String>(
                             onSelected: (action) => action == 'inspect'
                                 ? _inspect(w)
                                 : _terminate(w),

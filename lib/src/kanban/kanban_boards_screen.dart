@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
@@ -201,7 +202,7 @@ class KanbanBoardsScreen extends StatelessWidget {
                   controller.selectBoard(b.slug);
                   Navigator.pop(context);
                 },
-                trailing: PopupMenuButton<String>(
+                trailing: AdaptivePopupMenuButton<String>(
                   onSelected: (action) => switch (action) {
                     'rename' => _rename(context, b.slug, b.name),
                     'export' => _export(context, b.slug, b.name),

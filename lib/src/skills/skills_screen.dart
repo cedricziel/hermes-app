@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -378,7 +379,7 @@ class _ProfileChip extends StatelessWidget {
         child: Tooltip(
           message: 'Profile',
           excludeFromSemantics: true,
-          child: PopupMenuButton<String>(
+          child: AdaptivePopupMenuButton<String>(
             tooltip: '',
             onSelected: onSelected,
             itemBuilder: (_) => [
