@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../widgets/markdown_links.dart';
+import '../widgets/named_icon_button.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
 
 const newSkillTemplate = '''---
@@ -258,18 +259,18 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
           ),
         ValueListenableBuilder(
           valueListenable: _undo,
-          builder: (context, value, _) => IconButton(
+          builder: (context, value, _) => NamedIconButton(
+            label: 'Undo',
+            icon: Icons.undo,
             onPressed: value.canUndo ? _undo.undo : null,
-            icon: const Icon(Icons.undo),
-            tooltip: 'Undo',
           ),
         ),
         ValueListenableBuilder(
           valueListenable: _undo,
-          builder: (context, value, _) => IconButton(
+          builder: (context, value, _) => NamedIconButton(
+            label: 'Redo',
+            icon: Icons.redo,
             onPressed: value.canRedo ? _undo.redo : null,
-            icon: const Icon(Icons.redo),
-            tooltip: 'Redo',
           ),
         ),
       ],

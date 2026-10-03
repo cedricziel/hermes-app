@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bots/bots_screen.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 /// Setting a bot up from its row on the bots screen, against a fake
@@ -303,5 +304,29 @@ void main() {
 
     expect(find.text('Set up Discord'), findsNothing);
     expect(find.text('Needs setup'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get the clear button and Advanced by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await openSetup(tester);
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.delete_outline)),
+      namedButton('Clear $users'),
+    );
+    expect(
+      tester.getSemantics(find.text('Advanced')),
+      disclosure('Advanced', open: false),
+    );
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.text('Advanced')),
+      disclosure('Advanced', open: true),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }

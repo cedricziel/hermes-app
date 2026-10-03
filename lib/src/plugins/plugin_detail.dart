@@ -5,6 +5,8 @@ import 'installed_plugin.dart';
 import 'plugin_tag.dart';
 import 'plugins_controller.dart';
 
+import '../widgets/named_icon_button.dart';
+
 /// One plugin's details and the changes the user can make to it. Shown in a
 /// bottom sheet or in a pane; it does not know which.
 class PluginDetail extends StatelessWidget {
@@ -191,10 +193,11 @@ class _LoginBlock extends StatelessWidget {
                     style: const TextStyle(fontFamily: 'monospace'),
                   ),
                 ),
-                IconButton(
+                NamedIconButton(
                   key: const Key('plugin-copy-login'),
-                  tooltip: 'Copy command',
-                  icon: const Icon(Icons.copy, size: 18),
+                  label: 'Copy command',
+                  icon: Icons.copy,
+                  iconSize: 18,
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
                     await Clipboard.setData(ClipboardData(text: command));
