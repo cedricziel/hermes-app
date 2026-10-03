@@ -45,44 +45,12 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
 
   ChatThread get _thread => widget.thread;
 
-  Future<void> _run(ThreadAction action) async {
-    if (action == ThreadAction.copyTranscript) {
-      await Clipboard.setData(ClipboardData(text: threadTranscript(_thread)));
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Transcript copied')));
-      }
-      return;
-    }
-    final housekeeping = widget.housekeeping;
-    if (housekeeping == null) return;
-    switch (action) {
-      case ThreadAction.copyTranscript:
-        break; // handled above
-      case ThreadAction.rename:
-        final title = await showAdaptiveDialog<String>(
-          context: context,
-          builder: (_) => _RenameDialog(initial: _thread.title),
-        );
-        if (title != null && title != _thread.title) {
-          await housekeeping.rename(_thread, title);
-        }
-      case ThreadAction.pin:
-        await housekeeping.setPinned(_thread, !_thread.pinned);
-      case ThreadAction.archive:
-        await housekeeping.archive(_thread);
-      case ThreadAction.delete:
-        final confirmed = await showConfirmDialog(
-          context,
-          title: 'Delete this chat?',
-          message:
-              '"${_thread.title}" and its messages will be deleted for good.',
-          confirmLabel: 'Delete',
-          destructive: true,
-        );
-        if (confirmed) await housekeeping.delete(_thread);
-    }
-  }
+  Future<void> _run(ThreadAction action) => runThreadAction(
+    context,
+    action,
+    thread: _thread,
+    housekeeping: widget.housekeeping,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -131,6 +99,50 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
         ],
       ],
     );
+  }
+}
+
+/// Carries out [action] on [thread]: copying needs no [housekeeping], the rest
+/// do. Rename asks for a title and delete for confirmation first.
+Future<void> runThreadAction(
+  BuildContext context,
+  ThreadAction action, {
+  required ChatThread thread,
+  required ThreadHousekeeping? housekeeping,
+}) async {
+  if (action == ThreadAction.copyTranscript) {
+    await Clipboard.setData(ClipboardData(text: threadTranscript(thread)));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Transcript copied')));
+    }
+    return;
+  }
+  if (housekeeping == null) return;
+  switch (action) {
+    case ThreadAction.copyTranscript:
+      break;
+    case ThreadAction.rename:
+      final title = await showAdaptiveDialog<String>(
+        context: context,
+        builder: (_) => _RenameDialog(initial: thread.title),
+      );
+      if (title != null && title != thread.title) {
+        await housekeeping.rename(thread, title);
+      }
+    case ThreadAction.pin:
+      await housekeeping.setPinned(thread, !thread.pinned);
+    case ThreadAction.archive:
+      await housekeeping.archive(thread);
+    case ThreadAction.delete:
+      final confirmed = await showConfirmDialog(
+        context,
+        title: 'Delete this chat?',
+        message: '"${thread.title}" and its messages will be deleted for good.',
+        confirmLabel: 'Delete',
+        destructive: true,
+      );
+      if (confirmed) await housekeeping.delete(thread);
   }
 }
 
