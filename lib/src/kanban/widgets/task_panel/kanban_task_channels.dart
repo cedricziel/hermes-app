@@ -27,7 +27,7 @@ class KanbanTaskChannels extends StatelessWidget {
       children: [
         const KanbanTaskHeading('Notify'),
         for (final c in channels)
-          SwitchListTile(
+          SwitchListTile.adaptive(
             dense: true,
             contentPadding: EdgeInsets.zero,
             title: Text('Post updates to ${c.name}'),

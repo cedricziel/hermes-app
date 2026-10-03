@@ -25,7 +25,7 @@ class _AppLockDialog extends StatelessWidget {
     return SimpleDialog(
       title: const Text('App lock'),
       children: [
-        SwitchListTile(
+        SwitchListTile.adaptive(
           title: const Text('Require Face ID or Touch ID'),
           subtitle: const Text(
             'Hermes asks for Face ID, Touch ID, fingerprint or your device '

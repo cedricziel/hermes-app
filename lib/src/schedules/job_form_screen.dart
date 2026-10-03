@@ -235,7 +235,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   ),
                 ],
                 if (!_form.isEditing)
-                  SwitchListTile(
+                  SwitchListTile.adaptive(
                     key: const Key('job-paused'),
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Start paused'),

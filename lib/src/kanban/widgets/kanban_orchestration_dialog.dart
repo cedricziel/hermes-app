@@ -121,14 +121,14 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Auto-decompose triage tasks'),
                       subtitle: const Text('Off: decompose by hand'),
                       value: _autoDecompose,
                       onChanged: (v) => setState(() => _autoDecompose = v),
                     ),
-                    SwitchListTile(
+                    SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Promote children when ready'),
                       value: _autoPromote,

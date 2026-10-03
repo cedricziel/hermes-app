@@ -404,7 +404,7 @@ class _ServerRow extends StatelessWidget {
               MergeSemantics(
                 child: Semantics(
                   label: server.name,
-                  child: Switch(
+                  child: Switch.adaptive(
                     value: server.enabled,
                     onChanged: switching ? null : onSwitch,
                   ),

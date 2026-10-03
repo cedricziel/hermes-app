@@ -454,7 +454,7 @@ class _SkillRow extends StatelessWidget {
           ),
         ],
       ),
-      trailing: Switch(value: skill.enabled, onChanged: onToggle),
+      trailing: Switch.adaptive(value: skill.enabled, onChanged: onToggle),
     );
   }
 }

@@ -249,7 +249,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
           ],
         ),
         if (notifications != null)
-          SwitchListTile(
+          SwitchListTile.adaptive(
             key: const Key('job-mute'),
             contentPadding: EdgeInsets.zero,
             title: const Text('Mute notifications'),

@@ -177,7 +177,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
             if (skill.usage > 0) Text('used ${skill.usage}×'),
           ],
         ),
-        SwitchListTile(
+        SwitchListTile.adaptive(
           contentPadding: EdgeInsets.zero,
           title: const Text('Enabled'),
           subtitle: const Text('The agent may load this skill'),

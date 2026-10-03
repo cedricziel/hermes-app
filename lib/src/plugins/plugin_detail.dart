@@ -93,7 +93,7 @@ class PluginDetail extends StatelessWidget {
             PluginTag('Removed: $reason', strong: true),
           ],
           const SizedBox(height: 8),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             key: const Key('plugin-enabled'),
             contentPadding: EdgeInsets.zero,
             title: const Text('Enabled'),
@@ -106,7 +106,7 @@ class PluginDetail extends StatelessWidget {
                     () => controller.setEnabled(plugin.name, value),
                   ),
           ),
-          SwitchListTile(
+          SwitchListTile.adaptive(
             key: const Key('plugin-hidden'),
             contentPadding: EdgeInsets.zero,
             title: const Text('Hide from dashboard sidebar'),

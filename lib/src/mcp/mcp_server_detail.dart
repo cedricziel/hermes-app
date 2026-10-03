@@ -133,7 +133,7 @@ class McpServerDetail extends StatelessWidget {
             const SizedBox(height: 16),
             Card(
               margin: EdgeInsets.zero,
-              child: SwitchListTile(
+              child: SwitchListTile.adaptive(
                 title: const Text('Enabled'),
                 subtitle: Text(
                   server.enabled
