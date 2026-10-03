@@ -107,6 +107,12 @@ ThemeData _buildTheme({
   final appleButtonSize = apple
       ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonHeight)
       : null;
+  final macMenuText = isMac
+      ? base.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurface,
+          fontSize: 13,
+        )
+      : null;
   final fieldRadius = BorderRadius.circular(10);
   final appleFieldBorder = OutlineInputBorder(
     borderRadius: fieldRadius,
@@ -201,14 +207,10 @@ ThemeData _buildTheme({
       color: scheme.surface,
       surfaceTintColor: Colors.transparent,
       menuPadding: isMac ? const EdgeInsets.symmetric(vertical: 4) : null,
-      textStyle: isMac
-          ? TextStyle(color: scheme.onSurface, fontSize: 13)
-          : null,
-      labelTextStyle: isMac
-          ? WidgetStatePropertyAll(
-              TextStyle(color: scheme.onSurface, fontSize: 13),
-            )
-          : null,
+      textStyle: macMenuText,
+      labelTextStyle: macMenuText == null
+          ? null
+          : WidgetStatePropertyAll(macMenuText),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(isMac ? 6 : 10),
         side: BorderSide(color: scheme.outline),
