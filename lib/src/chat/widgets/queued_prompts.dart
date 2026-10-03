@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
+import '../../widgets/named_icon_button.dart';
 
 /// The prompts waiting for the thread's reply to end, shown above the
 /// composer. [onSendNow] is given while the queue is paused, after a stopped
@@ -65,10 +66,11 @@ class QueuedPrompts extends StatelessWidget {
                     style: TextStyle(color: subtle),
                   ),
                 ],
-                IconButton(
-                  tooltip: 'Remove from queue',
+                NamedIconButton(
+                  label: 'Remove from queue',
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: Icons.close,
+                  iconSize: 18,
                   onPressed: () => onRemove(prompt),
                 ),
               ],

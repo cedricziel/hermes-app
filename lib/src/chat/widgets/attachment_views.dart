@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
 import '../media/media_source.dart';
 import '../media/media_store.dart';
@@ -224,9 +225,10 @@ class _AttachmentCardState extends State<AttachmentCard> {
               dimension: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : IconButton(
-              tooltip: 'Save',
-              icon: const Icon(Icons.download_outlined, size: 20),
+          : NamedIconButton(
+              label: 'Save',
+              icon: Icons.download_outlined,
+              iconSize: 20,
               visualDensity: VisualDensity.compact,
               onPressed: () => _use(_saveFile),
             ),

@@ -413,74 +413,90 @@ class AccountFooter extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: PopupMenuButton<String>(
-        tooltip: 'Account',
-        offset: const Offset(0, -8),
-        position: PopupMenuPosition.over,
-        onSelected: (value) {
-          if (value == 'sign-out') auth.signOut();
-          if (value == 'change-server') auth.changeServer();
-          if (value == 'appearance') showAppearanceDialog(context);
-          if (value == 'notifications') showNotificationsDialog(context);
-          if (value == 'app-lock') showAppLockDialog(context);
-          if (value == 'about') showAppAboutDialog(context);
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            enabled: false,
-            child: Text(
-              auth.baseUrl ?? '',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(value: 'appearance', child: Text('Appearance')),
-          const PopupMenuItem(
-            value: 'notifications',
-            child: Text('Notifications'),
-          ),
-          const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
-          const PopupMenuItem(value: 'about', child: Text('About')),
-          if (auth.status?.authRequired ?? false)
-            const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
-          const PopupMenuItem(
-            value: 'change-server',
-            child: Text('Change server'),
-          ),
-        ],
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                child: Icon(
-                  Icons.person_outline,
-                  size: 15,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          label: 'Account',
+          child: Tooltip(
+            message: 'Account',
+            excludeFromSemantics: true,
+            child: PopupMenuButton<String>(
+              tooltip: '',
+              offset: const Offset(0, -8),
+              position: PopupMenuPosition.over,
+              onSelected: (value) {
+                if (value == 'sign-out') auth.signOut();
+                if (value == 'change-server') auth.changeServer();
+                if (value == 'appearance') showAppearanceDialog(context);
+                if (value == 'notifications') showNotificationsDialog(context);
+                if (value == 'app-lock') showAppLockDialog(context);
+                if (value == 'about') showAppAboutDialog(context);
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    auth.baseUrl ?? '',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'appearance',
+                  child: Text('Appearance'),
+                ),
+                const PopupMenuItem(
+                  value: 'notifications',
+                  child: Text('Notifications'),
+                ),
+                const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
+                const PopupMenuItem(value: 'about', child: Text('About')),
+                if (auth.status?.authRequired ?? false)
+                  const PopupMenuItem(
+                    value: 'sign-out',
+                    child: Text('Sign out'),
+                  ),
+                const PopupMenuItem(
+                  value: 'change-server',
+                  child: Text('Change server'),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 15,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.more_horiz,
+                      size: 16,
+                      color: context.hermesColors.subtleText,
+                    ),
+                  ],
+                ),
               ),
-              Icon(
-                Icons.more_horiz,
-                size: 16,
-                color: context.hermesColors.subtleText,
-              ),
-            ],
+            ),
           ),
         ),
       ),
