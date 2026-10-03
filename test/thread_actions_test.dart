@@ -120,7 +120,7 @@ void main() {
       await pumpChatScreen(tester, server: server, transport: transport);
       await tester.tap(find.text('New chat'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(EditableText), 'Fresh start');
+      await tester.enterText(composerField, 'Fresh start');
       await tester.pump();
       await tester.tap(find.byIcon(Icons.arrow_upward));
       await tester.pump();

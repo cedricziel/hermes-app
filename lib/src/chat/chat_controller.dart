@@ -22,6 +22,7 @@ import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
 import 'thread_housekeeping.dart';
+import 'thread_search.dart';
 
 const _couldNotOpenChat = 'Could not open that chat.';
 const _couldNotStop = 'Could not stop the reply. Try again.';
@@ -59,6 +60,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         report: report,
         removed: _threadRemoved,
       );
+      search = ThreadSearch(
+        (query) => repository.searchThreads(query, profile: _profile),
+      );
     }
   }
 
@@ -81,6 +85,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final VoidCallback? onOpened;
 
   ThreadHousekeeping? housekeeping;
+
+  /// The sidebar's session search; null without a repository.
+  ThreadSearch? search;
 
   late List<ChatThread> _threads;
   List<ChatThread> get threads => _threads;
@@ -187,6 +194,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (profile != _profile) {
         _modelOptions = null;
         _newChatModel = null;
+        search?.clear();
       }
       _profile = profile;
       unawaited(_loadModelOptions(profile, generation));
@@ -362,6 +370,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// Opens a chat the search found, on the profile it searched.
+  void openSearchHit(ThreadSearchHit hit) => open(
+    NotificationTarget(threadId: hit.id, profile: _profile),
+    fetchMissing: true,
+  );
+
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
   void _threadRemoved(ChatThread thread) {
@@ -381,6 +395,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       reply.cancel();
     }
     _stopFollowing();
+    search?.dispose();
     _emptyController.dispose();
     for (final controller in _chatControllers.values) {
       controller.dispose();

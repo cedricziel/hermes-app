@@ -7,6 +7,9 @@ import '../queued_prompt.dart';
 import 'queued_prompts.dart';
 import '../../widgets/named_icon_button.dart';
 
+/// The composer's text field, for finding it among other fields.
+const chatComposerFieldKey = Key('chat-composer-field');
+
 /// The chat composer: a card with the text field on top and, below it,
 /// attach, [modelPill], and send. The stop bar, the [queued] prompts and the
 /// [attachments] are listed above the card.
@@ -113,6 +116,7 @@ class _ChatComposerState extends State<ChatComposer> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextField(
+                    key: chatComposerFieldKey,
                     controller: widget.controller,
                     focusNode: _focusNode,
                     minLines: 1,

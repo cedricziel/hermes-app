@@ -16,6 +16,7 @@ import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/plugins/sheet_host.dart';
 import 'package:provider/provider.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/chat/widgets/image_viewer.dart';
 import 'package:hermes_app/src/chat/widgets/input_card_frame.dart';
@@ -253,6 +254,26 @@ WidgetbookNode appNode() => WidgetbookFolder(
               onOpenMcp: () {},
             ),
             width: 300,
+          ),
+        ),
+        _screen(
+          'Searching',
+          () => CatalogAuth(gated: true),
+          () => Hosted<ThreadSearch>(
+            create: () =>
+                ThreadSearch((_) async => searchHits)..update('backup'),
+            dispose: (search) => search.dispose(),
+            builder: (_, search) => fill(
+              ThreadSidebar(
+                threads: threads,
+                selectedId: 'thread-2',
+                onSelect: (_) {},
+                onNewThread: () {},
+                search: search,
+                onOpenHit: (_) {},
+              ),
+              width: 300,
+            ),
           ),
         ),
         _screen(

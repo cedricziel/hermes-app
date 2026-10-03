@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/chat/chat_models.dart' show ToolCallStatus;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show ThreadSearchHit, ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -13,6 +15,7 @@ import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
@@ -136,6 +139,41 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Local thread: copy transcript only',
           ThreadActionsButton(thread: threads[2], includeCopyTranscript: true),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ThreadSearchField',
+      useCases: [
+        for (final (name, query) in [('Empty', ''), ('With query', 'backup')])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) =>
+                frame(ThreadSearchField(query: query, onChanged: (_) {})),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ThreadSearchResults',
+      useCases: [
+        for (final (name, status, hits) in [
+          ('Results', ThreadSearchStatus.done, searchHits),
+          ('Searching', ThreadSearchStatus.loading, <ThreadSearchHit>[]),
+          ('No match', ThreadSearchStatus.done, <ThreadSearchHit>[]),
+          ('Failed', ThreadSearchStatus.failed, <ThreadSearchHit>[]),
+        ])
+          WidgetbookUseCase(
+            name: name,
+            builder: (_) => fill(
+              ThreadSearchResults(
+                query: 'backup',
+                status: status,
+                hits: hits,
+                selectedId: 'thread-2',
+                onOpen: (_) {},
+              ),
+              width: 300,
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(

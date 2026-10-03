@@ -24,7 +24,7 @@ void main() {
   });
 
   String composerText(WidgetTester tester) =>
-      tester.widget<EditableText>(find.byType(EditableText)).controller.text;
+      tester.widget<EditableText>(composerField).controller.text;
 
   testWidgets('the sidebar opens the skills of the connected dashboard', (
     tester,
@@ -50,7 +50,7 @@ void main() {
     tester,
   ) async {
     await pumpChatScreen(tester, server: server, withSkills: true);
-    await tester.enterText(find.byType(EditableText), 'half a thought');
+    await tester.enterText(composerField, 'half a thought');
 
     await openSidebarMore(tester);
 
