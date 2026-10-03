@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../../macos/mac_sidebar.dart';
@@ -85,7 +86,7 @@ class ConnectionInfoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => NamedIconButton(
     label: 'Connection details',
-    icon: Icons.info_outline,
+    icon: AppIcons.info,
     onPressed: onPressed,
   );
 }

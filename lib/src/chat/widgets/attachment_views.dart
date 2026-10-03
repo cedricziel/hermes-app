@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
@@ -228,7 +229,7 @@ class _AttachmentCardState extends State<AttachmentCard> {
           : NamedIconButton(
               label: 'Save ${_attachment.name}',
               tooltip: 'Save',
-              icon: Icons.download_outlined,
+              icon: AppIcons.download,
               iconSize: 20,
               visualDensity: VisualDensity.compact,
               onPressed: () => _use(_saveFile),
@@ -320,10 +321,10 @@ class _CardFrame extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                AppIcon(
                   attachment.kind == AttachmentKind.image
-                      ? Icons.image_outlined
-                      : Icons.insert_drive_file_outlined,
+                      ? AppIcons.image
+                      : AppIcons.file,
                   size: 20,
                   color: scheme.primary,
                 ),

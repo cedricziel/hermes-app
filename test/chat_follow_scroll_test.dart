@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
@@ -12,6 +13,12 @@ import 'support/pump_chat.dart';
 
 /// The transcript follows a streaming reply while the reader is at the
 /// bottom, and leaves them alone once they scroll up.
+final sendButton = find.byWidgetPredicate(
+  (w) =>
+      w is Icon &&
+      (w.icon == Icons.arrow_upward || w.icon == CupertinoIcons.arrow_up),
+);
+
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
@@ -66,7 +73,7 @@ void main() {
     await openThread(tester, 'Run failure');
     await tester.enterText(composerField, 'Tell me everything');
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.tap(sendButton);
     await tester.pump();
     final reply = transport.sends.single..emit(const ReplyStarted());
     await tester.pump();
@@ -128,7 +135,7 @@ void main() {
     final reply = await startReply(tester);
     await tester.enterText(composerField, 'And then?');
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.tap(sendButton);
     await tester.pump();
 
     await streamLines(tester, reply, 60);

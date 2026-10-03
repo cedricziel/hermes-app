@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
+import '../../theme/app_icons.dart';
 import 'attachment_source.dart';
 
 const _couldNotAttach = 'Could not attach that.';
@@ -41,7 +42,7 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
           children: [
             for (final origin in widget.source.origins)
               ListTile(
-                leading: Icon(_icon(origin)),
+                leading: AppIcon(_icon(origin)),
                 title: Text(_label(origin)),
                 onTap: () => Navigator.of(context).pop(origin),
               ),
@@ -129,10 +130,10 @@ class _PasteAttachmentIntent extends Intent {
   const _PasteAttachmentIntent();
 }
 
-IconData _icon(AttachOrigin origin) => switch (origin) {
-  AttachOrigin.files => Icons.insert_drive_file_outlined,
-  AttachOrigin.photos => Icons.photo_library_outlined,
-  AttachOrigin.camera => Icons.photo_camera_outlined,
+AppIconSet _icon(AttachOrigin origin) => switch (origin) {
+  AttachOrigin.files => AppIcons.file,
+  AttachOrigin.photos => AppIcons.photoLibrary,
+  AttachOrigin.camera => AppIcons.camera,
 };
 
 String _label(AttachOrigin origin) => switch (origin) {

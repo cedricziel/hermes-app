@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'approval_card.dart' show kAnswerFailedMessage;
 import 'input_card_frame.dart';
@@ -153,7 +154,7 @@ class _ClarifyCardState extends State<ClarifyCard> {
   Widget build(BuildContext context) {
     final request = widget.request;
     return InputCardFrame(
-      icon: Icons.help_outline,
+      icon: AppIcons.help,
       title: 'Hermes has a question',
       child: switch (request.status) {
         InputRequestStatus.pending => _pending(request),

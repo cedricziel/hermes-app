@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import '../../widgets/named_icon_button.dart';
@@ -42,7 +43,7 @@ class QueuedPrompts extends StatelessWidget {
               if (onSendNow != null)
                 TextButton.icon(
                   onPressed: onSendNow,
-                  icon: const Icon(Icons.send_outlined),
+                  icon: const AppIcon(AppIcons.sendOutlined),
                   label: const Text('Send now'),
                 ),
             ],
@@ -50,7 +51,7 @@ class QueuedPrompts extends StatelessWidget {
           for (final prompt in prompts)
             Row(
               children: [
-                Icon(Icons.schedule, size: 16, color: subtle),
+                AppIcon(AppIcons.schedule, size: 16, color: subtle),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -60,7 +61,7 @@ class QueuedPrompts extends StatelessWidget {
                   ),
                 ),
                 if (prompt.files.isNotEmpty && prompt.text.isNotEmpty) ...[
-                  Icon(Icons.attach_file, size: 16, color: subtle),
+                  AppIcon(AppIcons.attach, size: 16, color: subtle),
                   Text(
                     '${prompt.files.length}',
                     style: TextStyle(color: subtle),
@@ -70,7 +71,7 @@ class QueuedPrompts extends StatelessWidget {
                   label: 'Remove ${_label(prompt)} from queue',
                   tooltip: 'Remove from queue',
                   visualDensity: VisualDensity.compact,
-                  icon: Icons.close,
+                  icon: AppIcons.close,
                   iconSize: 18,
                   onPressed: () => onRemove(prompt),
                 ),

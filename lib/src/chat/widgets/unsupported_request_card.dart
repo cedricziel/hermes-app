@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'approval_card.dart' show kAnswerFailedMessage;
 import 'input_card_frame.dart';
@@ -47,7 +48,7 @@ class _UnsupportedRequestCardState extends State<UnsupportedRequestCard> {
       UnsupportedKind.sudo => 'your sudo password',
     };
     return InputCardFrame(
-      icon: Icons.lock_outline,
+      icon: AppIcons.lock,
       title: 'Hermes needs something else',
       child: switch (request.status) {
         InputRequestStatus.expired => const InputCardNote(
