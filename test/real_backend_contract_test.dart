@@ -76,7 +76,9 @@ import 'support/attachment_fixtures.dart';
 /// named `contract-check-…` (Hermes also writes its `~/.local/bin` wrapper)
 /// whose model is a scripted one this test serves on the loopback interface,
 /// so their turns cost nothing; the agent runs `rm -rf` on a folder the test
-/// made in the system temp directory, and the profile is deleted after.
+/// made in the system temp directory, and the profile is deleted after. Hermes
+/// keeps the deleted profile's state open, so a second run against the same
+/// backend fails ("Named profile home does not exist") until it restarts.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
