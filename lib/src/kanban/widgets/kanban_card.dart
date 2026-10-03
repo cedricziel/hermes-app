@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../kanban_models.dart';
 
@@ -70,25 +71,21 @@ class KanbanCard extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (task.assignee != null)
-                        _Meta(Icons.person_outline, task.assignee!, small),
+                        _Meta(AppIcons.person, task.assignee!, small),
                       if (task.priority > 0)
                         _Tag('P${task.priority}', theme.colorScheme.error),
                       if (task.tenant != null) _Tag(task.tenant!, null),
                       if (task.commentCount > 0)
-                        _Meta(
-                          Icons.chat_bubble_outline,
-                          '${task.commentCount}',
-                          small,
-                        ),
+                        _Meta(AppIcons.chat, '${task.commentCount}', small),
                       if (task.progressTotal > 0)
                         _Meta(
-                          Icons.account_tree_outlined,
+                          AppIcons.tree,
                           '${task.progressDone}/${task.progressTotal}',
                           small,
                         ),
                       if (task.warningCount > 0)
                         _Meta(
-                          Icons.warning_amber_rounded,
+                          AppIcons.warningRounded,
                           '${task.warningCount}',
                           small?.copyWith(color: context.hermesColors.warning),
                         ),
@@ -138,7 +135,7 @@ class _WorkingBar extends StatelessWidget {
 class _Meta extends StatelessWidget {
   const _Meta(this.icon, this.label, this.style);
 
-  final IconData icon;
+  final AppIconSet icon;
   final String label;
   final TextStyle? style;
 
@@ -146,7 +143,7 @@ class _Meta extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      Icon(icon, size: 13, color: style?.color),
+      AppIcon(icon, size: 13, color: style?.color),
       const SizedBox(width: 3),
       Text(label, style: style),
     ],

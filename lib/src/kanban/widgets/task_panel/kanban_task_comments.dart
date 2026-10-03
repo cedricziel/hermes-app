@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../chat/widgets/relative_time.dart';
+import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
 import 'kanban_task_heading.dart';
 import '../../../widgets/named_icon_button.dart';
@@ -76,7 +77,11 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
                 onSubmitted: (_) => _send(),
               ),
             ),
-            NamedIconButton(label: 'Send', icon: Icons.send, onPressed: _send),
+            NamedIconButton(
+              label: 'Send',
+              icon: AppIcons.send,
+              onPressed: _send,
+            ),
           ],
         ),
       ],

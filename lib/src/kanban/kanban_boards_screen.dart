@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../theme/app_icons.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
@@ -177,14 +178,14 @@ class KanbanBoardsScreen extends StatelessWidget {
           actions: [
             NamedIconButton(
               label: 'Import a board',
-              icon: Icons.file_open_outlined,
+              icon: AppIcons.openFile,
               onPressed: () => _import(context),
             ),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _create(context),
-          icon: const Icon(Icons.add),
+          icon: const AppIcon(AppIcons.add),
           label: const Text('New board'),
         ),
         body: ListView(
@@ -192,10 +193,10 @@ class KanbanBoardsScreen extends StatelessWidget {
             for (final b in controller.boards)
               ContextMenuRow(
                 builder: (context, menu) => ListTile(
-                  leading: Icon(
+                  leading: AppIcon(
                     b.slug == controller.boardSlug
-                        ? Icons.check_circle
-                        : Icons.circle_outlined,
+                        ? AppIcons.checkCircleFilled
+                        : AppIcons.radioOff,
                   ),
                   title: Text(b.name),
                   subtitle: Text('${b.slug} · ${b.total} tasks'),

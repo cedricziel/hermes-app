@@ -3,6 +3,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../chat/widgets/relative_time.dart';
+import '../theme/app_icons.dart';
 import '../widgets/named_icon_button.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
@@ -135,7 +136,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
         actions: [
           NamedIconButton(
             label: 'Refresh',
-            icon: Icons.refresh,
+            icon: AppIcons.refresh,
             onPressed: _load,
           ),
         ],

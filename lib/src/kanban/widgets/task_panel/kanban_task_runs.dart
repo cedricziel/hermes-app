@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../chat/widgets/relative_time.dart';
+import '../../../theme/app_icons.dart';
 import '../../../widgets/disclosure_tile.dart';
 import '../../kanban_models.dart';
 
@@ -52,7 +53,7 @@ class KanbanTaskRuns extends StatelessWidget {
               ),
             TextButton.icon(
               onPressed: onShowLog,
-              icon: const Icon(Icons.terminal),
+              icon: const AppIcon(AppIcons.terminal),
               label: const Text('Worker log'),
             ),
           ],
