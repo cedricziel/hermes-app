@@ -55,10 +55,12 @@ Future<void> _loadFonts() async {
 }
 
 /// [theme] with Roboto set on the text the theme leaves without a family
-/// (the AppBar title), which the test renderer would draw as solid boxes.
+/// (the AppBar title), which the test renderer would draw as solid boxes, and
+/// on the text styles of an Apple platform, whose system font is not loaded.
 ThemeData withScreenshotFont(ThemeData theme) {
   final title = theme.appBarTheme.titleTextStyle;
   return theme.copyWith(
+    textTheme: theme.textTheme.apply(fontFamily: 'Roboto'),
     appBarTheme: theme.appBarTheme.copyWith(
       titleTextStyle: title?.copyWith(fontFamily: 'Roboto'),
     ),

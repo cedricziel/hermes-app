@@ -21,6 +21,10 @@ import 'fake_notification_service.dart';
 import 'fake_share_inbox.dart';
 import 'screenshot_recorder.dart';
 
+final workflowPlatform = Platform.environment['WORKFLOW_PLATFORM'] == null
+    ? null
+    : TargetPlatform.values.byName(Platform.environment['WORKFLOW_PLATFORM']!);
+
 /// The providers `main` sets up around [HermesApp], minus telemetry, the
 /// platform share inbox and native notifications.
 List<SingleChildWidget> workflowProviders(AppLockController appLock) => [
@@ -64,8 +68,12 @@ Future<void> pumpWorkflowApp(
           ...workflowProviders(appLock),
         ],
         child: HermesApp(
-          lightTheme: withScreenshotFont(buildHermesLightTheme()),
-          darkTheme: withScreenshotFont(buildHermesDarkTheme()),
+          lightTheme: withScreenshotFont(
+            buildHermesLightTheme(platform: workflowPlatform),
+          ),
+          darkTheme: withScreenshotFont(
+            buildHermesDarkTheme(platform: workflowPlatform),
+          ),
         ),
       ),
     ),
@@ -131,7 +139,9 @@ Future<void> pumpScreen(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: withScreenshotFont(
-            dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
+            dark
+                ? buildHermesDarkTheme(platform: workflowPlatform)
+                : buildHermesLightTheme(platform: workflowPlatform),
           ),
           home: home,
         ),
