@@ -3,6 +3,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
+import '../widgets/named_popup_menu_button.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
@@ -139,8 +140,9 @@ class _McpServersScreenState extends State<McpServersScreen> {
                           label: const Text('Add'),
                         ),
                       ),
-                      PopupMenuButton<void>(
-                        tooltip: 'More',
+                      NamedPopupMenuButton<void>(
+                        label: 'More',
+                        icon: Icons.adaptive.more,
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             onTap: _openJsonEditor,
@@ -399,9 +401,14 @@ class _ServerRow extends StatelessWidget {
                   ],
                 ),
               ),
-              Switch(
-                value: server.enabled,
-                onChanged: switching ? null : onSwitch,
+              MergeSemantics(
+                child: Semantics(
+                  label: server.name,
+                  child: Switch(
+                    value: server.enabled,
+                    onChanged: switching ? null : onSwitch,
+                  ),
+                ),
               ),
             ],
           ),

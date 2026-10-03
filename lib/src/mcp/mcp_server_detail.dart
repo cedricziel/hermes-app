@@ -6,6 +6,8 @@ import 'mcp_presentation.dart';
 import 'mcp_servers_controller.dart';
 import 'mcp_sign_in_screen.dart';
 
+import '../widgets/named_icon_button.dart';
+
 /// Turns [server] on or off and says so when it could not.
 Future<void> switchMcpServer(
   BuildContext context,
@@ -196,10 +198,11 @@ class _Actions extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            IconButton.outlined(
-              tooltip: 'Remove',
+            NamedIconButton(
+              outlined: true,
+              label: 'Remove',
               color: Theme.of(context).colorScheme.error,
-              icon: const Icon(Icons.delete_outline),
+              icon: Icons.delete_outline,
               onPressed: () => removeMcpServer(context, controller, server),
             ),
           ],
