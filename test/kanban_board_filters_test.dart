@@ -77,7 +77,7 @@ void main() {
   }
 
   Future<void> pick(WidgetTester tester, String menu, String option) async {
-    await tester.tap(find.text(menu));
+    await tester.tap(find.widgetWithText(Chip, menu));
     await tester.pumpAndSettle();
     await tester.tap(find.text(option).last);
     await settle(tester);
@@ -97,19 +97,15 @@ void main() {
     expect(find.widgetWithText(Chip, 'acme'), findsOneWidget);
   });
 
-  testWidgets(
-    'All tenants drops the tenant filter',
-    skip: true, // https://github.com/cedricziel/hermes-app/issues/357
-    (tester) async {
-      await pumpBoard(tester);
-      await pick(tester, 'All tenants', 'acme');
+  testWidgets('All tenants drops the tenant filter', (tester) async {
+    await pumpBoard(tester);
+    await pick(tester, 'All tenants', 'acme');
 
-      await pick(tester, 'acme', 'All tenants');
+    await pick(tester, 'acme', 'All tenants');
 
-      expect(lastBoardQuery().containsKey('tenant'), isFalse);
-      expect(find.widgetWithText(Chip, 'All tenants'), findsOneWidget);
-    },
-  );
+    expect(lastBoardQuery().containsKey('tenant'), isFalse);
+    expect(find.widgetWithText(Chip, 'All tenants'), findsOneWidget);
+  });
 
   testWidgets('a board without tenants has no tenant menu', (tester) async {
     server.on(
@@ -133,6 +129,17 @@ void main() {
     expect(find.text('Write docs'), findsOneWidget);
     expect(find.text('Fix login'), findsNothing);
     expect(server.requestsTo('GET', _board), hasLength(fetches));
+  });
+
+  testWidgets('All assignees shows every card again', (tester) async {
+    await pumpBoard(tester);
+    await pick(tester, 'All assignees', 'writer');
+
+    await pick(tester, 'writer', 'All assignees');
+
+    expect(find.text('Write docs'), findsOneWidget);
+    expect(find.text('Fix login'), findsOneWidget);
+    expect(find.widgetWithText(Chip, 'All assignees'), findsOneWidget);
   });
 
   testWidgets('the Archived chip refetches with archived tasks', (

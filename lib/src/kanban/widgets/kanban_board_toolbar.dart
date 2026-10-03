@@ -125,11 +125,14 @@ class KanbanFilterMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String?>(
-      onSelected: onSelected,
+    // PopupMenuButton reads a null result as a dismissed menu, so each entry
+    // wraps its value in a record that is never null itself.
+    return PopupMenuButton<({String? option})>(
+      onSelected: (choice) => onSelected(choice.option),
       itemBuilder: (_) => [
-        PopupMenuItem(value: null, child: Text(all)),
-        for (final o in options) PopupMenuItem(value: o, child: Text(o)),
+        PopupMenuItem(value: (option: null), child: Text(all)),
+        for (final o in options)
+          PopupMenuItem(value: (option: o), child: Text(o)),
       ],
       child: Chip(
         label: Text(label),
