@@ -58,6 +58,7 @@ class KanbanBoardController extends ChangeNotifier {
   Object? _error;
   bool _loading = false;
   bool _live = false;
+  bool _active = true;
   bool _disposed = false;
 
   String? _boardSlug;
@@ -89,6 +90,22 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Whether the event stream is connected.
   bool get live => _live;
+
+  /// Whether the board is on screen. The event stream is closed while it is
+  /// not, and reopened after the last event seen when it is again, so the
+  /// events missed meanwhile arrive then.
+  bool get active => _active;
+
+  set active(bool value) {
+    if (_active == value || _disposed) return;
+    _active = value;
+    if (!value) {
+      unawaited(_stopStream(keepRefetch: true));
+      _setLive(false);
+    } else if (_board != null && _events == null) {
+      unawaited(_listen());
+    }
+  }
 
   String? get boardSlug => _boardSlug;
   String? get tenant => _tenant;
@@ -275,7 +292,7 @@ class KanbanBoardController extends ChangeNotifier {
       };
       _selected.retainAll(ids);
       _cursor = math.max(_cursor, board.latestEventId);
-      if (_events == null) unawaited(_listen());
+      if (_active && _events == null) unawaited(_listen());
     } on Object catch (e) {
       if (_disposed || generation != _generation) return;
       _error = e;
@@ -341,18 +358,19 @@ class KanbanBoardController extends ChangeNotifier {
   void _dropBoard() {
     _generation++;
     unawaited(_stopStream());
-    _events = null;
     _live = false;
     _board = null;
     _arrived = const {};
   }
 
   /// Stops the timers and closes the event stream. The synchronous part runs
-  /// before the first await, so callers need not wait for it.
-  Future<void> _stopStream() async {
-    _refreshTimer?.cancel();
+  /// before the first await, so callers need not wait for it. [keepRefetch]
+  /// lets a refetch already due run, since the cursor is past its events.
+  Future<void> _stopStream({bool keepRefetch = false}) async {
+    if (!keepRefetch) _refreshTimer?.cancel();
     _reconnectTimer?.cancel();
     final events = _events;
+    _events = null;
     _closeChannel();
     await events?.cancel();
   }
@@ -366,7 +384,7 @@ class KanbanBoardController extends ChangeNotifier {
     final generation = _generation;
     _reconnectTimer?.cancel();
     void retry() {
-      if (_disposed || generation != _generation) return;
+      if (_disposed || generation != _generation || !_active) return;
       _events = null;
       _closeChannel();
       _setLive(false);
@@ -385,7 +403,10 @@ class KanbanBoardController extends ChangeNotifier {
     try {
       final channel = await connect(since: _cursor, board: _boardSlug);
       // Superseded, or another listener won the race for the stream.
-      if (_disposed || generation != _generation || _events != null) {
+      if (_disposed ||
+          generation != _generation ||
+          !_active ||
+          _events != null) {
         unawaited(channel.sink.close());
         return;
       }
@@ -438,7 +459,6 @@ class KanbanBoardController extends ChangeNotifier {
     await _stopStream();
     // A newer restart began while this one waited; it owns the rest.
     if (_disposed || generation != _generation) return;
-    _events = null;
     _live = false;
     _cursor = 0;
     _selected.clear();
