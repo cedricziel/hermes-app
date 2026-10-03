@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../kanban_models.dart';
 import 'kanban_card.dart';
 
@@ -81,12 +82,23 @@ class KanbanDragHandle extends StatelessWidget {
     onDragEnd: (_) => onDragEnd?.call(),
     child: Tooltip(
       message: 'Drag to move',
-      child: Padding(
-        padding: const EdgeInsets.all(6),
-        child: Icon(
-          Icons.drag_indicator,
-          size: 20,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: platformChromeOf(context).isApple ? kAppleMinTapTarget : 0,
+          minHeight: platformChromeOf(context).isApple ? kAppleMinTapTarget : 0,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Center(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Icon(
+              Icons.drag_indicator,
+              size: 20,
+              color: Theme.of(context).colorScheme.onSurface
+                  .withValues(alpha: 0.5),
+            ),
+          ),
         ),
       ),
     ),
