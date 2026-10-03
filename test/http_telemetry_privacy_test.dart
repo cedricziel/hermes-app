@@ -1,7 +1,7 @@
-import 'package:dart_otel_instrumentation_dio/dart_otel_instrumentation_dio.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 
 import 'support/recording_tracer.dart';
 
@@ -37,7 +37,7 @@ void main() {
     tracer = RecordingTracer();
     logger = _RecordingLogger();
     dio = Dio(BaseOptions(baseUrl: 'http://hermes.example:9119'))
-      ..interceptors.add(DioOTelInterceptor.privacy(logger, tracer: tracer));
+      ..interceptors.add(httpInterceptor(logger, tracer));
   });
 
   Future<void> get(String path, {int status = 200}) async {
@@ -69,5 +69,12 @@ void main() {
     expect(exported, isNot(contains('secret-session-id')));
     expect(exported, isNot(contains('token')));
     expect(exported, isNot(contains('hermes.example')));
+  });
+
+  test('names the Hermes backend as the peer service', () async {
+    await get('/api/status');
+
+    expect(tracer.spans.single.attributes['peer.service'], 'hermes-agent');
+    expect(logger.records.single.attributes['peer.service'], 'hermes-agent');
   });
 }
