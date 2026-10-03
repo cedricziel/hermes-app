@@ -1,0 +1,76 @@
+/* Root surface and the Material 3 type scale the Flutter app uses. */
+.h-root {
+  font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-fg);
+  background: var(--h-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.h-root *,
+.h-root *::before,
+.h-root *::after {
+  box-sizing: border-box;
+}
+
+.h-headline-sm {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+}
+.h-title-lg {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+}
+.h-title-md {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.h-title-sm {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.h-body-lg {
+  font-size: 16px;
+  line-height: 24px;
+}
+.h-body-md {
+  font-size: 14px;
+  line-height: 20px;
+}
+.h-body-sm {
+  font-size: 12px;
+  line-height: 16px;
+}
+.h-label-lg {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.h-label-md {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.h-label-sm {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+.h-mono {
+  font-family: var(--h-font-mono);
+  font-size: 13px;
+}
+.h-muted {
+  color: var(--h-muted);
+}
+
+.h-divider {
+  border: 0;
+  border-top: 1px solid var(--h-border);
+  margin: 0;
+}
