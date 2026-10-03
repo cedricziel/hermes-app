@@ -345,7 +345,19 @@ class AuthController extends ChangeNotifier {
       // accepted its token, so a failure leaves nothing behind.
       final identity = await _api!.fetchMe(accessToken: session.accessToken);
       if (abandoned()) return;
-      await _tokenStore.write(session);
+      try {
+        await _tokenStore.write(session);
+      } on Object catch (e) {
+        if (abandoned()) return;
+        report('failed', {
+          'reason': 'token_store',
+          'exception.type': e.runtimeType.toString(),
+        });
+        _errorMessage =
+            'Signed in, but this device could not save the sign-in.';
+        _setState(HermesConnectionState.needsLogin);
+        return;
+      }
       if (abandoned()) {
         await _tokenStore.clear();
         return;
