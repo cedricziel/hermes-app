@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_icon_button.dart';
 
 /// The search field and filters over the board.
 class KanbanBoardToolbar extends StatelessWidget {
@@ -65,9 +66,9 @@ class KanbanBoardToolbar extends StatelessWidget {
                 ),
               ),
               if (wide)
-                IconButton(
-                  tooltip: 'Refresh',
-                  icon: const Icon(Icons.refresh),
+                NamedIconButton(
+                  label: 'Refresh',
+                  icon: Icons.refresh,
                   onPressed: onRefresh,
                 ),
             ],

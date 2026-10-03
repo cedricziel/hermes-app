@@ -6,6 +6,7 @@ import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 
@@ -247,5 +248,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('archive not found: /a.tar.gz'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get Import a board by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.file_open_outlined)),
+      namedButton('Import a board'),
+    );
+    handle.dispose();
   });
 }

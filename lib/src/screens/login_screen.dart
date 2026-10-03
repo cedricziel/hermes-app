@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../models/auth_provider_info.dart';
 import '../settings/report_bug_link.dart';
+import '../widgets/named_icon_button.dart';
 
 /// Sign-in screen. Every registered provider — OIDC/OAuth or the bundled
 /// username/password provider alike — signs in through the same RFC 8252
@@ -24,9 +25,9 @@ class LoginScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Sign in'),
         actions: [
-          IconButton(
-            tooltip: 'Change server',
-            icon: const Icon(Icons.dns_outlined),
+          NamedIconButton(
+            label: 'Change server',
+            icon: Icons.dns_outlined,
             onPressed: signingIn ? null : () => auth.changeServer(),
           ),
         ],

@@ -7,6 +7,8 @@ import 'schedule_models.dart';
 import 'schedules_controller.dart';
 import 'schedules_list.dart';
 
+import '../widgets/named_icon_button.dart';
+
 /// The Schedules destination: the job list, and beside it (or pushed over it
 /// on a phone) the selected job.
 class SchedulesScreen extends StatefulWidget {
@@ -116,10 +118,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               appBar: AppBar(
                 title: const Text('Schedules'),
                 actions: [
-                  IconButton(
-                    tooltip: 'Refresh',
+                  NamedIconButton(
+                    label: 'Refresh',
+                    icon: Icons.refresh,
                     onPressed: _controller.refresh,
-                    icon: const Icon(Icons.refresh),
                   ),
                 ],
               ),

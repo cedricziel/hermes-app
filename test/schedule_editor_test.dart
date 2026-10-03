@@ -10,6 +10,7 @@ import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/accessibility.dart';
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 
@@ -472,5 +473,28 @@ void main() {
       expect(find.byKey(const Key('job-profile')), findsNothing);
       expect(find.byKey(const Key('job-paused')), findsNothing);
     });
+  });
+
+  testWidgets('screen readers get Refresh and Advanced by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpScreen(tester);
+    expect(
+      tester.getSemantics(find.byIcon(Icons.refresh)),
+      namedButton('Refresh'),
+    );
+
+    await tester.tap(find.text('New'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('custom-task')));
+    await tester.pumpAndSettle();
+    final advanced = find.text('Advanced');
+    await tester.ensureVisible(advanced);
+    expect(tester.getSemantics(advanced), disclosure('Advanced', open: false));
+    await tester.tap(advanced);
+    await tester.pumpAndSettle();
+    expect(tester.getSemantics(advanced), disclosure('Advanced', open: true));
+    handle.dispose();
   });
 }
