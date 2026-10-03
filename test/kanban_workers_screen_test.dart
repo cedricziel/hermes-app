@@ -7,6 +7,7 @@ import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 
@@ -284,5 +285,16 @@ void main() {
       server.requestsTo('GET', '/api/plugins/kanban/workers/active').length,
       before + 1,
     );
+  });
+
+  testWidgets('screen readers get Refresh by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.refresh)),
+      namedButton('Refresh'),
+    );
+    handle.dispose();
   });
 }

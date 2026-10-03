@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../chat/widgets/relative_time.dart';
+import '../widgets/named_icon_button.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -130,9 +131,9 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
       appBar: AppBar(
         title: const Text('Active workers'),
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
+          NamedIconButton(
+            label: 'Refresh',
+            icon: Icons.refresh,
             onPressed: _load,
           ),
         ],

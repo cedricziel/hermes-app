@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 import '../telemetry/telemetry.dart';
 import '../theme/hermes_theme.dart';
+import '../widgets/named_icon_button.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
@@ -132,9 +133,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
       builder: (context, _) => Scaffold(
         appBar: _controller.selecting
             ? AppBar(
-                leading: IconButton(
-                  tooltip: 'Cancel selection',
-                  icon: const Icon(Icons.close),
+                leading: NamedIconButton(
+                  label: 'Cancel selection',
+                  icon: Icons.close,
                   onPressed: _controller.stopSelecting,
                 ),
                 title: Text('${_controller.selected.length} selected'),

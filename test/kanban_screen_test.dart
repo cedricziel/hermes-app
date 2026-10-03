@@ -11,6 +11,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:stream_channel/stream_channel.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
 
@@ -682,5 +683,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('No workers are running'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get Cancel selection by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    serveTasks();
+    await pumpBoard(tester, size: const Size(400, 800));
+    await tester.longPress(find.text('Migrate webhooks'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.close)),
+      namedButton('Cancel selection'),
+    );
+    handle.dispose();
   });
 }

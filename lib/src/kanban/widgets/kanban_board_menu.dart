@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_popup_menu_button.dart';
 import '../kanban_models.dart';
 
 /// The app bar menu that switches boards, with a way to manage them.
@@ -22,9 +23,9 @@ class KanbanBoardMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: 'Switch board',
-      icon: const Icon(Icons.dashboard_customize_outlined),
+    return NamedPopupMenuButton<String>(
+      label: 'Switch board',
+      icon: Icons.dashboard_customize_outlined,
       onSelected: (slug) => slug.isEmpty ? onManage() : onSelected(slug),
       itemBuilder: (_) => [
         for (final b in boards)

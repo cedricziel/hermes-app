@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../widgets/named_icon_button.dart';
 import '../../kanban_models.dart';
 import 'kanban_task_heading.dart';
 
@@ -37,14 +38,14 @@ class KanbanTaskAttachments extends StatelessWidget {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                tooltip: 'Save attachment',
-                icon: const Icon(Icons.download_outlined),
+              NamedIconButton(
+                label: 'Save attachment',
+                icon: Icons.download_outlined,
                 onPressed: transferring ? null : () => onDownload(a),
               ),
-              IconButton(
-                tooltip: 'Remove attachment',
-                icon: const Icon(Icons.close),
+              NamedIconButton(
+                label: 'Remove attachment',
+                icon: Icons.close,
                 onPressed: transferring ? null : () => onRemove(a),
               ),
             ],

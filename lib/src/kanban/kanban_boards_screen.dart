@@ -5,6 +5,8 @@ import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 
+import '../widgets/named_icon_button.dart';
+
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
 class KanbanBoardsScreen extends StatelessWidget {
   const KanbanBoardsScreen({
@@ -171,9 +173,9 @@ class KanbanBoardsScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Boards'),
           actions: [
-            IconButton(
-              tooltip: 'Import a board',
-              icon: const Icon(Icons.file_open_outlined),
+            NamedIconButton(
+              label: 'Import a board',
+              icon: Icons.file_open_outlined,
               onPressed: () => _import(context),
             ),
           ],
