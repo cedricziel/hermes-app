@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+import 'package:hermes_app/src/widgets/busy_bar.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -499,7 +500,7 @@ class _JobBar extends StatelessWidget {
         dense: true,
         key: const ValueKey('job-bar'),
         title: Text('${job.title}…'),
-        subtitle: const LinearProgressIndicator(),
+        subtitle: const BusyBar(),
         onTap: () => showSkillJobSheet(context, hub),
       ),
     );

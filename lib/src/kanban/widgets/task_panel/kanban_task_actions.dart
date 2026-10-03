@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 import '../../kanban_models.dart';
 
 /// The buttons a task's status offers (triage, reclaim, complete, block)
@@ -31,7 +33,9 @@ class KanbanTaskActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    final subtle = theme.colorScheme.onSurface.withValues(
+      alpha: kHermesMutedAlpha,
+    );
     final estimate = this.estimate;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/busy_bar.dart';
 import 'skill_job.dart';
 import 'skills_hub_controller.dart';
 
@@ -43,7 +44,7 @@ class SkillJobSheet extends StatelessWidget {
               children: [
                 Text(job.title, style: theme.textTheme.titleMedium),
                 const SizedBox(height: 12),
-                if (job.running) const LinearProgressIndicator(),
+                if (job.running) const BusyBar(),
                 if (!job.running)
                   Text(
                     _outcome(job),
