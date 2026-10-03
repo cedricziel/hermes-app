@@ -23,27 +23,34 @@ class ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thread = this.thread;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              thread?.title ?? 'Hermes',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+    return SafeArea(
+      bottom: false,
+      left: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                thread?.title ?? 'Hermes',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
             ),
-          ),
-          if (thread != null && thread.remote)
-            ThreadActionsButton(
-              key: const Key('header-thread-actions'),
-              thread: thread,
-              housekeeping: housekeeping,
-              includeCopyTranscript: true,
-            ),
-          ConnectionInfoButton(onPressed: onShowConnection),
-        ],
+            if (thread != null && thread.remote)
+              ThreadActionsButton(
+                key: const Key('header-thread-actions'),
+                thread: thread,
+                housekeeping: housekeeping,
+                includeCopyTranscript: true,
+              ),
+            ConnectionInfoButton(onPressed: onShowConnection),
+          ],
+        ),
       ),
     );
   }

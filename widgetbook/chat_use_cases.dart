@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
+import 'package:hermes_app/src/chat/widgets/chat_app_bar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
@@ -50,6 +51,28 @@ const _queued = [
     SharedFile(path: '/tmp/trace.png', name: 'trace.png', isImage: true),
   ]),
 ];
+
+WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
+    WidgetbookUseCase(
+      name: name,
+      builder: (context) => Theme(
+        data: Theme.of(context).copyWith(platform: platform),
+        child: Builder(
+          builder: (context) => Scaffold(
+            appBar: buildChatAppBar(
+              context,
+              leading: IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Open navigation menu',
+                onPressed: () {},
+              ),
+              title: Text(threads[0].title),
+              actions: [ConnectionInfoButton(onPressed: () {})],
+            ),
+          ),
+        ),
+      ),
+    );
 
 WidgetbookUseCase _tool(String name, Widget card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card));
@@ -130,6 +153,13 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           'Local thread',
           ChatHeader(thread: threads[2], onShowConnection: () {}),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ChatAppBar',
+      useCases: [
+        _phoneBar('iOS', TargetPlatform.iOS),
+        _phoneBar('Material (Android)', TargetPlatform.android),
       ],
     ),
     WidgetbookComponent(
