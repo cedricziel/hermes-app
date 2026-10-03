@@ -3,6 +3,7 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
+import '../widgets/disclosure_tile.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'schedule_picker.dart';
@@ -245,7 +246,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     },
                   ),
                 const SizedBox(height: 8),
-                ExpansionTile(
+                DisclosureTile(
                   key: const Key('job-advanced'),
                   tilePadding: EdgeInsets.zero,
                   title: const Text('Advanced'),
