@@ -183,7 +183,7 @@ lane :sync_metadata do |options|
       skip_screenshots: true,
       skip_metadata: false,
       submit_for_review: false,
-      automatic_release: false,
+      automatic_release: true,
       force: true,
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false,
@@ -211,7 +211,7 @@ lane :sync_screenshots do |options|
       skip_screenshots: false,
       skip_metadata: true,
       submit_for_review: false,
-      automatic_release: false,
+      automatic_release: true,
       force: true,
       precheck_include_in_app_purchases: false,
       run_precheck_before_submit: false
@@ -247,7 +247,7 @@ lane :submit do |options|
       skip_screenshots: true,
       skip_metadata: false,
       submit_for_review: !dry_run,
-      automatic_release: false,
+      automatic_release: true,
       # A version still waiting for review has to be pulled back before the
       # next one can take its place.
       reject_if_possible: true,

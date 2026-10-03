@@ -11,7 +11,7 @@ WHAT YOU GET
 • Notifications when a reply finishes or your agent needs you
 • Share content to your agent from other apps
 • An Apple Watch app to read replies and dictate an answer
-• Sign in with OpenID Connect or a username and password. Sign-in happens in your system browser, so your password manager works
+• Sign in with OpenID Connect or a username and password. Sign-in happens in a secure system sign-in sheet, so your password manager works
 • Your session tokens are kept in the system keychain and refreshed automatically
 
 PRIVACY
