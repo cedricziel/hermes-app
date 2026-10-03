@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../../theme/hermes_theme.dart';
 import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
 import '../../kanban_repository.dart';
@@ -27,7 +28,9 @@ class KanbanTaskHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    final subtle = theme.colorScheme.onSurface.withValues(
+      alpha: kHermesMutedAlpha,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

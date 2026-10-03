@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../widgets/busy_bar.dart';
 import '../../../theme/app_icons.dart';
 import '../../../widgets/named_icon_button.dart';
 import '../../kanban_models.dart';
@@ -28,7 +29,7 @@ class KanbanTaskAttachments extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const KanbanTaskHeading('Attachments'),
-      if (transferring) const LinearProgressIndicator(),
+      if (transferring) const BusyBar(),
       for (final a in attachments)
         ListTile(
           dense: true,

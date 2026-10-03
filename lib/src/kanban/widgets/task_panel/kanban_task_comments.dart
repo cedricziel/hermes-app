@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../theme/hermes_theme.dart';
+
 import '../../../chat/widgets/relative_time.dart';
 import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
@@ -40,7 +42,9 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    final subtle = theme.colorScheme.onSurface.withValues(
+      alpha: kHermesMutedAlpha,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

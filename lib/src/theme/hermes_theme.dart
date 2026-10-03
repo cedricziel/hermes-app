@@ -29,6 +29,10 @@ class HermesColors {
 /// "rounded-xl" everywhere rather than mixing radii.
 const double kHermesRadius = 14;
 
+/// Opacity of the on-surface color for de-emphasized text such as Kanban task
+/// ids.
+const double kHermesMutedAlpha = 0.7;
+
 /// A push button's height on macOS, tighter than a touch target.
 const double _kMacButtonHeight = 28;
 
@@ -54,9 +58,9 @@ ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
     scheme: scheme,
     scaffoldBackground: Colors.white,
     sidebarBackground: HermesColors.zinc50,
-    subtleText: HermesColors.zinc500,
-    success: const Color(0xFF16A34A),
-    warning: const Color(0xFFB45309),
+    subtleText: const Color(0xFF6B6B74),
+    success: const Color(0xFF166534),
+    warning: const Color(0xFF92400E),
     platform: platform,
   );
 }

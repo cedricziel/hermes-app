@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
-
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_add_action.dart';
-import '../widgets/adaptive_back_button.dart';
-import '../widgets/adaptive_tab_bar.dart';
-
+import 'package:hermes_app/src/widgets/busy_bar.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_add_action.dart';
+import '../widgets/adaptive_back_button.dart';
+import '../widgets/adaptive_tab_bar.dart';
 import '../api/hermes_repositories.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
@@ -501,7 +500,7 @@ class _JobBar extends StatelessWidget {
         dense: true,
         key: const ValueKey('job-bar'),
         title: Text('${job.title}…'),
-        subtitle: const LinearProgressIndicator(),
+        subtitle: const BusyBar(),
         onTap: () => showSkillJobSheet(context, hub),
       ),
     );
