@@ -223,6 +223,10 @@ abstract final class AppIcons {
     CupertinoIcons.arrow_right_arrow_left,
   );
   static const pin = AppIconSet(Icons.push_pin, CupertinoIcons.pin_fill);
+  static const unpin = AppIconSet(
+    Icons.push_pin_outlined,
+    CupertinoIcons.pin_slash,
+  );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,
@@ -401,6 +405,7 @@ abstract final class AppIcons {
     'terminal': terminal,
     'swap': swap,
     'pin': pin,
+    'unpin': unpin,
     'power': power,
     'photoLibrary': photoLibrary,
     'camera': camera,
