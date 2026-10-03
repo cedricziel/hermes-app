@@ -48,6 +48,7 @@ import 'hermes_chat_repository.dart';
 import 'queued_prompt.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
+import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/chat_composer_builder.dart';
@@ -457,7 +458,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     // Without its own drawer, the chat keeps the shell's menu reachable on a
     // narrow layout, or the other destinations would be too.
     final shellMenu = ShellMenu.button(context);
-    final shellBar = shellMenu == null ? null : AppBar(leading: shellMenu);
+    final shellBar = shellMenu == null
+        ? null
+        : buildChatAppBar(context, leading: shellMenu);
     if (chat.loadingThreads) {
       return Scaffold(
         appBar: shellBar,
@@ -515,7 +518,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
           appBar: isWide
               ? null
-              : AppBar(
+              : buildChatAppBar(
+                  context,
                   title: Text(selected?.title ?? 'Hermes'),
                   actions: [
                     if (selected != null && selected.remote)
