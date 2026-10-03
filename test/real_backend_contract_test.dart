@@ -2148,6 +2148,45 @@ approvals:
       timeout: const Timeout(Duration(minutes: 2)),
       skip: skip,
     );
+
+    test(
+      'a session made in a second profile is listed and resumed only '
+      'there',
+      () async {
+        final active = (await HermesProfilesRepository(
+          client.raw,
+        ).loadActive()).active;
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+
+        final first = await transport
+            .send(profile: profile, text: 'Say hello.')
+            .toList();
+        final bound = first.first as ThreadBound;
+        expect((first.last as ReplyCompleted).failed, isFalse);
+
+        expect(
+          (await repository.loadThreads(profile: profile)).map((t) => t.id),
+          contains(bound.threadId),
+        );
+        expect(
+          (await repository.loadThreads(profile: active)).map((t) => t.id),
+          isNot(contains(bound.threadId)),
+        );
+
+        final second = await transport
+            .send(threadId: bound.threadId, profile: profile, text: 'Again.')
+            .toList();
+        expect(second.whereType<ThreadBound>(), isEmpty);
+        expect((second.last as ReplyCompleted).failed, isFalse);
+        expect(
+          await repository.loadMessages(bound.threadId, profile: profile),
+          hasLength(4),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
   });
 }
 
@@ -2279,10 +2318,9 @@ Future<HttpServer> _serveMinimalMcp() async {
   return server;
 }
 
-/// An OpenAI-compatible model that answers the agent's turn with one terminal
-/// call running [command], then a closing line once the result is back.
-/// Hermes' own side calls (titles and the like) carry no tools and get a
-/// plain answer.
+/// An OpenAI-compatible model that answers a prompt containing "Clean up"
+/// with one terminal call running [command], and anything else, including the
+/// call's result and Hermes' own side calls, with a plain line.
 Future<HttpServer> _serveScriptedModel({required String command}) async {
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((request) async {
@@ -2304,7 +2342,11 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
       await utf8.decoder.bind(request).join(),
     ) as Map<String, dynamic>;
     final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
-    final callTool = body['tools'] != null && messages.last['role'] != 'tool';
+    final last = messages.last;
+    final callTool =
+        body['tools'] != null &&
+        last['role'] == 'user' &&
+        jsonEncode(last['content']).contains('Clean up');
     final calls = [
       if (callTool)
         {
