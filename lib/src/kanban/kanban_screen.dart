@@ -59,6 +59,12 @@ class KanbanScreen extends StatefulWidget {
 class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
+  late final AppLifecycleListener _lifecycle;
+
+  /// Whether the shell shows this page, and whether the app is on screen; the
+  /// event stream runs only while both hold.
+  bool _visible = true;
+  bool _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
 
   /// The card a phone is dragging by its handle, while it is.
   String? _dragId;
@@ -89,10 +95,32 @@ class _KanbanScreenState extends State<KanbanScreen> {
       prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
       log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
     )..start();
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        _foreground = _isForeground(state);
+        _syncActive();
+      },
+    );
   }
+
+  /// A desktop window that only lost focus is still on screen.
+  static bool _isForeground(AppLifecycleState? state) =>
+      state != AppLifecycleState.hidden &&
+      state != AppLifecycleState.paused &&
+      state != AppLifecycleState.detached;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible = Visibility.of(context);
+    _syncActive();
+  }
+
+  void _syncActive() => _controller.active = _visible && _foreground;
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.dispose();
     super.dispose();
   }
