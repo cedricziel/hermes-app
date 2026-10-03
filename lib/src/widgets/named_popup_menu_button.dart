@@ -7,6 +7,7 @@ class NamedPopupMenuButton<T> extends StatelessWidget {
     super.key,
     this.menuKey,
     required this.label,
+    this.tooltip,
     required this.icon,
     required this.itemBuilder,
     this.onSelected,
@@ -19,6 +20,9 @@ class NamedPopupMenuButton<T> extends StatelessWidget {
   /// The key of the menu itself, to open it from outside.
   final GlobalKey<PopupMenuButtonState<T>>? menuKey;
   final String label;
+
+  /// A shorter hover text than [label], which screen readers never get.
+  final String? tooltip;
   final IconData icon;
   final PopupMenuItemBuilder<T> itemBuilder;
   final PopupMenuItemSelected<T>? onSelected;
@@ -29,7 +33,7 @@ class NamedPopupMenuButton<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: label,
+    message: tooltip ?? label,
     excludeFromSemantics: true,
     child: PopupMenuButton<T>(
       key: menuKey,

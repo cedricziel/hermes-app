@@ -226,7 +226,8 @@ class _AttachmentCardState extends State<AttachmentCard> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : NamedIconButton(
-              label: 'Save',
+              label: 'Save ${_attachment.name}',
+              tooltip: 'Save',
               icon: Icons.download_outlined,
               iconSize: 20,
               visualDensity: VisualDensity.compact,

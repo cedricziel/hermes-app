@@ -9,6 +9,7 @@ class NamedIconButton extends StatelessWidget {
   const NamedIconButton({
     super.key,
     required this.label,
+    this.tooltip,
     required this.icon,
     required this.onPressed,
     this.color,
@@ -21,6 +22,9 @@ class NamedIconButton extends StatelessWidget {
   });
 
   final String label;
+
+  /// A shorter hover text than [label], which screen readers never get.
+  final String? tooltip;
   final IconData icon;
   final VoidCallback? onPressed;
   final Color? color;
@@ -35,7 +39,7 @@ class NamedIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final named = Icon(icon, semanticLabel: label);
     return Tooltip(
-      message: label,
+      message: tooltip ?? label,
       excludeFromSemantics: true,
       child: filled
           ? IconButton.filled(

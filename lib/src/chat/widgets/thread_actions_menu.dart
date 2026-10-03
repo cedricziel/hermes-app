@@ -84,7 +84,8 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     final housekeeping = widget.housekeeping;
     return NamedPopupMenuButton<ThreadAction>(
       menuKey: _menu,
-      label: 'Chat actions',
+      label: 'Chat actions for ${_thread.title}',
+      tooltip: 'Chat actions',
       icon: Icons.more_horiz,
       color: subtle,
       onSelected: _run,

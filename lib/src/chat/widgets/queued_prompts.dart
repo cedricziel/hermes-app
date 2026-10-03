@@ -67,7 +67,8 @@ class QueuedPrompts extends StatelessWidget {
                   ),
                 ],
                 NamedIconButton(
-                  label: 'Remove from queue',
+                  label: 'Remove ${_label(prompt)} from queue',
+                  tooltip: 'Remove from queue',
                   visualDensity: VisualDensity.compact,
                   icon: Icons.close,
                   iconSize: 18,

@@ -115,7 +115,7 @@ void main() {
 
     expect(
       tester.getSemantics(find.byIcon(Icons.more_horiz)),
-      namedButton('Chat actions'),
+      namedButton('Chat actions for Hi'),
     );
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
@@ -133,7 +133,7 @@ void main() {
 
     expect(
       tester.getSemantics(find.byIcon(Icons.close)),
-      namedButton('Remove from queue'),
+      namedButton('Remove Next one from queue'),
     );
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
@@ -199,7 +199,7 @@ void main() {
 
     expect(
       tester.getSemantics(find.byIcon(Icons.download_outlined)),
-      namedButton('Save'),
+      namedButton('Save notes.pdf'),
     );
     handle.dispose();
   });
