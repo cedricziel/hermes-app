@@ -76,7 +76,11 @@
 .h-kanban-task-panel__subtle {
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--h-fg) 60%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--h-fg) calc(var(--h-muted-alpha) * 100%),
+    transparent
+  );
 }
 
 .h-kanban-task-panel__title-row {
@@ -162,7 +166,11 @@
   font-weight: 500;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--h-fg) 60%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--h-fg) calc(var(--h-muted-alpha) * 100%),
+    transparent
+  );
 }
 
 .h-kanban-task-panel__text {
@@ -352,6 +360,19 @@
   }
   100% {
     transform: translateX(260%);
+  }
+}
+
+/* Reduce Motion: a still, dimmed full bar instead of the sliding one. */
+@media (prefers-reduced-motion: reduce) {
+  .h-kanban-task-panel__progress {
+    background: transparent;
+  }
+
+  .h-kanban-task-panel__progress-value {
+    width: 100%;
+    animation: none;
+    background: color-mix(in srgb, var(--h-primary) 40%, transparent);
   }
 }
 

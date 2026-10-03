@@ -74,3 +74,73 @@
   border-top: 1px solid var(--h-border);
   margin: 0;
 }
+
+/* The chat column (messages and composer) is capped at 680px and centred on
+   every platform, like kChatColumnMaxWidth in the app. */
+.h-assistant-message,
+.h-user-message,
+.h-tool-group,
+.h-reasoning-block,
+.h-input-card,
+.h-chat-composer {
+  width: 100%;
+  max-width: var(--h-chat-column);
+  margin-inline: auto;
+}
+
+/* iOS type ramp (HermesProvider platform="apple", unless typeRamp="default"):
+   Body 17, Subheadline 15, Footnote 13, Caption 12, mapped onto the Material
+   roles the classes are named after, like iosTextTheme in the app. Only these
+   classes and the chat message text change; other components keep their own
+   pixel sizes, as in the app. */
+[data-hermes-ramp="ios"] {
+  font-size: 15px;
+  line-height: 20px;
+}
+[data-hermes-ramp="ios"] .h-headline-sm,
+[data-hermes-ramp="ios"] .h-title-lg {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 400;
+}
+[data-hermes-ramp="ios"] .h-title-md {
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+}
+[data-hermes-ramp="ios"] .h-title-sm {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+[data-hermes-ramp="ios"] .h-body-lg {
+  font-size: 17px;
+  line-height: 22px;
+}
+[data-hermes-ramp="ios"] .h-body-md {
+  font-size: 15px;
+  line-height: 20px;
+}
+[data-hermes-ramp="ios"] .h-body-sm {
+  font-size: 13px;
+  line-height: 18px;
+}
+[data-hermes-ramp="ios"] .h-label-lg {
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 500;
+}
+[data-hermes-ramp="ios"] .h-label-md {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+[data-hermes-ramp="ios"] .h-label-sm {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+[data-hermes-ramp="ios"] .h-assistant-message__body,
+[data-hermes-ramp="ios"] .h-user-message__bubble {
+  font-size: 17px;
+}
