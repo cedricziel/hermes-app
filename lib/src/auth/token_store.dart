@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../models/hermes_session.dart';
@@ -9,7 +10,14 @@ import '../models/hermes_session.dart';
 /// Hermes Desktop uses for its own token store, and never a browser cookie.
 class TokenStore {
   TokenStore({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? defaultStorage;
+
+  /// macOS only grants the data protection keychain to a team signed app, and
+  /// a local debug build is signed ad hoc, so it uses the login keychain.
+  @visibleForTesting
+  static const defaultStorage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: !kDebugMode),
+  );
 
   static const _sessionKey = 'hermes.session.v1';
 
