@@ -24,7 +24,9 @@ const {
 </HermesProvider>;
 ```
 
-A nested `<HermesProvider theme="dark">` switches only its subtree. Icons are Material Symbols (`<Icon name="schedule" />`, snake_case names as in Flutter's `Icons.*`; `filled` for the solid glyph).
+A nested `<HermesProvider theme="dark">` switches only its subtree.
+
+**Platform.** The app follows Apple's Human Interface Guidelines on iOS, iPadOS and macOS and stays Material on Android, Windows and Linux. `<HermesProvider platform="apple">` (default `"material"`) switches every component that has a `platform` prop; pass `platform` on one component to override. Apple pieces: 44px bars and tap targets, the 51x31 toggle, a chevron back button, a "+" in the bar instead of a floating button, segmented controls instead of underline tabs, inset grouped list rows, iOS pull-down and compact Mac menus, eight-spoke spinners, detent sheets. Where touch and pointer differ, `layout="phone"` means iPhone and iPad (touch) and `layout="desktop"` means Mac. `typeRamp` (iOS: body 17, subheadline 15, footnote 13, caption 12) follows the platform; pass `typeRamp="default"` for a Mac screen. Nothing changes unless `platform="apple"` is set. Icons are Material Symbols (`<Icon name="schedule" />`, snake_case names as in Flutter's `Icons.*`; `filled` for the solid glyph). Under `platform="apple"` the same names draw lighter, rounded glyphs that approximate SF Symbols (the app uses CupertinoIcons there).
 
 ## Styling idiom
 
@@ -43,7 +45,7 @@ No utility classes. Use the components for controls and cards; for your own layo
 
 Type classes: `h-headline-sm`, `h-title-lg`, `h-title-md`, `h-title-sm`, `h-body-lg`, `h-body-md`, `h-body-sm`, `h-label-lg`, `h-label-md`, `h-label-sm`, `h-mono`, `h-muted`, and `h-divider` for an `<hr>`.
 
-Layout rules from the app: list and detail side by side from 900px wide (`ListDetailLayout`), Kanban columns from 720px; phone layouts have no bottom bar: a top app bar whose menu button opens the sidebar as a drawer (`AppShell layout="phone" drawerOpen`). Desktop sidebar is 280px. One filled `Button` per view; secondary actions are `outlined`, dismissive ones `text`.
+Layout rules from the app: list and detail side by side from 900px wide (`ListDetailLayout`), or from 700px on a full-screen iPad in either orientation (Split View halves stay narrow); Kanban columns from 720px; phone layouts have no bottom bar: a top app bar whose menu button opens the sidebar as a drawer (`AppShell layout="phone" drawerOpen`), and the drawer stays on phones under Apple too. Desktop sidebar is 280px; on a Mac (`platform="apple"`, `layout="desktop"`) it runs under the traffic lights, hides and resizes (220 to 360px). The chat column (messages and composer) is at most 680px wide and centered on every platform. One filled `Button` per view; secondary actions are `outlined`, dismissive ones `text`.
 
 ## Where the truth lives
 
