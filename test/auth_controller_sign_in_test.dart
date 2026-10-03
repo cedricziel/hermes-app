@@ -316,6 +316,25 @@ void main() {
       expect(failed['reason'], 'profile_load');
     });
 
+    test('a session the device cannot store says so', () async {
+      final controller = await signInAgainst(
+        me: {'user_id': 'u1'},
+        tokenStore: MemoryTokenStore()..failWrites = true,
+      );
+
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(
+        controller.errorMessage,
+        'Signed in, but this device could not save the sign-in.',
+      );
+      expect(controller.identity, isNull);
+      final failed = events.named('auth.sign_in.failed').single;
+      expect(failed['reason'], 'token_store');
+      expect(failed['exception.type'], 'UnsupportedError');
+    });
+
     test(
       'leaving the server while the identity loads stores nothing',
       () async {

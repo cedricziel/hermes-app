@@ -217,6 +217,28 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
+## Sign-in against a real server
+
+The loopback backend skips sign-in. To exercise it, run `flutter run -d macos
+--dart-define=HERMES_SERVER_URL=<gated server>` (the App Review demo server
+works; its credentials are in the `hermes-demo` app config on hive).
+
+- macOS first shows a system consent prompt ("… möchte zum Anmelden …
+  verwenden"). It is not in the app's accessibility tree, and Return only
+  works while it has focus: click "Fortfahren" with a real `CGEvent` click.
+- The sign-in page then opens in a Safari window (Safari's pid, not the
+  app's). Fill it with `ax <safari pid> focus 0|1` and `type`, press Escape
+  after each field to close the password manager's popup, then
+  `press "SIGN IN"`. Never press Return there: 1Password's "Save login?"
+  sheet can take it.
+- A local debug build is signed ad hoc, which the data protection keychain
+  refuses (`-34018`, "A required entitlement is not present"). Debug builds
+  therefore keep the token in the login keychain (`TokenStore.defaultStorage`).
+  If a sign-in ends with "Signed in, but this device could not save the
+  sign-in.", the keychain write failed.
+- Sign out at the end (account row, then "Sign out") so the demo token does
+  not stay in the login keychain.
+
 ## Scripted tool calls
 
 Tool-call rendering (cards, groups, approvals inside a call, diffs, stop)
@@ -262,12 +284,12 @@ Xvfb instead.
   all need it.
 - Run it with `Xvfb :99 -screen 0 1400x900x24 &`, then, under
   `dbus-run-session`, unlock a keyring (`echo -n x | gnome-keyring-daemon
-  --unlock --components=secrets`) and start
+--unlock --components=secrets`) and start
   `build/linux/x64/debug/bundle/hermes_app`. Without a
   system bus the `dbus` package logs an unhandled `SocketException` at start;
   the app works regardless.
 - Drive with `xdotool mousemove X Y click 1`, `xdotool type`, `xdotool key
-  Return`; screenshot with `import -window root -crop 1280x720+0+0 out.png`
+Return`; screenshot with `import -window root -crop 1280x720+0+0 out.png`
   (the window opens at 1280x720 at the origin).
 - Never `pkill -f` a pattern that appears in your own command line: it kills
   the shell running it. Kill by `pgrep -x hermes_app` and the like.

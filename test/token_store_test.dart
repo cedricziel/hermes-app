@@ -41,6 +41,13 @@ class _FakeStorage extends FlutterSecureStorage {
 }
 
 void main() {
+  test('a debug build keeps the session in the login keychain on macOS', () {
+    // An ad hoc signed debug build may not use the data protection keychain.
+    final options = TokenStore.defaultStorage.mOptions as MacOsOptions;
+
+    expect(options.usesDataProtectionKeychain, isFalse);
+  });
+
   group('TokenStore.read treats an unreadable session as signed out', () {
     for (final entry in {
       'a JSON array': '[1, 2]',
