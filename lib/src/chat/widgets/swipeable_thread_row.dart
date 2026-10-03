@@ -50,7 +50,7 @@ class SwipeableThreadRow extends StatelessWidget {
         ),
       ),
     );
-    if (action != null) onAction(action);
+    if (action != null && context.mounted) onAction(action);
   }
 
   @override
