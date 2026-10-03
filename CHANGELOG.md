@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.1.44](https://github.com/cedricziel/hermes-app/compare/v0.1.43...v0.1.44) (2026-10-03)
+
+
+### Features
+
+* **chat:** use a 44pt navigation bar and respect the status bar on iOS ([#375](https://github.com/cedricziel/hermes-app/issues/375)) ([044fe4f](https://github.com/cedricziel/hermes-app/commit/044fe4fc02dea6b52fab0b47582f26e4f2467903))
+* **kanban:** follow iOS touch conventions in selection, drag and search ([#378](https://github.com/cedricziel/hermes-app/issues/378)) ([d25526d](https://github.com/cedricziel/hermes-app/commit/d25526d327cc900285152331f7b92d3b84d4ca53))
+* **kanban:** present a task as a detent sheet or form sheet on Apple platforms ([#379](https://github.com/cedricziel/hermes-app/issues/379)) ([c4feb20](https://github.com/cedricziel/hermes-app/commit/c4feb20f47631c1312369de9ad4faed478af5061))
+* **macos:** use a source-list sidebar and a unified toolbar ([#384](https://github.com/cedricziel/hermes-app/issues/384)) ([e75a920](https://github.com/cedricziel/hermes-app/commit/e75a920972ec4784fed8940a3a517a32f9c8546c))
+* **profiles:** follow iOS conventions on the connect, login and profile screens ([#369](https://github.com/cedricziel/hermes-app/issues/369)) ([eb409ea](https://github.com/cedricziel/hermes-app/commit/eb409ea4392bb80f90ad0fdf15a798056679d435))
+* **schedules:** inset grouped job rows and row actions on Apple platforms ([#385](https://github.com/cedricziel/hermes-app/issues/385)) ([3b13611](https://github.com/cedricziel/hermes-app/commit/3b136115349524a9790a4e404b2202c72c87e5ad))
+* **shell:** use the wide layout for a full-screen iPad in portrait ([#371](https://github.com/cedricziel/hermes-app/issues/371)) ([9d8b993](https://github.com/cedricziel/hermes-app/commit/9d8b993cf9cc62764fcc2cdf081fa71697aa7783))
+* **telemetry:** tag the service namespace and the backend peer ([#374](https://github.com/cedricziel/hermes-app/issues/374)) ([09c52ce](https://github.com/cedricziel/hermes-app/commit/09c52ce4978f22084309d01eb5e3a7ec43136b48))
+* **theme:** add a platform chrome helper for Apple conventions ([#367](https://github.com/cedricziel/hermes-app/issues/367)) ([c08ae43](https://github.com/cedricziel/hermes-app/commit/c08ae4342fd16bccd2f886c274607ea9a6eb63bc))
+* **theme:** follow the HIG for back buttons, add actions and tabs on Apple platforms ([#377](https://github.com/cedricziel/hermes-app/issues/377)) ([7922a50](https://github.com/cedricziel/hermes-app/commit/7922a50e5df721046af794568d1d037c395d3416))
+* **theme:** use Apple-style dialogs, menus, spinners and pickers on iOS and macOS ([#383](https://github.com/cedricziel/hermes-app/issues/383)) ([efd7979](https://github.com/cedricziel/hermes-app/commit/efd7979296868302aa638c6313a409a35652c04c))
+* **theme:** use Apple's type ramp on iOS and cap the chat column at 680 points ([#380](https://github.com/cedricziel/hermes-app/issues/380)) ([38d3770](https://github.com/cedricziel/hermes-app/commit/38d37708174da355cfde8b7f8a8ba0ac6f709e18))
+* **theme:** use SF-style icons on Apple platforms ([#386](https://github.com/cedricziel/hermes-app/issues/386)) ([11a8506](https://github.com/cedricziel/hermes-app/commit/11a85061bd9a07a468d000f0b0fbaf66266e1b09))
+* **theme:** use the platform toggle for switches on iOS and macOS ([#370](https://github.com/cedricziel/hermes-app/issues/370)) ([ba0d114](https://github.com/cedricziel/hermes-app/commit/ba0d1142ed36476000edced5beec083ecf2aaead))
+
+
+### Bug Fixes
+
+* **chat:** give chat actions and disclosure rows a 44-point tap target on iOS ([#372](https://github.com/cedricziel/hermes-app/issues/372)) ([d4701f5](https://github.com/cedricziel/hermes-app/commit/d4701f5d87a54cad1f206f7574b44faea0a7ad4a))
+
+
+### Documentation
+
+* **design-sync:** describe the phone drawer and cloud-container quirks ([#365](https://github.com/cedricziel/hermes-app/issues/365)) ([e348cfc](https://github.com/cedricziel/hermes-app/commit/e348cfc65f7bba690eaf29e59e95132e9eafb268))
+
 ## [0.1.43](https://github.com/cedricziel/hermes-app/compare/v0.1.42...v0.1.43) (2026-10-03)
 
 
