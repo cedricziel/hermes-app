@@ -5,6 +5,8 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -12,12 +14,13 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
-import '../chat/gateway/gateway_connection.dart';
+import '../telemetry/telemetry.dart';
 import '../theme/hermes_theme.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
 import 'kanban_errors.dart';
+import 'kanban_events_connection.dart';
 import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -72,20 +75,19 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (widget.connect != null) {
       connect = widget.connect!;
     } else {
-      final socket = hermesSocketConnect(
+      connect = hermesKanbanEventsConnect(
         baseUrl: auth.baseUrl!,
         authRequired: auth.status?.authRequired ?? true,
         api: repositories!.api,
-        path: '/api/plugins/kanban/events',
+        telemetry: context.read<KanbanEventsTracer?>(),
       );
-      connect = ({required since, board}) =>
-          socket({'since': '$since', 'board': ?board});
     }
     _controller = KanbanBoardController(
       repository: _repository,
       connect: connect,
       prefs: SharedPreferencesAsync(),
       prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
+      log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
     )..start();
   }
 
