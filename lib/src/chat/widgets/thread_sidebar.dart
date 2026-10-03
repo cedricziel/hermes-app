@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
 import '../../app_lock/app_lock_dialog.dart';
@@ -388,7 +389,7 @@ class _ShowMoreRowState extends State<_ShowMoreRow> {
         child: widget.loading
             ? const SizedBox.square(
                 dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
               )
             : TextButton(
                 onPressed: widget.onLoad,
@@ -422,7 +423,7 @@ class AccountFooter extends StatelessWidget {
           child: Tooltip(
             message: 'Account',
             excludeFromSemantics: true,
-            child: PopupMenuButton<String>(
+            child: AdaptivePopupMenuButton<String>(
               tooltip: '',
               offset: const Offset(0, -8),
               position: PopupMenuPosition.over,

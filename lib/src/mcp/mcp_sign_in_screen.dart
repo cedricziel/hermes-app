@@ -229,7 +229,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const CircularProgressIndicator(),
+        const CircularProgressIndicator.adaptive(),
         const SizedBox(height: 20),
         Text('Waiting for you to approve', style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
@@ -300,7 +300,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
           child: _starting
               ? const SizedBox.square(
                   dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('Try again'),
         ),

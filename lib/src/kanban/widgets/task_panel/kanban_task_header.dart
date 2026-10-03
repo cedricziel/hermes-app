@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../kanban_models.dart';
 import '../../kanban_repository.dart';
@@ -64,7 +65,7 @@ class KanbanTaskHeader extends StatelessWidget {
             MergeSemantics(
               child: Semantics(
                 button: true,
-                child: PopupMenuButton<String>(
+                child: AdaptivePopupMenuButton<String>(
                   // The chip already says it; a tooltip would be read twice.
                   tooltip: '',
                   onSelected: onMove,

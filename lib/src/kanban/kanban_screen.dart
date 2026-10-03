@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -220,7 +221,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     unawaited(_controller.refresh());
   }
 
-  Widget _moreMenu() => PopupMenuButton<String>(
+  Widget _moreMenu() => AdaptivePopupMenuButton<String>(
     onSelected: (value) {
       switch (value) {
         case 'select':
@@ -332,7 +333,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final board = _controller.board;
     if (board == null) {
       if (_controller.loading) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       }
       return StateMessage(
         icon: _controller.unavailable

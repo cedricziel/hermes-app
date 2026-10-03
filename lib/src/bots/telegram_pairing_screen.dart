@@ -175,7 +175,9 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   }
 
   List<Widget> _content() => switch (_phase) {
-    _Phase.starting => const [Center(child: CircularProgressIndicator())],
+    _Phase.starting => const [
+      Center(child: CircularProgressIndicator.adaptive()),
+    ],
     _Phase.waiting => _waiting(),
     _Phase.claimed => _claimed(),
     _Phase.failed => [
@@ -218,7 +220,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         children: [
           SizedBox.square(
             dimension: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           ),
           SizedBox(width: 12),
           Flexible(child: Text('Waiting for you in Telegram')),

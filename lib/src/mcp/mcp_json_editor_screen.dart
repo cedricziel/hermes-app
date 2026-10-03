@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
@@ -104,24 +105,13 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   }) async {
     setState(() => _asking = true);
     try {
-      final answer = await showDialog<bool>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: Text(title),
-          content: Text(body),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialog).pop(false),
-              child: Text(cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialog).pop(true),
-              child: Text(confirm),
-            ),
-          ],
-        ),
+      return await showConfirmDialog(
+        context,
+        title: title,
+        message: body,
+        confirmLabel: confirm,
+        cancelLabel: cancel,
       );
-      return answer == true;
     } finally {
       if (mounted) setState(() => _asking = false);
     }
@@ -215,7 +205,9 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
                 child: sending
                     ? const SizedBox.square(
                         dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Save'),
               ),
@@ -228,7 +220,9 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   }
 
   Widget _body(ThemeData theme) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator.adaptive());
+    }
     if (_loadFailed) {
       return Center(
         child: Column(

@@ -157,7 +157,7 @@ class _McpInstallPanelState extends State<McpInstallPanel> {
               child: state is McpInstalling
                   ? const SizedBox.square(
                       dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                     )
                   : Text(profile == null ? 'Install' : 'Install on "$profile"'),
             ),
@@ -291,7 +291,7 @@ class _Outcome extends StatelessWidget {
         children: [
           SizedBox.square(
             dimension: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           ),
           SizedBox(width: 10),
           Text('Building on your server…'),

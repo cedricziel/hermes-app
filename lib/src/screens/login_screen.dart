@@ -59,7 +59,7 @@ class LoginScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Column(
                         children: [
-                          const CircularProgressIndicator(),
+                          const CircularProgressIndicator.adaptive(),
                           const SizedBox(height: 12),
                           const Text('Continue in your browser…'),
                           const SizedBox(height: 12),

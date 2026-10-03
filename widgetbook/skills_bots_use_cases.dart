@@ -412,7 +412,9 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
             builder: (_, snapshot) {
               final bots = snapshot.data;
               if (bots == null) {
-                return const Center(child: CircularProgressIndicator());
+                return const Center(
+                  child: CircularProgressIndicator.adaptive(),
+                );
               }
               return BotSetupScreen(
                 bot: bots.firstWhere((b) => b.id == 'discord'),

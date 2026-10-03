@@ -32,7 +32,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
         final hub = widget.hub;
         switch (hub.status) {
           case HubStatus.loading:
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator.adaptive());
           case HubStatus.unsupported:
             return const _Note(
               'The connected Hermes does not support the skills hub.',
@@ -108,7 +108,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
         );
       }
       if (hub.searching && hub.results.isEmpty) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       }
       return ListView(
         padding: const EdgeInsets.only(bottom: 24),

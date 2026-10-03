@@ -180,7 +180,7 @@ class _ThumbnailPlaceholder extends StatelessWidget {
     ),
     child: const SizedBox.square(
       dimension: 24,
-      child: CircularProgressIndicator(strokeWidth: 2),
+      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
     ),
   );
 }
@@ -223,7 +223,7 @@ class _AttachmentCardState extends State<AttachmentCard> {
           : _busy
           ? const SizedBox.square(
               dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             )
           : NamedIconButton(
               label: 'Save ${_attachment.name}',

@@ -94,7 +94,7 @@ class ThreadSearchResults extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: SizedBox.square(
             dimension: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           ),
         ),
       ),

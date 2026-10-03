@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
@@ -36,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Hermes'),
         actions: [
-          PopupMenuButton<String>(
+          AdaptivePopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'sign-out') auth.signOut();
               if (value == 'change-server') auth.changeServer();
@@ -88,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: CircularProgressIndicator.adaptive()),
                   );
                 }
                 if (snapshot.hasError) {

@@ -66,7 +66,7 @@ class _ProvidersTabState extends State<ProvidersTab>
       listenable: _controller,
       builder: (context, _) {
         if (_controller.loading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator.adaptive());
         }
         switch (_controller.failure) {
           case PluginsFailure.unsupported:
@@ -406,7 +406,7 @@ class _SaveBar extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                   )
                 : const Text('Save'),
           ),

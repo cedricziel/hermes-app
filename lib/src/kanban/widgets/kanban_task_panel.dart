@@ -306,7 +306,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
                     ),
                   ],
                 )
-              : const CircularProgressIndicator(),
+              : const CircularProgressIndicator.adaptive(),
         );
       }
       final task = detail.task;

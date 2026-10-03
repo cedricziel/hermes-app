@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../chat/widgets/relative_time.dart';
 import '../widgets/named_icon_button.dart';
@@ -79,9 +81,9 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     );
     if (!ok || inspection == null || !mounted) return;
     final i = inspection!;
-    await showDialog<void>(
+    await showAdaptiveDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text('Run #${worker.runId}'),
         content: Text(
           i.alive
@@ -96,7 +98,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
               : 'The process is not running${i.note == null ? '' : ': ${i.note}'}.',
         ),
         actions: [
-          TextButton(
+          AppDialogAction(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),
@@ -155,7 +157,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                         ),
                       ],
                     )
-                  : const CircularProgressIndicator(),
+                  : const CircularProgressIndicator.adaptive(),
             )
           : RefreshIndicator(
               onRefresh: _load,
@@ -171,41 +173,44 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                       separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, i) {
                         final w = workers[i];
-                        return ListTile(
-                          title: Text(w.taskTitle),
-                          subtitle: Text(
-                            [
-                              '${w.taskId} · run #${w.runId}',
-                              if (w.profile != null) w.profile!,
-                              if (w.startedAt != null)
-                                'started ${relativeTime(w.startedAt!)}',
-                              if (w.lastHeartbeatAt != null)
-                                'heartbeat ${relativeTime(w.lastHeartbeatAt!)}',
-                            ].join(' · '),
-                          ),
-                          // The task's own panel can stop this very run, so the
-                          // list is read again once it closes.
-                          onTap: () => showKanbanTask(
-                            context,
-                            repository: widget.repository,
-                            taskId: w.taskId,
-                            board: widget.board,
-                            onChanged: widget.onChanged,
-                          ).then((_) => _load()),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (action) => action == 'inspect'
-                                ? _inspect(w)
-                                : _terminate(w),
-                            itemBuilder: (_) => const [
-                              PopupMenuItem(
-                                value: 'inspect',
-                                child: Text('Inspect process'),
-                              ),
-                              PopupMenuItem(
-                                value: 'terminate',
-                                child: Text('Terminate'),
-                              ),
-                            ],
+                        return ContextMenuRow(
+                          builder: (context, menu) => ListTile(
+                            title: Text(w.taskTitle),
+                            subtitle: Text(
+                              [
+                                '${w.taskId} · run #${w.runId}',
+                                if (w.profile != null) w.profile!,
+                                if (w.startedAt != null)
+                                  'started ${relativeTime(w.startedAt!)}',
+                                if (w.lastHeartbeatAt != null)
+                                  'heartbeat ${relativeTime(w.lastHeartbeatAt!)}',
+                              ].join(' · '),
+                            ),
+                            // The task's own panel can stop this very run, so the
+                            // list is read again once it closes.
+                            onTap: () => showKanbanTask(
+                              context,
+                              repository: widget.repository,
+                              taskId: w.taskId,
+                              board: widget.board,
+                              onChanged: widget.onChanged,
+                            ).then((_) => _load()),
+                            trailing: AdaptivePopupMenuButton<String>(
+                              controller: menu,
+                              onSelected: (action) => action == 'inspect'
+                                  ? _inspect(w)
+                                  : _terminate(w),
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'inspect',
+                                  child: Text('Inspect process'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'terminate',
+                                  child: Text('Terminate'),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },

@@ -323,7 +323,7 @@ class ToolCallStatusIcon extends StatelessWidget {
         return const SizedBox(
           width: 12,
           height: 12,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
         );
       case ToolCallStatus.completed:
         return Icon(

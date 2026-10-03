@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_popup_menu_button.dart';
@@ -35,11 +37,11 @@ class ThreadActionsButton extends StatefulWidget {
 }
 
 class ThreadActionsButtonState extends State<ThreadActionsButton> {
-  final _menu = GlobalKey<PopupMenuButtonState<ThreadAction>>();
+  final _menu = AdaptiveMenuController();
 
   /// Opens the menu from outside, for a long press or a secondary click
   /// elsewhere on the row this button sits in.
-  void open() => _menu.currentState?.showButtonMenu();
+  void open() => _menu.open();
 
   ChatThread get _thread => widget.thread;
 
@@ -58,7 +60,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
       case ThreadAction.copyTranscript:
         break; // handled above
       case ThreadAction.rename:
-        final title = await showDialog<String>(
+        final title = await showAdaptiveDialog<String>(
           context: context,
           builder: (_) => _RenameDialog(initial: _thread.title),
         );
@@ -70,11 +72,15 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
       case ThreadAction.archive:
         await housekeeping.archive(_thread);
       case ThreadAction.delete:
-        final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (_) => _DeleteDialog(title: _thread.title),
+        final confirmed = await showConfirmDialog(
+          context,
+          title: 'Delete this chat?',
+          message:
+              '"${_thread.title}" and its messages will be deleted for good.',
+          confirmLabel: 'Delete',
+          destructive: true,
         );
-        if (confirmed ?? false) await housekeeping.delete(_thread);
+        if (confirmed) await housekeeping.delete(_thread);
     }
   }
 
@@ -83,7 +89,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
     return NamedPopupMenuButton<ThreadAction>(
-      menuKey: _menu,
+      controller: _menu,
       label: 'Chat actions for ${_thread.title}',
       tooltip: 'Chat actions',
       icon: Icons.more_horiz,
@@ -167,48 +173,24 @@ class _RenameDialogState extends State<_RenameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return AppAlertDialog(
       title: const Text('Rename chat'),
-      content: TextField(
+      content: AppDialogTextField(
         controller: _controller,
-        autofocus: true,
         onSubmitted: (_) => _save(),
       ),
       actions: [
-        TextButton(
+        AppDialogAction(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         ListenableBuilder(
           listenable: _controller,
-          builder: (context, _) => FilledButton(
+          builder: (context, _) => AppDialogAction(
+            isDefault: true,
             onPressed: _controller.text.trim().isEmpty ? null : _save,
             child: const Text('Save'),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DeleteDialog extends StatelessWidget {
-  const _DeleteDialog({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Delete this chat?'),
-      content: Text('"$title" and its messages will be deleted for good.'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Delete'),
         ),
       ],
     );

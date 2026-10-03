@@ -85,7 +85,7 @@ class _BotsScreenState extends State<BotsScreen> {
 
   Widget _body() {
     if (_loading && _bots == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     final bots = _bots;
     if (_failed || bots == null) {

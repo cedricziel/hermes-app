@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -248,7 +249,7 @@ class _SkillsScreenState extends State<SkillsScreen>
   Widget _body() {
     switch (_controller.status) {
       case SkillsStatus.loading:
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       case SkillsStatus.unsupported:
         return const StateMessage(
           title: 'The connected Hermes does not support skills.',
@@ -378,7 +379,7 @@ class _ProfileChip extends StatelessWidget {
         child: Tooltip(
           message: 'Profile',
           excludeFromSemantics: true,
-          child: PopupMenuButton<String>(
+          child: AdaptivePopupMenuButton<String>(
             tooltip: '',
             onSelected: onSelected,
             itemBuilder: (_) => [

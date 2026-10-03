@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
-/// An icon [PopupMenuButton] whose [label] is its accessible name and its
+/// An icon [AdaptivePopupMenuButton] whose [label] is its accessible name and its
 /// tooltip, for the same reason as `NamedIconButton`.
 class NamedPopupMenuButton<T> extends StatelessWidget {
   const NamedPopupMenuButton({
     super.key,
-    this.menuKey,
+    this.controller,
     required this.label,
     this.tooltip,
     required this.icon,
@@ -17,8 +18,8 @@ class NamedPopupMenuButton<T> extends StatelessWidget {
     this.style,
   });
 
-  /// The key of the menu itself, to open it from outside.
-  final GlobalKey<PopupMenuButtonState<T>>? menuKey;
+  /// Opens the menu from outside.
+  final AdaptiveMenuController? controller;
   final String label;
 
   /// A shorter hover text than [label], which screen readers never get.
@@ -35,8 +36,8 @@ class NamedPopupMenuButton<T> extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
     message: tooltip ?? label,
     excludeFromSemantics: true,
-    child: PopupMenuButton<T>(
-      key: menuKey,
+    child: AdaptivePopupMenuButton<T>(
+      controller: controller,
       // An empty tooltip adds no semantics; the name comes from the icon.
       tooltip: '',
       icon: Icon(icon, color: color, semanticLabel: label),

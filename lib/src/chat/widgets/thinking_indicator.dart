@@ -52,7 +52,10 @@ class _ThinkingIndicatorState extends State<ThinkingIndicator> {
         SizedBox(
           width: 12,
           height: 12,
-          child: CircularProgressIndicator(strokeWidth: 2, color: color),
+          child: CircularProgressIndicator.adaptive(
+            strokeWidth: 2,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
         ),
         const SizedBox(width: 8),
         Text(

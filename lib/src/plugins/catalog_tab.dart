@@ -161,7 +161,7 @@ class _CatalogTabState extends State<CatalogTab>
 
   Widget _body(bool wide) {
     if (_controller.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     switch (_controller.failure) {
       case PluginsFailure.unsupported:
@@ -299,7 +299,7 @@ class _CatalogRow extends StatelessWidget {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                     )
                   : const Text('Install'),
             ),
@@ -348,7 +348,7 @@ class _InstallActionsState extends State<InstallActions> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('Install'),
         ),

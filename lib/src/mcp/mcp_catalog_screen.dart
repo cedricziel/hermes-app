@@ -127,7 +127,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
 
   Widget _body() {
     if (_catalog.loading && _catalog.entries == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (_catalog.failed || _catalog.entries == null) {
       return Center(

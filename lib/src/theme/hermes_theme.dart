@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import 'platform_chrome.dart';
 
 /// The neutral, high-contrast palette behind the chat UI's look and feel —
 /// modeled on assistant-ui's default (itself shadcn/ui's "neutral" theme):
@@ -25,7 +28,12 @@ class HermesColors {
 /// "rounded-xl" everywhere rather than mixing radii.
 const double kHermesRadius = 14;
 
-ThemeData buildHermesLightTheme() {
+/// A push button's height on macOS, tighter than a touch target.
+const double _kMacButtonHeight = 28;
+
+/// [platform] defaults to the running platform; tests pass one to build the
+/// Apple or Material variant.
+ThemeData buildHermesLightTheme({TargetPlatform? platform}) {
   const c = HermesColors.zinc900;
   final scheme = const ColorScheme.light(
     brightness: Brightness.light,
@@ -48,10 +56,11 @@ ThemeData buildHermesLightTheme() {
     subtleText: HermesColors.zinc500,
     success: const Color(0xFF16A34A),
     warning: const Color(0xFFB45309),
+    platform: platform,
   );
 }
 
-ThemeData buildHermesDarkTheme() {
+ThemeData buildHermesDarkTheme({TargetPlatform? platform}) {
   final scheme = const ColorScheme.dark(
     brightness: Brightness.dark,
     primary: HermesColors.zinc50,
@@ -73,6 +82,7 @@ ThemeData buildHermesDarkTheme() {
     subtleText: HermesColors.zinc400,
     success: const Color(0xFF4ADE80),
     warning: const Color(0xFFFBBF24),
+    platform: platform,
   );
 }
 
@@ -83,10 +93,34 @@ ThemeData _buildTheme({
   required Color subtleText,
   required Color success,
   required Color warning,
+  TargetPlatform? platform,
 }) {
-  final base = ThemeData(colorScheme: scheme, useMaterial3: true);
+  final target = platform ?? defaultTargetPlatform;
+  final isIos = target == TargetPlatform.iOS;
+  final isMac = target == TargetPlatform.macOS;
+  final apple = isIos || isMac;
+  final base = ThemeData(
+    colorScheme: scheme,
+    useMaterial3: true,
+    platform: target,
+  );
+  final appleButtonSize = apple
+      ? Size(0, isIos ? kAppleMinTapTarget : _kMacButtonHeight)
+      : null;
+  final macMenuText = isMac
+      ? base.textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurface,
+          fontSize: 13,
+        )
+      : null;
+  final fieldRadius = BorderRadius.circular(10);
+  final appleFieldBorder = OutlineInputBorder(
+    borderRadius: fieldRadius,
+    borderSide: BorderSide.none,
+  );
   return base.copyWith(
     scaffoldBackgroundColor: scaffoldBackground,
+    splashFactory: apple ? NoSplash.splashFactory : null,
     adaptations: [_AppleSwitchAdaptation(scheme)],
     extensions: [
       HermesChatColors(
@@ -126,26 +160,33 @@ ThemeData _buildTheme({
     // field that wants none sets its own `border`; it still shows the focus
     // outline. The chat composer's field turns all of its borders off.
     inputDecorationTheme: InputDecorationTheme(
-      filled: false,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: scheme.outline),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: scheme.onSurface, width: 1.5),
-      ),
+      filled: apple,
+      fillColor: apple ? scheme.surfaceContainerHighest : null,
+      border: apple
+          ? appleFieldBorder
+          : OutlineInputBorder(
+              borderRadius: fieldRadius,
+              borderSide: BorderSide(color: scheme.outline),
+            ),
+      focusedBorder: isIos
+          ? appleFieldBorder
+          : OutlineInputBorder(
+              borderRadius: fieldRadius,
+              borderSide: BorderSide(color: scheme.onSurface, width: 1.5),
+            ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       hintStyle: TextStyle(color: subtleText),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
+        minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        minimumSize: appleButtonSize,
         backgroundColor: scheme.primary,
         foregroundColor: scheme.onPrimary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -153,6 +194,7 @@ ThemeData _buildTheme({
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
+        minimumSize: appleButtonSize,
         foregroundColor: scheme.onSurface,
         side: BorderSide(color: scheme.outline),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -164,8 +206,13 @@ ThemeData _buildTheme({
     popupMenuTheme: PopupMenuThemeData(
       color: scheme.surface,
       surfaceTintColor: Colors.transparent,
+      menuPadding: isMac ? const EdgeInsets.symmetric(vertical: 4) : null,
+      textStyle: macMenuText,
+      labelTextStyle: macMenuText == null
+          ? null
+          : WidgetStatePropertyAll(macMenuText),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(isMac ? 6 : 10),
         side: BorderSide(color: scheme.outline),
       ),
     ),
