@@ -108,6 +108,47 @@ class HermesChatRepository {
     }
   }
 
+  /// The chats of [profile] whose id or messages match [query], best first.
+  /// A blank query finds nothing and sends nothing.
+  Future<List<ThreadSearchHit>> searchThreads(
+    String query, {
+    String? profile,
+    int limit = 20,
+  }) async {
+    if (query.trim().isEmpty) return const [];
+    final response = await _api.searchSessionsApiSessionsSearchGet(
+      q: query,
+      limit: limit,
+      profile: profile,
+    );
+    return [for (final row in _rows(response.data, 'results')) ?_hit(row)];
+  }
+
+  static ThreadSearchHit? _hit(Map<String, dynamic> row) {
+    final id = switch (row) {
+      {'id': final String id} when id.isNotEmpty => id,
+      {'session_id': final String id} when id.isNotEmpty => id,
+      _ => null,
+    };
+    if (id == null) return null;
+    return ThreadSearchHit(
+      id: id,
+      title: _title(row),
+      snippet: _snippet(row['snippet']),
+      updatedAt: _time(row['last_active'] ?? row['session_started']),
+    );
+  }
+
+  /// FTS5 wraps each match in `>>>` and `<<<`.
+  static List<SnippetPart> _snippet(Object? raw) {
+    if (raw is! String) return const [];
+    final parts = <SnippetPart>[];
+    for (final (i, piece) in raw.split(RegExp('>>>|<<<')).indexed) {
+      if (piece.isNotEmpty) parts.add((text: piece, match: i.isOdd));
+    }
+    return parts;
+  }
+
   /// What the dashboard's speech-to-text heard in [audio], empty when it
   /// heard no speech.
   Future<String> transcribe(

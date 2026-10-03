@@ -131,6 +131,26 @@ void main() {
     );
   }, skip: skip);
 
+  test('a session is found by its id through the search', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+    final id = threads.first.id;
+
+    final response = await client.raw.searchSessionsApiSessionsSearchGet(q: id);
+    final hits = await repository.searchThreads(id);
+
+    expect(
+      response.data,
+      isA<Map>().having((b) => b['results'], 'results', isA<List>()),
+    );
+    final rows = (response.data! as Map)['results'] as List;
+    expect(rows, everyElement(containsPair('session_id', isA<String>())));
+    expect(hits, isNotEmpty);
+    expect(hits.length, rows.length);
+    expect(hits.every((h) => h.id.isNotEmpty && h.title.isNotEmpty), isTrue);
+  }, skip: skip);
+
   test(
     'the active profile reports both the CLI default and the scope',
     () async {

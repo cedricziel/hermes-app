@@ -425,3 +425,21 @@ class ChatThread {
   /// the user's answer counts, since its turn has not ended.
   bool get isReplying => messages.any((m) => m.isPending);
 }
+
+/// A stretch of a search hit's text, [match] when the search found it.
+typedef SnippetPart = ({String text, bool match});
+
+/// A chat the session search found, with the text that matched.
+class ThreadSearchHit {
+  const ThreadSearchHit({
+    required this.id,
+    required this.title,
+    required this.snippet,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String title;
+  final List<SnippetPart> snippet;
+  final DateTime updatedAt;
+}
