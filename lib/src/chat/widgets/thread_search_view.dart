@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
 import '../thread_search.dart';
 import 'relative_time.dart';
@@ -53,11 +54,11 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
         prefixIconConstraints: const BoxConstraints(minWidth: 36),
         suffixIcon: widget.query.isEmpty
             ? null
-            : IconButton(
-                tooltip: 'Clear search',
+            : NamedIconButton(
+                label: 'Clear search',
                 iconSize: 16,
                 visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.close),
+                icon: Icons.close,
                 onPressed: () => widget.onChanged(''),
               ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

@@ -4,6 +4,7 @@ import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
 
@@ -100,5 +101,17 @@ void main() {
     await type(tester, 'zebra');
 
     expect(find.text('No chats match "zebra".'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get Clear search by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpChatScreen(tester, server: server);
+    await type(tester, 'backup');
+
+    expect(
+      tester.getSemantics(inSidebar(find.byIcon(Icons.close))),
+      namedButton('Clear search'),
+    );
+    handle.dispose();
   });
 }
