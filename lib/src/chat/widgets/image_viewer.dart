@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/named_icon_button.dart';
+
 /// An image full screen, which can be zoomed and moved, closed and, when
 /// [onSave] is given, saved. [onSave] answers whether the user saved it.
 class ImageViewerPage extends StatelessWidget {
@@ -22,17 +24,17 @@ class ImageViewerPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          tooltip: 'Close',
-          icon: const Icon(Icons.close),
+        leading: NamedIconButton(
+          label: 'Close',
+          icon: Icons.close,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(name, overflow: TextOverflow.ellipsis),
         actions: [
           if (onSave != null)
-            IconButton(
-              tooltip: 'Save',
-              icon: const Icon(Icons.download_outlined),
+            NamedIconButton(
+              label: 'Save',
+              icon: Icons.download_outlined,
               onPressed: () async {
                 if (await onSave!()) {
                   messenger.showSnackBar(

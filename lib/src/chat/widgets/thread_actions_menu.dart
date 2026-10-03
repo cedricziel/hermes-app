@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_popup_menu_button.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 
@@ -81,10 +82,12 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
   Widget build(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
     final housekeeping = widget.housekeeping;
-    return PopupMenuButton<ThreadAction>(
-      key: _menu,
+    return NamedPopupMenuButton<ThreadAction>(
+      menuKey: _menu,
+      label: 'Chat actions for ${_thread.title}',
       tooltip: 'Chat actions',
-      icon: Icon(Icons.more_horiz, color: subtle),
+      icon: Icons.more_horiz,
+      color: subtle,
       onSelected: _run,
       iconSize: widget.dense ? 16 : 24,
       padding: widget.dense ? EdgeInsets.zero : const EdgeInsets.all(8),

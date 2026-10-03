@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../chat/widgets/relative_time.dart';
+import '../../../widgets/disclosure_tile.dart';
 import '../../kanban_models.dart';
 
 /// The task's worker runs, newest first, with its log, and its history.
@@ -27,8 +28,9 @@ class KanbanTaskRuns extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (runs.isNotEmpty)
-        _Disclosure(
-          title: 'Runs (${runs.length})',
+        DisclosureTile(
+          tilePadding: EdgeInsets.zero,
+          title: Text('Runs (${runs.length})'),
           children: [
             for (final r in runs.reversed)
               ListTile(
@@ -56,8 +58,9 @@ class KanbanTaskRuns extends StatelessWidget {
           ],
         ),
       if (events.isNotEmpty)
-        _Disclosure(
-          title: 'History',
+        DisclosureTile(
+          tilePadding: EdgeInsets.zero,
+          title: const Text('History'),
           children: [
             for (final e in events.reversed)
               ListTile(
@@ -71,29 +74,5 @@ class KanbanTaskRuns extends StatelessWidget {
           ],
         ),
     ],
-  );
-}
-
-/// An [ExpansionTile] whose header screen readers announce as a button that
-/// is open or closed; the tile itself only gives a hint, which macOS drops.
-class _Disclosure extends StatefulWidget {
-  const _Disclosure({required this.title, required this.children});
-
-  final String title;
-  final List<Widget> children;
-
-  @override
-  State<_Disclosure> createState() => _DisclosureState();
-}
-
-class _DisclosureState extends State<_Disclosure> {
-  var _open = false;
-
-  @override
-  Widget build(BuildContext context) => ExpansionTile(
-    tilePadding: EdgeInsets.zero,
-    onExpansionChanged: (open) => setState(() => _open = open),
-    title: Semantics(button: true, expanded: _open, child: Text(widget.title)),
-    children: widget.children,
   );
 }

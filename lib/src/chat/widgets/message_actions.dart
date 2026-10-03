@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/named_icon_button.dart';
 
 /// The small row of actions under a finished reply — assistant-ui's action
 /// bar. Copy takes the reply's text; retry, when given, asks again. A reply
@@ -54,10 +55,12 @@ class _MessageActionsState extends State<MessageActions> {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
-    Widget action(String tooltip, IconData icon, VoidCallback onPressed) =>
-        IconButton(
-          tooltip: tooltip,
-          icon: Icon(icon, size: 16, color: color),
+    Widget action(String label, IconData icon, VoidCallback onPressed) =>
+        NamedIconButton(
+          label: label,
+          icon: icon,
+          iconSize: 16,
+          color: color,
           onPressed: onPressed,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints.tightFor(width: 32, height: 32),

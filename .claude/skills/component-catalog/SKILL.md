@@ -84,11 +84,16 @@ only; a `tooltip` or `hint` never reaches VoiceOver there, and iOS reads a
 label and a tooltip one after the other. So:
 
 - An icon-only button is a `NamedIconButton` (`lib/src/widgets/`), not an
-  `IconButton(tooltip:)`.
+  `IconButton(tooltip:)`, and an icon-only menu is a `NamedPopupMenuButton`.
+- A `PopupMenuButton` with a custom `child` gets `tooltip: ''` and
+  `MergeSemantics(Semantics(button: true, …))` (see `AccountFooter`).
+- A collapsible section is a `DisclosureTile`, not an `ExpansionTile`: its
+  header is a button that says whether it is open.
 - A tappable row built from `InkWell` gets `Semantics(button: true)`, plus
   `expanded:` when it opens a section (see `SidebarAction`).
 - A `Switch` or other control without visible text next to it in the same
   node gets `MergeSemantics(Semantics(label: …))`.
 - Guard it with `isSemantics(...)` and
   `meetsGuideline(labeledTapTargetGuideline)`, as in
-  `test/accessibility_semantics_test.dart`.
+  `test/accessibility_semantics_test.dart`; `test/support/accessibility.dart`
+  has `namedButton` and `disclosure` matchers.
