@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -89,5 +90,29 @@ void main() {
           .height,
       kMinInteractiveDimension,
     );
+  });
+
+  testWidgets('a right-click on a row opens its menu on macOS', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: ContextMenuRow(
+            builder: (context, menu) => ListTile(
+              title: const Text('Board'),
+              trailing: AdaptivePopupMenuButton<String>(
+                controller: menu,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Rename')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Board'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Rename'), findsOneWidget);
   });
 }

@@ -196,3 +196,26 @@ class _AdaptivePopupMenuButtonState<T>
     );
   }
 }
+
+/// A row whose menu also opens on a right-click, as on a Mac. [builder]
+/// puts the controller on the row's [AdaptivePopupMenuButton].
+class ContextMenuRow extends StatefulWidget {
+  const ContextMenuRow({super.key, required this.builder});
+
+  final Widget Function(BuildContext context, AdaptiveMenuController menu)
+  builder;
+
+  @override
+  State<ContextMenuRow> createState() => _ContextMenuRowState();
+}
+
+class _ContextMenuRowState extends State<ContextMenuRow> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.translucent,
+    onSecondaryTapUp: (_) => _menu.open(),
+    child: widget.builder(context, _menu),
+  );
+}

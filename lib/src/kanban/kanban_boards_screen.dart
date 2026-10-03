@@ -190,36 +190,47 @@ class KanbanBoardsScreen extends StatelessWidget {
         body: ListView(
           children: [
             for (final b in controller.boards)
-              ListTile(
-                leading: Icon(
-                  b.slug == controller.boardSlug
-                      ? Icons.check_circle
-                      : Icons.circle_outlined,
-                ),
-                title: Text(b.name),
-                subtitle: Text('${b.slug} · ${b.total} tasks'),
-                onTap: () {
-                  controller.selectBoard(b.slug);
-                  Navigator.pop(context);
-                },
-                trailing: AdaptivePopupMenuButton<String>(
-                  onSelected: (action) => switch (action) {
-                    'rename' => _rename(context, b.slug, b.name),
-                    'export' => _export(context, b.slug, b.name),
-                    'archive' => _remove(context, b.slug, b.name, hard: false),
-                    _ => _remove(context, b.slug, b.name, hard: true),
+              ContextMenuRow(
+                builder: (context, menu) => ListTile(
+                  leading: Icon(
+                    b.slug == controller.boardSlug
+                        ? Icons.check_circle
+                        : Icons.circle_outlined,
+                  ),
+                  title: Text(b.name),
+                  subtitle: Text('${b.slug} · ${b.total} tasks'),
+                  onTap: () {
+                    controller.selectBoard(b.slug);
+                    Navigator.pop(context);
                   },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                    const PopupMenuItem(
-                      value: 'export',
-                      child: Text('Export…'),
-                    ),
-                    if (controller.boards.length > 1) ...const [
-                      PopupMenuItem(value: 'archive', child: Text('Archive')),
-                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  trailing: AdaptivePopupMenuButton<String>(
+                    controller: menu,
+                    onSelected: (action) => switch (action) {
+                      'rename' => _rename(context, b.slug, b.name),
+                      'export' => _export(context, b.slug, b.name),
+                      'archive' => _remove(
+                        context,
+                        b.slug,
+                        b.name,
+                        hard: false,
+                      ),
+                      _ => _remove(context, b.slug, b.name, hard: true),
+                    },
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Rename'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'export',
+                        child: Text('Export…'),
+                      ),
+                      if (controller.boards.length > 1) ...const [
+                        PopupMenuItem(value: 'archive', child: Text('Archive')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
           ],
