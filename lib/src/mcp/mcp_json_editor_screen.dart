@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:flutter/material.dart';
@@ -247,7 +248,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
         children: [
           const McpBanner(
             tone: McpTone.warning,
-            icon: Icons.warning_amber_outlined,
+            icon: AppIcons.warning,
             title: 'Replaces all servers of this profile.',
             detail:
                 'Anything you remove here is deleted, not just switched off. '

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -228,7 +229,7 @@ class _CatalogList extends StatelessWidget {
             controller: search,
             onChanged: catalog.search,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const AppIcon(AppIcons.search),
               hintText: 'Search ${mcpPlural(total, 'server')}',
               border: const OutlineInputBorder(),
               isDense: true,

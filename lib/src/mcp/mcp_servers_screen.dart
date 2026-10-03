@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/widgets/state_message.dart';
@@ -141,13 +142,13 @@ class _McpServersScreenState extends State<McpServersScreen> {
                         builder: (context, menu, _) => TextButton.icon(
                           onPressed: () =>
                               menu.isOpen ? menu.close() : menu.open(),
-                          icon: const Icon(Icons.add),
+                          icon: const AppIcon(AppIcons.add),
                           label: const Text('Add'),
                         ),
                       ),
                       NamedPopupMenuButton<void>(
                         label: 'More',
-                        icon: Icons.adaptive.more,
+                        icon: AppIcons.moreVertical,
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             onTap: _openJsonEditor,
@@ -297,7 +298,7 @@ class _ServerList extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline, size: 16),
+              const AppIcon(AppIcons.info, size: 16),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -317,7 +318,7 @@ class _ServerList extends StatelessWidget {
               if (!controller.isSwitching(server.name))
                 RowAction(
                   label: server.enabled ? 'Turn off' : 'Turn on',
-                  icon: server.enabled ? Icons.toggle_off : Icons.toggle_on,
+                  icon: server.enabled ? AppIcons.toggleOff : AppIcons.toggleOn,
                   onPressed: () => switchMcpServer(
                     context,
                     controller,
@@ -327,7 +328,7 @@ class _ServerList extends StatelessWidget {
                 ),
               RowAction(
                 label: 'Remove',
-                icon: Icons.delete_outline,
+                icon: AppIcons.delete,
                 destructive: true,
                 onPressed: () => removeMcpServer(context, controller, server),
               ),
