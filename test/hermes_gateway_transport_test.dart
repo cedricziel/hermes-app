@@ -3,12 +3,14 @@ import 'dart:convert';
 import 'dart:io' show FileSystemException;
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show AttachmentKind, UnsupportedKind;
+    show ApprovalRequest, AttachmentKind, UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
+import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -1238,10 +1240,15 @@ void main() {
   });
 
   group('server-to-client requests', () {
+    // As tui_gateway's `_approval_request_payload` sends it.
     const approvalParams = {
       'request_id': 'q1',
       'command': 'rm -rf build',
       'description': 'delete files',
+      'pattern_key': 'recursive delete',
+      'pattern_keys': ['recursive delete'],
+      'allow_permanent': false,
+      'allow_session': true,
       'choices': ['once', 'session', 'deny'],
     };
 
@@ -1335,6 +1342,57 @@ void main() {
         },
       ]);
       expect(gateway.methods, isNot(contains('approval.respond')));
+    });
+
+    // The socket's listeners belong to the zone they were made in, so the
+    // gateway and transport are built outside the widget test's fake clock.
+    testWidgets('an approval without choices gets a card whose Allow once '
+        'reaches the gateway', (tester) async {
+      final params = {...approvalParams}..remove('choices');
+      late FakeGateway gateway;
+      late HermesGatewayTransport transport;
+      final request = (await tester.runAsync(() {
+        gateway = FakeGateway()
+          ..turn = (g, sid) =>
+              g.serverRequest('srq-1', 'approval', sid, params);
+        transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        final raised = Completer<ApprovalRequest>();
+        transport.send(text: 'hi').listen((e) {
+          if (e is ApprovalRequested) raised.complete(e.request);
+        }, onError: (_) {});
+        return raised.future;
+      }))!;
+      addTearDown(transport.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ApprovalCard(
+              request: request,
+              onAnswer: (choice) async {
+                if (!await transport.answerApproval(
+                  request.requestId,
+                  choice,
+                )) {
+                  throw StateError('not accepted');
+                }
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Allow once'));
+      await tester.runAsync(pumpEventQueue);
+
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-1',
+          'result': {'choice': 'once'},
+        },
+      ]);
     });
 
     test('a single clarify question becomes a one-question request', () async {
