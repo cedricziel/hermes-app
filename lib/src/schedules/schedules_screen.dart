@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_add_action.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'blueprint_screens.dart';
@@ -115,6 +119,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
               selectedKey: wide ? shown?.key : null,
               onSelect: wide ? _controller.select : _openNarrow,
             );
+            final add = AdaptiveAddAction(
+              label: 'New',
+              toolbarLabel: 'New scheduled task',
+              onPressed: () => _new(wide: wide),
+            );
             return Scaffold(
               appBar: AppBar(
                 leading: ShellMenu.button(context),
@@ -125,13 +134,10 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                     icon: Icons.refresh,
                     onPressed: _controller.refresh,
                   ),
+                  ?add.toolbarButton(context),
                 ],
               ),
-              floatingActionButton: FloatingActionButton.extended(
-                onPressed: () => _new(wide: wide),
-                icon: const Icon(Icons.add),
-                label: const Text('New'),
-              ),
+              floatingActionButton: add.floatingButton(context),
               body: wide
                   ? Row(
                       children: [
@@ -183,7 +189,11 @@ class _PushedDetail extends StatelessWidget {
           return const Scaffold(body: SizedBox.shrink());
         }
         return Scaffold(
-          appBar: AppBar(title: Text(job.title)),
+          appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Schedules'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
+            title: Text(job.title),
+          ),
           body: ScheduleDetail(
             controller: controller,
             job: job,

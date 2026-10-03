@@ -1,6 +1,7 @@
 import 'package:widgetbook/widgetbook.dart';
 
 import 'adaptive_use_cases.dart';
+import 'adaptive_chrome_use_cases.dart';
 import 'app_use_cases.dart';
 import 'chat_thread_use_cases.dart';
 import 'chat_use_cases.dart';
@@ -21,6 +22,7 @@ import 'schedules_use_cases.dart';
 final List<WidgetbookNode> directories = [
   paletteNode(),
   stateMessageNode(),
+  adaptiveChromeNode(),
   appNode(),
   adaptiveNode(),
   dialogsNode(),

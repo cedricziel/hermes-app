@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -195,7 +197,11 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     return PopScope(
       canPop: !_starting,
       child: Scaffold(
-        appBar: AppBar(title: Text('Sign in to $name')),
+        appBar: AppBar(
+          leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+          leadingWidth: adaptiveBackLeadingWidth(context),
+          title: Text('Sign in to $name'),
+        ),
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
@@ -341,7 +342,11 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
       builder: (context, _) {
         final blueprint = _form.blueprint;
         return Scaffold(
-          appBar: AppBar(title: Text(blueprint.title)),
+          appBar: AppBar(
+            leading: const AdaptiveBackButton(),
+            leadingWidth: adaptiveBackLeadingWidth(context),
+            title: Text(blueprint.title),
+          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [

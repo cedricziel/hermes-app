@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,7 +166,11 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Set up with Telegram')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('Set up with Telegram'),
+      ),
       body: ContentColumn(
         child: ListView(
           padding: const EdgeInsets.all(16),

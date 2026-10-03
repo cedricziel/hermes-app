@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import '../widgets/content_column.dart';
 import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
@@ -96,7 +97,11 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
     final basic = vars.where((v) => !v.advanced);
     final advanced = vars.where((v) => v.advanced).toList();
     return Scaffold(
-      appBar: AppBar(title: Text('Set up ${widget.bot.name}')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: Text('Set up ${widget.bot.name}'),
+      ),
       body: ContentColumn(
         child: vars.isEmpty
             ? const Center(child: Text('Nothing to set up for this bot.'))

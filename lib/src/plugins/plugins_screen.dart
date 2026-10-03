@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+import '../widgets/adaptive_tab_bar.dart';
+
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -64,13 +68,11 @@ class _PluginsScreenState extends State<PluginsScreen> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
+          leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+          leadingWidth: adaptiveBackLeadingWidth(context),
           title: const Text('Plugins'),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Installed'),
-              Tab(text: 'Catalog'),
-              Tab(text: 'Providers'),
-            ],
+          bottom: const AdaptiveTabBar(
+            labels: ['Installed', 'Catalog', 'Providers'],
           ),
         ),
         body: TabBarView(

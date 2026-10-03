@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+
+import '../widgets/adaptive_add_action.dart';
+import '../widgets/adaptive_back_button.dart';
+import '../widgets/adaptive_tab_bar.dart';
+
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -191,31 +196,27 @@ class _SkillsScreenState extends State<SkillsScreen>
             child: _body(),
           ),
         );
+        final add = AdaptiveAddAction(label: 'New skill', onPressed: _create);
+        final canAdd =
+            _controller.status == SkillsStatus.ready && _tabs.index == 0;
         return Scaffold(
           appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
             title: const Text('Skills'),
             actions: [
               _ProfileChip(controller: _controller, onSelected: _selectProfile),
+              if (canAdd) ?add.toolbarButton(context),
               const SizedBox(width: 12),
             ],
             bottom: hub == null
                 ? null
-                : TabBar(
+                : AdaptiveTabBar(
                     controller: _tabs,
-                    tabs: const [
-                      Tab(text: 'Installed'),
-                      Tab(text: 'Discover'),
-                    ],
+                    labels: const ['Installed', 'Discover'],
                   ),
           ),
-          floatingActionButton:
-              _controller.status == SkillsStatus.ready && _tabs.index == 0
-              ? FloatingActionButton.extended(
-                  onPressed: _create,
-                  icon: const Icon(Icons.add),
-                  label: const Text('New skill'),
-                )
-              : null,
+          floatingActionButton: canAdd ? add.floatingButton(context) : null,
           body: hub == null
               ? installed
               : Column(

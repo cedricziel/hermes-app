@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_presentation.dart';
@@ -364,7 +365,11 @@ class McpServerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('MCP servers')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('MCP servers'),
+      ),
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
