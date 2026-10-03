@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'blueprint_screens.dart';
@@ -183,7 +186,11 @@ class _PushedDetail extends StatelessWidget {
           return const Scaffold(body: SizedBox.shrink());
         }
         return Scaffold(
-          appBar: AppBar(title: Text(job.title)),
+          appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Schedules'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
+            title: Text(job.title),
+          ),
           body: ScheduleDetail(
             controller: controller,
             job: job,

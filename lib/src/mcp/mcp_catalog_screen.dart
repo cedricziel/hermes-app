@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'hermes_mcp_repository.dart';
@@ -103,6 +106,8 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
         title: ListenableBuilder(
           listenable: widget.servers,
           builder: (context, _) => Column(

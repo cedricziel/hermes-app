@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
@@ -193,6 +195,8 @@ class _SkillsScreenState extends State<SkillsScreen>
         );
         return Scaffold(
           appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
             title: const Text('Skills'),
             actions: [
               _ProfileChip(controller: _controller, onSelected: _selectProfile),

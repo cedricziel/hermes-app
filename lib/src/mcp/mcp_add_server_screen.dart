@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
@@ -200,6 +201,8 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
     final profile = widget.servers.profile;
     return Scaffold(
       appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

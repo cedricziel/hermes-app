@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -184,6 +186,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+          leadingWidth: adaptiveBackLeadingWidth(context),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

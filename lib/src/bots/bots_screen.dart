@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import '../api/hermes_repositories.dart';
 
 import '../widgets/content_column.dart';
@@ -78,7 +79,11 @@ class _BotsScreenState extends State<BotsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Bots')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('Bots'),
+      ),
       body: ContentColumn(child: _body()),
     );
   }

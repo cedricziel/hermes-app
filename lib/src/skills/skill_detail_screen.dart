@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -119,7 +122,11 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
       builder: (context, _) {
         final skill = widget.controller.skill(widget.name);
         return Scaffold(
-          appBar: AppBar(title: Text(widget.name)),
+          appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Skills'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
+            title: Text(widget.name),
+          ),
           body: skill == null
               ? const Center(child: Text('This skill no longer exists.'))
               : ListView(

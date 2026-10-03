@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../widgets/adaptive_back_button.dart';
 import '../models/auxiliary_models.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
@@ -161,7 +162,11 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
   Widget build(BuildContext context) {
     final models = _models;
     return Scaffold(
-      appBar: AppBar(title: const Text('Helper models')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('Helper models'),
+      ),
       body: ContentColumn(
         child: _failed
             ? StateMessage(

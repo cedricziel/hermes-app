@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
@@ -112,6 +115,8 @@ class _McpServersScreenState extends State<McpServersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
         actions: [
           ListenableBuilder(
             listenable: _controller,
