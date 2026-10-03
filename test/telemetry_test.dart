@@ -8,6 +8,7 @@ import 'package:hermes_app/src/telemetry/telemetry_config.dart';
 
 class _RecordingExporter implements LogRecordExporter {
   final records = <LogRecord>[];
+  OTelResource? resource;
 
   @override
   Future<ExportResult> export(
@@ -15,6 +16,7 @@ class _RecordingExporter implements LogRecordExporter {
     OTelResource resource,
   ) async {
     this.records.addAll(records);
+    this.resource = resource;
     return const ExportResult.success();
   }
 
@@ -138,6 +140,18 @@ void main() {
     tearDown(() {
       FlutterError.onError = previousFlutterHandler;
       PlatformDispatcher.instance.onError = previousPlatformHandler;
+    });
+
+    test('puts the app in the hermes-app service namespace', () async {
+      final exporter = _RecordingExporter();
+      final telemetry = await Telemetry.initialize(
+        config(),
+        logExporter: exporter,
+      );
+      telemetry.events()('auth.signed_in');
+      await telemetry.flush();
+
+      expect(exporter.resource?.attributes['service.namespace'], 'hermes-app');
     });
 
     test(

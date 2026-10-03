@@ -82,6 +82,15 @@ class KanbanEventsTracer extends MessagingConnectionTracer {
       );
 }
 
+/// Traces and logs every request to the Hermes backend on [tracer] and
+/// [logger].
+Interceptor httpInterceptor(Logger logger, Tracer? tracer) =>
+    DioOTelInterceptor.privacy(
+      logger,
+      tracer: tracer,
+      attributes: const {'peer.service': 'hermes-agent'},
+    );
+
 class Telemetry {
   Telemetry._(this._sdk);
 
@@ -112,7 +121,10 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
-          attributes: await detectDeviceAttributes(),
+          attributes: {
+            'service.namespace': 'hermes-app',
+            ...await detectDeviceAttributes(),
+          },
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
@@ -149,7 +161,7 @@ class Telemetry {
   Interceptor? dioInterceptor() {
     final sdk = _sdk;
     if (sdk == null) return null;
-    return DioOTelInterceptor.privacy(sdk.getLogger(), tracer: sdk.getTracer());
+    return httpInterceptor(sdk.getLogger(), sdk.getTracer());
   }
 
   /// Traces the gateway socket; does nothing when disabled.
