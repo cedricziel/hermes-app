@@ -39,12 +39,14 @@ class KanbanTaskAttachments extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               NamedIconButton(
-                label: 'Save attachment',
+                label: 'Save ${a.filename}',
+                tooltip: 'Save attachment',
                 icon: Icons.download_outlined,
                 onPressed: transferring ? null : () => onDownload(a),
               ),
               NamedIconButton(
-                label: 'Remove attachment',
+                label: 'Remove ${a.filename}',
+                tooltip: 'Remove attachment',
                 icon: Icons.close,
                 onPressed: transferring ? null : () => onRemove(a),
               ),

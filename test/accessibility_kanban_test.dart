@@ -66,26 +66,33 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('an attachment can be saved and removed by name', (tester) async {
+  testWidgets('each attachment can be saved and removed by its name', (
+    tester,
+  ) async {
     final handle = tester.ensureSemantics();
     await _pump(
       tester,
       KanbanTaskAttachments(
-        attachments: const [KanbanAttachment(id: 1, filename: 'notes.txt')],
+        attachments: const [
+          KanbanAttachment(id: 1, filename: 'notes.txt'),
+          KanbanAttachment(id: 2, filename: 'plan.pdf'),
+        ],
         onAttach: () {},
         onDownload: (_) {},
         onRemove: (_) {},
       ),
     );
 
-    expect(
-      tester.getSemantics(find.byIcon(Icons.download_outlined)),
-      namedButton('Save attachment'),
-    );
-    expect(
-      tester.getSemantics(find.byIcon(Icons.close)),
-      namedButton('Remove attachment'),
-    );
+    for (final (i, name) in ['notes.txt', 'plan.pdf'].indexed) {
+      expect(
+        tester.getSemantics(find.byIcon(Icons.download_outlined).at(i)),
+        namedButton('Save $name'),
+      );
+      expect(
+        tester.getSemantics(find.byIcon(Icons.close).at(i)),
+        namedButton('Remove $name'),
+      );
+    }
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
   });
