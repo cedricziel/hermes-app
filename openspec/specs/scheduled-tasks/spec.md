@@ -1,8 +1,11 @@
 # scheduled-tasks Specification
 
 ## Purpose
+
 Describes how the app shows the scheduled tasks (cron jobs) of a Hermes server: when the Schedules destination is offered, how the jobs are listed, filtered and refreshed, what a job's detail shows, how a job is paused, resumed, run once or deleted, how its run history opens as a chat, and which backend routes it relies on.
+
 ## Requirements
+
 ### Requirement: The Schedules destination follows the server's cron routes
 
 The system SHALL offer a Schedules destination only while the server answers `GET /api/cron/delivery-targets` with a success status. Any other outcome (a network error, an error status, a server too old to have the route) SHALL count as off. The check SHALL run when the signed-in home screen is first shown and every time the app returns to the foreground; when several checks overlap, only the answer of the most recently started one SHALL apply. When it turns off while Schedules is selected, the app SHALL return to Chat. The destination SHALL NOT depend on the Kanban plugin.
@@ -223,6 +226,11 @@ The system SHALL list a job's runs newest first from `GET /api/cron/jobs/{id}/ru
 - **WHEN** the job has never run
 - **THEN** the history says there are no runs yet
 
+#### Scenario: Blocked before it ran
+
+- **WHEN** the job has no runs and its last status is `blocked_config` (Hermes refused to start it, which leaves no run behind)
+- **THEN** the history says Hermes blocked the task before it could start and will try again at the next scheduled time, with the reason from the job's last error, without the `[blocked_config]` or `[blocked_config:silent]` marker
+
 ### Requirement: Wide layout
 
 The system SHALL show the list and the selected job's detail side by side when the available width is 900 logical pixels or more, with the first job selected by default, and SHALL show the list alone with the detail pushed on top of it below that.
@@ -260,4 +268,3 @@ The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET 
 
 - **WHEN** `next_run_at` is not a valid time
 - **THEN** the row shows no next run
-

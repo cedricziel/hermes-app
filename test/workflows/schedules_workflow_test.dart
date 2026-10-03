@@ -535,6 +535,36 @@ void main() {
       await open('Check the build and tell me', 'no-name');
     });
 
+    testWidgets('phone: a task Hermes blocked before it ran', (tester) async {
+      cron
+        ..rows.add(
+          cronJobRow(
+            id: 'inbox',
+            name: 'Inbox digest',
+            prompt: 'Summarise the unread mail from today.',
+            lastRunAt: _iso(fixedNow.subtract(const Duration(hours: 3))),
+            lastStatus: 'blocked_config',
+            lastError:
+                "[blocked_config:silent] attached skill 'mail-tools' is not "
+                'ready: missing credential file mail_token.json',
+            nextRunAt: _iso(fixedNow.add(const Duration(hours: 18))),
+            skills: ['mail-tools'],
+          ),
+        )
+        ..serve();
+      final shots = ScreenshotRecorder('schedules-phone-detail-blocked');
+      await pumpSchedules(tester, shots, size: phoneSize);
+
+      await _openTile(tester, 'Inbox digest');
+      await shots.capture(tester, 'blocked');
+      await tester.drag(detailList(), const Offset(0, -3000));
+      await _settle(tester);
+      await shots.capture(tester, 'blocked-run-history');
+
+      expect(find.text('No runs yet'), findsNothing);
+      expect(find.textContaining('blocked this task'), findsOneWidget);
+    });
+
     testWidgets('phone: runs that cannot load, and a task that vanished', (
       tester,
     ) async {

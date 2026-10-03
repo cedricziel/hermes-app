@@ -94,6 +94,35 @@ void main() {
     );
   });
 
+  group('blocked', () {
+    const reason =
+        "attached skill 'google-workspace' is not ready: missing credential";
+
+    test('is true when Hermes refused to start the job', () {
+      final blocked = job(
+        cronJobRow(
+          lastStatus: 'blocked_config',
+          lastError: '[blocked_config:silent] $reason',
+        ),
+      );
+      expect(blocked.isBlocked, isTrue);
+      expect(job(cronJobRow(lastStatus: 'error')).isBlocked, isFalse);
+      expect(job(cronJobRow()).isBlocked, isFalse);
+    });
+
+    test('drops the marker from the reason', () {
+      for (final marker in ['[blocked_config]', '[blocked_config:silent]']) {
+        final blocked = job(
+          cronJobRow(
+            lastStatus: 'blocked_config',
+            lastError: '$marker $reason',
+          ),
+        );
+        expect(blocked.lastError, reason);
+      }
+    });
+  });
+
   group('scheduleWords', () {
     String words(Map<String, Object?> schedule, {String display = ''}) =>
         job(cronJobRow(display: display, schedule: schedule)).scheduleWords;

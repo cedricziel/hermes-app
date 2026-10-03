@@ -279,6 +279,20 @@ final failingJob = CronJob(
   profile: 'work',
 );
 
+final blockedJob = CronJob(
+  id: 'job-5',
+  name: 'Morning inbox digest',
+  scheduleKind: 'cron',
+  scheduleExpr: '0 7 * * *',
+  nextRunAt: _now.add(const Duration(hours: 19)),
+  lastRunAt: _now.subtract(const Duration(hours: 5)),
+  lastStatus: 'blocked_config',
+  lastError:
+      "attached skill 'mail-tools' is not ready: "
+      'missing credential file mail_token.json',
+  skills: ['mail-tools'],
+);
+
 final pausedJob = CronJob(
   id: 'job-3',
   name: 'Weekly digest',
