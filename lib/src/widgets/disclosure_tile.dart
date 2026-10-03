@@ -46,10 +46,18 @@ class DisclosureTile extends StatefulWidget {
 }
 
 class _DisclosureTileState extends State<DisclosureTile> {
-  late var _open = widget.initiallyExpanded;
+  // The tile's own state, which page storage may restore while it builds.
+  final _controller = ExpansibleController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => ExpansionTile(
+    controller: _controller,
     enabled: widget.enabled,
     initiallyExpanded: widget.initiallyExpanded,
     maintainState: widget.maintainState,
@@ -63,9 +71,16 @@ class _DisclosureTileState extends State<DisclosureTile> {
     iconColor: widget.iconColor,
     collapsedIconColor: widget.collapsedIconColor,
     trailing: widget.trailing,
-    onExpansionChanged: (open) => setState(() => _open = open),
     title: widget.enabled
-        ? Semantics(button: true, expanded: _open, child: widget.title)
+        ? ListenableBuilder(
+            listenable: _controller,
+            builder: (context, title) => Semantics(
+              button: true,
+              expanded: _controller.isExpanded,
+              child: title,
+            ),
+            child: widget.title,
+          )
         : widget.title,
     children: widget.children,
   );
