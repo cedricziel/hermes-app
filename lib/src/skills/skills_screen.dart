@@ -371,21 +371,31 @@ class _ProfileChip extends StatelessWidget {
     if (profile == null) return const SizedBox.shrink();
     final others = controller.availableProfiles;
     if (others.isEmpty) return Chip(label: Text(profile));
-    return PopupMenuButton<String>(
-      tooltip: 'Profile',
-      onSelected: onSelected,
-      itemBuilder: (_) => [
-        for (final p in others)
-          CheckedPopupMenuItem(
-            value: p.name,
-            checked: p.name == profile,
-            child: Text(p.label),
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        label: 'Profile',
+        child: Tooltip(
+          message: 'Profile',
+          excludeFromSemantics: true,
+          child: PopupMenuButton<String>(
+            tooltip: '',
+            onSelected: onSelected,
+            itemBuilder: (_) => [
+              for (final p in others)
+                CheckedPopupMenuItem(
+                  value: p.name,
+                  checked: p.name == profile,
+                  child: Text(p.label),
+                ),
+            ],
+            child: Chip(
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [Text(profile), const Icon(Icons.arrow_drop_down)],
+              ),
+            ),
           ),
-      ],
-      child: Chip(
-        label: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [Text(profile), const Icon(Icons.arrow_drop_down)],
         ),
       ),
     );
