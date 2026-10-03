@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'platform_chrome.dart';
+import 'type_scale.dart';
 
 /// The neutral, high-contrast palette behind the chat UI's look and feel —
 /// modeled on assistant-ui's default (itself shadcn/ui's "neutral" theme):
@@ -119,6 +120,7 @@ ThemeData _buildTheme({
     borderSide: BorderSide.none,
   );
   return base.copyWith(
+    textTheme: isIos ? iosTextTheme(base.textTheme) : null,
     scaffoldBackgroundColor: scaffoldBackground,
     splashFactory: apple ? NoSplash.splashFactory : null,
     adaptations: [_AppleSwitchAdaptation(scheme)],
@@ -139,7 +141,7 @@ ThemeData _buildTheme({
       centerTitle: false,
       titleTextStyle: TextStyle(
         color: scheme.onSurface,
-        fontSize: 16,
+        fontSize: isIos ? 17 : 16,
         fontWeight: FontWeight.w600,
       ),
     ),
