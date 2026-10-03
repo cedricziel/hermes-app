@@ -332,41 +332,46 @@ class _ThreadRowState extends State<_ThreadRow> {
         onLongPress: inlineButton ? _openMenu : null,
         onSecondaryTap: inlineButton ? _openMenu : null,
         padding: touch
-            ? const EdgeInsets.symmetric(horizontal: 10, vertical: 9)
+            ? const EdgeInsets.symmetric(horizontal: 10)
             : EdgeInsets.fromLTRB(
                 10,
                 inlineButton ? 2 : 9,
                 inlineButton ? 2 : 10,
                 inlineButton ? 2 : 9,
               ),
-        child: Row(
-          children: [
-            if (_thread.pinned) ...[
-              Icon(Icons.push_pin, size: 12, color: subtle),
-              const SizedBox(width: 4),
-            ],
-            Expanded(
-              child: Text(
-                _thread.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: widget.selected
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  color: scheme.onSurface,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: touch ? kAppleMinTapTarget : 0,
+          ),
+          child: Row(
+            children: [
+              if (_thread.pinned) ...[
+                Icon(Icons.push_pin, size: 12, color: subtle),
+                const SizedBox(width: 4),
+              ],
+              Expanded(
+                child: Text(
+                  _thread.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: widget.selected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
-            ),
-            if (inlineButton)
-              ThreadActionsButton(
-                key: _actions,
-                thread: _thread,
-                housekeeping: housekeeping,
-                dense: true,
-              ),
-          ],
+              if (inlineButton)
+                ThreadActionsButton(
+                  key: _actions,
+                  thread: _thread,
+                  housekeeping: housekeeping,
+                  dense: true,
+                ),
+            ],
+          ),
         ),
       ),
     );
