@@ -1,6 +1,8 @@
+import 'package:flutter/cupertino.dart' show CupertinoButton;
 import 'package:flutter/material.dart';
 
 import '../../models/model_provider_option.dart';
+import '../../theme/platform_chrome.dart';
 import '../kanban_errors.dart';
 import '../kanban_models.dart';
 import '../kanban_repository.dart';
@@ -52,85 +54,107 @@ class KanbanBulkBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final none = selectedCount == 0;
+    final actions = <_BulkAction>[
+      _BulkAction('Move', Icons.drive_file_move_outline, () async {
+        final status = await _pick(context, 'Move to', [
+          for (final s in kanbanSettableStatuses) (kanbanStatusLabel(s), s),
+        ]);
+        if (status != null) onMove(status);
+      }),
+      _BulkAction('Assign', Icons.person_add_alt, () async {
+        final assignee = await _pick(context, 'Assign to', [
+          ('Nobody', ''),
+          for (final n in assignees) (n, n),
+        ]);
+        if (assignee != null) onAssign(assignee);
+      }),
+      _BulkAction('Priority', Icons.flag_outlined, () async {
+        final priority = await _pick(context, 'Priority', [
+          ('Normal', 0),
+          for (final p in [1, 2, 3]) ('P$p', p),
+        ]);
+        if (priority != null) onPriority(priority);
+      }),
+      _BulkAction('Effort', Icons.psychology_outlined, () async {
+        final effort = await _pick(context, 'Reasoning effort', [
+          ('Profile default', ''),
+          for (final e in kReasoningEfforts)
+            if (e != 'none') (effortLabel(e), e),
+        ]);
+        if (effort != null) onEffort(effort);
+      }),
+      _BulkAction('Archive', Icons.archive_outlined, () async {
+        if (await confirmKanban(
+          context,
+          title: 'Archive $selectedCount tasks?',
+          confirm: 'Archive',
+        )) {
+          onArchive();
+        }
+      }),
+    ];
+
+    if (platformChromeOf(context) == PlatformChrome.ios) {
+      final theme = Theme.of(context);
+      return Material(
+        color: theme.colorScheme.surface,
+        shape: Border(top: BorderSide(color: theme.colorScheme.outline)),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: kAppleNavBarHeight,
+            child: Row(
+              children: [
+                for (final action in actions)
+                  Expanded(
+                    child: CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: const Size.square(kAppleMinTapTarget),
+                      onPressed: none ? null : action.onPressed,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(action.icon, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              action.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return BottomAppBar(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
-          Expanded(
-            child: TextButton(
-              onPressed: none
-                  ? null
-                  : () async {
-                      final status = await _pick(context, 'Move to', [
-                        for (final s in kanbanSettableStatuses)
-                          (kanbanStatusLabel(s), s),
-                      ]);
-                      if (status != null) onMove(status);
-                    },
-              child: const Text('Move'),
+          for (final action in actions)
+            Expanded(
+              child: TextButton(
+                onPressed: none ? null : action.onPressed,
+                child: Text(action.label),
+              ),
             ),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: none
-                  ? null
-                  : () async {
-                      final assignee = await _pick(context, 'Assign to', [
-                        ('Nobody', ''),
-                        for (final n in assignees) (n, n),
-                      ]);
-                      if (assignee != null) onAssign(assignee);
-                    },
-              child: const Text('Assign'),
-            ),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: none
-                  ? null
-                  : () async {
-                      final priority = await _pick(context, 'Priority', [
-                        ('Normal', 0),
-                        for (final p in [1, 2, 3]) ('P$p', p),
-                      ]);
-                      if (priority != null) onPriority(priority);
-                    },
-              child: const Text('Priority'),
-            ),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: none
-                  ? null
-                  : () async {
-                      final effort = await _pick(context, 'Reasoning effort', [
-                        ('Profile default', ''),
-                        for (final e in kReasoningEfforts)
-                          if (e != 'none') (effortLabel(e), e),
-                      ]);
-                      if (effort != null) onEffort(effort);
-                    },
-              child: const Text('Effort'),
-            ),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: none
-                  ? null
-                  : () async {
-                      if (await confirmKanban(
-                        context,
-                        title: 'Archive $selectedCount tasks?',
-                        confirm: 'Archive',
-                      )) {
-                        onArchive();
-                      }
-                    },
-              child: const Text('Archive'),
-            ),
-          ),
         ],
       ),
     );
   }
+}
+
+class _BulkAction {
+  const _BulkAction(this.label, this.icon, this.onPressed);
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
 }

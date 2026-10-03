@@ -17,6 +17,13 @@ import 'kanban_task_use_cases.dart';
 WidgetbookUseCase _card(String name, KanbanCard card) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(card, maxWidth: 320));
 
+Widget _material(Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.android),
+    child: child,
+  ),
+);
+
 WidgetbookUseCase _use(String name, Widget widget, {double maxWidth = 480}) =>
     WidgetbookUseCase(
       name: name,
@@ -152,6 +159,7 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
       useCases: [
         _use('None selected', _bulkBar(0)),
         _use('Some selected', _bulkBar(3)),
+        _use('Material (Android)', _material(_bulkBar(3))),
       ],
     ),
     WidgetbookComponent(
