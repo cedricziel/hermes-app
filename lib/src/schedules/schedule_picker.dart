@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
 import 'schedule_spec.dart';
@@ -121,9 +122,9 @@ class _SchedulePickerState extends State<SchedulePicker> {
   Future<void> _pickTime() async {
     final (hour, minute) = _time;
     final once = _spec is OnceSpec ? (_spec as OnceSpec).at : null;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: once != null
+    final picked = await pickTime(
+      context,
+      initial: once != null
           ? TimeOfDay.fromDateTime(once)
           : TimeOfDay(hour: hour, minute: minute),
     );
@@ -141,11 +142,11 @@ class _SchedulePickerState extends State<SchedulePicker> {
   Future<void> _pickDate() async {
     final at = (_spec as OnceSpec).at;
     final today = DateTime(widget.now.year, widget.now.month, widget.now.day);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: at.isBefore(today) ? today : at,
-      firstDate: today,
-      lastDate: today.add(const Duration(days: 365 * 5)),
+    final picked = await pickDate(
+      context,
+      initial: at.isBefore(today) ? today : at,
+      first: today,
+      last: today.add(const Duration(days: 365 * 5)),
     );
     if (picked == null) return;
     widget.onChanged(

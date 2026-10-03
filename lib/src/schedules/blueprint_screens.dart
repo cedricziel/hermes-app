@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
@@ -248,9 +249,9 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
   Future<void> _pickTime(BlueprintField field) async {
     final current = RegExp(r'^(\d{1,2}):(\d{2})$')
         .firstMatch('${_form.values[field.name] ?? ''}');
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: current == null
+    final picked = await pickTime(
+      context,
+      initial: current == null
           ? const TimeOfDay(hour: 8, minute: 0)
           : TimeOfDay(
               hour: int.parse(current.group(1)!),
