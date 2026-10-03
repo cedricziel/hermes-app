@@ -14,6 +14,10 @@ class NamedIconButton extends StatelessWidget {
     this.color,
     this.style,
     this.filled = false,
+    this.iconSize,
+    this.visualDensity,
+    this.padding,
+    this.constraints,
   });
 
   final String label;
@@ -22,6 +26,10 @@ class NamedIconButton extends StatelessWidget {
   final Color? color;
   final ButtonStyle? style;
   final bool filled;
+  final double? iconSize;
+  final VisualDensity? visualDensity;
+  final EdgeInsetsGeometry? padding;
+  final BoxConstraints? constraints;
 
   @override
   Widget build(BuildContext context) {
@@ -34,12 +42,20 @@ class NamedIconButton extends StatelessWidget {
               icon: named,
               color: color,
               style: style,
+              iconSize: iconSize,
+              visualDensity: visualDensity,
+              padding: padding,
+              constraints: constraints,
               onPressed: onPressed,
             )
           : IconButton(
               icon: named,
               color: color,
               style: style,
+              iconSize: iconSize,
+              visualDensity: visualDensity,
+              padding: padding,
+              constraints: constraints,
               onPressed: onPressed,
             ),
     );
