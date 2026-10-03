@@ -16,11 +16,12 @@ class NamedIconButton extends StatelessWidget {
     this.color,
     this.style,
     this.filled = false,
+    this.outlined = false,
     this.iconSize,
     this.visualDensity,
     this.padding,
     this.constraints,
-  });
+  }) : assert(!(filled && outlined), 'A button is filled or outlined.');
 
   final String label;
 
@@ -31,6 +32,7 @@ class NamedIconButton extends StatelessWidget {
   final Color? color;
   final ButtonStyle? style;
   final bool filled;
+  final bool outlined;
   final double? iconSize;
   final VisualDensity? visualDensity;
   final EdgeInsetsGeometry? padding;
@@ -38,31 +40,24 @@ class NamedIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final named = Icon(icon, semanticLabel: label);
+    final button = filled
+        ? IconButton.filled
+        : outlined
+        ? IconButton.outlined
+        : IconButton.new;
     return Tooltip(
       message: tooltip ?? label,
       excludeFromSemantics: true,
-      child: filled
-          ? IconButton.filled(
-              icon: named,
-              color: color,
-              style: style,
-              iconSize: iconSize,
-              visualDensity: visualDensity,
-              padding: padding,
-              constraints: constraints,
-              onPressed: onPressed,
-            )
-          : IconButton(
-              icon: named,
-              color: color,
-              style: style,
-              iconSize: iconSize,
-              visualDensity: visualDensity,
-              padding: padding,
-              constraints: constraints,
-              onPressed: onPressed,
-            ),
+      child: button(
+        icon: Icon(icon, semanticLabel: label),
+        color: color,
+        style: style,
+        iconSize: iconSize,
+        visualDensity: visualDensity,
+        padding: padding,
+        constraints: constraints,
+        onPressed: onPressed,
+      ),
     );
   }
 }
