@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.42](https://github.com/cedricziel/hermes-app/compare/v0.1.41...v0.1.42) (2026-10-03)
+
+
+### Features
+
+* **design:** sync a React recreation of the app UI to Claude Design ([#339](https://github.com/cedricziel/hermes-app/issues/339)) ([bebea87](https://github.com/cedricziel/hermes-app/commit/bebea8768f0e8848736ff268c899f9a05e98eb69))
+
+
+### Bug Fixes
+
+* **auth:** finish sign-in in macOS debug builds and say why saving failed ([#337](https://github.com/cedricziel/hermes-app/issues/337)) ([16531a5](https://github.com/cedricziel/hermes-app/commit/16531a5b9caebb431fb722db023108ded7187c3e))
+
 ## [0.1.41](https://github.com/cedricziel/hermes-app/compare/v0.1.40...v0.1.41) (2026-10-01)
 
 
