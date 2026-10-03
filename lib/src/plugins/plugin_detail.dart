@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/app_icons.dart';
 import 'installed_plugin.dart';
 import 'plugin_actions.dart';
 import 'plugin_tag.dart';
@@ -155,7 +156,7 @@ class _LoginBlock extends StatelessWidget {
                 NamedIconButton(
                   key: const Key('plugin-copy-login'),
                   label: 'Copy command',
-                  icon: Icons.copy,
+                  icon: AppIcons.copy,
                   iconSize: 18,
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);

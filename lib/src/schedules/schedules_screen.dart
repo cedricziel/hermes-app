@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_add_action.dart';
 import '../widgets/adaptive_back_button.dart';
 
@@ -131,7 +132,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 actions: [
                   NamedIconButton(
                     label: 'Refresh',
-                    icon: Icons.refresh,
+                    icon: AppIcons.refresh,
                     onPressed: _controller.refresh,
                   ),
                   ?add.toolbarButton(context),

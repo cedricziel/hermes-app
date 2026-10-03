@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
@@ -104,7 +105,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
             ),
             child: ListTile(
               key: const Key('custom-task'),
-              leading: const Icon(Icons.add),
+              leading: const AppIcon(AppIcons.add),
               title: const Text('Custom task'),
               subtitle: const Text('Start from scratch'),
               onTap: _custom,
@@ -130,7 +131,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
               key: const Key('blueprint-search'),
               decoration: const InputDecoration(
                 hintText: 'Search templates',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: AppIcon(AppIcons.search),
               ),
               onChanged: (v) => setState(() => _query = v),
             ),
@@ -277,7 +278,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
         child: OutlinedButton.icon(
           key: Key('slot-${field.name}'),
           onPressed: () => _pickTime(field),
-          icon: const Icon(Icons.access_time, size: 18),
+          icon: const AppIcon(AppIcons.time, size: 18),
           label: Text(value.isEmpty ? 'Choose a time' : value),
         ),
       );

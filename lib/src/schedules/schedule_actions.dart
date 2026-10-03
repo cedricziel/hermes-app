@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_dialog.dart';
 import '../widgets/row_actions.dart';
 import 'schedule_models.dart';
@@ -39,7 +40,7 @@ List<RowAction> scheduleRowActions(
   return [
     RowAction(
       label: 'Run now',
-      icon: Icons.play_arrow,
+      icon: AppIcons.play,
       onPressed: () async {
         final message = await controller.runNow(job);
         _say(messenger, message ?? 'Run requested');
@@ -48,7 +49,7 @@ List<RowAction> scheduleRowActions(
     if (job.state != CronJobState.completed)
       RowAction(
         label: job.isPaused ? 'Resume' : 'Pause',
-        icon: job.isPaused ? Icons.play_circle_outline : Icons.pause,
+        icon: job.isPaused ? AppIcons.resume : AppIcons.pause,
         onPressed: () async {
           final message = await controller.setPaused(job, !job.isPaused);
           if (message != null) _say(messenger, message);
@@ -56,7 +57,7 @@ List<RowAction> scheduleRowActions(
       ),
     RowAction(
       label: 'Delete',
-      icon: Icons.delete_outline,
+      icon: AppIcons.delete,
       destructive: true,
       onPressed: () => deleteScheduleJob(context, controller, job),
     ),

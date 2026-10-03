@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
+import '../theme/app_icons.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_actions.dart';
@@ -206,21 +207,19 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
           children: [
             FilledButton.icon(
               onPressed: _runNow,
-              icon: const Icon(Icons.play_arrow),
+              icon: const AppIcon(AppIcons.play),
               label: const Text('Run now'),
             ),
             OutlinedButton.icon(
               onPressed: job.state == CronJobState.completed
                   ? null
                   : _togglePaused,
-              icon: Icon(
-                job.isPaused ? Icons.play_circle_outline : Icons.pause,
-              ),
+              icon: AppIcon(job.isPaused ? AppIcons.resume : AppIcons.pause),
               label: Text(job.isPaused ? 'Resume' : 'Pause'),
             ),
             OutlinedButton.icon(
               onPressed: _edit,
-              icon: const Icon(Icons.edit_outlined),
+              icon: const AppIcon(AppIcons.edit),
               label: const Text('Edit'),
             ),
           ],
@@ -279,7 +278,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
           child: TextButton.icon(
             onPressed: _delete,
             style: TextButton.styleFrom(foregroundColor: scheme.error),
-            icon: const Icon(Icons.delete_outline),
+            icon: const AppIcon(AppIcons.delete),
             label: const Text('Delete task'),
           ),
         ),
@@ -321,11 +320,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
                   height: 16,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
-              : Icon(
-                  Icons.chat_bubble_outline,
-                  size: 18,
-                  color: scheme.outline,
-                ),
+              : AppIcon(AppIcons.chat, size: 18, color: scheme.outline),
           title: Text(formatTime(context, run.startedAt)),
           subtitle: Text(
             run.isActive
@@ -334,7 +329,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
                 ? 'Unfinished'
                 : formatDuration(run.duration!),
           ),
-          trailing: const Icon(Icons.chevron_right),
+          trailing: const AppIcon(AppIcons.chevronRight),
           onTap: () => widget.onOpenRun(run, widget.job),
         ),
       if (runs.length >= _limit && _limit < _maxRuns)

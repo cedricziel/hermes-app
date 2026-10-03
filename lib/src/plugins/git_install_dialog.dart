@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import 'plugin_install_result.dart';
 
 import '../widgets/disclosure_tile.dart';
@@ -89,7 +90,7 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.gpp_maybe_outlined, size: 20),
+                    AppIcon(AppIcons.shieldWarning, size: 20),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(

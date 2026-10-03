@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/app_icons.dart';
 import 'schedule_spec.dart';
 import 'schedule_widgets.dart';
 
@@ -242,7 +243,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
               OutlinedButton.icon(
                 key: const Key('when-date'),
                 onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today, size: 18),
+                icon: const AppIcon(AppIcons.calendar, size: 18),
                 label: Text(
                   MaterialLocalizations.of(context).formatShortDate(at),
                 ),
@@ -286,7 +287,7 @@ class _SchedulePickerState extends State<SchedulePicker> {
     child: OutlinedButton.icon(
       key: const Key('when-time'),
       onPressed: _pickTime,
-      icon: const Icon(Icons.access_time, size: 18),
+      icon: const AppIcon(AppIcons.time, size: 18),
       label: Text(label),
     ),
   );

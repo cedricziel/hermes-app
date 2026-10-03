@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/row_actions.dart';
 import 'schedule_actions.dart';
 import 'schedule_models.dart';
@@ -162,7 +163,7 @@ class _ErrorNote extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(Icons.error_outline, size: 16, color: scheme.error),
+          AppIcon(AppIcons.error, size: 16, color: scheme.error),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

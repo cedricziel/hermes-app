@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/app_icons.dart';
 import 'plugin_tag.dart';
 import 'plugins_controller.dart' show PluginsFailure;
 import 'provider_settings.dart';
@@ -303,7 +304,7 @@ class _Tool extends StatelessWidget {
               NamedIconButton(
                 key: Key('copy-install-${tool.name}'),
                 label: 'Copy command',
-                icon: Icons.copy,
+                icon: AppIcons.copy,
                 iconSize: 18,
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
