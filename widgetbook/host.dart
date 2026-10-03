@@ -49,7 +49,7 @@ class _HostedState<T extends Object> extends State<Hosted<T>> {
   Widget build(BuildContext context) {
     final value = _value;
     if (value == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     return widget.builder(context, value);
   }

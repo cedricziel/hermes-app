@@ -464,7 +464,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (chat.loadingThreads) {
       return Scaffold(
         appBar: shellBar,
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: CircularProgressIndicator.adaptive()),
       );
     }
     if (chat.threadsFailed) {

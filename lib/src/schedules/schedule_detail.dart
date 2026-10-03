@@ -318,7 +318,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
         else
           const Padding(
             padding: EdgeInsets.all(12),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: CircularProgressIndicator.adaptive()),
           ),
       ];
     }
@@ -333,7 +333,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : Icon(
                   Icons.chat_bubble_outline,

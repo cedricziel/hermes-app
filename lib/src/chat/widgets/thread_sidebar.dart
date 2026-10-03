@@ -388,7 +388,7 @@ class _ShowMoreRowState extends State<_ShowMoreRow> {
         child: widget.loading
             ? const SizedBox.square(
                 dimension: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
               )
             : TextButton(
                 onPressed: widget.onLoad,

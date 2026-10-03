@@ -215,7 +215,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
             ],
           )
         else if (_content == null)
-          const Center(child: CircularProgressIndicator())
+          const Center(child: CircularProgressIndicator.adaptive())
         else
           Card(
             margin: EdgeInsets.zero,

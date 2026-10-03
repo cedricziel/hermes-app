@@ -112,7 +112,7 @@ class _KanbanOrchestrationDialogState extends State<KanbanOrchestrationDialog> {
               child: Center(
                 child: _failed
                     ? const Text('Could not load the settings')
-                    : const CircularProgressIndicator(),
+                    : const CircularProgressIndicator.adaptive(),
               ),
             )
           : ConstrainedBox(

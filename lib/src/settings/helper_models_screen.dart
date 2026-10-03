@@ -172,7 +172,7 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
                 ),
               )
             : models == null
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator.adaptive())
             : HelperModelList(
                 models: models,
                 saving: _saving,

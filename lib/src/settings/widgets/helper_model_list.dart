@@ -91,7 +91,7 @@ class HelperModelList extends StatelessWidget {
       trailing: busy
           ? const SizedBox.square(
               dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             )
           : const Icon(Icons.chevron_right),
       onTap: busy ? null : onTap,

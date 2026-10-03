@@ -179,7 +179,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
   Widget _body() {
     final servers = _controller.servers;
     if (_controller.loading && servers == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (_controller.failed || servers == null) {
       return Center(

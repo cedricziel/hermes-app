@@ -121,7 +121,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
           else if (_blueprints == null)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: CircularProgressIndicator.adaptive()),
             )
           else ...[
             TextField(
@@ -366,7 +366,9 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Create task'),
               ),

@@ -156,7 +156,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
                         ),
                       ],
                     )
-                  : const CircularProgressIndicator(),
+                  : const CircularProgressIndicator.adaptive(),
             )
           : RefreshIndicator(
               onRefresh: _load,

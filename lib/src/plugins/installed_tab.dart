@@ -83,7 +83,7 @@ class _InstalledTabState extends State<InstalledTab>
 
   Widget _body(bool wide) {
     if (_controller.loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     switch (_controller.failure) {
       case PluginsFailure.unsupported:

@@ -182,7 +182,9 @@ class _Actions extends StatelessWidget {
                 icon: running
                     ? const SizedBox.square(
                         dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Icon(Icons.check, size: 18),
                 label: const Text('Test connection'),
@@ -225,7 +227,7 @@ class _SignInButton extends StatelessWidget {
     final icon = starting
         ? const SizedBox.square(
             dimension: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           )
         : const Icon(Icons.login, size: 18);
     const label = Text('Sign in');

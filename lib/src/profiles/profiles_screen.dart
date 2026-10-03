@@ -149,7 +149,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
 
   Widget _body() {
     if (_loading && _overview == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     final overview = _overview;
     if (_failed || overview == null) {

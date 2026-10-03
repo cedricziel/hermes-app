@@ -56,7 +56,7 @@ class SchedulesList extends StatelessWidget {
           ),
         );
       }
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator.adaptive());
     }
     if (jobs.isEmpty) {
       return RefreshIndicator(

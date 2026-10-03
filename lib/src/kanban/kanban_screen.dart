@@ -332,7 +332,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final board = _controller.board;
     if (board == null) {
       if (_controller.loading) {
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       }
       return StateMessage(
         icon: _controller.unavailable

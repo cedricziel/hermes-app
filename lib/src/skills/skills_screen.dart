@@ -248,7 +248,7 @@ class _SkillsScreenState extends State<SkillsScreen>
   Widget _body() {
     switch (_controller.status) {
       case SkillsStatus.loading:
-        return const Center(child: CircularProgressIndicator());
+        return const Center(child: CircularProgressIndicator.adaptive());
       case SkillsStatus.unsupported:
         return const StateMessage(
           title: 'The connected Hermes does not support skills.',

@@ -88,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.connectionState != ConnectionState.done) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(child: CircularProgressIndicator()),
+                    child: Center(child: CircularProgressIndicator.adaptive()),
                   );
                 }
                 if (snapshot.hasError) {
