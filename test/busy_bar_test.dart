@@ -41,6 +41,20 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
+  testWidgets('the iOS Reduce Motion setting holds the bar still too', (
+    tester,
+  ) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(reduceMotion: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await pump(tester, const BusyBar());
+
+    expect(bar(tester).value, 1);
+    expect(find.bySemanticsLabel('In progress'), findsNothing);
+    expect(find.semantics.byValue('In progress'), findsOneWidget);
+    expect(tester.hasRunningAnimations, isFalse);
+  });
+
   testWidgets('a known amount is shown as it is under Reduce Motion', (
     tester,
   ) async {
