@@ -27,6 +27,11 @@ void main() {
           mcpServerRow(name: 'grafana', url: 'https://mcp.grafana.com/mcp'),
         ]),
       );
+    // A phone, so only the list's switch is on screen: from 700 wide iOS
+    // counts as a full-screen iPad and shows the detail's switch as well.
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
