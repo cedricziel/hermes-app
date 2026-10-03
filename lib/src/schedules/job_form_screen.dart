@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
@@ -10,25 +11,15 @@ import 'schedule_picker.dart';
 import 'widgets/job_model_field.dart';
 
 /// Asks whether to throw away what was entered. True to discard.
-Future<bool> confirmDiscard(BuildContext context) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        content: const Text('What you entered will be lost.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep editing'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+Future<bool> confirmDiscard(BuildContext context) => showConfirmDialog(
+  context,
+  title: 'Discard changes?',
+  message: 'What you entered will be lost.',
+  confirmLabel: 'Discard',
+  cancelLabel: 'Keep editing',
+  destructive: true,
+  filled: false,
+);
 
 /// The form for a custom task and for changing one. Pops with the saved job.
 class JobFormScreen extends StatefulWidget {

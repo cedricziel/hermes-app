@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../models/auxiliary_models.dart';
 import '../models/hermes_models_repository.dart';
@@ -149,25 +150,12 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
     }
   }
 
-  Future<bool> _confirm(String warning) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Use this model?'),
-          content: Text(warning),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Use it'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+  Future<bool> _confirm(String warning) => showConfirmDialog(
+    context,
+    title: 'Use this model?',
+    message: warning,
+    confirmLabel: 'Use it',
+  );
 
   @override
   Widget build(BuildContext context) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'installed_plugin.dart';
 import 'plugin_tag.dart';
@@ -38,24 +39,15 @@ class PluginDetail extends StatelessWidget {
   }
 
   Future<void> _confirmRemove(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Remove ${plugin.name}?'),
-        content: const Text('Its files are deleted from the server.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Remove ${plugin.name}?',
+      message: 'Its files are deleted from the server.',
+      confirmLabel: 'Remove',
+      destructive: true,
+      filled: false,
     );
-    if (confirmed != true || !context.mounted) return;
+    if (!confirmed || !context.mounted) return;
     await _run(
       context,
       () => controller.remove(plugin.name),

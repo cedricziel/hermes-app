@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
@@ -107,9 +108,9 @@ class KanbanBoardsScreen extends StatelessWidget {
     );
     if (!ok || result == null || !context.mounted) return;
     final exported = result!;
-    await showDialog<void>(
+    await showAdaptiveDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: const Text('Board exported'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -123,7 +124,7 @@ class KanbanBoardsScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          TextButton(
+          AppDialogAction(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),

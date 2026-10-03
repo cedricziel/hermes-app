@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
@@ -123,26 +124,16 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
 
   Future<void> _delete() async {
     final job = widget.job;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete this task?'),
-        content: Text(
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete this task?',
+      message:
           '“${job.title}” will no longer run. Its past runs stay as chats.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Delete',
+      destructive: true,
+      filled: false,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     final message = await _controller.delete(job);
     if (message != null) _say(message);
   }

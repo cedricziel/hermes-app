@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'kanban_repository.dart';
 
@@ -30,7 +31,7 @@ Future<String?> askKanbanText(
   String? initial,
   String confirm = 'OK',
   bool multiline = false,
-}) => showDialog<String>(
+}) => showAdaptiveDialog<String>(
   context: context,
   builder: (_) => _TextDialog(
     title: title,
@@ -70,21 +71,21 @@ class _TextDialogState extends State<_TextDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => AppAlertDialog(
     title: Text(widget.title),
-    content: TextField(
+    content: AppDialogTextField(
       controller: _controller,
-      autofocus: true,
+      hint: widget.hint,
       minLines: widget.multiline ? 3 : 1,
       maxLines: widget.multiline ? 6 : 1,
-      decoration: InputDecoration(hintText: widget.hint),
     ),
     actions: [
-      TextButton(
+      AppDialogAction(
         onPressed: () => Navigator.pop(context),
         child: const Text('Cancel'),
       ),
-      FilledButton(
+      AppDialogAction(
+        isDefault: true,
         onPressed: () => Navigator.pop(context, _controller.text.trim()),
         child: Text(widget.confirm),
       ),
@@ -96,21 +97,4 @@ Future<bool> confirmKanban(
   BuildContext context, {
   required String title,
   required String confirm,
-}) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(confirm),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+}) => showConfirmDialog(context, title: title, confirmLabel: confirm);

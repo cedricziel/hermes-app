@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'plugin_install_result.dart';
 
@@ -38,9 +39,9 @@ Future<void> reportInstall(
       ),
     );
   if (!result.ok || result.missingEnv.isEmpty || !context.mounted) return;
-  await showDialog<void>(
+  await showAdaptiveDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => AppAlertDialog(
       title: const Text('Set these on the server'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -51,7 +52,7 @@ Future<void> reportInstall(
         ],
       ),
       actions: [
-        TextButton(
+        AppDialogAction(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('OK'),
         ),

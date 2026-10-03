@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/markdown_links.dart';
 import '../widgets/named_icon_button.dart';
@@ -92,25 +93,13 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
     }
   }
 
-  Future<bool> _confirmDiscard() async {
-    final discard = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Discard changes?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Keep editing'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    );
-    return discard ?? false;
-  }
+  Future<bool> _confirmDiscard() => showConfirmDialog(
+    context,
+    title: 'Discard changes?',
+    cancelLabel: 'Keep editing',
+    confirmLabel: 'Discard',
+    destructive: true,
+  );
 
   void _insert(String snippet, {bool line = false}) {
     final value = _text.value;

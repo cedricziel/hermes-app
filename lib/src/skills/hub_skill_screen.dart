@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/markdown_links.dart';
 import 'discover_tab.dart' show TrustBadge;
@@ -83,9 +84,9 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
   Future<void> _confirmAndInstall() async {
     final scan = _scan;
     if (scan == null) return;
-    final go = await showDialog<bool>(
+    final go = await showAdaptiveDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text('Install ${widget.skill.name}?'),
         content: SingleChildScrollView(
           child: Column(
@@ -103,11 +104,12 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
           ),
         ),
         actions: [
-          TextButton(
+          AppDialogAction(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
+          AppDialogAction(
+            isDefault: true,
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Install anyway'),
           ),

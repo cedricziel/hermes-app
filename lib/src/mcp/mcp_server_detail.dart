@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
@@ -36,28 +37,18 @@ Future<void> removeMcpServer(
 ) async {
   final messenger = ScaffoldMessenger.of(context);
   final profile = controller.profile;
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: Text('Remove ${server.name}?'),
-      content: Text(
+  final confirmed = await showConfirmDialog(
+    context,
+    title: 'Remove ${server.name}?',
+    message:
         '${server.name} is deleted from '
         '${profile == null ? 'the profile' : 'the $profile profile'}, '
         'not just switched off. This cannot be undone.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Remove'),
-        ),
-      ],
-    ),
+    confirmLabel: 'Remove',
+    destructive: true,
+    filled: false,
   );
-  if (confirmed != true) return;
+  if (!confirmed) return;
   if (await controller.remove(server) == McpOutcome.failed) {
     messenger.showSnackBar(
       SnackBar(content: Text('Could not remove ${server.name}')),

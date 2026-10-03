@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
@@ -104,24 +105,13 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
   }) async {
     setState(() => _asking = true);
     try {
-      final answer = await showDialog<bool>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: Text(title),
-          content: Text(body),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialog).pop(false),
-              child: Text(cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialog).pop(true),
-              child: Text(confirm),
-            ),
-          ],
-        ),
+      return await showConfirmDialog(
+        context,
+        title: title,
+        message: body,
+        confirmLabel: confirm,
+        cancelLabel: cancel,
       );
-      return answer == true;
     } finally {
       if (mounted) setState(() => _asking = false);
     }

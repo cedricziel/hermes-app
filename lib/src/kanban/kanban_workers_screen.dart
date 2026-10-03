@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../chat/widgets/relative_time.dart';
 import '../widgets/named_icon_button.dart';
@@ -79,9 +80,9 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
     );
     if (!ok || inspection == null || !mounted) return;
     final i = inspection!;
-    await showDialog<void>(
+    await showAdaptiveDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => AppAlertDialog(
         title: Text('Run #${worker.runId}'),
         content: Text(
           i.alive
@@ -96,7 +97,7 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
               : 'The process is not running${i.note == null ? '' : ': ${i.note}'}.',
         ),
         actions: [
-          TextButton(
+          AppDialogAction(
             onPressed: () => Navigator.pop(context),
             child: const Text('Close'),
           ),

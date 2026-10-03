@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../chat_models.dart';
 import 'input_card_frame.dart';
@@ -60,26 +61,12 @@ class _ApprovalCardState extends State<ApprovalCard> {
   }
 
   Future<bool> _confirmAlways() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Always allow this?'),
-        content: const Text(
-          'Hermes will run matching commands without asking again.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes, always allow'),
-          ),
-        ],
-      ),
+    return showConfirmDialog(
+      context,
+      title: 'Always allow this?',
+      message: 'Hermes will run matching commands without asking again.',
+      confirmLabel: 'Yes, always allow',
     );
-    return confirmed ?? false;
   }
 
   Widget _button(String choice) {

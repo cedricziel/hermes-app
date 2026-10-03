@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
+import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/markdown_links.dart';
 import 'hermes_skills_repository.dart';
@@ -83,27 +84,15 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
   }
 
   Future<void> _askDelete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete ${widget.name}?'),
-        content: const Text(
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete ${widget.name}?',
+      message:
           'The app cannot delete skills. This drafts a message asking the '
           'agent to do it; nothing is sent until you send it.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Draft message'),
-          ),
-        ],
-      ),
+      confirmLabel: 'Draft message',
     );
-    if (confirmed == true && mounted) {
+    if (confirmed && mounted) {
       Navigator.of(context).pop(deleteRequestFor(widget.name));
     }
   }
@@ -111,24 +100,13 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
   Future<void> _uninstall() async {
     final hub = widget.hub;
     if (hub == null) return;
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Uninstall ${widget.name}?'),
-        content: const Text('The skill is removed from this profile.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Uninstall'),
-          ),
-        ],
-      ),
+    final go = await showConfirmDialog(
+      context,
+      title: 'Uninstall ${widget.name}?',
+      message: 'The skill is removed from this profile.',
+      confirmLabel: 'Uninstall',
     );
-    if (go != true || !mounted) return;
+    if (!go || !mounted) return;
     if (hub.uninstall(widget.name) != null) {
       await showSkillJobSheet(context, hub);
     }
