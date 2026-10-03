@@ -18,7 +18,31 @@ Future<void> showKanbanDetentSheet(
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: Colors.transparent,
-  builder: (context) => DraggableScrollableSheet(
+  builder: (context) => KanbanDetentSheet(builder: builder),
+);
+
+/// A centred sheet with the iOS corner radius, for iPad and desktop widths.
+Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(_kSheetRadius)),
+        ),
+        child: KanbanFormSheetFrame(child: panel),
+      ),
+    );
+
+/// The chrome of the phone sheet: detents, corner radius and grabber around
+/// content built by [builder].
+class KanbanDetentSheet extends StatelessWidget {
+  const KanbanDetentSheet({super.key, required this.builder});
+
+  final Widget Function(ScrollController controller) builder;
+
+  @override
+  Widget build(BuildContext context) => DraggableScrollableSheet(
     expand: false,
     initialChildSize: 0.5,
     minChildSize: 0,
@@ -45,29 +69,26 @@ Future<void> showKanbanDetentSheet(
         ],
       ),
     ),
-  ),
-);
+  );
+}
 
-/// A centred sheet with the iOS corner radius, for iPad and desktop widths.
-Future<void> showKanbanFormSheet(BuildContext context, Widget panel) =>
-    showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        clipBehavior: Clip.antiAlias,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(_kSheetRadius)),
-        ),
-        child: ConstrainedBox(
-          key: const Key('kanbanTaskSheet'),
-          constraints: const BoxConstraints(
-            minWidth: _kFormSheetWidth,
-            maxWidth: _kFormSheetWidth,
-            maxHeight: _kFormSheetHeight,
-          ),
-          child: Padding(padding: const EdgeInsets.only(top: 12), child: panel),
-        ),
-      ),
-    );
+/// The size and padding of the form sheet around [child].
+class KanbanFormSheetFrame extends StatelessWidget {
+  const KanbanFormSheetFrame({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    key: const Key('kanbanTaskSheet'),
+    constraints: const BoxConstraints(
+      minWidth: _kFormSheetWidth,
+      maxWidth: _kFormSheetWidth,
+      maxHeight: _kFormSheetHeight,
+    ),
+    child: Padding(padding: const EdgeInsets.only(top: 12), child: child),
+  );
+}
 
 class _Grabber extends StatelessWidget {
   const _Grabber();

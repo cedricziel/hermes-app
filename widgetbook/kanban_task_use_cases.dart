@@ -7,6 +7,7 @@ import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_comments.da
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_fields.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_header.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_runs.dart';
+import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -82,7 +83,56 @@ KanbanTaskRuns _runs(List<KanbanRun> runs, List<KanbanEvent> events) =>
       onShowLog: () {},
     );
 
+Widget _sheetContent({ScrollController? controller, double topPadding = 0}) =>
+    ListView(
+      controller: controller,
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, 16),
+      children: [
+        KanbanTaskHeader(
+          task: busyTask,
+          onEdit: () {},
+          onAssign: () {},
+          onPrioritise: () {},
+          onMove: (_) {},
+        ),
+        _actions(busyTask),
+        for (var i = 0; i < 8; i++) const ListTile(title: Text('More detail')),
+      ],
+    );
+
 List<WidgetbookComponent> kanbanTaskComponents() => [
+  WidgetbookComponent(
+    name: 'KanbanTaskSheet',
+    useCases: [
+      WidgetbookUseCase(
+        name: 'Detent sheet (iPhone)',
+        builder: (_) => Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            height: 700,
+            child: KanbanDetentSheet(
+              builder: (controller) => _sheetContent(
+                controller: controller,
+                topPadding: kKanbanGrabberBand,
+              ),
+            ),
+          ),
+        ),
+      ),
+      WidgetbookUseCase(
+        name: 'Form sheet (iPad and Mac)',
+        builder: (_) => Center(
+          child: Card(
+            clipBehavior: Clip.antiAlias,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+            child: KanbanFormSheetFrame(child: _sheetContent()),
+          ),
+        ),
+      ),
+    ],
+  ),
   WidgetbookComponent(
     name: 'KanbanTaskHeader',
     useCases: [
