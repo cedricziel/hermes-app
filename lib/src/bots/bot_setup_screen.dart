@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 import '../widgets/content_column.dart';
 import '../widgets/disclosure_tile.dart';
@@ -113,7 +114,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
                     if (widget.bot.id == 'telegram') ...[
                       OutlinedButton.icon(
                         onPressed: _pairTelegram,
-                        icon: const Icon(Icons.auto_fix_high),
+                        icon: const AppIcon(AppIcons.magic),
                         label: const Text('Set up with Telegram'),
                       ),
                       const Padding(
@@ -187,7 +188,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
           suffixIcon: v.isSet && !v.required
               ? NamedIconButton(
                   label: cleared ? 'Keep ${v.label}' : 'Clear ${v.label}',
-                  icon: cleared ? Icons.undo : Icons.delete_outline,
+                  icon: cleared ? AppIcons.undo : AppIcons.delete,
                   onPressed: () => _toggleCleared(v.key),
                 )
               : null,

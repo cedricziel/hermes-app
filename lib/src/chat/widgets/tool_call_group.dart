@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../chat_models.dart';
@@ -120,8 +121,8 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
                         ),
                       ),
                       const SizedBox(width: 2),
-                      Icon(
-                        open ? Icons.expand_less : Icons.chevron_right,
+                      AppIcon(
+                        open ? AppIcons.expandLess : AppIcons.chevronRight,
                         size: 16,
                         color: subtle,
                       ),

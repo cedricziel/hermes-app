@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_dialog.dart';
 import '../widgets/row_actions.dart';
 import 'installed_plugin.dart';
@@ -57,7 +58,7 @@ List<RowAction> pluginRowActions(
     if (!busy)
       RowAction(
         label: enabled ? 'Disable' : 'Enable',
-        icon: enabled ? Icons.toggle_off : Icons.toggle_on,
+        icon: enabled ? AppIcons.toggleOff : AppIcons.toggleOn,
         onPressed: () => runPluginChange(
           context,
           () => controller.setEnabled(plugin.name, !enabled),
@@ -66,7 +67,7 @@ List<RowAction> pluginRowActions(
     if (plugin.canRemove && !busy)
       RowAction(
         label: 'Remove',
-        icon: Icons.delete_outline,
+        icon: AppIcons.delete,
         destructive: true,
         onPressed: () => removePlugin(context, controller, plugin),
       ),

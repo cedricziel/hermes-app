@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import '../kanban_models.dart';
@@ -25,7 +26,7 @@ class KanbanBoardMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return NamedPopupMenuButton<String>(
       label: 'Switch board',
-      icon: Icons.dashboard_customize_outlined,
+      icon: AppIcons.boardMenu,
       onSelected: (slug) => slug.isEmpty ? onManage() : onSelected(slug),
       itemBuilder: (_) => [
         for (final b in boards)
@@ -50,8 +51,8 @@ class KanbanLiveDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tooltip(
     message: live ? 'Live' : 'Reconnecting…',
-    child: Icon(
-      Icons.circle,
+    child: AppIcon(
+      AppIcons.radioOn,
       size: 10,
       color: live
           ? context.hermesColors.success

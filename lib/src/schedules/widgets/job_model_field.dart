@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/model_provider_option.dart';
 import '../../models/widgets/model_picker.dart';
+import '../../theme/app_icons.dart';
 
 /// The job form's model, which opens [ModelPicker] without effort and with
 /// the profile's default as the first entry. [options] is null while loading
@@ -57,7 +58,7 @@ class JobModelField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: 'Model',
         helperText: _helper,
-        suffixIcon: const Icon(Icons.expand_more),
+        suffixIcon: const AppIcon(AppIcons.expandMore),
       ),
       child: Text(
         model.isEmpty ? 'Profile default' : model,

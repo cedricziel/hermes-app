@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:flutter/material.dart';
@@ -267,7 +268,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
           ),
           TextButton.icon(
             onPressed: () => Clipboard.setData(ClipboardData(text: url)),
-            icon: const Icon(Icons.copy, size: 16),
+            icon: const AppIcon(AppIcons.copy, size: 16),
             label: const Text('Copy address'),
           ),
         ],
@@ -295,7 +296,7 @@ class _McpSignInScreenState extends State<McpSignInScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.error_outline, size: 40, color: theme.colorScheme.error),
+        AppIcon(AppIcons.error, size: 40, color: theme.colorScheme.error),
         const SizedBox(height: 12),
         Text(title, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),

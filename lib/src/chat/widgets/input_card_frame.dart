@@ -1,3 +1,5 @@
+import '../../theme/app_icons.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
@@ -12,7 +14,7 @@ class InputCardFrame extends StatelessWidget {
     required this.child,
   });
 
-  final IconData icon;
+  final AppIconSet icon;
   final String title;
   final Widget child;
 
@@ -32,7 +34,7 @@ class InputCardFrame extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: scheme.primary),
+              AppIcon(icon, size: 16, color: scheme.primary),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

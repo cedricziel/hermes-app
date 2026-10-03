@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// An image full screen, which can be zoomed and moved, closed and, when
@@ -26,7 +27,7 @@ class ImageViewerPage extends StatelessWidget {
         foregroundColor: Colors.white,
         leading: NamedIconButton(
           label: 'Close',
-          icon: Icons.close,
+          icon: AppIcons.close,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Text(name, overflow: TextOverflow.ellipsis),
@@ -34,7 +35,7 @@ class ImageViewerPage extends StatelessWidget {
           if (onSave != null)
             NamedIconButton(
               label: 'Save',
-              icon: Icons.download_outlined,
+              icon: AppIcons.download,
               onPressed: () async {
                 if (await onSave!()) {
                   messenger.showSnackBar(
@@ -53,7 +54,7 @@ class ImageViewerPage extends StatelessWidget {
             semanticLabel: name,
             fit: BoxFit.contain,
             errorBuilder: (_, _, _) =>
-                const Icon(Icons.broken_image_outlined, color: Colors.white54),
+                const AppIcon(AppIcons.brokenImage, color: Colors.white54),
           ),
         ),
       ),

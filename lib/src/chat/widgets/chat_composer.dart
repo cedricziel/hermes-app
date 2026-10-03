@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
 import 'queued_prompts.dart';
@@ -139,7 +140,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       if (widget.onAttach case final onAttach?)
                         NamedIconButton(
                           label: 'Add attachment',
-                          icon: Icons.add,
+                          icon: AppIcons.add,
                           color: subtle,
                           onPressed: onAttach,
                         ),
@@ -153,7 +154,7 @@ class _ChatComposerState extends State<ChatComposer> {
                         listenable: widget.controller,
                         builder: (context, _) => NamedIconButton(
                           label: 'Send',
-                          icon: Icons.arrow_upward,
+                          icon: AppIcons.sendArrow,
                           filled: true,
                           // The app's icon button theme would paint the arrow
                           // in onSurface, invisible on a dark primary.
@@ -216,7 +217,7 @@ class _StopBarState extends State<_StopBar> {
           ),
           TextButton.icon(
             onPressed: _busy ? null : _stop,
-            icon: const Icon(Icons.stop_circle_outlined),
+            icon: const AppIcon(AppIcons.stop),
             label: const Text('Stop'),
           ),
         ],
@@ -243,10 +244,8 @@ class _AttachmentChips extends StatelessWidget {
           children: [
             for (final file in attachments)
               InputChip(
-                avatar: Icon(
-                  file.isImage
-                      ? Icons.image_outlined
-                      : Icons.insert_drive_file_outlined,
+                avatar: AppIcon(
+                  file.isImage ? AppIcons.image : AppIcons.file,
                   size: 16,
                 ),
                 label: Text(file.name),

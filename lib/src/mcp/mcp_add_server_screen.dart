@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
@@ -262,7 +263,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
                 const SizedBox(height: 16),
                 McpBanner(
                   tone: McpTone.error,
-                  icon: Icons.error_outline,
+                  icon: AppIcons.error,
                   title: error,
                 ),
               ],
@@ -399,7 +400,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
               Expanded(child: _field(row.value, 'Value', secret: true)),
               NamedIconButton(
                 label: 'Remove variable',
-                icon: Icons.close,
+                icon: AppIcons.close,
                 onPressed: _saving ? null : () => _removeRow(row),
               ),
             ],
@@ -409,7 +410,7 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           onPressed: _saving ? null : _addRow,
-          icon: const Icon(Icons.add),
+          icon: const AppIcon(AppIcons.add),
           label: const Text('Add variable'),
         ),
       ),

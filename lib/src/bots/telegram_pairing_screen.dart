@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:flutter/material.dart';
@@ -211,12 +212,12 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         children: [
           FilledButton.icon(
             onPressed: () => widget.launchLink(Uri.parse(link)),
-            icon: const Icon(Icons.send),
+            icon: const AppIcon(AppIcons.send),
             label: const Text('Open Telegram'),
           ),
           OutlinedButton.icon(
             onPressed: () => Clipboard.setData(ClipboardData(text: link)),
-            icon: const Icon(Icons.copy),
+            icon: const AppIcon(AppIcons.copy),
             label: const Text('Copy link'),
           ),
         ],

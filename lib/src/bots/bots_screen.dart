@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 import '../api/hermes_repositories.dart';
 
@@ -109,7 +110,7 @@ class _BotsScreenState extends State<BotsScreen> {
       children: [
         for (final bot in bots)
           ListTile(
-            leading: const Icon(Icons.smart_toy_outlined),
+            leading: const AppIcon(AppIcons.bot),
             title: Text(bot.name),
             subtitle: _subtitle(bot),
             onTap: () => _setUp(bot),

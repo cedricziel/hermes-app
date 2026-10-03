@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 /// How a banner reads: worked, needs attention, failed.
@@ -16,7 +17,7 @@ class McpBanner extends StatelessWidget {
   });
 
   final McpTone tone;
-  final IconData icon;
+  final AppIconSet icon;
   final String title;
   final String detail;
   final Widget? action;
@@ -39,7 +40,7 @@ class McpBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: color),
+          AppIcon(icon, size: 18, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

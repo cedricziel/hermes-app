@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../models/model_provider_option.dart';
+import '../../../theme/app_icons.dart';
 import '../../../theme/hermes_theme.dart';
 import '../../kanban_models.dart';
 import 'kanban_task_heading.dart';
@@ -38,7 +39,7 @@ class KanbanTaskFields extends StatelessWidget {
                   : theme.colorScheme.error.withValues(alpha: 0.12),
               child: ListTile(
                 dense: true,
-                leading: const Icon(Icons.warning_amber_rounded),
+                leading: const AppIcon(AppIcons.warningRounded),
                 title: Text(d.title),
                 subtitle: d.detail.isEmpty ? null : Text(d.detail),
               ),
@@ -61,7 +62,7 @@ class KanbanTaskFields extends StatelessWidget {
             for (final id in detail.parents)
               InputChip(label: Text(id), onDeleted: () => onRemoveParent(id)),
             ActionChip(
-              avatar: const Icon(Icons.add, size: 16),
+              avatar: const AppIcon(AppIcons.add, size: 16),
               label: const Text('Add'),
               onPressed: onAddParent,
             ),
@@ -124,7 +125,7 @@ class _ModelRow extends StatelessWidget {
                 ),
               ),
             const SizedBox(width: 4),
-            Icon(Icons.expand_more, size: 18, color: quiet),
+            AppIcon(AppIcons.expandMore, size: 18, color: quiet),
           ],
         ),
       ),

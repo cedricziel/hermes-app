@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
+import '../theme/app_icons.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review_items.dart';
 
@@ -90,7 +91,7 @@ class _McpCommandReviewState extends State<McpCommandReview> {
           for (final command in widget.commands) _Command(command),
           const McpBanner(
             tone: McpTone.warning,
-            icon: Icons.warning_amber_outlined,
+            icon: AppIcons.warning,
             title: 'Only add commands you recognise.',
             detail:
                 'You can remove the server afterwards, but not undo what it '

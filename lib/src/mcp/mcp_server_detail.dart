@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
@@ -142,11 +143,7 @@ class McpServerDetail extends StatelessWidget {
             _Actions(controller: controller, server: server),
             const SizedBox(height: 12),
             if (controller.signInNoteOf(server.name) case final note?) ...[
-              McpBanner(
-                tone: McpTone.error,
-                icon: Icons.error_outline,
-                title: note,
-              ),
+              McpBanner(tone: McpTone.error, icon: AppIcons.error, title: note),
               const SizedBox(height: 12),
             ],
             _TestOutcome(controller: controller, server: server),
@@ -187,7 +184,7 @@ class _Actions extends StatelessWidget {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Icon(Icons.check, size: 18),
+                    : const AppIcon(AppIcons.check, size: 18),
                 label: const Text('Test connection'),
               ),
             ),
@@ -196,7 +193,7 @@ class _Actions extends StatelessWidget {
               outlined: true,
               label: 'Remove',
               color: Theme.of(context).colorScheme.error,
-              icon: Icons.delete_outline,
+              icon: AppIcons.delete,
               onPressed: () => removeMcpServer(context, controller, server),
             ),
           ],
@@ -230,7 +227,7 @@ class _SignInButton extends StatelessWidget {
             dimension: 16,
             child: CircularProgressIndicator.adaptive(strokeWidth: 2),
           )
-        : const Icon(Icons.login, size: 18);
+        : const AppIcon(AppIcons.signIn, size: 18);
     const label = Text('Sign in');
     return inBanner
         ? TextButton.icon(onPressed: onPressed, icon: icon, label: label)
@@ -250,7 +247,7 @@ class _TestOutcome extends StatelessWidget {
       null || McpTestRunning() => const SizedBox.shrink(),
       McpTestUnavailable() => McpBanner(
         tone: McpTone.error,
-        icon: Icons.error_outline,
+        icon: AppIcons.error,
         title: 'Could not test ${server.name}',
         action: TextButton(
           onPressed: () => controller.test(server),
@@ -259,7 +256,7 @@ class _TestOutcome extends StatelessWidget {
       ),
       McpTestFinished(:final result) when result.signInNeeded => McpBanner(
         tone: McpTone.warning,
-        icon: Icons.lock_outline,
+        icon: AppIcons.lock,
         title: 'Sign in needed',
         detail:
             'Hermes has no OAuth token for this server yet, so it cannot '
@@ -272,7 +269,7 @@ class _TestOutcome extends StatelessWidget {
       ),
       McpTestFinished(:final result) when !result.ok => McpBanner(
         tone: McpTone.error,
-        icon: Icons.error_outline,
+        icon: AppIcons.error,
         title: 'Could not connect',
         detail: result.error,
       ),
@@ -281,7 +278,7 @@ class _TestOutcome extends StatelessWidget {
         children: [
           McpBanner(
             tone: McpTone.success,
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.checkCircle,
             title: 'Connected',
             detail:
                 '${mcpPlural(result.tools.length, 'tool')} · '

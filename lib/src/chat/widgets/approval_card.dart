@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
+import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import 'input_card_frame.dart';
 
@@ -86,7 +87,7 @@ class _ApprovalCardState extends State<ApprovalCard> {
     final request = widget.request;
     final scheme = Theme.of(context).colorScheme;
     return InputCardFrame(
-      icon: Icons.shield_outlined,
+      icon: AppIcons.shield,
       title: 'Approval needed',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

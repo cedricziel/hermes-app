@@ -4,6 +4,7 @@ import 'package:macos_window_utils/widgets/transparent_macos_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shell/shell_navigation.dart';
+import '../theme/app_icons.dart';
 import '../widgets/named_icon_button.dart';
 import 'mac_window.dart';
 
@@ -162,7 +163,7 @@ class MacSidebarToggle extends StatelessWidget {
     key: const Key('mac-sidebar-toggle'),
     label: controller.collapsed ? 'Show sidebar' : 'Hide sidebar',
     tooltip: controller.collapsed ? 'Show sidebar (⌃⌘S)' : 'Hide sidebar (⌃⌘S)',
-    icon: Icons.view_sidebar_outlined,
+    icon: AppIcons.sidebar,
     onPressed: controller.toggle,
   );
 }

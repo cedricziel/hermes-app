@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../theme/app_icons.dart';
 import 'catalog_controller.dart';
 import 'catalog_detail.dart';
 import 'catalog_entry.dart';
@@ -131,7 +132,7 @@ class _CatalogTabState extends State<CatalogTab>
                             onChanged: _controller.setQuery,
                             decoration: const InputDecoration(
                               hintText: 'Search catalog',
-                              prefixIcon: Icon(Icons.search),
+                              prefixIcon: AppIcon(AppIcons.search),
                               border: OutlineInputBorder(),
                               isDense: true,
                             ),
@@ -141,7 +142,7 @@ class _CatalogTabState extends State<CatalogTab>
                         OutlinedButton.icon(
                           key: const Key('catalog-git-install'),
                           onPressed: _installFromGit,
-                          icon: const Icon(Icons.link, size: 16),
+                          icon: const AppIcon(AppIcons.link, size: 16),
                           label: const Text('Git URL'),
                         ),
                       ],

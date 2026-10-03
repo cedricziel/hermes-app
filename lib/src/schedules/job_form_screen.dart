@@ -4,6 +4,7 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
+import '../theme/app_icons.dart';
 import '../widgets/disclosure_tile.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
@@ -193,8 +194,8 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     child: Row(
                       spacing: 6,
                       children: [
-                        Icon(
-                          Icons.warning_amber,
+                        AppIcon(
+                          AppIcons.warningPlain,
                           size: 16,
                           color: context.hermesColors.warning,
                         ),

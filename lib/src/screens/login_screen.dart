@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../models/auth_provider_info.dart';
 import '../settings/report_bug_link.dart';
+import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/named_icon_button.dart';
 
@@ -31,7 +32,7 @@ class LoginScreen extends StatelessWidget {
         actions: [
           NamedIconButton(
             label: 'Change server',
-            icon: Icons.dns_outlined,
+            icon: AppIcons.server,
             onPressed: signingIn ? null : () => auth.changeServer(),
           ),
         ],
@@ -46,7 +47,7 @@ class LoginScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.lock_outline, size: 48),
+                  const AppIcon(AppIcons.lock, size: 48),
                   const SizedBox(height: 12),
                   Text(
                     auth.baseUrl ?? '',
@@ -121,8 +122,8 @@ class _ProviderButton extends StatelessWidget {
         ? 'Sign in with username & password'
         : 'Sign in with ${provider.displayName}';
     return FilledButton.icon(
-      icon: Icon(
-        provider.supportsPassword ? Icons.password : Icons.open_in_browser,
+      icon: AppIcon(
+        provider.supportsPassword ? AppIcons.password : AppIcons.openBrowser,
       ),
       label: Text(label),
       onPressed: () => auth.signInWithProvider(provider),

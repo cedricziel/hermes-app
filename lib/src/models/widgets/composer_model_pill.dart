@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../model_provider_option.dart';
 import 'model_picker.dart';
@@ -73,7 +74,7 @@ class ComposerModelPill extends StatelessWidget {
                     style: style?.copyWith(color: quiet),
                     maxLines: 1,
                   ),
-                Icon(Icons.expand_more, size: 16, color: quiet),
+                AppIcon(AppIcons.expandMore, size: 16, color: quiet),
               ],
             ),
           ),

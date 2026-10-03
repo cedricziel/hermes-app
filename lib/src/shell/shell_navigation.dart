@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../chat/widgets/thread_sidebar.dart';
 import '../macos/mac_sidebar.dart';
+import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 
 /// One place the shell can show: the icon pair and the label of its entry.
-typedef ShellDestination = ({IconData icon, IconData selected, String label});
+typedef ShellDestination = ({
+  AppIconSet icon,
+  AppIconSet selected,
+  String label,
+});
 
 /// The shell's destinations as sidebar rows: in the sidebar of a wide layout,
 /// and at the top of the drawer of a narrow one. Picking one closes the drawer
@@ -61,8 +66,8 @@ class ShellSidebar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.hub_outlined,
+                      AppIcon(
+                        AppIcons.hub,
                         size: 18,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
@@ -115,7 +120,7 @@ class ShellMenu extends InheritedWidget {
       IconButton(
         key: const Key('shell-menu'),
         tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-        icon: const Icon(Icons.menu),
+        icon: const AppIcon(AppIcons.menu),
         onPressed: menu.onOpen,
       ),
     );

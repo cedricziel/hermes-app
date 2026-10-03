@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import '../chat_models.dart';
@@ -92,7 +93,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
       controller: _menu,
       label: 'Chat actions for ${_thread.title}',
       tooltip: 'Chat actions',
-      icon: Icons.more_horiz,
+      icon: AppIcons.more,
       color: subtle,
       onSelected: _run,
       iconSize: widget.dense ? 16 : 24,

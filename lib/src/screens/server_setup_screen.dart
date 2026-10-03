@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../auth/auth_controller.dart';
 import '../auth/connect_failure.dart';
 import '../settings/report_bug_link.dart';
+import '../theme/app_icons.dart';
 
 final _vpnGuide = Uri.parse(
   'https://github.com/cedricziel/hermes-app#reaching-your-dashboard-over-a-vpn',
@@ -54,7 +55,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.hub_outlined, size: 56),
+                    const AppIcon(AppIcons.hub, size: 56),
                     const SizedBox(height: 16),
                     Text(
                       'Connect to Hermes',

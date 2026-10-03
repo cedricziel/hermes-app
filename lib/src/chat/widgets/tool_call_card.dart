@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_tile.dart';
@@ -262,8 +263,8 @@ class _Section extends StatelessWidget {
                 color: scheme.secondary,
                 fontWeight: FontWeight.w600,
               ),
-              openIcon: Icon(Icons.arrow_drop_down, size: 18, color: subtle),
-              closeIcon: Icon(Icons.arrow_right, size: 18, color: subtle),
+              openIcon: AppIcon(AppIcons.dropDown, size: 18, color: subtle),
+              closeIcon: AppIcon(AppIcons.dropRight, size: 18, color: subtle),
             ),
           )
         : SingleChildScrollView(
@@ -312,8 +313,8 @@ class ToolCallStatusIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (waiting) {
-      return Icon(
-        Icons.front_hand_outlined,
+      return AppIcon(
+        AppIcons.handRaised,
         size: 14,
         color: context.hermesColors.warning,
       );
@@ -326,20 +327,20 @@ class ToolCallStatusIcon extends StatelessWidget {
           child: CircularProgressIndicator.adaptive(strokeWidth: 2),
         );
       case ToolCallStatus.completed:
-        return Icon(
-          Icons.check_circle,
+        return AppIcon(
+          AppIcons.checkCircleFilled,
           size: 14,
           color: context.hermesColors.success,
         );
       case ToolCallStatus.error:
-        return Icon(
-          Icons.error,
+        return AppIcon(
+          AppIcons.errorFilled,
           size: 14,
           color: Theme.of(context).colorScheme.error,
         );
       case ToolCallStatus.cancelled:
-        return Icon(
-          Icons.block,
+        return AppIcon(
+          AppIcons.blocked,
           size: 14,
           color: context.hermesColors.subtleText,
         );

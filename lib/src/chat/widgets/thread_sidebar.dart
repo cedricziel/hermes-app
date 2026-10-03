@@ -8,6 +8,7 @@ import '../../macos/mac_sidebar.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
@@ -78,8 +79,8 @@ class ThreadSidebar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.hub_outlined,
+                      AppIcon(
+                        AppIcons.hub,
                         size: 18,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
@@ -104,7 +105,7 @@ class ThreadSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: SidebarAction(
-                icon: Icons.add,
+                icon: AppIcons.add,
                 label: 'New chat',
                 onTap: onNewThread,
               ),
@@ -144,17 +145,16 @@ class ThreadSidebar extends StatelessWidget {
             _MoreSection(
               entries: [
                 if (onOpenProfiles != null)
-                  (Icons.person_outline, 'Profiles', onOpenProfiles!),
+                  (AppIcons.person, 'Profiles', onOpenProfiles!),
                 if (onOpenSkills != null)
-                  (Icons.extension_outlined, 'Skills', onOpenSkills!),
-                if (onOpenBots != null)
-                  (Icons.smart_toy_outlined, 'Bots', onOpenBots!),
+                  (AppIcons.extension, 'Skills', onOpenSkills!),
+                if (onOpenBots != null) (AppIcons.bot, 'Bots', onOpenBots!),
                 if (onOpenPlugins != null)
-                  (Icons.extension_outlined, 'Plugins', onOpenPlugins!),
+                  (AppIcons.extension, 'Plugins', onOpenPlugins!),
                 if (onOpenMcp != null)
-                  (Icons.power_outlined, 'MCP servers', onOpenMcp!),
+                  (AppIcons.power, 'MCP servers', onOpenMcp!),
                 if (onOpenHelperModels != null)
-                  (Icons.tune, 'Helper models', onOpenHelperModels!),
+                  (AppIcons.tune, 'Helper models', onOpenHelperModels!),
               ],
             ),
             const AccountFooter(),
@@ -202,7 +202,7 @@ class SidebarAction extends StatelessWidget {
     this.expanded,
   });
 
-  final IconData icon;
+  final AppIconSet icon;
   final String label;
   final VoidCallback onTap;
 
@@ -231,7 +231,7 @@ class SidebarAction extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             child: Row(
               children: [
-                Icon(icon, size: 18),
+                AppIcon(icon, size: 18),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -256,7 +256,7 @@ class SidebarAction extends StatelessWidget {
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});
 
-  final List<(IconData, String, VoidCallback)> entries;
+  final List<(AppIconSet, String, VoidCallback)> entries;
 
   @override
   State<_MoreSection> createState() => _MoreSectionState();
@@ -274,7 +274,7 @@ class _MoreSectionState extends State<_MoreSection> {
         children: [
           const Divider(height: 1),
           SidebarAction(
-            icon: _open ? Icons.expand_more : Icons.chevron_right,
+            icon: _open ? AppIcons.expandMore : AppIcons.chevronRight,
             label: 'More',
             expanded: _open,
             onTap: () => setState(() => _open = !_open),
@@ -334,7 +334,7 @@ class _ThreadRowState extends State<_ThreadRow> {
         child: Row(
           children: [
             if (_thread.pinned) ...[
-              Icon(Icons.push_pin, size: 12, color: subtle),
+              AppIcon(AppIcons.pin, size: 12, color: subtle),
               const SizedBox(width: 4),
             ],
             Expanded(
@@ -478,8 +478,8 @@ class AccountFooter extends StatelessWidget {
                       backgroundColor: Theme.of(context)
                           .colorScheme
                           .surfaceContainerHighest,
-                      child: Icon(
-                        Icons.person_outline,
+                      child: AppIcon(
+                        AppIcons.person,
                         size: 15,
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
@@ -496,8 +496,8 @@ class AccountFooter extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Icon(
-                      Icons.more_horiz,
+                    AppIcon(
+                      AppIcons.more,
                       size: 16,
                       color: context.hermesColors.subtleText,
                     ),

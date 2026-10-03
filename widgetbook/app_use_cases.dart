@@ -30,6 +30,7 @@ import 'package:hermes_app/src/settings/about_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
 import 'package:hermes_app/src/settings/report_bug_link.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/content_column.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -396,7 +397,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
           name: 'Frame and notes',
           builder: (_) => frame(
             const InputCardFrame(
-              icon: Icons.help_outline,
+              icon: AppIcons.help,
               title: 'Hermes has a question',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,19 +560,11 @@ class _DestinationsState extends State<_Destinations> {
   @override
   Widget build(BuildContext context) => ShellNavigation(
     destinations: const [
+      (icon: AppIcons.chat, selected: AppIcons.chatFilled, label: 'Chat'),
+      (icon: AppIcons.kanban, selected: AppIcons.kanbanFilled, label: 'Kanban'),
       (
-        icon: Icons.chat_bubble_outline,
-        selected: Icons.chat_bubble,
-        label: 'Chat',
-      ),
-      (
-        icon: Icons.view_kanban_outlined,
-        selected: Icons.view_kanban,
-        label: 'Kanban',
-      ),
-      (
-        icon: Icons.schedule_outlined,
-        selected: Icons.schedule,
+        icon: AppIcons.scheduleOutlined,
+        selected: AppIcons.schedule,
         label: 'Schedules',
       ),
     ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -182,7 +183,7 @@ class _SkillDetailScreenState extends State<SkillDetailScreen> {
             children: [
               FilledButton.icon(
                 onPressed: _content == null ? null : _edit,
-                icon: const Icon(Icons.edit_outlined),
+                icon: const AppIcon(AppIcons.edit),
                 label: const Text('Edit'),
               ),
               OutlinedButton(

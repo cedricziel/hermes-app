@@ -93,14 +93,33 @@ void main() {
     });
   });
 
-  for (final platform in [TargetPlatform.android, TargetPlatform.macOS]) {
-    testWidgets('keeps the Material tile on $platform', (tester) async {
-      await _pump(tester, platform, active: true, onChangeModel: () {});
+  testWidgets('keeps the Material tile and icons on Android', (tester) async {
+    await _pump(
+      tester,
+      TargetPlatform.android,
+      active: true,
+      onChangeModel: () {},
+    );
 
-      expect(find.text('Active'), findsOneWidget);
-      expect(find.byIcon(Icons.person_outline), findsOneWidget);
-      expect(find.byIcon(Icons.tune), findsOneWidget);
-      expect(find.byIcon(CupertinoIcons.check_mark), findsNothing);
-    });
-  }
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline), findsOneWidget);
+    expect(find.byIcon(Icons.tune), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.check_mark), findsNothing);
+  });
+
+  testWidgets('keeps the Material tile with SF-style icons on macOS', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      TargetPlatform.macOS,
+      active: true,
+      onChangeModel: () {},
+    );
+
+    expect(find.text('Active'), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.person), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.slider_horizontal_3), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline), findsNothing);
+  });
 }

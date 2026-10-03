@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_catalog_controller.dart';
@@ -233,7 +234,7 @@ class _RunBlock extends StatelessWidget {
           const SizedBox(height: 8),
           const McpBanner(
             tone: McpTone.warning,
-            icon: Icons.warning_amber_outlined,
+            icon: AppIcons.warning,
             title: 'Hermes did not say how this server connects.',
           ),
         ],
@@ -300,11 +301,7 @@ class _Outcome extends StatelessWidget {
       McpInstallFailed(:final message, :final log) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          McpBanner(
-            tone: McpTone.error,
-            icon: Icons.error_outline,
-            title: message,
-          ),
+          McpBanner(tone: McpTone.error, icon: AppIcons.error, title: message),
           if (log.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
