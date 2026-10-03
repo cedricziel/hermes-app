@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
+import '../../macos/mac_sidebar.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -67,27 +68,31 @@ class ThreadSidebar extends StatelessWidget {
     final colors = context.hermesColors;
     final search = this.search;
     return Container(
-      color: colors.sidebar,
+      color: macSidebarColor(context, colors.sidebar),
       child: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.hub_outlined,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurface,
+            macSidebarHeader(context) ??
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.hub_outlined,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Hermes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Hermes',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
+                ),
             if (navigation != null) ...[
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),

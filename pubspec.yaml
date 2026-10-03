@@ -87,6 +87,7 @@ dependencies:
   # App version shown in the About dialog.
   package_info_plus: ^10.2.1
   html_unescape: ^2.0.0
+  macos_window_utils: ^1.9.1
 
 dev_dependencies:
   flutter_test:

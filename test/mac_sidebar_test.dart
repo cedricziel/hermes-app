@@ -1,0 +1,97 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+Future<void> _pump(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1280, 800);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MacSidebarScope(
+        child: Scaffold(
+          body: MacSplitView(
+            sidebar: Container(key: const Key('sidebar')),
+            content: Container(key: const Key('content')),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
+  });
+
+  testWidgets('opens at the default width', (tester) async {
+    await _pump(tester);
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 280);
+    expect(tester.getTopLeft(find.byKey(const Key('content'))).dx, 281);
+  });
+
+  testWidgets('dragging the divider resizes within the limits', (tester) async {
+    await _pump(tester);
+    final handle = find.byKey(const Key('mac-sidebar-resize'));
+    await tester.drag(handle, const Offset(60, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 340);
+    await tester.drag(handle, const Offset(200, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 360);
+    await tester.drag(handle, const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 220);
+  });
+
+  testWidgets('control-command-S collapses and restores the sidebar', (
+    tester,
+  ) async {
+    await _pump(tester);
+    Future<void> chord() async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+    }
+
+    await chord();
+    expect(find.byKey(const Key('sidebar')), findsNothing);
+    expect(tester.getTopLeft(find.byKey(const Key('content'))).dx, 0);
+    await chord();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 280);
+  });
+
+  testWidgets('remembers the width and the collapsed state', (tester) async {
+    await _pump(tester);
+    await tester.drag(
+      find.byKey(const Key('mac-sidebar-resize')),
+      const Offset(40, 0),
+    );
+    await tester.pumpAndSettle();
+    MacSidebarScope.of(tester.element(find.byKey(const Key('content'))))
+        .toggle();
+    await tester.pumpAndSettle();
+
+    final prefs = SharedPreferencesAsync();
+    expect(await prefs.getDouble('hermes.mac_sidebar_width'), 320);
+    expect(await prefs.getBool('hermes.mac_sidebar_collapsed'), isTrue);
+
+    await tester.pumpWidget(const SizedBox());
+    await _pump(tester);
+    expect(find.byKey(const Key('sidebar')), findsNothing);
+    MacSidebarScope.of(tester.element(find.byKey(const Key('content'))))
+        .toggle();
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 320);
+  });
+}
