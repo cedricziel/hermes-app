@@ -1,10 +1,67 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/local_notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
+
+class _Posted {
+  _Posted(this.id, this.title, this.body, this.payload);
+
+  final int id;
+  final String? title;
+  final String? body;
+  final String? payload;
+}
+
+class _FakePlugin implements FlutterLocalNotificationsPlugin {
+  final posted = <_Posted>[];
+  var initializeCalls = 0;
+  Exception? initializeError;
+  Exception? showError;
+  NotificationAppLaunchDetails? launchDetails;
+  Exception? launchDetailsError;
+  DidReceiveNotificationResponseCallback? onResponse;
+
+  @override
+  Future<bool?> initialize({
+    required InitializationSettings settings,
+    DidReceiveNotificationResponseCallback? onDidReceiveNotificationResponse,
+    DidReceiveBackgroundNotificationResponseCallback?
+    onDidReceiveBackgroundNotificationResponse,
+  }) async {
+    initializeCalls++;
+    if (initializeError case final error?) throw error;
+    onResponse = onDidReceiveNotificationResponse;
+    return true;
+  }
+
+  @override
+  Future<void> show({
+    required int id,
+    String? title,
+    String? body,
+    NotificationDetails? notificationDetails,
+    String? payload,
+  }) async {
+    if (showError case final error?) throw error;
+    posted.add(_Posted(id, title, body, payload));
+  }
+
+  @override
+  Future<NotificationAppLaunchDetails?>
+  getNotificationAppLaunchDetails() async {
+    if (launchDetailsError case final error?) throw error;
+    return launchDetails;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 NotificationResponse _response(String? payload) => NotificationResponse(
   notificationResponseType: NotificationResponseType.selectedNotification,
@@ -141,6 +198,169 @@ void main() {
         await service.requestPermission(),
         NotificationPermission.unavailable,
       );
+    });
+  });
+
+  group('LocalNotificationService', () {
+    late _FakePlugin plugin;
+    late LocalNotificationService service;
+
+    setUp(() {
+      plugin = _FakePlugin();
+      service = LocalNotificationService(plugin);
+    });
+
+    tearDown(() async {
+      debugDefaultTargetPlatformOverride = null;
+      await service.dispose();
+    });
+
+    test('posts a chat under its thread and profile', () async {
+      await service.show(
+        const AttentionNotification(
+          threadId: 's1',
+          profile: 'work',
+          title: 'Hermes replied',
+          body: 'Done.',
+        ),
+      );
+
+      final posted = plugin.posted.single;
+      expect(posted.id, notificationIdFor('s1', profile: 'work'));
+      expect(posted.title, 'Hermes replied');
+      expect(posted.body, 'Done.');
+      final target = targetFromResponse(_response(posted.payload))!;
+      expect(target.isJob, isFalse);
+      expect(target.threadId, 's1');
+      expect(target.profile, 'work');
+    });
+
+    test('posts a scheduled task with a payload that opens the task', () async {
+      await service.show(
+        const AttentionNotification.job(
+          jobId: 'j1',
+          profile: 'work',
+          title: 'Backup failed',
+          body: 'Exit 1',
+        ),
+      );
+
+      final target = targetFromResponse(
+        _response(plugin.posted.single.payload),
+      )!;
+      expect(target.isJob, isTrue);
+      expect(target.jobId, 'j1');
+      expect(target.profile, 'work');
+    });
+
+    test('drops a notification the plugin cannot show', () async {
+      plugin.showError = PlatformException(code: 'boom');
+
+      await expectLater(
+        service.show(
+          const AttentionNotification(threadId: 's1', title: 't', body: 'b'),
+        ),
+        completes,
+      );
+    });
+
+    test('initializes the plugin once for several notifications', () async {
+      const note = AttentionNotification(threadId: 's1', title: 't', body: 'b');
+
+      await service.show(note);
+      await service.show(note);
+
+      expect(plugin.initializeCalls, 1);
+      expect(plugin.posted, hasLength(2));
+    });
+
+    test('retries initialization after it failed', () async {
+      const note = AttentionNotification(threadId: 's1', title: 't', body: 'b');
+      plugin.initializeError = PlatformException(code: 'not yet');
+      await service.show(note);
+
+      plugin.initializeError = null;
+      await service.show(note);
+
+      expect(plugin.initializeCalls, 2);
+      expect(plugin.posted, hasLength(1));
+    });
+
+    test('reports a tapped notification on taps', () async {
+      await service.show(
+        const AttentionNotification(
+          threadId: 's1',
+          profile: 'work',
+          title: 't',
+          body: 'b',
+        ),
+      );
+      final tapped = service.taps.first;
+
+      plugin.onResponse!(_response(plugin.posted.single.payload));
+
+      final target = await tapped;
+      expect(target.threadId, 's1');
+      expect(target.profile, 'work');
+    });
+
+    test('ignores a tap without a payload', () async {
+      await service.show(
+        const AttentionNotification(threadId: 's1', title: 't', body: 'b'),
+      );
+      final taps = <NotificationTarget>[];
+      final sub = service.taps.listen(taps.add);
+
+      plugin.onResponse!(_response(null));
+      await pumpEventQueue();
+      await sub.cancel();
+
+      expect(taps, isEmpty);
+    });
+
+    test('launchTarget is the notification that started the app', () async {
+      plugin.launchDetails = NotificationAppLaunchDetails(
+        true,
+        notificationResponse: _response(
+          encodeTarget(const NotificationTarget.job(jobId: 'j1', profile: 'w')),
+        ),
+      );
+
+      final target = (await service.launchTarget())!;
+
+      expect(target.jobId, 'j1');
+      expect(target.profile, 'w');
+    });
+
+    test('launchTarget is null when no notification started the app', () async {
+      plugin.launchDetails = NotificationAppLaunchDetails(
+        false,
+        notificationResponse: _response('s1'),
+      );
+
+      expect(await service.launchTarget(), isNull);
+    });
+
+    test('launchTarget is null when the plugin fails', () async {
+      plugin.launchDetailsError = PlatformException(code: 'boom');
+
+      expect(await service.launchTarget(), isNull);
+    });
+
+    test('does nothing on a platform without notifications', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      plugin.launchDetails = NotificationAppLaunchDetails(
+        true,
+        notificationResponse: _response('s1'),
+      );
+
+      await service.show(
+        const AttentionNotification(threadId: 's1', title: 't', body: 'b'),
+      );
+
+      expect(plugin.posted, isEmpty);
+      expect(await service.launchTarget(), isNull);
+      expect(plugin.initializeCalls, 0);
     });
   });
 }
