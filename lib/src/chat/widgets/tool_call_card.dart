@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_tile.dart';
 import '../chat_models.dart';
 import 'approval_card.dart';
@@ -83,7 +84,9 @@ class ToolCallCard extends StatelessWidget {
             tilePadding: const EdgeInsets.symmetric(horizontal: 10),
             childrenPadding: EdgeInsets.zero,
             expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-            minTileHeight: 36,
+            minTileHeight: platformChromeOf(context) == PlatformChrome.ios
+                ? kAppleMinTapTarget
+                : 36,
             iconColor: subtle,
             collapsedIconColor: subtle,
             trailing: expandable ? null : const SizedBox.shrink(),

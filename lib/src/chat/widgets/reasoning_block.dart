@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 
 /// What the model reasoned before it answered, folded away until the user
 /// opens it — assistant-ui's collapsible reasoning part.
@@ -23,29 +24,39 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
+    final minTap = platformChromeOf(context) == PlatformChrome.ios
+        ? kAppleMinTapTarget
+        : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() => _open = !_open),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.psychology_outlined, size: 16, color: subtle),
-                const SizedBox(width: 6),
-                Text(
-                  widget.active ? 'Thinking…' : 'Reasoning',
-                  style: TextStyle(fontSize: 13, color: subtle),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minTap),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.psychology_outlined, size: 16, color: subtle),
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.active ? 'Thinking…' : 'Reasoning',
+                      style: TextStyle(fontSize: 13, color: subtle),
+                    ),
+                    Icon(
+                      _open ? Icons.expand_less : Icons.expand_more,
+                      size: 18,
+                      color: subtle,
+                    ),
+                  ],
                 ),
-                Icon(
-                  _open ? Icons.expand_less : Icons.expand_more,
-                  size: 18,
-                  color: subtle,
-                ),
-              ],
+              ),
             ),
           ),
         ),
