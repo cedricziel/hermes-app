@@ -112,7 +112,10 @@ class Telemetry {
               ? null
               : config.serviceVersion,
           deploymentEnvironment: config.deploymentEnvironment,
-          attributes: await detectDeviceAttributes(),
+          attributes: {
+            'service.namespace': 'hermes-app',
+            ...await detectDeviceAttributes(),
+          },
         ),
         otlpEndpoint: endpoint,
         otlpHeaders: config.otlpHeaders,
