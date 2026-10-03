@@ -67,6 +67,42 @@ void main() {
     expect(fieldText(tester), 'http://');
   });
 
+  testWidgets('asks for a URL keyboard whose return key submits', (
+    tester,
+  ) async {
+    final auth = AuthController(tokenStore: MemoryTokenStore());
+    await tester.runAsync(auth.bootstrap);
+
+    await pumpSetup(tester, auth);
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.keyboardType, TextInputType.url);
+    expect(field.textInputAction, TextInputAction.go);
+  });
+
+  testWidgets('keeps Connect reachable on a short screen with the keyboard '
+      'up', (tester) async {
+    final auth = AuthController(tokenStore: MemoryTokenStore());
+    await tester.runAsync(auth.bootstrap);
+    tester.view.physicalSize = const Size(375, 560);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthController>.value(
+        value: auth,
+        child: const MaterialApp(home: ServerSetupScreen()),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Connect'));
+    await tester.pump();
+    final bottom = tester.getBottomLeft(find.text('Connect')).dy;
+    expect(bottom, lessThanOrEqualTo(560 - 300));
+  });
+
   testWidgets('offers a way to report a bug', (tester) async {
     final auth = AuthController(tokenStore: MemoryTokenStore());
     await tester.runAsync(auth.bootstrap);
