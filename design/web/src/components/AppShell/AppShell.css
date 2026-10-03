@@ -56,53 +56,23 @@
   flex-direction: column;
 }
 
-.h-app-shell__bar {
-  display: flex;
-  flex-shrink: 0;
-  height: 80px;
-  background: var(--h-surface);
+.h-app-shell--phone {
+  position: relative;
+  overflow: hidden;
 }
 
-.h-app-shell__bar-item {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--h-fg);
-  font: inherit;
-  cursor: pointer;
+.h-app-shell__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.54);
 }
 
-.h-app-shell__indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 64px;
-  height: 32px;
-  border-radius: var(--h-radius-pill);
-}
-
-.h-app-shell__bar-item:hover .h-app-shell__indicator {
-  background: var(--h-hover);
-}
-
-.h-app-shell__bar-item--selected .h-app-shell__indicator,
-.h-app-shell__bar-item--selected:hover .h-app-shell__indicator {
-  background: var(--h-secondary);
-  color: var(--h-on-primary);
-}
-
-.h-app-shell__bar-label {
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 500;
-}
-
-.h-app-shell__bar-item--selected .h-app-shell__bar-label {
-  font-weight: 600;
+.h-app-shell__drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 280px;
+  overflow: hidden;
+  border-radius: 0 16px 16px 0;
 }

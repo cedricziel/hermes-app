@@ -39,17 +39,17 @@ The system SHALL run the plugin check when the signed-in home screen is first sh
 
 ### Requirement: Chat and Kanban navigation adapts to screen width
 
-While more than one destination is offered, the system SHALL show them (Chat, Kanban when the plugin is on, and any other) in a bottom navigation bar when the available width is below 900 logical pixels and in a side navigation rail with labels when it is 900 logical pixels or wider. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
+While more than one destination is offered, the system SHALL list them (Chat, Kanban when the plugin is on, and any other) at the top of the sidebar, above Chat's threads. When the available width is 900 logical pixels or more the sidebar is shown next to every page; below that it is a drawer, opened from the menu button in each page's app bar, and there is no bottom navigation bar. Picking a destination in the drawer SHALL close it. Switching to Kanban SHALL NOT discard the chat: the chat stays mounted, keeping its state, while the Kanban page is shown.
 
 #### Scenario: Phone-width layout
 
 - **WHEN** the plugin is on and the width is below 900 logical pixels
-- **THEN** a bottom navigation bar with Chat and Kanban is shown and no rail
+- **THEN** no bottom navigation bar is shown, and Chat and Kanban are listed at the top of the drawer that the app bar's menu button opens, on Chat as on Kanban
 
 #### Scenario: Wide layout
 
 - **WHEN** the plugin is on and the width is 900 logical pixels or more
-- **THEN** a navigation rail with Chat and Kanban is shown and no bottom bar
+- **THEN** Chat and Kanban are listed at the top of the sidebar next to the page, in the same place on both pages, and no bottom bar is shown
 
 ### Requirement: The board loads only once its tab has been opened
 

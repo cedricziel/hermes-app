@@ -30,6 +30,7 @@ import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
 import 'attachments/attachment_source.dart';
@@ -109,8 +110,8 @@ class ChatScreen extends StatefulWidget {
   /// the chat cannot show.
   final void Function(NotificationTarget target)? onOpenJob;
 
-  /// The shell's destinations. A wide layout shows them at the top of the
-  /// thread sidebar; a narrow one has its own bottom bar.
+  /// The shell's destinations, shown at the top of the thread sidebar: next to
+  /// the chat on a wide layout, in the drawer on a narrow one.
   final Widget? navigation;
 
   @override
@@ -453,11 +454,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final chat = _chat;
+    // Without its own drawer, the chat keeps the shell's menu reachable on a
+    // narrow layout, or the other destinations would be too.
+    final shellMenu = ShellMenu.button(context);
+    final shellBar = shellMenu == null ? null : AppBar(leading: shellMenu);
     if (chat.loadingThreads) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: shellBar,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (chat.threadsFailed) {
       return Scaffold(
+        appBar: shellBar,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -498,7 +507,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         return Scaffold(
           key: _scaffoldKey,
-          drawer: isWide ? null : Drawer(width: 280, child: buildSidebar()),
+          drawer: isWide
+              ? null
+              : Drawer(
+                  width: 280,
+                  child: buildSidebar(navigation: widget.navigation),
+                ),
           appBar: isWide
               ? null
               : AppBar(

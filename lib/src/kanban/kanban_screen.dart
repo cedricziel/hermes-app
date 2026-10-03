@@ -14,6 +14,7 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
+import '../shell/shell_navigation.dart';
 import '../telemetry/telemetry.dart';
 import '../theme/hermes_theme.dart';
 import '../widgets/named_icon_button.dart';
@@ -141,6 +142,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 title: Text('${_controller.selected.length} selected'),
               )
             : AppBar(
+                leading: ShellMenu.button(context),
                 title: const Text('Kanban'),
                 actions: [
                   if (_controller.boards.isNotEmpty)

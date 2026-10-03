@@ -45,6 +45,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final _chatKey = GlobalKey();
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _openRequests = ChatOpenRequests();
   HermesPluginsRepository? _plugins;
   HermesCronRepository? _cron;
@@ -206,6 +207,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _showChat();
   }
 
+  void _openMenu() => _scaffoldKey.currentState?.openDrawer();
+
   static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
       icon: Icons.chat_bubble_outline,
@@ -255,7 +258,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
         Widget page(_Destination destination) {
           final content = switch (destination) {
-            _Destination.chat => chat(navigation: wide ? navigation : null),
+            _Destination.chat => chat(navigation: navigation),
             _ when !_opened.contains(destination) => const SizedBox.shrink(),
             _Destination.kanban =>
               widget.kanbanBuilder?.call(context) ?? const KanbanScreen(),
@@ -286,20 +289,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           children: [for (final d in destinations) page(d)],
         );
         if (wide) return Scaffold(body: pages);
+        // A narrow layout keeps the destinations in a drawer, as Chat keeps
+        // its threads: Chat lists them above its threads in its own drawer,
+        // the other pages open this one from their app bar.
         return Scaffold(
-          body: pages,
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: index,
-            onDestinationSelected: select,
-            destinations: [
-              for (final d in destinations)
-                NavigationDestination(
-                  icon: Icon(_labels[d]!.icon),
-                  selectedIcon: Icon(_labels[d]!.selected),
-                  label: _labels[d]!.label,
-                ),
-            ],
+          key: _scaffoldKey,
+          drawer: Drawer(
+            width: 280,
+            child: ShellSidebar(navigation: navigation),
           ),
+          drawerEnableOpenDragGesture: _current != _Destination.chat,
+          body: ShellMenu(onOpen: _openMenu, child: pages),
         );
       },
     );

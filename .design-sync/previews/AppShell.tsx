@@ -74,27 +74,44 @@ export const DesktopSchedules = () => (
   </div>
 );
 
+const chatSidebar = (
+  <ThreadSidebar
+    threads={threads}
+    navigation={
+      <ShellNavigation
+        destinations={["chat", "kanban", "schedules"]}
+        current="chat"
+      />
+    }
+  />
+);
+
 export const Phone = () => (
   <div style={{ display: "flex", gap: 24 }}>
     <div style={phone}>
-      <AppShell layout="phone" current="chat">
+      <AppShell layout="phone" current="chat" sidebar={chatSidebar}>
         <ChatHeader layout="phone" />
         <WelcomeView prompts={prompts} />
       </AppShell>
     </div>
     <div style={phone}>
-      <AppShell
-        layout="phone"
-        current="kanban"
-        destinations={["chat", "kanban"]}
-      >
-        <StateMessage
-          icon="view_kanban"
-          title="No tasks on this board"
-          detail="Tasks you or Hermes create show up here."
-        />
+      <AppShell layout="phone" current="chat" sidebar={chatSidebar} drawerOpen>
+        <ChatHeader layout="phone" />
+        <WelcomeView prompts={prompts} />
       </AppShell>
     </div>
+  </div>
+);
+
+export const PhoneKanbanDrawer = () => (
+  <div style={phone}>
+    <AppShell layout="phone" current="kanban" drawerOpen>
+      <StateMessage
+        icon="view_kanban"
+        title="No tasks on this board"
+        detail="Tasks you or Hermes create show up here."
+      />
+    </AppShell>
   </div>
 );
 

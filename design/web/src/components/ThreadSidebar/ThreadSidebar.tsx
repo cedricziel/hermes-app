@@ -317,8 +317,9 @@ export interface ThreadSidebarProps {
   /** The open chat, drawn as a filled row with a bold title. */
   selectedId?: string | null;
   /**
-   * The app shell's destinations, shown under the app name on a wide screen
-   * (pass a `ShellNavigation`). Leave it out when the shell has only Chat.
+   * The app shell's destinations, shown under the app name and divided from
+   * "New chat", in the wide sidebar and the phone drawer (pass a
+   * `ShellNavigation`). Leave it out when the shell has only Chat.
    */
   navigation?: ReactNode;
   /** Entries behind the collapsible "More" row. Defaults to Profiles, Skills, Bots, Plugins, MCP servers, Helper models; an empty list hides the section. */
@@ -402,7 +403,10 @@ export function ThreadSidebar({
     <nav className="h-thread-sidebar" aria-label="Chats">
       <SidebarBrand />
       {navigation ? (
-        <div className="h-thread-sidebar__pad">{navigation}</div>
+        <>
+          <div className="h-thread-sidebar__pad">{navigation}</div>
+          <hr className="h-thread-sidebar__nav-divider" />
+        </>
       ) : null}
       <div className="h-thread-sidebar__pad">
         <SidebarAction icon="add" label="New chat" onClick={onNewThread} />

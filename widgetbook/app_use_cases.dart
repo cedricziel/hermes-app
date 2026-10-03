@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/app.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
@@ -257,6 +258,22 @@ WidgetbookNode appNode() => WidgetbookFolder(
           ),
         ),
         _screen(
+          'With destinations',
+          () => CatalogAuth(gated: true),
+          () => fill(
+            ThreadSidebar(
+              navigation: _destinations(0),
+              threads: threads,
+              selectedId: 'thread-1',
+              onSelect: (_) {},
+              onNewThread: () {},
+              onOpenProfiles: () {},
+              onOpenSkills: () {},
+            ),
+            width: 300,
+          ),
+        ),
+        _screen(
           'Searching',
           () => CatalogAuth(gated: true),
           () => Hosted<ThreadSearch>(
@@ -289,6 +306,20 @@ WidgetbookNode appNode() => WidgetbookFolder(
             width: 300,
           ),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ShellSidebar',
+      useCases: [
+        for (final (name, selected) in [('Kanban', 1), ('Schedules', 2)])
+          _screen(
+            name,
+            () => CatalogAuth(),
+            () => fill(
+              ShellSidebar(navigation: _destinations(selected)),
+              width: 300,
+            ),
+          ),
       ],
     ),
     WidgetbookComponent(
@@ -509,3 +540,42 @@ WidgetbookNode appNode() => WidgetbookFolder(
     ),
   ],
 );
+
+/// The shell's three destinations, with [selected] in front.
+Widget _destinations(int selected) => _Destinations(selected: selected);
+
+class _Destinations extends StatefulWidget {
+  const _Destinations({required this.selected});
+
+  final int selected;
+
+  @override
+  State<_Destinations> createState() => _DestinationsState();
+}
+
+class _DestinationsState extends State<_Destinations> {
+  late int _selected = widget.selected;
+
+  @override
+  Widget build(BuildContext context) => ShellNavigation(
+    destinations: const [
+      (
+        icon: Icons.chat_bubble_outline,
+        selected: Icons.chat_bubble,
+        label: 'Chat',
+      ),
+      (
+        icon: Icons.view_kanban_outlined,
+        selected: Icons.view_kanban,
+        label: 'Kanban',
+      ),
+      (
+        icon: Icons.schedule_outlined,
+        selected: Icons.schedule,
+        label: 'Schedules',
+      ),
+    ],
+    selectedIndex: _selected,
+    onSelected: (i) => setState(() => _selected = i),
+  );
+}

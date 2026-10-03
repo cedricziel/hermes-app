@@ -5,6 +5,7 @@ import 'blueprint_screens.dart';
 import 'schedule_detail.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
+import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
 import '../widgets/named_icon_button.dart';
@@ -116,6 +117,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             );
             return Scaffold(
               appBar: AppBar(
+                leading: ShellMenu.button(context),
                 title: const Text('Schedules'),
                 actions: [
                   NamedIconButton(
