@@ -39,10 +39,13 @@ void main() {
     Future<void> pump(WidgetTester tester) =>
         pumpChatScreen(tester, server: server, platform: TargetPlatform.iOS);
 
-    testWidgets('the row has no inline more button', (tester) async {
+    testWidgets('the row has no inline more button and is 44pt tall', (
+      tester,
+    ) async {
       await pump(tester);
 
       expect(find.byTooltip('Chat actions'), findsNothing);
+      expect(tester.getSize(row).height, greaterThanOrEqualTo(44));
     });
 
     testWidgets('a long press opens an action sheet with every action', (
