@@ -10,6 +10,20 @@ class MainFlutterWindow: NSWindow {
 
     RegisterGeneratedPlugins(registry: flutterViewController)
 
+    FlutterMethodChannel(
+      name: "hermes_app/window",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    ).setMethodCallHandler { [weak self] call, result in
+      guard call.method == "startDrag" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      if let event = NSApp.currentEvent {
+        self?.performDrag(with: event)
+      }
+      result(nil)
+    }
+
     super.awakeFromNib()
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart' show CupertinoSearchTextField;
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
@@ -65,7 +66,10 @@ class KanbanBoardToolbar extends StatelessWidget {
                           decoration: InputDecoration(
                             isDense: true,
                             filled: true,
-                            prefixIcon: const Icon(Icons.search, size: 18),
+                            prefixIcon: const AppIcon(
+                              AppIcons.search,
+                              size: 18,
+                            ),
                             hintText: 'Search tasks',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(
@@ -81,7 +85,7 @@ class KanbanBoardToolbar extends StatelessWidget {
               if (wide)
                 NamedIconButton(
                   label: 'Refresh',
-                  icon: Icons.refresh,
+                  icon: AppIcons.refresh,
                   onPressed: onRefresh,
                 ),
             ],
@@ -150,7 +154,7 @@ class KanbanFilterMenu extends StatelessWidget {
       ],
       child: Chip(
         label: Text(label),
-        avatar: const Icon(Icons.filter_list, size: 16),
+        avatar: const AppIcon(AppIcons.filter, size: 16),
       ),
     );
   }
@@ -173,7 +177,7 @@ class KanbanRefreshFailedNotice extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
             children: [
-              Icon(Icons.error_outline, size: 18, color: scheme.error),
+              AppIcon(AppIcons.error, size: 18, color: scheme.error),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

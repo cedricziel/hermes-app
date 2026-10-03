@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'skills_hub_controller.dart';
 
@@ -56,7 +57,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                 controller: _search,
                 onChanged: hub.setQuery,
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const AppIcon(AppIcons.search),
                   hintText: 'Search the skills hub',
                   filled: true,
                   isDense: true,
@@ -117,7 +118,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
           for (final s in hub.results) _card(hub, s),
           if (hub.timedOut.isNotEmpty)
             ListTile(
-              leading: const Icon(Icons.hourglass_empty),
+              leading: const AppIcon(AppIcons.waiting),
               title: Text(
                 '${hub.timedOut.length} source'
                 '${hub.timedOut.length == 1 ? '' : 's'} timed out',
@@ -182,8 +183,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
         ],
       ),
       trailing: installed
-          ? Icon(Icons.check_circle_outline, color: scheme.primary)
-          : const Icon(Icons.chevron_right),
+          ? AppIcon(AppIcons.checkCircle, color: scheme.primary)
+          : const AppIcon(AppIcons.chevronRight),
     );
   }
 }

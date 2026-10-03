@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
@@ -103,7 +105,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
             ),
             child: ListTile(
               key: const Key('custom-task'),
-              leading: const Icon(Icons.add),
+              leading: const AppIcon(AppIcons.add),
               title: const Text('Custom task'),
               subtitle: const Text('Start from scratch'),
               onTap: _custom,
@@ -129,7 +131,7 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
               key: const Key('blueprint-search'),
               decoration: const InputDecoration(
                 hintText: 'Search templates',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: AppIcon(AppIcons.search),
               ),
               onChanged: (v) => setState(() => _query = v),
             ),
@@ -276,7 +278,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
         child: OutlinedButton.icon(
           key: Key('slot-${field.name}'),
           onPressed: () => _pickTime(field),
-          icon: const Icon(Icons.access_time, size: 18),
+          icon: const AppIcon(AppIcons.time, size: 18),
           label: Text(value.isEmpty ? 'Choose a time' : value),
         ),
       );
@@ -341,7 +343,11 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
       builder: (context, _) {
         final blueprint = _form.blueprint;
         return Scaffold(
-          appBar: AppBar(title: Text(blueprint.title)),
+          appBar: AppBar(
+            leading: const AdaptiveBackButton(),
+            leadingWidth: adaptiveBackLeadingWidth(context),
+            title: Text(blueprint.title),
+          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [

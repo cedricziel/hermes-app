@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
+
 /// A centered message for a screen with nothing to show: empty, failed to
 /// load, or not available on this server. An [action] (a retry button, say)
 /// sits below the text.
@@ -12,7 +14,7 @@ class StateMessage extends StatelessWidget {
     this.action,
   });
 
-  final IconData? icon;
+  final AppIconSet? icon;
   final String title;
   final String? detail;
   final Widget? action;
@@ -25,7 +27,7 @@ class StateMessage extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 40),
+            AppIcon(icon!, size: 40),
             const SizedBox(height: 8),
           ],
           Text(

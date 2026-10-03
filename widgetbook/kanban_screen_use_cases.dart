@@ -251,6 +251,23 @@ List<WidgetbookNode> kanbanScreenComponents() => [
           ),
         ),
       ),
+      _screen(
+        'Presented (sheet on iOS and macOS)',
+        kanbanServer,
+        (repository) => Builder(
+          builder: (context) => Center(
+            child: FilledButton(
+              onPressed: () => showKanbanTask(
+                context,
+                repository: repository,
+                taskId: 't_run',
+                files: NoKanbanFiles(),
+              ),
+              child: const Text('Open the task'),
+            ),
+          ),
+        ),
+      ),
     ],
   ),
   WidgetbookComponent(

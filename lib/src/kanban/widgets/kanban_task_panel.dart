@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:hermes_app/src/theme/breakpoints.dart';
-
 import 'package:flutter/material.dart';
+
+import '../../theme/breakpoints.dart';
+import '../../theme/platform_chrome.dart';
 
 import '../../models/model_provider_option.dart';
 import '../../models/widgets/model_picker.dart';
@@ -19,8 +20,11 @@ import 'task_panel/kanban_task_comments.dart';
 import 'task_panel/kanban_task_fields.dart';
 import 'task_panel/kanban_task_header.dart';
 import 'task_panel/kanban_task_runs.dart';
+import 'task_panel/kanban_task_sheet.dart';
 
 /// Opens a task as a bottom sheet on a phone and a dialog on a wide screen.
+/// On Apple platforms the sheet has medium and large detents and the dialog is
+/// a form sheet.
 Future<void> showKanbanTask(
   BuildContext context, {
   required KanbanRepository repository,
@@ -29,20 +33,39 @@ Future<void> showKanbanTask(
   String? board,
   VoidCallback? onChanged,
 }) {
-  final panel = KanbanTaskPanel(
-    repository: repository,
-    files: files,
-    taskId: taskId,
-    board: board,
-    onChanged: onChanged,
-  );
-  if (MediaQuery.sizeOf(context).width >= kKanbanColumnsBreakpoint) {
+  Widget panel({ScrollController? scrollController, double topPadding = 0}) =>
+      KanbanTaskPanel(
+        repository: repository,
+        files: files,
+        taskId: taskId,
+        board: board,
+        onChanged: onChanged,
+        scrollController: scrollController,
+        topPadding: topPadding,
+      );
+  final apple = platformChromeOf(context).isApple;
+  final wide = MediaQuery.sizeOf(context).width >= kKanbanColumnsBreakpoint;
+  if (apple) {
+    return wide
+        ? showKanbanFormSheet(context, panel())
+        : showKanbanDetentSheet(
+            context,
+            (controller) => panel(
+              scrollController: controller,
+              topPadding: kKanbanGrabberBand,
+            ),
+          );
+  }
+  if (wide) {
     return showDialog<void>(
       context: context,
       builder: (_) => Dialog(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 720),
-          child: Padding(padding: const EdgeInsets.only(top: 16), child: panel),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: panel(),
+          ),
         ),
       ),
     );
@@ -52,7 +75,7 @@ Future<void> showKanbanTask(
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => FractionallySizedBox(heightFactor: 0.92, child: panel),
+    builder: (_) => FractionallySizedBox(heightFactor: 0.92, child: panel()),
   );
 }
 
@@ -66,9 +89,17 @@ class KanbanTaskPanel extends StatefulWidget {
     this.files = const PlatformKanbanFiles(),
     this.board,
     this.onChanged,
+    this.scrollController,
+    this.topPadding = 0,
   });
 
   final KanbanRepository repository;
+
+  /// Lets a draggable sheet drag from the panel's own scrolling.
+  final ScrollController? scrollController;
+
+  /// Room above the content, for a grabber the sheet draws there.
+  final double topPadding;
 
   /// The file dialogs used to attach and save attachments.
   final KanbanFiles files;
@@ -293,25 +324,35 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     builder: (context, _) {
       final detail = _task.detail;
       if (detail == null) {
-        return Center(
-          child: _task.failed
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Could not load the task'),
-                    const SizedBox(height: 8),
-                    FilledButton(
-                      onPressed: _task.retry,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                )
-              : const CircularProgressIndicator.adaptive(),
+        return ListView(
+          controller: widget.scrollController,
+          padding: EdgeInsets.only(top: widget.topPadding),
+          children: [
+            SizedBox(
+              height: 200,
+              child: Center(
+                child: _task.failed
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Could not load the task'),
+                          const SizedBox(height: 8),
+                          FilledButton(
+                            onPressed: _task.retry,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      )
+                    : const CircularProgressIndicator.adaptive(),
+              ),
+            ),
+          ],
         );
       }
       final task = detail.task;
       return ListView(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        controller: widget.scrollController,
+        padding: EdgeInsets.fromLTRB(16, widget.topPadding, 16, 16),
         children: [
           KanbanTaskHeader(
             task: task,

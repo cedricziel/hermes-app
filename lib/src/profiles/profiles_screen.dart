@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
@@ -142,7 +144,11 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Profiles')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('Profiles'),
+      ),
       body: ContentColumn(child: _body()),
     );
   }
@@ -169,7 +175,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       children: [
         if (shown != overview.active)
           ListTile(
-            leading: const Icon(Icons.info_outline),
+            leading: const AppIcon(AppIcons.info),
             title: Text(
               'The chat shows $shown. The CLI default is ${overview.active}.',
             ),

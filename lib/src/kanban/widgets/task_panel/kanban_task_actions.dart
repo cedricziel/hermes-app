@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/hermes_theme.dart';
-
+import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
 
 /// The buttons a task's status offers (triage, reclaim, complete, block)
@@ -95,7 +95,7 @@ class KanbanTaskActions extends StatelessWidget {
             children: [
               OutlinedButton.icon(
                 onPressed: estimating ? null : onEstimate,
-                icon: const Icon(Icons.speed_outlined, size: 18),
+                icon: const AppIcon(AppIcons.speed, size: 18),
                 label: const Text('Estimate'),
               ),
               if (estimating)
@@ -140,12 +140,12 @@ class KanbanTaskFooter extends StatelessWidget {
       children: [
         TextButton.icon(
           onPressed: onArchive,
-          icon: const Icon(Icons.archive_outlined),
+          icon: const AppIcon(AppIcons.archive),
           label: const Text('Archive'),
         ),
         TextButton.icon(
           onPressed: onDelete,
-          icon: Icon(Icons.delete_outline, color: error),
+          icon: AppIcon(AppIcons.delete, color: error),
           label: Text('Delete', style: TextStyle(color: error)),
         ),
       ],

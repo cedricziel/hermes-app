@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../starter_prompts.dart';
 
@@ -55,8 +56,8 @@ class WelcomeView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
-                      child: Icon(
-                        Icons.auto_awesome,
+                      child: AppIcon(
+                        AppIcons.sparkle,
                         size: 20,
                         color: scheme.onPrimary,
                       ),
@@ -111,12 +112,12 @@ class WelcomeView extends StatelessWidget {
 
 const double _cardWidth = 290;
 
-IconData _icon(StarterSource source) => switch (source) {
-  StarterSource.generic => Icons.lightbulb_outline,
-  StarterSource.schedule => Icons.schedule,
-  StarterSource.kanban => Icons.view_kanban_outlined,
-  StarterSource.chat => Icons.chat_bubble_outline,
-  StarterSource.skill => Icons.extension_outlined,
+AppIconSet _icon(StarterSource source) => switch (source) {
+  StarterSource.generic => AppIcons.idea,
+  StarterSource.schedule => AppIcons.schedule,
+  StarterSource.kanban => AppIcons.kanban,
+  StarterSource.chat => AppIcons.chat,
+  StarterSource.skill => AppIcons.extension,
 };
 
 class _SuggestionCard extends StatelessWidget {
@@ -128,7 +129,7 @@ class _SuggestionCard extends StatelessWidget {
   });
 
   final String text;
-  final IconData icon;
+  final AppIconSet icon;
   final double width;
   final VoidCallback onTap;
 
@@ -151,7 +152,7 @@ class _SuggestionCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, size: 16, color: context.hermesColors.subtleText),
+                AppIcon(icon, size: 16, color: context.hermesColors.subtleText),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

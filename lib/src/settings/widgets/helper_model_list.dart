@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/auxiliary_models.dart';
 import '../../models/model_provider_option.dart';
 import '../../models/moa_setup.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 
 /// The helper model slots of a profile, one row each with the model it runs
@@ -93,7 +94,7 @@ class HelperModelList extends StatelessWidget {
               dimension: 18,
               child: CircularProgressIndicator.adaptive(strokeWidth: 2),
             )
-          : const Icon(Icons.chevron_right),
+          : const AppIcon(AppIcons.chevronRight),
       onTap: busy ? null : onTap,
     );
   }

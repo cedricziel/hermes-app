@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 
@@ -43,14 +44,14 @@ class _ReasoningBlockState extends State<ReasoningBlock> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.psychology_outlined, size: 16, color: subtle),
+                    AppIcon(AppIcons.reasoning, size: 16, color: subtle),
                     const SizedBox(width: 6),
                     Text(
                       widget.active ? 'Thinking…' : 'Reasoning',
                       style: TextStyle(fontSize: 13, color: subtle),
                     ),
-                    Icon(
-                      _open ? Icons.expand_less : Icons.expand_more,
+                    AppIcon(
+                      _open ? AppIcons.expandLess : AppIcons.expandMore,
                       size: 18,
                       color: subtle,
                     ),

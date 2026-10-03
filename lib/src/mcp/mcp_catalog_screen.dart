@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'hermes_mcp_repository.dart';
@@ -103,6 +107,8 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
         title: ListenableBuilder(
           listenable: widget.servers,
           builder: (context, _) => Column(
@@ -223,7 +229,7 @@ class _CatalogList extends StatelessWidget {
             controller: search,
             onChanged: catalog.search,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const AppIcon(AppIcons.search),
               hintText: 'Search ${mcpPlural(total, 'server')}',
               border: const OutlineInputBorder(),
               isDense: true,

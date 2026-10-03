@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
+
 /// Why a reply failed, under whatever text it kept.
 class ReplyErrorNote extends StatelessWidget {
   const ReplyErrorNote(this.error, {super.key});
@@ -16,7 +18,7 @@ class ReplyErrorNote extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(Icons.error_outline, size: 16, color: color),
+            child: AppIcon(AppIcons.error, size: 16, color: color),
           ),
           const SizedBox(width: 6),
           Flexible(

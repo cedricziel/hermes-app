@@ -7,6 +7,7 @@ import '../api/hermes_repositories.dart';
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
+import '../macos/mac_sidebar.dart';
 import '../kanban/kanban_screen.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -16,6 +17,8 @@ import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
 import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
+import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import 'shell_navigation.dart';
 
 enum _Destination { chat, kanban, schedules }
@@ -211,24 +214,31 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
-      icon: Icons.chat_bubble_outline,
-      selected: Icons.chat_bubble,
+      icon: AppIcons.chat,
+      selected: AppIcons.chatFilled,
       label: 'Chat',
     ),
     _Destination.kanban: (
-      icon: Icons.view_kanban_outlined,
-      selected: Icons.view_kanban,
+      icon: AppIcons.kanban,
+      selected: AppIcons.kanbanFilled,
       label: 'Kanban',
     ),
     _Destination.schedules: (
-      icon: Icons.schedule_outlined,
-      selected: Icons.schedule,
+      icon: AppIcons.scheduleOutlined,
+      selected: AppIcons.schedule,
       label: 'Schedules',
     ),
   };
 
   @override
   Widget build(BuildContext context) {
+    final built = _build(context);
+    return platformChromeOf(context) == PlatformChrome.macos
+        ? MacSidebarScope(child: built)
+        : built;
+  }
+
+  Widget _build(BuildContext context) {
     Widget chat({Widget? navigation}) => KeyedSubtree(
       key: _chatKey,
       child: ChatScreen(
@@ -274,6 +284,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               destination == _Destination.chat ||
               !_opened.contains(destination)) {
             return content;
+          }
+          if (platformChromeOf(context) == PlatformChrome.macos) {
+            return MacSplitView(
+              sidebar: ShellSidebar(navigation: navigation),
+              content: content,
+            );
           }
           return Row(
             children: [

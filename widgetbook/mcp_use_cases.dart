@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/mcp/mcp_banner.dart';
 import 'package:hermes_app/src/mcp/mcp_chip.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -20,7 +21,7 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
           'Success',
           const McpBanner(
             tone: McpTone.success,
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.checkCircle,
             title: 'Connected',
             detail: 'Found 12 tools.',
           ),
@@ -29,7 +30,7 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
           'Warning with action',
           McpBanner(
             tone: McpTone.warning,
-            icon: Icons.lock_outline,
+            icon: AppIcons.lock,
             title: 'Sign-in needed',
             detail: 'Approve access in your browser.',
             action: TextButton(onPressed: () {}, child: const Text('Sign in')),
@@ -39,7 +40,7 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
           'Error',
           const McpBanner(
             tone: McpTone.error,
-            icon: Icons.error_outline,
+            icon: AppIcons.error,
             title: 'Could not reach the server',
             detail: 'Connection refused',
           ),
@@ -48,7 +49,7 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
           'Title only',
           const McpBanner(
             tone: McpTone.success,
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.checkCircle,
             title: 'Saved',
           ),
         ),

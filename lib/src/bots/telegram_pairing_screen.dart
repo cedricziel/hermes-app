@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -164,7 +167,11 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Set up with Telegram')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: const Text('Set up with Telegram'),
+      ),
       body: ContentColumn(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -205,12 +212,12 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
         children: [
           FilledButton.icon(
             onPressed: () => widget.launchLink(Uri.parse(link)),
-            icon: const Icon(Icons.send),
+            icon: const AppIcon(AppIcons.send),
             label: const Text('Open Telegram'),
           ),
           OutlinedButton.icon(
             onPressed: () => Clipboard.setData(ClipboardData(text: link)),
-            icon: const Icon(Icons.copy),
+            icon: const AppIcon(AppIcons.copy),
             label: const Text('Copy link'),
           ),
         ],

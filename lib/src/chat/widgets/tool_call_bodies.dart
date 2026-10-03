@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
@@ -284,26 +285,22 @@ class TodoToolBody extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 1),
                     child: switch (item.status) {
-                      'completed' => Icon(
-                        Icons.check_box,
+                      'completed' => AppIcon(
+                        AppIcons.boxChecked,
                         size: 15,
                         color: context.hermesColors.success,
                       ),
-                      'in_progress' => Icon(
-                        Icons.indeterminate_check_box,
+                      'in_progress' => AppIcon(
+                        AppIcons.boxPartial,
                         size: 15,
                         color: scheme.primary,
                       ),
-                      'cancelled' => Icon(
-                        Icons.disabled_by_default_outlined,
+                      'cancelled' => AppIcon(
+                        AppIcons.boxCancelled,
                         size: 15,
                         color: subtle,
                       ),
-                      _ => Icon(
-                        Icons.check_box_outline_blank,
-                        size: 15,
-                        color: subtle,
-                      ),
+                      _ => AppIcon(AppIcons.boxEmpty, size: 15, color: subtle),
                     },
                   ),
                   const SizedBox(width: 8),

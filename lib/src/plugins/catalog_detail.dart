@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
 import 'catalog_entry.dart';
 import 'plugin_tag.dart';
 
@@ -84,7 +85,7 @@ class CatalogDetail extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 key: const Key('catalog-docs-link'),
-                icon: const Icon(Icons.open_in_new, size: 16),
+                icon: const AppIcon(AppIcons.openExternal, size: 16),
                 label: const Text('Documentation'),
                 onPressed: () => openLink(docs),
               ),

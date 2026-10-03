@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../kanban_models.dart';
@@ -92,8 +93,8 @@ class KanbanDragHandle extends StatelessWidget {
           child: Center(
             widthFactor: 1,
             heightFactor: 1,
-            child: Icon(
-              Icons.drag_indicator,
+            child: AppIcon(
+              AppIcons.dragHandle,
               size: 20,
               color: Theme.of(context).colorScheme.onSurface
                   .withValues(alpha: 0.5),

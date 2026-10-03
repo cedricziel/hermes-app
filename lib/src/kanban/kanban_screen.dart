@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/auth_controller.dart';
 import '../shell/shell_navigation.dart';
 import '../telemetry/telemetry.dart';
+import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../widgets/named_icon_button.dart';
 import 'kanban_board_controller.dart';
@@ -135,10 +136,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
       builder: (context, _) => Scaffold(
         appBar: _controller.selecting
             ? AppBar(
-                leading: NamedIconButton(
-                  label: 'Cancel selection',
-                  icon: Icons.close,
-                  onPressed: _controller.stopSelecting,
+                leading: ShellMenu.clearOfWindowControls(
+                  context,
+                  NamedIconButton(
+                    label: 'Cancel selection',
+                    icon: AppIcons.close,
+                    onPressed: _controller.stopSelecting,
+                  ),
                 ),
                 title: Text('${_controller.selected.length} selected'),
               )
@@ -185,7 +189,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
             ? null
             : FloatingActionButton.extended(
                 onPressed: _create,
-                icon: const Icon(Icons.add),
+                icon: const AppIcon(AppIcons.add),
                 label: const Text('New task'),
               ),
       ),
@@ -336,9 +340,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         return const Center(child: CircularProgressIndicator.adaptive());
       }
       return StateMessage(
-        icon: _controller.unavailable
-            ? Icons.extension_off_outlined
-            : Icons.error_outline,
+        icon: _controller.unavailable ? AppIcons.extensionOff : AppIcons.error,
         title: _controller.unavailable
             ? 'Kanban isn’t available'
             : 'Could not load the board',

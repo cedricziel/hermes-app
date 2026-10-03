@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/named_popup_menu_button.dart';
@@ -20,7 +21,7 @@ Future<List<String>> _pump(
           child: NamedPopupMenuButton<String>(
             controller: controller,
             label: 'Chat actions',
-            icon: Icons.more_horiz,
+            icon: AppIcons.more,
             onSelected: picked.add,
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'rename', child: Text('Rename')),

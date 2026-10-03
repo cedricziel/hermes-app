@@ -105,6 +105,28 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'JobTile',
       useCases: [
+        WidgetbookUseCase(
+          name: 'Inset grouped rows (Apple)',
+          builder: (_) => frame(
+            InsetGroupedJobs(
+              children: [
+                for (final (job, selected) in [
+                  (nightlyJob, false),
+                  (failingJob, true),
+                  (pausedJob, false),
+                ])
+                  JobTile(
+                    job: job,
+                    now: DateTime.now(),
+                    selected: selected,
+                    grouped: true,
+                    onTap: () {},
+                    onPausedChanged: (_) {},
+                  ),
+              ],
+            ),
+          ),
+        ),
         _tile('Succeeded', nightlyJob),
         _tile('Failed, with profile', failingJob, showProfile: true),
         _tile('Blocked', blockedJob),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/breakpoints.dart';
 import '../model_provider_option.dart';
 
@@ -160,7 +161,10 @@ class _ModelPickerState extends State<ModelPicker> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                   title: const Text('Use the profile’s default'),
                   trailing: selected == null
-                      ? Icon(Icons.check, color: theme.colorScheme.primary)
+                      ? AppIcon(
+                          AppIcons.check,
+                          color: theme.colorScheme.primary,
+                        )
                       : null,
                   onTap: _useDefault,
                 ),
@@ -182,7 +186,10 @@ class _ModelPickerState extends State<ModelPicker> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                     title: Text(model.id, overflow: TextOverflow.ellipsis),
                     trailing: _isSelected(provider.id, model.id)
-                        ? Icon(Icons.check, color: theme.colorScheme.primary)
+                        ? AppIcon(
+                            AppIcons.check,
+                            color: theme.colorScheme.primary,
+                          )
                         : null,
                     onTap: () => _pickModel(provider.id, model),
                   ),

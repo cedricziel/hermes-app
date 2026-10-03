@@ -10,6 +10,7 @@ import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'fake_hermes_server.dart';
+import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
 
 /// The composer's editable text; the sidebar's search field is another one.
@@ -92,7 +94,7 @@ Future<void> openThread(WidgetTester tester, String title) async {
 Future<void> openSidebarMore(WidgetTester tester) async {
   final closed = find.descendant(
     of: find.byType(ThreadSidebar),
-    matching: find.byIcon(Icons.chevron_right),
+    matching: findAppIcon(AppIcons.chevronRight),
   );
   if (closed.evaluate().isEmpty) return;
   await tester.tap(closed);

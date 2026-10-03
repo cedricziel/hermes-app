@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
 import '../widgets/content_column.dart';
 import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
@@ -96,7 +98,11 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
     final basic = vars.where((v) => !v.advanced);
     final advanced = vars.where((v) => v.advanced).toList();
     return Scaffold(
-      appBar: AppBar(title: Text('Set up ${widget.bot.name}')),
+      appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
+        title: Text('Set up ${widget.bot.name}'),
+      ),
       body: ContentColumn(
         child: vars.isEmpty
             ? const Center(child: Text('Nothing to set up for this bot.'))
@@ -108,7 +114,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
                     if (widget.bot.id == 'telegram') ...[
                       OutlinedButton.icon(
                         onPressed: _pairTelegram,
-                        icon: const Icon(Icons.auto_fix_high),
+                        icon: const AppIcon(AppIcons.magic),
                         label: const Text('Set up with Telegram'),
                       ),
                       const Padding(
@@ -182,7 +188,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
           suffixIcon: v.isSet && !v.required
               ? NamedIconButton(
                   label: cleared ? 'Keep ${v.label}' : 'Clear ${v.label}',
-                  icon: cleared ? Icons.undo : Icons.delete_outline,
+                  icon: cleared ? AppIcons.undo : AppIcons.delete,
                   onPressed: () => _toggleCleared(v.key),
                 )
               : null,

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
@@ -124,7 +127,11 @@ class _HubSkillScreenState extends State<HubSkillScreen> {
     return ListenableBuilder(
       listenable: widget.hub,
       builder: (context, _) => Scaffold(
-        appBar: AppBar(title: Text(widget.skill.name)),
+        appBar: AppBar(
+          leading: const AdaptiveBackButton(previousTitle: 'Skills'),
+          leadingWidth: adaptiveBackLeadingWidth(context),
+          title: Text(widget.skill.name),
+        ),
         bottomNavigationBar: _bottom(context),
         body: ListView(
           padding: const EdgeInsets.all(16),

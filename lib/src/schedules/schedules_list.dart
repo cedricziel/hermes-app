@@ -1,6 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/theme/platform_chrome.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/row_actions.dart';
+import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
@@ -78,29 +83,70 @@ class SchedulesList extends StatelessWidget {
         ),
       );
     }
+    final apple = platformChromeOf(context).isApple;
+    Widget tile(CronJob job, {required bool grouped}) => RowActions(
+      title: job.title,
+      actions: scheduleRowActions(context, controller, job),
+      child: JobTile(
+        job: job,
+        now: controller.now,
+        showProfile: controller.showProfiles,
+        selected: job.key == selectedKey,
+        grouped: grouped,
+        onTap: () => onSelect(job),
+        onPausedChanged: (paused) async {
+          final message = await controller.setPaused(job, paused);
+          if (message != null && context.mounted) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(message)));
+          }
+        },
+      ),
+    );
     return RefreshIndicator(
       onRefresh: controller.refresh,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
-        itemCount: jobs.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, i) => JobTile(
-          job: jobs[i],
-          now: controller.now,
-          showProfile: controller.showProfiles,
-          selected: jobs[i].key == selectedKey,
-          onTap: () => onSelect(jobs[i]),
-          onPausedChanged: (paused) async {
-            final message = await controller.setPaused(jobs[i], paused);
-            if (message != null && context.mounted) {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(message)));
-            }
-          },
-        ),
+      child: apple
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 96),
+              children: [
+                InsetGroupedJobs(
+                  children: [for (final job in jobs) tile(job, grouped: true)],
+                ),
+              ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
+              itemCount: jobs.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, i) => tile(jobs[i], grouped: false),
+            ),
+    );
+  }
+}
+
+/// The jobs as the rows of one iOS inset grouped list.
+class InsetGroupedJobs extends StatelessWidget {
+  const InsetGroupedJobs({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return CupertinoListSection.insetGrouped(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
       ),
+      separatorColor: scheme.outline,
+      hasLeading: false,
+      dividerMargin: 16,
+      topMargin: 4,
+      children: children,
     );
   }
 }
@@ -117,7 +163,7 @@ class _ErrorNote extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(Icons.error_outline, size: 16, color: scheme.error),
+          AppIcon(AppIcons.error, size: 16, color: scheme.error),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -141,12 +187,16 @@ class JobTile extends StatelessWidget {
     required this.onPausedChanged,
     this.showProfile = false,
     this.selected = false,
+    this.grouped = false,
   });
 
   final CronJob job;
   final DateTime now;
   final bool showProfile;
   final bool selected;
+
+  /// Draws the job as a row of an inset grouped list, without its own card.
+  final bool grouped;
   final VoidCallback onTap;
   final ValueChanged<bool> onPausedChanged;
 
@@ -161,16 +211,22 @@ class JobTile extends StatelessWidget {
         ? failureReason(job)
         : null;
     return Material(
-      color: selected ? scheme.surfaceContainerHighest : Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outline),
-      ),
+      color: selected
+          ? (grouped ? scheme.outline : scheme.surfaceContainerHighest)
+          : Colors.transparent,
+      shape: grouped
+          ? null
+          : RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: scheme.outline),
+            ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: grouped ? null : BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: grouped
+              ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+              : const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 6,

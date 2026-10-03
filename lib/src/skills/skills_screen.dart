@@ -7,6 +7,10 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_add_action.dart';
+import '../widgets/adaptive_back_button.dart';
+import '../widgets/adaptive_tab_bar.dart';
 import '../api/hermes_repositories.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
@@ -192,31 +196,27 @@ class _SkillsScreenState extends State<SkillsScreen>
             child: _body(),
           ),
         );
+        final add = AdaptiveAddAction(label: 'New skill', onPressed: _create);
+        final canAdd =
+            _controller.status == SkillsStatus.ready && _tabs.index == 0;
         return Scaffold(
           appBar: AppBar(
+            leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+            leadingWidth: adaptiveBackLeadingWidth(context),
             title: const Text('Skills'),
             actions: [
               _ProfileChip(controller: _controller, onSelected: _selectProfile),
+              if (canAdd) ?add.toolbarButton(context),
               const SizedBox(width: 12),
             ],
             bottom: hub == null
                 ? null
-                : TabBar(
+                : AdaptiveTabBar(
                     controller: _tabs,
-                    tabs: const [
-                      Tab(text: 'Installed'),
-                      Tab(text: 'Discover'),
-                    ],
+                    labels: const ['Installed', 'Discover'],
                   ),
           ),
-          floatingActionButton:
-              _controller.status == SkillsStatus.ready && _tabs.index == 0
-              ? FloatingActionButton.extended(
-                  onPressed: _create,
-                  icon: const Icon(Icons.add),
-                  label: const Text('New skill'),
-                )
-              : null,
+          floatingActionButton: canAdd ? add.floatingButton(context) : null,
           body: hub == null
               ? installed
               : Column(
@@ -278,7 +278,7 @@ class _SkillsScreenState extends State<SkillsScreen>
             controller: _search,
             onChanged: _controller.setQuery,
             decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: const AppIcon(AppIcons.search),
               hintText: 'Search skills',
               filled: true,
               isDense: true,
@@ -339,7 +339,7 @@ class _SkillsScreenState extends State<SkillsScreen>
                     ],
                     if (_hub != null && _controller.hasHubSkills)
                       ListTile(
-                        leading: const Icon(Icons.system_update_alt),
+                        leading: const AppIcon(AppIcons.install),
                         title: const Text('Check for updates'),
                         subtitle: const Text('Updates the skills from the hub'),
                         enabled: !_hub!.busy,
@@ -394,7 +394,7 @@ class _ProfileChip extends StatelessWidget {
             child: Chip(
               label: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [Text(profile), const Icon(Icons.arrow_drop_down)],
+                children: [Text(profile), const AppIcon(AppIcons.dropDown)],
               ),
             ),
           ),

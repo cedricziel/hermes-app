@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import 'app_lock_controller.dart';
 
@@ -37,8 +38,8 @@ class _LockScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.lock_outline,
+            AppIcon(
+              AppIcons.lock,
               size: 48,
               color: context.hermesColors.subtleText,
             ),

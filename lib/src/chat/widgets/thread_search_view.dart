@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../widgets/named_icon_button.dart';
 import '../chat_models.dart';
@@ -50,7 +51,7 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
       decoration: InputDecoration(
         isDense: true,
         hintText: 'Search chats',
-        prefixIcon: Icon(Icons.search, size: 18, color: subtle),
+        prefixIcon: AppIcon(AppIcons.search, size: 18, color: subtle),
         prefixIconConstraints: const BoxConstraints(minWidth: 36),
         suffixIcon: widget.query.isEmpty
             ? null
@@ -58,7 +59,7 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
                 label: 'Clear search',
                 iconSize: 16,
                 visualDensity: VisualDensity.compact,
-                icon: Icons.close,
+                icon: AppIcons.close,
                 onPressed: () => widget.onChanged(''),
               ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

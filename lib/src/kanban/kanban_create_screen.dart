@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/model_provider_option.dart';
 import '../models/widgets/composer_model_pill.dart';
+import '../theme/app_icons.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -180,7 +181,7 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                   onPressed: _estimating || _title.text.trim().isEmpty
                       ? null
                       : _estimateDraft,
-                  icon: const Icon(Icons.speed_outlined, size: 18),
+                  icon: const AppIcon(AppIcons.speed, size: 18),
                   label: const Text('Estimate the work'),
                 ),
               ),

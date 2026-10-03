@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
@@ -58,7 +59,7 @@ class _MessageActionsState extends State<MessageActions> {
     final color = context.hermesColors.subtleText;
     final touch = platformChromeOf(context) == PlatformChrome.ios;
     final box = touch ? kAppleMinTapTarget : 32.0;
-    Widget action(String label, IconData icon, VoidCallback onPressed) =>
+    Widget action(String label, AppIconSet icon, VoidCallback onPressed) =>
         NamedIconButton(
           label: label,
           icon: icon,
@@ -75,7 +76,7 @@ class _MessageActionsState extends State<MessageActions> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (widget.stopped) ...[
-            Icon(Icons.stop_circle_outlined, size: 16, color: color),
+            AppIcon(AppIcons.stop, size: 16, color: color),
             const SizedBox(width: 4),
             Text('Stopped', style: TextStyle(color: color, fontSize: 12.5)),
             const SizedBox(width: 8),
@@ -83,11 +84,11 @@ class _MessageActionsState extends State<MessageActions> {
           if (widget.showCopy)
             action(
               _copied ? 'Copied' : 'Copy',
-              _copied ? Icons.check : Icons.content_copy_outlined,
+              _copied ? AppIcons.check : AppIcons.copyOutlined,
               _copy,
             ),
           if (widget.onRetry case final retry?)
-            action('Try again', Icons.refresh, retry),
+            action('Try again', AppIcons.refresh, retry),
         ],
       ),
     );

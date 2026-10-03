@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../../theme/hermes_theme.dart';
-
+import '../../../theme/app_icons.dart';
 import '../../kanban_models.dart';
 import '../../kanban_repository.dart';
 import '../../../widgets/named_icon_button.dart';
@@ -47,7 +47,7 @@ class KanbanTaskHeader extends StatelessWidget {
             ),
             NamedIconButton(
               label: 'Edit',
-              icon: Icons.edit_outlined,
+              icon: AppIcons.edit,
               onPressed: onEdit,
             ),
           ],
@@ -56,12 +56,12 @@ class KanbanTaskHeader extends StatelessWidget {
           spacing: 8,
           children: [
             ActionChip(
-              avatar: const Icon(Icons.person_outline, size: 16),
+              avatar: const AppIcon(AppIcons.person, size: 16),
               label: Text(task.assignee ?? 'Unassigned'),
               onPressed: onAssign,
             ),
             ActionChip(
-              avatar: const Icon(Icons.flag_outlined, size: 16),
+              avatar: const AppIcon(AppIcons.flag, size: 16),
               label: Text(task.priority == 0 ? 'Normal' : 'P${task.priority}'),
               onPressed: onPrioritise,
             ),
@@ -82,7 +82,7 @@ class KanbanTaskHeader extends StatelessWidget {
                         ),
                   ],
                   child: const Chip(
-                    avatar: Icon(Icons.swap_horiz, size: 16),
+                    avatar: AppIcon(AppIcons.swap, size: 16),
                     label: Text('Move to…'),
                   ),
                 ),

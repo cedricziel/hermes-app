@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
 import '../models/hermes_status.dart';
+import '../theme/app_icons.dart';
 
 /// Landing screen once connected (and, if required, signed in). A minimal
 /// status view — the jumping-off point for the real Hermes chat/session UI.
@@ -64,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Card(
               child: ListTile(
-                leading: const Icon(Icons.dns_outlined),
+                leading: const AppIcon(AppIcons.server),
                 title: const Text('Server'),
                 subtitle: Text(auth.baseUrl ?? ''),
               ),
@@ -72,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (identity != null)
               Card(
                 child: ListTile(
-                  leading: const Icon(Icons.person_outline),
+                  leading: const AppIcon(AppIcons.person),
                   title: Text(
                     identity.displayName.isNotEmpty
                         ? identity.displayName
@@ -95,8 +96,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.hasError) {
                   return Card(
                     child: ListTile(
-                      leading: Icon(
-                        Icons.error_outline,
+                      leading: AppIcon(
+                        AppIcons.error,
                         color: Theme.of(context).colorScheme.error,
                       ),
                       title: const Text('Could not load status'),
@@ -109,12 +110,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.check_circle_outline),
+                        leading: const AppIcon(AppIcons.checkCircle),
                         title: const Text('Agent version'),
                         subtitle: Text(status.version ?? 'unknown'),
                       ),
                       ListTile(
-                        leading: const Icon(Icons.shield_outlined),
+                        leading: const AppIcon(AppIcons.shield),
                         title: const Text('Auth gate'),
                         subtitle: Text(
                           status.authRequired

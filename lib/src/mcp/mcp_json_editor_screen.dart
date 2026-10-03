@@ -1,5 +1,8 @@
 import 'dart:convert';
 
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
@@ -184,6 +187,8 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
+          leadingWidth: adaptiveBackLeadingWidth(context),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -243,7 +248,7 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
         children: [
           const McpBanner(
             tone: McpTone.warning,
-            icon: Icons.warning_amber_outlined,
+            icon: AppIcons.warning,
             title: 'Replaces all servers of this profile.',
             detail:
                 'Anything you remove here is deleted, not just switched off. '

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+
+import '../theme/app_icons.dart';
+import '../widgets/adaptive_back_button.dart';
+
 import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import '../widgets/named_popup_menu_button.dart';
+import '../widgets/row_actions.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_add_server_screen.dart';
 import 'mcp_catalog_screen.dart';
@@ -112,6 +117,8 @@ class _McpServersScreenState extends State<McpServersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
+        leadingWidth: adaptiveBackLeadingWidth(context),
         actions: [
           ListenableBuilder(
             listenable: _controller,
@@ -135,13 +142,13 @@ class _McpServersScreenState extends State<McpServersScreen> {
                         builder: (context, menu, _) => TextButton.icon(
                           onPressed: () =>
                               menu.isOpen ? menu.close() : menu.open(),
-                          icon: const Icon(Icons.add),
+                          icon: const AppIcon(AppIcons.add),
                           label: const Text('Add'),
                         ),
                       ),
                       NamedPopupMenuButton<void>(
                         label: 'More',
-                        icon: Icons.adaptive.more,
+                        icon: AppIcons.moreVertical,
                         itemBuilder: (_) => [
                           PopupMenuItem(
                             onTap: _openJsonEditor,
@@ -291,7 +298,7 @@ class _ServerList extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.info_outline, size: 16),
+              const AppIcon(AppIcons.info, size: 16),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -304,17 +311,41 @@ class _ServerList extends StatelessWidget {
           ),
         ),
         for (final server in servers)
-          _ServerRow(
-            key: ValueKey('mcp-row-${server.name}'),
-            server: server,
-            tested: switch (controller.testOf(server.name)) {
-              McpTestFinished(:final result) => result,
-              _ => null,
-            },
-            selected: server.name == selected,
-            switching: controller.isSwitching(server.name),
-            onTap: () => onOpen(server),
-            onSwitch: (on) => switchMcpServer(context, controller, server, on),
+          RowActions(
+            key: ValueKey('mcp-actions-${server.name}'),
+            title: server.name,
+            actions: [
+              if (!controller.isSwitching(server.name))
+                RowAction(
+                  label: server.enabled ? 'Turn off' : 'Turn on',
+                  icon: server.enabled ? AppIcons.toggleOff : AppIcons.toggleOn,
+                  onPressed: () => switchMcpServer(
+                    context,
+                    controller,
+                    server,
+                    !server.enabled,
+                  ),
+                ),
+              RowAction(
+                label: 'Remove',
+                icon: AppIcons.delete,
+                destructive: true,
+                onPressed: () => removeMcpServer(context, controller, server),
+              ),
+            ],
+            child: _ServerRow(
+              key: ValueKey('mcp-row-${server.name}'),
+              server: server,
+              tested: switch (controller.testOf(server.name)) {
+                McpTestFinished(:final result) => result,
+                _ => null,
+              },
+              selected: server.name == selected,
+              switching: controller.isSwitching(server.name),
+              onTap: () => onOpen(server),
+              onSwitch: (on) =>
+                  switchMcpServer(context, controller, server, on),
+            ),
           ),
       ],
     );

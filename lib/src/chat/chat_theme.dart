@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart';
 
 import '../theme/hermes_theme.dart';
+import '../theme/type_scale.dart';
 
 /// Derives the Flyer Chat theme from the app [theme], so the package's
 /// bubbles and composer match the hand-rolled chat UI in light and dark.
@@ -32,7 +33,10 @@ ChatTheme buildChatTheme(ThemeData theme) {
     ),
     typography: ChatTypography(
       bodyLarge: text.bodyLarge!,
-      bodyMedium: text.bodyMedium!.copyWith(fontSize: 14.5, height: 1.4),
+      bodyMedium: text.bodyMedium!.copyWith(
+        fontSize: messageFontSizeFor(theme.platform),
+        height: 1.4,
+      ),
       bodySmall: text.bodySmall!,
       labelLarge: text.labelLarge!,
       labelMedium: text.labelMedium!,

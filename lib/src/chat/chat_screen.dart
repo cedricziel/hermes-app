@@ -30,9 +30,11 @@ import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import '../macos/mac_sidebar.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../theme/platform_chrome.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/attachment_surface.dart';
 import 'attachments/plugin_attachment_source.dart';
@@ -508,6 +510,62 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
+        final macSplit =
+            isWide && platformChromeOf(context) == PlatformChrome.macos;
+        final threadView = _ThreadView(
+          thread: selected,
+          chatController: chat.controllerFor(selected),
+          composerController: _composerController,
+          attachments: _attachments,
+          attachmentSource: _attachmentSource,
+          onAddAttachments: _addAttachments,
+          onRemoveAttachment: (file) =>
+              setState(() => _attachments.remove(file)),
+          onSend: _send,
+          starterPrompts: _showsWelcome ? _starterPrompts() : null,
+          onPickStarter: _pickStarter,
+          latestReplyId: _latestReplyId,
+          modelPill: modelOptions == null || modelOptions.providers.isEmpty
+              ? null
+              : ComposerModelPill(
+                  options: modelOptions,
+                  choice: chat.modelChoice,
+                  onChanged: chat.chooseModel,
+                ),
+          onRetry: selected == null || chat.lastPromptText(selected) == null
+              ? null
+              : () => chat.retry(selected),
+          header: isWide
+              ? ChatHeader(
+                  thread: selected,
+                  housekeeping: chat.housekeeping,
+                  onShowConnection: _showConnection,
+                )
+              : null,
+          onLoadOlder: selected == null || !chat.hasOlder(selected.id)
+              ? null
+              : () => chat.loadOlder(selected.id),
+          onAnswerApproval: selected == null
+              ? null
+              : (id, choice) => chat.answerApproval(selected, id, choice),
+          onAnswerClarify: selected == null
+              ? null
+              : (id, answers) => chat.answerClarify(selected, id, answers),
+          onSkipUnsupported: selected == null
+              ? null
+              : (id, kind) => chat.skipUnsupported(selected, id, kind),
+          onStop: selected == null || chat.transport == null
+              ? null
+              : () => chat.stopReply(selected),
+          queued: selected == null ? const [] : chat.queuedIn(selected),
+          onRemoveQueued: selected == null
+              ? null
+              : (prompt) => chat.removeQueued(selected, prompt),
+          onSendQueued: selected == null || !chat.queuePaused(selected)
+              ? null
+              : () => chat.sendQueued(selected),
+        );
+
         return Scaffold(
           key: _scaffoldKey,
           drawer: isWide
@@ -532,75 +590,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     ConnectionInfoButton(onPressed: _showConnection),
                   ],
                 ),
-          body: Row(
-            children: [
-              if (isWide)
-                SizedBox(
-                  width: 280,
-                  child: buildSidebar(navigation: widget.navigation),
+          body: macSplit
+              ? MacSplitView(
+                  sidebar: buildSidebar(navigation: widget.navigation),
+                  content: threadView,
+                )
+              : Row(
+                  children: [
+                    if (isWide)
+                      SizedBox(
+                        width: 280,
+                        child: buildSidebar(navigation: widget.navigation),
+                      ),
+                    if (isWide) const VerticalDivider(width: 1),
+                    Expanded(child: threadView),
+                  ],
                 ),
-              if (isWide) const VerticalDivider(width: 1),
-              Expanded(
-                child: _ThreadView(
-                  thread: selected,
-                  chatController: chat.controllerFor(selected),
-                  composerController: _composerController,
-                  attachments: _attachments,
-                  attachmentSource: _attachmentSource,
-                  onAddAttachments: _addAttachments,
-                  onRemoveAttachment: (file) =>
-                      setState(() => _attachments.remove(file)),
-                  onSend: _send,
-                  starterPrompts: _showsWelcome ? _starterPrompts() : null,
-                  onPickStarter: _pickStarter,
-                  latestReplyId: _latestReplyId,
-                  modelPill:
-                      modelOptions == null || modelOptions.providers.isEmpty
-                      ? null
-                      : ComposerModelPill(
-                          options: modelOptions,
-                          choice: chat.modelChoice,
-                          onChanged: chat.chooseModel,
-                        ),
-                  onRetry:
-                      selected == null || chat.lastPromptText(selected) == null
-                      ? null
-                      : () => chat.retry(selected),
-                  header: isWide
-                      ? ChatHeader(
-                          thread: selected,
-                          housekeeping: chat.housekeeping,
-                          onShowConnection: _showConnection,
-                        )
-                      : null,
-                  onLoadOlder: selected == null || !chat.hasOlder(selected.id)
-                      ? null
-                      : () => chat.loadOlder(selected.id),
-                  onAnswerApproval: selected == null
-                      ? null
-                      : (id, choice) =>
-                            chat.answerApproval(selected, id, choice),
-                  onAnswerClarify: selected == null
-                      ? null
-                      : (id, answers) =>
-                            chat.answerClarify(selected, id, answers),
-                  onSkipUnsupported: selected == null
-                      ? null
-                      : (id, kind) => chat.skipUnsupported(selected, id, kind),
-                  onStop: selected == null || chat.transport == null
-                      ? null
-                      : () => chat.stopReply(selected),
-                  queued: selected == null ? const [] : chat.queuedIn(selected),
-                  onRemoveQueued: selected == null
-                      ? null
-                      : (prompt) => chat.removeQueued(selected, prompt),
-                  onSendQueued: selected == null || !chat.queuePaused(selected)
-                      ? null
-                      : () => chat.sendQueued(selected),
-                ),
-              ),
-            ],
-          ),
         );
       },
     );
@@ -696,14 +701,20 @@ class _ThreadView extends StatelessWidget {
 
     return Column(
       children: [
-        if (header case final header?) ...[header, const Divider(height: 1)],
+        if (header case final header?) ...[
+          header,
+          if (platformChromeOf(context) != PlatformChrome.macos)
+            const Divider(height: 1),
+        ],
         Expanded(
           child: AttachmentSurface(
             source: attachmentSource,
             onAdd: onAddAttachments,
             builder: (context, openAttachMenu) => Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
+                constraints: const BoxConstraints(
+                  maxWidth: kChatColumnMaxWidth,
+                ),
                 child: SizedBox.expand(
                   child: FlyerMaterialScope(
                     child: SelectionArea(
