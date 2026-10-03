@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import 'installed_plugin.dart';
+import 'plugin_actions.dart';
 import 'plugin_tag.dart';
 import 'plugins_controller.dart';
 
@@ -19,41 +19,6 @@ class PluginDetail extends StatelessWidget {
 
   final InstalledPlugin plugin;
   final PluginsController controller;
-
-  static const _fallback = 'Could not update this plugin';
-
-  Future<void> _run(
-    BuildContext context,
-    Future<PluginActionResult> Function() change, {
-    String failure = _fallback,
-    String? Function(PluginActionResult result)? success,
-  }) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final result = await change();
-    final message = result.ok
-        ? success?.call(result)
-        : result.message ?? failure;
-    if (message != null) {
-      messenger.showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
-  Future<void> _confirmRemove(BuildContext context) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Remove ${plugin.name}?',
-      message: 'Its files are deleted from the server.',
-      confirmLabel: 'Remove',
-      destructive: true,
-      filled: false,
-    );
-    if (!confirmed || !context.mounted) return;
-    await _run(
-      context,
-      () => controller.remove(plugin.name),
-      failure: 'Could not remove this plugin',
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,7 +58,7 @@ class PluginDetail extends StatelessWidget {
             value: plugin.status == PluginStatus.enabled,
             onChanged: busy
                 ? null
-                : (value) => _run(
+                : (value) => runPluginChange(
                     context,
                     () => controller.setEnabled(plugin.name, value),
                   ),
@@ -106,7 +71,7 @@ class PluginDetail extends StatelessWidget {
             value: plugin.hidden,
             onChanged: busy
                 ? null
-                : (value) => _run(
+                : (value) => runPluginChange(
                     context,
                     () => controller.setHidden(plugin.name, value),
                   ),
@@ -117,7 +82,7 @@ class PluginDetail extends StatelessWidget {
               key: const Key('plugin-update'),
               onPressed: busy
                   ? null
-                  : () => _run(
+                  : () => runPluginChange(
                       context,
                       () => controller.update(plugin.name),
                       success: (result) => result.unchanged
@@ -145,7 +110,9 @@ class PluginDetail extends StatelessWidget {
                 foregroundColor: theme.colorScheme.error,
                 side: BorderSide(color: theme.colorScheme.error),
               ),
-              onPressed: busy ? null : () => _confirmRemove(context),
+              onPressed: busy
+                  ? null
+                  : () => removePlugin(context, controller, plugin),
               child: const Text('Remove plugin'),
             ),
           ],
