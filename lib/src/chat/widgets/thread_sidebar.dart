@@ -319,9 +319,8 @@ class _ThreadRowState extends State<_ThreadRow> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
-    final chrome = platformChromeOf(context);
     final housekeeping = widget.housekeeping;
-    final touch = chrome == PlatformChrome.ios;
+    final touch = platformChromeOf(context) == PlatformChrome.ios;
     final swipeable = touch && housekeeping != null;
     final inlineButton = housekeeping != null && !touch;
     final row = Semantics(

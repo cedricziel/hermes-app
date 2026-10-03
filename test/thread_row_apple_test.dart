@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -97,6 +98,44 @@ void main() {
 
       expect(find.text('Delete this chat?'), findsOneWidget);
       expect(server.requestsTo('DELETE', '/api/sessions/s2'), isEmpty);
+    });
+
+    group('inside the phone drawer', () {
+      Future<void> openDrawer(WidgetTester tester) async {
+        await pump(tester);
+        tester.view.physicalSize = const Size(393, 852);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(Icons.menu).first);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('a left drag on a row reveals Delete, drawer stays', (
+        tester,
+      ) async {
+        await openDrawer(tester);
+
+        await tester.drag(title, const Offset(-150, 0));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Delete'), findsOneWidget);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(find.byType(Drawer), findsOneWidget);
+      });
+
+      testWidgets('a left drag on empty drawer space closes it', (
+        tester,
+      ) async {
+        await openDrawer(tester);
+
+        await tester.flingFrom(
+          const Offset(150, 600),
+          const Offset(-150, 0),
+          1000,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(Drawer), findsNothing);
+      });
     });
 
     testWidgets('VoiceOver gets every action', (tester) async {
