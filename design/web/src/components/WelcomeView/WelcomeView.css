@@ -1,0 +1,92 @@
+.h-welcome-view {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-welcome-view__column {
+  container-type: inline-size;
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+  padding: 24px;
+}
+
+.h-welcome-view__tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--h-radius-sm);
+  background: var(--h-primary);
+  color: var(--h-on-primary);
+}
+
+.h-welcome-view__greeting {
+  margin: 20px 0 0;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+
+.h-welcome-view__subtitle {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-muted);
+}
+
+.h-welcome-view__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.h-welcome-view__card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 290px;
+  padding: 14px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius);
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 19px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-welcome-view__card:hover {
+  background: var(--h-hover);
+}
+
+.h-welcome-view__card:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+.h-welcome-view__card-icon {
+  margin-top: 1px;
+  color: var(--h-muted);
+}
+
+.h-welcome-view__card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+@container (max-width: 589px) {
+  .h-welcome-view__card {
+    width: 100%;
+  }
+}
