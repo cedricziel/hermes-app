@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/busy_bar.dart';
 import '../kanban_models.dart';
 
 /// A task on the board: id, title, and the few facts worth scanning for.
@@ -127,7 +128,7 @@ class _WorkingBar extends StatelessWidget {
         : null,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(2),
-      child: LinearProgressIndicator(
+      child: BusyBar(
         minHeight: 3,
         value: task.progressTotal > 0
             ? (task.progressDone / task.progressTotal).clamp(0.0, 1.0)
