@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_controller.dart';
 import '../models/auth_provider_info.dart';
 import '../settings/report_bug_link.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/named_icon_button.dart';
 
 /// Sign-in screen. Every registered provider — OIDC/OAuth or the bundled
@@ -23,6 +24,9 @@ class LoginScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: platformChromeOf(context) == PlatformChrome.ios
+            ? kAppleNavBarHeight
+            : null,
         title: const Text('Sign in'),
         actions: [
           NamedIconButton(
@@ -34,10 +38,10 @@ class LoginScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

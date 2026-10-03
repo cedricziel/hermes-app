@@ -34,7 +34,11 @@ class _FakeAuthController extends AuthController {
   ];
 }
 
-Future<void> _pumpLogin(WidgetTester tester, List<String> authFlows) async {
+Future<void> _pumpLogin(
+  WidgetTester tester,
+  List<String> authFlows, [
+  TargetPlatform? platform,
+]) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
   await tester.pumpWidget(
@@ -46,12 +50,38 @@ Future<void> _pumpLogin(WidgetTester tester, List<String> authFlows) async {
           authFlows: authFlows,
         ),
       ),
-      child: const MaterialApp(home: LoginScreen()),
+      child: MaterialApp(
+        theme: ThemeData(platform: platform),
+        home: const LoginScreen(),
+      ),
     ),
   );
 }
 
 void main() {
+  testWidgets('uses a 44pt bar on iOS and the Material bar elsewhere', (
+    tester,
+  ) async {
+    await _pumpLogin(tester, const ['native_pkce'], TargetPlatform.iOS);
+    expect(tester.getSize(find.byType(AppBar)).height, 44);
+
+    await _pumpLogin(tester, const ['native_pkce'], TargetPlatform.android);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byType(AppBar)).height, 56);
+  });
+
+  testWidgets('scrolls instead of overflowing on a short screen', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await _pumpLogin(tester, const ['native_pkce']);
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('offers providers when the server supports native_pkce', (
     tester,
   ) async {

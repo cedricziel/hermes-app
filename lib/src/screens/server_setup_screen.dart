@@ -43,10 +43,11 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -86,7 +87,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                       controller: _controller,
                       autofocus: true,
                       keyboardType: TextInputType.url,
-                      textInputAction: TextInputAction.done,
+                      textInputAction: TextInputAction.go,
                       decoration: const InputDecoration(
                         labelText: 'Dashboard URL',
                         hintText: 'http://192.168.1.20:9119',

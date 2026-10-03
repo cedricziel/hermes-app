@@ -463,6 +463,17 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
           const HermesProfile(name: 'scratch', skillCount: 0),
         ),
         _profileTile(
+          'Material (Android)',
+          const HermesProfile(
+            name: 'work',
+            displayName: 'Work assistant',
+            model: 'openai/gpt-5.1',
+            skillCount: 12,
+          ),
+          active: true,
+          platform: TargetPlatform.android,
+        ),
+        _profileTile(
           'Long text',
           const HermesProfile(
             name: 'research',
@@ -499,10 +510,11 @@ WidgetbookUseCase _profileTile(
   String name,
   HermesProfile profile, {
   bool active = false,
+  TargetPlatform? platform,
 }) => WidgetbookUseCase(
   name: name,
-  builder: (_) => frame(
-    Material(
+  builder: (context) {
+    final tile = Material(
       type: MaterialType.transparency,
       child: ProfileTile(
         profile: profile,
@@ -510,6 +522,14 @@ WidgetbookUseCase _profileTile(
         onTap: () {},
         onChangeModel: () {},
       ),
-    ),
-  ),
+    );
+    return frame(
+      platform == null
+          ? tile
+          : Theme(
+              data: Theme.of(context).copyWith(platform: platform),
+              child: tile,
+            ),
+    );
+  },
 );
