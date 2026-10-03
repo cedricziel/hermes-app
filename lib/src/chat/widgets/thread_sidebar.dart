@@ -9,8 +9,11 @@ import '../../settings/appearance_dialog.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
+import '../thread_search.dart';
 import 'relative_time.dart';
+import 'sidebar_row.dart';
 import 'thread_actions_menu.dart';
+import 'thread_search_view.dart';
 
 /// The thread list rail — assistant-ui's `<ThreadList />`: a "New thread"
 /// action pinned above a scrollable history, with the active thread picked
@@ -19,6 +22,10 @@ import 'thread_actions_menu.dart';
 /// With [housekeeping], each server-backed thread gets a rename / pin /
 /// archive / delete menu (from its button, a long press or a secondary click)
 /// and the list asks for its next page when it scrolls to the end.
+///
+/// With [search], a field above the list searches the sessions, and while it
+/// holds text the list shows what it found; a tapped result goes to
+/// [onOpenHit].
 class ThreadSidebar extends StatelessWidget {
   const ThreadSidebar({
     super.key,
@@ -27,6 +34,8 @@ class ThreadSidebar extends StatelessWidget {
     required this.onSelect,
     required this.onNewThread,
     this.housekeeping,
+    this.search,
+    this.onOpenHit,
     this.navigation,
     this.onOpenProfiles,
     this.onOpenBots,
@@ -41,6 +50,8 @@ class ThreadSidebar extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onNewThread;
   final ThreadHousekeeping? housekeeping;
+  final ThreadSearch? search;
+  final ValueChanged<ThreadSearchHit>? onOpenHit;
 
   /// The destinations of the app shell, shown under the app name.
   final Widget? navigation;
@@ -54,8 +65,7 @@ class ThreadSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.hermesColors;
-    final housekeeping = this.housekeeping;
-    final showMore = housekeeping != null && housekeeping.hasMore;
+    final search = this.search;
     return Container(
       color: colors.sidebar,
       child: SafeArea(
@@ -92,28 +102,35 @@ class ThreadSidebar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Expanded(
-              child: ListView.builder(
+            if (search != null) ...[
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: threads.length + (showMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == threads.length) {
-                    return _ShowMoreRow(
-                      key: ValueKey(threads.length),
-                      loading: housekeeping!.loadingMore,
-                      onLoad: housekeeping.loadMore,
-                    );
-                  }
-                  final thread = threads[index];
-                  return _ThreadRow(
-                    key: ValueKey('thread-${thread.id}'),
-                    thread: thread,
-                    selected: thread.id == selectedId,
-                    onTap: () => onSelect(thread.id),
-                    housekeeping: thread.remote ? housekeeping : null,
-                  );
-                },
+                child: ListenableBuilder(
+                  listenable: search,
+                  builder: (context, _) => ThreadSearchField(
+                    query: search.query,
+                    onChanged: search.update,
+                  ),
+                ),
               ),
+              const SizedBox(height: 4),
+            ],
+            Expanded(
+              child: search == null
+                  ? _threadList()
+                  : ListenableBuilder(
+                      listenable: search,
+                      builder: (context, _) =>
+                          search.status == ThreadSearchStatus.idle
+                          ? _threadList()
+                          : ThreadSearchResults(
+                              query: search.query,
+                              status: search.status,
+                              hits: search.hits,
+                              selectedId: selectedId,
+                              onOpen: onOpenHit ?? (_) {},
+                            ),
+                    ),
             ),
             const Divider(height: 1),
             _MoreSection(
@@ -136,6 +153,32 @@ class ThreadSidebar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _threadList() {
+    final housekeeping = this.housekeeping;
+    final showMore = housekeeping != null && housekeeping.hasMore;
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: threads.length + (showMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == threads.length) {
+          return _ShowMoreRow(
+            key: ValueKey(threads.length),
+            loading: housekeeping!.loadingMore,
+            onLoad: housekeeping.loadMore,
+          );
+        }
+        final thread = threads[index];
+        return _ThreadRow(
+          key: ValueKey('thread-${thread.id}'),
+          thread: thread,
+          selected: thread.id == selectedId,
+          onTap: () => onSelect(thread.id),
+          housekeeping: thread.remote ? housekeeping : null,
+        );
+      },
     );
   }
 }
@@ -257,55 +300,47 @@ class _ThreadRowState extends State<_ThreadRow> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final actionable = widget.housekeeping != null;
-    return Material(
-      color: widget.selected
-          ? scheme.surfaceContainerHighest.withValues(alpha: 0.7)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+    return Semantics(
+      hint: relativeTime(_thread.updatedAt),
+      child: SidebarRow(
+        selected: widget.selected,
         onTap: widget.onTap,
         onLongPress: actionable ? _openMenu : null,
         onSecondaryTap: actionable ? _openMenu : null,
-        child: Semantics(
-          hint: relativeTime(_thread.updatedAt),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              10,
-              actionable ? 2 : 9,
-              actionable ? 2 : 10,
-              actionable ? 2 : 9,
-            ),
-            child: Row(
-              children: [
-                if (_thread.pinned) ...[
-                  Icon(Icons.push_pin, size: 12, color: subtle),
-                  const SizedBox(width: 4),
-                ],
-                Expanded(
-                  child: Text(
-                    _thread.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: widget.selected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: scheme.onSurface,
-                    ),
-                  ),
+        padding: EdgeInsets.fromLTRB(
+          10,
+          actionable ? 2 : 9,
+          actionable ? 2 : 10,
+          actionable ? 2 : 9,
+        ),
+        child: Row(
+          children: [
+            if (_thread.pinned) ...[
+              Icon(Icons.push_pin, size: 12, color: subtle),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Text(
+                _thread.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: scheme.onSurface,
                 ),
-                if (actionable)
-                  ThreadActionsButton(
-                    key: _actions,
-                    thread: _thread,
-                    housekeeping: widget.housekeeping,
-                    dense: true,
-                  ),
-              ],
+              ),
             ),
-          ),
+            if (actionable)
+              ThreadActionsButton(
+                key: _actions,
+                thread: _thread,
+                housekeeping: widget.housekeeping,
+                dense: true,
+              ),
+          ],
         ),
       ),
     );

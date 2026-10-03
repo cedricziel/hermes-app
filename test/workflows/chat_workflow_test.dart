@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/starter_context_loader.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 
@@ -370,5 +371,27 @@ void main() {
     );
     await tester.pumpAndSettle();
     await shots.capture(tester, 'account-menu');
+  });
+
+  testWidgets('search the chats on a desktop', (tester) async {
+    server.on('GET', '/api/sessions/search', {
+      'results': [
+        {
+          'session_id': 's2',
+          'title': 'Nightly backup',
+          'snippet': 'why did the >>>backup<<< fail after the rotation',
+          'session_started': 1780000000,
+        },
+      ],
+    });
+    final shots = ScreenshotRecorder('chat-desktop-search');
+    await pumpChat(tester, shots, size: desktopSize);
+    await tester.enterText(
+      find.byKey(const Key('thread-search-field')),
+      'backup',
+    );
+    await tester.pump(ThreadSearch.defaultDebounce);
+    await tester.pumpAndSettle();
+    await shots.capture(tester, 'results');
   });
 }

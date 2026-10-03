@@ -484,3 +484,37 @@ final threads = [
     updatedAt: _now.subtract(const Duration(days: 2)),
   ),
 ];
+
+final searchHits = [
+  ThreadSearchHit(
+    id: 'thread-2',
+    title: 'Fix the flaky login test',
+    snippet: const [
+      (text: '…the ', match: false),
+      (text: 'backup', match: true),
+      (
+        text: ' job ran while the login test seeded its users, so the ',
+        match: false,
+      ),
+      (text: 'backup', match: true),
+      (text: ' lock timed out…', match: false),
+    ],
+    updatedAt: _now.subtract(const Duration(hours: 3)),
+  ),
+  ThreadSearchHit(
+    id: 'thread-old',
+    title: 'Nightly backup to the NAS',
+    snippet: const [
+      (text: 'Set up a nightly ', match: false),
+      (text: 'backup', match: true),
+      (text: ' of the notes folder.', match: false),
+    ],
+    updatedAt: _now.subtract(const Duration(days: 40)),
+  ),
+  ThreadSearchHit(
+    id: 'thread-id',
+    title: 'Untitled chat',
+    snippet: const [(text: 'Session ID: 20260930_backup', match: false)],
+    updatedAt: _now.subtract(const Duration(days: 3)),
+  ),
+];
