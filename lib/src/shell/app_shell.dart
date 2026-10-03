@@ -247,7 +247,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
+        final wide = isWideLayout(context, width: constraints.maxWidth);
         final index = destinations.indexOf(_current);
         void select(int i) => _select(destinations[i]);
         final navigation = ShellNavigation(

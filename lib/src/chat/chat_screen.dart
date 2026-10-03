@@ -362,7 +362,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _closeDrawerIfNarrow() {
-    if (MediaQuery.sizeOf(context).width < kWideLayoutBreakpoint) {
+    if (!isWideLayout(context)) {
       _scaffoldKey.currentState?.closeDrawer();
     }
   }
@@ -484,7 +484,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= kWideLayoutBreakpoint;
+        final isWide = isWideLayout(context, width: constraints.maxWidth);
         final selected = chat.selectedThread;
         final modelOptions = chat.modelOptions;
         _followLatestReply(selected);

@@ -4,7 +4,7 @@ import '../../theme/breakpoints.dart';
 import '../model_provider_option.dart';
 
 /// Opens [ModelPicker]: a bottom sheet on a phone, a dialog from
-/// [kWideLayoutBreakpoint]. Without [withEffort] a pick is final, so it
+/// [isWideLayout]. Without [withEffort] a pick is final, so it
 /// closes the picker, and so does [onUseDefault].
 Future<void> showModelPicker(
   BuildContext context, {
@@ -34,7 +34,7 @@ Future<void> showModelPicker(
           },
   );
   final size = MediaQuery.sizeOf(context);
-  if (size.width >= kWideLayoutBreakpoint) {
+  if (isWideLayout(context)) {
     return showDialog<void>(
       context: context,
       builder: (dialog) => Dialog(

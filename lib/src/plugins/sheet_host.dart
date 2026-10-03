@@ -46,7 +46,7 @@ class _SheetHostState extends State<SheetHost> {
   }
 }
 
-/// A shared shell for a list with a details pane: at [kWideLayoutBreakpoint]
+/// A shared shell for a list with a details pane: at [isWideLayout]
 /// the [detail] (or [placeholder]) sits beside [list], below it only [list]
 /// is shown.
 class ListWithDetail extends StatelessWidget {

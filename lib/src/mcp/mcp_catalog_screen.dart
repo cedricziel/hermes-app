@@ -10,7 +10,7 @@ import 'mcp_server_detail.dart';
 import 'mcp_servers_controller.dart';
 
 /// Browses Hermes' approved MCP servers for the profile [servers] acts on.
-/// Below [kWideLayoutBreakpoint] a tapped entry opens on its own;
+/// Below [isWideLayout] a tapped entry opens on its own;
 /// at or above it, beside the list.
 class McpCatalogScreen extends StatefulWidget {
   const McpCatalogScreen({super.key, required this.servers});
@@ -143,7 +143,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
+        final wide = isWideLayout(context, width: constraints.maxWidth);
         final list = _CatalogList(
           catalog: _catalog,
           search: _search,

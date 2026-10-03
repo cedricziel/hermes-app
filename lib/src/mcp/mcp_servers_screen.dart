@@ -65,8 +65,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
   /// Whether the screen is laid out with the detail beside the list. Read
   /// from the media instead of the body's layout, which the empty state
   /// never builds.
-  bool _isWide(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
+  bool _isWide(BuildContext context) => isWideLayout(context);
 
   void _open(HermesMcpServer server) {
     if (_isWide(context)) {
@@ -206,7 +205,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kWideLayoutBreakpoint;
+        final wide = isWideLayout(context, width: constraints.maxWidth);
         final selected = _controller.serverNamed(_selected) ?? servers.first;
         final list = _ServerList(
           controller: _controller,

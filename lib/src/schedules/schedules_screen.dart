@@ -48,7 +48,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     final request = _controller.takeOpenRequest();
     if (request == null || request.id.isEmpty || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= kWideLayoutBreakpoint;
+    final wide = isWideLayout(context);
     CronJob? job;
     try {
       job = await _controller.findJob(request.id, profile: request.profile);
@@ -103,7 +103,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
-        final wide = box.maxWidth >= kWideLayoutBreakpoint;
+        final wide = isWideLayout(context, width: box.maxWidth);
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
