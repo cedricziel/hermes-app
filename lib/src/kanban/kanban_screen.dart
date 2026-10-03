@@ -5,6 +5,8 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -12,13 +14,14 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
-import '../chat/gateway/gateway_connection.dart';
 import '../shell/shell_navigation.dart';
+import '../telemetry/telemetry.dart';
 import '../theme/hermes_theme.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_boards_screen.dart';
 import 'kanban_create_screen.dart';
 import 'kanban_errors.dart';
+import 'kanban_events_connection.dart';
 import 'kanban_files.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
@@ -57,6 +60,12 @@ class KanbanScreen extends StatefulWidget {
 class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
+  late final AppLifecycleListener _lifecycle;
+
+  /// Whether the shell shows this page, and whether the app is on screen; the
+  /// event stream runs only while both hold.
+  bool _visible = true;
+  bool _foreground = _isForeground(WidgetsBinding.instance.lifecycleState);
 
   /// The card a phone is dragging by its handle, while it is.
   String? _dragId;
@@ -73,25 +82,46 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (widget.connect != null) {
       connect = widget.connect!;
     } else {
-      final socket = hermesSocketConnect(
+      connect = hermesKanbanEventsConnect(
         baseUrl: auth.baseUrl!,
         authRequired: auth.status?.authRequired ?? true,
         api: repositories!.api,
-        path: '/api/plugins/kanban/events',
+        telemetry: context.read<KanbanEventsTracer?>(),
       );
-      connect = ({required since, board}) =>
-          socket({'since': '$since', 'board': ?board});
     }
     _controller = KanbanBoardController(
       repository: _repository,
       connect: connect,
       prefs: SharedPreferencesAsync(),
       prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
+      log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
     )..start();
+    _lifecycle = AppLifecycleListener(
+      onStateChange: (state) {
+        _foreground = _isForeground(state);
+        _syncActive();
+      },
+    );
   }
+
+  /// A desktop window that only lost focus is still on screen.
+  static bool _isForeground(AppLifecycleState? state) =>
+      state != AppLifecycleState.hidden &&
+      state != AppLifecycleState.paused &&
+      state != AppLifecycleState.detached;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _visible = Visibility.of(context);
+    _syncActive();
+  }
+
+  void _syncActive() => _controller.active = _visible && _foreground;
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.dispose();
     super.dispose();
   }

@@ -10,6 +10,7 @@ import 'package:hermes_app/src/plugins/plugins_screen.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 const catalogPath = '/api/dashboard/plugins/catalog';
@@ -837,5 +838,27 @@ void main() {
       expect(events.single.$2, isEmpty);
       expect(find.textContaining('secret-token'), findsNothing);
     });
+  });
+
+  testWidgets('screen readers get the Git install dialog Advanced section', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await openCatalog(tester);
+    await tester.tap(find.byKey(const Key('catalog-git-install')));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(find.text('Advanced')),
+      disclosure('Advanced', open: false),
+    );
+    await tester.tap(find.text('Advanced'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.text('Advanced')),
+      disclosure('Advanced', open: true),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }

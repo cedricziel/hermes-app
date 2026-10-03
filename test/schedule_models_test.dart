@@ -60,10 +60,20 @@ void main() {
       expect(job(cronJobRow()).outcome, CronOutcome.none);
     });
 
+    test('is ok for a run whose delivery Hermes queued', () {
+      final queued = job(cronJobRow(lastStatus: 'delivery_queued'));
+      expect(queued.outcome, CronOutcome.ok);
+      expect(queued.isFailing, isFalse);
+    });
+
     test('is failed for an error and for other non-ok statuses', () {
       expect(job(cronJobRow(lastStatus: 'error')).outcome, CronOutcome.failed);
       expect(
         job(cronJobRow(lastStatus: 'blocked_config')).outcome,
+        CronOutcome.failed,
+      );
+      expect(
+        job(cronJobRow(lastStatus: 'something_new')).outcome,
         CronOutcome.failed,
       );
     });
@@ -82,6 +92,35 @@ void main() {
         );
       },
     );
+  });
+
+  group('blocked', () {
+    const reason =
+        "attached skill 'google-workspace' is not ready: missing credential";
+
+    test('is true when Hermes refused to start the job', () {
+      final blocked = job(
+        cronJobRow(
+          lastStatus: 'blocked_config',
+          lastError: '[blocked_config:silent] $reason',
+        ),
+      );
+      expect(blocked.isBlocked, isTrue);
+      expect(job(cronJobRow(lastStatus: 'error')).isBlocked, isFalse);
+      expect(job(cronJobRow()).isBlocked, isFalse);
+    });
+
+    test('drops the marker from the reason', () {
+      for (final marker in ['[blocked_config]', '[blocked_config:silent]']) {
+        final blocked = job(
+          cronJobRow(
+            lastStatus: 'blocked_config',
+            lastError: '$marker $reason',
+          ),
+        );
+        expect(blocked.lastError, reason);
+      }
+    });
   });
 
   group('scheduleWords', () {

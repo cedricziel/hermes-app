@@ -54,7 +54,7 @@ void main() {
   /// Sends a prompt and has the agent raise [request] mid-turn.
   Future<FakeSend> raise(WidgetTester tester, ChatEvent request) async {
     await pumpChatScreen(tester, server: server, transport: transport);
-    await tester.enterText(find.byType(EditableText), 'clean up');
+    await tester.enterText(composerField, 'clean up');
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();

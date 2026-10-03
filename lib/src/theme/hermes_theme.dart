@@ -101,6 +101,7 @@ ThemeData _buildTheme({
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
+      centerTitle: false,
       titleTextStyle: TextStyle(
         color: scheme.onSurface,
         fontSize: 16,

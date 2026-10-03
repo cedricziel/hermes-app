@@ -9,8 +9,11 @@ import '../../settings/appearance_dialog.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
+import '../thread_search.dart';
 import 'relative_time.dart';
+import 'sidebar_row.dart';
 import 'thread_actions_menu.dart';
+import 'thread_search_view.dart';
 
 /// The thread list rail — assistant-ui's `<ThreadList />`: a "New thread"
 /// action pinned above a scrollable history, with the active thread picked
@@ -19,6 +22,10 @@ import 'thread_actions_menu.dart';
 /// With [housekeeping], each server-backed thread gets a rename / pin /
 /// archive / delete menu (from its button, a long press or a secondary click)
 /// and the list asks for its next page when it scrolls to the end.
+///
+/// With [search], a field above the list searches the sessions, and while it
+/// holds text the list shows what it found; a tapped result goes to
+/// [onOpenHit].
 class ThreadSidebar extends StatelessWidget {
   const ThreadSidebar({
     super.key,
@@ -27,6 +34,8 @@ class ThreadSidebar extends StatelessWidget {
     required this.onSelect,
     required this.onNewThread,
     this.housekeeping,
+    this.search,
+    this.onOpenHit,
     this.navigation,
     this.onOpenProfiles,
     this.onOpenBots,
@@ -41,6 +50,8 @@ class ThreadSidebar extends StatelessWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onNewThread;
   final ThreadHousekeeping? housekeeping;
+  final ThreadSearch? search;
+  final ValueChanged<ThreadSearchHit>? onOpenHit;
 
   /// The destinations of the app shell, shown under the app name.
   final Widget? navigation;
@@ -54,8 +65,7 @@ class ThreadSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.hermesColors;
-    final housekeeping = this.housekeeping;
-    final showMore = housekeeping != null && housekeeping.hasMore;
+    final search = this.search;
     return Container(
       color: colors.sidebar,
       child: SafeArea(
@@ -94,28 +104,35 @@ class ThreadSidebar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Expanded(
-              child: ListView.builder(
+            if (search != null) ...[
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: threads.length + (showMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == threads.length) {
-                    return _ShowMoreRow(
-                      key: ValueKey(threads.length),
-                      loading: housekeeping!.loadingMore,
-                      onLoad: housekeeping.loadMore,
-                    );
-                  }
-                  final thread = threads[index];
-                  return _ThreadRow(
-                    key: ValueKey('thread-${thread.id}'),
-                    thread: thread,
-                    selected: thread.id == selectedId,
-                    onTap: () => onSelect(thread.id),
-                    housekeeping: thread.remote ? housekeeping : null,
-                  );
-                },
+                child: ListenableBuilder(
+                  listenable: search,
+                  builder: (context, _) => ThreadSearchField(
+                    query: search.query,
+                    onChanged: search.update,
+                  ),
+                ),
               ),
+              const SizedBox(height: 4),
+            ],
+            Expanded(
+              child: search == null
+                  ? _threadList()
+                  : ListenableBuilder(
+                      listenable: search,
+                      builder: (context, _) =>
+                          search.status == ThreadSearchStatus.idle
+                          ? _threadList()
+                          : ThreadSearchResults(
+                              query: search.query,
+                              status: search.status,
+                              hits: search.hits,
+                              selectedId: selectedId,
+                              onOpen: onOpenHit ?? (_) {},
+                            ),
+                    ),
             ),
             const Divider(height: 1),
             _MoreSection(
@@ -140,6 +157,32 @@ class ThreadSidebar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _threadList() {
+    final housekeeping = this.housekeeping;
+    final showMore = housekeeping != null && housekeeping.hasMore;
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: threads.length + (showMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == threads.length) {
+          return _ShowMoreRow(
+            key: ValueKey(threads.length),
+            loading: housekeeping!.loadingMore,
+            onLoad: housekeeping.loadMore,
+          );
+        }
+        final thread = threads[index];
+        return _ThreadRow(
+          key: ValueKey('thread-${thread.id}'),
+          thread: thread,
+          selected: thread.id == selectedId,
+          onTap: () => onSelect(thread.id),
+          housekeeping: thread.remote ? housekeeping : null,
+        );
+      },
+    );
+  }
 }
 
 /// A flat, full-width row for an action or destination in the sidebar.
@@ -150,6 +193,7 @@ class SidebarAction extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.selected = false,
+    this.expanded,
   });
 
   final IconData icon;
@@ -159,33 +203,41 @@ class SidebarAction extends StatelessWidget {
   /// Fills the row, as for the open destination.
   final bool selected;
 
+  /// Whether the section this row opens is open; null for a plain action.
+  final bool? expanded;
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? Theme.of(context).colorScheme.surfaceContainerHighest
-                .withValues(alpha: 0.7)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      selected: selected,
+      expanded: expanded,
+      child: Material(
+        color: selected
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.7)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -218,6 +270,7 @@ class _MoreSectionState extends State<_MoreSection> {
           SidebarAction(
             icon: _open ? Icons.expand_more : Icons.chevron_right,
             label: 'More',
+            expanded: _open,
             onTap: () => setState(() => _open = !_open),
           ),
           if (_open)
@@ -259,55 +312,47 @@ class _ThreadRowState extends State<_ThreadRow> {
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
     final actionable = widget.housekeeping != null;
-    return Material(
-      color: widget.selected
-          ? scheme.surfaceContainerHighest.withValues(alpha: 0.7)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+    return Semantics(
+      hint: relativeTime(_thread.updatedAt),
+      child: SidebarRow(
+        selected: widget.selected,
         onTap: widget.onTap,
         onLongPress: actionable ? _openMenu : null,
         onSecondaryTap: actionable ? _openMenu : null,
-        child: Semantics(
-          hint: relativeTime(_thread.updatedAt),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              10,
-              actionable ? 2 : 9,
-              actionable ? 2 : 10,
-              actionable ? 2 : 9,
-            ),
-            child: Row(
-              children: [
-                if (_thread.pinned) ...[
-                  Icon(Icons.push_pin, size: 12, color: subtle),
-                  const SizedBox(width: 4),
-                ],
-                Expanded(
-                  child: Text(
-                    _thread.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: widget.selected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: scheme.onSurface,
-                    ),
-                  ),
+        padding: EdgeInsets.fromLTRB(
+          10,
+          actionable ? 2 : 9,
+          actionable ? 2 : 10,
+          actionable ? 2 : 9,
+        ),
+        child: Row(
+          children: [
+            if (_thread.pinned) ...[
+              Icon(Icons.push_pin, size: 12, color: subtle),
+              const SizedBox(width: 4),
+            ],
+            Expanded(
+              child: Text(
+                _thread.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: widget.selected
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: scheme.onSurface,
                 ),
-                if (actionable)
-                  ThreadActionsButton(
-                    key: _actions,
-                    thread: _thread,
-                    housekeeping: widget.housekeeping,
-                    dense: true,
-                  ),
-              ],
+              ),
             ),
-          ),
+            if (actionable)
+              ThreadActionsButton(
+                key: _actions,
+                thread: _thread,
+                housekeeping: widget.housekeeping,
+                dense: true,
+              ),
+          ],
         ),
       ),
     );
@@ -370,74 +415,90 @@ class AccountFooter extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: PopupMenuButton<String>(
-        tooltip: 'Account',
-        offset: const Offset(0, -8),
-        position: PopupMenuPosition.over,
-        onSelected: (value) {
-          if (value == 'sign-out') auth.signOut();
-          if (value == 'change-server') auth.changeServer();
-          if (value == 'appearance') showAppearanceDialog(context);
-          if (value == 'notifications') showNotificationsDialog(context);
-          if (value == 'app-lock') showAppLockDialog(context);
-          if (value == 'about') showAppAboutDialog(context);
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            enabled: false,
-            child: Text(
-              auth.baseUrl ?? '',
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(value: 'appearance', child: Text('Appearance')),
-          const PopupMenuItem(
-            value: 'notifications',
-            child: Text('Notifications'),
-          ),
-          const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
-          const PopupMenuItem(value: 'about', child: Text('About')),
-          if (auth.status?.authRequired ?? false)
-            const PopupMenuItem(value: 'sign-out', child: Text('Sign out')),
-          const PopupMenuItem(
-            value: 'change-server',
-            child: Text('Change server'),
-          ),
-        ],
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 14,
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                child: Icon(
-                  Icons.person_outline,
-                  size: 15,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          label: 'Account',
+          child: Tooltip(
+            message: 'Account',
+            excludeFromSemantics: true,
+            child: PopupMenuButton<String>(
+              tooltip: '',
+              offset: const Offset(0, -8),
+              position: PopupMenuPosition.over,
+              onSelected: (value) {
+                if (value == 'sign-out') auth.signOut();
+                if (value == 'change-server') auth.changeServer();
+                if (value == 'appearance') showAppearanceDialog(context);
+                if (value == 'notifications') showNotificationsDialog(context);
+                if (value == 'app-lock') showAppLockDialog(context);
+                if (value == 'about') showAppAboutDialog(context);
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    auth.baseUrl ?? '',
+                    style: const TextStyle(fontSize: 12),
                   ),
                 ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'appearance',
+                  child: Text('Appearance'),
+                ),
+                const PopupMenuItem(
+                  value: 'notifications',
+                  child: Text('Notifications'),
+                ),
+                const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
+                const PopupMenuItem(value: 'about', child: Text('About')),
+                if (auth.status?.authRequired ?? false)
+                  const PopupMenuItem(
+                    value: 'sign-out',
+                    child: Text('Sign out'),
+                  ),
+                const PopupMenuItem(
+                  value: 'change-server',
+                  child: Text('Change server'),
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      child: Icon(
+                        Icons.person_outline,
+                        size: 15,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.more_horiz,
+                      size: 16,
+                      color: context.hermesColors.subtleText,
+                    ),
+                  ],
+                ),
               ),
-              Icon(
-                Icons.more_horiz,
-                size: 16,
-                color: context.hermesColors.subtleText,
-              ),
-            ],
+            ),
           ),
         ),
       ),

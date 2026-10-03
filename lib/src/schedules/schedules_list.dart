@@ -4,6 +4,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
+import 'widgets/schedule_filter_bar.dart';
 
 /// The jobs of the server as cards, with the profile and filter chips above.
 class SchedulesList extends StatelessWidget {
@@ -27,7 +28,14 @@ class SchedulesList extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Filters(controller: controller),
+            ScheduleFilterBar(
+              activeProfile: controller.activeProfile,
+              allProfiles: controller.allProfiles,
+              filter: controller.filter,
+              failingCount: controller.failingCount,
+              onAllProfilesChanged: (all) => controller.allProfiles = all,
+              onFilterChanged: (filter) => controller.filter = filter,
+            ),
             if (controller.error != null && controller.loaded)
               _ErrorNote(controller: controller),
             Expanded(child: _body(context, jobs)),
@@ -92,52 +100,6 @@ class SchedulesList extends StatelessWidget {
             }
           },
         ),
-      ),
-    );
-  }
-}
-
-class _Filters extends StatelessWidget {
-  const _Filters({required this.controller});
-
-  final SchedulesController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final profile = controller.activeProfile;
-    final failing = controller.failingCount;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        spacing: 8,
-        children: [
-          if (profile != null)
-            ChoiceChip(
-              label: Text('$profile (active)'),
-              selected: !controller.allProfiles,
-              onSelected: (_) => controller.allProfiles = false,
-            ),
-          ChoiceChip(
-            label: const Text('All profiles'),
-            selected: controller.allProfiles || profile == null,
-            onSelected: (_) => controller.allProfiles = true,
-          ),
-          FilterChip(
-            label: Text(failing > 0 ? 'Failing ($failing)' : 'Failing'),
-            selected: controller.filter == ScheduleFilter.failing,
-            onSelected: (on) => controller.filter = on
-                ? ScheduleFilter.failing
-                : ScheduleFilter.all,
-          ),
-          FilterChip(
-            label: const Text('Paused'),
-            selected: controller.filter == ScheduleFilter.paused,
-            onSelected: (on) => controller.filter = on
-                ? ScheduleFilter.paused
-                : ScheduleFilter.all,
-          ),
-        ],
       ),
     );
   }
@@ -234,11 +196,18 @@ class JobTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Switch(
-                    value: !job.isPaused && job.state != CronJobState.completed,
-                    onChanged: job.state == CronJobState.completed
-                        ? null
-                        : (on) => onPausedChanged(!on),
+                  MergeSemantics(
+                    child: Semantics(
+                      label: job.title,
+                      child: Switch(
+                        value:
+                            !job.isPaused &&
+                            job.state != CronJobState.completed,
+                        onChanged: job.state == CronJobState.completed
+                            ? null
+                            : (on) => onPausedChanged(!on),
+                      ),
+                    ),
                   ),
                 ],
               ),

@@ -10,6 +10,7 @@ import 'package:hermes_app/src/mcp/mcp_server_detail.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 /// The MCP servers screen against a fake dashboard, through the real generated
@@ -991,5 +992,30 @@ void main() {
       expect(find.text('https://b.test'), findsOneWidget);
       expect(find.byKey(const ValueKey('mcp-row-filesystem')), findsNothing);
     });
+  });
+
+  testWidgets('screen readers get each switch, More and Remove by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpScreen(tester);
+
+    expect(
+      tester.getSemantics(inRow('grafana', find.byType(Switch))),
+      isSemantics(label: 'grafana', hasToggledState: true, isToggled: true),
+    );
+    expect(
+      tester.getSemantics(find.byIcon(Icons.adaptive.more)),
+      namedButton('More'),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+
+    await openDetail(tester, 'grafana');
+    expect(
+      tester.getSemantics(find.byIcon(Icons.delete_outline)),
+      namedButton('Remove'),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }

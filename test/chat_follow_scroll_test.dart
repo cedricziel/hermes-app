@@ -64,7 +64,7 @@ void main() {
   Future<FakeSend> startReply(WidgetTester tester) async {
     await pumpChatScreen(tester, server: server, transport: transport);
     await openThread(tester, 'Run failure');
-    await tester.enterText(find.byType(EditableText), 'Tell me everything');
+    await tester.enterText(composerField, 'Tell me everything');
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
@@ -126,7 +126,7 @@ void main() {
     tester,
   ) async {
     final reply = await startReply(tester);
-    await tester.enterText(find.byType(EditableText), 'And then?');
+    await tester.enterText(composerField, 'And then?');
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();

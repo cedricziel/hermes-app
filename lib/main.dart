@@ -58,6 +58,7 @@ Future<void> main() async {
           dispose: (_, store) => store?.dispose(),
         ),
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
+        Provider<KanbanEventsTracer?>.value(value: telemetry.kanbanEvents()),
         Provider<AppEventLogger>.value(value: telemetry.events()),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),

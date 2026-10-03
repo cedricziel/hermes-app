@@ -6,6 +6,8 @@ import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
 
+import '../widgets/named_icon_button.dart';
+
 final _envName = RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$');
 
 class _EnvRow {
@@ -392,9 +394,9 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
               ),
               const SizedBox(width: 8),
               Expanded(child: _field(row.value, 'Value', secret: true)),
-              IconButton(
-                tooltip: 'Remove variable',
-                icon: const Icon(Icons.close),
+              NamedIconButton(
+                label: 'Remove variable',
+                icon: Icons.close,
                 onPressed: _saving ? null : () => _removeRow(row),
               ),
             ],

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -30,6 +32,7 @@ class KanbanBoardController extends ChangeNotifier {
     this.reconnectDelay = _defaultReconnectDelay,
     this.prefs,
     this.prefsKey = 'hermes.kanban.board',
+    this.log = noopAppEventLogger,
   });
 
   /// Where the chosen board is remembered between launches; null forgets it.
@@ -44,6 +47,9 @@ class KanbanBoardController extends ChangeNotifier {
   final Duration debounce;
   final Duration Function(int attempt) reconnectDelay;
 
+  /// Where reconnects of the event stream are logged.
+  final AppEventLogger log;
+
   static Duration _defaultReconnectDelay(int attempt) =>
       Duration(seconds: math.min(30, 1 << math.min(attempt, 5)));
 
@@ -52,6 +58,7 @@ class KanbanBoardController extends ChangeNotifier {
   Object? _error;
   bool _loading = false;
   bool _live = false;
+  bool _active = true;
   bool _disposed = false;
 
   String? _boardSlug;
@@ -83,6 +90,22 @@ class KanbanBoardController extends ChangeNotifier {
 
   /// Whether the event stream is connected.
   bool get live => _live;
+
+  /// Whether the board is on screen. The event stream is closed while it is
+  /// not, and reopened after the last event seen when it is again, so the
+  /// events missed meanwhile arrive then.
+  bool get active => _active;
+
+  set active(bool value) {
+    if (_active == value || _disposed) return;
+    _active = value;
+    if (!value) {
+      unawaited(_stopStream(keepRefetch: true));
+      _setLive(false);
+    } else if (_board != null && _events == null) {
+      unawaited(_listen());
+    }
+  }
 
   String? get boardSlug => _boardSlug;
   String? get tenant => _tenant;
@@ -269,7 +292,7 @@ class KanbanBoardController extends ChangeNotifier {
       };
       _selected.retainAll(ids);
       _cursor = math.max(_cursor, board.latestEventId);
-      if (_events == null) unawaited(_listen());
+      if (_active && _events == null) unawaited(_listen());
     } on Object catch (e) {
       if (_disposed || generation != _generation) return;
       _error = e;
@@ -335,18 +358,19 @@ class KanbanBoardController extends ChangeNotifier {
   void _dropBoard() {
     _generation++;
     unawaited(_stopStream());
-    _events = null;
     _live = false;
     _board = null;
     _arrived = const {};
   }
 
   /// Stops the timers and closes the event stream. The synchronous part runs
-  /// before the first await, so callers need not wait for it.
-  Future<void> _stopStream() async {
-    _refreshTimer?.cancel();
+  /// before the first await, so callers need not wait for it. [keepRefetch]
+  /// lets a refetch already due run, since the cursor is past its events.
+  Future<void> _stopStream({bool keepRefetch = false}) async {
+    if (!keepRefetch) _refreshTimer?.cancel();
     _reconnectTimer?.cancel();
     final events = _events;
+    _events = null;
     _closeChannel();
     await events?.cancel();
   }
@@ -360,11 +384,16 @@ class KanbanBoardController extends ChangeNotifier {
     final generation = _generation;
     _reconnectTimer?.cancel();
     void retry() {
-      if (_disposed || generation != _generation) return;
+      if (_disposed || generation != _generation || !_active) return;
       _events = null;
       _closeChannel();
       _setLive(false);
-      _reconnectTimer = Timer(reconnectDelay(attempt), () {
+      final delay = reconnectDelay(attempt);
+      log('kanban.events.reconnect', {
+        'attempt': attempt + 1,
+        'delay_ms': delay.inMilliseconds,
+      });
+      _reconnectTimer = Timer(delay, () {
         if (!_disposed && generation == _generation) {
           _listen(attempt: attempt + 1);
         }
@@ -374,7 +403,10 @@ class KanbanBoardController extends ChangeNotifier {
     try {
       final channel = await connect(since: _cursor, board: _boardSlug);
       // Superseded, or another listener won the race for the stream.
-      if (_disposed || generation != _generation || _events != null) {
+      if (_disposed ||
+          generation != _generation ||
+          !_active ||
+          _events != null) {
         unawaited(channel.sink.close());
         return;
       }
@@ -427,7 +459,6 @@ class KanbanBoardController extends ChangeNotifier {
     await _stopStream();
     // A newer restart began while this one waited; it owns the rest.
     if (_disposed || generation != _generation) return;
-    _events = null;
     _live = false;
     _cursor = 0;
     _selected.clear();

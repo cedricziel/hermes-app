@@ -279,6 +279,20 @@ final failingJob = CronJob(
   profile: 'work',
 );
 
+final blockedJob = CronJob(
+  id: 'job-5',
+  name: 'Morning inbox digest',
+  scheduleKind: 'cron',
+  scheduleExpr: '0 7 * * *',
+  nextRunAt: _now.add(const Duration(hours: 19)),
+  lastRunAt: _now.subtract(const Duration(hours: 5)),
+  lastStatus: 'blocked_config',
+  lastError:
+      "attached skill 'mail-tools' is not ready: "
+      'missing credential file mail_token.json',
+  skills: ['mail-tools'],
+);
+
 final pausedJob = CronJob(
   id: 'job-3',
   name: 'Weekly digest',
@@ -482,5 +496,39 @@ final threads = [
     id: 'thread-3',
     title: 'Summarise the weekly report',
     updatedAt: _now.subtract(const Duration(days: 2)),
+  ),
+];
+
+final searchHits = [
+  ThreadSearchHit(
+    id: 'thread-2',
+    title: 'Fix the flaky login test',
+    snippet: const [
+      (text: '…the ', match: false),
+      (text: 'backup', match: true),
+      (
+        text: ' job ran while the login test seeded its users, so the ',
+        match: false,
+      ),
+      (text: 'backup', match: true),
+      (text: ' lock timed out…', match: false),
+    ],
+    updatedAt: _now.subtract(const Duration(hours: 3)),
+  ),
+  ThreadSearchHit(
+    id: 'thread-old',
+    title: 'Nightly backup to the NAS',
+    snippet: const [
+      (text: 'Set up a nightly ', match: false),
+      (text: 'backup', match: true),
+      (text: ' of the notes folder.', match: false),
+    ],
+    updatedAt: _now.subtract(const Duration(days: 40)),
+  ),
+  ThreadSearchHit(
+    id: 'thread-id',
+    title: 'Untitled chat',
+    snippet: const [(text: 'Session ID: 20260930_backup', match: false)],
+    updatedAt: _now.subtract(const Duration(days: 3)),
   ),
 ];

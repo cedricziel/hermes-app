@@ -84,7 +84,7 @@ void main() {
   }
 
   Future<FakeSend> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(EditableText), text);
+    await tester.enterText(composerField, text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();

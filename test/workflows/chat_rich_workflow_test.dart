@@ -27,6 +27,7 @@ import '../support/fake_hermes_server.dart';
 import '../support/fake_media_actions.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+import '../support/pump_chat.dart';
 
 const _unbrokenWord =
     'Supercalifragilisticexpialidocious_Supercalifragilisticexpialidocious_'
@@ -309,7 +310,7 @@ void main() {
   }
 
   Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(EditableText), text);
+    await tester.enterText(composerField, text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await runFrames(tester);
@@ -604,10 +605,7 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'image-and-long-name-attached');
 
-      await tester.enterText(
-        find.byType(EditableText),
-        'Summarize these for me',
-      );
+      await tester.enterText(composerField, 'Summarize these for me');
       await tester.pump();
       await shots.capture(tester, 'ready-to-send');
 

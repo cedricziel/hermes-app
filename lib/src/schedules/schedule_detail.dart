@@ -7,6 +7,7 @@ import 'job_form_screen.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
+import 'widgets/run_history_empty.dart';
 
 /// Asks the chat to show the session of a run.
 typedef OpenRun = void Function(CronRun run, CronJob job);
@@ -330,7 +331,7 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
           ),
       ];
     }
-    if (runs.isEmpty) return const [Text('No runs yet')];
+    if (runs.isEmpty) return [RunHistoryEmpty(job: widget.job)];
     final scheme = Theme.of(context).colorScheme;
     return [
       for (final run in runs)

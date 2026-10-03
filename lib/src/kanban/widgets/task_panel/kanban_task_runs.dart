@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../chat/widgets/relative_time.dart';
+import '../../../widgets/disclosure_tile.dart';
 import '../../kanban_models.dart';
 
 /// The task's worker runs, newest first, with its log, and its history.
@@ -27,7 +28,7 @@ class KanbanTaskRuns extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       if (runs.isNotEmpty)
-        ExpansionTile(
+        DisclosureTile(
           tilePadding: EdgeInsets.zero,
           title: Text('Runs (${runs.length})'),
           children: [
@@ -57,7 +58,7 @@ class KanbanTaskRuns extends StatelessWidget {
           ],
         ),
       if (events.isNotEmpty)
-        ExpansionTile(
+        DisclosureTile(
           tilePadding: EdgeInsets.zero,
           title: const Text('History'),
           children: [

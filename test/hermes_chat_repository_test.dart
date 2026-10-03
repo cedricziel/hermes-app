@@ -752,4 +752,84 @@ void main() {
       expect(repository.loadMessages('gone'), throwsA(isA<DioException>()));
     });
   });
+
+  group('searchThreads', () {
+    test('searches the profile it was asked for', () async {
+      server.on('GET', '/api/sessions/search', {'results': []});
+
+      await repository.searchThreads('backup', profile: 'work');
+
+      final request = server.requestsTo('GET', '/api/sessions/search').single;
+      expect(request.queryParameters['q'], 'backup');
+      expect(request.queryParameters['profile'], 'work');
+      expect(request.queryParameters['limit'], 20);
+    });
+
+    test('maps each row to a hit with its title and matched text', () async {
+      server.on('GET', '/api/sessions/search', {
+        'results': [
+          {
+            'session_id': 's-tip',
+            'id': 's-tip',
+            'lineage_root': 's-root',
+            'title': 'Nightly backup',
+            'snippet': 'the >>>backup<<< failed at >>>02<<<:14',
+            'role': 'user',
+            'last_active': 1780000600,
+            'session_started': 1780000000,
+          },
+        ],
+      });
+
+      final hits = await repository.searchThreads('backup');
+
+      final hit = hits.single;
+      expect(hit.id, 's-tip');
+      expect(hit.title, 'Nightly backup');
+      expect(hit.snippet, [
+        (text: 'the ', match: false),
+        (text: 'backup', match: true),
+        (text: ' failed at ', match: false),
+        (text: '02', match: true),
+        (text: ':14', match: false),
+      ]);
+      expect(
+        hit.updatedAt,
+        DateTime.fromMillisecondsSinceEpoch(1780000600 * 1000),
+      );
+    });
+
+    test('reads a row without id, title or recency leniently', () async {
+      server.on('GET', '/api/sessions/search', {
+        'results': [
+          {
+            'session_id': 's1',
+            'preview': 'What broke?',
+            'snippet': 'Session ID: s1',
+            'session_started': 1780000000,
+          },
+          {'snippet': 'no id'},
+          'not a row',
+        ],
+      });
+
+      final hits = await repository.searchThreads('s1');
+
+      final hit = hits.single;
+      expect(hit.id, 's1');
+      expect(hit.title, 'What broke?');
+      expect(hit.snippet, [(text: 'Session ID: s1', match: false)]);
+      expect(
+        hit.updatedAt,
+        DateTime.fromMillisecondsSinceEpoch(1780000000 * 1000),
+      );
+    });
+
+    test('sends nothing for a blank query', () async {
+      final hits = await repository.searchThreads('  ');
+
+      expect(hits, isEmpty);
+      expect(server.requests, isEmpty);
+    });
+  });
 }

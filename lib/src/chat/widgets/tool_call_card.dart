@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../widgets/disclosure_tile.dart';
 import '../chat_models.dart';
 import 'approval_card.dart';
 import 'thinking_indicator.dart' show formatThinkingElapsed;
@@ -73,7 +74,7 @@ class ToolCallCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ExpansionTile(
+          DisclosureTile(
             enabled: expandable,
             initiallyExpanded: initiallyOpen && expandable,
             dense: true,

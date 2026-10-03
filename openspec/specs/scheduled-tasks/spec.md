@@ -1,8 +1,11 @@
 # scheduled-tasks Specification
 
 ## Purpose
+
 Describes how the app shows the scheduled tasks (cron jobs) of a Hermes server: when the Schedules destination is offered, how the jobs are listed, filtered and refreshed, what a job's detail shows, how a job is paused, resumed, run once or deleted, how its run history opens as a chat, and which backend routes it relies on.
+
 ## Requirements
+
 ### Requirement: The Schedules destination follows the server's cron routes
 
 The system SHALL offer a Schedules destination only while the server answers `GET /api/cron/delivery-targets` with a success status. Any other outcome (a network error, an error status, a server too old to have the route) SHALL count as off. The check SHALL run when the signed-in home screen is first shown and every time the app returns to the foreground; when several checks overlap, only the answer of the most recently started one SHALL apply. When it turns off while Schedules is selected, the app SHALL return to Chat. The destination SHALL NOT depend on the Kanban plugin.
@@ -223,6 +226,11 @@ The system SHALL list a job's runs newest first from `GET /api/cron/jobs/{id}/ru
 - **WHEN** the job has never run
 - **THEN** the history says there are no runs yet
 
+#### Scenario: Blocked before it ran
+
+- **WHEN** the job has no runs and its last status is `blocked_config` (Hermes refused to start it, which leaves no run behind)
+- **THEN** the history says Hermes blocked the task before it could start and will try again at the next scheduled time, with the reason from the job's last error, without the `[blocked_config]` or `[blocked_config:silent]` marker
+
 ### Requirement: Wide layout
 
 The system SHALL show the list and the selected job's detail side by side when the available width is 900 logical pixels or more, with the first job selected by default, and SHALL show the list alone with the detail pushed on top of it below that.
@@ -239,7 +247,7 @@ The system SHALL show the list and the selected job's detail side by side when t
 
 ### Requirement: Backend contract
 
-The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET /api/cron/jobs/{id}`, parsing the bodies leniently because the routes declare no response schema: a row without an `id` is skipped; a missing text falls back to empty; `state` is one of `scheduled`, `paused`, `completed`, `error`, and anything else counts as `scheduled`; `next_run_at` and `last_run_at` are ISO 8601 times and one that does not parse counts as absent; `schedule_display` is the schedule in words; `last_status` is `ok` or an error and `last_error` and `last_delivery_error` are texts; `deliver` names the target; `repeat` carries `times` and `completed`. Runs SHALL be read from the `runs` array of the runs response, in the shape of a session row. The minimum server version is one that has these routes.
+The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET /api/cron/jobs/{id}`, parsing the bodies leniently because the routes declare no response schema: a row without an `id` is skipped; a missing text falls back to empty; `state` is one of `scheduled`, `paused`, `completed`, `error`, and anything else counts as `scheduled`; `next_run_at` and `last_run_at` are ISO 8601 times and one that does not parse counts as absent; `schedule_display` is the schedule in words; `last_status` is `ok` or `delivery_queued` (the run succeeded and Hermes queued its delivery) for a successful run, `delivery_failed` for a run whose delivery failed, and `error`, `blocked_config` or any status the app does not know for a failed run; `last_error` and `last_delivery_error` are texts; `deliver` names the target; `repeat` carries `times` and `completed`. Runs SHALL be read from the `runs` array of the runs response, in the shape of a session row. The minimum server version is one that has these routes.
 
 #### Scenario: Malformed row
 
@@ -251,8 +259,12 @@ The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET 
 - **WHEN** a job's state is a word the app does not know
 - **THEN** the job is treated as scheduled
 
+#### Scenario: Queued delivery
+
+- **WHEN** a job's last status is `delivery_queued`
+- **THEN** its last run shows as succeeded, the Failing filter leaves it out and its alert says it finished
+
 #### Scenario: Unparseable time
 
 - **WHEN** `next_run_at` is not a valid time
 - **THEN** the row shows no next run
-

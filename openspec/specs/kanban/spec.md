@@ -195,6 +195,22 @@ When the event stream ends or fails, the system SHALL reconnect, resuming from t
 - **WHEN** the socket closes after the cursor reached 9
 - **THEN** the app reconnects with `since=9` and the indicator shows "Live" again once connected
 
+### Requirement: The event stream pauses while the board is not on screen
+
+The system SHALL close the event stream while another destination is in front of the Kanban page, or while the app is hidden or in the background, and SHALL NOT reconnect meanwhile. A desktop window that only lost focus still counts as on screen. A refetch already due when the stream closes SHALL still run. When the board is on screen again, the system SHALL reopen the stream from the last cursor, so the events missed meanwhile cause one refetch. The page itself, with its search, filters and selection, SHALL stay alive.
+
+#### Scenario: Switching to Chat and back
+
+- **WHEN** the user switches from Kanban to Chat after the cursor reached 7
+- **THEN** the event stream is closed
+- **AND** when the user returns to Kanban, the stream is reopened with `since=7`
+
+#### Scenario: The app goes to the background
+
+- **WHEN** the app is hidden while the board is shown
+- **THEN** the event stream is closed, and reopened from the last cursor when the app is shown again
+- **AND** if the app comes back with Chat in front, the stream stays closed
+
 ### Requirement: Board failures are reported without losing the shown board
 
 While no board has been loaded the system SHALL show a progress indicator during loading. If the first load fails the system SHALL show "Could not load the board" with a Retry button. If the plugin answers 404, on the first load or on a later refresh, the system SHALL instead show "Kanban isn’t available" with the detail "The plugin was turned off on this server." and no Retry button, and SHALL NOT open the event stream, or SHALL close it if it was open. If any other refresh fails while a board is already displayed, the system SHALL keep showing that board and SHALL show a notice above it reading "Could not refresh. Showing the last board." with a Retry button that refetches the board. The notice SHALL NOT block the board, and SHALL disappear once a later refetch succeeds.

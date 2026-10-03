@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
+import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/kanban/kanban_screen.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -16,11 +18,13 @@ import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
+import 'support/kanban_fixtures.dart';
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -45,6 +49,7 @@ void main() {
     required Size size,
     NotificationSettings? settings,
     bool settle = true,
+    WidgetBuilder? kanbanBuilder,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -68,7 +73,7 @@ void main() {
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
-            kanbanBuilder: (_) => _Board(boardLog),
+            kanbanBuilder: kanbanBuilder ?? (_) => _Board(boardLog),
           ),
         ),
       ),
@@ -369,6 +374,89 @@ void main() {
 
     expect(selectedTab(tester), 0);
     expect(boardLog, ['open', 'close']);
+  });
+
+  group("the board's event stream", () {
+    /// The `since` of each stream the board opened, and whether each is open.
+    late List<int> opened;
+    late List<bool> open;
+
+    Future<void> pumpWithBoard(WidgetTester tester) async {
+      kanbanPlugin(on: true);
+      server
+        ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody([]))
+        ..on(
+          'GET',
+          '/api/plugins/kanban/board',
+          kanbanBoardBody([kanbanTaskRow(id: 't1')], latestEventId: 7),
+        );
+      opened = [];
+      open = [];
+      await pumpShell(
+        tester,
+        size: const Size(400, 800),
+        kanbanBuilder: (_) => KanbanScreen(
+          repository: KanbanRepository(server.client()),
+          connect: ({required since, board}) async {
+            final socket = StreamChannelController<String>();
+            final i = opened.length;
+            opened.add(since);
+            open.add(true);
+            socket.local.stream.listen(null, onDone: () => open[i] = false);
+            return socket.foreign;
+          },
+        ),
+      );
+      await openKanban(tester);
+    }
+
+    Future<void> background(WidgetTester tester) async {
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> foreground(WidgetTester tester) async {
+      tester.binding
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('closes while Chat is in front and reopens with the board', (
+      tester,
+    ) async {
+      await pumpWithBoard(tester);
+      expect(open, [true]);
+
+      await openTab(tester, 'Chat');
+      expect(open, [false]);
+
+      await openKanban(tester);
+      expect(opened, [7, 7]);
+      expect(open, [false, true]);
+    });
+
+    testWidgets('closes while the app is in the background', (tester) async {
+      await pumpWithBoard(tester);
+
+      await background(tester);
+      expect(open, [false]);
+
+      await foreground(tester);
+      expect(open, [false, true]);
+    });
+
+    testWidgets('stays closed when the app comes back on Chat', (tester) async {
+      await pumpWithBoard(tester);
+      await openTab(tester, 'Chat');
+
+      await background(tester);
+      await foreground(tester);
+
+      expect(open, [false]);
+    });
   });
 
   void cronRoutes({required bool on}) => server.on(

@@ -21,7 +21,8 @@ Uri gatewayUri(
   );
 }
 
-Future<StreamChannel<String>> _openWebSocket(Uri uri) async {
+/// Opens a WebSocket to [uri] once the server has accepted the upgrade.
+Future<StreamChannel<String>> openWebSocket(Uri uri) async {
   final channel = WebSocketChannel.connect(uri);
   await channel.ready;
   return channel.cast<String>();
@@ -42,7 +43,7 @@ SocketConnect hermesSocketConnect({
   required HermesApiClient api,
   String path = '/api/ws',
   MessagingConnectionTracer? telemetry,
-  Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
+  Future<StreamChannel<String>> Function(Uri uri) open = openWebSocket,
 }) {
   Future<Map<String, String>> credential() async {
     if (authRequired) {
@@ -73,7 +74,7 @@ GatewayConnect hermesGatewayConnect({
   required bool authRequired,
   required HermesApiClient api,
   MessagingConnectionTracer? telemetry,
-  Future<StreamChannel<String>> Function(Uri uri) open = _openWebSocket,
+  Future<StreamChannel<String>> Function(Uri uri) open = openWebSocket,
 }) {
   final connect = hermesSocketConnect(
     baseUrl: baseUrl,

@@ -5,6 +5,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 /// The profiles screen against a fake dashboard, through the real generated
@@ -367,5 +368,24 @@ void main() {
 
     expect(find.text('Could not load profiles'), findsNothing);
     expect(find.text('default'), findsOneWidget);
+  });
+
+  testWidgets('screen readers get the default model button by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpProfiles(tester);
+
+    expect(
+      tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('profile-model-work')),
+          matching: find.byIcon(Icons.tune),
+        ),
+      ),
+      namedButton('Change default model'),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }

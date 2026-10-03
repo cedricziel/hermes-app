@@ -10,7 +10,9 @@ import 'package:hermes_api/hermes_api.dart'
         MCPCatalogInstall,
         MCPServerCreate,
         MoaConfigPayload,
+        ProfileCreate,
         ProfileModelUpdate,
+        RawConfigUpdate,
         SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
 import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
@@ -70,7 +72,13 @@ import 'support/attachment_fixtures.dart';
 /// cancels a flow against a minimal OAuth provider on the loopback interface.
 /// The media tests write throwaway files under the backend's `images` folder
 /// and the system temp directory, so they need a backend on this machine, and
-/// delete them after.
+/// delete them after. The scripted-model tests create a throwaway profile
+/// named `contract-check-…` (Hermes also writes its `~/.local/bin` wrapper)
+/// whose model is a scripted one this test serves on the loopback interface,
+/// so their turns cost nothing; the agent runs `rm -rf` on a folder the test
+/// made in the system temp directory, and the profile is deleted after. Hermes
+/// keeps the deleted profile's state open, so a second run against the same
+/// backend fails ("Named profile home does not exist") until it restarts.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   final skip = url == null ? 'set HERMES_DEV_URL to run' : null;
@@ -129,6 +137,26 @@ void main() {
       older.messages.every((m) => m.id.startsWith(threads.first.id)),
       isTrue,
     );
+  }, skip: skip);
+
+  test('a session is found by its id through the search', () async {
+    final repository = HermesChatRepository(client.raw);
+    final threads = await repository.loadThreads();
+    if (threads.isEmpty) return;
+    final id = threads.first.id;
+
+    final response = await client.raw.searchSessionsApiSessionsSearchGet(q: id);
+    final hits = await repository.searchThreads(id);
+
+    expect(
+      response.data,
+      isA<Map>().having((b) => b['results'], 'results', isA<List>()),
+    );
+    final rows = (response.data! as Map)['results'] as List;
+    expect(rows, everyElement(containsPair('session_id', isA<String>())));
+    expect(hits, isNotEmpty);
+    expect(hits.length, rows.length);
+    expect(hits.every((h) => h.id.isNotEmpty && h.title.isNotEmpty), isTrue);
   }, skip: skip);
 
   test(
@@ -2047,6 +2075,139 @@ void main() {
       expect(await repository.loadRawServers(), before);
     }, skip: skip);
   });
+
+  group('a throwaway profile on a scripted model (no paid model call)', () {
+    final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
+    late Directory scratch;
+    late HttpServer model;
+
+    setUpAll(() async {
+      if (url == null) return;
+      scratch = await Directory.systemTemp.createTemp('hermes-contract-');
+      model = await _serveScriptedModel(
+        command: 'rm -rf ${scratch.path}/doomed',
+      );
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+      await client.raw.updateConfigRawApiConfigRawPut(
+        profile: profile,
+        rawConfigUpdate: RawConfigUpdate(
+          yamlText:
+              '''
+model:
+  default: "scripted"
+  provider: "custom"
+  base_url: "http://127.0.0.1:${model.port}/v1"
+  api_key: "scripted"
+  context_length: 131072
+approvals:
+  mode: manual
+''',
+        ),
+      );
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+        name: profile,
+      );
+      await model.close(force: true);
+      await scratch.delete(recursive: true);
+    });
+
+    HermesGatewayTransport connect() {
+      final transport = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+        ),
+      );
+      addTearDown(transport.close);
+      return transport;
+    }
+
+    test(
+      'an approval offers choices the card can show, and Allow once runs '
+      'the command',
+      () async {
+        final doomed = Directory('${scratch.path}/doomed')..createSync();
+        final transport = connect();
+        final asked = <ApprovalRequest>[];
+        final accepted = <bool>[];
+
+        final events = await transport
+            .send(profile: profile, text: 'Clean up.')
+            .asyncMap((event) async {
+              if (event is ApprovalRequested) {
+                asked.add(event.request);
+                accepted.add(
+                  await transport.answerApproval(
+                    event.request.requestId,
+                    'once',
+                  ),
+                );
+              }
+              return event;
+            })
+            .toList();
+
+        final request = asked.single;
+        expect(request.command, contains('rm -rf'));
+        expect(request.choices, containsAll(['once', 'deny']));
+        expect(
+          request.choices,
+          everyElement(isIn(['once', 'session', 'always', 'deny'])),
+        );
+        expect(accepted, [isTrue]);
+        expect((events.last as ReplyCompleted).failed, isFalse);
+        expect(doomed.existsSync(), isFalse);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+
+    test(
+      'a session made in a second profile is listed and resumed only '
+      'there',
+      () async {
+        final active = (await HermesProfilesRepository(
+          client.raw,
+        ).loadActive()).active;
+        final repository = HermesChatRepository(client.raw);
+        final transport = connect();
+
+        final first = await transport
+            .send(profile: profile, text: 'Say hello.')
+            .toList();
+        final bound = first.first as ThreadBound;
+        expect((first.last as ReplyCompleted).failed, isFalse);
+
+        expect(
+          (await repository.loadThreads(profile: profile)).map((t) => t.id),
+          contains(bound.threadId),
+        );
+        expect(
+          (await repository.loadThreads(profile: active)).map((t) => t.id),
+          isNot(contains(bound.threadId)),
+        );
+
+        final second = await transport
+            .send(threadId: bound.threadId, profile: profile, text: 'Again.')
+            .toList();
+        expect(second.whereType<ThreadBound>(), isEmpty);
+        expect((second.last as ReplyCompleted).failed, isFalse);
+        expect(
+          await repository.loadMessages(bound.threadId, profile: profile),
+          hasLength(4),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+      skip: skip,
+    );
+  });
 }
 
 /// Just enough of an OAuth provider for Hermes to start a sign-in against: an
@@ -2173,6 +2334,109 @@ Future<HttpServer> _serveMinimalMcp() async {
       );
     }
     await request.response.close();
+  });
+  return server;
+}
+
+/// An OpenAI-compatible model that answers a prompt containing "Clean up"
+/// with one terminal call running [command], and anything else, including the
+/// call's result and Hermes' own side calls, with a plain line.
+Future<HttpServer> _serveScriptedModel({required String command}) async {
+  final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+  server.listen((request) async {
+    final response = request.response;
+    if (request.uri.path.endsWith('/models')) {
+      response.headers.contentType = ContentType.json;
+      response.write(
+        jsonEncode({
+          'object': 'list',
+          'data': [
+            {'id': 'scripted', 'object': 'model', 'context_length': 131072},
+          ],
+        }),
+      );
+      await response.close();
+      return;
+    }
+    final body = jsonDecode(
+      await utf8.decoder.bind(request).join(),
+    ) as Map<String, dynamic>;
+    final messages = (body['messages'] as List).cast<Map<String, dynamic>>();
+    final last = messages.last;
+    final callTool =
+        body['tools'] != null &&
+        last['role'] == 'user' &&
+        jsonEncode(last['content']).contains('Clean up');
+    final calls = [
+      if (callTool)
+        {
+          'id': 'call_scripted',
+          'type': 'function',
+          'function': {
+            'name': 'terminal',
+            'arguments': jsonEncode({'command': command}),
+          },
+        },
+    ];
+    final content = callTool ? null : 'Done.';
+    final finish = callTool ? 'tool_calls' : 'stop';
+    const usage = {
+      'prompt_tokens': 10,
+      'completion_tokens': 10,
+      'total_tokens': 20,
+    };
+    if (body['stream'] != true) {
+      response.headers.contentType = ContentType.json;
+      response.write(
+        jsonEncode({
+          'id': 'chatcmpl-scripted',
+          'object': 'chat.completion',
+          'model': 'scripted',
+          'choices': [
+            {
+              'index': 0,
+              'message': {
+                'role': 'assistant',
+                'content': content,
+                if (callTool) 'tool_calls': calls,
+              },
+              'finish_reason': finish,
+            },
+          ],
+          'usage': usage,
+        }),
+      );
+      await response.close();
+      return;
+    }
+    response.headers.contentType = ContentType('text', 'event-stream');
+    void chunk(Map<String, Object?> payload) => response.write(
+      'data: ${jsonEncode({'id': 'chatcmpl-scripted', 'object': 'chat.completion.chunk', 'model': 'scripted', ...payload})}\n\n',
+    );
+    chunk({
+      'choices': [
+        {
+          'index': 0,
+          'delta': {
+            'role': 'assistant',
+            'content': content ?? '',
+            if (callTool)
+              'tool_calls': [
+                for (final (i, call) in calls.indexed) {'index': i, ...call},
+              ],
+          },
+          'finish_reason': null,
+        },
+      ],
+    });
+    chunk({
+      'choices': [
+        {'index': 0, 'delta': <String, Object?>{}, 'finish_reason': finish},
+      ],
+    });
+    chunk({'choices': <Object?>[], 'usage': usage});
+    response.write('data: [DONE]\n\n');
+    await response.close();
   });
   return server;
 }

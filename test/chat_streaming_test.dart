@@ -25,7 +25,7 @@ import 'support/attachment_fixtures.dart';
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_share_inbox.dart';
-import 'support/pump_chat.dart' show openThread;
+import 'support/pump_chat.dart' show composerField, openThread;
 
 /// Sending through a [ChatTransport]: the streamed reply, from the composer
 /// through the real widget tree, against a fake dashboard for the session
@@ -108,7 +108,7 @@ void main() {
   }
 
   Future<void> send(WidgetTester tester, String text) async {
-    await tester.enterText(find.byType(EditableText), text);
+    await tester.enterText(composerField, text);
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
     await tester.pump();
@@ -159,7 +159,7 @@ void main() {
 
     await send(tester, 'Any news?');
 
-    final field = tester.widget<EditableText>(find.byType(EditableText));
+    final field = tester.widget<EditableText>(composerField);
     expect(field.controller.text, isEmpty);
   });
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import 'thread_actions_menu.dart';
+import '../../widgets/named_icon_button.dart';
 
 /// The bar above a wide chat: the open thread's title, its actions once the
 /// dashboard knows it, and the connection details.
@@ -55,9 +56,9 @@ class ConnectionInfoButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: 'Connection details',
-    icon: const Icon(Icons.info_outline),
+  Widget build(BuildContext context) => NamedIconButton(
+    label: 'Connection details',
+    icon: Icons.info_outline,
     onPressed: onPressed,
   );
 }

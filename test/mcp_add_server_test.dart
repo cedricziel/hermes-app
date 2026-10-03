@@ -9,6 +9,7 @@ import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 /// The "Add server" form and the review of a command server, against a fake
@@ -762,5 +763,20 @@ void main() {
 
       expect(value.text, isEmpty);
     });
+  });
+
+  testWidgets('screen readers get the remove variable button by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await openForm(tester);
+    await useCommand(tester);
+    await addVariable(tester, 'K', '1');
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.close)),
+      namedButton('Remove variable'),
+    );
+    handle.dispose();
   });
 }

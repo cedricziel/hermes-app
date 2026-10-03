@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'plugin_install_result.dart';
 
+import '../widgets/disclosure_tile.dart';
+
 /// Runs an install from [identifier]; [enable] and [force] are the user's
 /// choices.
 typedef SourceInstaller = Future<PluginInstallResult> Function(
@@ -116,7 +118,7 @@ class _GitInstallDialogState extends State<GitInstallDialog> {
                     ? null
                     : (value) => setState(() => _enable = value),
               ),
-              ExpansionTile(
+              DisclosureTile(
                 tilePadding: EdgeInsets.zero,
                 title: const Text('Advanced'),
                 children: [

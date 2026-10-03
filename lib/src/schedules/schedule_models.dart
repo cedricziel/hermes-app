@@ -71,13 +71,20 @@ class CronJob {
     final status = lastStatus;
     if (status == null || status.isEmpty) return CronOutcome.none;
     if (status == 'delivery_failed') return CronOutcome.deliveryFailed;
-    if (status != 'ok') return CronOutcome.failed;
+    // The run succeeded and Hermes queued its result for the gateway to send.
+    if (status != 'ok' && status != 'delivery_queued') {
+      return CronOutcome.failed;
+    }
     final delivery = lastDeliveryError;
     if (delivery != null && delivery.isNotEmpty) {
       return CronOutcome.deliveryFailed;
     }
     return CronOutcome.ok;
   }
+
+  /// Hermes refused to start the last run (a missing key, a skill that is not
+  /// ready), so that attempt left no run behind.
+  bool get isBlocked => lastStatus == 'blocked_config';
 
   /// A job to look at first: its last run failed or it is stuck in error.
   bool get isFailing =>
@@ -165,7 +172,10 @@ class CronJob {
       nextRunAt: _time(row['next_run_at']),
       lastRunAt: _time(row['last_run_at']),
       lastStatus: _text(row['last_status']),
-      lastError: _text(row['last_error']),
+      lastError: _text(switch (row['last_error']) {
+        final String error => error.replaceFirst(_blockedMarker, ''),
+        _ => null,
+      }),
       lastDeliveryError: _text(row['last_delivery_error']),
       deliver: _text(row['deliver']),
       skills: _list(row['skills']),
@@ -196,6 +206,9 @@ class CronJob {
   static DateTime? _time(Object? value) =>
       value is String ? DateTime.tryParse(value) : null;
 }
+
+/// The tag Hermes puts before the reason of a run it blocked.
+final _blockedMarker = RegExp(r'^\s*\[blocked_config[^\]]*\]');
 
 const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const _dayNames = [

@@ -6,6 +6,7 @@ import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
+import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -297,6 +298,29 @@ void main() {
       expect(find.text('No runs yet'), findsOneWidget);
     });
 
+    testWidgets('says a blocked job was stopped before it ran', (tester) async {
+      final blocked = cronJobRow(
+        lastRunAt: '2026-09-20T09:00:00+00:00',
+        lastStatus: 'blocked_config',
+        lastError:
+            "[blocked_config:silent] attached skill 'google-workspace' is not "
+            'ready: missing credential file',
+        nextRunAt: '2026-09-21T08:00:00+00:00',
+      );
+      jobs([blocked]);
+      server
+        ..on('GET', '/api/cron/jobs/job1', blocked)
+        ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
+      await pumpScreen(tester, size: const Size(400, 800));
+
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No runs yet'), findsNothing);
+      expect(find.textContaining('blocked this task'), findsOneWidget);
+      expect(find.textContaining('[blocked_config'), findsNothing);
+    });
+
     testWidgets('run now asks for a run and says it was requested', (
       tester,
     ) async {
@@ -403,6 +427,37 @@ void main() {
       expect(find.text('Say good morning'), findsOneWidget);
       expect(find.text('Morning brief'), findsWidgets);
       expect(find.text('No runs yet'), findsOneWidget);
+    });
+
+    testWidgets('every filter fits in the list column', (tester) async {
+      server.on('GET', '/api/profiles/active', {
+        'active': 'research-assistant',
+        'current': 'research-assistant',
+      });
+      final broken = cronJobRow(
+        id: 'bad',
+        name: 'Broken',
+        lastStatus: 'error',
+        profile: 'research-assistant',
+      );
+      jobs([broken]);
+      server
+        ..on('GET', '/api/cron/jobs/bad', broken)
+        ..on('GET', '/api/cron/jobs/bad/runs', {'runs': []});
+      await pumpScreen(tester, size: const Size(1400, 900));
+
+      final column = tester.getRect(find.byType(SchedulesList));
+      for (final label in [
+        'research-assistant (active)',
+        'All profiles',
+        'Failing (1)',
+        'Paused',
+      ]) {
+        final chip = tester.getRect(
+          find.ancestor(of: find.text(label), matching: find.byType(RawChip)),
+        );
+        expect(column.expandToInclude(chip), column, reason: label);
+      }
     });
   });
 

@@ -527,4 +527,41 @@ void main() {
     expect(skillMarkdownBody('---\na: b\n---\n\n# T'), '# T');
     expect(skillMarkdownBody('# T\n---\nx\n---'), '# T\n---\nx\n---');
   });
+
+  testWidgets('screen readers get the profile picker as a named button', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await pumpSkills(tester);
+
+    expect(
+      tester.getSemantics(find.text('default')),
+      isSemantics(
+        label: 'Profile\ndefault',
+        tooltip: '',
+        isButton: true,
+        hasTapAction: true,
+      ),
+    );
+    handle.dispose();
+  });
+
+  testWidgets('screen readers get undo and redo by name', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pumpSkills(tester);
+    await tester.tap(find.text('pr-review'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(find.byIcon(Icons.undo)),
+      isSemantics(label: 'Undo', tooltip: '', isButton: true),
+    );
+    expect(
+      tester.getSemantics(find.byIcon(Icons.redo)),
+      isSemantics(label: 'Redo', tooltip: '', isButton: true),
+    );
+    handle.dispose();
+  });
 }
