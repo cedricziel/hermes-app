@@ -1,0 +1,37 @@
+.h-reasoning-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.h-reasoning-block__header {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 2px 4px 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--h-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-reasoning-block__header:hover {
+  background: var(--h-hover);
+}
+
+.h-reasoning-block__label {
+  margin-left: 6px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.h-reasoning-block__body {
+  margin: 4px 0 0 7px;
+  padding-left: 12px;
+  border-left: 1px solid var(--h-border);
+  color: var(--h-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

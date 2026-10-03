@@ -1,0 +1,36 @@
+.h-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--h-radius-xs);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.h-badge--neutral {
+  color: color-mix(in srgb, var(--h-fg) 70%, transparent);
+  background: color-mix(in srgb, var(--h-fg) 10%, transparent);
+}
+
+.h-badge--error {
+  color: var(--h-error);
+  background: color-mix(in srgb, var(--h-error) 10%, transparent);
+}
+
+.h-badge--success {
+  color: var(--h-success);
+  background: color-mix(in srgb, var(--h-success) 12%, transparent);
+}
+
+.h-badge--warning {
+  color: var(--h-warning);
+  background: color-mix(in srgb, var(--h-warning) 12%, transparent);
+}
+
+.h-badge--strong {
+  color: var(--h-on-primary);
+  background: var(--h-primary);
+}

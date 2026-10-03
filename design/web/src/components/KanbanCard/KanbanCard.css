@@ -1,0 +1,127 @@
+.h-kanban-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius);
+  background: var(--h-surface);
+  color: var(--h-fg);
+  text-align: left;
+  min-width: 0;
+}
+
+.h-kanban-card--selected {
+  border-color: var(--h-primary);
+  box-shadow: inset 0 0 0 1px var(--h-primary);
+}
+
+.h-kanban-card--interactive {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.h-kanban-card--interactive:hover {
+  background: color-mix(in srgb, var(--h-fg) 3%, var(--h-surface));
+}
+
+.h-kanban-card--interactive:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+.h-kanban-card__id {
+  font-family: var(--h-font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--h-fg) 55%, transparent);
+}
+
+.h-kanban-card__title {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.h-kanban-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.h-kanban-card__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  line-height: 16px;
+  color: color-mix(in srgb, var(--h-fg) 55%, transparent);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-kanban-card__fact .h-icon {
+  flex: none;
+}
+
+.h-kanban-card__fact--warning {
+  color: var(--h-warning);
+}
+
+.h-kanban-card__meta .h-badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-kanban-card__bar {
+  position: relative;
+  align-self: stretch;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--h-secondary);
+}
+
+.h-kanban-card__bar-value {
+  height: 100%;
+  background: var(--h-primary);
+}
+
+.h-kanban-card__bar--indeterminate .h-kanban-card__bar-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  animation: h-kanban-card-indeterminate 1.6s ease-in-out infinite;
+}
+
+@keyframes h-kanban-card-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+.h-kanban-card__handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--h-muted);
+  cursor: grab;
+}

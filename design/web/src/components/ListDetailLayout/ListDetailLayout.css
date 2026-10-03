@@ -1,0 +1,123 @@
+.h-list-detail {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+}
+
+.h-list-detail__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 0 4px;
+}
+
+.h-list-detail__titles {
+  flex: 1;
+  min-width: 0;
+  padding-left: 12px;
+}
+
+.h-list-detail__titles--after-back {
+  padding-left: 16px;
+}
+
+.h-list-detail__title {
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-list-detail__subtitle {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.h-list-detail__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+}
+
+.h-list-detail__tabs {
+  flex: none;
+  display: flex;
+  border-bottom: 1px solid var(--h-border);
+}
+
+.h-list-detail__tab {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  height: 48px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.h-list-detail__tab:hover {
+  background: var(--h-hover);
+}
+
+.h-list-detail__tab-label {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  border-bottom: 3px solid transparent;
+  border-top: 3px solid transparent;
+}
+
+.h-list-detail__tab--active .h-list-detail__tab-label {
+  border-bottom-color: var(--h-primary);
+}
+
+.h-list-detail__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.h-list-detail__list {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.h-list-detail__detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--h-border);
+}
+
+.h-list-detail__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  color: var(--h-muted);
+  text-align: center;
+}
+
+.h-list-detail__fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+}

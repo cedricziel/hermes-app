@@ -1,0 +1,113 @@
+.h-chat-composer {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  color: var(--h-fg);
+}
+
+.h-chat-composer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 0 16px;
+}
+
+.h-chat-composer__bar-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--h-muted);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-chat-composer__queue {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px 0 16px;
+}
+
+.h-chat-composer__queue .h-chat-composer__bar--queue {
+  padding-left: 0;
+  padding-right: 0;
+  min-height: 40px;
+}
+
+.h-chat-composer__queued {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-chat-composer__muted {
+  color: var(--h-muted);
+}
+
+.h-chat-composer__queued-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.h-chat-composer__queued-files {
+  display: inline-flex;
+  align-items: center;
+  color: var(--h-muted);
+}
+
+.h-chat-composer__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 16px 0;
+}
+
+.h-chat-composer__card {
+  display: flex;
+  flex-direction: column;
+  margin: 8px;
+  padding: 4px 6px 6px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-lg);
+  background: color-mix(in srgb, var(--h-surface-high) 40%, var(--h-bg));
+}
+
+.h-chat-composer__field {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  max-height: 216px;
+  padding: 12px 10px 8px;
+  border: 0;
+  outline: none;
+  resize: none;
+  field-sizing: content;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.h-chat-composer__field::placeholder {
+  color: var(--h-muted);
+  opacity: 1;
+}
+
+.h-chat-composer__row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+}
+
+.h-chat-composer__pill {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}

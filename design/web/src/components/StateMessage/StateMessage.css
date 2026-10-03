@@ -1,0 +1,26 @@
+.h-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: var(--h-fg);
+}
+
+.h-state__title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}
+
+.h-state__detail {
+  font-size: 14px;
+  line-height: 20px;
+  max-width: 420px;
+}
+
+.h-state__action {
+  margin-top: 8px;
+}

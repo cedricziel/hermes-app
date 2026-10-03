@@ -1,0 +1,30 @@
+.h-clarify-card__item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.h-clarify-card__question {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-fg);
+}
+
+.h-clarify-card__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.h-clarify-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.h-clarify-card__answers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

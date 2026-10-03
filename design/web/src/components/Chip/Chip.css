@@ -1,0 +1,62 @@
+.h-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  border: 1px solid var(--h-border);
+  border-radius: 8px;
+  background: var(--h-surface);
+  color: var(--h-fg);
+  max-width: 100%;
+}
+
+.h-chip--selected {
+  background: var(--h-surface-high);
+  border-color: var(--h-surface-high);
+}
+
+.h-chip__main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 12px 0 10px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.h-chip__main:hover {
+  background: var(--h-hover);
+}
+
+.h-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  margin-left: -6px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: pointer;
+}
+
+.h-chip__remove:hover {
+  background: var(--h-hover);
+}

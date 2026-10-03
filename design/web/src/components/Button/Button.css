@@ -1,0 +1,87 @@
+.h-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 24px;
+  border-radius: var(--h-radius-sm);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.h-button--with-icon {
+  padding-left: 16px;
+}
+
+.h-button--compact {
+  height: 32px;
+  padding: 0 14px;
+}
+
+.h-button--compact.h-button--with-icon {
+  padding-left: 10px;
+}
+
+.h-button--full {
+  width: 100%;
+}
+
+.h-button--filled {
+  background: var(--h-primary);
+  color: var(--h-on-primary);
+}
+
+.h-button--filled:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.h-button--outlined {
+  background: transparent;
+  color: var(--h-fg);
+  border-color: var(--h-border);
+}
+
+.h-button--text {
+  background: transparent;
+  color: var(--h-fg);
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.h-button--outlined:hover:not(:disabled),
+.h-button--text:hover:not(:disabled) {
+  background: var(--h-hover);
+}
+
+.h-button--danger {
+  background: var(--h-error);
+  color: var(--h-on-error);
+}
+
+.h-button:disabled {
+  cursor: default;
+  background: transparent;
+  color: var(--h-fg);
+  opacity: 0.38;
+}
+
+.h-button--filled:disabled,
+.h-button--danger:disabled {
+  background: var(--h-hover);
+  opacity: 1;
+  color: var(--h-muted);
+}
+
+.h-button:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}

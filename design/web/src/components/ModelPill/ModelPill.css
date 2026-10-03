@@ -1,0 +1,42 @@
+.h-model-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 320px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--h-radius-pill);
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.h-model-pill:hover {
+  background: var(--h-hover);
+}
+
+.h-model-pill:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+.h-model-pill__model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-model-pill__effort {
+  flex-shrink: 0;
+  white-space: pre;
+  color: var(--h-muted);
+}
+
+.h-model-pill__chevron {
+  color: var(--h-muted);
+}

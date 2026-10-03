@@ -1,0 +1,139 @@
+.h-connect-screen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  background: var(--h-bg);
+  color: var(--h-fg);
+}
+
+.h-connect-screen__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 4px 0 16px;
+  flex: none;
+}
+
+.h-connect-screen__bar-title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.h-connect-screen__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.h-connect-screen__column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  max-width: 420px;
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+}
+
+.h-connect-screen__hero-icon,
+.h-connect-screen__lock {
+  align-self: center;
+}
+
+.h-connect-screen__headline {
+  margin: 16px 0 0;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 400;
+}
+
+.h-connect-screen__body {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-connect-screen__small {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.2px;
+}
+
+.h-connect-screen__field {
+  margin-top: 24px;
+  text-align: left;
+}
+
+.h-connect-screen__error {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-error);
+}
+
+.h-connect-screen__hint {
+  margin-top: 4px;
+}
+
+.h-connect-screen__primary {
+  margin-top: 20px;
+}
+
+.h-connect-screen__url {
+  margin-top: 12px;
+}
+
+.h-connect-screen__providers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.h-connect-screen__waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 24px 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-connect-screen__notice {
+  margin-top: 20px;
+}
+
+.h-connect-screen__gap {
+  height: 12px;
+}
+
+.h-connect-screen__spinner {
+  display: inline-block;
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: var(--h-fg);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: h-connect-screen-spin 0.9s linear infinite;
+}
+
+.h-button:disabled .h-connect-screen__spinner {
+  border-color: var(--h-muted);
+  border-right-color: transparent;
+}
+
+@keyframes h-connect-screen-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

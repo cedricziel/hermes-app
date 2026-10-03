@@ -1,0 +1,73 @@
+.h-input-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 14px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-sm);
+  background: color-mix(in srgb, var(--h-surface-high) 40%, transparent);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: 14px;
+  line-height: 20px;
+  box-sizing: border-box;
+}
+
+.h-input-card__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+
+.h-input-card__icon {
+  color: var(--h-primary);
+  flex: none;
+}
+
+.h-input-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-input-card__note {
+  padding-top: 6px;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: var(--h-muted);
+}
+
+.h-input-card__note--error {
+  color: var(--h-error);
+}
+
+.h-approval-card__description {
+  margin: 0 0 8px;
+}
+
+.h-approval-card__command {
+  padding: 10px;
+  border: 1px solid var(--h-border);
+  border-radius: 8px;
+  background: var(--h-surface);
+  font-family: var(--h-font-mono);
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.h-approval-card__gap {
+  height: 10px;
+}
+
+.h-approval-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
