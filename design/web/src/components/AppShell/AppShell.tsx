@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Icon } from "../Icon/Icon";
 import {
   AccountFooter,
   SidebarAction,
@@ -29,9 +28,9 @@ export interface ShellNavigationProps {
 }
 
 /**
- * The shell's destinations as sidebar rows (Chat, Kanban, Schedules), for a
- * wide layout. Pass it as `navigation` to `ThreadSidebar`, so it sits under
- * the app name above "New chat".
+ * The shell's destinations as sidebar rows (Chat, Kanban, Schedules), in the
+ * wide sidebar and the phone drawer alike. Pass it as `navigation` to
+ * `ThreadSidebar`, so it sits under the app name above "New chat".
  */
 export function ShellNavigation({
   destinations,
@@ -82,78 +81,46 @@ export interface AppShellProps {
   /** The open destination. */
   current?: ShellDestination;
   /**
-   * `desktop` (900px and wider): destinations as rows in a 280px left
-   * sidebar. `phone`: an 80px Material 3 navigation bar along the bottom.
+   * `desktop` (900px and wider): the sidebar sits beside the page.
+   * `phone` (narrower): there is no bottom bar; the same sidebar is a 280px
+   * drawer over the page, opened from the menu button in the page's app bar.
    */
   layout?: "desktop" | "phone";
+  /** Phone only: show the drawer open over a dimmed page. */
+  drawerOpen?: boolean;
   /**
-   * Desktop only: the left column. For Chat pass a `ThreadSidebar` with
-   * `navigation={<ShellNavigation .../>}`; leave it out for Kanban and
-   * Schedules to get the plain `ShellSidebar`.
+   * The left column (desktop) or the drawer (phone). For Chat pass a
+   * `ThreadSidebar` with `navigation={<ShellNavigation .../>}`; leave it out
+   * for Kanban and Schedules to get the plain `ShellSidebar`.
    */
   sidebar?: ReactNode;
   /** Account label for the default `ShellSidebar`'s footer. */
   account?: string;
-  /** A destination was picked in the sidebar or the bottom bar. */
+  /** A destination was picked in the sidebar or the drawer. */
   onSelect?: (destination: ShellDestination) => void;
+  /** The scrim beside the open drawer was clicked. */
+  onCloseDrawer?: () => void;
   /** The open page: for Chat, a `ChatHeader` over the thread or a `WelcomeView`. */
   children?: ReactNode;
 }
 
 /**
- * The app's frame: switches between Chat, Kanban and Schedules with sidebar
- * rows on a wide screen or a bottom navigation bar on a phone, around the
- * open page. It fills its parent; give it a size.
+ * The app's frame around the open page. The destinations (Chat, Kanban,
+ * Schedules) are rows at the top of the sidebar: beside the page on a wide
+ * screen, in a drawer on a phone. It fills its parent; give it a size.
  */
 export function AppShell({
   destinations = ["chat", "kanban", "schedules"],
   current = "chat",
   layout = "desktop",
+  drawerOpen = false,
   sidebar,
   account,
   onSelect,
+  onCloseDrawer,
   children,
 }: AppShellProps) {
   const single = destinations.length <= 1;
-  if (layout === "phone") {
-    return (
-      <div className="h-app-shell h-app-shell--phone">
-        <div className="h-app-shell__content">{children}</div>
-        {single ? null : (
-          <nav className="h-app-shell__bar" aria-label="Destinations">
-            {destinations.map((d) => {
-              const selected = d === current;
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  className={[
-                    "h-app-shell__bar-item",
-                    selected ? "h-app-shell__bar-item--selected" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  aria-current={selected ? "page" : undefined}
-                  onClick={() => onSelect?.(d)}
-                >
-                  <span className="h-app-shell__indicator">
-                    <Icon
-                      name={destinationInfo[d].icon}
-                      filled={selected}
-                      size={24}
-                    />
-                  </span>
-                  <span className="h-app-shell__bar-label">
-                    {destinationInfo[d].label}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        )}
-      </div>
-    );
-  }
   const side =
     sidebar ??
     (single ? null : (
@@ -168,6 +135,23 @@ export function AppShell({
         }
       />
     ));
+  if (layout === "phone") {
+    return (
+      <div className="h-app-shell h-app-shell--phone">
+        <div className="h-app-shell__content">{children}</div>
+        {drawerOpen && side ? (
+          <>
+            <div
+              className="h-app-shell__scrim"
+              aria-hidden="true"
+              onClick={onCloseDrawer}
+            />
+            <div className="h-app-shell__drawer">{side}</div>
+          </>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div className="h-app-shell h-app-shell--desktop">
       {side ? <div className="h-app-shell__sidebar">{side}</div> : null}
