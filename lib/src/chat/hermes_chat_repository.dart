@@ -139,12 +139,15 @@ class HermesChatRepository {
     );
   }
 
+  static final _matchMarker = RegExp('>>>|<<<');
+
   /// FTS5 wraps each match in `>>>` and `<<<`.
   static List<SnippetPart> _snippet(Object? raw) {
     if (raw is! String) return const [];
     final parts = <SnippetPart>[];
-    for (final (i, piece) in raw.split(RegExp('>>>|<<<')).indexed) {
-      if (piece.isNotEmpty) parts.add((text: piece, match: i.isOdd));
+    for (final (i, piece) in raw.split(_matchMarker).indexed) {
+      final text = piece.replaceAll('\n', ' ');
+      if (text.isNotEmpty) parts.add((text: text, match: i.isOdd));
     }
     return parts;
   }
