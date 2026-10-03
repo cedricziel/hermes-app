@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
