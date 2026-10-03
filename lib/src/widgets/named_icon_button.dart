@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// An [IconButton] whose [label] is its accessible name and its tooltip.
+/// An [IconButton] whose [label] is its accessible name and, unless [tooltip]
+/// is given, its tooltip.
 ///
 /// `IconButton.tooltip` alone leaves the button unnamed on macOS, whose
 /// accessibility bridge reads only a node's label, and setting both a label
