@@ -6,6 +6,9 @@ import 'plugins_controller.dart' show PluginsFailure;
 import 'provider_settings.dart';
 import 'providers_controller.dart';
 
+import '../widgets/disclosure_tile.dart';
+import '../widgets/named_icon_button.dart';
+
 /// Where the agent keeps its memory and how it compresses long chats. It
 /// loads when it is first shown, and keeps what the user picked but has not
 /// saved while other tabs are open.
@@ -234,7 +237,7 @@ class _Needs extends StatelessWidget {
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 13);
     return Padding(
       padding: const EdgeInsets.only(left: 40, right: 16),
-      child: ExpansionTile(
+      child: DisclosureTile(
         key: Key('needs-${option.name}'),
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsets.only(bottom: 12),
@@ -293,10 +296,11 @@ class _Tool extends StatelessWidget {
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
                 ),
               ),
-              IconButton(
+              NamedIconButton(
                 key: Key('copy-install-${tool.name}'),
-                tooltip: 'Copy command',
-                icon: const Icon(Icons.copy, size: 18),
+                label: 'Copy command',
+                icon: Icons.copy,
+                iconSize: 18,
                 onPressed: () async {
                   final messenger = ScaffoldMessenger.of(context);
                   await Clipboard.setData(ClipboardData(text: tool.install));

@@ -10,6 +10,7 @@ import 'package:hermes_app/src/plugins/plugins_screen.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
     show memoryOption, providersHub;
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 const _hub = '/api/dashboard/plugins/hub';
@@ -507,5 +508,36 @@ void main() {
       expect(find.text('Could not refresh provider settings'), findsOneWidget);
       expect(find.byKey(const Key('memory-honcho')), findsOneWidget);
     });
+  });
+
+  testWidgets('screen readers get what it needs and copying by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    await openProviders(tester);
+    final needs = find.descendant(
+      of: find.byKey(const Key('needs-byterover')),
+      matching: find.text('What it needs'),
+    );
+    await tester.ensureVisible(needs);
+
+    expect(
+      tester.getSemantics(needs),
+      disclosure('What it needs', open: false),
+    );
+    await tester.tap(needs);
+    await tester.pumpAndSettle();
+    expect(tester.getSemantics(needs), disclosure('What it needs', open: true));
+    expect(
+      tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('copy-install-brv')),
+          matching: find.byIcon(Icons.copy),
+        ),
+      ),
+      namedButton('Copy command'),
+    );
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    handle.dispose();
   });
 }

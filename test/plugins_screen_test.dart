@@ -9,6 +9,7 @@ import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:provider/provider.dart';
 
 import 'hermes_plugin_manager_repository_test.dart' show hubBody, hubRow;
+import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
 const _hub = '/api/dashboard/plugins/hub';
@@ -551,5 +552,32 @@ void main() {
 
       expect(events, ['plugins.disable.ok']);
     });
+  });
+
+  testWidgets('screen readers get the copy command button by name', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    server.on(
+      'GET',
+      _hub,
+      hubBody([
+        hubRow('netbox', authRequired: true, authCommand: 'hermes auth netbox'),
+      ]),
+    );
+    await pump(tester, width: 1000);
+    await tester.tap(find.text('netbox'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('plugin-copy-login')),
+          matching: find.byIcon(Icons.copy),
+        ),
+      ),
+      namedButton('Copy command'),
+    );
+    handle.dispose();
   });
 }
