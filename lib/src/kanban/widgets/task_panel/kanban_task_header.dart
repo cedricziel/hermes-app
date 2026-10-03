@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../kanban_models.dart';
 import '../../kanban_repository.dart';
+import '../../../widgets/named_icon_button.dart';
 
 /// The top of the task panel: id and status, title, assignee, priority,
 /// tenant and a menu to move the task.
@@ -39,9 +40,9 @@ class KanbanTaskHeader extends StatelessWidget {
             Expanded(
               child: Text(task.title, style: theme.textTheme.titleLarge),
             ),
-            IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
+            NamedIconButton(
+              label: 'Edit',
+              icon: Icons.edit_outlined,
               onPressed: onEdit,
             ),
           ],
@@ -60,17 +61,26 @@ class KanbanTaskHeader extends StatelessWidget {
               onPressed: onPrioritise,
             ),
             if (task.tenant != null) Chip(label: Text(task.tenant!)),
-            PopupMenuButton<String>(
-              tooltip: 'Move to',
-              onSelected: onMove,
-              itemBuilder: (_) => [
-                for (final s in kanbanSettableStatuses)
-                  if (s != task.status)
-                    PopupMenuItem(value: s, child: Text(kanbanStatusLabel(s))),
-              ],
-              child: const Chip(
-                avatar: Icon(Icons.swap_horiz, size: 16),
-                label: Text('Move to…'),
+            MergeSemantics(
+              child: Semantics(
+                button: true,
+                child: PopupMenuButton<String>(
+                  // The chip already says it; a tooltip would be read twice.
+                  tooltip: '',
+                  onSelected: onMove,
+                  itemBuilder: (_) => [
+                    for (final s in kanbanSettableStatuses)
+                      if (s != task.status)
+                        PopupMenuItem(
+                          value: s,
+                          child: Text(kanbanStatusLabel(s)),
+                        ),
+                  ],
+                  child: const Chip(
+                    avatar: Icon(Icons.swap_horiz, size: 16),
+                    label: Text('Move to…'),
+                  ),
+                ),
               ),
             ),
           ],

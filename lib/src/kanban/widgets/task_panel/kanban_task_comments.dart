@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../chat/widgets/relative_time.dart';
 import '../../kanban_models.dart';
 import 'kanban_task_heading.dart';
+import '../../../widgets/named_icon_button.dart';
 
 /// The task's comments and a field to add one. The field is cleared once
 /// [onSend] reports the comment went through.
@@ -75,11 +76,7 @@ class _KanbanTaskCommentsState extends State<KanbanTaskComments> {
                 onSubmitted: (_) => _send(),
               ),
             ),
-            IconButton(
-              tooltip: 'Send',
-              icon: const Icon(Icons.send),
-              onPressed: _send,
-            ),
+            NamedIconButton(label: 'Send', icon: Icons.send, onPressed: _send),
           ],
         ),
       ],
