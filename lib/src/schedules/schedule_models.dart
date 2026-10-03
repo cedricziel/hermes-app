@@ -71,7 +71,10 @@ class CronJob {
     final status = lastStatus;
     if (status == null || status.isEmpty) return CronOutcome.none;
     if (status == 'delivery_failed') return CronOutcome.deliveryFailed;
-    if (status != 'ok') return CronOutcome.failed;
+    // The run succeeded and Hermes queued its result for the gateway to send.
+    if (status != 'ok' && status != 'delivery_queued') {
+      return CronOutcome.failed;
+    }
     final delivery = lastDeliveryError;
     if (delivery != null && delivery.isNotEmpty) {
       return CronOutcome.deliveryFailed;

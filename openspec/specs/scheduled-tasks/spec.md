@@ -239,7 +239,7 @@ The system SHALL show the list and the selected job's detail side by side when t
 
 ### Requirement: Backend contract
 
-The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET /api/cron/jobs/{id}`, parsing the bodies leniently because the routes declare no response schema: a row without an `id` is skipped; a missing text falls back to empty; `state` is one of `scheduled`, `paused`, `completed`, `error`, and anything else counts as `scheduled`; `next_run_at` and `last_run_at` are ISO 8601 times and one that does not parse counts as absent; `schedule_display` is the schedule in words; `last_status` is `ok` or an error and `last_error` and `last_delivery_error` are texts; `deliver` names the target; `repeat` carries `times` and `completed`. Runs SHALL be read from the `runs` array of the runs response, in the shape of a session row. The minimum server version is one that has these routes.
+The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET /api/cron/jobs/{id}`, parsing the bodies leniently because the routes declare no response schema: a row without an `id` is skipped; a missing text falls back to empty; `state` is one of `scheduled`, `paused`, `completed`, `error`, and anything else counts as `scheduled`; `next_run_at` and `last_run_at` are ISO 8601 times and one that does not parse counts as absent; `schedule_display` is the schedule in words; `last_status` is `ok` or `delivery_queued` (the run succeeded and Hermes queued its delivery) for a successful run, `delivery_failed` for a run whose delivery failed, and `error`, `blocked_config` or any status the app does not know for a failed run; `last_error` and `last_delivery_error` are texts; `deliver` names the target; `repeat` carries `times` and `completed`. Runs SHALL be read from the `runs` array of the runs response, in the shape of a session row. The minimum server version is one that has these routes.
 
 #### Scenario: Malformed row
 
@@ -250,6 +250,11 @@ The system SHALL read jobs with `GET /api/cron/jobs` (query `profile`) and `GET 
 
 - **WHEN** a job's state is a word the app does not know
 - **THEN** the job is treated as scheduled
+
+#### Scenario: Queued delivery
+
+- **WHEN** a job's last status is `delivery_queued`
+- **THEN** its last run shows as succeeded, the Failing filter leaves it out and its alert says it finished
 
 #### Scenario: Unparseable time
 
