@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// The small row of actions under a finished reply — assistant-ui's action
@@ -55,6 +56,8 @@ class _MessageActionsState extends State<MessageActions> {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
+    final touch = platformChromeOf(context) == PlatformChrome.ios;
+    final box = touch ? kAppleMinTapTarget : 32.0;
     Widget action(String label, IconData icon, VoidCallback onPressed) =>
         NamedIconButton(
           label: label,
@@ -62,12 +65,12 @@ class _MessageActionsState extends State<MessageActions> {
           iconSize: 16,
           color: color,
           onPressed: onPressed,
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+          visualDensity: touch ? VisualDensity.standard : VisualDensity.compact,
+          constraints: BoxConstraints.tightFor(width: box, height: box),
           padding: EdgeInsets.zero,
         );
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: EdgeInsets.only(top: touch ? 0 : 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [

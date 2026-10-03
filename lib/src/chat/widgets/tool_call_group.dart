@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../chat_models.dart';
 import 'tool_call_card.dart';
 
@@ -80,6 +81,9 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
 
     final scheme = Theme.of(context).colorScheme;
     final subtle = context.hermesColors.subtleText;
+    final minTap = platformChromeOf(context) == PlatformChrome.ios
+        ? kAppleMinTapTarget
+        : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -89,31 +93,41 @@ class _ToolCallGroupState extends State<ToolCallGroup> {
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
             onTap: () => setState(() => _open = !_open),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ToolCallStatusIcon(
-                    status: status,
-                    waiting: waiting.isNotEmpty,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minTap),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                widthFactor: 1,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 4,
+                    horizontal: 2,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: scheme.onSurface,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ToolCallStatusIcon(
+                        status: status,
+                        waiting: waiting.isNotEmpty,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        open ? Icons.expand_less : Icons.chevron_right,
+                        size: 16,
+                        color: subtle,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 2),
-                  Icon(
-                    open ? Icons.expand_less : Icons.chevron_right,
-                    size: 16,
-                    color: subtle,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
