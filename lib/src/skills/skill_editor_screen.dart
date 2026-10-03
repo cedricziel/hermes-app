@@ -216,6 +216,7 @@ class _SkillEditorScreenState extends State<SkillEditorScreen> {
         height: 1.5,
       ),
       decoration: const InputDecoration(
+        filled: false,
         border: InputBorder.none,
         focusedBorder: InputBorder.none,
       ),
