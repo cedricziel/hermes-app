@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'platform_chrome.dart';
+
 /// From this width in logical pixels a screen puts a list and its details
 /// side by side, and opens forms in a dialog or pane instead of a page or
 /// sheet. Read it through [isWideLayout], which also lets a full-screen iPad
@@ -26,7 +28,7 @@ bool isWideLayout(BuildContext context, {double? width}) {
   final size = MediaQuery.sizeOf(context);
   final available = width ?? size.width;
   if (available >= kWideLayoutBreakpoint) return true;
-  return Theme.of(context).platform == TargetPlatform.iOS &&
+  return platformChromeOf(context) == PlatformChrome.ios &&
       available >= kIpadRegularWidth &&
       size.shortestSide >= kIpadMinShortestSide;
 }
