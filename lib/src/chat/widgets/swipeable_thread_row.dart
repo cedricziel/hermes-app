@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../../theme/app_icons.dart';
 import 'thread_actions_menu.dart';
 
 /// The iOS way to act on a thread row: swipe right to pin, swipe left to
@@ -75,7 +76,7 @@ class SwipeableThreadRow extends StatelessWidget {
               onPressed: (_) => onAction(ThreadAction.pin),
               backgroundColor: CupertinoColors.systemOrange,
               foregroundColor: CupertinoColors.white,
-              icon: pinned ? CupertinoIcons.pin_slash : CupertinoIcons.pin,
+              icon: (pinned ? AppIcons.unpin : AppIcons.pin).of(context),
               label: _pinLabel,
             ),
           ],
@@ -88,7 +89,7 @@ class SwipeableThreadRow extends StatelessWidget {
               onPressed: (_) => onAction(ThreadAction.delete),
               backgroundColor: CupertinoColors.destructiveRed,
               foregroundColor: CupertinoColors.white,
-              icon: CupertinoIcons.delete,
+              icon: AppIcons.delete.of(context),
               label: 'Delete',
             ),
           ],
