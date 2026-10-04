@@ -917,13 +917,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       () => accepted
           ? declined
                 ? recordVaultDeclined(reply, requestId)
-                : recordVaultAnswered(
-                    reply,
-                    requestId,
-                    identifier: identifier,
-                    password: password,
-                    code: code,
-                  )
+                : recordVaultAnswered(reply, requestId, identifier: identifier)
           : expireInputRequests(reply, requestId: requestId),
     );
   }
