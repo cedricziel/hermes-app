@@ -21,7 +21,7 @@ class BlankListWatchdog {
     this.quietSteps = 8,
     this.cooldown = const Duration(seconds: 10),
     DateTime Function()? now,
-  }) : _now = now ?? DateTime.new;
+  }) : _now = now ?? DateTime.now;
 
   /// How many churned following-steps without an item build count as blank.
   /// A few in a row happen legitimately — the keyboard animating the composer
