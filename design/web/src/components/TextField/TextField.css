@@ -68,6 +68,7 @@
 }
 
 .h-field__input.h-mono {
+  font-family: var(--h-font-mono);
   font-size: 14px;
 }
 
