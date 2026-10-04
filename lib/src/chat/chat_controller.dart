@@ -5,6 +5,7 @@ import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
 import '../models/hermes_models_repository.dart';
@@ -63,6 +64,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
       search = ThreadSearch(
         (query) => repository.searchThreads(query, profile: _profile),
+        searchAll: profiles == null ? null : _searchAllProfiles,
+        recentStore: SharedPreferencesAsync(),
       );
     }
   }
@@ -410,11 +413,36 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  /// Opens a chat the search found, on the profile it searched.
-  void openSearchHit(ThreadSearchHit hit) => open(
-    NotificationTarget(threadId: hit.id, profile: _profile),
-    fetchMissing: true,
-  );
+  /// The chats of every profile that match [query], newest first. Each
+  /// profile is asked at once; one that fails is left out, and the search
+  /// fails only when all of them do.
+  Future<List<ThreadSearchHit>> _searchAllProfiles(String query) async {
+    final repository = this.repository!;
+    final overview = await profiles!.load();
+    final answers = await Future.wait([
+      for (final profile in overview.profiles)
+        repository
+            .searchThreads(query, profile: profile.name)
+            .then<List<ThreadSearchHit>?>(
+              (h) => h,
+              onError: (Object _) => null,
+            ),
+    ]);
+    if (answers.isNotEmpty && answers.every((a) => a == null)) {
+      throw StateError('No profile could be searched');
+    }
+    return [for (final hits in answers) ...?hits]
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
+
+  /// Opens a chat the search found, on the profile it was found in.
+  void openSearchHit(ThreadSearchHit hit) {
+    search?.remember(search!.query);
+    open(
+      NotificationTarget(threadId: hit.id, profile: hit.profile ?? _profile),
+      fetchMissing: true,
+    );
+  }
 
   /// Moves on to the first remaining thread when the open one is archived or
   /// deleted.
