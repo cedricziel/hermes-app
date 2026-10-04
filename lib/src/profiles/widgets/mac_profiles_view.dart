@@ -8,7 +8,7 @@ import 'profile_avatar.dart';
 
 /// What a profile's home holds, by the screen that manages it.
 enum ProfileSection {
-  skills('Skills', 'What the agent knows how to do', AppIcons.extension),
+  skills('Skills', 'What the agent knows how to do', AppIcons.sparkle),
   messaging('Messaging', 'Chat platforms the agent answers on', AppIcons.bot),
   plugins('Plugins', 'Agent plugins and providers', AppIcons.extension),
   mcp('MCP servers', 'Tools from MCP servers', AppIcons.power),
