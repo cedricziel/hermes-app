@@ -790,6 +790,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ToolPreparing() ||
           ToolStarted() ||
           ToolFinished() ||
+          SubagentUpdated() ||
           ReplyCompleted() ||
           ApprovalRequested() ||
           ClarifyRequested() ||

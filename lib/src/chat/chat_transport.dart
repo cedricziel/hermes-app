@@ -143,6 +143,17 @@ final class InputRequestExpired extends ChatEvent {
   final String requestId;
 }
 
+/// A `subagent.*` frame the gateway relayed on the reply's session: one
+/// delegated child upserted by its [subagent] id. The gateway sends
+/// `subagent.spawn_requested` / `subagent.start` when a child begins,
+/// `subagent.progress` / `subagent.tool` / `subagent.thinking` while it
+/// works, and `subagent.complete` when it ends.
+final class SubagentUpdated extends ChatEvent {
+  const SubagentUpdated(this.subagent);
+
+  final Subagent subagent;
+}
+
 /// Last event of a reply. [text] is the full final text; [failed] is true when
 /// the turn ended in an error and [text] carries the message.
 final class ReplyCompleted extends ChatEvent {

@@ -33,7 +33,9 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       m.reasoning.isEmpty &&
       !m.toolCalls.any((call) => call.reasoning.isNotEmpty) &&
       // A running call's own card shows what is happening and for how long.
-      !m.toolCalls.any((call) => call.status == ToolCallStatus.running);
+      !m.toolCalls.any((call) => call.status == ToolCallStatus.running) &&
+      // A running subagent's cards do the same.
+      !m.subagents.any((s) => s.status == SubagentStatus.running);
   final media = m.role == ChatRole.assistant
       ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
       : ExtractedMedia(m.content, const []);
@@ -123,6 +125,13 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       ),
     ],
     ...before(m.toolCalls.length),
+    if (m.subagents.isNotEmpty)
+      CustomMessage(
+        id: '${m.id}-subagents',
+        authorId: authorId,
+        createdAt: createdAt,
+        metadata: {kMetaKind: kKindSubagents, kMetaSubagents: m.subagents},
+      ),
     if (m.reasoning.isNotEmpty)
       _reasoningMessage(
         '${m.id}-reasoning',

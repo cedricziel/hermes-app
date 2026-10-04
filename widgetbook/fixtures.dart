@@ -165,6 +165,74 @@ const failedToolRun = [
   ),
 ];
 
+const runningSubagent = Subagent(
+  id: 'agent-1',
+  goal: 'Add failing tests, then fix the retry double-call',
+  status: SubagentStatus.running,
+);
+
+/// A child that has been running for [seconds], for the live elapsed time.
+Subagent timedSubagent({int seconds = 65}) => Subagent(
+  id: 'agent-1',
+  goal: 'Add failing tests, then fix the retry double-call',
+  status: SubagentStatus.running,
+  lastTool: 'terminal',
+  lastToolPreview: 'pytest tests/ingest -x',
+  startedAt: DateTime.now().subtract(Duration(seconds: seconds)),
+);
+
+const completedSubagent = Subagent(
+  id: 'agent-1',
+  goal: 'Add failing tests, then fix the retry double-call',
+  status: SubagentStatus.completed,
+  summary:
+      'Guard added so an already-scheduled timer is not re-armed; 44 passed.',
+  duration: Duration(seconds: 123),
+  toolCount: 6,
+);
+
+const failedSubagent = Subagent(
+  id: 'agent-3',
+  goal: 'Micro-bench the ingest hot path',
+  status: SubagentStatus.failed,
+  summary: 'pytest-benchmark is not installed; no numbers collected.',
+  duration: Duration(seconds: 41),
+  toolCount: 2,
+);
+
+/// A parallel batch: two finished children and one nested child of a child.
+const subagentBatch = [
+  Subagent(
+    id: 'agent-1',
+    goal: 'Review the PR #412 diff',
+    status: SubagentStatus.completed,
+    summary: 'Two comments, both about the retry guard naming.',
+    duration: Duration(seconds: 118),
+    toolCount: 9,
+    index: 0,
+    count: 3,
+  ),
+  Subagent(
+    id: 'agent-2',
+    goal: 'Update the CHANGELOG and docstrings',
+    status: SubagentStatus.completed,
+    summary: 'CHANGELOG entry added; three docstrings rewritten.',
+    duration: Duration(seconds: 127),
+    toolCount: 5,
+    index: 1,
+    count: 3,
+  ),
+  Subagent(
+    id: 'agent-4',
+    goal: 'Verify the docstring examples compile',
+    parentId: 'agent-2',
+    depth: 1,
+    index: 0,
+    count: 1,
+    status: SubagentStatus.running,
+  ),
+];
+
 const pendingApproval = ApprovalRequest(
   requestId: 'approval-1',
   command: 'rm -rf build',
