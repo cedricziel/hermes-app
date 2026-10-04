@@ -111,4 +111,8 @@
   .h-apple-switch[role="switch"]::after {
     transition: none;
   }
+  /* The spokes stay visible, standing still. */
+  .h-apple-spinner.h-apple-spinner {
+    animation: none;
+  }
 }
