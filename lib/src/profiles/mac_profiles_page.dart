@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
-import '../bots/bots_screen.dart';
+import '../messaging/messaging_screen.dart';
 import '../macos/mac_toolbar.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../plugins/plugins_screen.dart';
@@ -20,7 +20,7 @@ import 'widgets/new_profile_dialog.dart';
 /// it for that profile.
 ///
 /// Counts are read when a profile is selected and left out when a read
-/// fails. Bots and plugins are managed for the profile the dashboard is
+/// fails. Messaging and plugins are managed for the profile the dashboard is
 /// scoped to, so their counts only show for the chat's profile.
 class MacProfilesPage extends StatefulWidget {
   const MacProfilesPage({super.key, required this.profiles});
@@ -106,8 +106,8 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       ),
       if (current) ...[
         count(
-          ProfileSection.bots,
-          () async => (await repositories.bots.load()).length,
+          ProfileSection.messaging,
+          () async => (await repositories.messaging.load()).length,
         ),
         count(
           ProfileSection.plugins,
@@ -126,7 +126,9 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         repository: repositories.skills,
         chatProfile: name,
       ),
-      ProfileSection.bots => BotsScreen(repository: repositories.bots),
+      ProfileSection.messaging => MessagingScreen(
+        repository: repositories.messaging,
+      ),
       ProfileSection.plugins => PluginsScreen(
         repository: repositories.pluginManager,
       ),

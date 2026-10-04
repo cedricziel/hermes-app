@@ -359,7 +359,7 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
             'Counts loaded',
             {
               ProfileSection.skills: 12,
-              ProfileSection.bots: 1,
+              ProfileSection.messaging: 1,
               ProfileSection.plugins: 4,
               ProfileSection.mcp: 3,
               ProfileSection.helperModels: 9,

@@ -145,7 +145,7 @@ void main() {
       expect(find.text('0'), findsOneWidget);
       expect(
         find.descendant(
-          of: find.byKey(const ValueKey('profile-section-bots')),
+          of: find.byKey(const ValueKey('profile-section-messaging')),
           matching: find.byType(Text),
         ),
         findsNWidgets(2),
