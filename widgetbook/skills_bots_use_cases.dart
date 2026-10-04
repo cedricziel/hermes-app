@@ -199,15 +199,16 @@ FakeHermesServer skillsServer() => FakeHermesServer()
 
 typedef _Skills = (SkillsController, SkillsHubController);
 
-WidgetbookUseCase _skills(
+WidgetbookUseCase skillsUseCase(
   String name,
   Widget Function(SkillsController skills, SkillsHubController hub) build, {
   bool loadHub = false,
+  FakeHermesServer Function() serve = skillsServer,
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => Hosted<_Skills>(
     create: () async {
-      final server = skillsServer();
+      final server = serve();
       final skills = SkillsController(
         repository: HermesSkillsRepository(server.client().raw),
         profiles: HermesProfilesRepository(server.client().raw),
@@ -299,7 +300,7 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SkillDetailScreen',
       useCases: [
-        _skills(
+        skillsUseCase(
           'Agent skill',
           (skills, hub) => SkillDetailScreen(
             controller: skills,
@@ -331,7 +332,7 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'DiscoverTab',
       useCases: [
-        _skills(
+        skillsUseCase(
           'Featured',
           (skills, hub) => Scaffold(
             body: DiscoverTab(hub: hub, onOpen: (_) {}),
@@ -343,7 +344,7 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'HubSkillScreen',
       useCases: [
-        _skills(
+        skillsUseCase(
           'Preview and scan',
           (skills, hub) => HubSkillScreen(
             hub: hub,

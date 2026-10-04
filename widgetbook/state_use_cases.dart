@@ -12,16 +12,20 @@ import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_catalog_screen.dart';
-import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
+import 'package:hermes_app/src/mcp/mcp_json_editor_screen.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
+import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
+import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
+import 'package:hermes_app/src/skills/hub_skill_screen.dart';
+import 'package:hermes_app/src/skills/skill_detail_screen.dart';
 import 'package:hermes_app/src/skills/skills_screen.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -32,6 +36,7 @@ import 'kanban_screen_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'plugins_screen_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
+import 'settings_screen_use_cases.dart';
 import 'skills_bots_use_cases.dart';
 
 /// Answers [method] [path] with a server error.
@@ -207,21 +212,10 @@ WidgetbookNode statesNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpCatalogScreen',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Catalog fails to load',
-          builder: (_) => Hosted<McpServersController>(
-            create: () async {
-              final server = _failing(mcpServer(), 'GET', '/api/mcp/catalog');
-              final servers = McpServersController(
-                repository: HermesMcpRepository(server.client().raw),
-                profiles: HermesProfilesRepository(server.client().raw),
-              );
-              await servers.load();
-              return servers;
-            },
-            dispose: (servers) => servers.dispose(),
-            builder: (_, servers) => McpCatalogScreen(servers: servers),
-          ),
+        mcpServersUseCase(
+          'Catalog fails to load',
+          (servers) => McpCatalogScreen(servers: servers),
+          server: () => _failing(mcpServer(), 'GET', '/api/mcp/catalog'),
         ),
       ],
     ),
@@ -368,6 +362,93 @@ WidgetbookNode statesNode() => WidgetbookFolder(
                 _hanging(kanbanServer(), 'GET', '/api/sessions').client().raw,
               ),
             ),
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'McpJsonEditorScreen',
+      useCases: [
+        mcpServersUseCase(
+          'Configuration fails to load',
+          (servers) => McpJsonEditorScreen(servers: servers),
+          server: () => _failing(mcpServer(), 'GET', '/api/config'),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'BlueprintGalleryScreen',
+      useCases: [
+        for (final (name, server) in [
+          (
+            'Fails to load',
+            () => _failing(schedulesServer(), 'GET', '/api/cron/blueprints'),
+          ),
+          (
+            'Loading',
+            () => _hanging(schedulesServer(), 'GET', '/api/cron/blueprints'),
+          ),
+        ])
+          _state(
+            name,
+            () => BlueprintGalleryScreen(
+              repository: HermesCronRepository(server().client().raw),
+              profile: 'work',
+              profileNames: const ['work', 'home'],
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SkillDetailScreen',
+      useCases: [
+        skillsUseCase(
+          'Content fails to load',
+          (skills, hub) => SkillDetailScreen(
+            controller: skills,
+            hub: hub,
+            name: 'pr-review',
+          ),
+          serve: () => _failing(skillsServer(), 'GET', '/api/skills/content'),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'HubSkillScreen',
+      useCases: [
+        skillsUseCase(
+          'Preview and scan fail',
+          (skills, hub) => HubSkillScreen(
+            hub: hub,
+            skill: const HubSkill(
+              name: 'web-scraper',
+              identifier: 'github/web-scraper',
+              description: 'Scrape pages into markdown.',
+              source: 'github',
+              tags: ['web'],
+            ),
+          ),
+          serve: () => _failing(
+            _failing(skillsServer(), 'GET', '/api/skills/hub/preview'),
+            'GET',
+            '/api/skills/hub/scan',
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'HelperModelsScreen',
+      useCases: [
+        _state(
+          'Fails to load',
+          () => helperModelsScreen(
+            _failing(helperModelsServer(), 'GET', '/api/model/auxiliary'),
+          ),
+        ),
+        _state(
+          'Loading',
+          () => helperModelsScreen(
+            _hanging(helperModelsServer(), 'GET', '/api/model/auxiliary'),
           ),
         ),
       ],
