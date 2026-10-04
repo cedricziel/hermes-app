@@ -18,7 +18,7 @@ export interface ListDetailLayoutProps {
   title: string;
   /** Small line under the title, e.g. "Profile: work". */
   subtitle?: string;
-  /** Shows a back arrow before the title and calls this when it is pressed (a pushed screen on phone). Under `apple` it is a chevron, with `backLabel` beside it in the `list` layout. */
+  /** Shows a back arrow before the title and calls this when it is pressed (a pushed screen on phone). Under `apple` it is a chevron, with `backLabel` beside it in the `list` layout on touch (a Mac shows the chevron alone). */
   onBack?: () => void;
   /**
    * Shows a close (X) button where the back button goes and calls this when
@@ -141,7 +141,7 @@ export function ListDetailLayout({
               ) : (
                 <Icon name="arrow_back" apple="back" size={30} />
               )}
-              {!split && backLabel ? <span>{backLabel}</span> : null}
+              {!split && !mac && backLabel ? <span>{backLabel}</span> : null}
             </button>
           ) : onBack ? (
             <IconButton icon="arrow_back" label="Back" onClick={onBack} />
