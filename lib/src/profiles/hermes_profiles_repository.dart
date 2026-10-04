@@ -54,27 +54,33 @@ class HermesProfilesRepository {
   }
 
   Future<ProfilesOverview> load() async {
-    final list = await _api.listProfilesEndpointApiProfilesGet();
+    final profiles = await list();
     final (:active, :current) = await loadActive();
-    final rows = switch (list.data) {
-      {'profiles': final List<dynamic> rows} => rows,
-      _ => const <dynamic>[],
-    };
     return ProfilesOverview(
-      profiles: [
-        for (final row in rows.whereType<Map<String, dynamic>>())
-          if (row['name'] case final String name when name.isNotEmpty)
-            HermesProfile(
-              name: name,
-              displayName: row['display_name'] as String? ?? '',
-              description: row['description'] as String? ?? '',
-              model: row['model'] as String?,
-              skillCount: (row['skill_count'] as num?)?.toInt() ?? 0,
-            ),
-      ],
+      profiles: profiles,
       active: active,
       current: current,
     );
+  }
+
+  /// The profiles on the server, without which one is active.
+  Future<List<HermesProfile>> list() async {
+    final response = await _api.listProfilesEndpointApiProfilesGet();
+    final rows = switch (response.data) {
+      {'profiles': final List<dynamic> rows} => rows,
+      _ => const <dynamic>[],
+    };
+    return [
+      for (final row in rows.whereType<Map<String, dynamic>>())
+        if (row['name'] case final String name when name.isNotEmpty)
+          HermesProfile(
+            name: name,
+            displayName: row['display_name'] as String? ?? '',
+            description: row['description'] as String? ?? '',
+            model: row['model'] as String?,
+            skillCount: (row['skill_count'] as num?)?.toInt() ?? 0,
+          ),
+    ];
   }
 
   Future<void> setActive(String name) async {

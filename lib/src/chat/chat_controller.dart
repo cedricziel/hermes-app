@@ -418,9 +418,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// fails only when all of them do.
   Future<List<ThreadSearchHit>> _searchAllProfiles(String query) async {
     final repository = this.repository!;
-    final overview = await profiles!.load();
     final answers = await Future.wait([
-      for (final profile in overview.profiles)
+      for (final profile in await profiles!.list())
         repository
             .searchThreads(query, profile: profile.name)
             .then<List<ThreadSearchHit>?>(
