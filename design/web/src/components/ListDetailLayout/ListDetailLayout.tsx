@@ -38,7 +38,7 @@ export interface ListDetailLayoutProps {
   listWidth?: number;
   /** Inner padding of the detail pane in px. */
   detailPadding?: number;
-  /** Floating action at the bottom right, such as the Schedules "New" button. Material only: under `apple` use `onAdd`. */
+  /** Floating action at the bottom right, such as the Schedules "New" button. Under `apple` prefer `onAdd`, which replaces it with a "+" in the bar; without `onAdd` it stays, so the action is never lost. */
   floatingAction?: ReactNode;
   /**
    * The screen's "add" action (a new schedule or skill). Material: the
@@ -170,7 +170,7 @@ export function ListDetailLayout({
               )}
             </div>
           ) : null}
-          {!apple && floatingAction ? (
+          {floatingAction && !(apple && onAdd) ? (
             <div className="h-list-detail__fab">{floatingAction}</div>
           ) : null}
           {!apple && !floatingAction && onAdd ? (
