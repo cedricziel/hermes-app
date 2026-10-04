@@ -4,6 +4,7 @@ import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import 'mac_sidebar.dart';
+import '../widgets/adaptive_popup_menu_button.dart';
 import '../widgets/named_icon_button.dart';
 import 'mac_window.dart';
 
@@ -13,7 +14,7 @@ import 'mac_window.dart';
 /// Where no sidebar sits to its left (the sidebar is hidden, or the window is
 /// too narrow for one) it leaves room for the traffic lights and starts with
 /// a button that shows the sidebar.
-class MacToolbar extends StatelessWidget {
+class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
   const MacToolbar({
     super.key,
     required this.title,
@@ -29,6 +30,9 @@ class MacToolbar extends StatelessWidget {
   /// Draws a hairline under the bar, for a page whose content does not start
   /// with a surface of its own.
   final bool border;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kMacToolbarHeight);
 
   @override
   Widget build(BuildContext context) {
@@ -181,5 +185,48 @@ class MacToolbarSeparator extends StatelessWidget {
     height: 20,
     margin: const EdgeInsets.symmetric(horizontal: 4),
     color: Theme.of(context).dividerColor,
+  );
+}
+
+/// A [MacToolbarButton] that opens a menu.
+class MacToolbarMenu<T> extends StatefulWidget {
+  const MacToolbarMenu({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.itemBuilder,
+    required this.onSelected,
+    this.selected,
+  });
+
+  final String label;
+  final AppIconSet icon;
+  final PopupMenuItemBuilder<T> itemBuilder;
+  final ValueChanged<T> onSelected;
+
+  /// Whether a filter the menu sets is in effect.
+  final bool? selected;
+
+  @override
+  State<MacToolbarMenu<T>> createState() => _MacToolbarMenuState<T>();
+}
+
+class _MacToolbarMenuState<T> extends State<MacToolbarMenu<T>> {
+  final _menu = AdaptiveMenuController();
+
+  @override
+  Widget build(BuildContext context) => AdaptivePopupMenuButton<T>(
+    controller: _menu,
+    tooltip: '',
+    padding: EdgeInsets.zero,
+    position: PopupMenuPosition.under,
+    onSelected: widget.onSelected,
+    itemBuilder: widget.itemBuilder,
+    child: MacToolbarButton(
+      label: widget.label,
+      icon: widget.icon,
+      selected: widget.selected,
+      onPressed: _menu.open,
+    ),
   );
 }
