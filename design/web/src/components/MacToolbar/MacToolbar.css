@@ -1,0 +1,153 @@
+/* The app's MacToolbar (lib/src/macos/mac_toolbar.dart). */
+.h-mac-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px 0 20px;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-mac-toolbar--border {
+  border-bottom: 1px solid var(--h-border);
+}
+
+.h-mac-toolbar--sidebar-hidden {
+  padding-left: 78px;
+}
+
+.h-mac-toolbar__title {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.h-mac-toolbar__heading,
+.h-mac-toolbar__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.h-mac-toolbar__heading {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.h-mac-toolbar__subtitle {
+  font-size: 11px;
+  color: var(--h-muted);
+}
+
+.h-mac-toolbar__actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-mac-toolbar__button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--h-fg);
+  cursor: default;
+}
+
+.h-mac-toolbar__button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--h-fg) 6%, transparent);
+}
+
+.h-mac-toolbar__button:active:not(:disabled),
+.h-mac-toolbar__button--selected,
+.h-mac-toolbar__button--selected:hover {
+  background: color-mix(in srgb, var(--h-fg) 10%, transparent);
+}
+
+.h-mac-toolbar__button:disabled {
+  opacity: 0.38;
+}
+
+.h-mac-toolbar__button:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-mac-toolbar__separator {
+  flex-shrink: 0;
+  width: 1px;
+  height: 20px;
+  margin: 0 4px;
+  background: var(--h-border);
+}
+
+.h-mac-toolbar__search {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 180px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--h-border);
+  border-radius: 7px;
+  background: var(--h-surface-high);
+  transition: width 150ms ease-out;
+}
+
+.h-mac-toolbar__search--wide {
+  width: 240px;
+}
+
+.h-mac-toolbar__search--focused,
+.h-mac-toolbar__search:focus-within {
+  --h-mac-search-ring: color-mix(in srgb, var(--h-primary) 60%, transparent);
+  border-color: var(--h-mac-search-ring);
+  box-shadow: 0 0 0 1px var(--h-mac-search-ring);
+}
+
+.h-mac-toolbar__search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 13px;
+}
+
+.h-mac-toolbar__search input::placeholder {
+  color: var(--h-muted);
+}
+
+.h-mac-toolbar__search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.h-mac-toolbar__search-clear {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-mac-toolbar__search {
+    transition: none;
+  }
+}
