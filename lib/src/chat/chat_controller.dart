@@ -793,6 +793,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ReplyCompleted() ||
           ApprovalRequested() ||
           ClarifyRequested() ||
+          VaultRequested() ||
           UnsupportedRequested() ||
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));

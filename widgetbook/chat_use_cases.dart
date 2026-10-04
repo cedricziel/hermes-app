@@ -42,6 +42,15 @@ Future<void> _skips() =>
 
 Future<void> _skipFails() async => throw StateError('offline');
 
+Future<void> _vaultAnswers(String identifier, String password, String code) =>
+    Future<void>.delayed(const Duration(milliseconds: 600));
+
+Future<void> _vaultFails(
+  String identifier,
+  String password,
+  String code,
+) async => throw StateError('offline');
+
 Widget _noStore(Widget child) =>
     Provider<MediaStore?>.value(value: null, child: child);
 
@@ -292,19 +301,22 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       useCases: [
         _tool(
           'Save login',
-          VaultRequestCard(request: saveLoginRequest, onAnswer: _answers),
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _vaultAnswers),
         ),
         _tool(
           'Save fails',
-          VaultRequestCard(request: saveLoginRequest, onAnswer: _fails),
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _vaultFails),
         ),
         _tool(
           'Unlock manager',
-          VaultRequestCard(request: vaultUnlockRequest, onAnswer: _answers),
+          VaultRequestCard(
+            request: vaultUnlockRequest,
+            onAnswer: _vaultAnswers,
+          ),
         ),
         _tool(
           'One-time code',
-          VaultRequestCard(request: vaultCodeRequest, onAnswer: _answers),
+          VaultRequestCard(request: vaultCodeRequest, onAnswer: _vaultAnswers),
         ),
         _tool('Answered', VaultRequestCard(request: answeredVaultCodeRequest)),
         _tool('Declined', VaultRequestCard(request: declinedSaveLoginRequest)),
