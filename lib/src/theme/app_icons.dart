@@ -214,6 +214,10 @@ abstract final class AppIcons {
     Icons.view_sidebar_outlined,
     CupertinoIcons.sidebar_left,
   );
+  static const inspector = AppIconSet(
+    Icons.view_sidebar_outlined,
+    CupertinoIcons.sidebar_right,
+  );
   static const terminal = AppIconSet(
     Icons.terminal,
     CupertinoIcons.chevron_left_slash_chevron_right,
@@ -402,6 +406,7 @@ abstract final class AppIcons {
     'server': server,
     'archive': archive,
     'sidebar': sidebar,
+    'inspector': inspector,
     'terminal': terminal,
     'swap': swap,
     'pin': pin,

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
-import '../widgets/named_icon_button.dart';
+import 'mac_toolbar.dart';
 import 'mac_window.dart';
 
 const double kMacSidebarMinWidth = 220;
@@ -159,10 +159,10 @@ class MacSidebarToggle extends StatelessWidget {
   final MacSidebarController controller;
 
   @override
-  Widget build(BuildContext context) => NamedIconButton(
+  Widget build(BuildContext context) => MacToolbarButton(
     key: const Key('mac-sidebar-toggle'),
     label: controller.collapsed ? 'Show sidebar' : 'Hide sidebar',
-    tooltip: controller.collapsed ? 'Show sidebar (⌃⌘S)' : 'Hide sidebar (⌃⌘S)',
+    shortcut: '⌃⌘S',
     icon: AppIcons.sidebar,
     onPressed: controller.toggle,
   );
