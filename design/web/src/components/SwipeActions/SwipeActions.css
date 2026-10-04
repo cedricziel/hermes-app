@@ -1,0 +1,60 @@
+.h-swipe {
+  position: relative;
+  overflow: hidden;
+}
+
+.h-swipe__row {
+  transition: transform 200ms ease;
+}
+
+/* The open pane takes 30% of the row, as the app's ActionPane extentRatio. */
+.h-swipe__row--trailing {
+  transform: translateX(-30%);
+}
+
+.h-swipe__row--leading {
+  transform: translateX(30%);
+}
+
+.h-swipe__pane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  display: flex;
+}
+
+.h-swipe__pane--trailing {
+  right: 0;
+}
+
+.h-swipe__pane--leading {
+  left: 0;
+}
+
+.h-swipe__action {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  background: var(--h-apple-red);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.h-swipe__action--orange {
+  background: var(--h-apple-orange);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-swipe__row {
+    transition: none;
+  }
+}

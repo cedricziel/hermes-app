@@ -86,5 +86,11 @@ export function useAppleDevice(
   return layout === "phone" ? "touch" : (shell.device ?? "mac");
 }
 
+/** The device a list row draws its swipe and long-press actions for: an explicit `device`, then the enclosing `AppShell`'s, then `touch`. */
+export function useRowDevice(device?: AppleDevice): AppleDevice {
+  const shell = useContext(ShellChromeContext);
+  return device ?? shell.device ?? "touch";
+}
+
 /** Width in px a Mac window's traffic lights take at the top left, which the sidebar and a collapsed header leave free. */
 export const TRAFFIC_LIGHT_GAP = 78;

@@ -38,6 +38,10 @@
   --h-pressed: rgba(24, 24, 27, 0.1);
   --h-scrim: rgba(0, 0, 0, 0.32);
   --h-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  /* Apple system red and orange (swipe actions, the action sheet) and the elevated fill of its Cancel. */
+  --h-apple-red: #ff3b30;
+  --h-apple-orange: #ff9500;
+  --h-apple-elevated: #ffffff;
 
   --h-radius: 14px;
   --h-radius-lg: 20px;
@@ -81,6 +85,9 @@
   --h-pressed: rgba(250, 250, 250, 0.12);
   --h-scrim: rgba(0, 0, 0, 0.6);
   --h-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --h-apple-red: #ff453a;
+  --h-apple-orange: #ff9f0a;
+  --h-apple-elevated: #2c2c2e;
 
   color-scheme: dark;
 }

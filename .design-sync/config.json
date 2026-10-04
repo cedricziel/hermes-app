@@ -7,8 +7,12 @@
   "cssEntry": "dist/index.css",
   "extraFonts": ["src/fonts/cupertino-icons.css"],
   "docsDir": "docs",
-  "guidelinesGlob": ["guides/**/*.md"],
-  "provider": { "component": "HermesProvider" },
+  "guidelinesGlob": [
+    "guides/**/*.md"
+  ],
+  "provider": {
+    "component": "HermesProvider"
+  },
   "readmeHeader": ".design-sync/conventions.md",
   "componentSrcMap": {
     "InputCardFrame": null,
@@ -20,33 +24,102 @@
     "SidebarAction": null,
     "SidebarBrand": null,
     "ThreadActionsButton": null,
-    "KanbanBulkBar": null
+    "KanbanBulkBar": null,
+    "MenuAnchor": null
   },
   "overrides": {
-    "TextField": { "cardMode": "column" },
-    "Card": { "cardMode": "column" },
-    "ApprovalCard": { "cardMode": "column" },
-    "ClarifyCard": { "cardMode": "column" },
-    "ToolCallCard": { "cardMode": "column" },
-    "ToolCallGroup": { "cardMode": "column" },
-    "AssistantMessage": { "cardMode": "column" },
-    "ChatComposer": { "cardMode": "column" },
-    "ReasoningBlock": { "cardMode": "column" },
-    "UserMessage": { "cardMode": "column" },
-    "WelcomeView": { "cardMode": "column" },
-    "ListDetailLayout": { "cardMode": "column" },
-    "McpServerRow": { "cardMode": "column" },
-    "PluginRow": { "cardMode": "column" },
-    "ProfileTile": { "cardMode": "column" },
-    "ScheduleJobRow": { "cardMode": "column" },
-    "AppShell": { "cardMode": "column" },
-    "ChatHeader": { "cardMode": "column" },
-    "ThreadSidebar": { "cardMode": "column" },
-    "ConnectScreen": { "cardMode": "column" },
-    "KanbanCard": { "cardMode": "column" },
-    "KanbanColumn": { "cardMode": "column" },
-    "KanbanStatusChips": { "cardMode": "column" },
-    "KanbanTaskPanel": { "cardMode": "column" },
-    "KanbanToolbar": { "cardMode": "column" }
+    "TextField": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "ApprovalCard": {
+      "cardMode": "column"
+    },
+    "ClarifyCard": {
+      "cardMode": "column"
+    },
+    "ToolCallCard": {
+      "cardMode": "column"
+    },
+    "ToolCallGroup": {
+      "cardMode": "column"
+    },
+    "AssistantMessage": {
+      "cardMode": "column"
+    },
+    "ChatComposer": {
+      "cardMode": "column"
+    },
+    "ReasoningBlock": {
+      "cardMode": "column"
+    },
+    "UserMessage": {
+      "cardMode": "column"
+    },
+    "WelcomeView": {
+      "cardMode": "column"
+    },
+    "ListDetailLayout": {
+      "cardMode": "column"
+    },
+    "McpServerRow": {
+      "cardMode": "column"
+    },
+    "PluginRow": {
+      "cardMode": "column"
+    },
+    "ProfileTile": {
+      "cardMode": "column"
+    },
+    "ScheduleJobRow": {
+      "cardMode": "column"
+    },
+    "AppShell": {
+      "cardMode": "column"
+    },
+    "ChatHeader": {
+      "cardMode": "column"
+    },
+    "ThreadSidebar": {
+      "cardMode": "column"
+    },
+    "ConnectScreen": {
+      "cardMode": "column"
+    },
+    "KanbanCard": {
+      "cardMode": "column"
+    },
+    "KanbanColumn": {
+      "cardMode": "column"
+    },
+    "KanbanStatusChips": {
+      "cardMode": "column"
+    },
+    "KanbanTaskPanel": {
+      "cardMode": "column"
+    },
+    "KanbanToolbar": {
+      "cardMode": "column"
+    },
+    "Menu": {
+      "cardMode": "column"
+    },
+    "SwipeActions": {
+      "cardMode": "column"
+    },
+    "ActionSheet": {
+      "cardMode": "column"
+    },
+    "Spinner": {
+      "cardMode": "column"
+    },
+    "Switch": {
+      "cardMode": "column"
+    },
+    "SegmentedControl": {
+      "cardMode": "column"
+    }
   }
 }

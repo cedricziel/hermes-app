@@ -1,0 +1,91 @@
+.h-segmented {
+  flex: none;
+  font-family: var(--h-font);
+}
+
+.h-segmented__track {
+  display: flex;
+}
+
+.h-segmented__segment {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.h-segmented__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-segmented__segment:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+/* Material: TabBar, 48px tabs, the indicator under the label only. */
+.h-segmented--material {
+  border-bottom: 1px solid var(--h-border);
+}
+
+.h-segmented--material .h-segmented__segment {
+  height: 48px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.h-segmented--material .h-segmented__segment:hover {
+  background: var(--h-hover);
+}
+
+.h-segmented--material .h-segmented__label {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+}
+
+.h-segmented--material .h-segmented__segment--selected .h-segmented__label {
+  border-bottom-color: var(--h-primary);
+}
+
+/* Apple: CupertinoSlidingSegmentedControl in a 48px band (4px above, 8px
+   below, 16px from the edges), on the surfaceContainerHighest track with a
+   surface thumb, as the app's AdaptiveTabBar sets it. */
+.h-segmented--apple {
+  padding: 4px 16px 8px;
+}
+
+.h-segmented--apple .h-segmented__track {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--h-surface-high);
+}
+
+.h-segmented--apple .h-segmented__segment {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+}
+
+.h-segmented--apple .h-segmented__segment--selected {
+  background: var(--h-surface);
+  font-weight: 600;
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / 0.12),
+    0 3px 1px rgb(0 0 0 / 0.04);
+}
