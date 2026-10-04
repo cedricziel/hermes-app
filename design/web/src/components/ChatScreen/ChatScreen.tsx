@@ -64,6 +64,13 @@ export interface ChatScreenProps {
   queued?: QueuedPromptItem[];
   /** The model pill in the composer; null hides it (the server's model list failed). */
   model?: { model?: string; effort?: string } | null;
+  /** Mac: the active profile, shown with the model under the toolbar title ("default · claude-opus-4"). */
+  profile?: string;
+  /** Mac: the window's size class for the toolbar; see `ChatHeader`'s `windowSize`. */
+  windowSize?: "wide" | "medium" | "compact";
+  /** Mac: a search is open with this query in the toolbar field. */
+  searchQuery?: string;
+  searchActive?: boolean;
   /** Account label in the sidebar footer. */
   account?: string;
   /** The server address at the top of the account menu. */
@@ -135,6 +142,10 @@ export function ChatScreen({
   replying = false,
   queued,
   model = { model: "claude-opus-4" },
+  profile,
+  windowSize,
+  searchQuery,
+  searchActive,
   account,
   serverUrl,
   now,
@@ -251,6 +262,18 @@ export function ChatScreen({
         onShowConnection={onShowConnection}
         onThreadAction={(action) =>
           selected && onThreadAction?.(selected.id, action)
+        }
+        subtitle={
+          [profile, model?.model].filter(Boolean).join(" · ") || undefined
+        }
+        windowSize={windowSize}
+        searchQuery={searchQuery}
+        searchActive={searchActive}
+        onNewChat={onNewThread}
+        onCopyTranscript={
+          selected
+            ? () => onThreadAction?.(selected.id, "copy-transcript")
+            : undefined
         }
       />
       {selected && turns.length ? (

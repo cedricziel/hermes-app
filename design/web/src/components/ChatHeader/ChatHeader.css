@@ -85,15 +85,3 @@
 .h-chat-header--ios .h-thread-actions + .h-chat-header__info {
   margin-left: 0;
 }
-
-/* Mac unified toolbar: 52px, no rule; the sidebar sits under the traffic lights. */
-.h-chat-header--mac {
-  height: 52px;
-  padding: 0 12px 0 20px;
-  border-bottom: 0;
-}
-
-.h-chat-header--collapsed {
-  padding-left: 78px;
-  gap: 8px;
-}

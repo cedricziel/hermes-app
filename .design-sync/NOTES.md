@@ -108,8 +108,10 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - The Mac sidebar is the source list of Flutter #391: `ShellNavigation` draws 28px rows (Kanban captioned "All
   profiles"), `ThreadSidebar` sorts chats into Pinned / Today / Previous 7 days / Previous 30 days / Older from
   `ThreadItem.updatedAt` counted back from `now`, with folding headers (`defaultFoldedSections`), hover Archive and
-  More (`hoveredThreadId`) and "Open in New Window" in the menu (`canOpenInNewWindow`). The sidebar's search field
-  is not recreated.
+  More (`hoveredThreadId`) and "Open in New Window" in the menu (`canOpenInNewWindow`). As in #399, New Chat and
+  search are in the chat's `MacToolbar` (`ChatHeader` on a Mac), not the sidebar. Not recreated: the search
+  results the Mac sidebar shows while a search is open (scope switch, recent searches, Chats and Messages), and
+  the touch and Material sidebar's search field.
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
   `useDismiss` is private); export it next to `Menu` if a screen needs it.
 - Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a

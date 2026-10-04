@@ -232,7 +232,12 @@ export const AppleMac = () => (
         sidebar={macSidebar}
         showTrafficLights
       >
-        <ChatHeader title="Summarize last night's run logs" />
+        <ChatHeader
+          title="Summarize last night's run logs"
+          subtitle="default · claude-opus-4"
+          windowSize="medium"
+          onCopyTranscript={() => {}}
+        />
         <WelcomeView prompts={prompts} />
       </AppShell>
     </div>
@@ -250,7 +255,12 @@ export const AppleMacSidebarHidden = () => (
         sidebarCollapsed
         showTrafficLights
       >
-        <ChatHeader title="Summarize last night's run logs" />
+        <ChatHeader
+          title="Summarize last night's run logs"
+          subtitle="default · claude-opus-4"
+          windowSize="medium"
+          onCopyTranscript={() => {}}
+        />
         <WelcomeView prompts={prompts} />
       </AppShell>
     </div>
@@ -298,7 +308,12 @@ export const AppleIPad = () => (
         current="chat"
         sidebar={macSidebar}
       >
-        <ChatHeader title="Summarize last night's run logs" />
+        <ChatHeader
+          title="Summarize last night's run logs"
+          subtitle="default · claude-opus-4"
+          windowSize="medium"
+          onCopyTranscript={() => {}}
+        />
         <WelcomeView prompts={prompts} />
       </AppShell>
     </div>

@@ -95,6 +95,7 @@ const loaded = {
   selectedId: "backup",
   turns,
   now,
+  profile: "default",
   account: "Ada Lovelace",
   serverUrl: "https://hermes.example.net",
   model: { model: "claude-opus-4", effort: "Medium" },
@@ -120,7 +121,7 @@ export const MaterialPhone = () => (
 export const AppleMac = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={desktop}>
-      <ChatScreen {...loaded} showTrafficLights />
+      <ChatScreen {...loaded} showTrafficLights windowSize="medium" />
     </div>
   </HermesProvider>
 );

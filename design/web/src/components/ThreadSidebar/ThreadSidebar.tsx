@@ -454,7 +454,7 @@ export interface ThreadSidebarProps {
   defaultAccountMenuOpen?: boolean;
   /** A chat row was clicked. */
   onSelect?: (id: string) => void;
-  /** "New chat" was clicked. */
+  /** "New chat" was clicked (not on a Mac, whose New Chat is in the toolbar). */
   onNewThread?: () => void;
   /** An entry of a chat's "…" menu was picked. */
   onThreadAction?: (id: string, action: ThreadAction) => void;
@@ -477,7 +477,8 @@ export interface ThreadSidebarProps {
    * click, as 28px rows without a pin glyph whose Archive and More buttons
    * show under the pointer (`hoveredThreadId`), and More or a right-click
    * opens the compact Mac menu (`canOpenInNewWindow` adds "Open in New
-   * Window"). Destinations passed in `navigation` become source-list rows
+   * Window"). New chat moves to the toolbar (`ChatHeader`), and destinations
+   * passed in `navigation` become source-list rows
    * too. Inherits the provider's platform.
    */
   platform?: Platform;
@@ -579,12 +580,15 @@ export function ThreadSidebar({
                 {navigation}
               </ShellChromeContext.Provider>
             </div>
-            <hr className="h-thread-sidebar__nav-divider" />
+            {mac ? null : <hr className="h-thread-sidebar__nav-divider" />}
           </>
         ) : null}
-        <div className="h-thread-sidebar__pad">
-          <SidebarAction icon="add" label="New chat" onClick={onNewThread} />
-        </div>
+        {/* A Mac window's New Chat is in the toolbar. */}
+        {mac ? null : (
+          <div className="h-thread-sidebar__pad">
+            <SidebarAction icon="add" label="New chat" onClick={onNewThread} />
+          </div>
+        )}
         <div
           ref={listRef}
           className="h-thread-sidebar__list"
