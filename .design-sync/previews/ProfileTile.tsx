@@ -66,13 +66,14 @@ export const Dark = () => (
   </HermesProvider>
 );
 
-/** iOS (left): a compact row with a trailing checkmark and no tune button. Mac (right) keeps the Material tile. */
+/** iOS (left): a compact row with a trailing checkmark, then the tune button when the row can change its model. Mac (right) keeps the Material tile. */
 export const AppleRows = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
     <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
       <ProfileTile
         layout="phone"
         active
+        onChangeModel={noop}
         profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
       />
       <ProfileTile

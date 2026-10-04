@@ -30,8 +30,8 @@ export interface ProfileTileProps {
   /**
    * `apple` with `layout="phone"` (iOS): a compact row at least 44px tall with
    * no leading icon, a trailing checkmark on the active profile instead of
-   * the "Active" chip, and no tune button; in the app "Change default model"
-   * moves to a long-press action sheet. `apple` with `layout="desktop"`
+   * the "Active" chip, and the tune button (when `onChangeModel` is given)
+   * after it. `apple` with `layout="desktop"`
    * (macOS) keeps this tile with SF-style glyphs. Inherits the provider's
    * platform.
    */
@@ -60,6 +60,16 @@ export function ProfileTile({
     profile.model,
     `${profile.skillCount} skills`,
   ].filter(Boolean);
+  const changeModel = onChangeModel ? (
+    <IconButton
+      icon="tune"
+      label="Change default model"
+      onClick={(e) => {
+        e.stopPropagation();
+        onChangeModel();
+      }}
+    />
+  ) : null;
   return (
     <PlatformScope platform={resolvedPlatform}>
       <div
@@ -86,21 +96,13 @@ export function ProfileTile({
         {ios && active ? (
           <Icon name="check" size={20} className="h-profile-tile__check" />
         ) : null}
+        {ios ? changeModel : null}
         {!ios && (active || onChangeModel) ? (
           <div className="h-profile-tile__trailing">
             {active ? (
               <span className="h-profile-tile__chip">Active</span>
             ) : null}
-            {onChangeModel ? (
-              <IconButton
-                icon="tune"
-                label="Change default model"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChangeModel();
-                }}
-              />
-            ) : null}
+            {changeModel}
           </div>
         ) : null}
       </div>
