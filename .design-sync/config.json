@@ -222,6 +222,39 @@
     },
     "TelegramPairingScreen": {
       "cardMode": "column"
+    },
+    "ModelSlotRow": {
+      "cardMode": "column"
+    },
+    "BotRow": {
+      "cardMode": "column"
+    },
+    "SkillRow": {
+      "cardMode": "column"
+    },
+    "HubSkillRow": {
+      "cardMode": "column"
+    },
+    "ProfilesScreen": {
+      "cardMode": "column"
+    },
+    "BotsScreen": {
+      "cardMode": "column"
+    },
+    "BotSetupScreen": {
+      "cardMode": "column"
+    },
+    "HelperModelsScreen": {
+      "cardMode": "column"
+    },
+    "SkillsScreen": {
+      "cardMode": "column"
+    },
+    "SkillDetailScreen": {
+      "cardMode": "column"
+    },
+    "HubSkillScreen": {
+      "cardMode": "column"
     }
   }
 }

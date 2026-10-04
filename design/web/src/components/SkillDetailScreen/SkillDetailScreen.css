@@ -1,0 +1,39 @@
+.h-skill-detail {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.h-skill-detail__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.h-skill-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.h-skill-detail__note {
+  color: var(--h-muted);
+}
+
+.h-skill-detail__content {
+  margin-top: 16px;
+}
+
+.h-skill-detail__failed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The skill text sits in the card without the chat column's centring. */
+.h-skill-detail .h-assistant-message,
+.h-hub-skill .h-assistant-message {
+  max-width: none;
+}

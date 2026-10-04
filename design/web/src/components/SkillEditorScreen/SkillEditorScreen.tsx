@@ -2,6 +2,7 @@ import { AssistantMessage } from "../AssistantMessage/AssistantMessage";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
+import { skillMarkdownBody } from "../SkillDetailScreen/SkillDetailScreen";
 import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
@@ -72,11 +73,6 @@ const snippets: { id: SkillSnippet; label: string; name: string }[] = [
   { id: "bullet", label: "•", name: "Bullet" },
   { id: "code", label: "</>", name: "Code block" },
 ];
-
-function markdownBody(text: string) {
-  const match = /^---\s*\n[\s\S]*?\n---\s*(\n|$)/.exec(text);
-  return match ? text.slice(match[0].length).trimStart() : text;
-}
 
 /**
  * Writes a new skill or edits one's `SKILL.md`, full screen: a close (X)
@@ -205,7 +201,7 @@ export function SkillEditorScreen({
           />
         ) : (
           <div className="h-skill-editor__preview">
-            <AssistantMessage text={markdownBody(text)} showCopy={false} />
+            <AssistantMessage text={skillMarkdownBody(text)} showCopy={false} />
           </div>
         )}
       </div>
