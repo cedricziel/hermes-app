@@ -77,12 +77,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// The profiles a Mac window switches between in its sidebar; listed on
   /// the first Mac build.
   ChatProfiles? _chatProfiles;
-  bool _chatProfilesLoaded = false;
 
   /// The sidebar of a Mac window, which a pick in it closes when it lies
   /// over the page.
   final _sidebar = MacSidebarController();
-  bool _sidebarLoaded = false;
+
+  /// Whether the Mac-only state has been read, on the first Mac build.
+  bool _macLoaded = false;
   bool _kanban = false;
   bool _schedules = false;
   int _detection = 0;
@@ -381,19 +382,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final built = _build(context);
     if (platformChromeOf(context) != PlatformChrome.macos) return built;
-    if (!_sidebarLoaded) {
-      _sidebarLoaded = true;
+    if (!_macLoaded) {
+      _macLoaded = true;
       _sidebar.load();
+      _chatProfiles?.load();
     }
     return MacSidebarScope(controller: _sidebar, child: built);
   }
 
   Widget _build(BuildContext context) {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
-    if (mac && !_chatProfilesLoaded && _chatProfiles != null) {
-      _chatProfilesLoaded = true;
-      _chatProfiles!.load();
-    }
     Widget chat({Widget? navigation}) => KeyedSubtree(
       key: _chatKey,
       child: ChatScreen(

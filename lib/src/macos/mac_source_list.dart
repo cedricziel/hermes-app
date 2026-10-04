@@ -23,9 +23,11 @@ class MacSourceListTile extends StatefulWidget {
     required this.onTap,
     this.selected = false,
     this.onSecondaryTapUp,
+    this.height = kMacSourceListRowHeight,
   });
 
   final Widget Function(BuildContext context, bool hovered) builder;
+  final double height;
   final VoidCallback onTap;
   final bool selected;
   final GestureTapUpCallback? onSecondaryTapUp;
@@ -60,7 +62,7 @@ class _MacSourceListTileState extends State<MacSourceListTile> {
             splashFactory: NoSplash.splashFactory,
             highlightColor: Colors.transparent,
             child: SizedBox(
-              height: kMacSourceListRowHeight,
+              height: widget.height,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: widget.builder(context, _hovered),

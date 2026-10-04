@@ -11,6 +11,7 @@ import '../plugins/plugins_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
 import '../theme/app_icons.dart';
+import '../widgets/state_message.dart';
 import 'chat_profiles.dart';
 import 'widgets/mac_profiles_view.dart';
 import 'widgets/new_profile_dialog.dart';
@@ -33,7 +34,10 @@ class MacProfilesPage extends StatefulWidget {
 
 class _MacProfilesPageState extends State<MacProfilesPage> {
   String? _selected;
-  Map<ProfileSection, int> _counts = const {};
+
+  /// The counts read so far, by profile, shown at once when a profile is
+  /// selected again while they are read anew.
+  final _counts = <String, Map<ProfileSection, int>>{};
   int _generation = 0;
 
   ChatProfiles get _profiles => widget.profiles;
@@ -62,10 +66,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
   }
 
   void _select(String name) {
-    setState(() {
-      _selected = name;
-      _counts = const {};
-    });
+    setState(() => _selected = name);
     _loadCounts(name);
   }
 
@@ -76,7 +77,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final current = name == _profiles.current;
     void put(ProfileSection section, int count) {
       if (!mounted || generation != _generation) return;
-      setState(() => _counts = {..._counts, section: count});
+      setState(() => _counts[name] = {...?_counts[name], section: count});
     }
 
     Future<void> count(
@@ -172,24 +173,18 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
           ),
           Expanded(
             child: _profiles.failed && profiles.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text('Could not load profiles'),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: _profiles.load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+                ? StateMessage(
+                    title: 'Could not load profiles',
+                    action: FilledButton(
+                      onPressed: _profiles.load,
+                      child: const Text('Retry'),
                     ),
                   )
                 : MacProfilesView(
                     profiles: profiles,
                     selected: _selected,
                     onSelect: _select,
-                    counts: _counts,
+                    counts: _counts[_selected] ?? const {},
                     onOpen: _open,
                   ),
           ),

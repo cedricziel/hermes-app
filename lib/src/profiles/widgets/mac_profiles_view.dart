@@ -31,7 +31,6 @@ class MacProfilesView extends StatelessWidget {
     required this.onSelect,
     required this.counts,
     required this.onOpen,
-    this.sections = ProfileSection.values,
   });
 
   final List<HermesProfile> profiles;
@@ -43,15 +42,9 @@ class MacProfilesView extends StatelessWidget {
   final Map<ProfileSection, int> counts;
   final ValueChanged<ProfileSection> onOpen;
 
-  /// The sections the app can open.
-  final List<ProfileSection> sections;
-
   @override
   Widget build(BuildContext context) {
-    HermesProfile? profile;
-    for (final p in profiles) {
-      if (p.name == selected) profile = p;
-    }
+    final profile = profiles.where((p) => p.name == selected).firstOrNull;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -85,7 +78,6 @@ class MacProfilesView extends StatelessWidget {
                       child: MacProfileDetail(
                         profile: profile,
                         counts: counts,
-                        sections: sections,
                         onOpen: onOpen,
                       ),
                     ),
@@ -113,54 +105,42 @@ class MacProfileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtle = context.hermesColors.subtleText;
-    final radius = BorderRadius.circular(6);
     return Semantics(
       button: true,
       selected: selected,
-      child: Material(
-        color: selected
-            ? macSourceListSelectedFill(context)
-            : Colors.transparent,
-        borderRadius: radius,
-        child: InkWell(
-          borderRadius: radius,
-          onTap: onTap,
-          child: SizedBox(
-            height: 44,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
+      child: MacSourceListTile(
+        height: 44,
+        selected: selected,
+        onTap: onTap,
+        builder: (context, _) => Row(
+          children: [
+            InitialsAvatar(label: profile.label, size: 28),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  InitialsAvatar(label: profile.label, size: 28),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (profile.description.isNotEmpty)
-                          Text(
-                            profile.description,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: subtle),
-                          ),
-                      ],
+                  Text(
+                    profile.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (profile.description.isNotEmpty)
+                    Text(
+                      profile.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: subtle),
+                    ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -175,13 +155,11 @@ class MacProfileDetail extends StatelessWidget {
     required this.profile,
     required this.counts,
     required this.onOpen,
-    this.sections = ProfileSection.values,
   });
 
   final HermesProfile profile;
   final Map<ProfileSection, int> counts;
   final ValueChanged<ProfileSection> onOpen;
-  final List<ProfileSection> sections;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +202,7 @@ class MacProfileDetail extends StatelessWidget {
           ),
           child: Column(
             children: [
-              for (final (i, section) in sections.indexed) ...[
+              for (final (i, section) in ProfileSection.values.indexed) ...[
                 if (i > 0) const Divider(height: 1, indent: 44),
                 _SectionRow(
                   section: section,

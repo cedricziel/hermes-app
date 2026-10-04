@@ -14,12 +14,6 @@ class _Switch extends _Pick {
   const _Switch(this.name);
 
   final String name;
-
-  @override
-  bool operator ==(Object other) => other is _Switch && other.name == name;
-
-  @override
-  int get hashCode => name.hashCode;
 }
 
 class _NewProfile extends _Pick {
@@ -51,12 +45,8 @@ class MacProfileSwitcher extends StatelessWidget {
   final VoidCallback onNewProfile;
   final VoidCallback onManage;
 
-  HermesProfile? get _currentProfile {
-    for (final profile in profiles) {
-      if (profile.name == current) return profile;
-    }
-    return null;
-  }
+  HermesProfile? get _currentProfile =>
+      profiles.where((p) => p.name == current).firstOrNull;
 
   @override
   Widget build(BuildContext context) {

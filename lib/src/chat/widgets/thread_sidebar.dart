@@ -686,17 +686,18 @@ class AccountFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final identity = auth.identity;
+    final user = identity == null
+        ? null
+        : (identity.displayName.isNotEmpty
+              ? identity.displayName
+              : identity.email);
     if (platformChromeOf(context) == PlatformChrome.macos) {
       final baseUrl = auth.baseUrl;
       final host = baseUrl == null
           ? 'Not connected'
           : (Uri.tryParse(baseUrl)?.authority ?? baseUrl);
       return MacAccountFooter(
-        name: identity == null
-            ? host
-            : (identity.displayName.isNotEmpty
-                  ? identity.displayName
-                  : identity.email),
+        name: user ?? host,
         host: host,
         onSettings: () => showSettingsDialog(context),
         onConnection: () => Navigator.of(context)
@@ -704,11 +705,7 @@ class AccountFooter extends StatelessWidget {
         onSignOut: (auth.status?.authRequired ?? false) ? auth.signOut : null,
       );
     }
-    final label = identity == null
-        ? (auth.baseUrl ?? 'Not connected')
-        : (identity.displayName.isNotEmpty
-              ? identity.displayName
-              : identity.email);
+    final label = user ?? auth.baseUrl ?? 'Not connected';
 
     return Padding(
       padding: const EdgeInsets.all(8),
