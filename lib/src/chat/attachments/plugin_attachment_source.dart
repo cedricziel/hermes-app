@@ -80,9 +80,15 @@ class PluginAttachmentSource implements AttachmentSource {
     try {
       final image = await _clipboardImage();
       if (image != null && image.isNotEmpty) return [await _pastedImage(image)];
+      // The macOS pasteboard plugin hands back every NSURL on the clipboard,
+      // including web URLs: a copied link's `path` is the URL's path portion
+      // without the host, a file that does not exist. Only real files count;
+      // anything else falls through to the text paste.
       return [
         for (final path in await _clipboardFiles())
-          if (!FileSystemEntity.isDirectorySync(path)) sharedFileFromPath(path),
+          if (!FileSystemEntity.isDirectorySync(path) &&
+              FileSystemEntity.isFileSync(path))
+            sharedFileFromPath(path),
       ];
     } on Object {
       return const [];

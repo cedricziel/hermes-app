@@ -131,16 +131,37 @@ void main() {
     });
 
     test('files on the clipboard are attached by path', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final pdf = File('${dir.path}/a.pdf')..writeAsStringSync('%PDF');
+      final png = File('${dir.path}/b.png')..writeAsBytesSync(_png);
       final source = PluginAttachmentSource(
         platform: TargetPlatform.linux,
         clipboardImage: () async => null,
-        clipboardFiles: () async => ['/home/me/a.pdf', '/home/me/b.png'],
+        clipboardFiles: () async => [pdf.path, png.path],
       );
 
       final pasted = await source.pasted();
 
       expect(pasted.map((f) => f.name), ['a.pdf', 'b.png']);
       expect(pasted.map((f) => f.isImage), [false, true]);
+    });
+
+    test('a web URL the macOS pasteboard reports as a path is skipped', () async {
+      // The macOS pasteboard plugin reads every NSURL on the clipboard; a
+      // copied link arrives as its path portion without the host.
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/note.txt')..writeAsStringSync('hi');
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.macOS,
+        clipboardImage: () async => null,
+        clipboardFiles: () async => ['/docs/page', 'https://example.com', file.path],
+      );
+
+      final pasted = await source.pasted();
+
+      expect(pasted, [SharedFile(path: file.path, name: 'note.txt')]);
     });
 
     test('an image wins over files', () async {
