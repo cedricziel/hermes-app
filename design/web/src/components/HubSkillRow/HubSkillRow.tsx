@@ -1,7 +1,7 @@
 import { Badge } from "../Badge/Badge";
 import { Icon } from "../Icon/Icon";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
-import "../SkillRow/SkillRow.css";
+import type { Platform } from "../../platform";
+import { SkillRowShell } from "../SkillRow/SkillRowShell";
 
 /** How far the skills hub vouches for a skill. */
 export type HubTrust = "builtin" | "trusted" | "community";
@@ -47,59 +47,37 @@ export function HubSkillRow({
   onClick,
   platform,
 }: HubSkillRowProps) {
-  const resolved = usePlatform(platform);
   return (
-    <PlatformScope platform={resolved}>
-      <div
-        className={cx(
-          "h-skill-row",
-          resolved === "apple" && "h-skill-row--apple",
-        )}
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick?.();
-          }
-        }}
-      >
-        <div className="h-skill-row__body">
-          <div className="h-skill-row__name">{skill.name}</div>
-          {skill.description ? (
-            <div className="h-skill-row__description h-skill-row__description--two">
-              {skill.description}
-            </div>
-          ) : null}
-          <div className="h-skill-row__meta">
-            <Badge tone={skill.trust === "builtin" ? "strong" : "neutral"}>
-              {hubTrustLabels[skill.trust]}
-            </Badge>
-            {(skill.tags ?? []).slice(0, 3).map((tag) => (
-              <span key={tag} className="h-skill-row__tag">
-                #{tag}
-              </span>
-            ))}
-          </div>
-        </div>
-        <span className="h-skill-row__trailing">
-          {installed ? (
-            <Icon
-              name="check_circle"
-              size={24}
-              label="Installed"
-              className="h-skill-row__installed"
-            />
-          ) : (
-            <Icon
-              name="chevron_right"
-              size={24}
-              className="h-skill-row__chevron"
-            />
-          )}
-        </span>
-      </div>
-    </PlatformScope>
+    <SkillRowShell
+      name={skill.name}
+      description={skill.description}
+      twoLines
+      platform={platform}
+      onClick={onClick}
+      meta={
+        <>
+          <Badge tone={skill.trust === "builtin" ? "strong" : "neutral"}>
+            {hubTrustLabels[skill.trust]}
+          </Badge>
+          {(skill.tags ?? []).slice(0, 3).map((tag) => (
+            <span key={tag} className="h-label-sm h-muted">
+              #{tag}
+            </span>
+          ))}
+        </>
+      }
+      trailing={
+        installed ? (
+          <Icon
+            name="check_circle"
+            size={24}
+            label="Installed"
+            className="h-skill-row__installed"
+          />
+        ) : (
+          <Icon name="chevron_right" size={24} className="h-muted" />
+        )
+      }
+    />
   );
 }

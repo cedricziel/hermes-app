@@ -1,0 +1,4 @@
+/* A skill's text fills its card instead of the chat column's 680px. */
+.h-skill-markdown {
+  --h-chat-column: none;
+}

@@ -5,7 +5,7 @@ import { IconButton } from "../IconButton/IconButton";
 import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./BotSetupScreen.css";
 
 /** A setting a bot platform reads from its environment. */
@@ -86,7 +86,6 @@ export function BotSetupScreen({
   platform,
   device,
 }: BotSetupScreenProps) {
-  const resolved = usePlatform(platform);
   const basic = envVars.filter((v) => !v.advanced);
   const advanced = envVars.filter((v) => v.advanced);
   const field = (v: BotEnvVar) => {
@@ -131,7 +130,7 @@ export function BotSetupScreen({
       onBack={onBack}
       backLabel="Bots"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
       centered={envVars.length === 0}
     >

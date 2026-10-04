@@ -1,9 +1,8 @@
 import { BotRow, type Bot } from "../BotRow/BotRow";
 import { Button } from "../Button/Button";
-import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 
 export interface BotsScreenProps {
   /** The messaging platforms the dashboard knows, in its order. */
@@ -42,34 +41,27 @@ export function BotsScreen({
   platform,
   device,
 }: BotsScreenProps) {
-  const resolved = usePlatform(platform);
   return (
     <ScreenFrame
       title="Bots"
       onBack={onBack}
       backLabel="Chat"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
-      centered={state !== "loaded"}
+      state={state}
+      loadingLabel="Loading bots"
+      failedTitle="Could not load bots"
+      onRetry={onRetry}
     >
-      {state === "loading" ? <Spinner size={36} label="Loading bots" /> : null}
-      {state === "failed" ? (
-        <StateMessage
-          title="Could not load bots"
-          action={<Button onClick={onRetry}>Retry</Button>}
+      {bots.map((bot) => (
+        <BotRow
+          key={bot.id}
+          bot={bot}
+          onClick={() => onOpen?.(bot.id)}
+          onEnabledChange={(v) => onEnabledChange?.(bot.id, v)}
         />
-      ) : null}
-      {state === "loaded"
-        ? bots.map((bot) => (
-            <BotRow
-              key={bot.id}
-              bot={bot}
-              onClick={() => onOpen?.(bot.id)}
-              onEnabledChange={(v) => onEnabledChange?.(bot.id, v)}
-            />
-          ))
-        : null}
+      ))}
     </ScreenFrame>
   );
 }

@@ -1,5 +1,6 @@
 import { Button } from "../Button/Button";
 import { Card } from "../Card/Card";
+import { SectionHeader } from "../SectionHeader/SectionHeader";
 import { Spinner } from "../Spinner/Spinner";
 import { PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./SecurityScanCard.css";
@@ -89,7 +90,7 @@ export function SecurityScanCard({
   return (
     <PlatformScope platform={resolved}>
       <Card className={`h-scan-card h-scan-card--${policy}`}>
-        <div className="h-scan-card__overline">SECURITY SCAN</div>
+        <SectionHeader title="Security scan" variant="overline" />
         <div className="h-scan-card__verdict">{verdicts[policy]}</div>
         {summary ? <div className="h-body-md">{summary}</div> : null}
         {counts.length > 0 ? (
@@ -114,7 +115,9 @@ export function SecurityScanCard({
                 </span>
                 {f.description}
               </div>
-              {where ? <div className="h-scan-card__where">{where}</div> : null}
+              {where ? (
+                <div className="h-mono h-scan-card__where">{where}</div>
+              ) : null}
             </div>
           );
         })}

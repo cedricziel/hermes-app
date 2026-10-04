@@ -1,6 +1,6 @@
 import { ListRow } from "../ListRow/ListRow";
 import { Switch } from "../Switch/Switch";
-import { usePlatform, type Platform } from "../../platform";
+import type { Platform } from "../../platform";
 
 /** A messaging platform Hermes can run as a bot. */
 export interface Bot {
@@ -41,7 +41,6 @@ export function BotRow({
   onEnabledChange,
   platform,
 }: BotRowProps) {
-  const resolved = usePlatform(platform);
   const subtitle = [
     bot.description,
     bot.configured ? undefined : "Needs setup",
@@ -51,7 +50,7 @@ export function BotRow({
     .join(" · ");
   return (
     <ListRow
-      platform={resolved}
+      platform={platform}
       grouped={false}
       icon="smart_toy"
       title={bot.name}

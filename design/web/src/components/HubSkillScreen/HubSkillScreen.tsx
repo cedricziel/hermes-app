@@ -1,4 +1,3 @@
-import { AssistantMessage } from "../AssistantMessage/AssistantMessage";
 import { Badge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { Card } from "../Card/Card";
@@ -9,9 +8,9 @@ import {
   SecurityScanCard,
   type SecurityScanCardProps,
 } from "../SecurityScanCard/SecurityScanCard";
-import { skillMarkdownBody } from "../SkillDetailScreen/SkillDetailScreen";
+import { SkillMarkdown } from "../../skillMarkdown";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./HubSkillScreen.css";
 
 export interface HubSkillScreenProps {
@@ -71,42 +70,24 @@ export function HubSkillScreen({
   platform,
   device,
 }: HubSkillScreenProps) {
-  const resolved = usePlatform(platform);
   const done = scan.state === "done";
   const policy = scan.policy ?? "allow";
-  let button = (
-    <Button fullWidth disabled>
-      Install
-    </Button>
-  );
-  let caption: string | undefined;
-  if (installed) {
-    button = (
-      <Button fullWidth disabled>
-        Installed
-      </Button>
-    );
-  } else if (done && policy === "allow") {
-    button = (
-      <Button fullWidth disabled={busy} onClick={onInstall}>
-        Install
-      </Button>
-    );
-  } else if (done && policy === "ask") {
-    button = (
-      <Button
-        fullWidth
-        variant="outlined"
-        disabled={busy}
-        onClick={onInstallAnyway}
-      >
-        Install anyway…
-      </Button>
-    );
-    caption = "Server policy: ask. You will be asked to confirm.";
-  } else if (done && policy === "block") {
-    caption = "Blocked by the server's policy.";
-  }
+  // The install button follows the scan's policy, as hub_skill_screen.dart.
+  const action = installed
+    ? { label: "Installed" }
+    : !done
+      ? { label: "Install" }
+      : policy === "allow"
+        ? { label: "Install", onClick: onInstall, enabled: !busy }
+        : policy === "ask"
+          ? {
+              label: "Install anyway…",
+              outlined: true,
+              onClick: onInstallAnyway,
+              enabled: !busy,
+              caption: "Server policy: ask. You will be asked to confirm.",
+            }
+          : { label: "Install", caption: "Blocked by the server's policy." };
   const loaded = previewState === "loaded";
   return (
     <ScreenFrame
@@ -114,14 +95,21 @@ export function HubSkillScreen({
       onBack={onBack}
       backLabel="Skills"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
       maxWidth={720}
       footer={
         <div className="h-hub-skill__bottom">
-          {button}
-          {caption ? (
-            <div className="h-body-sm h-hub-skill__caption">{caption}</div>
+          <Button
+            fullWidth
+            variant={action.outlined ? "outlined" : "filled"}
+            disabled={!action.enabled}
+            onClick={action.onClick}
+          >
+            {action.label}
+          </Button>
+          {action.caption ? (
+            <div className="h-body-sm h-muted">{action.caption}</div>
           ) : null}
         </div>
       }
@@ -144,7 +132,7 @@ export function HubSkillScreen({
         {loaded && files.length > 0 ? (
           <div>
             <SectionHeader title="Files" variant="overline" />
-            <div className="h-hub-skill__files">
+            <div className="h-mono h-hub-skill__files">
               {files.map((f) => (
                 <div key={f}>{f}</div>
               ))}
@@ -153,10 +141,7 @@ export function HubSkillScreen({
         ) : null}
         {loaded ? (
           <Card>
-            <AssistantMessage
-              text={skillMarkdownBody(markdown)}
-              showCopy={false}
-            />
+            <SkillMarkdown text={markdown} />
           </Card>
         ) : null}
       </div>

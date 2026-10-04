@@ -1,4 +1,3 @@
-import { AssistantMessage } from "../AssistantMessage/AssistantMessage";
 import { Badge } from "../Badge/Badge";
 import { Button } from "../Button/Button";
 import { Card } from "../Card/Card";
@@ -6,15 +5,12 @@ import { Chip } from "../Chip/Chip";
 import { skillSourceLabels, type Skill } from "../SkillRow/SkillRow";
 import { Spinner } from "../Spinner/Spinner";
 import { SwitchRow } from "../SwitchRow/SwitchRow";
+import { SkillMarkdown } from "../../skillMarkdown";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./SkillDetailScreen.css";
 
-/** The `SKILL.md` without its front matter, which renders as noise. */
-export function skillMarkdownBody(text: string) {
-  const match = /^---\s*\n[\s\S]*?\n---\s*(\n|$)/.exec(text);
-  return match ? text.slice(match[0].length).trimStart() : text;
-}
+export { skillMarkdownBody } from "../../skillMarkdown";
 
 export interface SkillDetailScreenProps {
   /** The skill. Leave out when it no longer exists ("This skill no longer exists."). */
@@ -69,15 +65,13 @@ export function SkillDetailScreen({
   platform,
   device,
 }: SkillDetailScreenProps) {
-  const resolved = usePlatform(platform);
-  const danger = { color: "var(--h-error)" };
   return (
     <ScreenFrame
       title={skill?.name ?? name ?? ""}
       onBack={onBack}
       backLabel="Skills"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
       maxWidth={720}
       centered={!skill}
@@ -108,15 +102,14 @@ export function SkillDetailScreen({
               >
                 Edit
               </Button>
-              <Button variant="outlined" style={danger} onClick={onAskDelete}>
+              <Button variant="danger-outlined" onClick={onAskDelete}>
                 Ask agent to delete
               </Button>
             </div>
           ) : skill.source === "hub" && hub ? (
             <div className="h-skill-detail__actions">
               <Button
-                variant="outlined"
-                style={hubBusy ? undefined : danger}
+                variant="danger-outlined"
                 disabled={hubBusy}
                 onClick={onUninstall}
               >
@@ -124,26 +117,23 @@ export function SkillDetailScreen({
               </Button>
             </div>
           ) : (
-            <div className="h-body-sm h-skill-detail__note">
+            <div className="h-body-sm h-muted">
               Bundled and hub skills can only be switched on or off here.
             </div>
           )}
           <div className="h-skill-detail__content">
             {contentState === "failed" ? (
-              <div className="h-skill-detail__failed">
+              <div className="h-skill-detail__state">
                 <div className="h-body-md">Could not load this skill</div>
                 <Button onClick={onRetry}>Retry</Button>
               </div>
             ) : contentState === "loading" ? (
-              <div className="h-skill-detail__failed">
+              <div className="h-skill-detail__state">
                 <Spinner size={36} label="Loading the skill" />
               </div>
             ) : (
               <Card>
-                <AssistantMessage
-                  text={skillMarkdownBody(content)}
-                  showCopy={false}
-                />
+                <SkillMarkdown text={content} />
               </Card>
             )}
           </div>

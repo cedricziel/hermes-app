@@ -61,14 +61,6 @@
   margin-top: 4px;
 }
 
-.h-skill-row__usage,
-.h-skill-row__tag {
-  font-size: var(--h-ramp-label-sm-size, 11px);
-  line-height: 16px;
-  font-weight: 500;
-  color: var(--h-muted);
-}
-
 .h-skill-row__trailing {
   flex: none;
   display: inline-flex;
@@ -76,10 +68,6 @@
 
 .h-skill-row__installed {
   color: var(--h-primary);
-}
-
-.h-skill-row__chevron {
-  color: var(--h-muted);
 }
 
 .h-skill-row--apple {

@@ -2,7 +2,7 @@ import { Button } from "../Button/Button";
 import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./TelegramPairingScreen.css";
 
 /** Where pairing a Telegram bot stands. */
@@ -69,7 +69,6 @@ export function TelegramPairingScreen({
   platform,
   device,
 }: TelegramPairingScreenProps) {
-  const resolved = usePlatform(platform);
   const errorText = error ? (
     <div className="h-body-md h-pairing__error" role="alert">
       {error}
@@ -81,7 +80,7 @@ export function TelegramPairingScreen({
       onBack={onBack}
       backLabel="Bots"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
     >
       <div className="h-pairing">

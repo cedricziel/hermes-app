@@ -4,7 +4,7 @@ import { ProfileTile, type Profile } from "../ProfileTile/ProfileTile";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 
 export interface ProfilesScreenProps {
   /** The dashboard's profiles, in its order. */
@@ -49,51 +49,41 @@ export function ProfilesScreen({
   platform,
   device,
 }: ProfilesScreenProps) {
-  const resolved = usePlatform(platform);
-  const busy = state !== "loaded";
   return (
     <ScreenFrame
       title="Profiles"
       onBack={onBack}
       backLabel="Chat"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
-      centered={busy}
+      state={state}
+      loadingLabel="Loading profiles"
+      failedTitle="Could not load profiles"
+      onRetry={onRetry}
     >
-      {state === "loading" ? (
-        <Spinner size={36} label="Loading profiles" />
-      ) : null}
-      {state === "failed" ? (
-        <StateMessage
-          title="Could not load profiles"
-          action={<Button onClick={onRetry}>Retry</Button>}
-        />
-      ) : null}
-      {state === "loaded" ? (
-        <>
-          {shownInChat && shownInChat !== active ? (
-            <ListRow
-              grouped={false}
-              icon="info"
-              title={`The chat shows ${shownInChat}.`}
-              subtitle={`The CLI default is ${active}.`}
-            />
-          ) : null}
-          {profiles.map((p) => (
-            <ProfileTile
-              key={p.name}
-              profile={p}
-              active={p.name === active}
-              layout={layout}
-              onClick={() => onSelect?.(p.name)}
-              onChangeModel={
-                onChangeModel ? () => onChangeModel(p.name) : undefined
-              }
-            />
-          ))}
-        </>
-      ) : null}
+      <>
+        {shownInChat && shownInChat !== active ? (
+          <ListRow
+            grouped={false}
+            icon="info"
+            title={`The chat shows ${shownInChat}.`}
+            subtitle={`The CLI default is ${active}.`}
+          />
+        ) : null}
+        {profiles.map((p) => (
+          <ProfileTile
+            key={p.name}
+            profile={p}
+            active={p.name === active}
+            layout={layout}
+            onClick={() => onSelect?.(p.name)}
+            onChangeModel={
+              onChangeModel ? () => onChangeModel(p.name) : undefined
+            }
+          />
+        ))}
+      </>
     </ScreenFrame>
   );
 }

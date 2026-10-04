@@ -1,7 +1,7 @@
 import { Icon } from "../Icon/Icon";
 import { ListRow } from "../ListRow/ListRow";
 import { Spinner } from "../Spinner/Spinner";
-import { usePlatform, type Platform } from "../../platform";
+import type { Platform } from "../../platform";
 
 /** A model a slot runs on: provider and model id, with an optional reasoning effort. */
 export interface ModelChoice {
@@ -69,10 +69,9 @@ export function ModelSlotRow({
   onClick,
   platform,
 }: ModelSlotRowProps) {
-  const resolved = usePlatform(platform);
   return (
     <ListRow
-      platform={resolved}
+      platform={platform}
       grouped={false}
       title={off ? `${label} (off)` : label}
       subtitle={describeModelChoice(choice, mainModel)}

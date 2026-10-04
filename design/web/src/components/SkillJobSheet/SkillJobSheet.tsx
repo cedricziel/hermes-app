@@ -63,7 +63,7 @@ export function SkillJobSheet({
           </div>
         )}
         {tail.length > 0 ? (
-          <pre className="h-skill-job__log">{tail.join("\n")}</pre>
+          <pre className="h-mono h-skill-job__log">{tail.join("\n")}</pre>
         ) : null}
         <div className="h-skill-job__actions">
           <Button variant="text" onClick={onClose}>

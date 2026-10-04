@@ -10,7 +10,7 @@ import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import { TextField } from "../TextField/TextField";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./SkillsScreen.css";
 
 /** The Installed tab's filter chips. */
@@ -101,10 +101,23 @@ export interface SkillsScreenProps {
   device?: AppleDevice;
 }
 
-function Note({ text, action }: { text: string; action?: ReactNode }) {
+/** A centred spinner (`loading`, its accessible name) or a message with an optional action. */
+function Note({
+  text,
+  action,
+  loading,
+}: {
+  text?: string;
+  action?: ReactNode;
+  loading?: string;
+}) {
   return (
     <div className="h-skills__note">
-      <StateMessage title={text} action={action} />
+      {loading ? (
+        <Spinner size={36} label={loading} />
+      ) : (
+        <StateMessage title={text ?? ""} action={action} />
+      )}
     </div>
   );
 }
@@ -147,7 +160,6 @@ export function SkillsScreen({
   platform,
   device,
 }: SkillsScreenProps) {
-  const resolved = usePlatform(platform);
   const discover = !!hub && tab === "discover";
   const canAdd = !discover && state === "loaded" && !!onNewSkill;
   // A loading, failed or unsupported tab is a note centred on the screen.
@@ -157,11 +169,7 @@ export function SkillsScreen({
   const installedBody = () => {
     switch (state) {
       case "loading":
-        return (
-          <div className="h-skills__note">
-            <Spinner size={36} label="Loading skills" />
-          </div>
-        );
+        return <Note loading="Loading skills" />;
       case "unsupported":
         return <Note text="The connected Hermes does not support skills." />;
       case "failed":
@@ -237,14 +245,10 @@ export function SkillsScreen({
     );
   };
   const discoverBody = () => {
-    const h = hub ?? {};
+    const h = hub!;
     switch (h.state) {
       case "loading":
-        return (
-          <div className="h-skills__note">
-            <Spinner size={36} label="Loading the hub" />
-          </div>
-        );
+        return <Note loading="Loading the hub" />;
       case "unsupported":
         return (
           <Note text="The connected Hermes does not support the skills hub." />
@@ -276,11 +280,7 @@ export function SkillsScreen({
         />
       );
     } else if (searching && h.searching && !(h.results ?? []).length) {
-      list = (
-        <div className="h-skills__note">
-          <Spinner size={36} label="Searching" />
-        </div>
-      );
+      list = <Note loading="Searching" />;
     } else if (searching) {
       const results = h.results ?? [];
       list = (
@@ -301,28 +301,26 @@ export function SkillsScreen({
           ) : null}
         </div>
       );
-    } else if (!(h.featured ?? []).length && !(h.official ?? []).length) {
-      list = <Note text="No skills to show." />;
     } else {
-      list = (
+      const sections = (
+        [
+          ["Featured", h.featured ?? []],
+          ["Official", h.official ?? []],
+        ] as const
+      ).filter(([, skills]) => skills.length > 0);
+      list = sections.length ? (
         <div className="h-skills__list">
-          {(h.featured ?? []).length ? (
-            <>
+          {sections.map(([title, skills]) => (
+            <div key={title}>
               <div className="h-skills__heading">
-                <SectionHeader title="Featured" variant="overline" />
+                <SectionHeader title={title} variant="overline" />
               </div>
-              {h.featured!.map(row)}
-            </>
-          ) : null}
-          {(h.official ?? []).length ? (
-            <>
-              <div className="h-skills__heading">
-                <SectionHeader title="Official" variant="overline" />
-              </div>
-              {h.official!.map(row)}
-            </>
-          ) : null}
+              {skills.map(row)}
+            </div>
+          ))}
         </div>
+      ) : (
+        <Note text="No skills to show." />
       );
     }
     return (
@@ -379,7 +377,7 @@ export function SkillsScreen({
       onAdd={canAdd ? onNewSkill : undefined}
       addLabel="New skill"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
       maxWidth={720}
       centered={noteOnly}
@@ -390,6 +388,12 @@ export function SkillsScreen({
             role="button"
             tabIndex={0}
             onClick={onOpenJob}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onOpenJob?.();
+              }
+            }}
           >
             <div className="h-body-md">{job.title}…</div>
             <BusyBar label={job.title} />

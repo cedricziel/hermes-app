@@ -21,6 +21,7 @@ export function BusyBar({
   label = "In progress",
 }: BusyBarProps) {
   const indeterminate = value === undefined;
+  const fraction = indeterminate ? 0 : Math.max(0, Math.min(1, value));
   return (
     <div
       className={
@@ -30,18 +31,12 @@ export function BusyBar({
       aria-label={label}
       aria-valuemin={indeterminate ? undefined : 0}
       aria-valuemax={indeterminate ? undefined : 100}
-      aria-valuenow={
-        indeterminate ? undefined : Math.round(Math.min(1, value) * 100)
-      }
+      aria-valuenow={indeterminate ? undefined : Math.round(fraction * 100)}
       style={{ height }}
     >
       <div
         className="h-busy-bar__value"
-        style={
-          indeterminate
-            ? undefined
-            : { width: `${Math.max(0, Math.min(1, value)) * 100}%` }
-        }
+        style={indeterminate ? undefined : { width: `${fraction * 100}%` }}
       />
     </div>
   );

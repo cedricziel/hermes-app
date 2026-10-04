@@ -4,7 +4,7 @@ import { SectionHeader } from "../SectionHeader/SectionHeader";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./HelperModelsScreen.css";
 
 /** One of Hermes' side jobs and the model it runs on. */
@@ -82,70 +82,61 @@ export function HelperModelsScreen({
   platform,
   device,
 }: HelperModelsScreenProps) {
-  const resolved = usePlatform(platform);
   return (
     <ScreenFrame
       title="Helper models"
       onBack={onBack}
       backLabel="Chat"
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
-      centered={state !== "loaded"}
+      state={state}
+      loadingLabel="Loading helper models"
+      failedTitle="Could not load the helper models"
+      onRetry={onRetry}
     >
-      {state === "loading" ? (
-        <Spinner size={36} label="Loading helper models" />
-      ) : null}
-      {state === "failed" ? (
-        <StateMessage
-          title="Could not load the helper models"
-          action={<Button onClick={onRetry}>Retry</Button>}
-        />
-      ) : null}
-      {state === "loaded" ? (
-        <div className="h-helper-models">
-          <div className="h-body-sm h-helper-models__intro">
-            Hermes runs side jobs on these models. Changes apply to new chats.
-          </div>
-          {slots.map((slot) => (
-            <ModelSlotRow
-              key={slot.task}
-              label={slot.label}
-              choice={slot.choice}
-              mainModel={mainModel}
-              saving={slot.saving}
-              onClick={() => onOpenSlot?.(slot.task)}
-            />
-          ))}
-          {moa ? (
-            <>
-              <SectionHeader
-                title={
-                  moa.preset === "default"
-                    ? "Mixture of agents"
-                    : `Mixture of agents · ${moa.preset}`
-                }
-                caption={
-                  moa.privacyFilterOn
-                    ? "Hermes’ privacy filter is on, and saving here would turn it off. Change these slots on the server."
-                    : undefined
-                }
-              />
-              {moa.slots.map((slot) => (
-                <ModelSlotRow
-                  key={slot.key}
-                  label={slot.label}
-                  choice={slot.choice}
-                  off={slot.enabled === false}
-                  saving={slot.saving}
-                  disabled={moa.privacyFilterOn}
-                  onClick={() => onOpenMoaSlot?.(slot.key)}
-                />
-              ))}
-            </>
-          ) : null}
+      <div className="h-helper-models">
+        <div className="h-body-sm h-muted h-helper-models__intro">
+          Hermes runs side jobs on these models. Changes apply to new chats.
         </div>
-      ) : null}
+        {slots.map((slot) => (
+          <ModelSlotRow
+            key={slot.task}
+            label={slot.label}
+            choice={slot.choice}
+            mainModel={mainModel}
+            saving={slot.saving}
+            onClick={() => onOpenSlot?.(slot.task)}
+          />
+        ))}
+        {moa ? (
+          <>
+            <SectionHeader
+              title={
+                moa.preset === "default"
+                  ? "Mixture of agents"
+                  : `Mixture of agents · ${moa.preset}`
+              }
+              caption={
+                moa.privacyFilterOn
+                  ? "Hermes’ privacy filter is on, and saving here would turn it off. Change these slots on the server."
+                  : undefined
+              }
+            />
+            {moa.slots.map((slot) => (
+              <ModelSlotRow
+                key={slot.key}
+                label={slot.label}
+                choice={slot.choice}
+                off={slot.enabled === false}
+                saving={slot.saving}
+                disabled={moa.privacyFilterOn}
+                onClick={() => onOpenMoaSlot?.(slot.key)}
+              />
+            ))}
+          </>
+        ) : null}
+      </div>
     </ScreenFrame>
   );
 }

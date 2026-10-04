@@ -20,7 +20,6 @@
   border-radius: 10px;
   background: var(--h-fg);
   color: var(--h-bg);
-  font-family: var(--h-font-mono);
   font-size: 12px;
   line-height: 18px;
   white-space: pre-wrap;

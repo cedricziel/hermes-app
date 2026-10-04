@@ -1,12 +1,11 @@
-import { AssistantMessage } from "../AssistantMessage/AssistantMessage";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
-import { skillMarkdownBody } from "../SkillDetailScreen/SkillDetailScreen";
 import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
+import { SkillMarkdown } from "../../skillMarkdown";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import type { AppleDevice, Platform } from "../../platform";
 import "./SkillEditorScreen.css";
 
 /** The `SKILL.md` a new skill starts from. */
@@ -108,7 +107,6 @@ export function SkillEditorScreen({
   platform,
   device,
 }: SkillEditorScreenProps) {
-  const resolved = usePlatform(platform);
   const editing = view === "edit";
   return (
     <ScreenFrame
@@ -125,7 +123,7 @@ export function SkillEditorScreen({
         </Button>
       }
       layout={layout}
-      platform={resolved}
+      platform={platform}
       device={device}
       maxWidth={null}
       footer={
@@ -201,7 +199,7 @@ export function SkillEditorScreen({
           />
         ) : (
           <div className="h-skill-editor__preview">
-            <AssistantMessage text={skillMarkdownBody(text)} showCopy={false} />
+            <SkillMarkdown text={text} />
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { Badge } from "../Badge/Badge";
 import { Switch } from "../Switch/Switch";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
-import "./SkillRow.css";
+import type { Platform } from "../../platform";
+import { SkillRowShell } from "./SkillRowShell";
 
 /** Where an installed skill came from. */
 export type SkillSource = "hub" | "bundled" | "agent";
@@ -51,45 +51,29 @@ export function SkillRow({
   onEnabledChange,
   platform,
 }: SkillRowProps) {
-  const resolved = usePlatform(platform);
   return (
-    <PlatformScope platform={resolved}>
-      <div
-        className={cx(
-          "h-skill-row",
-          resolved === "apple" && "h-skill-row--apple",
-          !skill.enabled && "h-skill-row--off",
-        )}
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick?.();
-          }
-        }}
-      >
-        <div className="h-skill-row__body">
-          <div className="h-skill-row__name">{skill.name}</div>
-          {skill.description ? (
-            <div className="h-skill-row__description">{skill.description}</div>
+    <SkillRowShell
+      name={skill.name}
+      description={skill.description}
+      off={!skill.enabled}
+      platform={platform}
+      onClick={onClick}
+      meta={
+        <>
+          <Badge>{skillSourceLabels[skill.source]}</Badge>
+          {skill.usage ? (
+            <span className="h-label-sm h-muted">used {skill.usage}×</span>
           ) : null}
-          <div className="h-skill-row__meta">
-            <Badge>{skillSourceLabels[skill.source]}</Badge>
-            {skill.usage ? (
-              <span className="h-skill-row__usage">used {skill.usage}×</span>
-            ) : null}
-          </div>
-        </div>
+        </>
+      }
+      trailing={
         <Switch
           checked={skill.enabled}
           label={`${skill.name} enabled`}
           onClick={(e) => e.stopPropagation()}
           onChange={onEnabledChange}
         />
-      </div>
-    </PlatformScope>
+      }
+    />
   );
 }

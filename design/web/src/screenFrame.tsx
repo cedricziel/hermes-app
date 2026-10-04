@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
+import { Button } from "./components/Button/Button";
 import { ListDetailLayout } from "./components/ListDetailLayout/ListDetailLayout";
+import { Spinner } from "./components/Spinner/Spinner";
+import { StateMessage } from "./components/StateMessage/StateMessage";
 import { usePlatform, type AppleDevice, type Platform } from "./platform";
 import "./screenFrame.css";
 
@@ -30,6 +33,13 @@ export interface ScreenFrameProps {
   banner?: ReactNode;
   /** Centre the content vertically (loading spinners and state messages). */
   centered?: boolean;
+  /** `loading` draws a centred spinner and `failed` a `StateMessage` with Retry instead of the children. Default `loaded`. */
+  state?: "loaded" | "loading" | "failed";
+  /** The spinner's accessible name: "Loading profiles". */
+  loadingLabel?: string;
+  /** The `failed` message: "Could not load profiles". */
+  failedTitle?: string;
+  onRetry?: () => void;
   children?: ReactNode;
 }
 
@@ -48,11 +58,26 @@ export function ScreenFrame({
   footer,
   banner,
   centered = false,
+  state = "loaded",
+  loadingLabel,
+  failedTitle = "Could not load",
+  onRetry,
   children,
   ...bar
 }: ScreenFrameProps) {
   const resolved = usePlatform(platform);
   const column = maxWidth === null ? undefined : { maxWidth };
+  const content =
+    state === "loading" ? (
+      <Spinner size={36} label={loadingLabel} />
+    ) : state === "failed" ? (
+      <StateMessage
+        title={failedTitle}
+        action={<Button onClick={onRetry}>Retry</Button>}
+      />
+    ) : (
+      children
+    );
   return (
     <ListDetailLayout
       {...bar}
@@ -65,18 +90,18 @@ export function ScreenFrame({
           <div className="h-screen-frame__scroll">
             <div
               className={
-                centered
+                centered || state !== "loaded"
                   ? "h-screen-frame__column h-screen-frame__column--centered"
                   : "h-screen-frame__column"
               }
               style={column}
             >
-              {children}
+              {content}
             </div>
           </div>
           {footer ? (
             <div className="h-screen-frame__footer">
-              <div className="h-screen-frame__footer-column" style={column}>
+              <div className="h-screen-frame__column" style={column}>
                 {footer}
               </div>
             </div>
