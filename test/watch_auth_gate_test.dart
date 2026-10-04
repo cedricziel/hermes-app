@@ -12,17 +12,19 @@ import 'support/memory_token_store.dart';
 void main() {
   late HttpServer dashboard;
   late List<String> requestedPaths;
+  var authRequired = true;
 
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     requestedPaths = [];
+    authRequired = true;
     dashboard = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     dashboard.listen((request) {
       requestedPaths.add(request.uri.path);
       final body = switch (request.uri.path) {
         '/api/status' => {
-          'auth_required': true,
+          'auth_required': authRequired,
           'auth_flows': ['native_pkce'],
         },
         '/api/auth/providers' => {'providers': []},
@@ -56,15 +58,29 @@ void main() {
     expect(requestedPaths, isEmpty);
   });
 
+  test('answers once the session is restored, not before', () async {
+    authRequired = false;
+    final auth = AuthController(
+      tokenStore: MemoryTokenStore(),
+      devServerUrl: 'http://127.0.0.1:${dashboard.port}',
+    );
+    expect(auth.state, HermesConnectionState.initializing);
+    final handler = WatchBridge.handlerFor(auth);
+
+    final threads = handler.handle({'op': 'threads'});
+    await auth.bootstrap();
+
+    expect(await threads, {'ok': true, 'threads': <Object?>[]});
+  });
+
   test(
-    'answers unavailable, not signed_out, before the session is restored',
+    'answers unavailable when the session is not restored in time',
     () async {
       final auth = AuthController(
         tokenStore: MemoryTokenStore(),
         devServerUrl: 'http://127.0.0.1:${dashboard.port}',
       );
-      expect(auth.state, HermesConnectionState.initializing);
-      final handler = WatchBridge.handlerFor(auth);
+      final handler = WatchBridge.handlerFor(auth, readyTimeout: Duration.zero);
 
       final threads = await handler.handle({'op': 'threads'});
 

@@ -217,6 +217,36 @@ screenshot, then revert it. Check a diff before committing so none of it ships.
 The Kanban tab appears only because the backend lists the bundled `kanban`
 plugin (`GET /api/dashboard/plugins`); nothing needs enabling.
 
+## The watch app
+
+The watch app has no network of its own: every request goes over
+WatchConnectivity to the phone app, which may be woken in the background to
+answer. To check a watch change, use a booted iPhone and Apple Watch simulator
+pair (`xcrun simctl list pairs`).
+
+- Build once with `flutter build ios --simulator --debug -d <phone udid>
+  --dart-define=HERMES_SERVER_URL=<dev backend url>`. The watch app is embedded
+  at `build/ios/iphonesimulator/Runner.app/Watch/HermesWatch.app`. Install the
+  phone app and the watch app separately with `xcrun simctl install`. The
+  bundle IDs are `com.cedricziel.hermesApp` and
+  `com.cedricziel.hermesApp.watchkitapp`, with no `.dev` suffix.
+- To test a cold start, the case users hit most, run
+  `xcrun simctl terminate` on the phone app, then `xcrun simctl launch` the
+  watch app.
+- The relay between the simulators is slow and lossy. A message can take a
+  minute or more to arrive, and now and then one is lost and times out after
+  5 minutes (`WCErrorCodeMessageReplyTimedOut`). Poll the logs instead of
+  waiting a fixed time, and run a failure twice before trusting it.
+- Read the relay in the unified log on each simulator:
+  `xcrun simctl spawn <udid> log show --last 5m --predicate 'subsystem ==
+  "com.apple.wcd"' --style compact`. `responseDataSize` on the phone shows
+  that an answer was sent and how big it was: an empty thread list is 15
+  bytes, `{ok: false, error: unavailable}` is 24. "Firing background task
+  expiration handlers" with `watch-relay` means Dart did not answer in time.
+- `print` output from Dart shows up in the same log under process `Runner`.
+- The phone can't be locked on a simulator, so behaviour on a locked phone,
+  such as keychain access, can only be checked on a device.
+
 ## Sign-in against a real server
 
 The loopback backend skips sign-in. To exercise it, run `flutter run -d macos

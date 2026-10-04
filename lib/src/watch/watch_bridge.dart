@@ -64,20 +64,37 @@ class WatchBridge {
   static WatchRequestHandler handlerFor(
     AuthController auth, {
     void Function(AttentionNotification) announce = _ignore,
+    Duration readyTimeout = const Duration(seconds: 20),
   }) {
     // The client exists from the first connect, before anyone has signed in.
     HermesApiClient? readyApi() =>
         auth.state == HermesConnectionState.ready ? auth.api : null;
 
+    bool connecting() => switch (auth.state) {
+      HermesConnectionState.initializing ||
+      HermesConnectionState.connecting ||
+      HermesConnectionState.signingIn ||
+      HermesConnectionState.connectionError => true,
+      _ => false,
+    };
+
+    Future<void> ready() {
+      final settled = Completer<void>();
+      void check() {
+        if (!connecting() && !settled.isCompleted) settled.complete();
+      }
+
+      auth.addListener(check);
+      check();
+      return settled.future
+          .timeout(readyTimeout, onTimeout: () {})
+          .whenComplete(() => auth.removeListener(check));
+    }
+
     return WatchRequestHandler(
       announce: announce,
-      connecting: () => switch (auth.state) {
-        HermesConnectionState.initializing ||
-        HermesConnectionState.connecting ||
-        HermesConnectionState.signingIn ||
-        HermesConnectionState.connectionError => true,
-        _ => false,
-      },
+      connecting: connecting,
+      ready: ready,
       repository: () {
         final api = readyApi();
         return api == null ? null : HermesChatRepository(api.raw);
