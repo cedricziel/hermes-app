@@ -91,7 +91,7 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
 
   String get _title => switch (widget.request.kind) {
     VaultKind.saveLogin => 'Save a login for ${widget.request.site}?',
-    VaultKind.unlock => 'Unlock ${_managerName}',
+    VaultKind.unlock => 'Unlock $_managerName',
     VaultKind.code => 'One-time code for ${widget.request.site}',
   };
 
