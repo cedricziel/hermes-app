@@ -120,6 +120,9 @@
     },
     "SegmentedControl": {
       "cardMode": "column"
+    },
+    "SegmentedButton": {
+      "cardMode": "column"
     }
   }
 }
