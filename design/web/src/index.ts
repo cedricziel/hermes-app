@@ -40,3 +40,4 @@ export * from "./components/KanbanToolbar/KanbanToolbar";
 export * from "./components/KanbanTaskPanel/KanbanTaskPanel";
 
 export type { AppleDevice, Platform } from "./platform";
+export * from "./components/SegmentedButton/SegmentedButton";
