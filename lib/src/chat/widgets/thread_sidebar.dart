@@ -202,7 +202,15 @@ class ThreadSidebar extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
             child: navigation,
           ),
-        Expanded(child: _threadList()),
+        Expanded(
+          child: _MacThreadList(
+            threads: threads,
+            selectedId: selectedId,
+            onSelect: onSelect,
+            housekeeping: housekeeping,
+            onOpenInNewWindow: onOpenInNewWindow,
+          ),
+        ),
       ],
     );
     final search = this.search;
@@ -228,19 +236,7 @@ class ThreadSidebar extends StatelessWidget {
     );
   }
 
-  Widget _threadList() => Builder(
-    builder: (context) => platformChromeOf(context) == PlatformChrome.macos
-        ? _MacThreadList(
-            threads: threads,
-            selectedId: selectedId,
-            onSelect: onSelect,
-            housekeeping: housekeeping,
-            onOpenInNewWindow: onOpenInNewWindow,
-          )
-        : _flatThreadList(),
-  );
-
-  Widget _flatThreadList() {
+  Widget _threadList() {
     final housekeeping = this.housekeeping;
     final showMore = housekeeping != null && housekeeping.hasMore;
     return ListView.builder(

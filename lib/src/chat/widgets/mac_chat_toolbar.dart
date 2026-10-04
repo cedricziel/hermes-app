@@ -54,7 +54,7 @@ class MacChatToolbar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    final compact = width < kMacCompactWindowWidth;
+    final compact = isMacCompact(context);
     final showField = searchActive || width >= kMacToolbarSearchFieldWidth;
     return MacToolbar(
       title: title,
@@ -117,12 +117,7 @@ class MacChatToolbar extends StatelessWidget {
       iconSize: 18,
       color: context.hermesColors.subtleText,
       padding: EdgeInsets.zero,
-      style: IconButton.styleFrom(
-        fixedSize: const Size.square(28),
-        minimumSize: const Size.square(28),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      ),
+      style: macToolbarButtonStyle(context),
       onSelected: (item) => switch (item) {
         _More.copyTranscript => onCopyTranscript?.call(),
         _More.connection => onShowConnection(),

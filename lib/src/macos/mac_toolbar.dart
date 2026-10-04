@@ -139,7 +139,6 @@ class MacToolbarButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
     final shortcut = this.shortcut;
     return NamedIconButton(
       label: label,
@@ -147,28 +146,32 @@ class MacToolbarButton extends StatelessWidget {
       icon: icon,
       isSelected: selected,
       onPressed: onPressed,
-      style:
-          IconButton.styleFrom(
-            fixedSize: const Size.square(28),
-            minimumSize: const Size.square(28),
-            padding: EdgeInsets.zero,
-            iconSize: 18,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.standard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-            hoverColor: onSurface.withValues(alpha: 0.06),
-            highlightColor: onSurface.withValues(alpha: 0.1),
-          ).copyWith(
-            backgroundColor: WidgetStateProperty.resolveWith(
-              (states) => states.contains(WidgetState.selected)
-                  ? onSurface.withValues(alpha: 0.1)
-                  : null,
-            ),
-          ),
+      style: macToolbarButtonStyle(context),
     );
   }
+}
+
+/// The look of a [MacToolbarButton], for a toolbar control built on another
+/// button, such as a menu.
+ButtonStyle macToolbarButtonStyle(BuildContext context) {
+  final onSurface = Theme.of(context).colorScheme.onSurface;
+  return IconButton.styleFrom(
+    fixedSize: const Size.square(28),
+    minimumSize: const Size.square(28),
+    padding: EdgeInsets.zero,
+    iconSize: 18,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    visualDensity: VisualDensity.standard,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+    hoverColor: onSurface.withValues(alpha: 0.06),
+    highlightColor: onSurface.withValues(alpha: 0.1),
+  ).copyWith(
+    backgroundColor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.selected)
+          ? onSurface.withValues(alpha: 0.1)
+          : null,
+    ),
+  );
 }
 
 /// The 1 by 20 point rule between groups of toolbar buttons.

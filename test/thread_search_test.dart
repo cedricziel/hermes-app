@@ -168,7 +168,7 @@ void main() {
       final again = ThreadSearch(
         (_) async => const [],
         recentStore: SharedPreferencesAsync(),
-      );
+      )..begin();
       await Future<void>.delayed(Duration.zero);
       expect(again.recent, ['c', 'f', 'e', 'd', 'b']);
     });

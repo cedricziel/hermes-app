@@ -173,11 +173,7 @@ class _GroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      color: context.hermesColors.subtleText,
-    );
+    final style = macSectionHeaderStyle(context);
     return Semantics(
       header: true,
       child: Padding(

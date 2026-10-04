@@ -27,9 +27,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
     this.debounce = defaultDebounce,
     this._searchAll,
     this._recentStore,
-  }) {
-    _loadRecent();
-  }
+  });
 
   static const defaultDebounce = Duration(milliseconds: 300);
 
@@ -63,6 +61,7 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   /// The latest queries the user searched for, newest first.
   List<String> get recent => _recent;
   bool _recentTouched = false;
+  bool _recentLoaded = false;
 
   Timer? _timer;
   int _generation = 0;
@@ -100,6 +99,10 @@ class ThreadSearch extends ChangeNotifier with SafeNotifier {
   void begin() {
     if (_active) return;
     _active = true;
+    if (!_recentLoaded) {
+      _recentLoaded = true;
+      _loadRecent();
+    }
     notifyListeners();
   }
 

@@ -310,7 +310,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (search == null) return;
     if (!search.active) {
       search.begin();
-      final sidebar = MacSidebarScope.maybeOf(context);
+      final sidebar = MacSidebarScope.read(context);
       if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
         sidebar.toggle(compact: true);
       }
@@ -426,7 +426,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _closeDrawerIfNarrow() {
-    MacSidebarScope.maybeOf(context)?.closeOverlay();
+    MacSidebarScope.read(context)?.closeOverlay();
     if (!isWideLayout(context)) {
       _scaffoldKey.currentState?.closeDrawer();
     }
@@ -551,7 +551,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _inFront = Visibility.of(context);
     _mac = platformChromeOf(context) == PlatformChrome.macos;
-    final macSidebar = _mac && MacSidebarScope.maybeOf(context) != null;
+    final macSidebar = hasMacSidebar(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide =

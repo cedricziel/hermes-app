@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
+import '../theme/platform_chrome.dart';
 import 'mac_toolbar.dart';
 import 'mac_window.dart';
 
@@ -20,6 +21,12 @@ const double kMacCompactWindowWidth = 760;
 /// Whether the window around [context] is too narrow for a docked sidebar.
 bool isMacCompact(BuildContext context) =>
     MediaQuery.sizeOf(context).width < kMacCompactWindowWidth;
+
+/// Whether [context] is in a Mac window with a [MacSidebarScope], which keeps
+/// its sidebar at every width: docked, or over the content when compact.
+bool hasMacSidebar(BuildContext context) =>
+    platformChromeOf(context) == PlatformChrome.macos &&
+    MacSidebarScope.read(context) != null;
 
 const _widthKey = 'hermes.mac_sidebar_width';
 const _collapsedKey = 'hermes.mac_sidebar_collapsed';
@@ -147,12 +154,15 @@ class MacSidebarScope extends StatefulWidget {
 
   static MacSidebarController of(BuildContext context) => maybeOf(context)!;
 
+  /// The controller above [context] without listening to it, for a callback
+  /// or a check that does not change with the sidebar.
+  static MacSidebarController? read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_ControllerScope>()?.notifier;
+
   /// The folded sections of the sidebar above [context], without rebuilding
   /// [context] when the sidebar is resized or hidden.
-  static MacSidebarSections? sectionsOf(BuildContext context) => context
-      .getInheritedWidgetOfExactType<_ControllerScope>()
-      ?.notifier
-      ?.sections;
+  static MacSidebarSections? sectionsOf(BuildContext context) =>
+      read(context)?.sections;
 
   @override
   State<MacSidebarScope> createState() => _MacSidebarScopeState();
