@@ -14,8 +14,10 @@ const double kMacSidebarDefaultWidth = 280;
 
 const _widthKey = 'hermes.mac_sidebar_width';
 const _collapsedKey = 'hermes.mac_sidebar_collapsed';
+const _sectionsKey = 'hermes.mac_sidebar_folded_sections';
 
-/// Whether the sidebar of a Mac window is shown, and how wide.
+/// Whether the sidebar of a Mac window is shown, how wide, and which of its
+/// sections are folded away.
 class MacSidebarController extends ChangeNotifier {
   MacSidebarController({SharedPreferencesAsync? prefs})
     : _prefs = prefs ?? SharedPreferencesAsync();
@@ -24,17 +26,34 @@ class MacSidebarController extends ChangeNotifier {
   double _width = kMacSidebarDefaultWidth;
   bool _collapsed = false;
   bool _touched = false;
+  final _foldedSections = <String>{};
+  bool _sectionsTouched = false;
 
   double get width => _width;
   bool get collapsed => _collapsed;
 
+  bool isSectionCollapsed(String section) => _foldedSections.contains(section);
+
   Future<void> load() async {
     final width = await _prefs.getDouble(_widthKey);
     final collapsed = await _prefs.getBool(_collapsedKey);
-    if (_touched) return;
-    _width = (width ?? _width).clamp(kMacSidebarMinWidth, kMacSidebarMaxWidth);
-    _collapsed = collapsed ?? _collapsed;
+    final sections = await _prefs.getStringList(_sectionsKey);
+    if (!_sectionsTouched && sections != null) _foldedSections.addAll(sections);
+    if (!_touched) {
+      _width = (width ?? _width).clamp(
+        kMacSidebarMinWidth,
+        kMacSidebarMaxWidth,
+      );
+      _collapsed = collapsed ?? _collapsed;
+    }
     notifyListeners();
+  }
+
+  void toggleSection(String section) {
+    _sectionsTouched = true;
+    if (!_foldedSections.remove(section)) _foldedSections.add(section);
+    notifyListeners();
+    _prefs.setStringList(_sectionsKey, _foldedSections.toList());
   }
 
   void toggle() {

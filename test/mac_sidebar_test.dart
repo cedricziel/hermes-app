@@ -94,4 +94,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 320);
   });
+
+  test('remembers which sections are folded', () async {
+    final controller = MacSidebarController();
+    await controller.load();
+    expect(controller.isSectionCollapsed('today'), isFalse);
+    controller.toggleSection('today');
+    expect(controller.isSectionCollapsed('today'), isTrue);
+    await Future<void>.delayed(Duration.zero);
+
+    final reloaded = MacSidebarController();
+    await reloaded.load();
+    expect(reloaded.isSectionCollapsed('today'), isTrue);
+    reloaded.toggleSection('today');
+    expect(reloaded.isSectionCollapsed('today'), isFalse);
+  });
 }
