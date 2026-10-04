@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.1.45](https://github.com/cedricziel/hermes-app/compare/v0.1.44...v0.1.45) (2026-10-04)
+
+
+### Features
+
+* **design:** add FormSection, SelectField and ListRow for forms and plain lists ([#404](https://github.com/cedricziel/hermes-app/issues/404)) ([6257532](https://github.com/cedricziel/hermes-app/commit/6257532419eabb510ba8ced9e3cd2cc5d3f86ae5))
+* **design:** add SegmentedButton for single choices in forms ([#407](https://github.com/cedricziel/hermes-app/issues/407)) ([cf88ebf](https://github.com/cedricziel/hermes-app/commit/cf88ebfef7e5941dae80ae85d1da05c8656ed9fb))
+* **design:** add shared platform controls and iOS row swipes ([#400](https://github.com/cedricziel/hermes-app/issues/400)) ([68345cc](https://github.com/cedricziel/hermes-app/commit/68345ccc3d9bb94565facee5f9e723d5920e0de5))
+* **design:** draw the app's CupertinoIcons on Apple ([#397](https://github.com/cedricziel/hermes-app/issues/397)) ([6e87161](https://github.com/cedricziel/hermes-app/commit/6e8716153fecd1947440f6b71f7401d313a97cf0))
+* **design:** give ListDetailLayout a close button and an explicit device ([#403](https://github.com/cedricziel/hermes-app/issues/403)) ([a9ee5f1](https://github.com/cedricziel/hermes-app/commit/a9ee5f15ac582e76aac1ea141ee1f949d5fae307))
+* **design:** mirror the Apple platform look in the Claude Design recreation ([#387](https://github.com/cedricziel/hermes-app/issues/387)) ([3cc910d](https://github.com/cedricziel/hermes-app/commit/3cc910def571ab7334fa0817ca9be478f04f65b9))
+* **kanban:** Mac toolbar and task inspector on macOS ([#396](https://github.com/cedricziel/hermes-app/issues/396)) ([54f7d4e](https://github.com/cedricziel/hermes-app/commit/54f7d4e7fe7dedc1548766ea4b7e6e355122b616))
+* **macos:** add a native menu bar with a command registry ([#392](https://github.com/cedricziel/hermes-app/issues/392)) ([68f6a65](https://github.com/cedricziel/hermes-app/commit/68f6a65bda5abd9b36d296cf02a0424efd499dc3))
+* **macos:** add shared toolbar button, title and bar ([#389](https://github.com/cedricziel/hermes-app/issues/389)) ([f6b4df0](https://github.com/cedricziel/hermes-app/commit/f6b4df08bb1fca102de3e2cac99e913a810551b8))
+* **macos:** give Schedules the Mac toolbar, scope and split layout ([#401](https://github.com/cedricziel/hermes-app/issues/401)) ([9733dcf](https://github.com/cedricziel/hermes-app/commit/9733dcf79a1eadbe900fd54219ea4fedb4af35db))
+* **macos:** search from a unified toolbar, across profiles ([#399](https://github.com/cedricziel/hermes-app/issues/399)) ([5bc2534](https://github.com/cedricziel/hermes-app/commit/5bc2534685224a393a83b957f3e2d389b0d43a2a))
+* **macos:** show the sidebar as a source list with recency sections ([#391](https://github.com/cedricziel/hermes-app/issues/391)) ([574df2b](https://github.com/cedricziel/hermes-app/commit/574df2b2abf71f6a49765673a46f0c7afa84ec5d))
+* **widgetbook:** give every screen a catalog use case ([#395](https://github.com/cedricziel/hermes-app/issues/395)) ([c7205d9](https://github.com/cedricziel/hermes-app/commit/c7205d9f959412e2096000c48fb43906995e8487))
+
+
+### Bug Fixes
+
+* **auth:** keep the session readable on iOS while the phone is locked ([#408](https://github.com/cedricziel/hermes-app/issues/408)) ([c585fc1](https://github.com/cedricziel/hermes-app/commit/c585fc1af1e73be0129fbf3a388b6d3ec040ec91))
+* **design:** fix the Apple preview cells left over from [#387](https://github.com/cedricziel/hermes-app/issues/387) ([#390](https://github.com/cedricziel/hermes-app/issues/390)) ([9a89cde](https://github.com/cedricziel/hermes-app/commit/9a89cde16d2d5cab99bca06e5ab6392d00301456))
+* **watch:** load chats when the watch wakes the phone app ([#394](https://github.com/cedricziel/hermes-app/issues/394)) ([03c2118](https://github.com/cedricziel/hermes-app/commit/03c2118947ced526b9993c0b45cb14cc5e55c809))
+
+
+### Documentation
+
+* **design-sync:** record the follow-ups after the Apple re-sync ([#393](https://github.com/cedricziel/hermes-app/issues/393)) ([0b0f9d7](https://github.com/cedricziel/hermes-app/commit/0b0f9d7e92c9027d4997cbb9e06427f5d8a2d7f3))
+
 ## [0.1.44](https://github.com/cedricziel/hermes-app/compare/v0.1.43...v0.1.44) (2026-10-03)
 
 
