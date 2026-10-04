@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -14,37 +13,49 @@ final _helpUrl = Uri.parse('https://github.com/cedricziel/hermes-app#readme');
 /// [MacCommandRegistry] its items act through.
 ///
 /// The registry is provided everywhere so screens can register without
-/// checking the platform; the native menu is only set in a Mac window, and
-/// only once [enabled] is set, which tests leave off unless they answer the
-/// menu channel.
+/// checking the platform; the native menu is only set in a Mac window
+/// ([MacWindow.enabled]), which tests leave off unless they answer the menu
+/// channel.
 class MacMenuBar extends StatefulWidget {
   const MacMenuBar({
     super.key,
     required this.navigatorKey,
     required this.child,
-    this.registry,
   });
-
-  /// Whether the app runs where the native menu bar can be set.
-  static bool enabled = false;
 
   /// Gives dialogs opened from the menu a context under the navigator.
   final GlobalKey<NavigatorState> navigatorKey;
   final Widget child;
-
-  /// Replaces the registry the menu bar creates.
-  final MacCommandRegistry? registry;
 
   @override
   State<MacMenuBar> createState() => _MacMenuBarState();
 }
 
 class _MacMenuBarState extends State<MacMenuBar> {
-  late final _registry = widget.registry ?? MacCommandRegistry();
+  final _registry = MacCommandRegistry();
+  late final _rootCommands = {
+    MacCommand.about: MacCommandHandler(_about),
+    MacCommand.help: MacCommandHandler(_help),
+    MacCommand.closeWindow: const MacCommandHandler(MacWindow.close),
+    MacCommand.showMainWindow: const MacCommandHandler(MacWindow.orderFront),
+  };
+
+  /// The menus as last built. [PlatformMenuBar] sends its menus to the
+  /// platform whenever it gets a new list, so the list is only rebuilt when
+  /// the registry changes, not when a theme animation rebuilds this widget.
+  List<PlatformMenuItem>? _menus;
+
+  @override
+  void initState() {
+    super.initState();
+    _registry.addListener(_registryChanged);
+  }
+
+  void _registryChanged() => setState(() => _menus = null);
 
   @override
   void dispose() {
-    if (widget.registry == null) _registry.dispose();
+    _registry.dispose();
     super.dispose();
   }
 
@@ -65,27 +76,14 @@ class _MacMenuBarState extends State<MacMenuBar> {
   Widget build(BuildContext context) {
     final content = MacCommandScope.root(
       registry: _registry,
-      child: MacCommandScope(
-        commands: {
-          MacCommand.about: MacCommandHandler(_about),
-          MacCommand.help: MacCommandHandler(_help),
-          MacCommand.closeWindow: const MacCommandHandler(MacWindow.close),
-          MacCommand.showMainWindow: const MacCommandHandler(
-            MacWindow.orderFront,
-          ),
-        },
-        child: widget.child,
-      ),
+      child: MacCommandScope(commands: _rootCommands, child: widget.child),
     );
-    if (!MacMenuBar.enabled ||
-        defaultTargetPlatform != TargetPlatform.macOS ||
+    if (!MacWindow.enabled ||
         platformChromeOf(context) != PlatformChrome.macos) {
       return content;
     }
-    return ListenableBuilder(
-      listenable: _registry,
-      builder: (context, child) =>
-          PlatformMenuBar(menus: macMenus(_registry), child: child),
+    return PlatformMenuBar(
+      menus: _menus ??= macMenus(_registry),
       child: content,
     );
   }
@@ -98,14 +96,13 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     MacCommand command,
     String label, {
     MenuSerializableShortcut? shortcut,
-    VoidCallback? override,
   }) {
     final handler = registry.handlerFor(command);
     final enabled = handler?.enabled ?? false;
     return PlatformMenuItem(
       label: handler?.title ?? label,
       shortcut: shortcut,
-      onSelected: enabled ? override ?? () => registry.invoke(command) : null,
+      onSelected: enabled ? () => registry.invoke(command) : null,
     );
   }
 
@@ -249,13 +246,13 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
         ]),
         group([
           item(MacCommand.archiveThread, 'Archive'),
-          item(
-            MacCommand.deleteThread,
-            'Delete…',
+          PlatformMenuItem(
+            label: 'Delete…',
             shortcut: _meta(LogicalKeyboardKey.backspace),
-            override: () => _editingText()
-                ? _invokeOnFocus(const DeleteToLineBreakIntent(forward: false))
-                : registry.invoke(MacCommand.deleteThread),
+            onSelected:
+                registry.handlerFor(MacCommand.deleteThread)?.enabled ?? false
+                ? _deleteThreadOrLine(registry)
+                : null,
           ),
         ]),
       ],
@@ -301,6 +298,16 @@ void _selectWindow(MacCommandRegistry registry, String id) {
     if (window.id == id) return window.onSelect();
   }
 }
+
+// Command-Delete deletes to the line start in a text field, so there the menu
+// item does that instead of deleting the chat.
+VoidCallback _deleteThreadOrLine(MacCommandRegistry registry) => () {
+  if (_editingText()) {
+    _invokeOnFocus(const DeleteToLineBreakIntent(forward: false));
+  } else {
+    registry.invoke(MacCommand.deleteThread);
+  }
+};
 
 bool _editingText() =>
     FocusManager.instance.primaryFocus?.context

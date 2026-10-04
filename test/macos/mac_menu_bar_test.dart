@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
+import 'package:hermes_app/src/macos/mac_window.dart';
 
 /// Answers the menu channel as the macOS engine does and keeps the last menu
 /// hierarchy the app set.
@@ -70,8 +71,8 @@ class FakeMenuChannel {
 }
 
 void main() {
-  setUp(() => MacMenuBar.enabled = true);
-  tearDown(() => MacMenuBar.enabled = false);
+  setUp(() => MacWindow.enabled = true);
+  tearDown(() => MacWindow.enabled = false);
 
   final mac = TargetPlatformVariant.only(TargetPlatform.macOS);
 

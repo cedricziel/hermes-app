@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:path_provider/path_provider.dart';
@@ -13,7 +10,6 @@ import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
-import 'src/macos/mac_menu_bar.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
 import 'src/notifications/local_notification_service.dart';
@@ -30,7 +26,6 @@ import 'src/watch/watch_bridge.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await MacWindow.initialize();
-  MacMenuBar.enabled = !kIsWeb && Platform.isMacOS;
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
   );

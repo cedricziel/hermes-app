@@ -72,9 +72,9 @@ class MacCommandRegistry extends ChangeNotifier {
   /// The windows the Window menu lists below the main window.
   List<MacWindowEntry> get windows => _windows;
   set windows(List<MacWindowEntry> value) {
-    final changed = !listEquals(value, _windows);
+    if (listEquals(value, _windows)) return;
     _windows = List.unmodifiable(value);
-    if (changed) _scheduleNotify();
+    _scheduleNotify();
   }
 
   @override

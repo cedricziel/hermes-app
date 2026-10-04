@@ -47,16 +47,12 @@ abstract final class MacWindow {
   }
 
   /// Makes the system materials follow the app's theme, not the system's.
-  static Future<void> follow(Brightness brightness) async {
-    if (!enabled) return;
-    try {
-      await WindowManipulator.overrideMacOSBrightness(
-        dark: brightness == Brightness.dark,
-      );
-    } on Object catch (error) {
-      debugPrint('Mac window brightness failed: $error');
-    }
-  }
+  static Future<void> follow(Brightness brightness) => _run(
+    'brightness',
+    () => WindowManipulator.overrideMacOSBrightness(
+      dark: brightness == Brightness.dark,
+    ),
+  );
 
   /// Closes the window as its close button does.
   static Future<void> close() => _run('close', WindowManipulator.performClose);
@@ -73,14 +69,8 @@ abstract final class MacWindow {
     }
   }
 
-  static Future<void> startDrag() async {
-    if (!enabled) return;
-    try {
-      await _channel.invokeMethod<void>('startDrag');
-    } on Object catch (error) {
-      debugPrint('Mac window drag failed: $error');
-    }
-  }
+  static Future<void> startDrag() =>
+      _run('drag', () => _channel.invokeMethod<void>('startDrag'));
 }
 
 /// Wraps the app so that, on macOS, its screens clear the title bar and the
