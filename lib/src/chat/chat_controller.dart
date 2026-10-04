@@ -258,8 +258,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
-  Future<void> _loadMessages(String id) async {
-    if (!_unloaded.remove(id)) return;
+  /// The first page of a thread's messages that is being read, by thread id.
+  final _loadingMessages = <String, Future<void>>{};
+
+  Future<void> _loadMessages(String id) {
+    if (!_unloaded.remove(id)) return Future.value();
+    final load = _readFirstPage(id);
+    _loadingMessages[id] = load;
+    return load.whenComplete(() {
+      if (identical(_loadingMessages[id], load)) _loadingMessages.remove(id);
+    });
+  }
+
+  Future<void> _readFirstPage(String id) async {
     final generation = _loadGeneration;
     try {
       final page = await repository!.loadMessagePage(id, profile: _profile);
@@ -284,6 +295,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<List<ChatMessage>> _history(ChatThread thread) async {
     final repository = this.repository;
     if (repository == null || !_bound.contains(thread)) return thread.messages;
+    await _loadingMessages[thread.id];
     final loaded = !_unloaded.contains(thread.id);
     final newest = loaded ? thread.messages : const <ChatMessage>[];
     final held = {for (final m in newest) m.id};

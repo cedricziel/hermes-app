@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -237,6 +239,36 @@ void main() {
 
       expect(copied, ['## You\n\nhi\n\n## Hermes\n\nHello there']);
       expect(find.text('Transcript copied'), findsOneWidget);
+    });
+
+    testWidgets('waits for a thread that is still loading', (tester) async {
+      captureClipboard(tester);
+      final answer = Completer<FakeResponse>();
+      server.onRequest(
+        'GET',
+        '/api/sessions/s1/messages',
+        (_) => answer.future,
+      );
+      await pump(tester);
+      await tester.tap(row('s1'));
+      await tester.pump();
+
+      await rightClick(tester, 's1');
+      await tester.tap(find.text('Copy Transcript'));
+      await tester.pump();
+      answer.complete((
+        status: 200,
+        body: messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'hi'),
+        ]),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(
+        server.requestsTo('GET', '/api/sessions/s1/messages'),
+        hasLength(1),
+      );
+      expect(copied, ['## You\n\nhi']);
     });
 
     testWidgets('does not fetch an open thread again', (tester) async {
