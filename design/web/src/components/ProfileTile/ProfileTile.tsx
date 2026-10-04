@@ -78,6 +78,7 @@ export function ProfileTile({
         tabIndex={0}
         onClick={onClick}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             onClick?.();
@@ -94,7 +95,12 @@ export function ProfileTile({
           <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
         </div>
         {ios && active ? (
-          <Icon name="check" size={20} className="h-profile-tile__check" />
+          <Icon
+            name="check"
+            size={20}
+            label="Active"
+            className="h-profile-tile__check"
+          />
         ) : null}
         {ios ? changeModel : null}
         {!ios && (active || onChangeModel) ? (
