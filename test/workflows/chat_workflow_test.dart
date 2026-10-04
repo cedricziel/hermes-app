@@ -1,3 +1,6 @@
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -394,5 +397,65 @@ void main() {
     await tester.pump(ThreadSearch.defaultDebounce);
     await tester.pumpAndSettle();
     await shots.capture(tester, 'results');
+  });
+
+  testWidgets('the Mac sidebar and toolbar search', (tester) async {
+    server.on('GET', '/api/sessions/search', {
+      'results': [
+        {
+          'session_id': 's3',
+          'title': 'Release notes',
+          'snippet': 'the >>>release<<< goes out on Friday',
+          'session_started': 1780000000,
+        },
+      ],
+    });
+    for (final (name, width) in [
+      ('large', 1160.0),
+      ('medium', 900.0),
+      ('compact', 680.0),
+    ]) {
+      final shots = ScreenshotRecorder('chat-mac-$name');
+      await pumpScreen(
+        tester,
+        shots,
+        MacSidebarScope(
+          child: ChatScreen(
+            repository: HermesChatRepository(server.client().raw),
+            models: HermesModelsRepository(server.client().raw),
+            transport: transport,
+          ),
+        ),
+        size: Size(width, 760),
+        platform: TargetPlatform.macOS,
+      );
+      await shots.capture(tester, 'sidebar');
+      if (name == 'compact') {
+        await tester.tap(find.byKey(const Key('mac-sidebar-toggle')));
+        await tester.pumpAndSettle();
+        await shots.capture(tester, 'sidebar-overlay');
+        continue;
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('thread-s3')),
+        buttons: kSecondaryButton,
+      );
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'context-menu');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      if (name == 'medium') {
+        await tester.tap(find.byKey(const Key('toolbar-search')));
+        await tester.pumpAndSettle();
+      }
+      await tester.enterText(
+        find.byKey(const Key('toolbar-search-field')),
+        'release',
+      );
+      await tester.pump(ThreadSearch.defaultDebounce);
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'search-results');
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 }

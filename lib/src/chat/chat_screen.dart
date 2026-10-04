@@ -5,6 +5,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
@@ -53,6 +54,7 @@ import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_builders.dart';
 import 'widgets/chat_header.dart';
+import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
@@ -136,6 +138,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ShareController _share;
   late final AttentionNotifier _attention;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _searchFocus = FocusNode();
+
+  /// Whether this is the page in front and the window is a Mac one, as of
+  /// the last build; Command-F only searches then.
+  bool _inFront = true;
+  bool _mac = false;
 
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
@@ -152,6 +160,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onKey);
     widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
@@ -275,6 +284,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    _searchFocus.dispose();
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();
@@ -290,6 +301,56 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _newThread() {
     _chat.newThread();
     _closeDrawerIfNarrow();
+  }
+
+  /// Opens the toolbar search of a Mac window and puts the cursor in it. A
+  /// compact window shows the sidebar too, where the results go.
+  void _beginSearch() {
+    final search = _chat.search;
+    if (search == null) return;
+    if (!search.active) {
+      search.begin();
+      final sidebar = MacSidebarScope.read(context);
+      if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
+        sidebar.toggle(compact: true);
+      }
+    }
+    if (_searchFocus.hasFocus) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  void _openHit(ThreadSearchHit hit) {
+    _chat.openSearchHit(hit);
+    _closeDrawerIfNarrow();
+  }
+
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent || !_inFront || !_mac) return false;
+    final keyboard = HardwareKeyboard.instance;
+    if (event.logicalKey != LogicalKeyboardKey.keyF ||
+        !keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return false;
+    }
+    _beginSearch();
+    return true;
+  }
+
+  void _copyTranscript(ChatThread thread) => runThreadAction(
+    context,
+    ThreadAction.copyTranscript,
+    thread: thread,
+    housekeeping: thread.remote ? _chat.housekeeping : null,
+  );
+
+  /// "profile · model" under the chat's title, leaving out what is unknown.
+  String? _toolbarSubtitle() {
+    final model = (_chat.modelChoice ?? _chat.modelOptions?.current)?.modelId;
+    final parts = [?_chat.profile, ?model];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   void _selectThread(String id) {
@@ -365,6 +426,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _closeDrawerIfNarrow() {
+    MacSidebarScope.read(context)?.closeOverlay();
     if (!isWideLayout(context)) {
       _scaffoldKey.currentState?.closeDrawer();
     }
@@ -487,9 +549,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
+    _inFront = Visibility.of(context);
+    _mac = platformChromeOf(context) == PlatformChrome.macos;
+    final macSidebar = hasMacSidebar(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = isWideLayout(context, width: constraints.maxWidth);
+        final isWide =
+            macSidebar || isWideLayout(context, width: constraints.maxWidth);
         final selected = chat.selectedThread;
         final modelOptions = chat.modelOptions;
         _followLatestReply(selected);
@@ -501,7 +567,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onNewThread: _newThread,
           housekeeping: chat.housekeeping,
           search: chat.search,
-          onOpenHit: chat.openSearchHit,
+          onOpenHit: _openHit,
+          searchProfile: chat.profile,
           onOpenProfiles: _profiles == null ? null : _openProfiles,
           onOpenBots: _bots == null ? null : _openBots,
           onOpenSkills: _skills == null ? null : _openSkills,
@@ -510,8 +577,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onOpenHelperModels: _models == null ? null : _openHelperModels,
         );
 
-        final macSplit =
-            isWide && platformChromeOf(context) == PlatformChrome.macos;
+        final macSplit = isWide && _mac;
+        final search = chat.search;
         final threadView = _ThreadView(
           thread: selected,
           chatController: chat.controllerFor(selected),
@@ -535,13 +602,33 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onRetry: selected == null || chat.lastPromptText(selected) == null
               ? null
               : () => chat.retry(selected),
-          header: isWide
-              ? ChatHeader(
+          header: !isWide
+              ? null
+              : _mac
+              ? ListenableBuilder(
+                  listenable: search ?? const AlwaysStoppedAnimation(0),
+                  builder: (context, _) => MacChatToolbar(
+                    title: selected?.title ?? 'Hermes',
+                    subtitle: _toolbarSubtitle(),
+                    onNewChat: _newThread,
+                    onShowConnection: _showConnection,
+                    onCopyTranscript: selected == null
+                        ? null
+                        : () => _copyTranscript(selected),
+                    searchQuery: search?.query ?? '',
+                    searchActive: search?.active ?? false,
+                    searchFocus: _searchFocus,
+                    onSearchBegin: _beginSearch,
+                    onSearchChanged: search?.update ?? (_) {},
+                    onSearchSubmitted: search?.remember,
+                    onSearchEnd: search?.end ?? () {},
+                  ),
+                )
+              : ChatHeader(
                   thread: selected,
                   housekeeping: chat.housekeeping,
                   onShowConnection: _showConnection,
-                )
-              : null,
+                ),
           onLoadOlder: selected == null || !chat.hasOlder(selected.id)
               ? null
               : () => chat.loadOlder(selected.id),

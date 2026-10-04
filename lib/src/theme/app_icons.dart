@@ -345,6 +345,16 @@ abstract final class AppIcons {
     Icons.account_tree_outlined,
     CupertinoIcons.arrow_branch,
   );
+  static const compose = AppIconSet(
+    Icons.edit_square,
+    CupertinoIcons.square_pencil,
+  );
+  static const share = AppIconSet(Icons.ios_share, CupertinoIcons.share);
+  static const history = AppIconSet(Icons.history, CupertinoIcons.clock);
+  static const clearFilled = AppIconSet(
+    Icons.cancel,
+    CupertinoIcons.xmark_circle_fill,
+  );
 
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
@@ -446,5 +456,9 @@ abstract final class AppIcons {
     'toggleOn': toggleOn,
     'toggleOff': toggleOff,
     'tree': tree,
+    'history': history,
+    'compose': compose,
+    'share': share,
+    'clearFilled': clearFilled,
   };
 }

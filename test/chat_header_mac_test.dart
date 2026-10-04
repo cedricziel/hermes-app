@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -41,7 +42,7 @@ void main() {
     tester,
   ) async {
     await _pump(tester, TargetPlatform.macOS);
-    final header = tester.getRect(find.byType(ChatHeader));
+    final header = tester.getRect(find.byType(MacChatToolbar));
     expect(header.height, kMacToolbarHeight);
     final rules = tester
         .widgetList<Divider>(find.byType(Divider))
@@ -66,7 +67,7 @@ void main() {
     await tester.tap(find.byKey(const Key('mac-sidebar-toggle')));
     await tester.pumpAndSettle();
     final toggle = find.descendant(
-      of: find.byType(ChatHeader),
+      of: find.byType(MacChatToolbar),
       matching: find.byKey(const Key('mac-sidebar-toggle')),
     );
     expect(toggle, findsOneWidget);

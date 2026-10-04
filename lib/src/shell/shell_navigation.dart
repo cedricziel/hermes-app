@@ -58,6 +58,7 @@ class ShellNavigation extends StatelessWidget {
 
   void _select(BuildContext context, int index) {
     Scaffold.maybeOf(context)?.closeDrawer();
+    MacSidebarScope.read(context)?.closeOverlay();
     onSelected(index);
   }
 }

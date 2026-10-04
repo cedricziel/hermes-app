@@ -5,12 +5,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
+import '../theme/platform_chrome.dart';
 import 'mac_toolbar.dart';
 import 'mac_window.dart';
 
 const double kMacSidebarMinWidth = 220;
 const double kMacSidebarMaxWidth = 360;
 const double kMacSidebarDefaultWidth = 280;
+
+/// Below this window width the sidebar does not sit beside the content; it
+/// opens over it.
+const double kMacCompactWindowWidth = 760;
+
+/// Whether the window around [context] is too narrow for a docked sidebar.
+bool isMacCompact(BuildContext context) =>
+    MediaQuery.sizeOf(context).width < kMacCompactWindowWidth;
+
+/// Whether [context] is in a Mac window with a [MacSidebarScope], which keeps
+/// its sidebar at every width: docked, or over the content when compact.
+bool hasMacSidebar(BuildContext context) =>
+    platformChromeOf(context) == PlatformChrome.macos &&
+    MacSidebarScope.read(context) != null;
 
 const _widthKey = 'hermes.mac_sidebar_width';
 const _collapsedKey = 'hermes.mac_sidebar_collapsed';
@@ -57,11 +73,33 @@ class MacSidebarController extends ChangeNotifier {
     super.dispose();
   }
 
-  void toggle() {
+  bool _overlayOpen = false;
+
+  /// Whether the sidebar is open over the content of a compact window.
+  bool get overlayOpen => _overlayOpen;
+
+  /// Whether the sidebar is out of sight in a window of this size.
+  bool hidden({required bool compact}) => compact ? !_overlayOpen : _collapsed;
+
+  /// Hides or shows the sidebar: docked in a wide window, over the content
+  /// in a [compact] one.
+  void toggle({bool compact = false}) {
+    if (compact) {
+      _overlayOpen = !_overlayOpen;
+      notifyListeners();
+      return;
+    }
     _touched = true;
     _collapsed = !_collapsed;
     notifyListeners();
     _prefs.setBool(_collapsedKey, _collapsed);
+  }
+
+  /// Closes the sidebar over the content, after something in it was picked.
+  void closeOverlay() {
+    if (!_overlayOpen) return;
+    _overlayOpen = false;
+    notifyListeners();
   }
 
   void resizeTo(double width) {
@@ -116,12 +154,15 @@ class MacSidebarScope extends StatefulWidget {
 
   static MacSidebarController of(BuildContext context) => maybeOf(context)!;
 
+  /// The controller above [context] without listening to it, for a callback
+  /// or a check that does not change with the sidebar.
+  static MacSidebarController? read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_ControllerScope>()?.notifier;
+
   /// The folded sections of the sidebar above [context], without rebuilding
   /// [context] when the sidebar is resized or hidden.
-  static MacSidebarSections? sectionsOf(BuildContext context) => context
-      .getInheritedWidgetOfExactType<_ControllerScope>()
-      ?.notifier
-      ?.sections;
+  static MacSidebarSections? sectionsOf(BuildContext context) =>
+      read(context)?.sections;
 
   @override
   State<MacSidebarScope> createState() => _MacSidebarScopeState();
@@ -152,7 +193,7 @@ class _MacSidebarScopeState extends State<MacSidebarScope> {
         !keyboard.isMetaPressed) {
       return false;
     }
-    _controller.toggle();
+    _controller.toggle(compact: isMacCompact(context));
     return true;
   }
 
@@ -213,19 +254,25 @@ class MacSidebarToggle extends StatelessWidget {
   final MacSidebarController controller;
 
   @override
-  Widget build(BuildContext context) => MacToolbarButton(
-    key: const Key('mac-sidebar-toggle'),
-    label: controller.collapsed ? 'Show sidebar' : 'Hide sidebar',
-    shortcut: '⌃⌘S',
-    icon: AppIcons.sidebar,
-    onPressed: controller.toggle,
-  );
+  Widget build(BuildContext context) {
+    final compact = isMacCompact(context);
+    return MacToolbarButton(
+      key: const Key('mac-sidebar-toggle'),
+      label: controller.hidden(compact: compact)
+          ? 'Show sidebar'
+          : 'Hide sidebar',
+      shortcut: '⌃⌘S',
+      icon: AppIcons.sidebar,
+      onPressed: () => controller.toggle(compact: compact),
+    );
+  }
 }
 
 /// A sidebar beside its content, as in a Mac app: the sidebar sits on the
 /// system's sidebar material behind the traffic lights, can be dragged wider
-/// or narrower and can be hidden. Without a [MacSidebarScope] it is a fixed
-/// column.
+/// or narrower and can be hidden. In a compact window it opens over the
+/// content instead, with a scrim that closes it. Without a [MacSidebarScope]
+/// it is a fixed column.
 class MacSplitView extends StatelessWidget {
   const MacSplitView({super.key, required this.sidebar, required this.content});
 
@@ -244,7 +291,8 @@ class MacSplitView extends StatelessWidget {
         ],
       );
     }
-    final collapsed = controller.collapsed;
+    final compact = isMacCompact(context);
+    final collapsed = compact || controller.collapsed;
     final translucent = MacWindow.enabled;
     final media = MediaQuery.of(context);
     return MediaQuery(
@@ -273,7 +321,7 @@ class MacSplitView extends StatelessWidget {
                   data: _toolbarTheme(context, collapsed),
                   child: collapsed
                       ? ShellMenu(
-                          onOpen: controller.toggle,
+                          onOpen: () => controller.toggle(compact: compact),
                           leadingInset: kMacTrafficLightsWidth,
                           child: content,
                         )
@@ -290,6 +338,28 @@ class MacSplitView extends StatelessWidget {
               width: _handleWidth,
               child: _ResizeHandle(controller: controller),
             ),
+          if (compact && controller.overlayOpen) ...[
+            Positioned.fill(
+              child: GestureDetector(
+                key: const Key('mac-sidebar-scrim'),
+                behavior: HitTestBehavior.opaque,
+                onTap: controller.closeOverlay,
+                child: const ColoredBox(color: Color(0x33000000)),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: controller.width,
+              child: Material(
+                key: const Key('mac-sidebar-overlay'),
+                elevation: 16,
+                color: context.hermesColors.sidebar,
+                child: _SidebarSlot(translucent: false, child: sidebar),
+              ),
+            ),
+          ],
         ],
       ),
     );

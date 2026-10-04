@@ -121,10 +121,12 @@ class HermesChatRepository {
       limit: limit,
       profile: profile,
     );
-    return [for (final row in _rows(response.data, 'results')) ?_hit(row)];
+    return [
+      for (final row in _rows(response.data, 'results')) ?_hit(row, profile),
+    ];
   }
 
-  static ThreadSearchHit? _hit(Map<String, dynamic> row) {
+  static ThreadSearchHit? _hit(Map<String, dynamic> row, String? profile) {
     final id = switch (row) {
       {'id': final String id} when id.isNotEmpty => id,
       {'session_id': final String id} when id.isNotEmpty => id,
@@ -136,6 +138,7 @@ class HermesChatRepository {
       title: _title(row),
       snippet: _snippet(row['snippet']),
       updatedAt: _time(row['last_active'] ?? row['session_started']),
+      profile: profile,
     );
   }
 

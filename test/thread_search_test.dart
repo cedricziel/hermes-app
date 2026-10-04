@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 ThreadSearchHit _hit(String id) => ThreadSearchHit(
   id: id,
@@ -89,6 +92,85 @@ void main() {
       expect(search.query, '');
       expect(search.status, ThreadSearchStatus.idle);
       expect(search.hits, isEmpty);
+    });
+  });
+
+  group('scope', () {
+    test('all profiles searches with the other function, at once', () {
+      fakeAsync((async) {
+        final calls = <String>[];
+        final search = ThreadSearch(
+          (q) async {
+            calls.add('profile:$q');
+            return [_hit('mine')];
+          },
+          searchAll: (q) async {
+            calls.add('all:$q');
+            return [_hit('everywhere')];
+          },
+        );
+        expect(search.canSearchAllProfiles, isTrue);
+
+        search.update('backup');
+        async.elapse(ThreadSearch.defaultDebounce);
+        search.setScope(ThreadSearchScope.allProfiles);
+        async.elapse(Duration.zero);
+
+        expect(calls, ['profile:backup', 'all:backup']);
+        expect(search.hits.single.id, 'everywhere');
+      });
+    });
+
+    test('without a way to search everywhere the scope stays put', () {
+      final search = ThreadSearch((_) async => const []);
+      expect(search.canSearchAllProfiles, isFalse);
+      search.setScope(ThreadSearchScope.allProfiles);
+      expect(search.scope, ThreadSearchScope.profile);
+    });
+  });
+
+  test('begin and end bracket a search, and end clears it', () {
+    fakeAsync((async) {
+      final search = ThreadSearch((q) async => [_hit(q)]);
+      expect(search.active, isFalse);
+      search.begin();
+      expect(search.active, isTrue);
+      search.update('backup');
+      async.elapse(ThreadSearch.defaultDebounce);
+
+      search.end();
+
+      expect(search.active, isFalse);
+      expect(search.query, '');
+      expect(search.hits, isEmpty);
+    });
+  });
+
+  group('recent searches', () {
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    test('keeps the last five, newest first, without repeats', () async {
+      final search = ThreadSearch(
+        (_) async => const [],
+        recentStore: SharedPreferencesAsync(),
+      );
+      for (final q in ['a', 'b', 'c', 'd', 'e', 'f', 'c ']) {
+        search.remember(q);
+      }
+      expect(search.recent, ['c', 'f', 'e', 'd', 'b']);
+      search.remember('  ');
+      expect(search.recent, hasLength(5));
+      await Future<void>.delayed(Duration.zero);
+
+      final again = ThreadSearch(
+        (_) async => const [],
+        recentStore: SharedPreferencesAsync(),
+      )..begin();
+      await Future<void>.delayed(Duration.zero);
+      expect(again.recent, ['c', 'f', 'e', 'd', 'b']);
     });
   });
 }

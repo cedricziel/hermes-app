@@ -6,8 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
-Future<void> _pump(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1280, 800);
+Future<void> _pump(WidgetTester tester, {double width = 1280}) async {
+  tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -108,5 +108,62 @@ void main() {
     expect(reloaded.sections.isCollapsed('today'), isTrue);
     reloaded.sections.toggle('today');
     expect(reloaded.sections.isCollapsed('today'), isFalse);
+  });
+
+  group('in a compact window', () {
+    Future<void> toggle(WidgetTester tester) async {
+      MacSidebarScope.of(tester.element(find.byKey(const Key('content'))))
+          .toggle(compact: true);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the sidebar is not docked', (tester) async {
+      await _pump(tester, width: 700);
+      expect(find.byKey(const Key('sidebar')), findsNothing);
+      expect(tester.getTopLeft(find.byKey(const Key('content'))).dx, 0);
+      expect(find.byKey(const Key('mac-sidebar-resize')), findsNothing);
+    });
+
+    testWidgets('opens over the content, and the scrim closes it', (
+      tester,
+    ) async {
+      await _pump(tester, width: 700);
+      await toggle(tester);
+
+      expect(find.byKey(const Key('mac-sidebar-overlay')), findsOneWidget);
+      expect(tester.getTopLeft(find.byKey(const Key('content'))).dx, 0);
+      expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 280);
+
+      await tester.tapAt(const Offset(600, 400));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sidebar')), findsNothing);
+    });
+
+    testWidgets('control-command-S opens the overlay, not the docked one', (
+      tester,
+    ) async {
+      await _pump(tester, width: 700);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('mac-sidebar-overlay')), findsOneWidget);
+      expect(
+        await SharedPreferencesAsync().getBool('hermes.mac_sidebar_collapsed'),
+        isNull,
+      );
+    });
+
+    testWidgets('closeOverlay closes it', (tester) async {
+      await _pump(tester, width: 700);
+      await toggle(tester);
+      MacSidebarScope.of(tester.element(find.byKey(const Key('content'))))
+          .closeOverlay();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('mac-sidebar-overlay')), findsNothing);
+    });
   });
 }

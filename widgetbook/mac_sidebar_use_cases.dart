@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
+import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/mac_thread_row.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_source_list.dart';
+import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -185,6 +190,131 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
             ),
           ),
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacToolbarSearchField',
+      useCases: [
+        for (final (name, query, active) in [
+          ('Resting', '', false),
+          ('Searching', 'backup', true),
+        ])
+          _case(
+            name,
+            () => frame(
+              MacToolbarSearchField(
+                query: query,
+                active: active,
+                onChanged: (_) {},
+                onEnd: () {},
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacChatToolbar',
+      useCases: [
+        for (final (name, width) in [
+          ('Large window', 1160.0),
+          ('Medium window', 900.0),
+          ('Compact window', 680.0),
+        ])
+          _case(
+            name,
+            () => Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(size: Size(width, 760)),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width - 280,
+                    child: MacChatToolbar(
+                      title: 'Plan the release',
+                      subtitle: 'default · claude-sonnet-4',
+                      onNewChat: () {},
+                      onShowConnection: () {},
+                      onCopyTranscript: () {},
+                      searchQuery: '',
+                      searchActive: false,
+                      onSearchBegin: () {},
+                      onSearchChanged: (_) {},
+                      onSearchEnd: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacSearchResults',
+      useCases: [
+        for (final (name, query, status, hits, recent) in [
+          (
+            'Recent searches',
+            '',
+            ThreadSearchStatus.idle,
+            <ThreadSearchHit>[],
+            ['backup', 'release notes', 'login test'],
+          ),
+          (
+            'Results',
+            'backup',
+            ThreadSearchStatus.done,
+            searchHits,
+            <String>[],
+          ),
+          (
+            'All profiles',
+            'backup',
+            ThreadSearchStatus.done,
+            allProfileHits,
+            <String>[],
+          ),
+          (
+            'Searching',
+            'backup',
+            ThreadSearchStatus.loading,
+            <ThreadSearchHit>[],
+            <String>[],
+          ),
+          (
+            'No results',
+            'backup',
+            ThreadSearchStatus.done,
+            <ThreadSearchHit>[],
+            <String>[],
+          ),
+          (
+            'Failed',
+            'backup',
+            ThreadSearchStatus.failed,
+            <ThreadSearchHit>[],
+            <String>[],
+          ),
+        ])
+          _case(
+            name,
+            () => fill(
+              MacSearchResults(
+                query: query,
+                status: status,
+                hits: hits,
+                recent: recent,
+                scope: name == 'All profiles'
+                    ? ThreadSearchScope.allProfiles
+                    : ThreadSearchScope.profile,
+                currentProfile: 'default',
+                selectedId: 'thread-2',
+                onOpen: (_) {},
+                onPickRecent: (_) {},
+                onScopeChanged: (_) {},
+              ),
+              width: 280,
+            ),
+          ),
       ],
     ),
   ],

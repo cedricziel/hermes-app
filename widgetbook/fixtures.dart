@@ -499,6 +499,22 @@ final threads = [
   ),
 ];
 
+/// Hits of an all-profiles search: one from another profile.
+final allProfileHits = [
+  ...searchHits,
+  ThreadSearchHit(
+    id: 'thread-work',
+    title: 'Office NAS',
+    snippet: const [
+      (text: 'Rotate the ', match: false),
+      (text: 'backup', match: true),
+      (text: ' drives every Friday.', match: false),
+    ],
+    updatedAt: _now.subtract(const Duration(days: 1)),
+    profile: 'work',
+  ),
+];
+
 /// Threads for every section of the Mac sidebar.
 final macThreads = [
   ...threads,

@@ -121,10 +121,12 @@ Future<void> pumpScreen(
   Size size = phoneSize,
   Brightness brightness = Brightness.light,
   List<SingleChildWidget> providers = const [],
+  TargetPlatform? platform,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
   await shots.start(tester, size);
+  platform ??= workflowPlatform;
   final dark = brightness == Brightness.dark;
   await tester.pumpWidget(
     shots.frame(
@@ -142,8 +144,8 @@ Future<void> pumpScreen(
           debugShowCheckedModeBanner: false,
           theme: withScreenshotFont(
             dark
-                ? buildHermesDarkTheme(platform: workflowPlatform)
-                : buildHermesLightTheme(platform: workflowPlatform),
+                ? buildHermesDarkTheme(platform: platform)
+                : buildHermesLightTheme(platform: platform),
           ),
           home: home,
         ),

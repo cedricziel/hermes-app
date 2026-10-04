@@ -125,6 +125,13 @@ class MacSourceListRow extends StatelessWidget {
   }
 }
 
+/// The 11pt bold muted text of a Mac sidebar's section headers.
+TextStyle macSectionHeaderStyle(BuildContext context) => TextStyle(
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  color: context.hermesColors.subtleText,
+);
+
 /// The header of a section of a Mac sidebar. A click folds the section away
 /// or opens it again; the chevron shows on hover, turned while folded.
 class MacSidebarSectionHeader extends StatefulWidget {
@@ -169,11 +176,7 @@ class _MacSidebarSectionHeaderState extends State<MacSidebarSectionHeader> {
                     widget.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: subtle,
-                    ),
+                    style: macSectionHeaderStyle(context),
                   ),
                 ),
                 Opacity(

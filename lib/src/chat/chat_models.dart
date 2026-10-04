@@ -436,10 +436,14 @@ class ThreadSearchHit {
     required this.title,
     required this.snippet,
     required this.updatedAt,
+    this.profile,
   });
 
   final String id;
   final String title;
   final List<SnippetPart> snippet;
   final DateTime updatedAt;
+
+  /// The profile the chat belongs to, when the search said.
+  final String? profile;
 }
