@@ -23,14 +23,13 @@ enum MacCommand {
 
 /// What a [MacCommand] does on the screen in front. A null [onInvoke] shows
 /// the menu item disabled; [title] replaces the item's label, as Pin becomes
-/// Unpin, and [checked] puts a check mark beside it.
+/// Unpin.
 @immutable
 class MacCommandHandler {
-  const MacCommandHandler(this.onInvoke, {this.title, this.checked = false});
+  const MacCommandHandler(this.onInvoke, {this.title});
 
   final VoidCallback? onInvoke;
   final String? title;
-  final bool checked;
 
   bool get enabled => onInvoke != null;
 }
@@ -42,37 +41,33 @@ class MacWindowEntry {
     required this.id,
     required this.title,
     required this.onSelect,
-    this.checked = false,
   });
 
   final String id;
   final String title;
   final VoidCallback onSelect;
-  final bool checked;
 
   @override
   bool operator ==(Object other) =>
-      other is MacWindowEntry &&
-      other.id == id &&
-      other.title == title &&
-      other.checked == checked;
+      other is MacWindowEntry && other.id == id && other.title == title;
 
   @override
-  int get hashCode => Object.hash(id, title, checked);
+  int get hashCode => Object.hash(id, title);
 }
 
 /// The handlers registered for each [MacCommand], which the menu bar reads.
 ///
 /// Of the registrations holding a command, the one with the highest priority
 /// wins, and among equals the latest. Listeners hear only of changes to what
-/// the menu shows (which commands are enabled, their titles and checks, the
+/// the menu shows (which commands are enabled, their titles, the
 /// window list), not of every new callback, so a screen rebuilding often does
 /// not rebuild the menu.
 class MacCommandRegistry extends ChangeNotifier {
   final _registrations = <MacCommandRegistration>[];
   List<MacWindowEntry> _windows = const [];
-  Map<MacCommand, (bool, String?, bool)> _shown = const {};
+  Map<MacCommand, (bool, String?)> _shown = const {};
   bool _notifyScheduled = false;
+  bool _disposed = false;
 
   /// The windows the Window menu lists below the main window.
   List<MacWindowEntry> get windows => _windows;
@@ -80,6 +75,12 @@ class MacCommandRegistry extends ChangeNotifier {
     final changed = !listEquals(value, _windows);
     _windows = List.unmodifiable(value);
     if (changed) _scheduleNotify();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   MacCommandRegistration register(
@@ -118,7 +119,7 @@ class MacCommandRegistry extends ChangeNotifier {
     final shown = {
       for (final command in MacCommand.values)
         if (handlerFor(command) case final handler?)
-          command: (handler.enabled, handler.title, handler.checked),
+          command: (handler.enabled, handler.title),
     };
     if (mapEquals(shown, _shown)) return;
     _shown = shown;
@@ -137,7 +138,7 @@ class MacCommandRegistry extends ChangeNotifier {
     _notifyScheduled = true;
     SchedulerBinding.instance.addPostFrameCallback((_) {
       _notifyScheduled = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
     });
   }
 }

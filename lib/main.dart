@@ -10,6 +10,7 @@ import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
+import 'src/macos/mac_menu_bar.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
 import 'src/notifications/local_notification_service.dart';
@@ -26,6 +27,7 @@ import 'src/watch/watch_bridge.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await MacWindow.initialize();
+  MacMenuBar.enabled = MacWindow.enabled;
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
   );

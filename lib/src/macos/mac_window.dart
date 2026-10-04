@@ -58,6 +58,21 @@ abstract final class MacWindow {
     }
   }
 
+  /// Closes the window as its close button does.
+  static Future<void> close() => _run('close', WindowManipulator.performClose);
+
+  static Future<void> orderFront() =>
+      _run('order front', WindowManipulator.orderFront);
+
+  static Future<void> _run(String what, Future<void> Function() call) async {
+    if (!enabled) return;
+    try {
+      await call();
+    } on Object catch (error) {
+      debugPrint('Mac window $what failed: $error');
+    }
+  }
+
   static Future<void> startDrag() async {
     if (!enabled) return;
     try {
