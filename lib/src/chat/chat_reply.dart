@@ -105,6 +105,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       );
     case ClarifyRequested(:final request):
       _addInputRequest(reply, request);
+    case VaultRequested(:final request):
+      _addInputRequest(reply, request);
     case UnsupportedRequested(:final request):
       _addInputRequest(reply, request);
     case InputRequestExpired(:final requestId):
