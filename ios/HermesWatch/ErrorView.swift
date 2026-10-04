@@ -18,10 +18,13 @@ struct ErrorView: View {
   let retry: () -> Void
 
   var body: some View {
-    VStack(spacing: 8) {
-      Text(error.message)
-        .multilineTextAlignment(.center)
-      Button("Try again", action: retry)
+    ScrollView {
+      VStack(spacing: 8) {
+        Text(error.message)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+        Button("Try again", action: retry)
+      }
     }
   }
 }
