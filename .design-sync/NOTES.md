@@ -67,6 +67,17 @@
 - Chip is 32px; Flutter's filter chips are about 38px. Pill-shaped tags (MCP, plugins) live in their rows' CSS.
 - Tokens asked for: `--h-radius-row` (8px sidebar rows), `--h-on-secondary`, a subtle text shade darker
   than `--h-muted` (`--h-secondary` is used for it), a warning-tinted card.
+- Branch `design-sync/apple-chrome` (unmerged, written before #387 landed) has pieces #387 lacks, to port onto
+  its `apple` / `material` model: the real CupertinoIcons font (MIT, from the `cupertino_icons` package) with a
+  generator that maps `lib/src/theme/app_icons.dart` (`design/web/scripts/gen-cupertino-icons.mjs`) instead of
+  the Material Symbols Rounded approximation; shared `Switch`, `Spinner`, `SegmentedControl` and `Menu`
+  components that cover the three items above; `SwipeActions` and `ActionSheet` for the iOS swipe and
+  long-press row actions, which today are only a visible "…" button.
+- Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a
+  screen-sized component and preview here built from the existing components. Today only ConnectScreen,
+  AppShell and the list/detail layout are screen-sized.
+- Before a re-sync or a port, check `gh pr list` for open PRs touching `design/web/` or `.design-sync/`
+  (#387 was once ported twice in parallel).
 
 ## Known gaps in the recreations
 
