@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:widgetbook/widgetbook.dart';
+
+import 'host.dart';
 
 /// The toolbar of a Mac window, shown on macOS in either viewport.
 Widget _mac(Widget child) => Builder(
@@ -69,13 +72,21 @@ WidgetbookNode macToolbarNode() => WidgetbookFolder(
         ),
         _use(
           'Sidebar hidden',
-          ShellMenu(
-            onOpen: () {},
-            leadingInset: kMacTrafficLightsWidth,
-            child: MacToolbar(
-              title: 'A title long enough to be cut short before the buttons',
-              subtitle: 'Default · all profiles · 12 tasks',
-              actions: _actions(),
+          Hosted<MacSidebarController>(
+            create: () => MacSidebarController()..toggle(),
+            dispose: (sidebar) => sidebar.dispose(),
+            builder: (_, sidebar) => MacSidebarScope(
+              controller: sidebar,
+              child: ShellMenu(
+                onOpen: sidebar.toggle,
+                leadingInset: kMacTrafficLightsWidth,
+                child: MacToolbar(
+                  title:
+                      'A title long enough to be cut short before the buttons',
+                  subtitle: 'Default · all profiles · 12 tasks',
+                  actions: _actions(),
+                ),
+              ),
             ),
           ),
         ),

@@ -58,8 +58,11 @@ class MacSidebarController extends ChangeNotifier {
 /// Owns the [MacSidebarController] for a Mac window and binds Control-Command-S,
 /// the system's shortcut for showing and hiding a sidebar.
 class MacSidebarScope extends StatefulWidget {
-  const MacSidebarScope({super.key, required this.child});
+  const MacSidebarScope({super.key, this.controller, required this.child});
 
+  /// A controller the caller owns, for a catalog or a test; by default the
+  /// scope makes and disposes its own.
+  final MacSidebarController? controller;
   final Widget child;
 
   /// The controller above [context], or null where the window has no
@@ -74,19 +77,19 @@ class MacSidebarScope extends StatefulWidget {
 }
 
 class _MacSidebarScopeState extends State<MacSidebarScope> {
-  final _controller = MacSidebarController();
+  late final _controller = widget.controller ?? MacSidebarController();
 
   @override
   void initState() {
     super.initState();
-    _controller.load();
+    if (widget.controller == null) _controller.load();
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
-    _controller.dispose();
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
