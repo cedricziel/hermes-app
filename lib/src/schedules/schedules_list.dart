@@ -273,15 +273,26 @@ class JobTile extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(color: subtle),
                 ),
               const Divider(height: 12),
-              Row(
+              // The next run moves under the status when both do not fit.
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
                 spacing: 8,
+                runSpacing: 2,
                 children: [
-                  StatusDot(color: color),
-                  Expanded(
-                    child: Text(
-                      statusText(job, now),
-                      style: theme.textTheme.bodySmall?.copyWith(color: color),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 8,
+                    children: [
+                      StatusDot(color: color),
+                      Flexible(
+                        child: Text(
+                          statusText(job, now),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   if (next != null)
                     Text(
