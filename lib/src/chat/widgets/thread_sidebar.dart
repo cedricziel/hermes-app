@@ -697,7 +697,7 @@ class AccountFooter extends StatelessWidget {
           ? 'Not connected'
           : (Uri.tryParse(baseUrl)?.authority ?? baseUrl);
       return MacAccountFooter(
-        name: user ?? host,
+        name: user,
         host: host,
         onSettings: () => showSettingsDialog(context),
         onConnection: () => Navigator.of(context)

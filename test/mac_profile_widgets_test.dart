@@ -208,6 +208,25 @@ void main() {
       expect(events, ['sign-out']);
     });
 
+    testWidgets('without a user it shows the host alone', (tester) async {
+      await _pump(
+        tester,
+        Align(
+          alignment: Alignment.bottomLeft,
+          child: SizedBox(
+            width: 260,
+            child: MacAccountFooter(
+              name: null,
+              host: '127.0.0.1:9119',
+              onSettings: () {},
+              onConnection: () {},
+            ),
+          ),
+        ),
+      );
+      expect(find.text('127.0.0.1:9119'), findsOneWidget);
+    });
+
     testWidgets('a server without sign-in has no Sign Out', (tester) async {
       await pumpFooter(tester, signIn: false);
       await tester.tap(find.byKey(const Key('mac-account-footer')));

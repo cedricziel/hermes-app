@@ -8,7 +8,7 @@ import '../../widgets/adaptive_popup_menu_button.dart';
 enum _AccountAction { settings, connection, signOut }
 
 /// The signed-in user at the bottom of a Mac sidebar: initials, name and the
-/// server's host. A click opens a menu above it with Settings…, Connection
+/// server's host; just the host when the dashboard reports no user. A click opens a menu above it with Settings…, Connection
 /// Details and, with [onSignOut], Sign Out.
 class MacAccountFooter extends StatelessWidget {
   const MacAccountFooter({
@@ -20,7 +20,8 @@ class MacAccountFooter extends StatelessWidget {
     this.onSignOut,
   });
 
-  final String name;
+  /// The user's name; null when the dashboard reports none.
+  final String? name;
   final String host;
   final VoidCallback onSettings;
   final VoidCallback onConnection;
@@ -48,7 +49,16 @@ class MacAccountFooter extends StatelessWidget {
               key: const Key('mac-account-footer'),
               tooltip: '',
               position: PopupMenuPosition.over,
-              offset: const Offset(0, -8),
+              // Above the footer, as a Mac menu opens from the bottom edge:
+              // the menu's 8pt padding on each side, its rows and divider.
+              offset: Offset(
+                0,
+                -(16 +
+                    AdaptivePopupMenuButton.macRowHeight *
+                        (onSignOut == null ? 3 : 4) +
+                    (onSignOut == null ? 0 : 9) +
+                    4),
+              ),
               onSelected: (action) => switch (action) {
                 _AccountAction.settings => onSettings(),
                 _AccountAction.connection => onConnection(),
@@ -88,7 +98,18 @@ class MacAccountFooter extends StatelessWidget {
                 height: 40,
                 child: Row(
                   children: [
-                    InitialsAvatar(label: name, size: 26),
+                    if (name case final name?)
+                      InitialsAvatar(label: name, size: 26)
+                    else
+                      CircleAvatar(
+                        radius: 13,
+                        backgroundColor: scheme.surfaceContainerHighest,
+                        child: AppIcon(
+                          AppIcons.person,
+                          size: 14,
+                          color: scheme.onSurface,
+                        ),
+                      ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -96,7 +117,7 @@ class MacAccountFooter extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            name,
+                            name ?? host,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -105,12 +126,13 @@ class MacAccountFooter extends StatelessWidget {
                               color: scheme.onSurface,
                             ),
                           ),
-                          Text(
-                            host,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: subtle),
-                          ),
+                          if (name != null)
+                            Text(
+                              host,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: subtle),
+                            ),
                         ],
                       ),
                     ),
