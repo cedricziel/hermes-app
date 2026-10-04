@@ -74,6 +74,7 @@ export function ToolCallStatusIcon({
   status,
   waiting = false,
 }: ToolCallStatusIconProps) {
+  const apple = usePlatform() === "apple";
   if (waiting)
     return (
       <Icon
@@ -86,7 +87,10 @@ export function ToolCallStatusIcon({
     case "running":
       return (
         <span
-          className="h-tool-status h-tool-status--running"
+          className={cx(
+            "h-tool-status h-tool-status--running",
+            apple && "h-apple-spinner",
+          )}
           aria-label="Running"
         />
       );

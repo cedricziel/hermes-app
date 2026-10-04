@@ -292,7 +292,10 @@ export function KanbanTaskPanel({
               </>
             ) : (
               <span
-                className="h-kanban-task-panel__spinner"
+                className={cx(
+                  "h-kanban-task-panel__spinner",
+                  apple && "h-apple-spinner",
+                )}
                 role="progressbar"
                 aria-label="Loading"
               />
@@ -400,7 +403,10 @@ export function KanbanTaskPanel({
             </Button>
             {estimating ? (
               <span
-                className="h-kanban-task-panel__spinner h-kanban-task-panel__spinner--small"
+                className={cx(
+                  "h-kanban-task-panel__spinner h-kanban-task-panel__spinner--small",
+                  apple && "h-apple-spinner",
+                )}
                 role="progressbar"
                 aria-label="Estimating"
               />

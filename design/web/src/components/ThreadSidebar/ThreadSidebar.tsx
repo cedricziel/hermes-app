@@ -594,7 +594,10 @@ export function ThreadSidebar({
             <div className="h-thread-sidebar__show-more">
               {loadingMore ? (
                 <span
-                  className="h-thread-sidebar__spinner"
+                  className={cx(
+                    "h-thread-sidebar__spinner",
+                    apple && "h-apple-spinner",
+                  )}
                   aria-label="Loading"
                 />
               ) : (

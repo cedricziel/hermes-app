@@ -59,9 +59,10 @@ export interface ConnectScreenProps {
 }
 
 function Spinner({ size, stroke }: { size: number; stroke: number }) {
+  const apple = usePlatform() === "apple";
   return (
     <span
-      className="h-connect-screen__spinner"
+      className={cx("h-connect-screen__spinner", apple && "h-apple-spinner")}
       style={{ width: size, height: size, borderWidth: stroke }}
       role="progressbar"
       aria-label="Loading"

@@ -62,14 +62,11 @@
 }
 
 /* Activity spinner: eight spokes stepping round, like UIActivityIndicatorView
-   (CircularProgressIndicator.adaptive in the app). Applies to every
-   recreated spinner inside a HermesProvider platform="apple". */
-[data-hermes-platform="apple"] .h-thinking-indicator__spinner,
-[data-hermes-platform="apple"] .h-connect-screen__spinner,
-[data-hermes-platform="apple"] .h-plugin-row__spinner,
-[data-hermes-platform="apple"] .h-thread-sidebar__spinner,
-[data-hermes-platform="apple"] .h-kanban-task-panel__spinner,
-[data-hermes-platform="apple"] .h-tool-status--running {
+   (CircularProgressIndicator.adaptive in the app). A spinner carries
+   h-apple-spinner when its own component resolves to apple, so a nested
+   material provider or a component's platform prop decides, not an outer
+   provider. Doubled to beat each component's single-class spinner rule. */
+.h-apple-spinner.h-apple-spinner {
   border: 0;
   border-radius: 50%;
   background: repeating-conic-gradient(
