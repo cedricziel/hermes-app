@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.46](https://github.com/cedricziel/hermes-app/compare/v0.1.45...v0.1.46) (2026-10-04)
+
+
+### Features
+
+* **chat:** render delegated subagents as cards in the thread ([#420](https://github.com/cedricziel/hermes-app/issues/420)) ([d49decc](https://github.com/cedricziel/hermes-app/commit/d49deccc749734d7e54eee7bd42d1ef6dc884f6a))
+
+
+### Bug Fixes
+
+* **chat:** recover the blank transcript while a reply streams ([#414](https://github.com/cedricziel/hermes-app/issues/414)) ([f4aa4c4](https://github.com/cedricziel/hermes-app/commit/f4aa4c4d6994ee1c61e3f6834d73d51fc21f4eb6))
+* **chat:** render interactive vault prompts ([#422](https://github.com/cedricziel/hermes-app/issues/422)) ([0407972](https://github.com/cedricziel/hermes-app/commit/04079729a30abf52f2137f7d61d58f1cd0356dcf))
+
 ## [0.1.45](https://github.com/cedricziel/hermes-app/compare/v0.1.44...v0.1.45) (2026-10-04)
 
 
