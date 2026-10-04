@@ -33,6 +33,10 @@ bool isWideLayout(BuildContext context, {double? width}) {
       size.shortestSide >= kIpadMinShortestSide;
 }
 
+/// From this content width a Mac window puts a list beside its details. A
+/// Mac window's sidebar takes room [kWideLayoutBreakpoint] does not expect.
+const double kMacSplitBreakpoint = 560;
+
 /// From this width the Kanban board shows its columns side by side and opens
 /// a task in a dialog. Lower than [kWideLayoutBreakpoint]: columns fit sooner.
 const double kKanbanColumnsBreakpoint = 720;

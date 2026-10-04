@@ -4,7 +4,7 @@ import '../../widgets/row_actions.dart';
 import '../schedule_models.dart';
 import '../schedules_list.dart';
 
-/// The job list column of a Mac window: each job a rounded row of its own,
+/// The job list column of a Mac window: each job a rounded, outlined row,
 /// 8 points apart, the selected one marked. A right click opens the row's
 /// actions.
 class MacJobList extends StatelessWidget {
@@ -38,18 +38,26 @@ class MacJobList extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
         final job = jobs[i];
+        final selected = job.key == selectedKey;
         final tile = Material(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10),
+          color: scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: selected
+                ? BorderSide(color: scheme.primary, width: 2)
+                : BorderSide(color: Theme.of(context).dividerColor),
+          ),
           clipBehavior: Clip.antiAlias,
-          child: JobTile(
-            job: job,
-            now: now,
-            showProfile: showProfile,
-            selected: job.key == selectedKey,
-            grouped: true,
-            onTap: () => onSelect(job),
-            onPausedChanged: (paused) => onPausedChanged(job, paused),
+          child: Semantics(
+            selected: selected,
+            child: JobTile(
+              job: job,
+              now: now,
+              showProfile: showProfile,
+              grouped: true,
+              onTap: () => onSelect(job),
+              onPausedChanged: (paused) => onPausedChanged(job, paused),
+            ),
           ),
         );
         final actions = actionsFor?.call(job);

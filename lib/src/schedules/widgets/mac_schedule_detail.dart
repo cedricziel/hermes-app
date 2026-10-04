@@ -6,6 +6,7 @@ import '../../widgets/adaptive_popup_menu_button.dart';
 import '../schedule_models.dart';
 import '../schedule_widgets.dart';
 import 'run_history_empty.dart';
+import 'run_history_pending.dart';
 
 /// One job in a Mac window's detail pane: a header with Edit and Run now,
 /// the last failure, the job's settings as a grid and its recent runs.
@@ -72,33 +73,29 @@ class MacScheduleDetail extends StatelessWidget {
 
   Widget _header(BuildContext context) {
     final theme = Theme.of(context);
-    final next = job.isPaused || job.state == CronJobState.completed
-        ? null
-        : job.nextRunAt;
+    final next = upcomingRun(job);
     final subtitle = [
       if (job.scheduleWords.isNotEmpty) job.scheduleWords,
       if (next != null) 'next run ${relativeTime(next, now)}',
     ].join(' · ');
-    return Row(
+    final heading = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 2,
+      children: [
+        Text(job.title, style: theme.textTheme.titleMedium),
+        if (subtitle.isNotEmpty)
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: context.hermesColors.subtleText,
+            ),
+          ),
+      ],
+    );
+    final buttons = Row(
+      mainAxisSize: MainAxisSize.min,
       spacing: 8,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 2,
-            children: [
-              Text(job.title, style: theme.textTheme.titleMedium),
-              if (subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: context.hermesColors.subtleText,
-                  ),
-                ),
-            ],
-          ),
-        ),
         _more(context),
         OutlinedButton(onPressed: onEdit, child: const Text('Edit')),
         FilledButton.icon(
@@ -107,6 +104,23 @@ class MacScheduleDetail extends StatelessWidget {
           label: const Text('Run now'),
         ),
       ],
+    );
+    // In a narrow pane the buttons go under the title rather than squeeze it.
+    return LayoutBuilder(
+      builder: (context, box) => box.maxWidth < _headerRowMinWidth
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 12,
+              children: [heading, buttons],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 8,
+              children: [
+                Expanded(child: heading),
+                buttons,
+              ],
+            ),
     );
   }
 
@@ -192,13 +206,7 @@ class MacScheduleDetail extends StatelessWidget {
         ),
       if (deliveryError != null && job.outcome != CronOutcome.deliveryFailed)
         ('Delivery', text('Failed: $deliveryError')),
-      if (job.skills.isNotEmpty) ('Skills', text(job.skills.join(', '))),
-      if (job.model != null) ('Model', text(job.model!)),
-      if (job.provider != null) ('Provider', text(job.provider!)),
-      if (job.script != null) ('Script', text(job.script!)),
-      if (job.workdir != null) ('Working directory', text(job.workdir!)),
-      if (job.contextFrom.isNotEmpty)
-        ('Takes context from', text(job.contextFrom.join(', '))),
+      for (final (label, value) in jobSettings(job)) (label, text(value)),
       if (job.prompt.isNotEmpty) ('Prompt', SelectableText(job.prompt)),
     ];
   }
@@ -214,17 +222,7 @@ class MacScheduleDetail extends StatelessWidget {
     final runs = this.runs;
     final Widget body;
     if (runs == null) {
-      body = runsFailed
-          ? Row(
-              children: [
-                const Expanded(child: Text('Could not load the runs')),
-                TextButton(onPressed: onRetryRuns, child: const Text('Retry')),
-              ],
-            )
-          : const Padding(
-              padding: EdgeInsets.all(12),
-              child: Center(child: CircularProgressIndicator.adaptive()),
-            );
+      body = RunHistoryPending(failed: runsFailed, onRetry: onRetryRuns);
     } else if (runs.isEmpty) {
       body = RunHistoryEmpty(job: job);
     } else {
@@ -255,6 +253,8 @@ class MacScheduleDetail extends StatelessWidget {
     );
   }
 }
+
+const double _headerRowMinWidth = 460;
 
 enum _MoreAction { pause, mute, delete }
 
@@ -301,30 +301,28 @@ class _RunRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final colors = context.hermesColors;
-    final duration = run.duration;
-    final took = duration == null ? null : formatDuration(duration);
-    final (Widget icon, String outcome) = run.isActive
-        ? (
-            const SizedBox.square(
-              dimension: 14,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            ),
-            'Running',
-          )
-        : failed
-        ? (
-            AppIcon(AppIcons.error, size: 16, color: scheme.error),
-            took == null ? 'Failed' : 'Failed · $took',
-          )
-        : took == null
-        ? (
-            AppIcon(AppIcons.warning, size: 16, color: colors.warning),
-            'Unfinished',
-          )
-        : (
-            AppIcon(AppIcons.checkCircle, size: 16, color: colors.success),
-            took,
-          );
+    final outcome = runOutcomeText(run);
+    final (Widget icon, String label) = switch (run) {
+      CronRun(isActive: true) => (
+        const SizedBox.square(
+          dimension: 14,
+          child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+        ),
+        outcome,
+      ),
+      _ when failed => (
+        AppIcon(AppIcons.error, size: 16, color: scheme.error),
+        run.duration == null ? 'Failed' : 'Failed · $outcome',
+      ),
+      CronRun(duration: null) => (
+        AppIcon(AppIcons.warning, size: 16, color: colors.warning),
+        outcome,
+      ),
+      _ => (
+        AppIcon(AppIcons.checkCircle, size: 16, color: colors.success),
+        outcome,
+      ),
+    };
     return InkWell(
       onTap: onTap,
       child: SizedBox(
@@ -344,7 +342,7 @@ class _RunRow extends StatelessWidget {
                 ),
               ),
               Text(
-                outcome,
+                label,
                 style: TextStyle(fontSize: 12, color: colors.subtleText),
               ),
               AppIcon(

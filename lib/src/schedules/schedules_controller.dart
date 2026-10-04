@@ -34,6 +34,10 @@ class SchedulesController extends ChangeNotifier {
   final SharedPreferencesAsync? prefs;
   Future<void>? _restored;
 
+  /// Whether the user picked a scope, which a late read of the kept one must
+  /// not overwrite.
+  bool _picked = false;
+
   List<CronJob> _jobs = const [];
   bool _loading = false;
   bool _loaded = false;
@@ -81,7 +85,8 @@ class SchedulesController extends ChangeNotifier {
   /// The user's pick between the active profile and every profile. It is
   /// kept for the next launch.
   set allProfiles(bool value) {
-    _restored ??= Future.value();
+    _picked = true;
+    if (_allProfiles == value) return;
     prefs?.setBool(_allProfilesKey, value);
     _setScope(value);
   }
@@ -96,7 +101,7 @@ class SchedulesController extends ChangeNotifier {
   Future<void> _restore() async {
     try {
       final all = await prefs?.getBool(_allProfilesKey);
-      if (all != null) _allProfiles = all;
+      if (all != null && !_picked) _allProfiles = all;
     } on Object {
       // An unreadable setting leaves the default scope.
     }

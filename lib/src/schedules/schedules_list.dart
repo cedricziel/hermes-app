@@ -9,6 +9,7 @@ import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
+import 'widgets/mac_job_list.dart';
 import 'widgets/schedule_filter_bar.dart';
 
 /// The jobs of the server as cards, with the profile and filter chips above.
@@ -18,11 +19,15 @@ class SchedulesList extends StatelessWidget {
     required this.controller,
     required this.onSelect,
     this.selectedKey,
+    this.macLayout = false,
   });
 
   final SchedulesController controller;
   final ValueChanged<CronJob> onSelect;
   final String? selectedKey;
+
+  /// Lays the jobs out for a Mac window, whose toolbar holds the scope.
+  final bool macLayout;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +35,7 @@ class SchedulesList extends StatelessWidget {
       listenable: controller,
       builder: (context, _) {
         final jobs = controller.visibleJobs;
+        final mac = macLayout;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -40,17 +46,18 @@ class SchedulesList extends StatelessWidget {
               failingCount: controller.failingCount,
               onAllProfilesChanged: (all) => controller.allProfiles = all,
               onFilterChanged: (filter) => controller.filter = filter,
+              showScope: !mac,
             ),
             if (controller.error != null && controller.loaded)
               _ErrorNote(controller: controller),
-            Expanded(child: _body(context, jobs)),
+            Expanded(child: _body(context, jobs, mac: mac)),
           ],
         );
       },
     );
   }
 
-  Widget _body(BuildContext context, List<CronJob> jobs) {
+  Widget _body(BuildContext context, List<CronJob> jobs, {required bool mac}) {
     if (!controller.loaded) {
       if (controller.error != null) {
         return StateMessage(
@@ -73,14 +80,36 @@ class SchedulesList extends StatelessWidget {
               SizedBox(
                 height: box.maxHeight,
                 child: StateMessage(
-                  title: controller.filter == ScheduleFilter.all
-                      ? 'No scheduled tasks'
-                      : 'No tasks match this filter',
+                  title: controller.filter != ScheduleFilter.all
+                      ? 'No tasks match this filter'
+                      : mac && !controller.allProfiles
+                      ? 'No schedules in this profile'
+                      : 'No scheduled tasks',
                 ),
               ),
             ],
           ),
         ),
+      );
+    }
+    Future<void> pausedChanged(CronJob job, bool paused) async {
+      final message = await controller.setPaused(job, paused);
+      if (message != null && context.mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      }
+    }
+
+    if (mac) {
+      return MacJobList(
+        jobs: jobs,
+        now: controller.now,
+        showProfile: controller.showProfiles,
+        selectedKey: selectedKey,
+        onSelect: onSelect,
+        onPausedChanged: pausedChanged,
+        actionsFor: (job) => scheduleRowActions(context, controller, job),
       );
     }
     final apple = platformChromeOf(context).isApple;
@@ -94,14 +123,7 @@ class SchedulesList extends StatelessWidget {
         selected: job.key == selectedKey,
         grouped: grouped,
         onTap: () => onSelect(job),
-        onPausedChanged: (paused) async {
-          final message = await controller.setPaused(job, paused);
-          if (message != null && context.mounted) {
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(content: Text(message)));
-          }
-        },
+        onPausedChanged: (paused) => pausedChanged(job, paused),
       ),
     );
     return RefreshIndicator(
@@ -274,32 +296,37 @@ class JobTile extends StatelessWidget {
                 ),
               const Divider(height: 12),
               // The next run moves under the status when both do not fit.
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                spacing: 8,
-                runSpacing: 2,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 8,
-                    children: [
-                      StatusDot(color: color),
-                      Flexible(
-                        child: Text(
-                          statusText(job, now),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: color,
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 8,
+                  runSpacing: 2,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 8,
+                      children: [
+                        StatusDot(color: color),
+                        Flexible(
+                          child: Text(
+                            statusText(job, now),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: color,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (next != null)
-                    Text(
-                      next,
-                      style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+                      ],
                     ),
-                ],
+                    if (next != null)
+                      Text(
+                        next,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: subtle,
+                        ),
+                      ),
+                  ],
+                ),
               ),
               if (reason != null)
                 Text(
