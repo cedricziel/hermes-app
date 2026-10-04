@@ -8,6 +8,9 @@ import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_source_list.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
+import 'package:hermes_app/src/profiles/widgets/mac_profile_switcher.dart';
+import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
+import 'package:hermes_app/src/settings/widgets/mac_account_footer.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -329,5 +332,129 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
           ),
       ],
     ),
+    WidgetbookComponent(
+      name: 'MacProfileSwitcher',
+      useCases: [
+        _case(
+          'Default profile',
+          () => frame(
+            MacProfileSwitcher(
+              profiles: macProfiles,
+              current: 'default',
+              onSwitch: (_) {},
+              onNewProfile: () {},
+              onManage: () {},
+            ),
+            maxWidth: 264,
+          ),
+        ),
+        _case('Menu open', () => const _OpenProfileMenu()),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacProfilesView',
+      useCases: [
+        for (final (name, counts) in [
+          (
+            'Counts loaded',
+            {
+              ProfileSection.skills: 12,
+              ProfileSection.bots: 1,
+              ProfileSection.plugins: 4,
+              ProfileSection.mcp: 3,
+              ProfileSection.helperModels: 9,
+            },
+          ),
+          ('Counts loading or failed', <ProfileSection, int>{}),
+        ])
+          _case(
+            name,
+            // A Mac page: as wide as a window, scrolled on a phone.
+            () => SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: 860,
+                height: 640,
+                child: MacProfilesView(
+                  profiles: macProfiles,
+                  selected: 'work',
+                  onSelect: (_) {},
+                  counts: counts,
+                  onOpen: (_) {},
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MacAccountFooter',
+      useCases: [
+        for (final (name, signIn) in [
+          ('Signed in', true),
+          ('No sign-in', false),
+        ])
+          _case(
+            name,
+            () => frame(
+              MacAccountFooter(
+                name: 'Ada Lovelace',
+                host: 'hermes.example.com',
+                onSettings: () {},
+                onConnection: () {},
+                onSignOut: signIn ? () {} : null,
+              ),
+              maxWidth: 264,
+            ),
+          ),
+      ],
+    ),
   ],
 );
+
+/// The profile switcher with its menu open, for the catalog to look at.
+class _OpenProfileMenu extends StatefulWidget {
+  const _OpenProfileMenu();
+
+  @override
+  State<_OpenProfileMenu> createState() => _OpenProfileMenuState();
+}
+
+class _OpenProfileMenuState extends State<_OpenProfileMenu> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final switcher = find(context);
+      if (switcher != null) switcher.showButtonMenu();
+    });
+  }
+
+  PopupMenuButtonState<Object?>? find(BuildContext context) {
+    PopupMenuButtonState<Object?>? found;
+    void visit(Element element) {
+      if (found != null) return;
+      if (element is StatefulElement && element.state is PopupMenuButtonState) {
+        found = element.state as PopupMenuButtonState<Object?>;
+        return;
+      }
+      element.visitChildren(visit);
+    }
+
+    (context as Element).visitChildren(visit);
+    return found;
+  }
+
+  @override
+  Widget build(BuildContext context) => frame(
+    MacProfileSwitcher(
+      profiles: macProfiles,
+      current: 'work',
+      onSwitch: (_) {},
+      onNewProfile: () {},
+      onManage: () {},
+    ),
+    maxWidth: 264,
+  );
+}

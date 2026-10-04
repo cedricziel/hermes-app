@@ -1,3 +1,4 @@
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review_items.dart';
@@ -611,6 +612,29 @@ final allProfileHits = [
     ],
     updatedAt: _now.subtract(const Duration(days: 1)),
     profile: 'work',
+  ),
+];
+
+/// Profiles with their homes, for the Mac profile switcher and page.
+const macProfiles = [
+  HermesProfile(
+    name: 'default',
+    description: 'Everyday questions',
+    model: 'claude-sonnet-4',
+    skillCount: 58,
+    path: '/home/hermes/.hermes',
+  ),
+  HermesProfile(
+    name: 'work',
+    displayName: 'Work',
+    description: 'Day job: infra and releases',
+    skillCount: 12,
+    path: '/home/hermes/.hermes/profiles/work',
+  ),
+  HermesProfile(
+    name: 'travel',
+    description: 'Trips and bookings',
+    path: '/home/hermes/.hermes/profiles/travel',
   ),
 ];
 
