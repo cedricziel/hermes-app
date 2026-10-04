@@ -30,10 +30,14 @@ class McpServersScreen extends StatefulWidget {
     super.key,
     required this.repository,
     this.profiles,
+    this.profile,
     this.launchLink,
   });
 
   final HermesMcpRepository repository;
+
+  /// The profile to show; the active one when null.
+  final String? profile;
 
   /// Where the active profile comes from; without it the screen acts without
   /// a profile.
@@ -57,6 +61,7 @@ class _McpServersScreenState extends State<McpServersScreen> {
     _controller = McpServersController(
       repository: widget.repository,
       profiles: widget.profiles,
+      forProfile: widget.profile,
       launchLink: widget.launchLink,
     )..load();
   }

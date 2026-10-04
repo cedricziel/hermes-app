@@ -86,4 +86,26 @@ void main() {
 
     expect(controller.testOf('grafana'), isA<McpTestFinished>());
   });
+
+  test('a given profile is used without asking for the active one', () async {
+    final scoped = McpServersController(
+      repository: HermesMcpRepository(server.client().raw),
+      profiles: HermesProfilesRepository(server.client().raw),
+      forProfile: 'travel',
+    );
+    addTearDown(scoped.dispose);
+    final asked = server.requestsTo('GET', '/api/profiles/active').length;
+
+    await scoped.load();
+
+    expect(server.requestsTo('GET', '/api/profiles/active'), hasLength(asked));
+    expect(scoped.profile, 'travel');
+    expect(
+      server
+          .requestsTo('GET', '/api/mcp/servers')
+          .last
+          .queryParameters['profile'],
+      'travel',
+    );
+  });
 }
