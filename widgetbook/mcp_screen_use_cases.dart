@@ -129,7 +129,7 @@ Future<McpServersController> _servers(FakeHermesServer server) async {
   return controller;
 }
 
-WidgetbookUseCase _withServers(
+WidgetbookUseCase mcpServersUseCase(
   String name,
   Widget Function(McpServersController servers) build, {
   FakeHermesServer Function()? server,
@@ -166,20 +166,20 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpServerDetail',
       useCases: [
-        _withServers(
+        mcpServersUseCase(
           'Tested OAuth server',
           (servers) => Scaffold(
             body: McpServerDetail(controller: servers, name: 'grafana'),
           ),
           prepare: (servers) => servers.test(servers.serverNamed('grafana')!),
         ),
-        _withServers(
+        mcpServersUseCase(
           'Command server, switched off',
           (servers) => Scaffold(
             body: McpServerDetail(controller: servers, name: 'filesystem'),
           ),
         ),
-        _withServers(
+        mcpServersUseCase(
           'Page',
           (servers) => McpServerPage(controller: servers, name: 'grafana'),
         ),
@@ -188,13 +188,16 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpAddServerScreen',
       useCases: [
-        _withServers('Form', (servers) => McpAddServerScreen(servers: servers)),
+        mcpServersUseCase(
+          'Form',
+          (servers) => McpAddServerScreen(servers: servers),
+        ),
       ],
     ),
     WidgetbookComponent(
       name: 'McpJsonEditorScreen',
       useCases: [
-        _withServers(
+        mcpServersUseCase(
           'Editor',
           (servers) => McpJsonEditorScreen(servers: servers),
         ),
@@ -203,7 +206,7 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpCatalogScreen',
       useCases: [
-        _withServers(
+        mcpServersUseCase(
           'Catalog',
           (servers) => McpCatalogScreen(servers: servers),
         ),
@@ -247,7 +250,7 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpSignInScreen',
       useCases: [
-        _withServers(
+        mcpServersUseCase(
           'Waiting for approval',
           (servers) => McpSignInScreen(
             controller: servers,
