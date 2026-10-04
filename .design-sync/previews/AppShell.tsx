@@ -2,6 +2,11 @@ import {
   AppShell,
   ChatHeader,
   HermesProvider,
+  IconButton,
+  KanbanColumn,
+  KanbanStatusChips,
+  KanbanToolbar,
+  ListDetailLayout,
   ShellNavigation,
   StateMessage,
   ThreadSidebar,
@@ -33,7 +38,25 @@ const desktop = {
   height: 560,
   border: "1px solid var(--h-border)",
 };
-const phone = { width: 390, height: 760, border: "1px solid var(--h-border)" };
+const phone = { width: 390, height: 640, border: "1px solid var(--h-border)" };
+
+/** The Schedules page brings its own bar: title, Refresh and "New" (a "+" in the bar on Apple, a floating button on Material). */
+const SchedulesPage = () => (
+  <ListDetailLayout
+    layout="list"
+    title="Schedules"
+    actions={<IconButton icon="refresh" label="Refresh" />}
+    onAdd={() => {}}
+    addLabel="New"
+    list={
+      <StateMessage
+        icon="schedule"
+        title="No scheduled tasks yet"
+        detail="Ask Hermes to run something on a schedule, such as a nightly backup check."
+      />
+    }
+  />
+);
 
 const ChatDesktop = () => (
   <AppShell
@@ -65,11 +88,7 @@ export const DesktopChat = () => (
 export const DesktopSchedules = () => (
   <div style={{ ...desktop, height: 380 }}>
     <AppShell layout="desktop" current="schedules">
-      <StateMessage
-        icon="schedule"
-        title="No scheduled tasks yet"
-        detail="Ask Hermes to run something on a schedule, such as a nightly backup check."
-      />
+      <SchedulesPage />
     </AppShell>
   </div>
 );
@@ -103,15 +122,58 @@ export const Phone = () => (
   </div>
 );
 
+const KanbanPhonePage = () => (
+  <>
+    <KanbanToolbar wide={false} assignees={["coder", "reviewer"]} />
+    <KanbanStatusChips
+      statuses={[
+        { name: "triage", count: 1 },
+        { name: "todo", count: 2 },
+        { name: "running", count: 2 },
+        { name: "review", count: 1 },
+        { name: "done", count: 7 },
+      ]}
+      selected="running"
+    />
+    <KanbanColumn
+      variant="list"
+      status="running"
+      tasks={[
+        {
+          id: "t_run",
+          title: "Migrate webhooks",
+          status: "running",
+          assignee: "coder",
+          priority: 2,
+          progressDone: 2,
+          progressTotal: 5,
+        },
+        {
+          id: "t_run2",
+          title: "Rotate staging certificates",
+          status: "running",
+          assignee: "reviewer",
+          progressDone: 0,
+          progressTotal: 3,
+        },
+      ]}
+    />
+  </>
+);
+
+/** The Kanban board on a phone (left) and the same board with the shell's drawer open over it (right). */
 export const PhoneKanbanDrawer = () => (
-  <div style={phone}>
-    <AppShell layout="phone" current="kanban" drawerOpen>
-      <StateMessage
-        icon="view_kanban"
-        title="No tasks on this board"
-        detail="Tasks you or Hermes create show up here."
-      />
-    </AppShell>
+  <div style={{ display: "flex", gap: 24 }}>
+    <div style={phone}>
+      <AppShell layout="phone" current="kanban">
+        <KanbanPhonePage />
+      </AppShell>
+    </div>
+    <div style={phone}>
+      <AppShell layout="phone" current="kanban" drawerOpen>
+        <KanbanPhonePage />
+      </AppShell>
+    </div>
   </div>
 );
 
@@ -169,11 +231,7 @@ export const AppleMacSchedules = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={{ ...desktop, height: 380 }}>
       <AppShell layout="desktop" current="schedules" showTrafficLights>
-        <StateMessage
-          icon="schedule"
-          title="No scheduled tasks yet"
-          detail="Ask Hermes to run something on a schedule, such as a nightly backup check."
-        />
+        <SchedulesPage />
       </AppShell>
     </div>
   </HermesProvider>
@@ -216,7 +274,7 @@ export const AppleIPad = () => (
   </HermesProvider>
 );
 
-const iphone = { width: 380, height: 700, border: "1px solid var(--h-border)" };
+const iphone = { ...phone, width: 380 };
 
 /** iPhone: the drawer stays on phones. Nav bar 44px with a centred title; the drawer's thread rows are 44px with a 44px "…" target. */
 export const ApplePhone = () => (
