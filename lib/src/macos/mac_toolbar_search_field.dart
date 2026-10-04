@@ -17,6 +17,7 @@ class MacToolbarSearchField extends StatefulWidget {
     required this.active,
     required this.onChanged,
     required this.onEnd,
+    this.onBegin,
     this.onSubmitted,
     this.focusNode,
   });
@@ -27,6 +28,9 @@ class MacToolbarSearchField extends StatefulWidget {
   final bool active;
   final ValueChanged<String> onChanged;
   final VoidCallback onEnd;
+
+  /// Called when the field gets the focus, which opens a search.
+  final VoidCallback? onBegin;
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
 
@@ -63,7 +67,10 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
     super.dispose();
   }
 
-  void _refocused() => setState(() {});
+  void _refocused() {
+    if (_focus.hasFocus) widget.onBegin?.call();
+    setState(() {});
+  }
 
   void _end() {
     _focus.unfocus();
@@ -106,10 +113,15 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
                 onChanged: widget.onChanged,
                 onSubmitted: widget.onSubmitted,
                 textInputAction: TextInputAction.search,
+                textAlignVertical: TextAlignVertical.center,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
                   isCollapsed: true,
+                  filled: false,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
                   hintText: 'Search',
                   hintStyle: TextStyle(fontSize: 13, color: subtle),
                 ),

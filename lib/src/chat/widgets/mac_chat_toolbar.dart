@@ -93,6 +93,7 @@ class MacChatToolbar extends StatelessWidget {
               onChanged: onSearchChanged,
               onSubmitted: onSearchSubmitted,
               onEnd: onSearchEnd,
+              onBegin: onSearchBegin,
             ),
           )
         else

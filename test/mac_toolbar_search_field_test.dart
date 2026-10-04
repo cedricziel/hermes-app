@@ -24,6 +24,7 @@ void main() {
               focusNode: focus,
               onChanged: (q) => events.add('changed:$q'),
               onEnd: () => events.add('end'),
+              onBegin: () => events.add('begin'),
             ),
           ),
         ),
@@ -45,10 +46,17 @@ void main() {
     expect(tester.getSize(field()).width, 240);
   });
 
+  testWidgets('getting the focus begins a search', (tester) async {
+    final events = await pump(tester);
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(events, ['begin']);
+  });
+
   testWidgets('typing reports the query', (tester) async {
     final events = await pump(tester);
     await tester.enterText(find.byType(TextField), 'backup');
-    expect(events, ['changed:backup']);
+    expect(events, ['begin', 'changed:backup']);
   });
 
   testWidgets('Escape ends the search', (tester) async {
@@ -66,7 +74,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
 
-    expect(events, ['end']);
+    expect(events, ['begin', 'end']);
     expect(focus.hasFocus, isFalse);
   });
 

@@ -308,11 +308,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _beginSearch() {
     final search = _chat.search;
     if (search == null) return;
-    search.begin();
-    final sidebar = MacSidebarScope.maybeOf(context);
-    if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
-      sidebar.toggle(compact: true);
+    if (!search.active) {
+      search.begin();
+      final sidebar = MacSidebarScope.maybeOf(context);
+      if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
+        sidebar.toggle(compact: true);
+      }
     }
+    if (_searchFocus.hasFocus) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _searchFocus.requestFocus();
     });
