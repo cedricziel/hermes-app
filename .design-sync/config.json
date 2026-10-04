@@ -170,6 +170,39 @@
     },
     "ImageViewerScreen": {
       "cardMode": "column"
+    },
+    "McpCatalogRow": {
+      "cardMode": "column"
+    },
+    "McpServerDetail": {
+      "cardMode": "column"
+    },
+    "McpInstallPanel": {
+      "cardMode": "column"
+    },
+    "McpCommandReview": {
+      "cardMode": "column"
+    },
+    "PluginDetail": {
+      "cardMode": "column"
+    },
+    "McpServersScreen": {
+      "cardMode": "column"
+    },
+    "McpCatalogScreen": {
+      "cardMode": "column"
+    },
+    "McpAddServerScreen": {
+      "cardMode": "column"
+    },
+    "McpSignInScreen": {
+      "cardMode": "column"
+    },
+    "McpJsonEditorScreen": {
+      "cardMode": "column"
+    },
+    "PluginsScreen": {
+      "cardMode": "column"
     }
   }
 }

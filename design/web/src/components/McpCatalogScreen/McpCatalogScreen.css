@@ -1,0 +1,30 @@
+.h-mcp-catalog {
+  padding-bottom: 8px;
+}
+
+.h-mcp-catalog__search {
+  padding: 8px 16px;
+}
+
+.h-mcp-catalog__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.h-mcp-catalog__diagnostics {
+  padding: 12px 16px 0;
+}
+
+.h-mcp-catalog__rows {
+  margin-top: 8px;
+}
+
+.h-mcp-catalog__none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px;
+}

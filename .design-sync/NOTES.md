@@ -139,6 +139,22 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Not recreated: thread rename/delete dialogs, the "Always allow" confirmation, UnsupportedRequestCard, the
   Kanban phone drop strip and the task panel's edit/assign/priority dialogs (callback props only).
 
+## Screen cards: MCP servers and Plugins
+
+- `McpServersScreen`: list + `McpServerDetail` from 900px, the phone's server page (`openServer`), the Add menu,
+  empty, loading and failed. `McpCatalogScreen`: search, filter chips, `McpCatalogRow`s, the install panel in the
+  pane (desktop) or a bottom `Sheet` (phone), "No servers match", failed. `McpAddServerScreen`: remote (URL, None /
+  Bearer token / OAuth) or command (args, environment rows), validation errors and the `McpCommandReview` sheet or
+  dialog. `McpSignInScreen`: waiting, browser failed, failed, expired. `McpJsonEditorScreen`: editor, parse error,
+  Hermes' problems, review dialog, load failed. `PluginsScreen`: Installed, Catalog (search, Git URL, the
+  unreviewed-code dialog) and Providers (memory and context engine `RadioRow`s, "What it needs", Save bar), each
+  tab's loading, failed and not-available states, `PluginDetail` in a pane or a bottom sheet.
+- The screens filter and validate their plain props themselves (catalog query and filter chips, the Add form's
+  URL check and Add button), so a preview shows the real empty and disabled states.
+- Gaps: no Mac window chrome (the cards are Material desktop or iPhone; `MacToolbar` and `ListDetailLayout
+  device` are not wired in yet), the remove and discard confirmations and snack bars are not drawn, the catalog's
+  pull-to-refresh is not shown, and the SegmentedButton label "Bearer token" ellipsises at phone width.
+
 ## Re-sync risks
 
 - Everything here is a hand copy of Flutter UI. Check `git log lib/src/theme lib/src/chat/widgets

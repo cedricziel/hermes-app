@@ -1,0 +1,42 @@
+.h-mcp-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 420px;
+  text-align: center;
+}
+
+.h-mcp-signin__title {
+  margin: 20px 0 8px;
+}
+
+.h-mcp-signin__error {
+  color: var(--h-error);
+}
+
+.h-mcp-signin__error + .h-mcp-signin__title {
+  margin-top: 12px;
+}
+
+.h-mcp-signin__note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.h-mcp-signin__url {
+  font-family: var(--h-font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.h-mcp-signin__buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 20px;
+}

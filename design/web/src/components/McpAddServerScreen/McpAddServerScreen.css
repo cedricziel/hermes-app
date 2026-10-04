@@ -1,0 +1,39 @@
+/* The form column: 560px at most, centred, 16px padding. */
+.h-mcp-add {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.h-mcp-add__kind {
+  margin-bottom: 4px;
+}
+
+.h-mcp-add__env {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Two equal columns: name and value. */
+.h-mcp-add__env {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+}
+
+/* Centred on the field box, below the 18px label and its 6px gap. */
+.h-mcp-add__env-remove {
+  flex: none;
+  margin-top: 26px;
+}
+
+.h-mcp-add__add-variable {
+  margin-left: -12px;
+}
+
+.h-mcp-add__submit {
+  margin-right: 8px;
+}

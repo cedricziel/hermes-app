@@ -1,0 +1,85 @@
+/* Flutter pads the detail 20px at the sides, 4px on top (under the sheet's handle), 24px below. */
+.h-plugin-detail {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 20px 24px;
+  color: var(--h-fg);
+}
+
+.h-plugin-detail__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.h-plugin-detail__title > .h-title-lg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-plugin-detail__description,
+.h-plugin-detail__gap-12 {
+  margin-top: 12px;
+}
+
+.h-plugin-detail__gap-8 {
+  margin-top: 8px;
+}
+
+.h-plugin-detail__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.h-plugin-detail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.h-plugin-detail__docs {
+  margin: 8px 0 0 -12px;
+}
+
+.h-plugin-detail__install {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+/* FilledButton.tonal: a tinted fill, no border. */
+.h-plugin-detail__tonal {
+  border-color: transparent;
+  background: var(--h-surface-high);
+}
+
+.h-plugin-detail__login {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: var(--h-radius);
+  background: var(--h-surface-high);
+}
+
+.h-plugin-detail__command {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.h-plugin-detail__command > .h-mono {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-plugin-detail__remove {
+  margin-top: 24px;
+  border-color: var(--h-error);
+  color: var(--h-error);
+}

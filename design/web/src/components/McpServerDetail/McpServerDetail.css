@@ -1,0 +1,77 @@
+.h-mcp-detail {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  color: var(--h-fg);
+}
+
+.h-mcp-detail__meta {
+  margin-top: 4px;
+}
+
+.h-mcp-detail__address {
+  margin-top: 8px;
+  font-family: var(--h-font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+.h-mcp-detail__switch {
+  margin-top: 16px;
+}
+
+.h-mcp-detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.h-mcp-detail__test-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.h-mcp-detail__remove {
+  flex: none;
+  color: var(--h-error);
+}
+
+.h-mcp-detail__outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.h-mcp-detail__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.h-mcp-detail__tool {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+}
+
+.h-mcp-detail__tool + .h-mcp-detail__tool {
+  border-top: 1px solid var(--h-border-subtle);
+}
+
+.h-mcp-detail__tool-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-mcp-detail__tool-name {
+  font-family: var(--h-font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
