@@ -16,6 +16,7 @@ import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
 import '../thread_sections.dart';
+import 'mac_search_results.dart';
 import 'mac_thread_row.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
@@ -33,7 +34,8 @@ import 'thread_search_view.dart';
 ///
 /// With [search], a field above the list searches the sessions, and while it
 /// holds text the list shows what it found; a tapped result goes to
-/// [onOpenHit].
+/// [onOpenHit]. A Mac window searches from its toolbar instead, and shows the
+/// results here while the search is open.
 ///
 /// On macOS the threads sit in sections by when they were last active, under
 /// headers that fold them away, as 28pt rows with hover buttons and a Mac
@@ -56,6 +58,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenMcp,
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
+    this.searchProfile,
   });
 
   final List<ChatThread> threads;
@@ -79,10 +82,15 @@ class ThreadSidebar extends StatelessWidget {
   /// context menu; the item is left out without it.
   final ValueChanged<ChatThread>? onOpenInNewWindow;
 
+  /// The profile [search] looks in by default; results from another one name
+  /// theirs.
+  final String? searchProfile;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.hermesColors;
     final search = this.search;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
     return Container(
       color: macSidebarColor(context, colors.sidebar),
       child: SafeArea(
@@ -109,52 +117,56 @@ class ThreadSidebar extends StatelessWidget {
                     ],
                   ),
                 ),
-            if (navigation != null) ...[
+            if (mac)
+              Expanded(child: _macBody())
+            else ...[
+              if (navigation != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: navigation,
+                ),
+                const Divider(height: 17, indent: 16, endIndent: 16),
+              ],
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: navigation,
-              ),
-              const Divider(height: 17, indent: 16, endIndent: 16),
-            ],
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: SidebarAction(
-                icon: AppIcons.add,
-                label: 'New chat',
-                onTap: onNewThread,
-              ),
-            ),
-            const SizedBox(height: 4),
-            if (search != null) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: ListenableBuilder(
-                  listenable: search,
-                  builder: (context, _) => ThreadSearchField(
-                    query: search.query,
-                    onChanged: search.update,
-                  ),
+                child: SidebarAction(
+                  icon: AppIcons.add,
+                  label: 'New chat',
+                  onTap: onNewThread,
                 ),
               ),
               const SizedBox(height: 4),
-            ],
-            Expanded(
-              child: search == null
-                  ? _threadList()
-                  : ListenableBuilder(
-                      listenable: search,
-                      builder: (context, _) =>
-                          search.status == ThreadSearchStatus.idle
-                          ? _threadList()
-                          : ThreadSearchResults(
-                              query: search.query,
-                              status: search.status,
-                              hits: search.hits,
-                              selectedId: selectedId,
-                              onOpen: onOpenHit ?? (_) {},
-                            ),
+              if (search != null) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: ListenableBuilder(
+                    listenable: search,
+                    builder: (context, _) => ThreadSearchField(
+                      query: search.query,
+                      onChanged: search.update,
                     ),
-            ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              Expanded(
+                child: search == null
+                    ? _threadList()
+                    : ListenableBuilder(
+                        listenable: search,
+                        builder: (context, _) =>
+                            search.status == ThreadSearchStatus.idle
+                            ? _threadList()
+                            : ThreadSearchResults(
+                                query: search.query,
+                                status: search.status,
+                                hits: search.hits,
+                                selectedId: selectedId,
+                                onOpen: onOpenHit ?? (_) {},
+                              ),
+                      ),
+              ),
+            ],
             const Divider(height: 1),
             _MoreSection(
               entries: [
@@ -175,6 +187,44 @@ class ThreadSidebar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// The Mac sidebar under its header: the destinations and the threads, or
+  /// while a search is open, its results. New Chat and the search field are
+  /// in the toolbar there.
+  Widget _macBody() {
+    final navigation = this.navigation;
+    final body = Column(
+      children: [
+        if (navigation != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: navigation,
+          ),
+        Expanded(child: _threadList()),
+      ],
+    );
+    final search = this.search;
+    if (search == null) return body;
+    return ListenableBuilder(
+      listenable: search,
+      builder: (context, _) => !search.active
+          ? body
+          : MacSearchResults(
+              query: search.query,
+              status: search.status,
+              hits: search.hits,
+              scope: search.scope,
+              recent: search.recent,
+              currentProfile: searchProfile,
+              selectedId: selectedId,
+              onOpen: onOpenHit ?? (_) {},
+              onPickRecent: search.update,
+              onScopeChanged: search.canSearchAllProfiles
+                  ? search.setScope
+                  : null,
+            ),
     );
   }
 

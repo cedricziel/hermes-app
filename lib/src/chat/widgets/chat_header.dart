@@ -3,14 +3,12 @@ import 'package:flutter/material.dart';
 import '../../theme/app_icons.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
-import '../../macos/mac_sidebar.dart';
-import '../../macos/mac_window.dart';
-import '../../theme/platform_chrome.dart';
 import 'thread_actions_menu.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// The bar above a wide chat: the open thread's title, its actions once the
-/// dashboard knows it, and the connection details.
+/// dashboard knows it, and the connection details. A Mac window has
+/// `MacChatToolbar` instead.
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
@@ -27,8 +25,6 @@ class ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final thread = this.thread;
-    final mac = platformChromeOf(context) == PlatformChrome.macos;
-    final sidebar = mac ? MacSidebarScope.maybeOf(context) : null;
     final title = Expanded(
       child: Text(
         thread?.title ?? 'Hermes',
@@ -47,25 +43,6 @@ class ChatHeader extends StatelessWidget {
         ),
       ConnectionInfoButton(onPressed: onShowConnection),
     ];
-    if (mac) {
-      return MacWindowDragArea(
-        child: SizedBox(
-          height: kMacToolbarHeight,
-          child: Row(
-            children: [
-              if (sidebar != null && sidebar.collapsed) ...[
-                const SizedBox(width: kMacTrafficLightsWidth),
-                MacSidebarToggle(controller: sidebar),
-              ],
-              SizedBox(width: sidebar?.collapsed == true ? 8 : 20),
-              title,
-              ...actions,
-              const SizedBox(width: 12),
-            ],
-          ),
-        ),
-      );
-    }
     return SafeArea(
       bottom: false,
       left: false,

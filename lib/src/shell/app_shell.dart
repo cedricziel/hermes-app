@@ -261,7 +261,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = isWideLayout(context, width: constraints.maxWidth);
+        // A Mac window keeps its sidebar at any width; a compact one opens it
+        // over the page.
+        final wide =
+            (platformChromeOf(context) == PlatformChrome.macos &&
+                MacSidebarScope.maybeOf(context) != null) ||
+            isWideLayout(context, width: constraints.maxWidth);
         final index = destinations.indexOf(_current);
         void select(int i) => _select(destinations[i]);
         final navigation = ShellNavigation(
