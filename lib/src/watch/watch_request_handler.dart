@@ -23,6 +23,7 @@ class WatchRequestHandler {
     required this.transport,
     required this.activeProfile,
     this.connecting = _never,
+    this.ready = _alreadyReady,
     this.sendTimeout = const Duration(seconds: 60),
     this.announce = _ignore,
   });
@@ -53,6 +54,11 @@ class WatchRequestHandler {
   /// the watch is told to open the phone app instead of to sign in.
   final bool Function() connecting;
 
+  /// Completes once the phone is no longer [connecting], or has given up
+  /// waiting. A watch request often wakes the phone app, which then needs a
+  /// moment to restore its session.
+  final Future<void> Function() ready;
+
   /// How long a send may go without an event before it is given up on.
   final Duration sendTimeout;
 
@@ -64,8 +70,13 @@ class WatchRequestHandler {
 
   static bool _never() => false;
 
+  static Future<void> _alreadyReady() async {}
+
   Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async {
     try {
+      if (connecting()) {
+        await ready();
+      }
       return switch (request['op']) {
         'threads' => await _threads(),
         'messages' => await _messages(request['threadId']),
