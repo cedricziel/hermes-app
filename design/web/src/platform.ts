@@ -8,12 +8,17 @@ import "./styles/apple.css";
  */
 export type Platform = "apple" | "material";
 
-export const PlatformContext = createContext<Platform>("material");
+/** The text ramp a `HermesProvider` sets; see its `typeRamp`. */
+export type TypeRamp = "ios" | "default";
+
+/** What the nearest `HermesProvider` chose; undefined outside one. */
+export const PlatformContext = createContext<Platform | undefined>(undefined);
+export const TypeRampContext = createContext<TypeRamp | undefined>(undefined);
 
 /** An explicit `platform` prop wins; otherwise the nearest `HermesProvider`'s, otherwise material. */
 export function usePlatform(platform?: Platform): Platform {
   const inherited = useContext(PlatformContext);
-  return platform ?? inherited;
+  return platform ?? inherited ?? "material";
 }
 
 export function cx(...names: Array<string | false | null | undefined>) {
