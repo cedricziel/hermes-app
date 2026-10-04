@@ -216,6 +216,12 @@
     },
     "SkillJobSheet": {
       "cardMode": "column"
+    },
+    "SkillEditorScreen": {
+      "cardMode": "column"
+    },
+    "TelegramPairingScreen": {
+      "cardMode": "column"
     }
   }
 }

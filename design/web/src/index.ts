@@ -49,6 +49,8 @@ export * from "./components/ImageViewerScreen/ImageViewerScreen";
 export * from "./components/BusyBar/BusyBar";
 export * from "./components/SecurityScanCard/SecurityScanCard";
 export * from "./components/SkillJobSheet/SkillJobSheet";
+export * from "./components/SkillEditorScreen/SkillEditorScreen";
+export * from "./components/TelegramPairingScreen/TelegramPairingScreen";
 
 export type { AppleDevice, Platform } from "./platform";
 export * from "./components/Tag/Tag";

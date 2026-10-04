@@ -1,0 +1,65 @@
+.h-skill-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.h-skill-editor__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px 0;
+}
+
+.h-skill-editor__switch {
+  padding: 12px;
+}
+
+.h-skill-editor__error {
+  padding: 0 16px 8px;
+  color: var(--h-error);
+}
+
+/* The editor: a borderless monospace area that fills the screen. */
+.h-skill-editor__text {
+  flex: 1;
+  padding: 0 12px;
+}
+
+.h-skill-editor__text .h-field__box {
+  flex: 1;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+.h-skill-editor__text .h-field__box:focus-within {
+  box-shadow: none;
+}
+
+.h-skill-editor__text .h-field__input {
+  height: 100%;
+  resize: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.h-skill-editor__preview {
+  padding: 16px;
+}
+
+.h-skill-editor__toolbar {
+  display: flex;
+  align-items: center;
+  padding: 4px 4px;
+}
+
+.h-skill-editor__snippet {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-skill-editor__snippet .h-button {
+  font-family: var(--h-font-mono);
+}
