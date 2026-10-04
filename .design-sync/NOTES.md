@@ -188,6 +188,10 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
 - New parts: `SkillRow`, `HubSkillRow`, `BotRow`, `ModelSlotRow` (with `describeModelChoice`), `SecurityScanCard`,
   `SkillJobSheet` (sheet content only) and `BusyBar`. `ListDetailLayout` gained `onClose` (an X for full-screen
   editors) and `device`; a Mac bar shows the back chevron without the previous title.
+- `Button` gained `variant="danger-outlined"` (Uninstall, Ask agent to delete); a skill's rendered `SKILL.md` fills its card
+  by setting `--h-chat-column: none` (internal `src/skillMarkdown.tsx`).
+- Follow-ups: KanbanTaskPanel's progress bar duplicates `BusyBar` (swap it in); the skill editor reaches into
+  `TextField`'s classes for its borderless, full-height area (a `plain` variant would be cleaner).
 - Gaps: pushed screens on a Mac don't leave room for the traffic lights (neither does the app); the Skills profile
   chip draws its dropdown arrow before the name; bot subtitles join their lines with " · " (Flutter stacks them);
   the iOS long-press sheet of a profile row is not drawn (the tune button stays).
