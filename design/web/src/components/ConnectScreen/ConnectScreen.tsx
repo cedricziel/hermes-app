@@ -54,7 +54,7 @@ export interface ConnectScreenProps {
   onOpenVpnGuide?: () => void;
   /** "Report a bug" link at the bottom of both steps. */
   onReportBug?: () => void;
-  /** `apple`: the sign-in bar is 44px tall (56px on `material`), the iOS navigation bar height. Inherits the provider's platform. */
+  /** `apple`: the sign-in bar is 44px tall (56px on `material`), the iOS navigation bar height, with a 17px title. Inherits the provider's platform. */
   platform?: Platform;
 }
 

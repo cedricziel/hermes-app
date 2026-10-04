@@ -1,7 +1,13 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  PlatformScope,
+  ShellChromeContext,
+  usePlatform,
+  type Platform,
+} from "../../platform";
 import { Icon } from "../Icon/Icon";
 import "./ListDetailLayout.css";
 
@@ -53,7 +59,9 @@ export interface ListDetailLayoutProps {
    * `apple` follows the HIG: a chevron back button (with the parent's title
    * on a phone), a "+" in the bar instead of the FAB and a segmented control
    * instead of underline tabs. The split layout starts at 900px, and on a
-   * full-screen iPad from 700px. Inherits the provider's platform.
+   * full-screen iPad from 700px. Inside a Mac `AppShell` the bar is the
+   * 52px unified toolbar (44px elsewhere under `apple`). Inherits the
+   * provider's platform.
    */
   platform?: Platform;
 }
@@ -87,9 +95,17 @@ export function ListDetailLayout({
   const split = layout === "split";
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
+  const shellDevice = useContext(ShellChromeContext).device;
+  const mac = apple && shellDevice === "mac";
   return (
     <PlatformScope platform={resolvedPlatform}>
-      <div className={cx("h-list-detail", apple && "h-list-detail--apple")}>
+      <div
+        className={cx(
+          "h-list-detail",
+          apple && "h-list-detail--apple",
+          mac && "h-list-detail--mac",
+        )}
+      >
         <header className="h-list-detail__bar">
           {onBack && apple ? (
             <button

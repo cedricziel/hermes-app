@@ -340,14 +340,18 @@
   flex: 1;
 }
 
-/* iOS pull-down menu: a rounded panel with 44px rows and hairline dividers. */
+/* iOS pull-down menu: a rounded panel with 44px rows and hairline dividers,
+   on the blurred, saturated popup material of CupertinoPopupSurface (no
+   dimmed backdrop: CupertinoMenuAnchor draws none). */
 .h-popup-menu--ios {
   min-width: 220px;
   padding: 0;
   overflow: hidden;
   border: 0;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--h-surface) 92%, transparent);
+  background: color-mix(in srgb, var(--h-surface) 80%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(2);
+  backdrop-filter: blur(30px) saturate(2);
   box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
 }
 

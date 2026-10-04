@@ -110,22 +110,36 @@ export const Dark = () => (
   </HermesProvider>
 );
 
-/** Material (top) and Apple (bottom) enabled switches: 52x32 with a growing thumb vs the 51x31 toggle. */
+const platformLabel = { padding: "8px 16px 0" } as const;
+
+/** Material (top) and Apple (bottom) switches, on and off: 52x32 with a growing thumb vs the 51x31 toggle. */
 export const PlatformSwitch = () => {
-  const server = {
+  const grafana = {
     name: "grafana",
     transport: "remote" as const,
     address: "https://mcp.grafana.com/mcp",
     auth: "OAuth",
     enabled: true,
   };
+  const asana = {
+    ...grafana,
+    name: "asana",
+    address: "https://mcp.asana.com/sse",
+    enabled: false,
+  };
   return (
     <div style={pane}>
-      <McpServerRow server={server} />
-      <McpServerRow server={{ ...server, name: "asana", enabled: false }} />
+      <div className="h-label-sm h-muted" style={platformLabel}>
+        Material
+      </div>
+      <McpServerRow server={grafana} />
+      <McpServerRow server={asana} />
       <HermesProvider platform="apple">
-        <McpServerRow server={server} />
-        <McpServerRow server={{ ...server, name: "asana", enabled: false }} />
+        <div className="h-label-sm h-muted" style={platformLabel}>
+          Apple
+        </div>
+        <McpServerRow server={grafana} />
+        <McpServerRow server={asana} />
       </HermesProvider>
     </div>
   );

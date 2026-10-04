@@ -460,6 +460,6 @@
 
 .h-kanban-task-panel--apple.h-kanban-task-panel--dialog {
   max-width: 560px;
-  padding-top: 0;
+  padding-top: 12px;
   border-radius: 12px;
 }

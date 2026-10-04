@@ -185,6 +185,6 @@
 .h-kanban-bulk-bar--apple .h-kanban-bulk-bar__action {
   min-height: 44px;
   gap: 4px;
-  padding: 0 2px;
+  padding: 0 4px;
   font-size: 12px;
 }
