@@ -6,6 +6,8 @@ import 'package:hermes_app/src/kanban/widgets/kanban_bulk_bar.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card_drag.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_drop_strip.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_inspector_layout.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_mac_toolbar.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_status_chips.dart';
 import 'package:widgetbook/widgetbook.dart';
 
@@ -21,6 +23,85 @@ Widget _material(Widget child) => Builder(
   builder: (context) => Theme(
     data: Theme.of(context).copyWith(platform: TargetPlatform.android),
     child: child,
+  ),
+);
+
+Widget _mac(Widget child) => Builder(
+  builder: (context) => Theme(
+    data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+    child: child,
+  ),
+);
+
+KanbanMacToolbar _macToolbar({
+  String? profile,
+  bool inspectorShown = true,
+  bool live = true,
+}) => KanbanMacToolbar(
+  taskCount: 12,
+  boards: _boards,
+  board: 'default',
+  profiles: const ['coder', 'writer'],
+  profile: profile,
+  live: live,
+  inspectorShown: inspectorShown,
+  onNewTask: () {},
+  onSelectBoard: (_) {},
+  onManageBoards: () {},
+  onProfileChanged: (_) {},
+  onToggleInspector: () {},
+);
+
+Widget _boardColumns() => SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  padding: const EdgeInsets.all(16),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final task in [plainTask, busyTask, plainTask])
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: SizedBox(
+            width: 232,
+            child: KanbanCard(task: task, selected: task == busyTask),
+          ),
+        ),
+    ],
+  ),
+);
+
+Widget _inspectorContent() => ListView(
+  padding: const EdgeInsets.all(16),
+  children: [
+    Text(busyTask.id),
+    Text(busyTask.title, style: const TextStyle(fontSize: 20)),
+    const SizedBox(height: 12),
+    const Text('The task panel goes here, as in the sheet.'),
+  ],
+);
+
+WidgetbookUseCase _layout(
+  String name, {
+  required double width,
+  bool shown = true,
+  bool withTask = true,
+}) => WidgetbookUseCase(
+  name: name,
+  builder: (_) => _mac(
+    Align(
+      alignment: Alignment.topLeft,
+      child: SizedBox(
+        width: width,
+        child: Scaffold(
+          appBar: _macToolbar(inspectorShown: shown),
+          body: KanbanInspectorLayout(
+            board: _boardColumns(),
+            shown: shown,
+            inspector: withTask ? _inspectorContent() : null,
+          ),
+        ),
+      ),
+    ),
   ),
 );
 
@@ -133,6 +214,29 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
           _toolbar(assignees: const ['coder'], wide: true),
           maxWidth: 900,
         ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'KanbanMacToolbar',
+      useCases: [
+        _use('All profiles, inspector on', _mac(_macToolbar()), maxWidth: 1000),
+        _use(
+          'Filtered, inspector off, reconnecting',
+          _mac(
+            _macToolbar(profile: 'coder', inspectorShown: false, live: false),
+          ),
+          maxWidth: 1000,
+        ),
+        _use('Compact window', _mac(_macToolbar()), maxWidth: 680),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'KanbanInspectorLayout',
+      useCases: [
+        _layout('Docked, a task open', width: 1000),
+        _layout('Docked, no task yet', width: 1000, withTask: false),
+        _layout('Hidden', width: 1000, shown: false),
+        _layout('Overlay in a compact window', width: 680),
       ],
     ),
     WidgetbookComponent(
