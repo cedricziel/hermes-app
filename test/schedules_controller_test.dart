@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -62,6 +65,62 @@ void main() {
       expect(jobRequests().last, 'profile=all');
       expect(controller.showProfiles, isTrue);
       expect(controller.jobs.map((j) => j.key), ['work/job1', 'home/job2']);
+    });
+
+    group('remembered scope', () {
+      late SharedPreferencesAsync prefs;
+
+      setUp(() {
+        SharedPreferencesAsyncPlatform.instance =
+            InMemorySharedPreferencesAsync.empty();
+        prefs = SharedPreferencesAsync();
+      });
+
+      SchedulesController remembering() => SchedulesController(
+        repository: HermesCronRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+        prefs: prefs,
+      );
+
+      test('a choice of every profile is kept for the next launch', () async {
+        server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+        final first = remembering();
+        addTearDown(first.dispose);
+        await first.refresh();
+
+        first.allProfiles = true;
+        await pumpEventQueue();
+        final next = remembering();
+        addTearDown(next.dispose);
+        await next.refresh();
+
+        expect(next.allProfiles, isTrue);
+        expect(jobRequests().last, 'profile=all');
+      });
+
+      test('the first list of a launch already uses the kept scope', () async {
+        server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+        await prefs.setBool('hermes.schedules_all_profiles', true);
+        final next = remembering();
+        addTearDown(next.dispose);
+
+        await next.refresh();
+
+        expect(jobRequests(), ['profile=all']);
+      });
+
+      test('widening the list for a saved job is not kept', () async {
+        server.on('GET', '/api/cron/jobs', [cronJobRow()]);
+        final first = remembering();
+        addTearDown(first.dispose);
+        await first.refresh();
+
+        first.jobSaved(CronJob.fromJson(cronJobRow(id: 'x', profile: 'home'))!);
+        await pumpEventQueue();
+
+        expect(first.allProfiles, isTrue);
+        expect(await prefs.getBool('hermes.schedules_all_profiles'), isNull);
+      });
     });
 
     test('lists unscoped when the server has no profiles route', () async {

@@ -3,13 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_actions.dart';
 import 'schedule_models.dart';
 import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
+import 'widgets/mac_schedule_detail.dart';
 import 'widgets/run_history_empty.dart';
+import 'widgets/run_history_pending.dart';
 
 /// Asks the chat to show the session of a run.
 typedef OpenRun = void Function(CronRun run, CronJob job);
@@ -125,6 +128,16 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
 
   Future<void> _delete() => deleteScheduleJob(context, _controller, widget.job);
 
+  bool get _canShowMore {
+    final runs = _runs;
+    return runs != null && runs.length >= _limit && _limit < _maxRuns;
+  }
+
+  void _showMore() {
+    _limit = (_limit + _pageSize).clamp(0, _maxRuns);
+    _loadRuns(++_load);
+  }
+
   @override
   Widget build(BuildContext context) {
     final job = widget.job;
@@ -139,14 +152,27 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
     } on ProviderNotFoundException {
       notifications = null;
     }
+    if (platformChromeOf(context) == PlatformChrome.macos) {
+      return MacScheduleDetail(
+        job: job,
+        now: now,
+        runs: _runs,
+        runsFailed: _runsFailed,
+        muted: notifications?.isMuted(job.key),
+        onMutedChanged: notifications == null
+            ? null
+            : (muted) => notifications!.setMuted(job.key, muted),
+        onRunNow: _runNow,
+        onEdit: _edit,
+        onTogglePaused: _togglePaused,
+        onDelete: _delete,
+        onOpenRun: (run) => widget.onOpenRun(run, job),
+        onRetryRuns: () => _loadRuns(++_load),
+        onShowMoreRuns: _canShowMore ? _showMore : null,
+      );
+    }
     final settings = <(String, String)>[
-      if (job.skills.isNotEmpty) ('Skills', job.skills.join(', ')),
-      if (job.model != null) ('Model', job.model!),
-      if (job.provider != null) ('Provider', job.provider!),
-      if (job.script != null) ('Script', job.script!),
-      if (job.workdir != null) ('Working directory', job.workdir!),
-      if (job.contextFrom.isNotEmpty)
-        ('Takes context from', job.contextFrom.join(', ')),
+      ...jobSettings(job),
       ('Deliver to', deliveryLabel(job.deliver)),
       if (job.profile != null) ('Profile', job.profile!),
     ];
@@ -290,21 +316,10 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
     final runs = _runs;
     if (runs == null) {
       return [
-        if (_runsFailed)
-          Row(
-            children: [
-              const Expanded(child: Text('Could not load the runs')),
-              TextButton(
-                onPressed: () => _loadRuns(++_load),
-                child: const Text('Retry'),
-              ),
-            ],
-          )
-        else
-          const Padding(
-            padding: EdgeInsets.all(12),
-            child: Center(child: CircularProgressIndicator.adaptive()),
-          ),
+        RunHistoryPending(
+          failed: _runsFailed,
+          onRetry: () => _loadRuns(++_load),
+        ),
       ];
     }
     if (runs.isEmpty) return [RunHistoryEmpty(job: widget.job)];
@@ -322,24 +337,15 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
                 )
               : AppIcon(AppIcons.chat, size: 18, color: scheme.outline),
           title: Text(formatTime(context, run.startedAt)),
-          subtitle: Text(
-            run.isActive
-                ? 'Running'
-                : run.duration == null
-                ? 'Unfinished'
-                : formatDuration(run.duration!),
-          ),
+          subtitle: Text(runOutcomeText(run)),
           trailing: const AppIcon(AppIcons.chevronRight),
           onTap: () => widget.onOpenRun(run, widget.job),
         ),
-      if (runs.length >= _limit && _limit < _maxRuns)
+      if (_canShowMore)
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton(
-            onPressed: () {
-              _limit = (_limit + _pageSize).clamp(0, _maxRuns);
-              _loadRuns(++_load);
-            },
+            onPressed: _showMore,
             child: const Text('Show more'),
           ),
         ),

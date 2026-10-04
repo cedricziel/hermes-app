@@ -31,13 +31,32 @@ String statusText(CronJob job, DateTime now) {
   };
 }
 
+/// When [job] runs next; null while it is paused or done.
+DateTime? upcomingRun(CronJob job) =>
+    job.isPaused || job.state == CronJobState.completed ? null : job.nextRunAt;
+
 String? nextRunText(CronJob job, DateTime now) {
-  final next = job.nextRunAt;
-  if (job.isPaused || job.state == CronJobState.completed || next == null) {
-    return null;
-  }
-  return 'Next run ${relativeTime(next, now)}';
+  final next = upcomingRun(job);
+  return next == null ? null : 'Next run ${relativeTime(next, now)}';
 }
+
+/// How a run went, in a word or its length.
+String runOutcomeText(CronRun run) => run.isActive
+    ? 'Running'
+    : run.duration == null
+    ? 'Unfinished'
+    : formatDuration(run.duration!);
+
+/// The job's settings a detail lists, as label and value.
+List<(String, String)> jobSettings(CronJob job) => [
+  if (job.skills.isNotEmpty) ('Skills', job.skills.join(', ')),
+  if (job.model != null) ('Model', job.model!),
+  if (job.provider != null) ('Provider', job.provider!),
+  if (job.script != null) ('Script', job.script!),
+  if (job.workdir != null) ('Working directory', job.workdir!),
+  if (job.contextFrom.isNotEmpty)
+    ('Takes context from', job.contextFrom.join(', ')),
+];
 
 /// The short reason a run failed, for the list: the first line, trimmed.
 String? failureReason(CronJob job) {
