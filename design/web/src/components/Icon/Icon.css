@@ -18,3 +18,7 @@
   font-feature-settings: "liga";
   -webkit-font-smoothing: antialiased;
 }
+
+.h-icon.h-icon--apple {
+  font-family: "Material Symbols Rounded";
+}

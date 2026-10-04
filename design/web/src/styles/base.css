@@ -1,7 +1,9 @@
-/* Root surface and the Material 3 type scale the Flutter app uses. */
+/* Root surface and the Material 3 type scale the Flutter app uses. Sizes
+   that the iOS ramp changes read a --h-ramp-* property; the fallback is the
+   Material size. */
 .h-root {
   font-family: var(--h-font);
-  font-size: 14px;
+  font-size: var(--h-ramp-root-size, 14px);
   line-height: 20px;
   color: var(--h-fg);
   background: var(--h-bg);
@@ -15,49 +17,49 @@
 }
 
 .h-headline-sm {
-  font-size: 24px;
-  line-height: 32px;
-  font-weight: 700;
+  font-size: var(--h-ramp-headline-sm-size, 24px);
+  line-height: var(--h-ramp-headline-sm-lh, 32px);
+  font-weight: var(--h-ramp-headline-sm-weight, 700);
 }
 .h-title-lg {
   font-size: 22px;
   line-height: 28px;
-  font-weight: 600;
+  font-weight: var(--h-ramp-title-lg-weight, 600);
 }
 .h-title-md {
-  font-size: 16px;
-  line-height: 24px;
+  font-size: var(--h-ramp-title-md-size, 16px);
+  line-height: var(--h-ramp-title-md-lh, 24px);
   font-weight: 600;
 }
 .h-title-sm {
-  font-size: 14px;
+  font-size: var(--h-ramp-title-sm-size, 14px);
   line-height: 20px;
   font-weight: 600;
 }
 .h-body-lg {
-  font-size: 16px;
-  line-height: 24px;
+  font-size: var(--h-ramp-body-lg-size, 16px);
+  line-height: var(--h-ramp-body-lg-lh, 24px);
 }
 .h-body-md {
-  font-size: 14px;
+  font-size: var(--h-ramp-body-md-size, 14px);
   line-height: 20px;
 }
 .h-body-sm {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--h-ramp-body-sm-size, 12px);
+  line-height: var(--h-ramp-body-sm-lh, 16px);
 }
 .h-label-lg {
-  font-size: 14px;
+  font-size: var(--h-ramp-label-lg-size, 14px);
   line-height: 20px;
   font-weight: 500;
 }
 .h-label-md {
-  font-size: 12px;
-  line-height: 16px;
+  font-size: var(--h-ramp-label-md-size, 12px);
+  line-height: var(--h-ramp-label-md-lh, 16px);
   font-weight: 500;
 }
 .h-label-sm {
-  font-size: 11px;
+  font-size: var(--h-ramp-label-sm-size, 11px);
   line-height: 16px;
   font-weight: 500;
 }
@@ -73,4 +75,65 @@
   border: 0;
   border-top: 1px solid var(--h-border);
   margin: 0;
+}
+
+/* The chat column (messages and composer) is capped at 680px and centred on
+   every platform, like kChatColumnMaxWidth in the app. */
+.h-assistant-message,
+.h-user-message,
+.h-tool-group,
+.h-reasoning-block,
+.h-input-card,
+.h-chat-composer {
+  width: 100%;
+  max-width: var(--h-chat-column);
+  margin-inline: auto;
+}
+
+/* iOS type ramp (HermesProvider platform="apple", unless typeRamp="default"):
+   Body 17, Subheadline 15, Footnote 13, Caption 12, mapped onto the Material
+   roles the classes are named after, like iosTextTheme in the app. Only these
+   classes and the chat message text change; other components keep their own
+   pixel sizes, as in the app. The ramp travels as inherited custom
+   properties, so the nearest provider decides: a nested default-ramp
+   provider resets them to the Material fallbacks. */
+[data-hermes-ramp="ios"] {
+  --h-ramp-root-size: 15px;
+  --h-ramp-headline-sm-size: 22px;
+  --h-ramp-headline-sm-lh: 28px;
+  --h-ramp-headline-sm-weight: 400;
+  --h-ramp-title-lg-weight: 400;
+  --h-ramp-title-md-size: 17px;
+  --h-ramp-title-md-lh: 22px;
+  --h-ramp-title-sm-size: 15px;
+  --h-ramp-body-lg-size: 17px;
+  --h-ramp-body-lg-lh: 22px;
+  --h-ramp-body-md-size: 15px;
+  --h-ramp-body-sm-size: 13px;
+  --h-ramp-body-sm-lh: 18px;
+  --h-ramp-label-lg-size: 16px;
+  --h-ramp-label-md-size: 13px;
+  --h-ramp-label-md-lh: 18px;
+  --h-ramp-label-sm-size: 12px;
+  --h-ramp-message-size: 17px;
+}
+[data-hermes-ramp="default"] {
+  --h-ramp-root-size: initial;
+  --h-ramp-headline-sm-size: initial;
+  --h-ramp-headline-sm-lh: initial;
+  --h-ramp-headline-sm-weight: initial;
+  --h-ramp-title-lg-weight: initial;
+  --h-ramp-title-md-size: initial;
+  --h-ramp-title-md-lh: initial;
+  --h-ramp-title-sm-size: initial;
+  --h-ramp-body-lg-size: initial;
+  --h-ramp-body-lg-lh: initial;
+  --h-ramp-body-md-size: initial;
+  --h-ramp-body-sm-size: initial;
+  --h-ramp-body-sm-lh: initial;
+  --h-ramp-label-lg-size: initial;
+  --h-ramp-label-md-size: initial;
+  --h-ramp-label-md-lh: initial;
+  --h-ramp-label-sm-size: initial;
+  --h-ramp-message-size: initial;
 }

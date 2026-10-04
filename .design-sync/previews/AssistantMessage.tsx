@@ -64,3 +64,21 @@ export const Dark = () => (
     <AssistantMessage text={reply} copied onRetry={() => {}} />
   </HermesProvider>
 );
+
+/** Material (top) and iOS (bottom): 14.5px vs 17px Body text, 32px vs 44px action buttons. */
+export const PlatformCompare = () => (
+  <div
+    style={{ width: 640, display: "flex", flexDirection: "column", gap: 16 }}
+  >
+    <AssistantMessage
+      text="Every retry reused the same stale pin. Run `backup-agent repin --env staging`."
+      onRetry={() => {}}
+    />
+    <HermesProvider platform="apple">
+      <AssistantMessage
+        text="Every retry reused the same stale pin. Run `backup-agent repin --env staging`."
+        onRetry={() => {}}
+      />
+    </HermesProvider>
+  </div>
+);

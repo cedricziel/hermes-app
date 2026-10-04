@@ -1,0 +1,118 @@
+/* Shared pieces of the Apple look: the toggle, traffic lights and hairlines.
+   Components add their own `--apple` modifier rules next to their base CSS. */
+
+/* Apple toggle: 51x31, a constant 27px thumb, zinc primary track when on.
+   Works on the recreations' switch buttons (a child span is the old thumb,
+   hidden) and on the Kanban panel's checkbox switch. */
+.h-apple-switch[role="switch"] {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 31px;
+  background: color-mix(in srgb, var(--h-muted) 30%, transparent);
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+
+.h-apple-switch[role="switch"] > span {
+  display: none;
+}
+
+.h-apple-switch[role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.25);
+  transition: left 200ms ease;
+}
+
+.h-apple-switch[role="switch"][aria-checked="true"],
+.h-apple-switch[role="switch"]:checked {
+  border: 0;
+  background: var(--h-primary);
+}
+
+.h-apple-switch[role="switch"][aria-checked="true"]::after,
+.h-apple-switch[role="switch"]:checked::after {
+  top: 2px;
+  left: 22px;
+  width: 27px;
+  height: 27px;
+  background: var(--h-on-primary);
+}
+
+.h-apple-switch[role="switch"]:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.h-apple-switch[role="switch"]:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+/* Activity spinner: eight spokes stepping round, like UIActivityIndicatorView
+   (CircularProgressIndicator.adaptive in the app). A spinner carries
+   h-apple-spinner when its own component resolves to apple, so a nested
+   material provider or a component's platform prop decides, not an outer
+   provider. Doubled to beat each component's single-class spinner rule. */
+.h-apple-spinner.h-apple-spinner {
+  border: 0;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    currentColor 0deg 14deg,
+    transparent 14deg 45deg
+  );
+  -webkit-mask: radial-gradient(circle, transparent 34%, #000 36%);
+  mask: radial-gradient(circle, transparent 34%, #000 36%);
+  animation: h-apple-spinner 0.8s steps(8) infinite;
+}
+
+@keyframes h-apple-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The three window buttons of a Mac window, drawn for previews. */
+.h-traffic-lights {
+  display: inline-flex;
+  gap: 8px;
+  flex: none;
+}
+
+.h-traffic-lights > span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+
+.h-traffic-lights > span:nth-child(2) {
+  background: #febc2e;
+}
+
+.h-traffic-lights > span:nth-child(3) {
+  background: #28c840;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-apple-switch[role="switch"],
+  .h-apple-switch[role="switch"]::after {
+    transition: none;
+  }
+  /* The spokes stay visible, standing still. */
+  .h-apple-spinner.h-apple-spinner {
+    animation: none;
+  }
+}

@@ -1,5 +1,7 @@
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import type { DeviceLayout } from "../ThreadSidebar/ThreadSidebar";
 import "./ProfileTile.css";
 
 /** A Hermes profile: its own config, skills, memory and chats on the server. */
@@ -25,6 +27,17 @@ export interface ProfileTileProps {
   onClick?: () => void;
   /** Shows a tune button that changes the profile's default model, and calls this when pressed. */
   onChangeModel?: () => void;
+  /**
+   * `apple` with `layout="phone"` (iOS): a compact row at least 44px tall with
+   * no leading icon, a trailing checkmark on the active profile instead of
+   * the "Active" chip, and the tune button (when `onChangeModel` is given)
+   * after it. `apple` with `layout="desktop"`
+   * (macOS) keeps this tile with SF-style glyphs. Inherits the provider's
+   * platform.
+   */
+  platform?: Platform;
+  /** Touch (`phone`) or pointer (`desktop`, default) row under `platform="apple"`. */
+  layout?: DeviceLayout;
 }
 
 /**
@@ -37,47 +50,68 @@ export function ProfileTile({
   active = false,
   onClick,
   onChangeModel,
+  platform,
+  layout = "desktop",
 }: ProfileTileProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const ios = resolvedPlatform === "apple" && layout === "phone";
   const parts = [
     profile.description,
     profile.model,
     `${profile.skillCount} skills`,
   ].filter(Boolean);
-  return (
-    <div
-      className="h-profile-tile"
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
+  const changeModel = onChangeModel ? (
+    <IconButton
+      icon="tune"
+      label="Change default model"
+      onClick={(e) => {
+        e.stopPropagation();
+        onChangeModel();
       }}
-    >
-      <Icon name="person" size={24} className="h-profile-tile__icon" />
-      <div className="h-profile-tile__body">
-        <div className="h-profile-tile__title">
-          {profile.displayName || profile.name}
+    />
+  ) : null;
+  return (
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx("h-profile-tile", ios && "h-profile-tile--ios")}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+      >
+        {ios ? null : (
+          <Icon name="person" size={24} className="h-profile-tile__icon" />
+        )}
+        <div className="h-profile-tile__body">
+          <div className="h-profile-tile__title">
+            {profile.displayName || profile.name}
+          </div>
+          <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
         </div>
-        <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
+        {ios && active ? (
+          <Icon
+            name="check"
+            size={20}
+            label="Active"
+            className="h-profile-tile__check"
+          />
+        ) : null}
+        {ios ? changeModel : null}
+        {!ios && (active || onChangeModel) ? (
+          <div className="h-profile-tile__trailing">
+            {active ? (
+              <span className="h-profile-tile__chip">Active</span>
+            ) : null}
+            {changeModel}
+          </div>
+        ) : null}
       </div>
-      {active || onChangeModel ? (
-        <div className="h-profile-tile__trailing">
-          {active ? <span className="h-profile-tile__chip">Active</span> : null}
-          {onChangeModel ? (
-            <IconButton
-              icon="tune"
-              label="Change default model"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChangeModel();
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    </PlatformScope>
   );
 }

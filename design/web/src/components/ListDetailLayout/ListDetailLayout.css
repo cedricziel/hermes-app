@@ -121,3 +121,60 @@
   right: 16px;
   bottom: 16px;
 }
+
+/* Apple: chevron back button with the parent's title. */
+.h-list-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+/* Apple: the tabs become a segmented control. */
+.h-list-detail__tabs--segmented {
+  display: block;
+  padding: 8px 16px;
+  border-bottom: 0;
+}
+
+.h-list-detail__tabs--segmented[role="tablist"] {
+  display: flex;
+  gap: 2px;
+  margin: 8px 16px;
+  padding: 2px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--h-muted) 18%, transparent);
+}
+
+.h-list-detail--apple .h-list-detail__tabs--segmented .h-list-detail__tab {
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.h-list-detail--apple .h-list-detail__tabs--segmented .h-list-detail__tab:hover {
+  background: transparent;
+}
+
+.h-list-detail--apple .h-list-detail__tabs--segmented .h-list-detail__tab-label {
+  border: 0;
+}
+
+.h-list-detail--apple .h-list-detail__tabs--segmented .h-list-detail__tab--active {
+  background: var(--h-surface);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  font-weight: 600;
+}
+
+.h-list-detail--apple .h-list-detail__bar {
+  min-height: 44px;
+}

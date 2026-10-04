@@ -2,6 +2,7 @@ import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import { TextField } from "../TextField/TextField";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ConnectScreen.css";
 
 /** A sign-in method the server offers, as listed by `/api/auth/providers`. */
@@ -53,12 +54,15 @@ export interface ConnectScreenProps {
   onOpenVpnGuide?: () => void;
   /** "Report a bug" link at the bottom of both steps. */
   onReportBug?: () => void;
+  /** `apple`: the sign-in bar is 44px tall (56px on `material`), the iOS navigation bar height. Inherits the provider's platform. */
+  platform?: Platform;
 }
 
 function Spinner({ size, stroke }: { size: number; stroke: number }) {
+  const apple = usePlatform() === "apple";
   return (
     <span
-      className="h-connect-screen__spinner"
+      className={cx("h-connect-screen__spinner", apple && "h-apple-spinner")}
       style={{ width: size, height: size, borderWidth: stroke }}
       role="progressbar"
       aria-label="Loading"
@@ -87,7 +91,10 @@ export function ConnectScreen({
   onChangeServer,
   onOpenVpnGuide,
   onReportBug,
+  platform,
 }: ConnectScreenProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const reportBug = (
     <Button variant="text" onClick={onReportBug}>
       Report a bug
@@ -96,119 +103,128 @@ export function ConnectScreen({
 
   if (step === "server") {
     return (
-      <div className="h-connect-screen">
-        <div className="h-connect-screen__center">
-          <form
-            className="h-connect-screen__column"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!connecting) onConnect?.();
-            }}
-          >
-            <Icon
-              name="hub"
-              size={56}
-              className="h-connect-screen__hero-icon"
-            />
-            <h1 className="h-connect-screen__headline">Connect to Hermes</h1>
-            <p className="h-connect-screen__body">
-              Enter the address of your hermes dashboard.
-            </p>
-            <p className="h-connect-screen__small">
-              Behind Tailscale or WireGuard? Enter its VPN address, or run
-              tailscale serve on the server for an https:// address.
-            </p>
-            <Button variant="text" onClick={onOpenVpnGuide}>
-              Read the VPN setup guide
-            </Button>
-            <TextField
-              className="h-connect-screen__field"
-              label="Dashboard URL"
-              placeholder="http://192.168.1.20:9119"
-              inputMode="url"
-              value={serverUrl}
-              onChange={(e) => onServerUrlChange?.(e.target.value)}
-            />
-            {error ? (
-              <>
-                <p className="h-connect-screen__error">{error}</p>
-                {vpnHint ? (
-                  <p className="h-connect-screen__small h-connect-screen__hint">
-                    {vpnHint}
-                  </p>
-                ) : null}
-              </>
-            ) : null}
-            <Button
-              type="submit"
-              fullWidth
-              disabled={connecting}
-              className="h-connect-screen__primary"
+      <PlatformScope platform={resolvedPlatform}>
+        <div className="h-connect-screen">
+          <div className="h-connect-screen__center">
+            <form
+              className="h-connect-screen__column"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!connecting) onConnect?.();
+              }}
             >
-              {connecting ? <Spinner size={20} stroke={2} /> : "Connect"}
-            </Button>
-            {reportBug}
-          </form>
+              <Icon
+                name="hub"
+                size={56}
+                className="h-connect-screen__hero-icon"
+              />
+              <h1 className="h-connect-screen__headline">Connect to Hermes</h1>
+              <p className="h-connect-screen__body">
+                Enter the address of your hermes dashboard.
+              </p>
+              <p className="h-connect-screen__small">
+                Behind Tailscale or WireGuard? Enter its VPN address, or run
+                tailscale serve on the server for an https:// address.
+              </p>
+              <Button variant="text" onClick={onOpenVpnGuide}>
+                Read the VPN setup guide
+              </Button>
+              <TextField
+                className="h-connect-screen__field"
+                label="Dashboard URL"
+                placeholder="http://192.168.1.20:9119"
+                inputMode="url"
+                value={serverUrl}
+                onChange={(e) => onServerUrlChange?.(e.target.value)}
+              />
+              {error ? (
+                <>
+                  <p className="h-connect-screen__error">{error}</p>
+                  {vpnHint ? (
+                    <p className="h-connect-screen__small h-connect-screen__hint">
+                      {vpnHint}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              <Button
+                type="submit"
+                fullWidth
+                disabled={connecting}
+                className="h-connect-screen__primary"
+              >
+                {connecting ? <Spinner size={20} stroke={2} /> : "Connect"}
+              </Button>
+              {reportBug}
+            </form>
+          </div>
         </div>
-      </div>
+      </PlatformScope>
     );
   }
 
   return (
-    <div className="h-connect-screen">
-      <header className="h-connect-screen__bar">
-        <span className="h-connect-screen__bar-title">Sign in</span>
-        <IconButton
-          icon="dns"
-          label="Change server"
-          onClick={onChangeServer}
-          disabled={waitingForBrowser}
-        />
-      </header>
-      <div className="h-connect-screen__center">
-        <div className="h-connect-screen__column">
-          <Icon name="lock" size={48} className="h-connect-screen__lock" />
-          <p className="h-connect-screen__small h-connect-screen__url">
-            {serverUrl}
-          </p>
-          {waitingForBrowser ? (
-            <div className="h-connect-screen__waiting">
-              <Spinner size={40} stroke={4} />
-              <span>Continue in your browser…</span>
-              <Button variant="text" onClick={onCancel}>
-                Cancel
-              </Button>
-            </div>
-          ) : lacksAppSignIn ? (
-            <p className="h-connect-screen__body h-connect-screen__notice">
-              This server doesn't support app sign-in. Update the Hermes
-              dashboard, or sign in from its web UI.
-            </p>
-          ) : providers.length === 0 ? (
-            <p className="h-connect-screen__body h-connect-screen__notice">
-              No sign-in providers are registered on this server.
-            </p>
-          ) : (
-            <div className="h-connect-screen__providers">
-              {providers.map((p) => (
-                <Button
-                  key={p.id}
-                  fullWidth
-                  icon={p.password ? "password" : "open_in_browser"}
-                  onClick={() => onSignIn?.(p)}
-                >
-                  {p.password
-                    ? "Sign in with username & password"
-                    : `Sign in with ${p.displayName}`}
-                </Button>
-              ))}
-            </div>
+    <PlatformScope platform={resolvedPlatform}>
+      <div className="h-connect-screen">
+        <header
+          className={cx(
+            "h-connect-screen__bar",
+            apple && "h-connect-screen__bar--apple",
           )}
-          {error ? <p className="h-connect-screen__error">{error}</p> : null}
-          <div className="h-connect-screen__gap" />
-          {reportBug}
+        >
+          <span className="h-connect-screen__bar-title">Sign in</span>
+          <IconButton
+            icon="dns"
+            label="Change server"
+            onClick={onChangeServer}
+            disabled={waitingForBrowser}
+          />
+        </header>
+        <div className="h-connect-screen__center">
+          <div className="h-connect-screen__column">
+            <Icon name="lock" size={48} className="h-connect-screen__lock" />
+            <p className="h-connect-screen__small h-connect-screen__url">
+              {serverUrl}
+            </p>
+            {waitingForBrowser ? (
+              <div className="h-connect-screen__waiting">
+                <Spinner size={40} stroke={4} />
+                <span>Continue in your browser…</span>
+                <Button variant="text" onClick={onCancel}>
+                  Cancel
+                </Button>
+              </div>
+            ) : lacksAppSignIn ? (
+              <p className="h-connect-screen__body h-connect-screen__notice">
+                This server doesn't support app sign-in. Update the Hermes
+                dashboard, or sign in from its web UI.
+              </p>
+            ) : providers.length === 0 ? (
+              <p className="h-connect-screen__body h-connect-screen__notice">
+                No sign-in providers are registered on this server.
+              </p>
+            ) : (
+              <div className="h-connect-screen__providers">
+                {providers.map((p) => (
+                  <Button
+                    key={p.id}
+                    fullWidth
+                    icon={p.password ? "password" : "open_in_browser"}
+                    onClick={() => onSignIn?.(p)}
+                  >
+                    {p.password
+                      ? "Sign in with username & password"
+                      : `Sign in with ${p.displayName}`}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {error ? <p className="h-connect-screen__error">{error}</p> : null}
+            <div className="h-connect-screen__gap" />
+            {reportBug}
+          </div>
         </div>
       </div>
-    </div>
+    </PlatformScope>
   );
 }

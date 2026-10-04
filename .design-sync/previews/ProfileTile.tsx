@@ -65,3 +65,33 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** iOS (left): a compact row with a trailing checkmark, then the tune button when the row can change its model. Mac (right) keeps the Material tile. */
+export const AppleRows = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
+    <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
+      <ProfileTile
+        layout="phone"
+        active
+        onChangeModel={noop}
+        profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
+      />
+      <ProfileTile
+        layout="phone"
+        profile={{
+          name: "work",
+          displayName: "Work assistant",
+          description: "Day job: tickets and reviews",
+          skillCount: 12,
+        }}
+      />
+    </div>
+    <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
+      <ProfileTile
+        active
+        onChangeModel={noop}
+        profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
+      />
+    </div>
+  </HermesProvider>
+);

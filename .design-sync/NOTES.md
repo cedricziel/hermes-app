@@ -33,6 +33,32 @@
   against `design/web/src` without touching `ds-bundle/`. It isn't committed; the converter's
   `package-capture.mjs` is the gate.
 
+## Apple platform look (HIG audit, Flutter PRs #367 to #386)
+
+- Components that differ on iOS and macOS take `platform: "apple" | "material"`, default `material`, also set for a
+  whole subtree by `HermesProvider platform` (a nested provider without `platform` keeps its parent's). A component's
+  own `platform` prop reaches everything it renders (`PlatformScope`). `layout="phone" | "desktop"` where touch and
+  Mac differ again; a full-screen iPad is `layout="desktop"` with `device="touch"` on `AppShell`, which its sidebar and
+  header inherit. The hooks and the shared types live in `design/web/src/platform.ts`; shared Apple CSS (toggle,
+  spinner, traffic lights) in `src/styles/apple.css`. Platform CSS hangs off the component's own classes (spinners
+  carry `h-apple-spinner`), never `[data-hermes-platform] .x` ancestor selectors, which leak across nested providers;
+  the type ramp travels as inherited `--h-ramp-*` properties for the same reason. Previews show both looks side by
+  side (`PlatformCompare`, `Apple*` stories).
+- Shared on all platforms: light-mode `--h-success` #166534, `--h-warning` #92400e, `--h-muted` #6b6b74 (4.5:1);
+  Kanban muted text uses `--h-muted-alpha` 0.7; busy bars (Kanban card, task panel) are static under
+  `prefers-reduced-motion`, and so is the Apple spinner; chat column max 680px.
+- Apple icon approach: the app ships CupertinoIcons, which are not available here. `Icon` under apple uses Material
+  Symbols Rounded at weight 300 (second Google Fonts `@import` in `tokens.css`, another `[FONT_REMOTE]`) and a small
+  name swap table (`more_vert` to the horizontal ellipsis, `arrow_back` to a chevron, `send` to an up arrow, ...). It
+  is an approximation, not SF Symbols: shapes differ, and nothing was drawn as inline SVG.
+- Not recreated: the Apple alert dialog and date pickers (the recreation has no dialogs), swipe actions and long-press
+  action sheets (touch thread rows keep a 44px "..." and the profile row its tune button, so every action stays
+  reachable; right-click also opens a thread row's menu), the sheet's detent gestures, status bar and home
+  indicator safe areas, `Button` 44px (iOS) and 28px (Mac) heights, translucent bar blur (the Mac sidebar uses a
+  slightly see-through fill), window dragging. The Mac sidebar's resize handle is a `sidebarWidth` prop.
+- Flutter PR #376 drops the inline "..." on touch rows in favour of swipe and long press; the recreation keeps the
+  button because it has neither gesture.
+
 ## Follow-ups (base components the recreations asked for)
 
 - Switch: ScheduleJobRow and McpServerRow each carry their own Material 3 switch CSS.
@@ -55,7 +81,10 @@
 lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins lib/src/schedules` since the
   last sync and update the matching components before re-syncing, or Claude Design keeps the old look.
 - Preview content is static fixture data written for the previews, not loaded from `widgetbook/fixtures.dart`.
-- Fonts are not shipped: the system font stack and Material Symbols come from the viewer's OS and Google Fonts.
+- Fonts are not shipped: the system font stack and Material Symbols (Outlined and Rounded) come from the viewer's OS
+  and Google Fonts.
+- Also check `lib/src/theme` (platform_chrome, type_scale, app_icons, breakpoints), `lib/src/widgets/adaptive_*` and
+  `row_actions.dart` for new Apple rules; each needs a `platform` branch in the matching component.
 
 ## Known render warns
 

@@ -14,6 +14,13 @@ export const Finished = () => (
   </div>
 );
 
+/** Apple: the group line and each card header are 44px tall. */
+export const ApplePlatform = () => (
+  <HermesProvider platform="apple" style={box}>
+    <ToolCallGroup calls={finishedRun} defaultOpen />
+  </HermesProvider>
+);
+
 export const Opened = () => (
   <div style={box}>
     <ToolCallGroup calls={finishedRun} defaultOpen />

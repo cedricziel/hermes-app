@@ -58,3 +58,25 @@
   line-height: 20px;
   font-weight: 500;
 }
+
+/* iOS: a compact row with a trailing checkmark for the active profile. */
+.h-profile-tile--ios {
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 16px;
+}
+
+.h-profile-tile--ios .h-profile-tile__title {
+  font-size: 17px;
+  line-height: 22px;
+}
+
+.h-profile-tile--ios .h-profile-tile__subtitle {
+  font-size: 15px;
+  line-height: 20px;
+}
+
+.h-profile-tile__check {
+  flex: none;
+  color: var(--h-primary);
+}

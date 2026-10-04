@@ -137,3 +137,7 @@
     transform: rotate(360deg);
   }
 }
+
+.h-connect-screen__bar--apple {
+  height: 44px;
+}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../Icon/Icon";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ReasoningBlock.css";
 
 export interface ReasoningBlockProps {
@@ -11,6 +12,8 @@ export interface ReasoningBlockProps {
   defaultOpen?: boolean;
   /** Overrides the header text (`Reasoning`, or `Thinking…` while `active`). */
   label?: string;
+  /** `apple`: the header toggle is at least 44px tall, the iOS minimum tap target. Inherits the provider's platform. */
+  platform?: Platform;
 }
 
 /**
@@ -23,23 +26,30 @@ export function ReasoningBlock({
   active = false,
   defaultOpen = false,
   label,
+  platform,
 }: ReasoningBlockProps) {
   const [open, setOpen] = useState(defaultOpen);
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   return (
-    <div className="h-reasoning-block">
-      <button
-        type="button"
-        className="h-reasoning-block__header"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx("h-reasoning-block", apple && "h-reasoning-block--apple")}
       >
-        <Icon name="psychology" size={16} />
-        <span className="h-reasoning-block__label">
-          {label ?? (active ? "Thinking…" : "Reasoning")}
-        </span>
-        <Icon name={open ? "expand_less" : "expand_more"} size={18} />
-      </button>
-      {open ? <div className="h-reasoning-block__body">{text}</div> : null}
-    </div>
+        <button
+          type="button"
+          className="h-reasoning-block__header"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name="psychology" size={16} />
+          <span className="h-reasoning-block__label">
+            {label ?? (active ? "Thinking…" : "Reasoning")}
+          </span>
+          <Icon name={open ? "expand_less" : "expand_more"} size={18} />
+        </button>
+        {open ? <div className="h-reasoning-block__body">{text}</div> : null}
+      </div>
+    </PlatformScope>
   );
 }

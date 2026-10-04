@@ -43,6 +43,31 @@
   color: var(--h-fg);
 }
 
+.h-app-shell--mac {
+  position: relative;
+}
+
+.h-app-shell__traffic-lights {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 5;
+}
+
+/* A collapsed Mac shell whose page has no ChatHeader: the toolbar strip
+   beside the traffic lights, holding the show-sidebar button. */
+.h-app-shell__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 52px;
+  padding-left: 78px;
+}
+
+.h-shell-sidebar--mac {
+  background: color-mix(in srgb, var(--h-sidebar) 85%, transparent);
+}
+
 .h-shell-sidebar__nav {
   padding: 0 8px;
 }

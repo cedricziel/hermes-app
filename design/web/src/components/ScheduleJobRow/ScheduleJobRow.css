@@ -184,3 +184,37 @@
   outline: 2px solid var(--h-fg);
   outline-offset: 2px;
 }
+
+/* Apple: inset grouped list rows. Siblings form the group. */
+.h-schedule-job-row--apple {
+  margin: 0 16px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 0.5px solid var(--h-border);
+  background: var(--h-surface-high);
+}
+
+.h-schedule-job-row--apple:hover {
+  background: color-mix(in srgb, var(--h-surface-high) 80%, var(--h-fg));
+}
+
+.h-schedule-job-row--apple:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.h-schedule-job-row--apple:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+
+.h-schedule-job-row--apple .h-schedule-job-row__divider {
+  display: none;
+}
+
+.h-schedule-job-row--apple.h-schedule-job-row--selected,
+.h-schedule-job-row--apple.h-schedule-job-row--selected:hover {
+  background: color-mix(in srgb, var(--h-surface-high) 70%, var(--h-fg));
+}

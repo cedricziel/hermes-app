@@ -164,3 +164,27 @@
   flex: 1;
   min-width: 0;
 }
+
+/* Apple: iOS search field and the 44px bulk toolbar. */
+.h-kanban-toolbar--apple .h-field__box--search {
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 10px;
+  gap: 6px;
+}
+
+.h-kanban-toolbar--apple .h-field__box--search .h-field__icon {
+  color: var(--h-muted);
+}
+
+.h-kanban-bulk-bar--apple {
+  height: 44px;
+  padding: 0;
+}
+
+.h-kanban-bulk-bar--apple .h-kanban-bulk-bar__action {
+  min-height: 44px;
+  gap: 4px;
+  padding: 0 2px;
+  font-size: 12px;
+}

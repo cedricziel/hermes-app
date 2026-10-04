@@ -39,3 +39,54 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+const phoneFrame = { width: 390, border: "1px solid var(--h-border)" };
+
+/** Material (left) and Apple (right) phone bars: 64px left-aligned title vs the 44px bar with a centred title and hairline. */
+export const PlatformPhone = () => (
+  <div style={{ display: "flex", gap: 20 }}>
+    <div style={phoneFrame}>
+      <ChatHeader layout="phone" title="Summarize last night's run logs" />
+    </div>
+    <HermesProvider platform="apple">
+      <div style={phoneFrame}>
+        <ChatHeader layout="phone" title="Summarize last night's run logs" />
+      </div>
+    </HermesProvider>
+  </div>
+);
+
+/** Material (top, 77px with a rule) and Apple (bottom, 52px unified toolbar, no rule) desktop bars. */
+export const PlatformDesktop = () => (
+  <div style={{ ...wide, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ border: "1px solid var(--h-border)" }}>
+      <ChatHeader title="Backup failure" />
+    </div>
+    <HermesProvider platform="apple">
+      <div style={{ border: "1px solid var(--h-border)" }}>
+        <ChatHeader title="Backup failure" />
+      </div>
+    </HermesProvider>
+  </div>
+);
+
+export const ApplePhoneMenuOpen = () => (
+  <HermesProvider platform="apple">
+    <div style={{ ...phoneFrame, height: 340 }}>
+      <ChatHeader
+        layout="phone"
+        title="Backup failure"
+        pinned
+        defaultMenuOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
+export const AppleMacMenuOpen = () => (
+  <HermesProvider platform="apple">
+    <div style={{ ...wide, height: 260 }}>
+      <ChatHeader title="Backup failure" pinned defaultMenuOpen />
+    </div>
+  </HermesProvider>
+);

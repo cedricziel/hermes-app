@@ -1,4 +1,5 @@
 import { Button } from "../Button/Button";
+import { cx, usePlatform } from "../../platform";
 import "./PluginRow.css";
 
 /** A Hermes agent plugin: one installed on the server, or an entry in the curated catalog. */
@@ -88,6 +89,7 @@ export function PluginRow({
   onClick,
   onInstall,
 }: PluginRowProps) {
+  const apple = usePlatform() === "apple";
   const catalog = variant === "catalog";
   const tags = catalog
     ? [
@@ -164,7 +166,10 @@ export function PluginRow({
             >
               {installing ? (
                 <span
-                  className="h-plugin-row__spinner"
+                  className={cx(
+                    "h-plugin-row__spinner",
+                    apple && "h-apple-spinner",
+                  )}
                   aria-label="Installing"
                 />
               ) : (

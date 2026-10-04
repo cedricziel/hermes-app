@@ -35,7 +35,11 @@
   font-family: var(--h-font-mono);
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--h-fg) 55%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--h-fg) calc(var(--h-muted-alpha) * 100%),
+    transparent
+  );
 }
 
 .h-kanban-card__title {
@@ -62,7 +66,11 @@
   gap: 3px;
   font-size: 12px;
   line-height: 16px;
-  color: color-mix(in srgb, var(--h-fg) 55%, transparent);
+  color: color-mix(
+    in srgb,
+    var(--h-fg) calc(var(--h-muted-alpha) * 100%),
+    transparent
+  );
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -110,6 +118,19 @@
   }
   100% {
     transform: translateX(260%);
+  }
+}
+
+/* Reduce Motion: the busy bar stops sliding and shows a still, dimmed full bar. */
+@media (prefers-reduced-motion: reduce) {
+  .h-kanban-card__bar--indeterminate {
+    background: transparent;
+  }
+
+  .h-kanban-card__bar--indeterminate .h-kanban-card__bar-value {
+    width: 100%;
+    animation: none;
+    background: color-mix(in srgb, var(--h-primary) 40%, transparent);
   }
 }
 

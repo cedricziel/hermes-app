@@ -1,4 +1,5 @@
 import {
+  useContext,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -8,7 +9,32 @@ import {
 } from "react";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
+import {
+  ShellChromeContext,
+  cx,
+  PlatformScope,
+  useAppleDevice,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./ThreadSidebar.css";
+
+/**
+ * Which device a component is laid out for. `phone` is touch (iPhone, iPad
+ * in Split View): 44px bars and rows, iOS menus. `desktop` is pointer (Mac,
+ * and every Material platform): compact rows, Mac menus; a full-screen iPad
+ * also uses `desktop`, with `device="touch"` where a component offers it.
+ * Only matters under `apple`.
+ */
+export type DeviceLayout = "desktop" | "phone";
+
+type MenuVariant = "material" | "ios" | "mac";
+
+function menuVariant(apple: boolean, layout: DeviceLayout): MenuVariant {
+  if (!apple) return "material";
+  return layout === "phone" ? "ios" : "mac";
+}
 
 /** One chat in the sidebar's thread list. */
 export interface ThreadItem {
@@ -65,6 +91,7 @@ interface MenuItem<T extends string> {
   label: string;
   disabled?: boolean;
   divider?: boolean;
+  destructive?: boolean;
 }
 
 function PopupMenu<T extends string>({
@@ -72,16 +99,22 @@ function PopupMenu<T extends string>({
   onSelect,
   className,
   style,
+  variant = "material",
 }: {
   items: MenuItem<T>[];
   onSelect: (value: T) => void;
   className?: string;
   style?: CSSProperties;
+  variant?: MenuVariant;
 }) {
   return (
     <div
       role="menu"
-      className={["h-popup-menu", className].filter(Boolean).join(" ")}
+      className={cx(
+        "h-popup-menu",
+        variant !== "material" && `h-popup-menu--${variant}`,
+        className,
+      )}
       style={style}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -97,6 +130,7 @@ function PopupMenu<T extends string>({
             className={[
               "h-popup-menu__item",
               item.disabled ? "h-popup-menu__item--info" : null,
+              item.destructive ? "h-popup-menu__item--destructive" : null,
             ]
               .filter(Boolean)
               .join(" ")}
@@ -141,7 +175,11 @@ function threadMenuItems(
           { value: "rename" as const, label: "Rename" },
           { value: "pin" as const, label: pinned ? "Unpin" : "Pin" },
           { value: "archive" as const, label: "Archive" },
-          { value: "delete" as const, label: "Delete" },
+          {
+            value: "delete" as const,
+            label: "Delete",
+            destructive: true,
+          },
         ]
       : []),
   ];
@@ -158,6 +196,10 @@ export interface ThreadActionsButtonProps {
   defaultOpen?: boolean;
   /** Called with the picked entry; the menu closes. */
   onAction?: (action: ThreadAction) => void;
+  /** `apple` draws the menu as an iOS pull-down (`layout="phone"`: rounded panel, 44px rows, Delete in red) or a compact Mac menu (`desktop`: 24px rows, 13px text, 6px radius). Inherits the provider's platform. */
+  platform?: Platform;
+  /** Which Apple menu `platform="apple"` draws; see `platform`. Default `desktop`. */
+  layout?: DeviceLayout;
 }
 
 /**
@@ -171,29 +213,39 @@ export function ThreadActionsButton({
   includeCopyTranscript = false,
   defaultOpen = false,
   onAction,
+  platform,
+  layout = "desktop",
 }: ThreadActionsButtonProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const variant = menuVariant(resolvedPlatform === "apple", layout);
   const [open, setOpen] = useState(defaultOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
   return (
-    <span className="h-thread-actions" onMouseDown={(e) => e.stopPropagation()}>
-      <IconButton
-        icon="more_horiz"
-        label="Chat actions"
-        tone="muted"
-        onClick={() => setOpen((o) => !o)}
-      />
-      {open ? (
-        <PopupMenu
-          className="h-thread-actions__menu"
-          items={threadMenuItems(pinned, actionable, includeCopyTranscript)}
-          onSelect={(a) => {
-            setOpen(false);
-            onAction?.(a);
-          }}
+    <PlatformScope platform={resolvedPlatform}>
+      <span
+        className="h-thread-actions"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <IconButton
+          icon="more_horiz"
+          label="Chat actions"
+          tone="muted"
+          onClick={() => setOpen((o) => !o)}
         />
-      ) : null}
-    </span>
+        {open ? (
+          <PopupMenu
+            variant={variant}
+            className="h-thread-actions__menu"
+            items={threadMenuItems(pinned, actionable, includeCopyTranscript)}
+            onSelect={(a) => {
+              setOpen(false);
+              onAction?.(a);
+            }}
+          />
+        ) : null}
+      </span>
+    </PlatformScope>
   );
 }
 
@@ -237,8 +289,28 @@ export function SidebarAction({
   );
 }
 
-/** The sidebar's top line: the Hermes hub mark and the app name. */
-export function SidebarBrand() {
+export interface SidebarBrandProps {
+  /** The Mac sidebar: no brand row, a 52px strip that leaves 78px for the traffic lights and ends in a hide-sidebar button (when inside an `AppShell`). */
+  mac?: boolean;
+}
+
+/** The sidebar's top line: the Hermes hub mark and the app name. On the Mac sidebar (`mac`) it is the empty strip beside the traffic lights instead. */
+export function SidebarBrand({ mac = false }: SidebarBrandProps) {
+  const { toggleSidebar } = useContext(ShellChromeContext);
+  if (mac)
+    return (
+      <div className="h-sidebar-brand h-sidebar-brand--mac">
+        <span className="h-sidebar-brand__spacer" />
+        {toggleSidebar ? (
+          <IconButton
+            icon="left_panel_close"
+            label="Hide sidebar"
+            tone="muted"
+            onClick={toggleSidebar}
+          />
+        ) : null}
+      </div>
+    );
   return (
     <div className="h-sidebar-brand">
       <Icon name="hub" size={18} />
@@ -258,6 +330,10 @@ export interface AccountFooterProps {
   defaultMenuOpen?: boolean;
   /** Called with the picked menu entry. */
   onAction?: (action: AccountAction) => void;
+  /** Apple menu style for the account menu; see `ThreadActionsButton`. Inherits the provider's platform. */
+  platform?: Platform;
+  /** Which Apple menu `platform="apple"` draws. Default `desktop`. */
+  layout?: DeviceLayout;
 }
 
 /** The sidebar footer: an avatar, the account label and a "…" that opens the account menu over it. */
@@ -267,7 +343,11 @@ export function AccountFooter({
   authRequired = false,
   defaultMenuOpen = false,
   onAction,
+  platform,
+  layout = "desktop",
 }: AccountFooterProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const variant = menuVariant(resolvedPlatform === "apple", layout);
   const [open, setOpen] = useState(defaultMenuOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
@@ -284,30 +364,40 @@ export function AccountFooter({
     { value: "change-server", label: "Change server" },
   ];
   return (
-    <div className="h-account-footer" onMouseDown={(e) => e.stopPropagation()}>
-      <button
-        type="button"
-        className={`h-account-footer__button ${rowRadiusClass}`}
-        title="Account"
-        onClick={() => setOpen((o) => !o)}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className="h-account-footer"
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <span className="h-account-footer__avatar">
-          <Icon name="person" size={15} />
-        </span>
-        <span className="h-account-footer__label">{label}</span>
-        <Icon name="more_horiz" size={16} className="h-account-footer__more" />
-      </button>
-      {open ? (
-        <PopupMenu
-          className="h-account-footer__menu"
-          items={items}
-          onSelect={(a) => {
-            setOpen(false);
-            onAction?.(a);
-          }}
-        />
-      ) : null}
-    </div>
+        <button
+          type="button"
+          className={`h-account-footer__button ${rowRadiusClass}`}
+          title="Account"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className="h-account-footer__avatar">
+            <Icon name="person" size={15} />
+          </span>
+          <span className="h-account-footer__label">{label}</span>
+          <Icon
+            name="more_horiz"
+            size={16}
+            className="h-account-footer__more"
+          />
+        </button>
+        {open ? (
+          <PopupMenu
+            variant={variant}
+            className="h-account-footer__menu"
+            items={items}
+            onSelect={(a) => {
+              setOpen(false);
+              onAction?.(a);
+            }}
+          />
+        ) : null}
+      </div>
+    </PlatformScope>
   );
 }
 
@@ -350,6 +440,22 @@ export interface ThreadSidebarProps {
   onLoadMore?: () => void;
   /** An account menu entry was picked. */
   onAccountAction?: (action: AccountAction) => void;
+  /**
+   * `apple` changes the sidebar to Apple's conventions, and what changes
+   * depends on the device (see `layout` and `device`). Touch (iPhone and
+   * iPad): thread rows are at least 44px tall and the "…" button is a 44px
+   * target that opens the iOS pull-down with Rename, Pin, Archive and Delete
+   * (right-click opens it too). The app's swipe actions and long-press sheet
+   * are not recreated, so the button stays as the way to reach them. Mac: the
+   * sidebar starts at the top of the window, drops the brand row for a 52px
+   * strip that leaves 78px for the traffic lights, keeps the "…" button and
+   * uses the compact Mac menu. Inherits the provider's platform.
+   */
+  platform?: Platform;
+  /** `phone` draws touch rows and menus under `platform="apple"`; `desktop` (default) draws the Mac sidebar unless `device` or the enclosing `AppShell` says touch. Has no effect on `material`. */
+  layout?: DeviceLayout;
+  /** Under `apple`, `touch` (iPad sidebar beside the page) or `mac`; see `AppleDevice`. Inherited from the enclosing `AppShell` when omitted. */
+  device?: AppleDevice;
 }
 
 /**
@@ -376,7 +482,17 @@ export function ThreadSidebar({
   onThreadAction,
   onLoadMore,
   onAccountAction,
+  platform,
+  layout = "desktop",
+  device: deviceProp,
 }: ThreadSidebarProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
+  const device = useAppleDevice(layout, deviceProp);
+  const touch = apple && device === "touch";
+  const mac = apple && device === "mac";
+  const menuLayout: DeviceLayout = device === "touch" ? "phone" : "desktop";
+  const variant = menuVariant(apple, menuLayout);
   const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const [menuId, setMenuId] = useState<string | undefined>(defaultMenuThreadId);
   const [menuTop, setMenuTop] = useState<number | null>(null);
@@ -400,138 +516,155 @@ export function ThreadSidebar({
   const menuThread = threads.find((t) => t.id === menuId);
 
   return (
-    <nav className="h-thread-sidebar" aria-label="Chats">
-      <SidebarBrand />
-      {navigation ? (
-        <>
-          <div className="h-thread-sidebar__pad">{navigation}</div>
-          <hr className="h-thread-sidebar__nav-divider" />
-        </>
-      ) : null}
-      <div className="h-thread-sidebar__pad">
-        <SidebarAction icon="add" label="New chat" onClick={onNewThread} />
-      </div>
-      <div
-        ref={listRef}
-        className="h-thread-sidebar__list"
-        onScroll={() => menuId && setMenuId(undefined)}
+    <PlatformScope platform={resolvedPlatform}>
+      <nav
+        className={cx(
+          "h-thread-sidebar",
+          touch && "h-thread-sidebar--touch",
+          mac && "h-thread-sidebar--mac",
+        )}
+        aria-label="Chats"
       >
-        {threads.map((t) => {
-          const selected = t.id === selectedId;
-          const actionable = t.remote !== false;
-          return (
-            <div
-              key={t.id}
-              ref={(el) => {
-                if (el) rowRefs.current.set(t.id, el);
-                else rowRefs.current.delete(t.id);
-              }}
-              className={[
-                "h-thread-row",
-                rowRadiusClass,
-                selected ? "h-thread-row--selected" : null,
-                actionable ? "h-thread-row--actionable" : null,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              role="button"
-              tabIndex={0}
-              aria-current={selected ? "true" : undefined}
-              onClick={() => onSelect?.(t.id)}
-              onContextMenu={
-                actionable
-                  ? (e) => {
-                      e.preventDefault();
-                      setMenuId(t.id);
-                    }
-                  : undefined
-              }
-            >
-              {t.pinned ? (
-                <Icon
-                  name="push_pin"
-                  filled
-                  size={12}
-                  className="h-thread-row__pin"
+        <SidebarBrand mac={mac} />
+        {navigation ? (
+          <>
+            <div className="h-thread-sidebar__pad">{navigation}</div>
+            <hr className="h-thread-sidebar__nav-divider" />
+          </>
+        ) : null}
+        <div className="h-thread-sidebar__pad">
+          <SidebarAction icon="add" label="New chat" onClick={onNewThread} />
+        </div>
+        <div
+          ref={listRef}
+          className="h-thread-sidebar__list"
+          onScroll={() => menuId && setMenuId(undefined)}
+        >
+          {threads.map((t) => {
+            const selected = t.id === selectedId;
+            const actionable = t.remote !== false;
+            return (
+              <div
+                key={t.id}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(t.id, el);
+                  else rowRefs.current.delete(t.id);
+                }}
+                className={[
+                  "h-thread-row",
+                  rowRadiusClass,
+                  selected ? "h-thread-row--selected" : null,
+                  actionable ? "h-thread-row--actionable" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                role="button"
+                tabIndex={0}
+                aria-current={selected ? "true" : undefined}
+                onClick={() => onSelect?.(t.id)}
+                onContextMenu={
+                  actionable
+                    ? (e) => {
+                        e.preventDefault();
+                        setMenuId(t.id);
+                      }
+                    : undefined
+                }
+              >
+                {t.pinned ? (
+                  <Icon
+                    name="push_pin"
+                    filled
+                    size={12}
+                    className="h-thread-row__pin"
+                  />
+                ) : null}
+                <span className="h-thread-row__title">{t.title}</span>
+                {actionable ? (
+                  <button
+                    type="button"
+                    className="h-thread-row__more"
+                    aria-label="Chat actions"
+                    title="Chat actions"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuId((id) => (id === t.id ? undefined : t.id));
+                    }}
+                  >
+                    <Icon name="more_horiz" size={16} />
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          {hasMore ? (
+            <div className="h-thread-sidebar__show-more">
+              {loadingMore ? (
+                <span
+                  className={cx(
+                    "h-thread-sidebar__spinner",
+                    apple && "h-apple-spinner",
+                  )}
+                  aria-label="Loading"
                 />
-              ) : null}
-              <span className="h-thread-row__title">{t.title}</span>
-              {actionable ? (
+              ) : (
                 <button
                   type="button"
-                  className="h-thread-row__more"
-                  aria-label="Chat actions"
-                  title="Chat actions"
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuId((id) => (id === t.id ? undefined : t.id));
-                  }}
+                  className="h-thread-sidebar__show-more-button"
+                  onClick={onLoadMore}
                 >
-                  <Icon name="more_horiz" size={16} />
+                  Show more
                 </button>
-              ) : null}
+              )}
             </div>
-          );
-        })}
-        {hasMore ? (
-          <div className="h-thread-sidebar__show-more">
-            {loadingMore ? (
-              <span
-                className="h-thread-sidebar__spinner"
-                aria-label="Loading"
-              />
-            ) : (
-              <button
-                type="button"
-                className="h-thread-sidebar__show-more-button"
-                onClick={onLoadMore}
-              >
-                Show more
-              </button>
+          ) : null}
+        </div>
+        {menuThread && menuTop !== null ? (
+          <PopupMenu
+            variant={variant}
+            className={cx(
+              "h-thread-sidebar__menu",
+              touch && "h-thread-sidebar__menu--touch",
             )}
+            style={{ top: menuTop }}
+            items={threadMenuItems(!!menuThread.pinned, true, false)}
+            onSelect={(a) => {
+              setMenuId(undefined);
+              onThreadAction?.(menuThread.id, a);
+            }}
+          />
+        ) : null}
+        <div className="h-thread-sidebar__divider" />
+        {moreEntries.length ? (
+          <div className="h-thread-sidebar__pad">
+            <div className="h-thread-sidebar__divider" />
+            <SidebarAction
+              icon={moreOpen ? "expand_more" : "chevron_right"}
+              label="More"
+              onClick={() => setMoreOpen((o) => !o)}
+            />
+            {moreOpen
+              ? moreEntries.map((e) => (
+                  <SidebarAction
+                    key={e.label}
+                    icon={e.icon}
+                    label={e.label}
+                    onClick={e.onClick}
+                  />
+                ))
+              : null}
           </div>
         ) : null}
-      </div>
-      {menuThread && menuTop !== null ? (
-        <PopupMenu
-          className="h-thread-sidebar__menu"
-          style={{ top: menuTop }}
-          items={threadMenuItems(!!menuThread.pinned, true, false)}
-          onSelect={(a) => {
-            setMenuId(undefined);
-            onThreadAction?.(menuThread.id, a);
-          }}
+        <AccountFooter
+          label={account}
+          serverUrl={serverUrl}
+          authRequired={authRequired}
+          defaultMenuOpen={defaultAccountMenuOpen}
+          onAction={onAccountAction}
+          layout={menuLayout}
         />
-      ) : null}
-      <div className="h-thread-sidebar__divider" />
-      {moreEntries.length ? (
-        <div className="h-thread-sidebar__pad">
-          <div className="h-thread-sidebar__divider" />
-          <SidebarAction
-            icon={moreOpen ? "expand_more" : "chevron_right"}
-            label="More"
-            onClick={() => setMoreOpen((o) => !o)}
-          />
-          {moreOpen
-            ? moreEntries.map((e) => (
-                <SidebarAction
-                  key={e.label}
-                  icon={e.icon}
-                  label={e.label}
-                  onClick={e.onClick}
-                />
-              ))
-            : null}
-        </div>
-      ) : null}
-      <AccountFooter
-        label={account}
-        serverUrl={serverUrl}
-        authRequired={authRequired}
-        defaultMenuOpen={defaultAccountMenuOpen}
-        onAction={onAccountAction}
-      />
-    </nav>
+      </nav>
+    </PlatformScope>
   );
 }

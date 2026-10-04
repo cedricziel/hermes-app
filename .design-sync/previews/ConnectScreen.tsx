@@ -59,3 +59,23 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** Apple: the sign-in bar is 44px tall and the spinner is the eight-spoke activity indicator. */
+export const AppleSignIn = () => (
+  <HermesProvider platform="apple">
+    <div style={{ ...phone, display: "inline-block", marginRight: 20 }}>
+      <ConnectScreen
+        step="signin"
+        serverUrl="https://hermes.example.net"
+        providers={[{ id: "password", displayName: "", password: true }]}
+      />
+    </div>
+    <div style={{ ...phone, display: "inline-block" }}>
+      <ConnectScreen
+        step="signin"
+        serverUrl="https://hermes.example.net"
+        waitingForBrowser
+      />
+    </div>
+  </HermesProvider>
+);

@@ -87,3 +87,15 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** Apple: the iOS search field (left) and the 44px icon-and-label bulk toolbar (right). */
+export const AppleSearchAndBulkBar = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
+    <div style={{ width: 380, border: "1px solid var(--h-border)" }}>
+      <KanbanToolbar wide={false} assignees={assignees} tenants={tenants} />
+    </div>
+    <div style={{ width: 380, border: "1px solid var(--h-border)" }}>
+      <KanbanBulkBar selectedCount={3} />
+    </div>
+  </HermesProvider>
+);

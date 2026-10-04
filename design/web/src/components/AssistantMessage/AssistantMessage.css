@@ -8,7 +8,7 @@
 
 .h-assistant-message__body {
   width: 100%;
-  font-size: 14.5px;
+  font-size: var(--h-ramp-message-size, 14.5px);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -167,6 +167,11 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+
+.h-assistant-message--apple .h-assistant-message__action {
+  width: 44px;
+  height: 44px;
 }
 
 .h-assistant-message__action:hover {

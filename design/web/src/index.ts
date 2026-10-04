@@ -32,3 +32,5 @@ export * from './components/KanbanStatusChips/KanbanStatusChips';
 export * from './components/KanbanColumn/KanbanColumn';
 export * from './components/KanbanToolbar/KanbanToolbar';
 export * from './components/KanbanTaskPanel/KanbanTaskPanel';
+
+export type { AppleDevice, Platform } from "./platform";
