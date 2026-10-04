@@ -6,7 +6,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show ApprovalRequest, AttachmentKind, SubagentStatus, UnsupportedKind;
+    show
+        ApprovalRequest,
+        AttachmentKind,
+        SubagentStatus,
+        UnsupportedKind,
+        VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -309,6 +314,7 @@ void main() {
     transport.send(text: 'hi').listen((e) async {
       if (e is ApprovalRequested ||
           e is ClarifyRequested ||
+          e is VaultRequested ||
           e is UnsupportedRequested) {
         result = await answer();
         gateway.event('message.complete', 'rt-1', {
@@ -1600,9 +1606,118 @@ void main() {
       expect(gateway.responses, isEmpty);
     });
 
+    test('a save-login request becomes a vault request', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.save_login', sid, {
+          'origin': 'https://www.example.com',
+          'site': 'www.example.com',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.requestId, 'srq-6');
+      expect(request.kind, VaultKind.saveLogin);
+      expect(request.origin, 'https://www.example.com');
+      expect(request.site, 'www.example.com');
+    });
+
+    test('an unlock prompt carries the manager it is for', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.unlock_prompt', sid, {
+          'backend': 'onepassword',
+          'display_name': '1Password',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.kind, VaultKind.unlock);
+      expect(request.backend, 'onepassword');
+      expect(request.displayName, '1Password');
+    });
+
+    test('a code request carries the site and the hint', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.code', sid, {
+          'site': 'example.com',
+          'hint': 'The 6-digit code.',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.kind, VaultKind.code);
+      expect(request.site, 'example.com');
+      expect(request.hint, 'The 6-digit code.');
+    });
+
+    test('a save-login answer round-trips as JSON under value', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-6',
+        'vault.save_login',
+        {'origin': 'https://www.example.com', 'site': 'www.example.com'},
+        () => transport.answerVault(
+          'srq-6',
+          VaultKind.saveLogin,
+          identifier: 'ada@example.com',
+          password: 's3cret',
+        ),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-6',
+          'result': {
+            'value': {'identifier': 'ada@example.com', 'password': 's3cret'},
+          },
+        },
+      ]);
+    });
+
+    test('an unlock answer sends the master password', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-6',
+        'vault.unlock_prompt',
+        {'backend': 'onepassword', 'display_name': '1Password'},
+        () => transport.answerVault('srq-6', VaultKind.unlock, password: 'pw'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {'value': 'pw'});
+    });
+
+    test('a code answer sends the code', () async {
+      final accepted = await answerWhileWaiting('srq-6', 'vault.code', {
+        'site': 'example.com',
+      }, () => transport.answerVault('srq-6', VaultKind.code, code: '123456'));
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {'value': '123456'});
+    });
+
+    test('a vault prompt answered empty declines it', () async {
+      final accepted = await answerWhileWaiting('srq-6', 'vault.save_login', {
+        'origin': 'https://www.example.com',
+        'site': 'www.example.com',
+      }, () => transport.answerVault('srq-6', VaultKind.saveLogin));
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {
+        'value': {'identifier': '', 'password': ''},
+      });
+    });
+
     test('a request the app has no handler for is refused at once', () async {
       gateway.turn = (g, sid) {
-        g.serverRequest('srq-6', 'vault.code', sid, {'site': 'example.com'});
         g.serverRequest('srq-7', 'terminal.read', sid);
         g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
       };
@@ -1612,11 +1727,6 @@ void main() {
 
       expect(events.map((e) => e.runtimeType), [ThreadBound, ReplyCompleted]);
       expect(gateway.responses, [
-        {
-          'jsonrpc': '2.0',
-          'id': 'srq-6',
-          'error': {'code': -32601, 'message': 'Method not found'},
-        },
         {
           'jsonrpc': '2.0',
           'id': 'srq-7',

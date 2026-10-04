@@ -16,7 +16,15 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 
 /// The server-to-client request methods the app answers. The gateway sends
 /// many more (vault prompts, desktop bridges); those are refused at once.
-const _handledRequests = {'approval', 'clarify', 'sudo', 'secret'};
+const _handledRequests = {
+  'approval',
+  'clarify',
+  'sudo',
+  'secret',
+  'vault.save_login',
+  'vault.unlock_prompt',
+  'vault.code',
+};
 
 /// What `image.attach_bytes` answers for a file that is not an image type it
 /// knows.
@@ -496,6 +504,7 @@ class HermesGatewayTransport implements ChatTransport {
         request.requestId,
         request.batch,
       ),
+      VaultRequested(:final request) => (request.requestId, false),
       UnsupportedRequested(:final request) => (request.requestId, false),
       _ => null,
     };
@@ -556,6 +565,26 @@ class HermesGatewayTransport implements ChatTransport {
       'question_id': questionId,
     });
     return result != null && result['status'] != 'expired';
+  }
+
+  @override
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    final open = _awaiting[requestId];
+    // A vault prompt is always a server-to-client request: the gateway has
+    // no `*.respond` method for it.
+    if (open == null || !open.serverRequest) return false;
+    final value = switch (kind) {
+      VaultKind.saveLogin => {'identifier': identifier, 'password': password},
+      VaultKind.unlock => password,
+      VaultKind.code => code,
+    };
+    return _respond(requestId, {'value': value});
   }
 
   @override
@@ -780,11 +809,40 @@ class HermesGatewayTransport implements ChatTransport {
     return switch (request.method) {
       'approval' => ApprovalRequested(_toApproval(request.id, request.params)),
       'clarify' => ClarifyRequested(_toClarify(request.id, request.params)),
+      'vault.save_login' => _vault(
+        request.id,
+        VaultKind.saveLogin,
+        request.params,
+      ),
+      'vault.unlock_prompt' => _vault(
+        request.id,
+        VaultKind.unlock,
+        request.params,
+      ),
+      'vault.code' => _vault(request.id, VaultKind.code, request.params),
       'sudo' => _unsupported(request.id, UnsupportedKind.sudo),
       'secret' => _unsupported(request.id, UnsupportedKind.secret),
       _ => null,
     };
   }
+
+  /// A masked vault prompt: the login to save for a site, an external
+  /// password manager's master password, or a one-time code.
+  VaultRequested _vault(
+    String requestId,
+    VaultKind kind,
+    Map<String, Object?> fields,
+  ) => VaultRequested(
+    VaultRequest(
+      requestId: requestId,
+      kind: kind,
+      origin: fields['origin'] as String? ?? '',
+      site: fields['site'] as String? ?? '',
+      backend: fields['backend'] as String? ?? '',
+      displayName: fields['display_name'] as String? ?? '',
+      hint: fields['hint'] as String? ?? '',
+    ),
+  );
 
   ApprovalRequest _toApproval(String requestId, Map<String, Object?> fields) =>
       ApprovalRequest(

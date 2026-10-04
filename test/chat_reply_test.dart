@@ -704,6 +704,64 @@ void main() {
     expect(reply.awaitingInput, isTrue);
   });
 
+  test('a vault request is added to the reply, pending', () {
+    final reply = _placeholder();
+
+    applyReplyEvent(
+      reply,
+      VaultRequested(
+        const VaultRequest(
+          requestId: 'srq-1',
+          kind: VaultKind.saveLogin,
+          origin: 'https://www.example.com',
+          site: 'www.example.com',
+        ),
+      ),
+    );
+
+    expect(reply.inputRequests.single.status, InputRequestStatus.pending);
+    expect(reply.awaitingInput, isTrue);
+  });
+
+  test('a vault answer is recorded, a decline is marked without values', () {
+    final reply = _placeholder();
+    applyReplyEvent(
+      reply,
+      VaultRequested(
+        const VaultRequest(
+          requestId: 'srq-1',
+          kind: VaultKind.saveLogin,
+          site: 'www.example.com',
+        ),
+      ),
+    );
+
+    recordVaultAnswered(reply, 'srq-1', identifier: 'ada@example.com');
+    expect(reply.inputRequests.single.status, InputRequestStatus.answered);
+    final answered = reply.inputRequests.single as VaultRequest;
+    expect(answered.identifier, 'ada@example.com');
+    expect(answered.provided, isTrue);
+    // No secret is kept on the model: only the identifier travels with it.
+    expect(answered.toString(), isNot(contains('pw')));
+
+    final other = _placeholder();
+    applyReplyEvent(
+      other,
+      VaultRequested(
+        const VaultRequest(
+          requestId: 'srq-1',
+          kind: VaultKind.saveLogin,
+          site: 'www.example.com',
+        ),
+      ),
+    );
+    recordVaultDeclined(other, 'srq-1');
+    final declined = other.inputRequests.single as VaultRequest;
+    expect(declined.status, InputRequestStatus.answered);
+    expect(declined.identifier, isEmpty);
+    expect(declined.provided, isFalse);
+  });
+
   test('requests stack in the order they arrive', () {
     final reply = _placeholder();
 

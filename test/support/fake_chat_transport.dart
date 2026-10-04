@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show UnsupportedKind, VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 
@@ -119,6 +120,36 @@ class FakeChatTransport implements ChatTransport {
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     skips.add((requestId, kind));
+    return accepts;
+  }
+
+  final vaultAnswers =
+      <
+        ({
+          String requestId,
+          VaultKind kind,
+          String identifier,
+          String password,
+          String code,
+        })
+      >[];
+
+  @override
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
+    vaultAnswers.add((
+      requestId: requestId,
+      kind: kind,
+      identifier: identifier,
+      password: password,
+      code: code,
+    ));
     return accepts;
   }
 

@@ -794,6 +794,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ReplyCompleted() ||
           ApprovalRequested() ||
           ClarifyRequested() ||
+          VaultRequested() ||
           UnsupportedRequested() ||
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
@@ -886,6 +887,37 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       reply,
       () => accepted
           ? recordSkipped(reply, requestId)
+          : expireInputRequests(reply, requestId: requestId),
+    );
+  }
+
+  Future<void> answerVaultRequest(
+    ChatThread thread,
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    final transport = this.transport;
+    final reply = _replyAwaiting(thread, requestId);
+    if (transport == null || reply == null) return;
+    final declined = identifier.isEmpty && password.isEmpty && code.isEmpty;
+    final accepted = await transport.answerVault(
+      requestId,
+      kind,
+      identifier: identifier,
+      password: password,
+      code: code,
+    );
+    if (disposed) return;
+    _updateReply(
+      thread,
+      reply,
+      () => accepted
+          ? declined
+                ? recordVaultDeclined(reply, requestId)
+                : recordVaultAnswered(reply, requestId, identifier: identifier)
           : expireInputRequests(reply, requestId: requestId),
     );
   }

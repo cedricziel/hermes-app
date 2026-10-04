@@ -339,6 +339,78 @@ final class ClarifyRequest extends InputRequest {
   );
 }
 
+/// Which masked vault prompt Hermes raised.
+enum VaultKind { saveLogin, unlock, code }
+
+/// The agent asks the user, through a masked prompt this app renders itself,
+/// for a credential the conversation must never see: a login to save for a
+/// site, an external password manager's master password, or a one-time code.
+final class VaultRequest extends InputRequest {
+  const VaultRequest({
+    required super.requestId,
+    required this.kind,
+    this.origin = '',
+    this.site = '',
+    this.backend = '',
+    this.displayName = '',
+    this.hint = '',
+    super.status,
+    this.identifier = '',
+    this.provided = false,
+  });
+
+  final VaultKind kind;
+
+  /// The page the login is saved for; empty for the other kinds.
+  final String origin;
+
+  /// The site the prompt names the user by: the host of [origin] for a
+  /// save-login, the code's site for a one-time code.
+  final String site;
+
+  /// The password manager to unlock, and its display name; empty for the
+  /// other kinds.
+  final String backend;
+  final String displayName;
+  final String hint;
+
+  /// The identifier the user gave, once answered — a username or email, not
+  /// itself a secret. The password and the one-time code live only in the
+  /// answer frame; the card keeps whether one was sent.
+  final String identifier;
+
+  /// Whether the user submitted a value, as opposed to declining. [withStatus]
+  /// keeps it, so a declined card stays declined when it expires late.
+  final bool provided;
+
+  VaultRequest answered({String? identifier, bool? provided}) => VaultRequest(
+    requestId: requestId,
+    kind: kind,
+    origin: origin,
+    site: site,
+    backend: backend,
+    displayName: displayName,
+    hint: hint,
+    status: InputRequestStatus.answered,
+    identifier: identifier ?? this.identifier,
+    provided: provided ?? true,
+  );
+
+  @override
+  VaultRequest withStatus(InputRequestStatus status) => VaultRequest(
+    requestId: requestId,
+    kind: kind,
+    origin: origin,
+    site: site,
+    backend: backend,
+    displayName: displayName,
+    hint: hint,
+    status: status,
+    identifier: identifier,
+    provided: provided,
+  );
+}
+
 enum UnsupportedKind { secret, sudo }
 
 /// The agent asked for something this app cannot ask the user for yet, such
