@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { IconButton } from "../IconButton/IconButton";
 import {
   AccountFooter,
@@ -167,12 +167,22 @@ export function AppShell({
   const mac =
     resolvedPlatform === "apple" && layout === "desktop" && device === "mac";
   const [collapsed, setCollapsed] = useState(sidebarCollapsed);
-  const toggleSidebar = () => setCollapsed((c) => !c);
+  const hidden = mac && collapsed;
+  const toggleSidebar = useCallback(() => setCollapsed((c) => !c), []);
   const [headerToggles, setHeaderToggles] = useState(0);
   const claimSidebarToggle = useCallback(() => {
     setHeaderToggles((n) => n + 1);
     return () => setHeaderToggles((n) => n - 1);
   }, []);
+  const chrome = useMemo(
+    () => ({
+      sidebarCollapsed: hidden,
+      toggleSidebar: mac ? toggleSidebar : undefined,
+      claimSidebarToggle,
+      device,
+    }),
+    [hidden, mac, toggleSidebar, claimSidebarToggle, device],
+  );
   const single = destinations.length <= 1;
   const side =
     sidebar ??
@@ -209,17 +219,10 @@ export function AppShell({
     );
   }
   const width = Math.min(360, Math.max(220, sidebarWidth)) + 1;
-  const shown = side && !(mac && collapsed);
+  const shown = side && !hidden;
   return (
     <PlatformScope platform={resolvedPlatform}>
-      <ShellChromeContext.Provider
-        value={{
-          sidebarCollapsed: mac && collapsed,
-          toggleSidebar: mac ? toggleSidebar : undefined,
-          claimSidebarToggle,
-          device,
-        }}
-      >
+      <ShellChromeContext.Provider value={chrome}>
         <div
           className={cx(
             "h-app-shell h-app-shell--desktop",
@@ -242,7 +245,7 @@ export function AppShell({
             </div>
           ) : null}
           <div className="h-app-shell__content">
-            {mac && collapsed && headerToggles === 0 ? (
+            {hidden && headerToggles === 0 ? (
               <div className="h-app-shell__toolbar">
                 <IconButton
                   icon="left_panel_open"
