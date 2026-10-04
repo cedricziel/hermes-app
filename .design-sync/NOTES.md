@@ -105,8 +105,11 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Chip is 32px; Flutter's filter chips are about 38px. Pill-shaped tags (MCP, plugins) live in their rows' CSS.
 - Tokens asked for: `--h-radius-row` (8px sidebar rows), `--h-on-secondary`, a subtle text shade darker
   than `--h-muted` (`--h-secondary` is used for it), a warning-tinted card.
-- Flutter #391 turned the Mac sidebar into a source list with recency sections and "Open in New Window"; the
-  recreation has the Mac menu style and items, not the source list.
+- The Mac sidebar is the source list of Flutter #391: `ShellNavigation` draws 28px rows (Kanban captioned "All
+  profiles"), `ThreadSidebar` sorts chats into Pinned / Today / Previous 7 days / Previous 30 days / Older from
+  `ThreadItem.updatedAt` counted back from `now`, with folding headers (`defaultFoldedSections`), hover Archive and
+  More (`hoveredThreadId`) and "Open in New Window" in the menu (`canOpenInNewWindow`). The sidebar's search field
+  is not recreated.
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
   `useDismiss` is private); export it next to `Menu` if a screen needs it.
 - Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a

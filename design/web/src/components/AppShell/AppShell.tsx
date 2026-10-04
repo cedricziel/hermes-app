@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { MacSourceListRow } from "../ThreadSidebar/MacSourceList";
 import { IconButton } from "../IconButton/IconButton";
 import {
   AccountFooter,
@@ -21,10 +22,11 @@ export type ShellDestination = "chat" | "kanban" | "schedules";
 
 const destinationInfo: Record<
   ShellDestination,
-  { icon: string; label: string }
+  { icon: string; label: string; caption?: string }
 > = {
   chat: { icon: "chat_bubble", label: "Chat" },
-  kanban: { icon: "view_kanban", label: "Kanban" },
+  // The board is shared by every profile, which the Mac row says.
+  kanban: { icon: "view_kanban", label: "Kanban", caption: "All profiles" },
   schedules: { icon: "schedule", label: "Schedules" },
 };
 
@@ -35,30 +37,55 @@ export interface ShellNavigationProps {
   current: ShellDestination;
   /** A destination row was clicked. */
   onSelect?: (destination: ShellDestination) => void;
+  /** `apple` on a Mac draws source-list rows; see the component. Inherits the provider's platform. */
+  platform?: Platform;
+  /** Under `apple`, `mac` (default) or `touch`; inherited from the enclosing `AppShell` or `ThreadSidebar`. */
+  device?: AppleDevice;
 }
 
 /**
  * The shell's destinations as sidebar rows (Chat, Kanban, Schedules), in the
  * wide sidebar and the phone drawer alike. Pass it as `navigation` to
- * `ThreadSidebar`, so it sits under the app name above "New chat".
+ * `ThreadSidebar`, so it sits under the app name above "New chat". On a Mac
+ * they are source-list rows: 28px, a 16px muted outline icon, a 13px label,
+ * a soft fill on the open one, and Kanban captioned "All profiles" at the
+ * trailing edge (the board is shared by every profile).
  */
 export function ShellNavigation({
   destinations,
   current,
   onSelect,
+  platform,
+  device: deviceProp,
 }: ShellNavigationProps) {
+  const resolvedPlatform = usePlatform(platform);
+  const device = useAppleDevice("desktop", deviceProp);
+  const mac = resolvedPlatform === "apple" && device === "mac";
   return (
     <div className="h-shell-navigation">
-      {destinations.map((d) => (
-        <SidebarAction
-          key={d}
-          icon={destinationInfo[d].icon}
-          filledIcon={d === current}
-          label={destinationInfo[d].label}
-          selected={d === current}
-          onClick={() => onSelect?.(d)}
-        />
-      ))}
+      {destinations.map((d) => {
+        const { icon, label, caption } = destinationInfo[d];
+        const selected = d === current;
+        return mac ? (
+          <MacSourceListRow
+            key={d}
+            icon={icon}
+            label={label}
+            caption={caption}
+            selected={selected}
+            onClick={() => onSelect?.(d)}
+          />
+        ) : (
+          <SidebarAction
+            key={d}
+            icon={icon}
+            filledIcon={selected}
+            label={label}
+            selected={selected}
+            onClick={() => onSelect?.(d)}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -202,19 +229,21 @@ export function AppShell({
   if (layout === "phone") {
     return (
       <PlatformScope platform={resolvedPlatform}>
-        <div className="h-app-shell h-app-shell--phone">
-          <div className="h-app-shell__content">{children}</div>
-          {drawerOpen && side ? (
-            <>
-              <div
-                className="h-app-shell__scrim"
-                aria-hidden="true"
-                onClick={onCloseDrawer}
-              />
-              <div className="h-app-shell__drawer">{side}</div>
-            </>
-          ) : null}
-        </div>
+        <ShellChromeContext.Provider value={chrome}>
+          <div className="h-app-shell h-app-shell--phone">
+            <div className="h-app-shell__content">{children}</div>
+            {drawerOpen && side ? (
+              <>
+                <div
+                  className="h-app-shell__scrim"
+                  aria-hidden="true"
+                  onClick={onCloseDrawer}
+                />
+                <div className="h-app-shell__drawer">{side}</div>
+              </>
+            ) : null}
+          </div>
+        </ShellChromeContext.Provider>
       </PlatformScope>
     );
   }

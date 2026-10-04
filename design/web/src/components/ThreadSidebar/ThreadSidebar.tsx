@@ -2,6 +2,7 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -21,7 +22,10 @@ import {
   type AppleDevice,
   type Platform,
 } from "../../platform";
+import { MacThreadList, type ThreadSection } from "./MacSourceList";
 import "./ThreadSidebar.css";
+
+export type { ThreadSection } from "./MacSourceList";
 
 /**
  * Which device a component is laid out for. `phone` is touch (iPhone, iPad
@@ -45,11 +49,22 @@ export interface ThreadItem {
    * Rename, Pin, Archive and Delete. A local or mock chat (false) has no menu.
    */
   remote?: boolean;
+  /**
+   * When the chat was last active, as an ISO date ("2026-10-04T09:30:00Z").
+   * Only the Mac sidebar reads it, to sort the chat into a recency section
+   * (see `ThreadSection`); without it the chat counts as today's.
+   */
+  updatedAt?: string;
 }
 
 /** What a chat's "…" menu asks for. `pin` toggles: it reads "Unpin" on a pinned chat. */
 export type ThreadAction =
-  "copy-transcript" | "rename" | "pin" | "archive" | "delete";
+  | "open-in-new-window"
+  | "copy-transcript"
+  | "rename"
+  | "pin"
+  | "archive"
+  | "delete";
 
 /** An entry of the sidebar's collapsible "More" section. */
 export interface SidebarMoreEntry {
@@ -103,8 +118,9 @@ function threadMenuItems(
   actionable: boolean,
   includeCopyTranscript: boolean,
   mac: boolean,
+  canOpenInNewWindow = false,
 ): ThreadMenuItems {
-  if (mac) return macThreadMenuItems(pinned, actionable);
+  if (mac) return macThreadMenuItems(pinned, actionable, canOpenInNewWindow);
   return [
     ...(includeCopyTranscript
       ? [
@@ -119,15 +135,27 @@ function threadMenuItems(
 /**
  * A chat's menu as a Mac app lists it (the app's `macThreadMenuItems`), with
  * the shortcuts the menu bar gives them, in the sidebar and the chat header
- * alike. A chat the dashboard does not hold only offers the copy.
+ * alike. A chat the dashboard does not hold only offers the copy; one it
+ * holds leads with "Open in New Window" when the window can open one.
  */
 function macThreadMenuItems(
   pinned: boolean,
   actionable: boolean,
+  canOpenInNewWindow: boolean,
 ): ThreadMenuItems {
   const copy = { value: "copy-transcript" as const, label: "Copy Transcript" };
   if (!actionable) return [copy];
   return [
+    ...(canOpenInNewWindow
+      ? [
+          {
+            value: "open-in-new-window" as const,
+            label: "Open in New Window",
+            shortcut: "⌥⌘O",
+          },
+          "divider" as const,
+        ]
+      : []),
     { value: "rename", label: "Rename…" },
     { value: "pin", label: pinned ? "Unpin" : "Pin", shortcut: "⇧⌘P" },
     copy,
@@ -159,6 +187,8 @@ export interface ThreadActionsButtonProps {
   actionable?: boolean;
   /** Add "Copy transcript" on top, as the chat header does. */
   includeCopyTranscript?: boolean;
+  /** Mac only: lead the menu with "Open in New Window" (⌥⌘O). */
+  canOpenInNewWindow?: boolean;
   /** Open the menu initially, for previews. */
   defaultOpen?: boolean;
   /** Called with the picked entry; the menu closes. */
@@ -178,6 +208,7 @@ export function ThreadActionsButton({
   pinned = false,
   actionable = true,
   includeCopyTranscript = false,
+  canOpenInNewWindow = false,
   defaultOpen = false,
   onAction,
   platform,
@@ -209,6 +240,7 @@ export function ThreadActionsButton({
               actionable,
               includeCopyTranscript,
               mac,
+              canOpenInNewWindow,
             )}
             onSelect={(item) => {
               setOpen(false);
@@ -400,6 +432,14 @@ export interface ThreadSidebarProps {
   swipeSide?: "leading" | "trailing";
   /** Apple touch: draw the long-press action sheet of this chat over the sidebar, for previews. */
   actionSheetThreadId?: string;
+  /** Mac: the day the recency sections count back from, as an ISO date; defaults to today. Pin it in previews so the sections stay put. */
+  now?: string;
+  /** Mac: sections folded away initially; their header stays, with the chevron turned. */
+  defaultFoldedSections?: ThreadSection[];
+  /** Mac: draw this chat's row as if under the pointer (hover fill, Archive and More buttons), for previews. */
+  hoveredThreadId?: string;
+  /** Mac: chats the dashboard holds lead their menu with "Open in New Window" (⌥⌘O). */
+  canOpenInNewWindow?: boolean;
   /** The server has more chats: end the list with a "Show more" row. */
   hasMore?: boolean;
   /** The next page is loading: the "Show more" row shows a spinner. */
@@ -430,9 +470,15 @@ export interface ThreadSidebarProps {
    * leading edge Pin (or Unpin), and a long press opens an action sheet with
    * Rename, Pin, Archive and Delete (see `swipedThreadId`,
    * `actionSheetThreadId`). Mac: the
-   * sidebar starts at the top of the window, drops the brand row for a 52px
-   * strip that leaves 78px for the traffic lights, keeps the "…" button and
-   * uses the compact Mac menu. Inherits the provider's platform.
+   * sidebar starts at the top of the window and drops the brand row for a
+   * 52px strip that leaves 78px for the traffic lights; it is a source list:
+   * the chats sit under small bold section headers (Pinned, Today, Previous
+   * 7 days, Previous 30 days, Older, from `updatedAt`) that fold away on a
+   * click, as 28px rows without a pin glyph whose Archive and More buttons
+   * show under the pointer (`hoveredThreadId`), and More or a right-click
+   * opens the compact Mac menu (`canOpenInNewWindow` adds "Open in New
+   * Window"). Destinations passed in `navigation` become source-list rows
+   * too. Inherits the provider's platform.
    */
   platform?: Platform;
   /** `phone` draws touch rows and menus under `platform="apple"`; `desktop` (default) draws the Mac sidebar unless `device` or the enclosing `AppShell` says touch. Has no effect on `material`. */
@@ -457,6 +503,10 @@ export function ThreadSidebar({
   swipedThreadId,
   swipeSide = "trailing",
   actionSheetThreadId,
+  now,
+  defaultFoldedSections,
+  hoveredThreadId,
+  canOpenInNewWindow = false,
   hasMore = false,
   loadingMore = false,
   account,
@@ -484,6 +534,15 @@ export function ThreadSidebar({
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const close = useRef(() => setMenuId(undefined)).current;
   useDismiss(menuId !== undefined, close);
+  const trackRow = (id: string) => (el: HTMLDivElement | null) => {
+    if (el) rowRefs.current.set(id, el);
+    else rowRefs.current.delete(id);
+  };
+  const shell = useContext(ShellChromeContext);
+  const navigationChrome = useMemo(
+    () => ({ ...shell, device }),
+    [shell, device],
+  );
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -515,7 +574,11 @@ export function ThreadSidebar({
         <SidebarBrand mac={mac} />
         {navigation ? (
           <>
-            <div className="h-thread-sidebar__pad">{navigation}</div>
+            <div className="h-thread-sidebar__pad">
+              <ShellChromeContext.Provider value={navigationChrome}>
+                {navigation}
+              </ShellChromeContext.Provider>
+            </div>
             <hr className="h-thread-sidebar__nav-divider" />
           </>
         ) : null}
@@ -527,93 +590,106 @@ export function ThreadSidebar({
           className="h-thread-sidebar__list"
           onScroll={() => menuId && setMenuId(undefined)}
         >
-          {threads.map((t) => {
-            const selected = t.id === selectedId;
-            const actionable = t.remote !== false;
-            const inlineButton = actionable && !touch;
-            const row = (
-              <div
-                key={t.id}
-                ref={(el) => {
-                  if (el) rowRefs.current.set(t.id, el);
-                  else rowRefs.current.delete(t.id);
-                }}
-                className={[
-                  "h-thread-row",
-                  rowRadiusClass,
-                  selected ? "h-thread-row--selected" : null,
-                  inlineButton ? "h-thread-row--actionable" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                role="button"
-                tabIndex={0}
-                aria-current={selected ? "true" : undefined}
-                onClick={() => onSelect?.(t.id)}
-                onContextMenu={
-                  inlineButton
-                    ? (e) => {
-                        e.preventDefault();
-                        setMenuId(t.id);
-                      }
-                    : undefined
-                }
-              >
-                {t.pinned ? (
-                  <Icon
-                    name="push_pin"
-                    filled
-                    size={12}
-                    className="h-thread-row__pin"
-                  />
-                ) : null}
-                <span className="h-thread-row__title">{t.title}</span>
-                {inlineButton ? (
-                  <button
-                    type="button"
-                    className="h-thread-row__more"
-                    aria-label="Chat actions"
-                    title="Chat actions"
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuId((id) => (id === t.id ? undefined : t.id));
-                    }}
-                  >
-                    <Icon name="more_horiz" size={16} />
-                  </button>
-                ) : null}
-              </div>
-            );
-            if (!actionable || !touch) return row;
-            const pin = t.pinned ? "Unpin" : "Pin";
-            return (
-              <SwipeActions
-                key={t.id}
-                className={rowRadiusClass}
-                actions={[
-                  {
-                    label: "Delete",
-                    icon: "delete",
-                    onPress: () => onThreadAction?.(t.id, "delete"),
-                  },
-                ]}
-                leadingActions={[
-                  {
-                    label: pin,
-                    icon: "push_pin",
-                    filled: !t.pinned,
-                    color: "orange",
-                    onPress: () => onThreadAction?.(t.id, "pin"),
-                  },
-                ]}
-                revealed={t.id === swipedThreadId ? swipeSide : false}
-                device="touch"
-              >
-                {row}
-              </SwipeActions>
-            );
-          })}
+          {mac ? (
+            <MacThreadList
+              threads={threads}
+              selectedId={selectedId}
+              now={now ? new Date(now) : new Date()}
+              defaultFolded={defaultFoldedSections}
+              hoveredId={hoveredThreadId}
+              rowRef={trackRow}
+              onSelect={onSelect}
+              onArchive={(id) => onThreadAction?.(id, "archive")}
+              onMenu={(id, toggle) =>
+                setMenuId((open) => (toggle && open === id ? undefined : id))
+              }
+            />
+          ) : (
+            threads.map((t) => {
+              const selected = t.id === selectedId;
+              const actionable = t.remote !== false;
+              const inlineButton = actionable && !touch;
+              const row = (
+                <div
+                  key={t.id}
+                  ref={trackRow(t.id)}
+                  className={[
+                    "h-thread-row",
+                    rowRadiusClass,
+                    selected ? "h-thread-row--selected" : null,
+                    inlineButton ? "h-thread-row--actionable" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={selected ? "true" : undefined}
+                  onClick={() => onSelect?.(t.id)}
+                  onContextMenu={
+                    inlineButton
+                      ? (e) => {
+                          e.preventDefault();
+                          setMenuId(t.id);
+                        }
+                      : undefined
+                  }
+                >
+                  {t.pinned ? (
+                    <Icon
+                      name="push_pin"
+                      filled
+                      size={12}
+                      className="h-thread-row__pin"
+                    />
+                  ) : null}
+                  <span className="h-thread-row__title">{t.title}</span>
+                  {inlineButton ? (
+                    <button
+                      type="button"
+                      className="h-thread-row__more"
+                      aria-label="Chat actions"
+                      title="Chat actions"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuId((id) => (id === t.id ? undefined : t.id));
+                      }}
+                    >
+                      <Icon name="more_horiz" size={16} />
+                    </button>
+                  ) : null}
+                </div>
+              );
+              if (!actionable || !touch) return row;
+              const pin = t.pinned ? "Unpin" : "Pin";
+              return (
+                <SwipeActions
+                  key={t.id}
+                  className={rowRadiusClass}
+                  actions={[
+                    {
+                      label: "Delete",
+                      icon: "delete",
+                      onPress: () => onThreadAction?.(t.id, "delete"),
+                    },
+                  ]}
+                  leadingActions={[
+                    {
+                      label: pin,
+                      icon: "push_pin",
+                      filled: !t.pinned,
+                      color: "orange",
+                      onPress: () => onThreadAction?.(t.id, "pin"),
+                    },
+                  ]}
+                  revealed={t.id === swipedThreadId ? swipeSide : false}
+                  device="touch"
+                >
+                  {row}
+                </SwipeActions>
+              );
+            })
+          )}
           {hasMore ? (
             <div className="h-thread-sidebar__show-more">
               {loadingMore ? (
@@ -636,7 +712,13 @@ export function ThreadSidebar({
             style={{ top: menuTop }}
             label="Chat actions"
             device="mac"
-            items={threadMenuItems(!!menuThread.pinned, true, false, mac)}
+            items={threadMenuItems(
+              !!menuThread.pinned,
+              menuThread.remote !== false,
+              false,
+              mac,
+              canOpenInNewWindow,
+            )}
             onSelect={(item) => {
               setMenuId(undefined);
               if (item.value) onThreadAction?.(menuThread.id, item.value);

@@ -177,9 +177,40 @@ export const PhoneKanbanDrawer = () => (
   </div>
 );
 
+/** The Mac sidebar sorts chats into recency sections by `updatedAt`, counted back from `now`. */
+const macThreads: ThreadItem[] = [
+  {
+    id: "backup",
+    title: "Why did the nightly backup fail?",
+    pinned: true,
+    updatedAt: "2026-09-30T08:00:00",
+  },
+  {
+    id: "logs",
+    title: "Summarize last night's run logs",
+    updatedAt: "2026-10-04T09:12:00",
+  },
+  {
+    id: "release",
+    title: "Draft release notes for v0.9",
+    updatedAt: "2026-10-04T07:40:00",
+  },
+  {
+    id: "pkce",
+    title: "Explain the PKCE flow to a new hire",
+    updatedAt: "2026-10-01T16:05:00",
+  },
+  {
+    id: "certs",
+    title: "Rotate the staging certificates",
+    updatedAt: "2026-09-12T11:30:00",
+  },
+];
+
 const macSidebar = (
   <ThreadSidebar
-    threads={threads}
+    threads={macThreads}
+    now="2026-10-04T12:00:00"
     selectedId="logs"
     account="Ada Lovelace"
     navigation={
@@ -191,7 +222,7 @@ const macSidebar = (
   />
 );
 
-/** The Mac window: sidebar under the traffic lights (78px left free), 52px toolbar header without a rule. */
+/** The Mac window: sidebar under the traffic lights (78px left free) as a source list (28px destination rows, Kanban captioned "All profiles", chats under Pinned / Today / Previous 7 days / Previous 30 days), 52px toolbar header without a rule. */
 export const AppleMac = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={desktop}>
