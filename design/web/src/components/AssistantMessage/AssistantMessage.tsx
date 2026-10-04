@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./AssistantMessage.css";
 
 export interface AssistantMessageProps {
@@ -52,58 +52,61 @@ export function AssistantMessage({
   onRetry,
   platform,
 }: AssistantMessageProps) {
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const body = children ?? (text ? <Markdown source={text} /> : null);
   const copyVisible = showCopy ?? Boolean(text || children);
   const actionsVisible =
     !streaming && (copyVisible || Boolean(onRetry) || stopped);
   return (
-    <div
-      className={cx(
-        "h-assistant-message",
-        apple && "h-assistant-message--apple",
-      )}
-    >
-      {body ? <div className="h-assistant-message__body">{body}</div> : null}
-      {error ? (
-        <div className="h-assistant-message__error" role="alert">
-          <Icon name="error" size={16} />
-          <span>{error}</span>
-        </div>
-      ) : null}
-      {actionsVisible ? (
-        <div className="h-assistant-message__actions">
-          {stopped ? (
-            <span className="h-assistant-message__stopped">
-              <Icon name="stop_circle" size={16} />
-              Stopped
-            </span>
-          ) : null}
-          {copyVisible ? (
-            <button
-              type="button"
-              className="h-assistant-message__action"
-              aria-label={copied ? "Copied" : "Copy"}
-              title={copied ? "Copied" : "Copy"}
-              onClick={onCopy}
-            >
-              <Icon name={copied ? "check" : "content_copy"} size={16} />
-            </button>
-          ) : null}
-          {onRetry ? (
-            <button
-              type="button"
-              className="h-assistant-message__action"
-              aria-label="Try again"
-              title="Try again"
-              onClick={onRetry}
-            >
-              <Icon name="refresh" size={16} />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx(
+          "h-assistant-message",
+          apple && "h-assistant-message--apple",
+        )}
+      >
+        {body ? <div className="h-assistant-message__body">{body}</div> : null}
+        {error ? (
+          <div className="h-assistant-message__error" role="alert">
+            <Icon name="error" size={16} />
+            <span>{error}</span>
+          </div>
+        ) : null}
+        {actionsVisible ? (
+          <div className="h-assistant-message__actions">
+            {stopped ? (
+              <span className="h-assistant-message__stopped">
+                <Icon name="stop_circle" size={16} />
+                Stopped
+              </span>
+            ) : null}
+            {copyVisible ? (
+              <button
+                type="button"
+                className="h-assistant-message__action"
+                aria-label={copied ? "Copied" : "Copy"}
+                title={copied ? "Copied" : "Copy"}
+                onClick={onCopy}
+              >
+                <Icon name={copied ? "check" : "content_copy"} size={16} />
+              </button>
+            ) : null}
+            {onRetry ? (
+              <button
+                type="button"
+                className="h-assistant-message__action"
+                aria-label="Try again"
+                title="Try again"
+                onClick={onRetry}
+              >
+                <Icon name="refresh" size={16} />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </PlatformScope>
   );
 }
 

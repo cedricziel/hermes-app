@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import { Icon } from "../Icon/Icon";
 import "./ListDetailLayout.css";
 
@@ -85,100 +85,103 @@ export function ListDetailLayout({
   platform,
 }: ListDetailLayoutProps) {
   const split = layout === "split";
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   return (
-    <div className={cx("h-list-detail", apple && "h-list-detail--apple")}>
-      <header className="h-list-detail__bar">
-        {onBack && apple ? (
-          <button
-            type="button"
-            className="h-list-detail__back"
-            aria-label="Back"
-            onClick={onBack}
-          >
-            <Icon name="arrow_back" size={20} />
-            {!split && backLabel ? <span>{backLabel}</span> : null}
-          </button>
-        ) : onBack ? (
-          <IconButton icon="arrow_back" label="Back" onClick={onBack} />
-        ) : null}
-        <div
-          className={[
-            "h-list-detail__titles",
-            onBack ? "h-list-detail__titles--after-back" : null,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <div className="h-list-detail__title">{title}</div>
-          {subtitle ? (
-            <div className="h-list-detail__subtitle">{subtitle}</div>
+    <PlatformScope platform={resolvedPlatform}>
+      <div className={cx("h-list-detail", apple && "h-list-detail--apple")}>
+        <header className="h-list-detail__bar">
+          {onBack && apple ? (
+            <button
+              type="button"
+              className="h-list-detail__back"
+              aria-label="Back"
+              onClick={onBack}
+            >
+              <Icon name="arrow_back" size={20} />
+              {!split && backLabel ? <span>{backLabel}</span> : null}
+            </button>
+          ) : onBack ? (
+            <IconButton icon="arrow_back" label="Back" onClick={onBack} />
           ) : null}
-        </div>
-        {actions || (apple && onAdd) ? (
-          <div className="h-list-detail__actions">
-            {actions}
-            {apple && onAdd ? (
-              <IconButton icon="add" label={addLabel} onClick={onAdd} />
+          <div
+            className={[
+              "h-list-detail__titles",
+              onBack ? "h-list-detail__titles--after-back" : null,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <div className="h-list-detail__title">{title}</div>
+            {subtitle ? (
+              <div className="h-list-detail__subtitle">{subtitle}</div>
             ) : null}
           </div>
-        ) : null}
-      </header>
-      {tabs && tabs.length > 0 ? (
-        <div
-          className={cx(
-            "h-list-detail__tabs",
-            apple && "h-list-detail__tabs--segmented",
-          )}
-          role="tablist"
-        >
-          {tabs.map((tab, i) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={i === activeTab}
-              className={[
-                "h-list-detail__tab",
-                i === activeTab ? "h-list-detail__tab--active" : null,
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => onTabChange?.(i)}
-            >
-              <span className="h-list-detail__tab-label">{tab}</span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-      <div className="h-list-detail__body">
-        <div
-          className="h-list-detail__list"
-          style={split ? { width: listWidth, flex: "none" } : undefined}
-        >
-          {list}
-        </div>
-        {split ? (
+          {actions || (apple && onAdd) ? (
+            <div className="h-list-detail__actions">
+              {actions}
+              {apple && onAdd ? (
+                <IconButton icon="add" label={addLabel} onClick={onAdd} />
+              ) : null}
+            </div>
+          ) : null}
+        </header>
+        {tabs && tabs.length > 0 ? (
           <div
-            className="h-list-detail__detail"
-            style={{ padding: detail ? detailPadding : 0 }}
-          >
-            {detail ?? (
-              <div className="h-list-detail__placeholder">{placeholder}</div>
+            className={cx(
+              "h-list-detail__tabs",
+              apple && "h-list-detail__tabs--segmented",
             )}
+            role="tablist"
+          >
+            {tabs.map((tab, i) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={i === activeTab}
+                className={[
+                  "h-list-detail__tab",
+                  i === activeTab ? "h-list-detail__tab--active" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onClick={() => onTabChange?.(i)}
+              >
+                <span className="h-list-detail__tab-label">{tab}</span>
+              </button>
+            ))}
           </div>
         ) : null}
-        {!apple && floatingAction ? (
-          <div className="h-list-detail__fab">{floatingAction}</div>
-        ) : null}
-        {!apple && !floatingAction && onAdd ? (
-          <div className="h-list-detail__fab">
-            <Button icon="add" onClick={onAdd}>
-              {addLabel}
-            </Button>
+        <div className="h-list-detail__body">
+          <div
+            className="h-list-detail__list"
+            style={split ? { width: listWidth, flex: "none" } : undefined}
+          >
+            {list}
           </div>
-        ) : null}
+          {split ? (
+            <div
+              className="h-list-detail__detail"
+              style={{ padding: detail ? detailPadding : 0 }}
+            >
+              {detail ?? (
+                <div className="h-list-detail__placeholder">{placeholder}</div>
+              )}
+            </div>
+          ) : null}
+          {!apple && floatingAction ? (
+            <div className="h-list-detail__fab">{floatingAction}</div>
+          ) : null}
+          {!apple && !floatingAction && onAdd ? (
+            <div className="h-list-detail__fab">
+              <Button icon="add" onClick={onAdd}>
+                {addLabel}
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </PlatformScope>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../Icon/Icon";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ReasoningBlock.css";
 
 export interface ReasoningBlockProps {
@@ -29,24 +29,27 @@ export function ReasoningBlock({
   platform,
 }: ReasoningBlockProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   return (
-    <div
-      className={cx("h-reasoning-block", apple && "h-reasoning-block--apple")}
-    >
-      <button
-        type="button"
-        className="h-reasoning-block__header"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx("h-reasoning-block", apple && "h-reasoning-block--apple")}
       >
-        <Icon name="psychology" size={16} />
-        <span className="h-reasoning-block__label">
-          {label ?? (active ? "Thinking…" : "Reasoning")}
-        </span>
-        <Icon name={open ? "expand_less" : "expand_more"} size={18} />
-      </button>
-      {open ? <div className="h-reasoning-block__body">{text}</div> : null}
-    </div>
+        <button
+          type="button"
+          className="h-reasoning-block__header"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name="psychology" size={16} />
+          <span className="h-reasoning-block__label">
+            {label ?? (active ? "Thinking…" : "Reasoning")}
+          </span>
+          <Icon name={open ? "expand_less" : "expand_more"} size={18} />
+        </button>
+        {open ? <div className="h-reasoning-block__body">{text}</div> : null}
+      </div>
+    </PlatformScope>
   );
 }

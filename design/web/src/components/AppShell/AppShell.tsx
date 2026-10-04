@@ -7,6 +7,7 @@ import {
 import {
   ShellChromeContext,
   cx,
+  PlatformScope,
   usePlatform,
   type Platform,
 } from "../../platform";
@@ -150,7 +151,8 @@ export function AppShell({
   onCloseDrawer,
   children,
 }: AppShellProps) {
-  const mac = usePlatform(platform) === "apple" && layout === "desktop";
+  const resolvedPlatform = usePlatform(platform);
+  const mac = resolvedPlatform === "apple" && layout === "desktop";
   const [collapsed, setCollapsed] = useState(sidebarCollapsed);
   const single = destinations.length <= 1;
   const side =
@@ -170,53 +172,57 @@ export function AppShell({
     ));
   if (layout === "phone") {
     return (
-      <div className="h-app-shell h-app-shell--phone">
-        <div className="h-app-shell__content">{children}</div>
-        {drawerOpen && side ? (
-          <>
-            <div
-              className="h-app-shell__scrim"
-              aria-hidden="true"
-              onClick={onCloseDrawer}
-            />
-            <div className="h-app-shell__drawer">{side}</div>
-          </>
-        ) : null}
-      </div>
+      <PlatformScope platform={resolvedPlatform}>
+        <div className="h-app-shell h-app-shell--phone">
+          <div className="h-app-shell__content">{children}</div>
+          {drawerOpen && side ? (
+            <>
+              <div
+                className="h-app-shell__scrim"
+                aria-hidden="true"
+                onClick={onCloseDrawer}
+              />
+              <div className="h-app-shell__drawer">{side}</div>
+            </>
+          ) : null}
+        </div>
+      </PlatformScope>
     );
   }
   const width = Math.min(360, Math.max(220, sidebarWidth)) + 1;
   const shown = side && !(mac && collapsed);
   return (
-    <ShellChromeContext.Provider
-      value={{
-        sidebarCollapsed: mac && collapsed,
-        toggleSidebar: mac ? () => setCollapsed((c) => !c) : undefined,
-      }}
-    >
-      <div
-        className={cx(
-          "h-app-shell h-app-shell--desktop",
-          mac && "h-app-shell--mac",
-        )}
+    <PlatformScope platform={resolvedPlatform}>
+      <ShellChromeContext.Provider
+        value={{
+          sidebarCollapsed: mac && collapsed,
+          toggleSidebar: mac ? () => setCollapsed((c) => !c) : undefined,
+        }}
       >
-        {mac && showTrafficLights ? (
-          <span className="h-app-shell__traffic-lights h-traffic-lights">
-            <span />
-            <span />
-            <span />
-          </span>
-        ) : null}
-        {shown ? (
-          <div
-            className="h-app-shell__sidebar"
-            style={mac ? { flexBasis: width, width } : undefined}
-          >
-            {side}
-          </div>
-        ) : null}
-        <div className="h-app-shell__content">{children}</div>
-      </div>
-    </ShellChromeContext.Provider>
+        <div
+          className={cx(
+            "h-app-shell h-app-shell--desktop",
+            mac && "h-app-shell--mac",
+          )}
+        >
+          {mac && showTrafficLights ? (
+            <span className="h-app-shell__traffic-lights h-traffic-lights">
+              <span />
+              <span />
+              <span />
+            </span>
+          ) : null}
+          {shown ? (
+            <div
+              className="h-app-shell__sidebar"
+              style={mac ? { flexBasis: width, width } : undefined}
+            >
+              {side}
+            </div>
+          ) : null}
+          <div className="h-app-shell__content">{children}</div>
+        </div>
+      </ShellChromeContext.Provider>
+    </PlatformScope>
   );
 }

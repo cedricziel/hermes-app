@@ -1,4 +1,4 @@
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./McpServerRow.css";
 
 /** An MCP server configured on the active Hermes profile. */
@@ -61,7 +61,8 @@ export function McpServerRow({
   onEnabledChange,
   platform,
 }: McpServerRowProps) {
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const auth =
     server.auth || (server.transport === "remote" ? "No auth" : undefined);
   const chips: { label: string; warning?: boolean }[] = [
@@ -78,77 +79,79 @@ export function McpServerRow({
       : []),
   ];
   return (
-    <div
-      className={[
-        "h-mcp-server-row",
-        selected ? "h-mcp-server-row--selected" : null,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      <span className="h-mcp-server-row__avatar" aria-hidden>
-        {server.name.charAt(0).toUpperCase()}
-      </span>
-      <div className="h-mcp-server-row__body">
-        <div className="h-mcp-server-row__name">{server.name}</div>
-        {server.address ? (
-          <div
-            className={[
-              "h-mcp-server-row__address",
-              server.transport === "command"
-                ? "h-mcp-server-row__address--mono"
-                : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {server.address}
-          </div>
-        ) : null}
-        <div className="h-mcp-server-row__chips">
-          {chips.map((c) => (
-            <span
-              key={c.label}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={[
+          "h-mcp-server-row",
+          selected ? "h-mcp-server-row--selected" : null,
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        role="button"
+        tabIndex={0}
+        aria-pressed={selected}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+      >
+        <span className="h-mcp-server-row__avatar" aria-hidden>
+          {server.name.charAt(0).toUpperCase()}
+        </span>
+        <div className="h-mcp-server-row__body">
+          <div className="h-mcp-server-row__name">{server.name}</div>
+          {server.address ? (
+            <div
               className={[
-                "h-mcp-server-row__chip",
-                c.warning ? "h-mcp-server-row__chip--warning" : null,
+                "h-mcp-server-row__address",
+                server.transport === "command"
+                  ? "h-mcp-server-row__address--mono"
+                  : null,
               ]
                 .filter(Boolean)
                 .join(" ")}
             >
-              {c.label}
-            </span>
-          ))}
+              {server.address}
+            </div>
+          ) : null}
+          <div className="h-mcp-server-row__chips">
+            {chips.map((c) => (
+              <span
+                key={c.label}
+                className={[
+                  "h-mcp-server-row__chip",
+                  c.warning ? "h-mcp-server-row__chip--warning" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                {c.label}
+              </span>
+            ))}
+          </div>
         </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={server.enabled}
+          aria-label={`${server.name} enabled`}
+          disabled={switching}
+          className={cx(
+            "h-mcp-server-row__switch",
+            server.enabled && "h-mcp-server-row__switch--on",
+            apple && "h-apple-switch",
+          )}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEnabledChange?.(!server.enabled);
+          }}
+        >
+          <span className="h-mcp-server-row__thumb" />
+        </button>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={server.enabled}
-        aria-label={`${server.name} enabled`}
-        disabled={switching}
-        className={cx(
-          "h-mcp-server-row__switch",
-          server.enabled && "h-mcp-server-row__switch--on",
-          apple && "h-apple-switch",
-        )}
-        onClick={(e) => {
-          e.stopPropagation();
-          onEnabledChange?.(!server.enabled);
-        }}
-      >
-        <span className="h-mcp-server-row__thumb" />
-      </button>
-    </div>
+    </PlatformScope>
   );
 }

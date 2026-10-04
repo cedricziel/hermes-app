@@ -1,4 +1,4 @@
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ScheduleJobRow.css";
 
 /** A cron job of a Hermes profile, as the Schedules list shows it. */
@@ -90,7 +90,8 @@ export function ScheduleJobRow({
   onPausedChange,
   platform,
 }: ScheduleJobRowProps) {
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const on = job.state === "scheduled";
   const locked = job.state === "completed";
   const failing = job.outcome === "failed" || job.outcome === "deliveryFailed";
@@ -106,60 +107,64 @@ export function ScheduleJobRow({
     .filter(Boolean)
     .join(" ");
   return (
-    <div
-      className={classes}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      <div className="h-schedule-job-row__head">
-        <div className="h-schedule-job-row__titles">
-          <span className="h-schedule-job-row__title">{job.title}</span>
-          <span className="h-schedule-job-row__chip">{job.deliverTo}</span>
-          {showProfile && job.profile ? (
-            <span className="h-schedule-job-row__chip">{job.profile}</span>
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={classes}
+        role="button"
+        tabIndex={0}
+        aria-pressed={selected}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+      >
+        <div className="h-schedule-job-row__head">
+          <div className="h-schedule-job-row__titles">
+            <span className="h-schedule-job-row__title">{job.title}</span>
+            <span className="h-schedule-job-row__chip">{job.deliverTo}</span>
+            {showProfile && job.profile ? (
+              <span className="h-schedule-job-row__chip">{job.profile}</span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-label={on ? "Pause" : "Resume"}
+            disabled={locked}
+            className={cx(
+              "h-schedule-job-row__switch",
+              on && "h-schedule-job-row__switch--on",
+              apple && "h-apple-switch",
+            )}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPausedChange?.(on);
+            }}
+          >
+            <span className="h-schedule-job-row__thumb" />
+          </button>
+        </div>
+        {job.scheduleText ? (
+          <div className="h-schedule-job-row__schedule">{job.scheduleText}</div>
+        ) : null}
+        <hr className="h-schedule-job-row__divider" />
+        <div className="h-schedule-job-row__status">
+          <span className="h-schedule-job-row__dot" />
+          <span className="h-schedule-job-row__status-text">
+            {statusText(job)}
+          </span>
+          {next ? (
+            <span className="h-schedule-job-row__next">{next}</span>
           ) : null}
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={on ? "Pause" : "Resume"}
-          disabled={locked}
-          className={cx(
-            "h-schedule-job-row__switch",
-            on && "h-schedule-job-row__switch--on",
-            apple && "h-apple-switch",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onPausedChange?.(on);
-          }}
-        >
-          <span className="h-schedule-job-row__thumb" />
-        </button>
+        {reason ? (
+          <div className="h-schedule-job-row__reason">{reason}</div>
+        ) : null}
       </div>
-      {job.scheduleText ? (
-        <div className="h-schedule-job-row__schedule">{job.scheduleText}</div>
-      ) : null}
-      <hr className="h-schedule-job-row__divider" />
-      <div className="h-schedule-job-row__status">
-        <span className="h-schedule-job-row__dot" />
-        <span className="h-schedule-job-row__status-text">
-          {statusText(job)}
-        </span>
-        {next ? <span className="h-schedule-job-row__next">{next}</span> : null}
-      </div>
-      {reason ? (
-        <div className="h-schedule-job-row__reason">{reason}</div>
-      ) : null}
-    </div>
+    </PlatformScope>
   );
 }

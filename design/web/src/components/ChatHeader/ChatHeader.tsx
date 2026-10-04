@@ -7,6 +7,7 @@ import {
 import {
   ShellChromeContext,
   cx,
+  PlatformScope,
   usePlatform,
   type Platform,
 } from "../../platform";
@@ -65,55 +66,58 @@ export function ChatHeader({
   onShowConnection,
   onThreadAction,
 }: ChatHeaderProps) {
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const { sidebarCollapsed, toggleSidebar } = useContext(ShellChromeContext);
   const hasMenu = title != null && remote;
   const mac = apple && layout === "desktop";
   const showToggle = mac && sidebarCollapsed;
   return (
-    <header
-      className={cx(
-        "h-chat-header",
-        `h-chat-header--${layout}`,
-        apple && "h-chat-header--apple",
-        showToggle && "h-chat-header--collapsed",
-      )}
-    >
-      {layout === "phone" ? (
-        <span className="h-chat-header__leading">
+    <PlatformScope platform={resolvedPlatform}>
+      <header
+        className={cx(
+          "h-chat-header",
+          `h-chat-header--${layout}`,
+          apple && "h-chat-header--apple",
+          showToggle && "h-chat-header--collapsed",
+        )}
+      >
+        {layout === "phone" ? (
+          <span className="h-chat-header__leading">
+            <IconButton
+              icon="menu"
+              label="Open navigation menu"
+              onClick={onOpenMenu}
+            />
+          </span>
+        ) : null}
+        {showToggle ? (
           <IconButton
-            icon="menu"
-            label="Open navigation menu"
-            onClick={onOpenMenu}
+            icon="left_panel_open"
+            label="Show sidebar"
+            onClick={toggleSidebar}
+          />
+        ) : null}
+        <h1 className="h-chat-header__title">{title ?? "Hermes"}</h1>
+        {hasMenu ? (
+          <ThreadActionsButton
+            pinned={pinned}
+            actionable
+            includeCopyTranscript
+            defaultOpen={defaultMenuOpen}
+            onAction={onThreadAction}
+            platform={apple ? "apple" : "material"}
+            layout={layout}
+          />
+        ) : null}
+        <span className="h-chat-header__info">
+          <IconButton
+            icon="info"
+            label="Connection details"
+            onClick={onShowConnection}
           />
         </span>
-      ) : null}
-      {showToggle ? (
-        <IconButton
-          icon="left_panel_open"
-          label="Show sidebar"
-          onClick={toggleSidebar}
-        />
-      ) : null}
-      <h1 className="h-chat-header__title">{title ?? "Hermes"}</h1>
-      {hasMenu ? (
-        <ThreadActionsButton
-          pinned={pinned}
-          actionable
-          includeCopyTranscript
-          defaultOpen={defaultMenuOpen}
-          onAction={onThreadAction}
-          platform={apple ? "apple" : "material"}
-          layout={layout}
-        />
-      ) : null}
-      <span className="h-chat-header__info">
-        <IconButton
-          icon="info"
-          label="Connection details"
-          onClick={onShowConnection}
-        />
-      </span>
-    </header>
+      </header>
+    </PlatformScope>
   );
 }

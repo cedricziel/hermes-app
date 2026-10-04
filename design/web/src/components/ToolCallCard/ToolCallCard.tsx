@@ -4,7 +4,7 @@ import {
   ApprovalCard,
   type ApprovalCardProps,
 } from "../ApprovalCard/ApprovalCard";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ToolCallCard.css";
 
 /** Where a tool call stands. */
@@ -272,7 +272,8 @@ export function ToolCallCard({
   platform,
   className,
 }: ToolCallCardProps) {
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const isWaiting =
     waiting ?? (!!approval && (approval.status ?? "pending") === "pending");
   const pendingApproval = approval && isWaiting;
@@ -310,46 +311,48 @@ export function ToolCallCard({
     onToggle?.(!open);
   };
   return (
-    <div
-      className={cx("h-tool-call", apple && "h-tool-call--apple", className)}
-    >
-      <button
-        type="button"
-        className="h-tool-call__header"
-        onClick={toggle}
-        disabled={!expandable}
-        aria-expanded={expandable ? open : undefined}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx("h-tool-call", apple && "h-tool-call--apple", className)}
       >
-        <ToolCallStatusIcon status={status} waiting={isWaiting} />
-        <span className="h-tool-call__name">{name}</span>
-        <span className="h-tool-call__summary">
-          {preparing ? "Preparing…" : summary}
-        </span>
-        {duration ? (
-          <span className="h-tool-call__time">{duration}</span>
+        <button
+          type="button"
+          className="h-tool-call__header"
+          onClick={toggle}
+          disabled={!expandable}
+          aria-expanded={expandable ? open : undefined}
+        >
+          <ToolCallStatusIcon status={status} waiting={isWaiting} />
+          <span className="h-tool-call__name">{name}</span>
+          <span className="h-tool-call__summary">
+            {preparing ? "Preparing…" : summary}
+          </span>
+          {duration ? (
+            <span className="h-tool-call__time">{duration}</span>
+          ) : null}
+          {expandable ? (
+            <Icon
+              name="expand_more"
+              size={24}
+              className={[
+                "h-tool-call__chevron",
+                open ? "h-tool-call__chevron--open" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            />
+          ) : null}
+        </button>
+        {open ? <div className="h-tool-call__details">{details}</div> : null}
+        {pendingApproval ? (
+          <div className="h-tool-call__approval">
+            <ApprovalCard {...approval} />
+          </div>
         ) : null}
-        {expandable ? (
-          <Icon
-            name="expand_more"
-            size={24}
-            className={[
-              "h-tool-call__chevron",
-              open ? "h-tool-call__chevron--open" : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          />
+        {children ? (
+          <div className="h-tool-call__approval">{children}</div>
         ) : null}
-      </button>
-      {open ? <div className="h-tool-call__details">{details}</div> : null}
-      {pendingApproval ? (
-        <div className="h-tool-call__approval">
-          <ApprovalCard {...approval} />
-        </div>
-      ) : null}
-      {children ? (
-        <div className="h-tool-call__approval">{children}</div>
-      ) : null}
-    </div>
+      </div>
+    </PlatformScope>
   );
 }

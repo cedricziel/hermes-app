@@ -6,7 +6,7 @@ import {
   type ToolCallItem,
   type ToolCallStatus,
 } from "../ToolCallCard/ToolCallCard";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./ToolCallGroup.css";
 
 export interface ToolCallGroupProps {
@@ -59,37 +59,39 @@ export function ToolCallGroup({
   const open = opened || waiting.length > 0;
 
   return (
-    <div
-      className={cx(
-        "h-tool-group",
-        resolved === "apple" && "h-tool-group--apple",
-        className,
-      )}
-    >
-      <button
-        type="button"
-        className="h-tool-group__line"
-        aria-expanded={open}
-        onClick={() => {
-          setOpened(!open);
-          onToggle?.(!open);
-        }}
+    <PlatformScope platform={resolved}>
+      <div
+        className={cx(
+          "h-tool-group",
+          resolved === "apple" && "h-tool-group--apple",
+          className,
+        )}
       >
-        <ToolCallStatusIcon status={status} waiting={waiting.length > 0} />
-        <span className="h-tool-group__label">{label}</span>
-        <Icon
-          name={open ? "expand_less" : "chevron_right"}
-          size={16}
-          className="h-tool-group__chevron"
-        />
-      </button>
-      {open ? (
-        <div className="h-tool-group__list">
-          {calls.map((c, i) => (
-            <ToolCallCard key={i} {...c} platform={resolved} />
-          ))}
-        </div>
-      ) : null}
-    </div>
+        <button
+          type="button"
+          className="h-tool-group__line"
+          aria-expanded={open}
+          onClick={() => {
+            setOpened(!open);
+            onToggle?.(!open);
+          }}
+        >
+          <ToolCallStatusIcon status={status} waiting={waiting.length > 0} />
+          <span className="h-tool-group__label">{label}</span>
+          <Icon
+            name={open ? "expand_less" : "chevron_right"}
+            size={16}
+            className="h-tool-group__chevron"
+          />
+        </button>
+        {open ? (
+          <div className="h-tool-group__list">
+            {calls.map((c, i) => (
+              <ToolCallCard key={i} {...c} platform={resolved} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </PlatformScope>
   );
 }

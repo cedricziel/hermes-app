@@ -1,4 +1,9 @@
-import { createContext, useContext } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  type ReactNode,
+} from "react";
 import "./styles/apple.css";
 
 /**
@@ -19,6 +24,21 @@ export const TypeRampContext = createContext<TypeRamp | undefined>(undefined);
 export function usePlatform(platform?: Platform): Platform {
   const inherited = useContext(PlatformContext);
   return platform ?? inherited ?? "material";
+}
+
+/**
+ * Hands a component's resolved platform to everything it renders, so an
+ * explicit `platform` prop also reaches its nested `Icon`s and components
+ * instead of only its own classes.
+ */
+export function PlatformScope({
+  platform,
+  children,
+}: {
+  platform: Platform;
+  children?: ReactNode;
+}) {
+  return createElement(PlatformContext.Provider, { value: platform }, children);
 }
 
 export function cx(...names: Array<string | false | null | undefined>) {

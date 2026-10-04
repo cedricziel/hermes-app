@@ -6,7 +6,7 @@ import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import type { KanbanTaskItem } from "../KanbanCard/KanbanCard";
 import { kanbanStatusLabel } from "../KanbanStatusChips/KanbanStatusChips";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import "./KanbanTaskPanel.css";
 
 /** The task shown in the panel: a board task plus what only the detail view shows. */
@@ -259,7 +259,8 @@ export function KanbanTaskPanel({
   const [historyOpen, setHistoryOpen] = useState(defaultHistoryOpen);
   const [comment, setComment] = useState("");
 
-  const apple = usePlatform(platform) === "apple";
+  const resolvedPlatform = usePlatform(platform);
+  const apple = resolvedPlatform === "apple";
   const frameClass = cx(
     "h-kanban-task-panel",
     `h-kanban-task-panel--${frame}`,
@@ -280,23 +281,25 @@ export function KanbanTaskPanel({
 
   if (state !== "ready" || !task) {
     return (
-      <div className={frameClass} style={frameStyle}>
-        {frame === "sheet" ? <SheetHandle /> : null}
-        <div className="h-kanban-task-panel__center">
-          {state === "error" ? (
-            <>
-              <span>Could not load the task</span>
-              <Button onClick={onRetry}>Retry</Button>
-            </>
-          ) : (
-            <span
-              className="h-kanban-task-panel__spinner"
-              role="progressbar"
-              aria-label="Loading"
-            />
-          )}
+      <PlatformScope platform={resolvedPlatform}>
+        <div className={frameClass} style={frameStyle}>
+          {frame === "sheet" ? <SheetHandle /> : null}
+          <div className="h-kanban-task-panel__center">
+            {state === "error" ? (
+              <>
+                <span>Could not load the task</span>
+                <Button onClick={onRetry}>Retry</Button>
+              </>
+            ) : (
+              <span
+                className="h-kanban-task-panel__spinner"
+                role="progressbar"
+                aria-label="Loading"
+              />
+            )}
+          </div>
         </div>
-      </div>
+      </PlatformScope>
     );
   }
 
@@ -309,360 +312,362 @@ export function KanbanTaskPanel({
   const priority = task.priority ?? 0;
 
   return (
-    <div className={frameClass} style={frameStyle}>
-      {frame === "sheet" ? <SheetHandle /> : null}
-      <div className="h-kanban-task-panel__scroll">
-        <div className="h-kanban-task-panel__meta">
-          {`${task.id} · ${kanbanStatusLabel(task.status ?? "")}`}
-        </div>
-        <div className="h-kanban-task-panel__title-row">
-          <h2 className="h-kanban-task-panel__title">{task.title}</h2>
-          <IconButton icon="edit" label="Edit" onClick={onEdit} />
-        </div>
-        <div className="h-kanban-task-panel__chips">
-          <Chip
-            icon="person"
-            label={task.assignee ?? "Unassigned"}
-            onClick={onAssign}
-          />
-          <Chip
-            icon="flag"
-            label={priority === 0 ? "Normal" : `P${priority}`}
-            onClick={onPrioritise}
-          />
-          {task.tenant ? <Chip label={task.tenant} /> : null}
-          <span className="h-kanban-task-panel__anchor">
+    <PlatformScope platform={resolvedPlatform}>
+      <div className={frameClass} style={frameStyle}>
+        {frame === "sheet" ? <SheetHandle /> : null}
+        <div className="h-kanban-task-panel__scroll">
+          <div className="h-kanban-task-panel__meta">
+            {`${task.id} · ${kanbanStatusLabel(task.status ?? "")}`}
+          </div>
+          <div className="h-kanban-task-panel__title-row">
+            <h2 className="h-kanban-task-panel__title">{task.title}</h2>
+            <IconButton icon="edit" label="Edit" onClick={onEdit} />
+          </div>
+          <div className="h-kanban-task-panel__chips">
             <Chip
-              icon="swap_horiz"
-              label="Move to…"
-              onClick={() => setMoveOpen(!moveOpen)}
+              icon="person"
+              label={task.assignee ?? "Unassigned"}
+              onClick={onAssign}
             />
-            {moveOpen ? (
-              <div className="h-kanban-task-panel__menu" role="menu">
-                {settableStatuses
-                  .filter((s) => s !== task.status)
-                  .map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      role="menuitem"
-                      className="h-kanban-task-panel__menu-item"
-                      onClick={() => {
-                        setMoveOpen(false);
-                        onMove?.(s);
-                      }}
-                    >
-                      {kanbanStatusLabel(s)}
-                    </button>
-                  ))}
-              </div>
-            ) : null}
-          </span>
-        </div>
-
-        {task.status === "triage" ? (
-          <div className="h-kanban-task-panel__actions">
-            <Button onClick={onDecompose}>Decompose</Button>
-            <Button variant="outlined" onClick={onSpecify}>
-              Specify
-            </Button>
-          </div>
-        ) : null}
-        {task.status === "running" ? (
-          <div className="h-kanban-task-panel__actions">
-            <Button variant="outlined" onClick={onReclaim}>
-              Reclaim
-            </Button>
-          </div>
-        ) : null}
-        {task.status !== "done" ? (
-          <div className="h-kanban-task-panel__actions">
-            <Button onClick={onComplete}>Complete</Button>
-            {task.status !== "blocked" ? (
-              <Button variant="outlined" onClick={onBlock}>
-                Block
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="h-kanban-task-panel__actions">
-          <Button
-            variant="outlined"
-            icon="speed"
-            disabled={estimating}
-            onClick={onEstimate}
-          >
-            Estimate
-          </Button>
-          {estimating ? (
-            <span
-              className="h-kanban-task-panel__spinner h-kanban-task-panel__spinner--small"
-              role="progressbar"
-              aria-label="Estimating"
+            <Chip
+              icon="flag"
+              label={priority === 0 ? "Normal" : `P${priority}`}
+              onClick={onPrioritise}
             />
-          ) : estimate ? (
-            <span>{estimate.summary}</span>
-          ) : null}
-        </div>
-        {estimate?.rationale && !estimating ? (
-          <div className="h-kanban-task-panel__subtle h-kanban-task-panel__rationale">
-            {estimate.rationale}
-          </div>
-        ) : null}
-
-        {diagnostics.length ? (
-          <>
-            <Heading>Needs attention</Heading>
-            {diagnostics.map((d) => (
-              <div
-                key={d.title}
-                className={`h-kanban-task-panel__diagnostic h-kanban-task-panel__diagnostic--${d.severity}`}
-              >
-                <Icon name="warning" size={24} />
-                <div>
-                  <div>{d.title}</div>
-                  {d.detail ? (
-                    <div className="h-kanban-task-panel__subtle">
-                      {d.detail}
-                    </div>
-                  ) : null}
+            {task.tenant ? <Chip label={task.tenant} /> : null}
+            <span className="h-kanban-task-panel__anchor">
+              <Chip
+                icon="swap_horiz"
+                label="Move to…"
+                onClick={() => setMoveOpen(!moveOpen)}
+              />
+              {moveOpen ? (
+                <div className="h-kanban-task-panel__menu" role="menu">
+                  {settableStatuses
+                    .filter((s) => s !== task.status)
+                    .map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        role="menuitem"
+                        className="h-kanban-task-panel__menu-item"
+                        onClick={() => {
+                          setMoveOpen(false);
+                          onMove?.(s);
+                        }}
+                      >
+                        {kanbanStatusLabel(s)}
+                      </button>
+                    ))}
                 </div>
-              </div>
-            ))}
-          </>
-        ) : null}
-        {task.body ? (
-          <>
-            <Heading>Description</Heading>
-            <div className="h-kanban-task-panel__text">{task.body}</div>
-          </>
-        ) : null}
-        {task.result ? (
-          <>
-            <Heading>Result</Heading>
-            <div className="h-kanban-task-panel__text">{task.result}</div>
-          </>
-        ) : null}
-        <Heading>Model</Heading>
-        <button
-          type="button"
-          className="h-kanban-task-panel__model"
-          onClick={onEditModel}
-        >
-          <span
-            className={
-              task.modelOverride
-                ? "h-kanban-task-panel__model-name"
-                : "h-kanban-task-panel__model-name h-kanban-task-panel__quiet"
-            }
-          >
-            {task.modelOverride ?? "Profile default"}
-          </span>
-          {task.reasoningEffort ? (
-            <span className="h-kanban-task-panel__quiet">{`\u00a0· ${task.reasoningEffort}`}</span>
-          ) : null}
-          <Icon
-            name="expand_more"
-            size={18}
-            className="h-kanban-task-panel__quiet"
-          />
-        </button>
-        <Heading>Depends on</Heading>
-        <div className="h-kanban-task-panel__chips h-kanban-task-panel__chips--tight">
-          {parents.map((id) => (
-            <Chip key={id} label={id} onRemove={() => onRemoveParent?.(id)} />
-          ))}
-          <Chip icon="add" label="Add" onClick={onAddParent} />
-        </div>
-        {subtasks.length ? (
-          <>
-            <Heading>Subtasks</Heading>
-            {subtasks.map((c) => (
-              <div key={c.id} className="h-kanban-task-panel__tile">
-                <div>{c.title}</div>
-                <div className="h-kanban-task-panel__subtle">
-                  {`${c.id} · ${kanbanStatusLabel(c.status)}`}
-                  {c.summary ? (
-                    <>
-                      <br />
-                      {c.summary}
-                    </>
-                  ) : null}
-                </div>
-              </div>
-            ))}
-          </>
-        ) : null}
-
-        <Heading>{`Comments (${comments.length})`}</Heading>
-        {comments.map((c, i) => (
-          <div key={i} className="h-kanban-task-panel__comment">
-            <div className="h-kanban-task-panel__subtle">
-              {c.when ? `${c.author} · ${c.when}` : c.author}
-            </div>
-            <div className="h-kanban-task-panel__text">{c.body}</div>
-          </div>
-        ))}
-        <div className="h-kanban-task-panel__comment-row">
-          <input
-            className="h-kanban-task-panel__comment-field"
-            placeholder="Add a comment…"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") send();
-            }}
-          />
-          <IconButton icon="send" label="Send" onClick={send} />
-        </div>
-
-        {channels.length ? (
-          <>
-            <Heading>Notify</Heading>
-            {channels.map((c) => (
-              <label
-                key={c.platform}
-                className="h-kanban-task-panel__switch-row"
-              >
-                <span>
-                  <span className="h-kanban-task-panel__tile-title">
-                    {`Post updates to ${c.name}`}
-                  </span>
-                  <span className="h-kanban-task-panel__tile-sub">
-                    {c.platform}
-                  </span>
-                </span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  className={cx(
-                    "h-kanban-task-panel__switch",
-                    apple && "h-apple-switch",
-                  )}
-                  checked={c.subscribed}
-                  disabled={c.switching}
-                  onChange={(e) => onToggleChannel?.(c, e.target.checked)}
-                />
-              </label>
-            ))}
-          </>
-        ) : null}
-
-        <Heading>Attachments</Heading>
-        {transferring ? (
-          <div className="h-kanban-task-panel__progress" role="progressbar">
-            <div className="h-kanban-task-panel__progress-value" />
-          </div>
-        ) : null}
-        {attachments.map((a) => (
-          <div key={a.filename} className="h-kanban-task-panel__attachment">
-            <Icon name="attach_file" size={24} />
-            <span className="h-kanban-task-panel__attachment-text">
-              <span className="h-kanban-task-panel__tile-title">
-                {a.filename}
-              </span>
-              <span className="h-kanban-task-panel__tile-sub">
-                {kanbanFileSize(a.size)}
-              </span>
+              ) : null}
             </span>
-            <IconButton
-              icon="download"
-              label="Save attachment"
-              disabled={transferring}
-              onClick={() => onDownload?.(a)}
-            />
-            <IconButton
-              icon="close"
-              label="Remove attachment"
-              disabled={transferring}
-              onClick={() => onRemoveAttachment?.(a)}
-            />
           </div>
-        ))}
-        <div>
-          <Button
-            variant="text"
-            icon="attach_file"
-            disabled={transferring}
-            onClick={onAttach}
-          >
-            Attach file
-          </Button>
-        </div>
 
-        {runs.length ? (
-          <Expander
-            title={`Runs (${runs.length})`}
-            open={runsOpen}
-            onToggle={() => setRunsOpen(!runsOpen)}
+          {task.status === "triage" ? (
+            <div className="h-kanban-task-panel__actions">
+              <Button onClick={onDecompose}>Decompose</Button>
+              <Button variant="outlined" onClick={onSpecify}>
+                Specify
+              </Button>
+            </div>
+          ) : null}
+          {task.status === "running" ? (
+            <div className="h-kanban-task-panel__actions">
+              <Button variant="outlined" onClick={onReclaim}>
+                Reclaim
+              </Button>
+            </div>
+          ) : null}
+          {task.status !== "done" ? (
+            <div className="h-kanban-task-panel__actions">
+              <Button onClick={onComplete}>Complete</Button>
+              {task.status !== "blocked" ? (
+                <Button variant="outlined" onClick={onBlock}>
+                  Block
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="h-kanban-task-panel__actions">
+            <Button
+              variant="outlined"
+              icon="speed"
+              disabled={estimating}
+              onClick={onEstimate}
+            >
+              Estimate
+            </Button>
+            {estimating ? (
+              <span
+                className="h-kanban-task-panel__spinner h-kanban-task-panel__spinner--small"
+                role="progressbar"
+                aria-label="Estimating"
+              />
+            ) : estimate ? (
+              <span>{estimate.summary}</span>
+            ) : null}
+          </div>
+          {estimate?.rationale && !estimating ? (
+            <div className="h-kanban-task-panel__subtle h-kanban-task-panel__rationale">
+              {estimate.rationale}
+            </div>
+          ) : null}
+
+          {diagnostics.length ? (
+            <>
+              <Heading>Needs attention</Heading>
+              {diagnostics.map((d) => (
+                <div
+                  key={d.title}
+                  className={`h-kanban-task-panel__diagnostic h-kanban-task-panel__diagnostic--${d.severity}`}
+                >
+                  <Icon name="warning" size={24} />
+                  <div>
+                    <div>{d.title}</div>
+                    {d.detail ? (
+                      <div className="h-kanban-task-panel__subtle">
+                        {d.detail}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : null}
+          {task.body ? (
+            <>
+              <Heading>Description</Heading>
+              <div className="h-kanban-task-panel__text">{task.body}</div>
+            </>
+          ) : null}
+          {task.result ? (
+            <>
+              <Heading>Result</Heading>
+              <div className="h-kanban-task-panel__text">{task.result}</div>
+            </>
+          ) : null}
+          <Heading>Model</Heading>
+          <button
+            type="button"
+            className="h-kanban-task-panel__model"
+            onClick={onEditModel}
           >
-            {[...runs].reverse().map((r) => (
-              <div key={r.id} className="h-kanban-task-panel__run">
-                <span className="h-kanban-task-panel__run-text">
-                  <span className="h-kanban-task-panel__tile-title">
-                    {`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
-                  </span>
-                  {r.detail ? (
+            <span
+              className={
+                task.modelOverride
+                  ? "h-kanban-task-panel__model-name"
+                  : "h-kanban-task-panel__model-name h-kanban-task-panel__quiet"
+              }
+            >
+              {task.modelOverride ?? "Profile default"}
+            </span>
+            {task.reasoningEffort ? (
+              <span className="h-kanban-task-panel__quiet">{`\u00a0· ${task.reasoningEffort}`}</span>
+            ) : null}
+            <Icon
+              name="expand_more"
+              size={18}
+              className="h-kanban-task-panel__quiet"
+            />
+          </button>
+          <Heading>Depends on</Heading>
+          <div className="h-kanban-task-panel__chips h-kanban-task-panel__chips--tight">
+            {parents.map((id) => (
+              <Chip key={id} label={id} onRemove={() => onRemoveParent?.(id)} />
+            ))}
+            <Chip icon="add" label="Add" onClick={onAddParent} />
+          </div>
+          {subtasks.length ? (
+            <>
+              <Heading>Subtasks</Heading>
+              {subtasks.map((c) => (
+                <div key={c.id} className="h-kanban-task-panel__tile">
+                  <div>{c.title}</div>
+                  <div className="h-kanban-task-panel__subtle">
+                    {`${c.id} · ${kanbanStatusLabel(c.status)}`}
+                    {c.summary ? (
+                      <>
+                        <br />
+                        {c.summary}
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : null}
+
+          <Heading>{`Comments (${comments.length})`}</Heading>
+          {comments.map((c, i) => (
+            <div key={i} className="h-kanban-task-panel__comment">
+              <div className="h-kanban-task-panel__subtle">
+                {c.when ? `${c.author} · ${c.when}` : c.author}
+              </div>
+              <div className="h-kanban-task-panel__text">{c.body}</div>
+            </div>
+          ))}
+          <div className="h-kanban-task-panel__comment-row">
+            <input
+              className="h-kanban-task-panel__comment-field"
+              placeholder="Add a comment…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") send();
+              }}
+            />
+            <IconButton icon="send" label="Send" onClick={send} />
+          </div>
+
+          {channels.length ? (
+            <>
+              <Heading>Notify</Heading>
+              {channels.map((c) => (
+                <label
+                  key={c.platform}
+                  className="h-kanban-task-panel__switch-row"
+                >
+                  <span>
+                    <span className="h-kanban-task-panel__tile-title">
+                      {`Post updates to ${c.name}`}
+                    </span>
                     <span className="h-kanban-task-panel__tile-sub">
-                      {r.detail}
+                      {c.platform}
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    className={cx(
+                      "h-kanban-task-panel__switch",
+                      apple && "h-apple-switch",
+                    )}
+                    checked={c.subscribed}
+                    disabled={c.switching}
+                    onChange={(e) => onToggleChannel?.(c, e.target.checked)}
+                  />
+                </label>
+              ))}
+            </>
+          ) : null}
+
+          <Heading>Attachments</Heading>
+          {transferring ? (
+            <div className="h-kanban-task-panel__progress" role="progressbar">
+              <div className="h-kanban-task-panel__progress-value" />
+            </div>
+          ) : null}
+          {attachments.map((a) => (
+            <div key={a.filename} className="h-kanban-task-panel__attachment">
+              <Icon name="attach_file" size={24} />
+              <span className="h-kanban-task-panel__attachment-text">
+                <span className="h-kanban-task-panel__tile-title">
+                  {a.filename}
+                </span>
+                <span className="h-kanban-task-panel__tile-sub">
+                  {kanbanFileSize(a.size)}
+                </span>
+              </span>
+              <IconButton
+                icon="download"
+                label="Save attachment"
+                disabled={transferring}
+                onClick={() => onDownload?.(a)}
+              />
+              <IconButton
+                icon="close"
+                label="Remove attachment"
+                disabled={transferring}
+                onClick={() => onRemoveAttachment?.(a)}
+              />
+            </div>
+          ))}
+          <div>
+            <Button
+              variant="text"
+              icon="attach_file"
+              disabled={transferring}
+              onClick={onAttach}
+            >
+              Attach file
+            </Button>
+          </div>
+
+          {runs.length ? (
+            <Expander
+              title={`Runs (${runs.length})`}
+              open={runsOpen}
+              onToggle={() => setRunsOpen(!runsOpen)}
+            >
+              {[...runs].reverse().map((r) => (
+                <div key={r.id} className="h-kanban-task-panel__run">
+                  <span className="h-kanban-task-panel__run-text">
+                    <span className="h-kanban-task-panel__tile-title">
+                      {`#${r.id} · ${r.profile ?? "worker"} · ${r.active ? "running" : (r.outcome ?? "")}`}
+                    </span>
+                    {r.detail ? (
+                      <span className="h-kanban-task-panel__tile-sub">
+                        {r.detail}
+                      </span>
+                    ) : null}
+                  </span>
+                  {r.active && task.status === "running" ? (
+                    <Button
+                      variant="text"
+                      compact
+                      onClick={() => onTerminateRun?.(r)}
+                    >
+                      Terminate
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              <div>
+                <Button variant="text" icon="terminal" onClick={onShowLog}>
+                  Worker log
+                </Button>
+              </div>
+            </Expander>
+          ) : null}
+          {events.length ? (
+            <Expander
+              title="History"
+              open={historyOpen}
+              onToggle={() => setHistoryOpen(!historyOpen)}
+            >
+              {[...events].reverse().map((e, i) => (
+                <div key={i} className="h-kanban-task-panel__run">
+                  <span className="h-kanban-task-panel__tile-title">
+                    {e.kind}
+                  </span>
+                  {e.when ? (
+                    <span className="h-kanban-task-panel__tile-sub">
+                      {e.when}
                     </span>
                   ) : null}
-                </span>
-                {r.active && task.status === "running" ? (
-                  <Button
-                    variant="text"
-                    compact
-                    onClick={() => onTerminateRun?.(r)}
-                  >
-                    Terminate
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-            <div>
-              <Button variant="text" icon="terminal" onClick={onShowLog}>
-                Worker log
-              </Button>
-            </div>
-          </Expander>
-        ) : null}
-        {events.length ? (
-          <Expander
-            title="History"
-            open={historyOpen}
-            onToggle={() => setHistoryOpen(!historyOpen)}
-          >
-            {[...events].reverse().map((e, i) => (
-              <div key={i} className="h-kanban-task-panel__run">
-                <span className="h-kanban-task-panel__tile-title">
-                  {e.kind}
-                </span>
-                {e.when ? (
-                  <span className="h-kanban-task-panel__tile-sub">
-                    {e.when}
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </Expander>
-        ) : null}
+                </div>
+              ))}
+            </Expander>
+          ) : null}
 
-        <hr className="h-divider" />
-        <div className="h-kanban-task-panel__footer">
-          <Button variant="text" icon="archive" onClick={onArchive}>
-            Archive
-          </Button>
-          <Button
-            variant="text"
-            icon="delete"
-            className="h-kanban-task-panel__delete"
-            onClick={onDelete}
-          >
-            Delete
-          </Button>
+          <hr className="h-divider" />
+          <div className="h-kanban-task-panel__footer">
+            <Button variant="text" icon="archive" onClick={onArchive}>
+              Archive
+            </Button>
+            <Button
+              variant="text"
+              icon="delete"
+              className="h-kanban-task-panel__delete"
+              onClick={onDelete}
+            >
+              Delete
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </PlatformScope>
   );
 }
 

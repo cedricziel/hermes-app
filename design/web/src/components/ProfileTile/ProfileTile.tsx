@@ -1,6 +1,6 @@
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { cx, usePlatform, type Platform } from "../../platform";
+import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
 import type { DeviceLayout } from "../ThreadSidebar/ThreadSidebar";
 import "./ProfileTile.css";
 
@@ -53,52 +53,57 @@ export function ProfileTile({
   platform,
   layout = "desktop",
 }: ProfileTileProps) {
-  const ios = usePlatform(platform) === "apple" && layout === "phone";
+  const resolvedPlatform = usePlatform(platform);
+  const ios = resolvedPlatform === "apple" && layout === "phone";
   const parts = [
     profile.description,
     profile.model,
     `${profile.skillCount} skills`,
   ].filter(Boolean);
   return (
-    <div
-      className={cx("h-profile-tile", ios && "h-profile-tile--ios")}
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      {ios ? null : (
-        <Icon name="person" size={24} className="h-profile-tile__icon" />
-      )}
-      <div className="h-profile-tile__body">
-        <div className="h-profile-tile__title">
-          {profile.displayName || profile.name}
+    <PlatformScope platform={resolvedPlatform}>
+      <div
+        className={cx("h-profile-tile", ios && "h-profile-tile--ios")}
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+          }
+        }}
+      >
+        {ios ? null : (
+          <Icon name="person" size={24} className="h-profile-tile__icon" />
+        )}
+        <div className="h-profile-tile__body">
+          <div className="h-profile-tile__title">
+            {profile.displayName || profile.name}
+          </div>
+          <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
         </div>
-        <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
+        {ios && active ? (
+          <Icon name="check" size={20} className="h-profile-tile__check" />
+        ) : null}
+        {!ios && (active || onChangeModel) ? (
+          <div className="h-profile-tile__trailing">
+            {active ? (
+              <span className="h-profile-tile__chip">Active</span>
+            ) : null}
+            {onChangeModel ? (
+              <IconButton
+                icon="tune"
+                label="Change default model"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeModel();
+                }}
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
-      {ios && active ? (
-        <Icon name="check" size={20} className="h-profile-tile__check" />
-      ) : null}
-      {!ios && (active || onChangeModel) ? (
-        <div className="h-profile-tile__trailing">
-          {active ? <span className="h-profile-tile__chip">Active</span> : null}
-          {onChangeModel ? (
-            <IconButton
-              icon="tune"
-              label="Change default model"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChangeModel();
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    </PlatformScope>
   );
 }
