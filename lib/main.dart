@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:path_provider/path_provider.dart';
@@ -27,7 +30,7 @@ import 'src/watch/watch_bridge.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await MacWindow.initialize();
-  MacMenuBar.enabled = MacWindow.enabled;
+  MacMenuBar.enabled = !kIsWeb && Platform.isMacOS;
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
   );

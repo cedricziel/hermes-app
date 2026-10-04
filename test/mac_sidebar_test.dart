@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
+final _registry = MacCommandRegistry();
 
 Future<void> _pump(WidgetTester tester, {double width = 1280}) async {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
-    MaterialApp(
-      home: MacSidebarScope(
-        child: Scaffold(
-          body: MacSplitView(
-            sidebar: Container(key: const Key('sidebar')),
-            content: Container(key: const Key('content')),
+    MacCommandScope.root(
+      registry: _registry,
+      child: MaterialApp(
+        home: MacSidebarScope(
+          child: Scaffold(
+            body: MacSplitView(
+              sidebar: Container(key: const Key('sidebar')),
+              content: Container(key: const Key('content')),
+            ),
           ),
         ),
       ),
@@ -51,23 +57,36 @@ void main() {
     expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 220);
   });
 
-  testWidgets('control-command-S collapses and restores the sidebar', (
+  testWidgets('the View menu command collapses and restores the sidebar', (
     tester,
   ) async {
     await _pump(tester);
-    Future<void> chord() async {
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
-      await tester.pumpAndSettle();
-    }
-
-    await chord();
+    expect(
+      _registry.handlerFor(MacCommand.toggleSidebar)!.title,
+      'Hide Sidebar',
+    );
+    _registry.invoke(MacCommand.toggleSidebar);
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('sidebar')), findsNothing);
     expect(tester.getTopLeft(find.byKey(const Key('content'))).dx, 0);
-    await chord();
+    expect(
+      _registry.handlerFor(MacCommand.toggleSidebar)!.title,
+      'Show Sidebar',
+    );
+    _registry.invoke(MacCommand.toggleSidebar);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 280);
+  });
+
+  testWidgets('leaves control-command-S to the menu bar', (tester) async {
+    await _pump(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    final handled = await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(handled, isFalse);
     expect(tester.getSize(find.byKey(const Key('sidebar'))).width, 280);
   });
 
@@ -139,15 +158,15 @@ void main() {
       expect(find.byKey(const Key('sidebar')), findsNothing);
     });
 
-    testWidgets('control-command-S opens the overlay, not the docked one', (
+    testWidgets('the View menu command opens the overlay, not the docked one', (
       tester,
     ) async {
       await _pump(tester, width: 700);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-      await tester.sendKeyEvent(LogicalKeyboardKey.keyS);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      expect(
+        _registry.handlerFor(MacCommand.toggleSidebar)!.title,
+        'Show Sidebar',
+      );
+      _registry.invoke(MacCommand.toggleSidebar);
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('mac-sidebar-overlay')), findsOneWidget);
