@@ -20,5 +20,7 @@
 }
 
 .h-icon.h-icon--apple {
-  font-family: "Material Symbols Rounded";
+  font-family: "CupertinoIcons";
+  -webkit-font-feature-settings: normal;
+  font-feature-settings: normal;
 }

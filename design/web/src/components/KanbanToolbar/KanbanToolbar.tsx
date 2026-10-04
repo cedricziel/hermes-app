@@ -149,7 +149,11 @@ export function KanbanToolbar({
                             >
                               <span className="h-kanban-toolbar__check">
                                 {b.slug === board ? (
-                                  <Icon name="check" size={20} />
+                                  <Icon
+                                    name="check"
+                                    apple="checkmark"
+                                    size={20}
+                                  />
                                 ) : null}
                               </span>
                               {`${b.name} (${b.total})`}

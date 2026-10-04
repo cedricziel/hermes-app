@@ -5,6 +5,7 @@
   "globalName": "HermesUI",
   "buildCmd": "cd design/web && npm ci && npm run build",
   "cssEntry": "dist/index.css",
+  "extraFonts": ["src/fonts/cupertino-icons.css"],
   "docsDir": "docs",
   "guidelinesGlob": ["guides/**/*.md"],
   "provider": { "component": "HermesProvider" },

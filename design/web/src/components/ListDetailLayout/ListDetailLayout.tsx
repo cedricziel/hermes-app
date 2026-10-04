@@ -114,7 +114,13 @@ export function ListDetailLayout({
               aria-label="Back"
               onClick={onBack}
             >
-              <Icon name="arrow_back" size={20} />
+              {/* The app's back button: CupertinoIcons.back on iOS, Flutter's
+                  Material BackButton (a rounded chevron) on macOS. */}
+              {mac ? (
+                <Icon name="arrow_back_ios_new" apple={false} size={20} />
+              ) : (
+                <Icon name="arrow_back" apple="back" size={30} />
+              )}
               {!split && backLabel ? <span>{backLabel}</span> : null}
             </button>
           ) : onBack ? (
