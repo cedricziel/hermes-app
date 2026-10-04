@@ -1,0 +1,39 @@
+/* Flutter's SwitchListTile: a 56px tile, 72px with a subtitle. */
+.h-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding-block: 8px;
+  color: var(--h-fg);
+  cursor: pointer;
+}
+
+.h-switch-row--disabled {
+  cursor: default;
+}
+
+.h-switch-row--disabled .h-switch-row__text {
+  opacity: 0.38;
+}
+
+.h-switch-row__icon {
+  flex: none;
+  color: var(--h-muted);
+}
+
+.h-switch-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-switch-row__title {
+  font-size: var(--h-ramp-body-lg-size, 16px);
+  line-height: var(--h-ramp-body-lg-lh, 24px);
+}
+
+.h-switch-row__subtitle {
+  font-size: var(--h-ramp-body-md-size, 14px);
+  line-height: 20px;
+  color: var(--h-muted);
+}

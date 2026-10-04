@@ -85,7 +85,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   the Material glyph, as the app does. `apple="back"` (iOS back chevron) and `apple="checkmark"` (menu check) name
   glyphs outside AppIcons; `apple={false}` marks spots the app draws in Material everywhere (code block header,
   ExpansionTile chevrons in ToolCallCard and the task panel's Runs/History, the Mac back button).
-- Not recreated: the Apple alert dialog and date pickers (the recreation has no dialogs), the swipe and long-press
+- Not recreated: the Apple alert dialog and date pickers (`Sheet` draws the Material bottom sheet and dialog only), the swipe and long-press
   gestures themselves (only their static states; the profile row keeps its tune button), the Mac right-click
   menu of schedule, MCP and plugin rows, the sheet's detent gestures, status bar and home
   indicator safe areas, `Button` 44px (iOS) and 28px (Mac) heights, translucent bar blur (the Mac sidebar uses a
@@ -102,7 +102,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 
 ## Follow-ups (base components the recreations asked for)
 
-- Chip is 32px; Flutter's filter chips are about 38px. Pill-shaped tags (MCP, plugins) live in their rows' CSS.
+- Chip is 32px; Flutter's filter chips are about 38px. Pill-shaped tags (MCP, plugins) are the shared `Tag` (`tinted`/`warning` for MCP, `outlined`/`strong`/`filled` for plugins).
 - Tokens asked for: `--h-radius-row` (8px sidebar rows), `--h-on-secondary`, a subtle text shade darker
   than `--h-muted` (`--h-secondary` is used for it), a warning-tinted card.
 - Flutter #391 turned the Mac sidebar into a source list with recency sections and "Open in New Window"; the

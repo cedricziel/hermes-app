@@ -44,4 +44,11 @@ export * from "./components/ListRow/ListRow";
 export * from "./components/MacToolbar/MacToolbar";
 
 export type { AppleDevice, Platform } from "./platform";
+export * from "./components/Tag/Tag";
+export * from "./components/Banner/Banner";
+export * from "./components/SwitchRow/SwitchRow";
+export * from "./components/RadioRow/RadioRow";
+export * from "./components/FactList/FactList";
+export * from "./components/SectionHeader/SectionHeader";
+export * from "./components/Sheet/Sheet";
 export * from "./components/SegmentedButton/SegmentedButton";

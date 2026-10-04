@@ -1,0 +1,85 @@
+.h-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 8px 16px;
+  color: var(--h-fg);
+  cursor: pointer;
+}
+
+.h-radio-row:hover {
+  background: var(--h-hover);
+}
+
+.h-radio-row:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-radio-row--disabled,
+.h-radio-row--disabled:hover {
+  background: transparent;
+  cursor: default;
+}
+
+.h-radio-row--disabled > * {
+  opacity: 0.38;
+}
+
+/* Material radio: a 2px ring, a 10px dot when picked. */
+.h-radio-row__radio {
+  flex: none;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--h-muted);
+  border-radius: 50%;
+}
+
+.h-radio-row--selected .h-radio-row__radio {
+  border-color: var(--h-primary);
+}
+
+.h-radio-row--selected .h-radio-row__radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--h-primary);
+}
+
+.h-radio-row__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-radio-row__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--h-ramp-body-lg-size, 16px);
+  line-height: var(--h-ramp-body-lg-lh, 24px);
+}
+
+.h-radio-row__name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-radio-row__subtitle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: var(--h-ramp-body-md-size, 14px);
+  line-height: 20px;
+  color: var(--h-muted);
+}
+
+.h-radio-row__extra {
+  padding: 0 16px 8px 52px;
+}
