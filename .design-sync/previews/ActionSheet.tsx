@@ -55,9 +55,16 @@ export const Dark = () => (
   </HermesProvider>
 );
 
-/** `presentation="inline"`: the sheet alone, to place yourself. */
+/** `presentation="inline"`: the sheet alone, to place yourself (here on a scrim). */
 export const Inline = () => (
-  <div style={{ width: 390 }}>
+  <div
+    style={{
+      width: 390,
+      padding: 8,
+      borderRadius: 14,
+      background: "var(--h-scrim)",
+    }}
+  >
     <ActionSheet
       presentation="inline"
       title="hermes-plugin-weather"

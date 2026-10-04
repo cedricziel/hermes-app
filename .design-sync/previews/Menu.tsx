@@ -60,10 +60,19 @@ export const AppleTouch = () => (
   </HermesProvider>
 );
 
-/** The compact Mac menu: 24px rows of 13px text, the hovered row filled. */
+const macChatActions: Array<MenuItem | "divider"> = [
+  { label: "Rename…" },
+  { label: "Pin", shortcut: "⇧⌘P" },
+  { label: "Copy Transcript" },
+  { label: "Archive" },
+  "divider",
+  { label: "Delete…", shortcut: "⌘⌫", destructive: true },
+];
+
+/** The compact Mac menu: 22px rows of 13px text, shortcuts right-aligned, the hovered row filled. A chat's menu reads as the app's Mac menu. */
 export const AppleMac = () => (
   <HermesProvider platform="apple" style={stage}>
-    <Menu items={chatActions} device="mac" />
+    <Menu items={macChatActions} device="mac" />
     <Menu items={boards} device="mac" />
     <Menu items={account} device="mac" />
   </HermesProvider>

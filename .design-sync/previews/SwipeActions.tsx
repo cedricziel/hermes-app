@@ -28,7 +28,9 @@ const list = {
 } as const;
 
 const remove = [{ label: "Delete", icon: "delete" }];
-const pin = [{ label: "Pin", icon: "push_pin", color: "orange" as const }];
+const pin = [
+  { label: "Pin", icon: "push_pin", filled: true, color: "orange" as const },
+];
 
 /** iPhone: the first row swiped from the trailing edge shows Delete in red, the second from the leading edge shows Pin in orange (chats only), the third is closed. */
 export const AppleTouch = () => (

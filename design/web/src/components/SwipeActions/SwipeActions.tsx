@@ -13,8 +13,10 @@ import "./SwipeActions.css";
 export interface SwipeAction {
   /** Text under the icon: "Delete", "Remove", "Pin". */
   label: string;
-  /** Material Symbols name, white on the action's color. */
+  /** Material Symbols name, white on the action's color; drawn as the app's paired CupertinoIcons glyph. */
   icon: string;
+  /** The filled glyph: `push_pin` filled is the pin, outlined the crossed-out pin (Unpin). */
+  filled?: boolean;
   /** `red` (default): a destructive action, Apple's system red. `orange`: Pin, Apple's system orange. */
   color?: "red" | "orange";
   /** The action was tapped. */
@@ -82,7 +84,7 @@ export function SwipeActions({
               )}
               onClick={action.onPress}
             >
-              <Icon name={action.icon} size={22} />
+              <Icon name={action.icon} filled={action.filled} size={22} />
               <span>{action.label}</span>
             </button>
           ))}

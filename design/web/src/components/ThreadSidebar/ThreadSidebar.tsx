@@ -602,6 +602,7 @@ export function ThreadSidebar({
                   {
                     label: pin,
                     icon: "push_pin",
+                    filled: !t.pinned,
                     color: "orange",
                     onPress: () => onThreadAction?.(t.id, "pin"),
                   },

@@ -142,7 +142,11 @@ function MenuRow<T extends string>({
   const ios = variant === "ios";
   const mac = variant === "mac";
   const check = item.checked ? (
-    <Icon name="check" size={ios ? 18 : mac ? 14 : 20} />
+    <Icon
+      name="check"
+      apple={ios ? "checkmark" : false}
+      size={ios ? 18 : mac ? 14 : 20}
+    />
   ) : null;
   const icon = item.icon ? (
     <Icon name={item.icon} size={mac ? 14 : 20} />
