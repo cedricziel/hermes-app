@@ -305,3 +305,38 @@ export const PlatformCompare = () => (
     </HermesProvider>
   </div>
 );
+
+/** A full-screen editor: a close (X) button instead of Back, Save as a text action. */
+export const CloseEditor = () => (
+  <div style={{ ...frame, width: 390, height: 260 }}>
+    <ListDetailLayout
+      layout="list"
+      title="New skill"
+      onClose={() => {}}
+      actions={<Button variant="text">Save</Button>}
+      list={
+        <div className="h-body-md h-muted" style={{ padding: 16 }}>
+          The editor body goes here.
+        </div>
+      }
+    />
+  </div>
+);
+
+/** A pushed screen filling a Mac window outside an AppShell: `device="mac"` gives it the 52px toolbar and the Mac back chevron. */
+export const AppleMacPushed = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...frame, height: 300 }}>
+      <ListDetailLayout
+        layout="list"
+        device="mac"
+        title="MCP servers"
+        subtitle="Profile: work"
+        onBack={() => {}}
+        list={appleRows}
+        onAdd={() => {}}
+        addLabel="Add server"
+      />
+    </div>
+  </HermesProvider>
+);

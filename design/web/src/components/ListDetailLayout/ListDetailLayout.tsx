@@ -7,6 +7,7 @@ import {
   PlatformScope,
   ShellChromeContext,
   usePlatform,
+  type AppleDevice,
   type Platform,
 } from "../../platform";
 import { Icon } from "../Icon/Icon";
@@ -19,6 +20,13 @@ export interface ListDetailLayoutProps {
   subtitle?: string;
   /** Shows a back arrow before the title and calls this when it is pressed (a pushed screen on phone). Under `apple` it is a chevron, with `backLabel` beside it in the `list` layout. */
   onBack?: () => void;
+  /**
+   * Shows a close (X) button where the back button goes and calls this when
+   * it is pressed: a full-screen editor or form that discards or saves
+   * (Flutter's `CloseButton`), such as the skill editor. The same on every
+   * platform. Wins over `onBack` when both are given.
+   */
+  onClose?: () => void;
   /** Apple, `list` layout (iPhone): the parent screen's title shown beside the back chevron, "Settings" or "Chats". Ignored on `material` and in the `split` layout, where the chevron stands alone. */
   backLabel?: string;
   /** Right side of the app bar: text buttons such as `<Button variant="text" icon="add">Add</Button>` and icon buttons (refresh, more_vert). */
@@ -65,6 +73,13 @@ export interface ListDetailLayoutProps {
    * provider's platform.
    */
   platform?: Platform;
+  /**
+   * Under `apple`: `mac` draws the 52px unified toolbar and the Mac back
+   * button, `touch` the 44px iOS bar. Defaults to the enclosing `AppShell`'s
+   * device, else `touch`. Pass `mac` for a pushed screen that fills a Mac
+   * window outside an `AppShell`. Ignored on `material`.
+   */
+  device?: AppleDevice;
 }
 
 /**
@@ -77,6 +92,7 @@ export function ListDetailLayout({
   title,
   subtitle,
   onBack,
+  onClose,
   backLabel,
   actions,
   tabs,
@@ -92,12 +108,13 @@ export function ListDetailLayout({
   onAdd,
   addLabel = "Add",
   platform,
+  device,
 }: ListDetailLayoutProps) {
   const split = layout === "split";
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
   const shellDevice = useContext(ShellChromeContext).device;
-  const mac = apple && shellDevice === "mac";
+  const mac = apple && (device ?? shellDevice) === "mac";
   return (
     <PlatformScope platform={resolvedPlatform}>
       <div
@@ -108,7 +125,9 @@ export function ListDetailLayout({
         )}
       >
         <header className="h-list-detail__bar">
-          {onBack && apple ? (
+          {onClose ? (
+            <IconButton icon="close" label="Close" onClick={onClose} />
+          ) : onBack && apple ? (
             <button
               type="button"
               className="h-list-detail__back"
@@ -130,7 +149,7 @@ export function ListDetailLayout({
           <div
             className={[
               "h-list-detail__titles",
-              onBack ? "h-list-detail__titles--after-back" : null,
+              onBack || onClose ? "h-list-detail__titles--after-back" : null,
             ]
               .filter(Boolean)
               .join(" ")}
