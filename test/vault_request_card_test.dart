@@ -117,6 +117,7 @@ void main() {
       find.widgetWithText(TextField, 'Password'),
       's3cret',
     );
+    await tester.pump();
     await tester.tap(find.text('Save login'));
     await tester.pump();
     expect(answers.single, ('ada@example.com', 's3cret', ''));
@@ -157,6 +158,7 @@ void main() {
     expect(find.text('The 6-digit code.'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '123456');
+    await tester.pump();
     await tester.tap(find.text('Send code'));
     await tester.pump();
     expect(answers.single, '123456');
