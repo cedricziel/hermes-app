@@ -138,6 +138,13 @@
   }
 }
 
+/* iOS: the 44px navigation bar height with the 17px bar title. The app's
+   theme keeps the title leading (centerTitle: false) and draws no rule. */
 .h-connect-screen__bar--apple {
   height: 44px;
+}
+
+.h-connect-screen__bar--apple .h-connect-screen__bar-title {
+  font-size: 17px;
+  line-height: 22px;
 }

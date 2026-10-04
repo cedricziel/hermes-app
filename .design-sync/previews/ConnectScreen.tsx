@@ -60,7 +60,7 @@ export const Dark = () => (
   </HermesProvider>
 );
 
-/** Apple: the sign-in bar is 44px tall and the spinner is the eight-spoke activity indicator. */
+/** Apple: the sign-in bar is 44px tall with a 17px title, kept leading and without a rule as in the app, and the spinner is the eight-spoke activity indicator. */
 export const AppleSignIn = () => (
   <HermesProvider platform="apple">
     <div style={{ ...phone, display: "inline-block", marginRight: 20 }}>
