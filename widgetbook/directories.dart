@@ -8,6 +8,7 @@ import 'chat_thread_use_cases.dart';
 import 'chat_use_cases.dart';
 import 'dialogs_use_cases.dart';
 import 'kanban_use_cases.dart';
+import 'mac_sidebar_use_cases.dart';
 import 'mac_toolbar_use_cases.dart';
 import 'mcp_screen_use_cases.dart';
 import 'mcp_use_cases.dart';
@@ -35,6 +36,7 @@ final List<WidgetbookNode> directories = [
   dialogsNode(),
   chatNode(),
   chatThreadNode(),
+  macSidebarNode(),
   modelNode(),
   kanbanNode(),
   schedulesNode(),

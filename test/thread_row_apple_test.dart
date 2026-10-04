@@ -154,16 +154,29 @@ void main() {
     });
   });
 
-  for (final platform in [TargetPlatform.macOS, TargetPlatform.android]) {
-    testWidgets('on $platform the more button stays and rows stay compact', (
+  testWidgets('on Android the more button stays and rows stay compact', (
+    tester,
+  ) async {
+    await pumpChatScreen(
       tester,
-    ) async {
-      await pumpChatScreen(tester, server: server, platform: platform);
+      server: server,
+      platform: TargetPlatform.android,
+    );
 
-      expect(find.byTooltip('Chat actions'), findsOneWidget);
-      expect(tester.getSize(row).height, lessThan(44));
-    });
-  }
+    expect(find.byTooltip('Chat actions'), findsOneWidget);
+    expect(tester.getSize(row).height, lessThan(44));
+  });
+
+  testWidgets('on macOS rows are 28pt with a More button', (tester) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      platform: TargetPlatform.macOS,
+    );
+
+    expect(find.byTooltip('More'), findsOneWidget);
+    expect(tester.getSize(row).height, 28);
+  });
 
   testWidgets('a sheet left open after its row is gone runs nothing', (
     tester,

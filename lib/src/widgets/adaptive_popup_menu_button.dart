@@ -5,18 +5,41 @@ import 'package:hermes_app/src/theme/platform_chrome.dart';
 /// Opens an [AdaptivePopupMenuButton]'s menu from outside, for a right-click
 /// or a long press on the row the button sits in.
 class AdaptiveMenuController {
-  VoidCallback? _open;
+  void Function(Offset? at)? _open;
 
-  void open() => _open?.call();
+  /// Opens the menu at its button, or on macOS [at] a global position, as a
+  /// Mac context menu opens under the pointer.
+  void open({Offset? at}) => _open?.call(at);
+}
+
+/// A [PopupMenuItem] with what a Mac menu shows besides its label: the
+/// keyboard [shortcut], right-aligned and muted (macOS only), and whether it
+/// is [destructive], in the error colour.
+class AdaptiveMenuItem<T> extends PopupMenuItem<T> {
+  const AdaptiveMenuItem({
+    super.key,
+    super.value,
+    super.onTap,
+    super.enabled,
+    this.shortcut,
+    this.destructive = false,
+    required super.child,
+  });
+
+  /// The shortcut as a Mac menu writes it, such as `⇧⌘P`.
+  final String? shortcut;
+  final bool destructive;
 }
 
 /// A [PopupMenuButton] that follows the platform: a pull-down
-/// [CupertinoMenuAnchor] on iOS, a compact Material menu on macOS (rows of
-/// 24 logical pixels, as on a Mac), and the plain Material menu elsewhere.
+/// [CupertinoMenuAnchor] on iOS, a compact menu on macOS (rows of 22 logical
+/// pixels highlighted in the primary colour, as on a Mac), and the plain
+/// Material menu elsewhere.
 ///
 /// Takes [PopupMenuEntry] items so call sites read the same on every
-/// platform. Items are [PopupMenuItem], [CheckedPopupMenuItem] and
-/// [PopupMenuDivider]; anything else does not show on iOS.
+/// platform. Items are [PopupMenuItem], [AdaptiveMenuItem],
+/// [CheckedPopupMenuItem] and [PopupMenuDivider]; anything else does not show
+/// on iOS.
 class AdaptivePopupMenuButton<T> extends StatefulWidget {
   const AdaptivePopupMenuButton({
     super.key,
@@ -47,7 +70,7 @@ class AdaptivePopupMenuButton<T> extends StatefulWidget {
   final PopupMenuPosition? position;
   final AdaptiveMenuController? controller;
 
-  static const double macRowHeight = 24;
+  static const double macRowHeight = 22;
 
   @override
   State<AdaptivePopupMenuButton<T>> createState() =>
@@ -84,12 +107,34 @@ class _AdaptivePopupMenuButtonState<T>
     controller?._open = _open;
   }
 
-  void _open() {
-    if (_popup.currentState case final popup?) {
+  /// A menu opens under the pointer only on macOS; elsewhere at its button.
+  void _open(Offset? at) {
+    if (!mounted) return;
+    final chrome = platformChromeOf(context);
+    final popup = _popup.currentState;
+    if (popup == null) {
+      if (chrome == PlatformChrome.ios) _menu.open();
+    } else if (at != null && chrome == PlatformChrome.macos) {
+      _openAt(popup.context, at);
+    } else {
       popup.showButtonMenu();
-    } else if (mounted && platformChromeOf(context) == PlatformChrome.ios) {
-      _menu.open();
     }
+  }
+
+  /// [context] is the popup button's, under the menu theme it carries.
+  Future<void> _openAt(BuildContext context, Offset at) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final point = overlay.globalToLocal(at);
+    final value = await showMenu<T>(
+      context: context,
+      position: RelativeRect.fromRect(
+        point & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: _items(context),
+    );
+    if (value != null && mounted) widget.onSelected?.call(value);
   }
 
   void _select(PopupMenuItem<T> item) {
@@ -107,23 +152,56 @@ class _AdaptivePopupMenuButtonState<T>
     };
   }
 
-  Widget _material({required bool compact}) => PopupMenuButton<T>(
-    key: _popup,
-    tooltip: widget.tooltip,
-    icon: widget.icon,
-    iconSize: widget.iconSize,
-    padding: widget.padding,
-    style: widget.style,
-    offset: widget.offset,
-    position: widget.position,
-    onSelected: widget.onSelected,
-    itemBuilder: compact
-        ? (context) => [
-            for (final entry in widget.itemBuilder(context)) _compact(entry),
-          ]
-        : widget.itemBuilder,
-    child: widget.child,
-  );
+  Widget _material({required bool compact}) {
+    final button = PopupMenuButton<T>(
+      key: _popup,
+      tooltip: widget.tooltip,
+      icon: widget.icon,
+      iconSize: widget.iconSize,
+      padding: widget.padding,
+      style: widget.style,
+      offset: widget.offset,
+      position: widget.position,
+      onSelected: widget.onSelected,
+      itemBuilder: _items,
+      child: widget.child,
+    );
+    if (!compact) return button;
+    // The rows paint their own highlight; Material's would show around it.
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
+      ),
+      child: button,
+    );
+  }
+
+  List<PopupMenuEntry<T>> _items(BuildContext context) {
+    final compact = platformChromeOf(context) == PlatformChrome.macos;
+    return [
+      for (final entry in widget.itemBuilder(context))
+        compact ? _compact(entry) : _plain(entry),
+    ];
+  }
+
+  PopupMenuEntry<T> _plain(PopupMenuEntry<T> entry) => switch (entry) {
+    AdaptiveMenuItem<T>(destructive: true) => PopupMenuItem<T>(
+      value: entry.value,
+      onTap: entry.onTap,
+      enabled: entry.enabled,
+      child: Builder(
+        builder: (context) => DefaultTextStyle.merge(
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+          child: entry.child ?? const SizedBox.shrink(),
+        ),
+      ),
+    ),
+    _ => entry,
+  };
 
   PopupMenuEntry<T> _compact(PopupMenuEntry<T> entry) => switch (entry) {
     CheckedPopupMenuItem<T>() => CheckedPopupMenuItem<T>(
@@ -138,8 +216,13 @@ class _AdaptivePopupMenuButtonState<T>
       onTap: entry.onTap,
       enabled: entry.enabled,
       height: AdaptivePopupMenuButton.macRowHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: entry.child,
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: MacMenuRow(
+        enabled: entry.enabled,
+        shortcut: entry is AdaptiveMenuItem<T> ? entry.shortcut : null,
+        destructive: entry is AdaptiveMenuItem<T> && entry.destructive,
+        child: entry.child ?? const SizedBox.shrink(),
+      ),
     ),
     PopupMenuDivider() => const PopupMenuDivider(height: 9),
     _ => entry,
@@ -164,6 +247,8 @@ class _AdaptivePopupMenuButtonState<T>
             ),
             PopupMenuItem<T>() => CupertinoMenuItem(
               onPressed: entry.enabled ? () => _select(entry) : null,
+              isDestructiveAction:
+                  entry is AdaptiveMenuItem<T> && entry.destructive,
               child: entry.child ?? const SizedBox.shrink(),
             ),
             _ => const SizedBox.shrink(),
@@ -215,7 +300,78 @@ class _ContextMenuRowState extends State<ContextMenuRow> {
   @override
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.translucent,
-    onSecondaryTapUp: (_) => _menu.open(),
+    onSecondaryTapUp: (details) => _menu.open(at: details.globalPosition),
     child: widget.builder(context, _menu),
   );
+}
+
+/// One row of a Mac menu: highlighted in the primary colour under the pointer
+/// or keyboard focus, with its shortcut right-aligned and muted.
+class MacMenuRow extends StatefulWidget {
+  const MacMenuRow({
+    super.key,
+    required this.child,
+    this.shortcut,
+    this.destructive = false,
+    this.enabled = true,
+  });
+
+  final Widget child;
+  final String? shortcut;
+  final bool destructive;
+  final bool enabled;
+
+  @override
+  State<MacMenuRow> createState() => _MacMenuRowState();
+}
+
+class _MacMenuRowState extends State<MacMenuRow> {
+  var _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final focused = Focus.maybeOf(context)?.hasFocus ?? false;
+    final lit = widget.enabled && (_hovered || focused);
+    final muted = scheme.onSurface.withValues(alpha: 0.45);
+    final color = lit
+        ? scheme.onPrimary
+        : !widget.enabled
+        ? muted
+        : widget.destructive
+        ? scheme.error
+        : scheme.onSurface;
+    final shortcut = widget.shortcut;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: Container(
+        height: AdaptivePopupMenuButton.macRowHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        decoration: BoxDecoration(
+          color: lit ? scheme.primary : null,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: DefaultTextStyle.merge(
+          style: TextStyle(fontSize: 13, color: color),
+          child: Row(
+            children: [
+              Expanded(child: widget.child),
+              if (shortcut != null) ...[
+                const SizedBox(width: 24),
+                Text(
+                  shortcut,
+                  style: TextStyle(
+                    color: lit
+                        ? scheme.onPrimary.withValues(alpha: 0.8)
+                        : muted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

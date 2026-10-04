@@ -499,6 +499,23 @@ final threads = [
   ),
 ];
 
+/// Threads for every section of the Mac sidebar.
+final macThreads = [
+  ...threads,
+  ChatThread(
+    id: 'thread-4',
+    title: 'Compare the backup providers for the photo library',
+    updatedAt: _now.subtract(const Duration(days: 12)),
+    remote: true,
+  ),
+  ChatThread(
+    id: 'thread-5',
+    title: 'Draft the onboarding email',
+    updatedAt: _now.subtract(const Duration(days: 75)),
+    remote: true,
+  ),
+];
+
 final searchHits = [
   ThreadSearchHit(
     id: 'thread-2',

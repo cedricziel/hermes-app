@@ -20,6 +20,7 @@ class ThreadHousekeeping {
     required this.changed,
     required this.report,
     required this.removed,
+    required this.history,
   });
 
   final HermesChatRepository repository;
@@ -33,6 +34,10 @@ class ThreadHousekeeping {
 
   /// A thread left the list because it was archived or deleted.
   final ValueChanged<ChatThread> removed;
+
+  /// Every message of [thread], read from the dashboard when the sidebar has
+  /// not loaded them all.
+  final Future<List<ChatMessage>> Function(ChatThread thread) history;
 
   final _busy = <String>{};
   int _nextOffset = 0;

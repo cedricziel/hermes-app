@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
+import '../../macos/mac_source_list.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -14,6 +15,8 @@ import '../../theme/platform_chrome.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
+import '../thread_sections.dart';
+import 'mac_thread_row.dart';
 import 'relative_time.dart';
 import 'sidebar_row.dart';
 import 'swipeable_thread_row.dart';
@@ -31,6 +34,10 @@ import 'thread_search_view.dart';
 /// With [search], a field above the list searches the sessions, and while it
 /// holds text the list shows what it found; a tapped result goes to
 /// [onOpenHit].
+///
+/// On macOS the threads sit in sections by when they were last active, under
+/// headers that fold them away, as 28pt rows with hover buttons and a Mac
+/// context menu.
 class ThreadSidebar extends StatelessWidget {
   const ThreadSidebar({
     super.key,
@@ -48,6 +55,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenPlugins,
     this.onOpenMcp,
     this.onOpenHelperModels,
+    this.onOpenInNewWindow,
   });
 
   final List<ChatThread> threads;
@@ -66,6 +74,10 @@ class ThreadSidebar extends StatelessWidget {
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
   final VoidCallback? onOpenHelperModels;
+
+  /// Opens a server-backed thread in a window of its own, from its Mac
+  /// context menu; the item is left out without it.
+  final ValueChanged<ChatThread>? onOpenInNewWindow;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +178,19 @@ class ThreadSidebar extends StatelessWidget {
     );
   }
 
-  Widget _threadList() {
+  Widget _threadList() => Builder(
+    builder: (context) => platformChromeOf(context) == PlatformChrome.macos
+        ? _MacThreadList(
+            threads: threads,
+            selectedId: selectedId,
+            onSelect: onSelect,
+            housekeeping: housekeeping,
+            onOpenInNewWindow: onOpenInNewWindow,
+          )
+        : _flatThreadList(),
+  );
+
+  Widget _flatThreadList() {
     final housekeeping = this.housekeeping;
     final showMore = housekeeping != null && housekeeping.hasMore;
     return ListView.builder(
@@ -385,6 +409,105 @@ class _ThreadRowState extends State<_ThreadRow> {
         housekeeping: housekeeping,
       ),
       child: row,
+    );
+  }
+}
+
+/// The threads of a Mac sidebar in sections. Which sections are folded comes
+/// from the window's [MacSidebarScope], so it outlasts a relaunch; without one
+/// the list keeps it itself.
+class _MacThreadList extends StatefulWidget {
+  const _MacThreadList({
+    required this.threads,
+    required this.selectedId,
+    required this.onSelect,
+    required this.housekeeping,
+    required this.onOpenInNewWindow,
+  });
+
+  final List<ChatThread> threads;
+  final String? selectedId;
+  final ValueChanged<String> onSelect;
+  final ThreadHousekeeping? housekeeping;
+  final ValueChanged<ChatThread>? onOpenInNewWindow;
+
+  @override
+  State<_MacThreadList> createState() => _MacThreadListState();
+}
+
+class _MacThreadListState extends State<_MacThreadList> {
+  final _folded = <String>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final sections = MacSidebarScope.sectionsOf(context);
+    if (sections == null) return _list(context);
+    return ListenableBuilder(
+      listenable: sections,
+      builder: (context, _) => _list(context, sections),
+    );
+  }
+
+  Widget _list(BuildContext context, [MacSidebarSections? sections]) {
+    bool folded(ThreadSectionKind kind) =>
+        sections?.isCollapsed(kind.name) ?? _folded.contains(kind.name);
+    void toggle(ThreadSectionKind kind) => sections != null
+        ? sections.toggle(kind.name)
+        : setState(() {
+            if (!_folded.remove(kind.name)) _folded.add(kind.name);
+          });
+
+    final housekeeping = widget.housekeeping;
+    final items = <Object>[
+      for (final section in groupThreads(
+        widget.threads,
+        now: DateTime.now(),
+      )) ...[section.kind, if (!folded(section.kind)) ...section.threads],
+      if (housekeeping != null && housekeeping.hasMore) housekeeping,
+    ];
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemCount: items.length,
+      itemBuilder: (context, index) => switch (items[index]) {
+        final ThreadSectionKind kind => MacSidebarSectionHeader(
+          key: ValueKey('thread-section-${kind.label}'),
+          label: kind.label,
+          collapsed: folded(kind),
+          onToggle: () => toggle(kind),
+        ),
+        final ChatThread thread => _row(context, thread),
+        _ => _ShowMoreRow(
+          key: ValueKey(widget.threads.length),
+          loading: housekeeping!.loadingMore,
+          onLoad: housekeeping.loadMore,
+        ),
+      },
+    );
+  }
+
+  Widget _row(BuildContext context, ChatThread thread) {
+    final housekeeping = thread.remote ? widget.housekeeping : null;
+    final onOpenInNewWindow = widget.onOpenInNewWindow;
+    void run(ThreadAction action) => runThreadAction(
+      context,
+      action,
+      thread: thread,
+      housekeeping: housekeeping,
+      onOpenInNewWindow: onOpenInNewWindow,
+    );
+    return MacThreadRow(
+      key: ValueKey('thread-${thread.id}'),
+      title: thread.title,
+      selected: thread.id == widget.selectedId,
+      relativeTime: relativeTime(thread.updatedAt),
+      onTap: () => widget.onSelect(thread.id),
+      onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
+      menuItems: (_) => macThreadMenuItems(
+        pinned: thread.pinned,
+        manageable: housekeeping != null,
+        canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
+      ),
+      onAction: run,
     );
   }
 }
