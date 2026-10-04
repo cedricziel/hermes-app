@@ -765,6 +765,18 @@ void main() {
       expect(request.queryParameters['limit'], 20);
     });
 
+    test('tags each hit with the profile it was found in', () async {
+      server.on('GET', '/api/sessions/search', {
+        'results': [
+          {'session_id': 's1', 'title': 'Backup'},
+        ],
+      });
+
+      final hits = await repository.searchThreads('backup', profile: 'work');
+
+      expect(hits.single.profile, 'work');
+    });
+
     test('maps each row to a hit with its title and matched text', () async {
       server.on('GET', '/api/sessions/search', {
         'results': [
