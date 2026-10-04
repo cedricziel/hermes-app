@@ -12,16 +12,26 @@ class TokenStore {
   TokenStore({FlutterSecureStorage? storage})
     : _storage = storage ?? defaultStorage;
 
+  /// On iOS the session stays readable while the phone is locked, once it has
+  /// been unlocked since it started: a request from the watch wakes the phone
+  /// app in the background, usually with the phone in a pocket.
+  ///
   /// macOS only grants the data protection keychain to a team signed app, and
   /// a local debug build is signed ad hoc, so it uses the login keychain.
   @visibleForTesting
   static const defaultStorage = FlutterSecureStorage(
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
     mOptions: MacOsOptions(usesDataProtectionKeychain: !kDebugMode),
   );
 
   static const _sessionKey = 'hermes.session.v1';
 
   final FlutterSecureStorage _storage;
+
+  /// Whether the stored session was written again under the current options.
+  bool _resaved = false;
 
   Future<HermesSession?> read() async {
     final String? raw;
@@ -38,7 +48,9 @@ class TokenStore {
       if (json is! Map<String, dynamic>) {
         throw const FormatException('stored session is not an object');
       }
-      return HermesSession.fromStorageJson(json);
+      final session = HermesSession.fromStorageJson(json);
+      await _resaveOnce(raw);
+      return session;
     } on Object {
       try {
         await clear();
@@ -46,6 +58,18 @@ class TokenStore {
         // The next sign-in overwrites the entry.
       }
       return null;
+    }
+  }
+
+  /// A session saved by an older version keeps the options it was saved
+  /// with until it is written again.
+  Future<void> _resaveOnce(String raw) async {
+    if (_resaved) return;
+    _resaved = true;
+    try {
+      await _storage.write(key: _sessionKey, value: raw);
+    } on Object {
+      // The next token refresh writes it again.
     }
   }
 
