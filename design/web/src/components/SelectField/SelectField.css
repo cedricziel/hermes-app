@@ -1,0 +1,45 @@
+/* The label, outlined box, error border and helper line are TextField's
+   .h-field classes; only the button inside differs. */
+.h-select-field--off {
+  opacity: 0.38;
+}
+
+.h-select-field__box {
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding-right: 8px;
+  color: var(--h-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.h-select-field__box:focus-visible {
+  outline: 0;
+  border-color: var(--h-fg);
+  box-shadow: inset 0 0 0 0.5px var(--h-fg);
+}
+
+.h-select-field__box:disabled {
+  cursor: default;
+}
+
+.h-select-field__value {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-select-field__value.h-mono {
+  font-size: 14px;
+}
+
+.h-select-field__value--placeholder {
+  color: var(--h-muted);
+}
