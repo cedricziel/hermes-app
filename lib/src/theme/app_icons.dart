@@ -345,6 +345,11 @@ abstract final class AppIcons {
     Icons.account_tree_outlined,
     CupertinoIcons.arrow_branch,
   );
+  static const history = AppIconSet(Icons.history, CupertinoIcons.clock);
+  static const clearFilled = AppIconSet(
+    Icons.cancel,
+    CupertinoIcons.xmark_circle_fill,
+  );
 
   /// Every set by name, for the catalog and for tests.
   static const all = <String, AppIconSet>{
@@ -446,5 +451,7 @@ abstract final class AppIcons {
     'toggleOn': toggleOn,
     'toggleOff': toggleOff,
     'tree': tree,
+    'history': history,
+    'clearFilled': clearFilled,
   };
 }
