@@ -110,19 +110,3 @@
 .h-plugin-row__tag--mono {
   font-family: var(--h-font-mono);
 }
-
-.h-plugin-row__spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--h-muted);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: h-plugin-row-spin 0.9s linear infinite;
-}
-
-@keyframes h-plugin-row-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

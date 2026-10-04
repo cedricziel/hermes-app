@@ -1,5 +1,12 @@
 import { Button } from "../Button/Button";
-import { cx, usePlatform } from "../../platform";
+import { Spinner } from "../Spinner/Spinner";
+import { RowActions } from "../SwipeActions/RowActions";
+import {
+  PlatformScope,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./PluginRow.css";
 
 /** A Hermes agent plugin: one installed on the server, or an entry in the curated catalog. */
@@ -28,6 +35,8 @@ export interface PluginItem {
   installed?: boolean;
   /** A newer commit than the installed one exists; adds "Update available" (catalog rows). */
   updateAvailable?: boolean;
+  /** The server can delete it (installed from Git, not bundled): its swipe and action sheet offer Remove. */
+  removable?: boolean;
 }
 
 export interface PluginRowProps {
@@ -47,6 +56,24 @@ export interface PluginRowProps {
   onClick?: () => void;
   /** Install was pressed on a catalog row. */
   onInstall?: () => void;
+  /** Enable or Disable was picked from an installed row's action sheet. */
+  onEnabledChange?: (enabled: boolean) => void;
+  /** Remove was picked from an installed row's swipe or action sheet. */
+  onRemove?: () => void;
+  /**
+   * `apple`: Install's spinner is the activity indicator. On touch an
+   * installed row swipes from the trailing edge to Remove (when `removable`)
+   * and a long press opens an action sheet with Enable or Disable, and
+   * Remove (see `swipeRevealed`, `actionSheetOpen`); a Mac right-clicks for
+   * them. Inherits the provider's platform.
+   */
+  platform?: Platform;
+  /** Under `apple`, `touch` (default) or `mac`; only touch swipes. Inherited from the enclosing `AppShell`. */
+  device?: AppleDevice;
+  /** Apple touch, installed rows: draw the row swiped open, Remove showing in red. A static preview state. */
+  swipeRevealed?: boolean;
+  /** Apple touch, installed rows: draw the long-press action sheet over the screen (the nearest positioned ancestor). A static preview state. */
+  actionSheetOpen?: boolean;
 }
 
 function Tag({
@@ -88,8 +115,14 @@ export function PluginRow({
   installing = false,
   onClick,
   onInstall,
+  onEnabledChange,
+  onRemove,
+  platform,
+  device,
+  swipeRevealed,
+  actionSheetOpen,
 }: PluginRowProps) {
-  const apple = usePlatform() === "apple";
+  const resolvedPlatform = usePlatform(platform);
   const catalog = variant === "catalog";
   const tags = catalog
     ? [
@@ -118,75 +151,111 @@ export function PluginRow({
         ) : null,
       ].filter(Boolean);
   const status = plugin.status ?? "enabled";
+  const enabled = status === "enabled";
+  const actions = catalog
+    ? []
+    : [
+        {
+          label: enabled ? "Disable" : "Enable",
+          icon: enabled ? "toggle_off" : "toggle_on",
+          onPress: () => onEnabledChange?.(!enabled),
+        },
+        ...(plugin.removable
+          ? [
+              {
+                label: "Remove",
+                icon: "delete",
+                destructive: true,
+                onPress: onRemove,
+              },
+            ]
+          : []),
+      ];
   return (
-    <div
-      className={["h-plugin-row", selected ? "h-plugin-row--selected" : null]
-        .filter(Boolean)
-        .join(" ")}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      <div className="h-plugin-row__body">
-        <div className="h-plugin-row__title">
-          <span className="h-plugin-row__name">{plugin.name}</span>
-          {!catalog && plugin.version ? (
-            <span className="h-plugin-row__version">{plugin.version}</span>
-          ) : null}
-          {catalog && plugin.official ? <Tag filled>Official</Tag> : null}
-        </div>
-        {catalog && plugin.maintainer ? (
-          <div className="h-plugin-row__maintainer">{plugin.maintainer}</div>
-        ) : null}
-        {plugin.description ? (
-          <div className="h-plugin-row__description">{plugin.description}</div>
-        ) : null}
-        {tags.length > 0 ? (
-          <div className="h-plugin-row__tags">{tags}</div>
-        ) : null}
-      </div>
-      <div className="h-plugin-row__trailing">
-        {catalog ? (
-          plugin.installed ? (
-            <Tag filled>Installed</Tag>
-          ) : (
-            <Button
-              disabled={installing}
-              onClick={(e) => {
-                e.stopPropagation();
-                onInstall?.();
-              }}
-            >
-              {installing ? (
-                <span
-                  className={cx(
-                    "h-plugin-row__spinner",
-                    apple && "h-apple-spinner",
-                  )}
-                  aria-label="Installing"
-                />
+    <PlatformScope platform={resolvedPlatform}>
+      <RowActions
+        title={plugin.name}
+        actions={actions}
+        swipeRevealed={swipeRevealed}
+        actionSheetOpen={actionSheetOpen}
+        device={device}
+      >
+        <div
+          className={[
+            "h-plugin-row",
+            selected ? "h-plugin-row--selected" : null,
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          role="button"
+          tabIndex={0}
+          aria-pressed={selected}
+          onClick={onClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onClick?.();
+            }
+          }}
+        >
+          <div className="h-plugin-row__body">
+            <div className="h-plugin-row__title">
+              <span className="h-plugin-row__name">{plugin.name}</span>
+              {!catalog && plugin.version ? (
+                <span className="h-plugin-row__version">{plugin.version}</span>
+              ) : null}
+              {catalog && plugin.official ? <Tag filled>Official</Tag> : null}
+            </div>
+            {catalog && plugin.maintainer ? (
+              <div className="h-plugin-row__maintainer">
+                {plugin.maintainer}
+              </div>
+            ) : null}
+            {plugin.description ? (
+              <div className="h-plugin-row__description">
+                {plugin.description}
+              </div>
+            ) : null}
+            {tags.length > 0 ? (
+              <div className="h-plugin-row__tags">{tags}</div>
+            ) : null}
+          </div>
+          <div className="h-plugin-row__trailing">
+            {catalog ? (
+              plugin.installed ? (
+                <Tag filled>Installed</Tag>
               ) : (
-                "Install"
-              )}
-            </Button>
-          )
-        ) : (
-          <Tag filled={status === "enabled"}>
-            {status === "enabled"
-              ? "Enabled"
-              : status === "disabled"
-                ? "Disabled"
-                : "Inactive"}
-          </Tag>
-        )}
-      </div>
-    </div>
+                <Button
+                  disabled={installing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInstall?.();
+                  }}
+                >
+                  {installing ? (
+                    <Spinner
+                      size={16}
+
+                      color="var(--h-muted)"
+                      label="Installing"
+                    />
+                  ) : (
+                    "Install"
+                  )}
+                </Button>
+              )
+            ) : (
+              <Tag filled={enabled}>
+                {enabled
+                  ? "Enabled"
+                  : status === "disabled"
+                    ? "Disabled"
+                    : "Inactive"}
+              </Tag>
+            )}
+          </div>
+        </div>
+      </RowActions>
+    </PlatformScope>
   );
 }

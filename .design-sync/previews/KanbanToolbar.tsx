@@ -90,6 +90,30 @@ export const Dark = () => (
 
 const appleFrame = { ...screen, width: 380, height: 260 } as const;
 
+/** Apple menus: the board switcher as an iOS pull-down on an iPhone (left, check trailing) and the assignee filter as a compact Mac menu (right). */
+export const AppleMenus = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
+    <div style={{ ...appleFrame, height: 340 }}>
+      <KanbanToolbar
+        wide={false}
+        device="touch"
+        boards={boards}
+        board="platform"
+        assignees={assignees}
+        defaultOpenMenu="board"
+      />
+    </div>
+    <div style={{ ...appleFrame, height: 340 }}>
+      <KanbanToolbar
+        device="mac"
+        assignees={assignees}
+        tenants={tenants}
+        defaultOpenMenu="assignee"
+      />
+    </div>
+  </HermesProvider>
+);
+
 /** Apple: the iOS search field (left) and, in selection mode, the 44px icon-and-label bulk toolbar pinned to the bottom of the screen (right). */
 export const AppleSearchAndBulkBar = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>

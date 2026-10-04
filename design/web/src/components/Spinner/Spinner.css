@@ -1,0 +1,56 @@
+.h-spinner {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+/* Material: a three-quarter ring, Flutter's CircularProgressIndicator. */
+.h-spinner--material {
+  border-style: solid;
+  border-color: currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  color: var(--h-primary);
+  animation: h-spinner-turn 0.9s linear infinite;
+}
+
+/* Apple: eight spokes fading behind the brightest one, turning a spoke at a
+   time, like CupertinoActivityIndicator and UIActivityIndicatorView. */
+.h-spinner--apple {
+  color: var(--h-muted);
+  animation: h-spinner-turn 1s steps(8) infinite;
+}
+
+.h-spinner__spoke {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 50%;
+  transform-origin: 50% 100%;
+}
+
+.h-spinner__spoke::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 56%;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+@keyframes h-spinner-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Reduced motion: both stand still; the spokes keep their fade, so the
+   indicator still reads as one. */
+@media (prefers-reduced-motion: reduce) {
+  .h-spinner--material,
+  .h-spinner--apple {
+    animation: none;
+  }
+}

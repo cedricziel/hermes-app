@@ -1,4 +1,11 @@
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import { Switch } from "../Switch/Switch";
+import { RowActions } from "../SwipeActions/RowActions";
+import {
+  PlatformScope,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./ScheduleJobRow.css";
 
 /** A cron job of a Hermes profile, as the Schedules list shows it. */
@@ -40,12 +47,24 @@ export interface ScheduleJobRowProps {
    * `apple`: an inset grouped list row instead of a bordered card. Stack the
    * rows as siblings in one container: the first and last get the group's
    * 10px corners, a hairline separates the rest, and the switch is the Apple
-   * toggle. In the app a row swipes to reveal Delete, long-presses (iOS) or
-   * right-clicks (Mac) for Run now, Pause/Resume and Delete. Inherits the
-   * provider's platform.
+   * toggle. On touch the row swipes from the trailing edge to Delete and a
+   * long press opens an action sheet with Run now, Pause or Resume, and
+   * Delete (see `swipeRevealed`, `actionSheetOpen`); a Mac right-clicks for
+   * them. Inherits the provider's platform.
    */
   platform?: Platform;
+  /** Under `apple`, `touch` (default) or `mac`; only touch swipes. Inherited from the enclosing `AppShell`. */
+  device?: AppleDevice;
+  /** Apple touch: draw the row swiped open, Delete showing in red. A static preview state. */
+  swipeRevealed?: boolean;
+  /** Apple touch: draw the long-press action sheet over the screen (the nearest positioned ancestor). A static preview state. */
+  actionSheetOpen?: boolean;
+  /** An action from the swipe or the action sheet was picked. */
+  onAction?: (action: ScheduleJobAction) => void;
 }
+
+/** What a job's swipe and action sheet ask for. */
+export type ScheduleJobAction = "run-now" | "pause" | "resume" | "delete";
 
 function statusText(job: ScheduleJob): string {
   if (job.state === "paused") return "Paused";
@@ -89,6 +108,10 @@ export function ScheduleJobRow({
   onClick,
   onPausedChange,
   platform,
+  device,
+  swipeRevealed,
+  actionSheetOpen,
+  onAction,
 }: ScheduleJobRowProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
@@ -106,65 +129,81 @@ export function ScheduleJobRow({
   ]
     .filter(Boolean)
     .join(" ");
+  const actions = [
+    { label: "Run now", icon: "play_arrow", value: "run-now" as const },
+    ...(locked
+      ? []
+      : [
+          on
+            ? { label: "Pause", icon: "pause", value: "pause" as const }
+            : { label: "Resume", icon: "play_arrow", value: "resume" as const },
+        ]),
+    {
+      label: "Delete",
+      icon: "delete",
+      value: "delete" as const,
+      destructive: true,
+    },
+  ].map((a) => ({ ...a, onPress: () => onAction?.(a.value) }));
   return (
     <PlatformScope platform={resolvedPlatform}>
-      <div
-        className={classes}
-        role="button"
-        tabIndex={0}
-        aria-pressed={selected}
-        onClick={onClick}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick?.();
-          }
-        }}
+      <RowActions
+        title={job.title}
+        actions={actions}
+        swipeRevealed={swipeRevealed}
+        actionSheetOpen={actionSheetOpen}
+        device={device}
+        className="h-schedule-job-row__swipe"
       >
-        <div className="h-schedule-job-row__head">
-          <div className="h-schedule-job-row__titles">
-            <span className="h-schedule-job-row__title">{job.title}</span>
-            <span className="h-schedule-job-row__chip">{job.deliverTo}</span>
-            {showProfile && job.profile ? (
-              <span className="h-schedule-job-row__chip">{job.profile}</span>
+        <div
+          className={classes}
+          role="button"
+          tabIndex={0}
+          aria-pressed={selected}
+          onClick={onClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onClick?.();
+            }
+          }}
+        >
+          <div className="h-schedule-job-row__head">
+            <div className="h-schedule-job-row__titles">
+              <span className="h-schedule-job-row__title">{job.title}</span>
+              <span className="h-schedule-job-row__chip">{job.deliverTo}</span>
+              {showProfile && job.profile ? (
+                <span className="h-schedule-job-row__chip">{job.profile}</span>
+              ) : null}
+            </div>
+            <Switch
+              checked={on}
+              label={on ? "Pause" : "Resume"}
+              disabled={locked}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => onPausedChange?.(on)}
+            />
+          </div>
+          {job.scheduleText ? (
+            <div className="h-schedule-job-row__schedule">
+              {job.scheduleText}
+            </div>
+          ) : null}
+          <hr className="h-schedule-job-row__divider" />
+          <div className="h-schedule-job-row__status">
+            <span className="h-schedule-job-row__dot" />
+            <span className="h-schedule-job-row__status-text">
+              {statusText(job)}
+            </span>
+            {next ? (
+              <span className="h-schedule-job-row__next">{next}</span>
             ) : null}
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={on}
-            aria-label={on ? "Pause" : "Resume"}
-            disabled={locked}
-            className={cx(
-              "h-schedule-job-row__switch",
-              on && "h-schedule-job-row__switch--on",
-              apple && "h-apple-switch",
-            )}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPausedChange?.(on);
-            }}
-          >
-            <span className="h-schedule-job-row__thumb" />
-          </button>
-        </div>
-        {job.scheduleText ? (
-          <div className="h-schedule-job-row__schedule">{job.scheduleText}</div>
-        ) : null}
-        <hr className="h-schedule-job-row__divider" />
-        <div className="h-schedule-job-row__status">
-          <span className="h-schedule-job-row__dot" />
-          <span className="h-schedule-job-row__status-text">
-            {statusText(job)}
-          </span>
-          {next ? (
-            <span className="h-schedule-job-row__next">{next}</span>
+          {reason ? (
+            <div className="h-schedule-job-row__reason">{reason}</div>
           ) : null}
         </div>
-        {reason ? (
-          <div className="h-schedule-job-row__reason">{reason}</div>
-        ) : null}
-      </div>
+      </RowActions>
     </PlatformScope>
   );
 }

@@ -63,22 +63,9 @@
   color: var(--h-muted);
 }
 
+/* The 12px spinner sits in the 14px slot of the other status icons. */
 .h-tool-status--running {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
   margin: 1px;
-  box-sizing: border-box;
-  border: 2px solid var(--h-primary);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: h-tool-spin 0.9s linear infinite;
-}
-
-@keyframes h-tool-spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 .h-tool-call__name {

@@ -1,4 +1,4 @@
-import { cx, usePlatform } from "../../platform";
+import { Spinner } from "../Spinner/Spinner";
 import "./ThinkingIndicator.css";
 
 export interface ThinkingIndicatorProps {
@@ -25,16 +25,9 @@ export function ThinkingIndicator({
   elapsedSeconds,
   activity = "Thinking…",
 }: ThinkingIndicatorProps) {
-  const apple = usePlatform() === "apple";
   return (
     <div className="h-thinking-indicator" role="status">
-      <span
-        className={cx(
-          "h-thinking-indicator__spinner",
-          apple && "h-apple-spinner",
-        )}
-        aria-hidden="true"
-      />
+      <Spinner size={12} color="currentColor" />
       <span>{`${formatThinkingElapsed(elapsedSeconds)} · ${activity}`}</span>
     </div>
   );

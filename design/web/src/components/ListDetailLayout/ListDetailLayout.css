@@ -49,43 +49,6 @@
   padding-right: 4px;
 }
 
-.h-list-detail__tabs {
-  flex: none;
-  display: flex;
-  border-bottom: 1px solid var(--h-border);
-}
-
-.h-list-detail__tab {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  height: 48px;
-  padding: 0 16px;
-  border: 0;
-  background: transparent;
-  color: var(--h-fg);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.h-list-detail__tab:hover {
-  background: var(--h-hover);
-}
-
-.h-list-detail__tab-label {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  border-bottom: 3px solid transparent;
-  border-top: 3px solid transparent;
-}
-
-.h-list-detail__tab--active .h-list-detail__tab-label {
-  border-bottom-color: var(--h-primary);
-}
-
 .h-list-detail__body {
   position: relative;
   flex: 1;
@@ -135,50 +98,6 @@
   font: inherit;
   font-size: 17px;
   cursor: pointer;
-}
-
-/* Apple: the tabs become a segmented control. */
-.h-list-detail__tabs--segmented {
-  display: block;
-  padding: 8px 16px;
-  border-bottom: 0;
-}
-
-.h-list-detail__tabs--segmented[role="tablist"] {
-  display: flex;
-  gap: 2px;
-  margin: 8px 16px;
-  padding: 2px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--h-muted) 18%, transparent);
-}
-
-.h-list-detail--apple .h-list-detail__tabs--segmented .h-list-detail__tab {
-  height: 28px;
-  padding: 0 8px;
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.h-list-detail--apple
-  .h-list-detail__tabs--segmented
-  .h-list-detail__tab:hover {
-  background: transparent;
-}
-
-.h-list-detail--apple
-  .h-list-detail__tabs--segmented
-  .h-list-detail__tab-label {
-  border: 0;
-}
-
-.h-list-detail--apple
-  .h-list-detail__tabs--segmented
-  .h-list-detail__tab--active {
-  background: var(--h-surface);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
-  font-weight: 600;
 }
 
 .h-list-detail--apple .h-list-detail__bar {

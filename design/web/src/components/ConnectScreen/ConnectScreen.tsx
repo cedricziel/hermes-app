@@ -1,5 +1,6 @@
 import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
+import { Spinner } from "../Spinner/Spinner";
 import { IconButton } from "../IconButton/IconButton";
 import { TextField } from "../TextField/TextField";
 import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
@@ -56,18 +57,6 @@ export interface ConnectScreenProps {
   onReportBug?: () => void;
   /** `apple`: the sign-in bar is 44px tall (56px on `material`), the iOS navigation bar height, with a 17px title. Inherits the provider's platform. */
   platform?: Platform;
-}
-
-function Spinner({ size, stroke }: { size: number; stroke: number }) {
-  const apple = usePlatform() === "apple";
-  return (
-    <span
-      className={cx("h-connect-screen__spinner", apple && "h-apple-spinner")}
-      style={{ width: size, height: size, borderWidth: stroke }}
-      role="progressbar"
-      aria-label="Loading"
-    />
-  );
 }
 
 /**
@@ -153,7 +142,11 @@ export function ConnectScreen({
                 disabled={connecting}
                 className="h-connect-screen__primary"
               >
-                {connecting ? <Spinner size={20} stroke={2} /> : "Connect"}
+                {connecting ? (
+                  <Spinner size={20} color="var(--h-muted)" />
+                ) : (
+                  "Connect"
+                )}
               </Button>
               {reportBug}
             </form>
@@ -188,7 +181,7 @@ export function ConnectScreen({
             </p>
             {waitingForBrowser ? (
               <div className="h-connect-screen__waiting">
-                <Spinner size={40} stroke={4} />
+                <Spinner size={40} color="var(--h-fg)" />
                 <span>Continue in your browser…</span>
                 <Button variant="text" onClick={onCancel}>
                   Cancel

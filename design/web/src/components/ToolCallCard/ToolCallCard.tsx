@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
+import { Spinner } from "../Spinner/Spinner";
 import {
   ApprovalCard,
   type ApprovalCardProps,
@@ -74,7 +75,6 @@ export function ToolCallStatusIcon({
   status,
   waiting = false,
 }: ToolCallStatusIconProps) {
-  const apple = usePlatform() === "apple";
   if (waiting)
     return (
       <Icon
@@ -86,12 +86,11 @@ export function ToolCallStatusIcon({
   switch (status) {
     case "running":
       return (
-        <span
-          className={cx(
-            "h-tool-status h-tool-status--running",
-            apple && "h-apple-spinner",
-          )}
-          aria-label="Running"
+        <Spinner
+          size={12}
+
+          label="Running"
+          className="h-tool-status h-tool-status--running"
         />
       );
     case "completed":

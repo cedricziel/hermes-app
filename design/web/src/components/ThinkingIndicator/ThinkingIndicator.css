@@ -6,19 +6,3 @@
   font-size: 12.5px;
   line-height: 18px;
 }
-
-.h-thinking-indicator__spinner {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  animation: h-thinking-indicator-spin 0.9s linear infinite;
-}
-
-@keyframes h-thinking-indicator-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

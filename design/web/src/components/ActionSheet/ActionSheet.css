@@ -1,0 +1,78 @@
+.h-action-sheet-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 8px;
+  background: var(--h-scrim);
+  cursor: default;
+}
+
+.h-action-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--h-font);
+  text-align: center;
+}
+
+.h-action-sheet__group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--h-surface-high) 88%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(2);
+  backdrop-filter: blur(30px) saturate(2);
+}
+
+.h-action-sheet__title {
+  padding: 14px 16px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--h-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-action-sheet__action {
+  height: 57px;
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--h-primary);
+  font: inherit;
+  font-size: 20px;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.h-action-sheet__group > * + .h-action-sheet__action {
+  border-top: 0.5px solid var(--h-border);
+}
+
+.h-action-sheet__action:active {
+  background: var(--h-pressed);
+}
+
+.h-action-sheet__action:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-action-sheet__action--destructive {
+  color: var(--h-apple-red);
+}
+
+.h-action-sheet__cancel {
+  border-radius: 14px;
+  background: var(--h-apple-elevated);
+  font-weight: 600;
+}

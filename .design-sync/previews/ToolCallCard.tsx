@@ -185,3 +185,17 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** Apple: a running call spins with the activity indicator (44px headers). */
+export const AppleRunning = () => (
+  <HermesProvider platform="apple" style={col}>
+    <ToolCallCard
+      name="terminal"
+      summary="flutter test"
+      status="running"
+      duration="12s"
+    />
+    <ToolCallCard name="terminal" status="running" preparing />
+    <ToolCallCard name="read_file" summary="lib/main.dart" duration="0.4s" />
+  </HermesProvider>
+);

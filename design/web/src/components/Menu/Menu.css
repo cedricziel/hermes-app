@@ -1,0 +1,216 @@
+.h-menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.h-menu {
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 112px;
+  padding: 8px 0;
+  font-family: var(--h-font);
+  color: var(--h-fg);
+  text-align: left;
+  background: var(--h-surface);
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-sm);
+  box-shadow: var(--h-shadow);
+}
+
+.h-menu--anchored {
+  position: absolute;
+}
+
+.h-menu--below {
+  top: calc(100% + 4px);
+}
+
+.h-menu--above {
+  bottom: calc(100% + 4px);
+}
+
+.h-menu--start {
+  left: 0;
+}
+
+.h-menu--end {
+  right: 0;
+}
+
+.h-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.h-menu__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-menu__check,
+.h-menu__trailing {
+  display: inline-flex;
+  flex: none;
+}
+
+.h-menu__check {
+  width: 20px;
+}
+
+.h-menu__item:hover:not(:disabled) {
+  background: var(--h-hover);
+}
+
+.h-menu__item:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.h-menu__item--info {
+  height: auto;
+  min-height: 48px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--h-muted);
+  cursor: default;
+}
+
+.h-menu__item--info:hover {
+  background: transparent;
+}
+
+.h-menu__item--destructive {
+  color: var(--h-error);
+}
+
+.h-menu__item:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-menu__divider {
+  flex: none;
+  height: 1px;
+  margin: 8px 0;
+  background: var(--h-border);
+}
+
+/* iOS pull-down menu (CupertinoMenuAnchor): a rounded panel on the blurred,
+   saturated popup material, 44px rows, hairlines between rows and a thick
+   band for a divider. No dimmed backdrop: the anchor draws none. */
+.h-menu--ios {
+  min-width: 220px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--h-surface-high) 85%, transparent);
+  -webkit-backdrop-filter: blur(30px) saturate(2);
+  backdrop-filter: blur(30px) saturate(2);
+  box-shadow: 0 8px 32px rgb(0 0 0 / 0.2);
+}
+
+.h-menu--ios .h-menu__item {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 400;
+}
+
+.h-menu--ios .h-menu__item--info {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.h-menu--ios .h-menu__item:hover:not(:disabled) {
+  background: transparent;
+}
+
+.h-menu--ios .h-menu__item:active:not(:disabled) {
+  background: var(--h-pressed);
+}
+
+.h-menu--ios .h-menu__item + .h-menu__item {
+  border-top: 0.5px solid var(--h-border);
+}
+
+.h-menu--ios .h-menu__divider {
+  height: 6px;
+  margin: 0;
+  background: color-mix(in srgb, var(--h-fg) 8%, transparent);
+}
+
+/* Compact Mac menu (MacMenuRow in the app): 22px rows of 13px text, a 6px
+   radius, a filled highlight under the pointer and shortcuts right-aligned. */
+.h-menu--mac {
+  min-width: 160px;
+  padding: 4px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--h-surface) 40%, var(--h-surface-high));
+  box-shadow:
+    0 0 0 0.5px var(--h-border),
+    0 6px 20px rgb(0 0 0 / 0.18);
+}
+
+.h-menu--mac .h-menu__item {
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.h-menu--mac .h-menu__check {
+  width: 14px;
+}
+
+.h-menu--mac .h-menu__item--info {
+  min-height: 22px;
+  font-size: 11px;
+}
+
+.h-menu--mac .h-menu__item:hover:not(:disabled) {
+  background: var(--h-primary);
+  color: var(--h-on-primary);
+}
+
+.h-menu--mac .h-menu__item--info:hover {
+  background: transparent;
+  color: var(--h-muted);
+}
+
+.h-menu--mac .h-menu__divider {
+  margin: 4px 0;
+}
+
+.h-menu__shortcut {
+  flex: none;
+  margin-left: 18px;
+  color: color-mix(in srgb, var(--h-fg) 45%, transparent);
+}
+
+.h-menu--mac .h-menu__item:hover:not(:disabled) .h-menu__shortcut {
+  color: color-mix(in srgb, var(--h-on-primary) 80%, transparent);
+}

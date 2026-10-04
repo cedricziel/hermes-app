@@ -200,3 +200,54 @@ export const InsetGrouped = () => (
     </div>
   </HermesProvider>
 );
+
+/** iPhone: the middle row swiped from the trailing edge shows Delete in red, clipped by the group's inset. */
+export const AppleSwipe = () => (
+  <HermesProvider platform="apple" style={{ width: 390, padding: "16px 0" }}>
+    <div>
+      {jobs.map((job) => (
+        <ScheduleJobRow
+          key={job.id}
+          job={job}
+          swipeRevealed={job.id === "morning-brief"}
+        />
+      ))}
+    </div>
+  </HermesProvider>
+);
+
+/** iPhone: a long press on "Morning brief" opens the action sheet with Run now, Pause and Delete. */
+export const AppleActionSheet = () => (
+  <HermesProvider
+    platform="apple"
+    style={{ position: "relative", width: 390, height: 520, padding: "16px 0" }}
+  >
+    <div>
+      {jobs.map((job) => (
+        <ScheduleJobRow
+          key={job.id}
+          job={job}
+          actionSheetOpen={job.id === "morning-brief"}
+        />
+      ))}
+    </div>
+  </HermesProvider>
+);
+
+export const AppleSwipeDark = () => (
+  <HermesProvider
+    platform="apple"
+    theme="dark"
+    style={{ width: 390, padding: "16px 0" }}
+  >
+    <div>
+      {jobs.map((job) => (
+        <ScheduleJobRow
+          key={job.id}
+          job={job}
+          swipeRevealed={job.id === "weekly"}
+        />
+      ))}
+    </div>
+  </HermesProvider>
+);
