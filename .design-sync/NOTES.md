@@ -118,6 +118,18 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Before a re-sync or a port, check `gh pr list` for open PRs touching `design/web/` or `.design-sync/`
   (#387 was once ported twice in parallel).
 
+## Screen cards (chat and onboarding)
+
+- `ChatScreen`: AppShell + ThreadSidebar + ChatHeader + `ChatThread` (or WelcomeView) + ChatComposer, on phone and
+  desktop, Apple (iPhone, Mac window, iPad via `device`) and Material; `state` covers loading and failed, which
+  drop the sidebar as the app does. `ChatThread` (Chat group) draws a chat's turns from plain `ChatTurn` data,
+  anchored to the latest turn. Gaps: the loading phone bar shows the "Hermes" title and info button (the app's
+  has only the menu button); no clarify answer, attachment drop or queued-prompt cells.
+- `ConnectScreen` stays the setup and sign-in card (the app's ServerSetupScreen and LoginScreen); its preview has
+  every Widgetbook state. The splash is a bare spinner, so it has no card.
+- `AppLockScreen` (the AppLockGate cover) and `ImageViewerScreen` (black in both themes). The app's image viewer
+  title takes the app bar theme's onSurface color, which is dark on black in light mode; the card draws it white.
+
 ## Known gaps in the recreations
 
 - Markdown in AssistantMessage: no tables, blockquotes, nested lists or syntax highlighting.

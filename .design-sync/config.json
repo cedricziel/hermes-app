@@ -136,6 +136,18 @@
     },
     "MacToolbar": {
       "cardMode": "column"
+    },
+    "ChatThread": {
+      "cardMode": "column"
+    },
+    "ChatScreen": {
+      "cardMode": "column"
+    },
+    "AppLockScreen": {
+      "cardMode": "column"
+    },
+    "ImageViewerScreen": {
+      "cardMode": "column"
     }
   }
 }
