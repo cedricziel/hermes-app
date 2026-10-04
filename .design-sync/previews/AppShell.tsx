@@ -179,9 +179,26 @@ export const AppleMacSchedules = () => (
   </HermesProvider>
 );
 
+/** Full-screen iPad (`device="touch"`): the sidebar sits beside the page, but with the brand row, 44px touch rows and the iOS navigation bar instead of the Mac chrome. */
+export const AppleIPad = () => (
+  <HermesProvider platform="apple">
+    <div style={desktop}>
+      <AppShell
+        layout="desktop"
+        device="touch"
+        current="chat"
+        sidebar={macSidebar}
+      >
+        <ChatHeader title="Summarize last night's run logs" />
+        <WelcomeView prompts={prompts} />
+      </AppShell>
+    </div>
+  </HermesProvider>
+);
+
 const iphone = { width: 380, height: 700, border: "1px solid var(--h-border)" };
 
-/** iPhone: the drawer stays on phones. Nav bar 44px with a centred title; the drawer's thread rows are 44px with no inline "…". */
+/** iPhone: the drawer stays on phones. Nav bar 44px with a centred title; the drawer's thread rows are 44px with a 44px "…" target. */
 export const ApplePhone = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
     <div style={iphone}>

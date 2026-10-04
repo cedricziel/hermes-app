@@ -8,7 +8,9 @@ import {
   ShellChromeContext,
   cx,
   PlatformScope,
+  useAppleDevice,
   usePlatform,
+  type AppleDevice,
   type Platform,
 } from "../../platform";
 import "./AppShell.css";
@@ -99,14 +101,21 @@ export interface AppShellProps {
    */
   layout?: "desktop" | "phone";
   /**
-   * `apple` + `desktop` is the Mac window: the sidebar runs from the top of
-   * the window (no brand row, 78px left free for the traffic lights, a hide
-   * button), the sidebar can be hidden and resized (220 to 360px), and the
-   * page's `ChatHeader` becomes the 52px unified toolbar. `apple` on a phone
-   * or iPad keeps the drawer or plain sidebar. Inherits the provider's
-   * platform.
+   * `apple` + `desktop` on a Mac (`device`) is the Mac window: the sidebar
+   * runs from the top of the window (no brand row, 78px left free for the
+   * traffic lights, a hide button), the sidebar can be hidden and resized
+   * (220 to 360px), and the page's `ChatHeader` becomes the 52px unified
+   * toolbar. `apple` on a phone, or on an iPad (`device="touch"`), keeps the
+   * drawer or plain sidebar. Inherits the provider's platform.
    */
   platform?: Platform;
+  /**
+   * Under `apple`, whether the desktop layout is a Mac window (`mac`, the
+   * default for `desktop`) or a full-screen iPad (`touch`): the sidebar sits
+   * beside the page without the Mac chrome. The sidebar and header inside
+   * inherit it. Ignored on `material`.
+   */
+  device?: AppleDevice;
   /** Mac only: start with the sidebar hidden. The page's header then shows a "show sidebar" button and leaves room for the traffic lights. */
   sidebarCollapsed?: boolean;
   /** Mac only: sidebar width in px, clamped to 220 to 360 (default 280). */
@@ -141,6 +150,7 @@ export function AppShell({
   current = "chat",
   layout = "desktop",
   platform,
+  device: deviceProp,
   sidebarCollapsed = false,
   sidebarWidth = 280,
   showTrafficLights = false,
@@ -152,7 +162,9 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const resolvedPlatform = usePlatform(platform);
-  const mac = resolvedPlatform === "apple" && layout === "desktop";
+  const device = useAppleDevice(layout, deviceProp);
+  const mac =
+    resolvedPlatform === "apple" && layout === "desktop" && device === "mac";
   const [collapsed, setCollapsed] = useState(sidebarCollapsed);
   const single = destinations.length <= 1;
   const side =
@@ -197,6 +209,7 @@ export function AppShell({
         value={{
           sidebarCollapsed: mac && collapsed,
           toggleSidebar: mac ? () => setCollapsed((c) => !c) : undefined,
+          device,
         }}
       >
         <div

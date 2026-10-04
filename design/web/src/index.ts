@@ -33,4 +33,4 @@ export * from './components/KanbanColumn/KanbanColumn';
 export * from './components/KanbanToolbar/KanbanToolbar';
 export * from './components/KanbanTaskPanel/KanbanTaskPanel';
 
-export type { Platform } from "./platform";
+export type { AppleDevice, Platform } from "./platform";

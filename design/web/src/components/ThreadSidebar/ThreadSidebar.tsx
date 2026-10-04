@@ -13,15 +13,19 @@ import {
   ShellChromeContext,
   cx,
   PlatformScope,
+  useAppleDevice,
   usePlatform,
+  type AppleDevice,
   type Platform,
 } from "../../platform";
 import "./ThreadSidebar.css";
 
 /**
- * Which device a component is laid out for. `phone` is touch (iPhone, iPad):
- * 44px bars and rows, iOS menus. `desktop` is pointer (Mac, and every
- * Material platform): compact rows, Mac menus. Only matters under `apple`.
+ * Which device a component is laid out for. `phone` is touch (iPhone, iPad
+ * in Split View): 44px bars and rows, iOS menus. `desktop` is pointer (Mac,
+ * and every Material platform): compact rows, Mac menus; a full-screen iPad
+ * also uses `desktop`, with `device="touch"` where a component offers it.
+ * Only matters under `apple`.
  */
 export type DeviceLayout = "desktop" | "phone";
 
@@ -438,18 +442,20 @@ export interface ThreadSidebarProps {
   onAccountAction?: (action: AccountAction) => void;
   /**
    * `apple` changes the sidebar to Apple's conventions, and what changes
-   * depends on `layout`. Touch (`phone`, iPhone and iPad): thread rows are at
-   * least 44px tall and the "…" button is a 44px target that opens the iOS
-   * pull-down with Rename, Pin, Archive and Delete (right-click opens it too).
-   * The app's swipe actions and long-press sheet are not recreated, so the
-   * button stays as the way to reach them. Mac (`desktop`): the sidebar starts at the top
-   * of the window, drops the brand row for a 52px strip that leaves 78px for
-   * the traffic lights, keeps the "…" button and uses the compact Mac menu.
-   * Inherits the provider's platform.
+   * depends on the device (see `layout` and `device`). Touch (iPhone and
+   * iPad): thread rows are at least 44px tall and the "…" button is a 44px
+   * target that opens the iOS pull-down with Rename, Pin, Archive and Delete
+   * (right-click opens it too). The app's swipe actions and long-press sheet
+   * are not recreated, so the button stays as the way to reach them. Mac: the
+   * sidebar starts at the top of the window, drops the brand row for a 52px
+   * strip that leaves 78px for the traffic lights, keeps the "…" button and
+   * uses the compact Mac menu. Inherits the provider's platform.
    */
   platform?: Platform;
-  /** Touch (`phone`) or pointer (`desktop`, default) rows and menus under `platform="apple"`. Has no effect on `material`. */
+  /** `phone` draws touch rows and menus under `platform="apple"`; `desktop` (default) draws the Mac sidebar unless `device` or the enclosing `AppShell` says touch. Has no effect on `material`. */
   layout?: DeviceLayout;
+  /** Under `apple`, `touch` (iPad sidebar beside the page) or `mac`; see `AppleDevice`. Inherited from the enclosing `AppShell` when omitted. */
+  device?: AppleDevice;
 }
 
 /**
@@ -478,12 +484,15 @@ export function ThreadSidebar({
   onAccountAction,
   platform,
   layout = "desktop",
+  device: deviceProp,
 }: ThreadSidebarProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
-  const touch = apple && layout === "phone";
-  const mac = apple && layout === "desktop";
-  const variant = menuVariant(apple, layout);
+  const device = useAppleDevice(layout, deviceProp);
+  const touch = apple && device === "touch";
+  const mac = apple && device === "mac";
+  const menuLayout: DeviceLayout = device === "touch" ? "phone" : "desktop";
+  const variant = menuVariant(apple, menuLayout);
   const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const [menuId, setMenuId] = useState<string | undefined>(defaultMenuThreadId);
   const [menuTop, setMenuTop] = useState<number | null>(null);
@@ -653,8 +662,7 @@ export function ThreadSidebar({
           authRequired={authRequired}
           defaultMenuOpen={defaultAccountMenuOpen}
           onAction={onAccountAction}
-          platform={apple ? "apple" : "material"}
-          layout={layout}
+          layout={menuLayout}
         />
       </nav>
     </PlatformScope>

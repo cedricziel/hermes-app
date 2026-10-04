@@ -8,7 +8,9 @@ import {
   ShellChromeContext,
   cx,
   PlatformScope,
+  useAppleDevice,
   usePlatform,
+  type AppleDevice,
   type Platform,
 } from "../../platform";
 import "./ChatHeader.css";
@@ -28,18 +30,24 @@ export interface ChatHeaderProps {
    * `desktop`: the bar above a wide chat (iPad landscape, Mac, Windows,
    * Linux). `phone`: the narrow bar with a menu button that opens the sidebar
    * drawer. Heights: material 76px desktop and 64px phone, apple 52px Mac
-   * toolbar and 44px phone navigation bar.
+   * toolbar and 44px iPhone and iPad navigation bar.
    */
   layout?: "desktop" | "phone";
   /**
    * `material` (default): 15px title, bottom border (desktop); 16px left
-   * aligned title (phone). `apple` phone: a 44px navigation bar, the 17px
-   * semibold title centred, a hairline under it. `apple` desktop: the 52px
-   * unified Mac toolbar, no rule underneath; inside an `AppShell` whose
-   * sidebar is collapsed it leaves 78px for the traffic lights and shows the
-   * sidebar toggle. Inherits the provider's platform.
+   * aligned title (phone). `apple` on touch (iPhone, iPad): a 44px navigation
+   * bar, the 17px semibold title centred, a hairline under it. `apple` on a
+   * Mac: the 52px unified toolbar, no rule underneath; inside an `AppShell`
+   * whose sidebar is collapsed it leaves 78px for the traffic lights and
+   * shows the sidebar toggle. Inherits the provider's platform.
    */
   platform?: Platform;
+  /**
+   * Under `apple`, `mac` or `touch`; see `AppleDevice`. A `phone` layout is
+   * touch; a `desktop` one follows the enclosing `AppShell`, else `mac`. Pass
+   * `touch` for a full-screen iPad outside an `AppShell`.
+   */
+  device?: AppleDevice;
   /** Open the "…" menu initially, for previews. */
   defaultMenuOpen?: boolean;
   /** The phone menu button was pressed (opens the thread drawer). */
@@ -61,6 +69,7 @@ export function ChatHeader({
   pinned = false,
   layout = "desktop",
   platform,
+  device: deviceProp,
   defaultMenuOpen = false,
   onOpenMenu,
   onShowConnection,
@@ -69,8 +78,9 @@ export function ChatHeader({
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
   const { sidebarCollapsed, toggleSidebar } = useContext(ShellChromeContext);
+  const device = useAppleDevice(layout, deviceProp);
   const hasMenu = title != null && remote;
-  const mac = apple && layout === "desktop";
+  const mac = apple && device === "mac";
   const showToggle = mac && sidebarCollapsed;
   return (
     <PlatformScope platform={resolvedPlatform}>
@@ -78,7 +88,7 @@ export function ChatHeader({
         className={cx(
           "h-chat-header",
           `h-chat-header--${layout}`,
-          apple && "h-chat-header--apple",
+          apple && (mac ? "h-chat-header--mac" : "h-chat-header--ios"),
           showToggle && "h-chat-header--collapsed",
         )}
       >
@@ -106,8 +116,7 @@ export function ChatHeader({
             includeCopyTranscript
             defaultOpen={defaultMenuOpen}
             onAction={onThreadAction}
-            platform={apple ? "apple" : "material"}
-            layout={layout}
+            layout={mac ? "desktop" : "phone"}
           />
         ) : null}
         <span className="h-chat-header__info">
