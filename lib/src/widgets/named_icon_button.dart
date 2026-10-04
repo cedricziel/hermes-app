@@ -23,6 +23,7 @@ class NamedIconButton extends StatelessWidget {
     this.visualDensity,
     this.padding,
     this.constraints,
+    this.isSelected,
   }) : assert(!(filled && outlined), 'A button is filled or outlined.');
 
   final String label;
@@ -39,6 +40,9 @@ class NamedIconButton extends StatelessWidget {
   final VisualDensity? visualDensity;
   final EdgeInsetsGeometry? padding;
   final BoxConstraints? constraints;
+
+  /// Whether a toggle is on; null for a plain button.
+  final bool? isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,7 @@ class NamedIconButton extends StatelessWidget {
         visualDensity: visualDensity,
         padding: padding,
         constraints: constraints,
+        isSelected: isSelected,
         onPressed: onPressed,
       ),
     );

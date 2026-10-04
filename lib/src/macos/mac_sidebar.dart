@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
-import '../widgets/named_icon_button.dart';
+import 'mac_toolbar.dart';
 import 'mac_window.dart';
 
 const double kMacSidebarMinWidth = 220;
@@ -58,8 +58,11 @@ class MacSidebarController extends ChangeNotifier {
 /// Owns the [MacSidebarController] for a Mac window and binds Control-Command-S,
 /// the system's shortcut for showing and hiding a sidebar.
 class MacSidebarScope extends StatefulWidget {
-  const MacSidebarScope({super.key, required this.child});
+  const MacSidebarScope({super.key, this.controller, required this.child});
 
+  /// A controller the caller owns, for a catalog or a test; by default the
+  /// scope makes and disposes its own.
+  final MacSidebarController? controller;
   final Widget child;
 
   /// The controller above [context], or null where the window has no
@@ -74,19 +77,19 @@ class MacSidebarScope extends StatefulWidget {
 }
 
 class _MacSidebarScopeState extends State<MacSidebarScope> {
-  final _controller = MacSidebarController();
+  late final _controller = widget.controller ?? MacSidebarController();
 
   @override
   void initState() {
     super.initState();
-    _controller.load();
+    if (widget.controller == null) _controller.load();
     HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onKey);
-    _controller.dispose();
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
@@ -159,10 +162,10 @@ class MacSidebarToggle extends StatelessWidget {
   final MacSidebarController controller;
 
   @override
-  Widget build(BuildContext context) => NamedIconButton(
+  Widget build(BuildContext context) => MacToolbarButton(
     key: const Key('mac-sidebar-toggle'),
     label: controller.collapsed ? 'Show sidebar' : 'Hide sidebar',
-    tooltip: controller.collapsed ? 'Show sidebar (⌃⌘S)' : 'Hide sidebar (⌃⌘S)',
+    shortcut: '⌃⌘S',
     icon: AppIcons.sidebar,
     onPressed: controller.toggle,
   );
