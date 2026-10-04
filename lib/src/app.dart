@@ -4,6 +4,7 @@ import 'package:upgrader/upgrader.dart';
 
 import 'app_lock/app_lock_gate.dart';
 import 'auth/auth_controller.dart';
+import 'macos/mac_menu_bar.dart';
 import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
@@ -11,7 +12,7 @@ import 'settings/theme_controller.dart';
 import 'shell/app_shell.dart';
 import 'theme/hermes_theme.dart';
 
-class HermesApp extends StatelessWidget {
+class HermesApp extends StatefulWidget {
   /// Prompts to update when [updateChecker] finds a newer release. Left off in
   /// tests, so they never reach out to GitHub.
   const HermesApp({
@@ -29,16 +30,26 @@ class HermesApp extends StatelessWidget {
   final ThemeData? darkTheme;
 
   @override
+  State<HermesApp> createState() => _HermesAppState();
+}
+
+class _HermesAppState extends State<HermesApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
-      theme: lightTheme ?? buildHermesLightTheme(),
-      darkTheme: darkTheme ?? buildHermesDarkTheme(),
+      theme: widget.lightTheme ?? buildHermesLightTheme(),
+      darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) =>
-          MacWindowChrome(child: AppLockGate(child: child!)),
-      home: _RootRouter(updateChecker: updateChecker),
+      builder: (context, child) => MacMenuBar(
+        navigatorKey: _navigatorKey,
+        child: MacWindowChrome(child: AppLockGate(child: child!)),
+      ),
+      home: _RootRouter(updateChecker: widget.updateChecker),
     );
   }
 }

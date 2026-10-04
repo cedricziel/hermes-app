@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:macos_window_utils/widgets/transparent_macos_sidebar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +6,7 @@ import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
+import 'mac_commands.dart';
 import 'mac_toolbar.dart';
 import 'mac_window.dart';
 
@@ -137,8 +137,8 @@ class MacSidebarSections extends ChangeNotifier {
   }
 }
 
-/// Owns the [MacSidebarController] for a Mac window and binds Control-Command-S,
-/// the system's shortcut for showing and hiding a sidebar.
+/// Owns the [MacSidebarController] for a Mac window and offers the View
+/// menu's Show/Hide Sidebar command (Control-Command-S).
 class MacSidebarScope extends StatefulWidget {
   const MacSidebarScope({super.key, this.controller, required this.child});
 
@@ -175,31 +175,33 @@ class _MacSidebarScopeState extends State<MacSidebarScope> {
   void initState() {
     super.initState();
     if (widget.controller == null) _controller.load();
-    HardwareKeyboard.instance.addHandler(_onKey);
   }
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
-  bool _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
-    final keyboard = HardwareKeyboard.instance;
-    if (event.logicalKey != LogicalKeyboardKey.keyS ||
-        !keyboard.isControlPressed ||
-        !keyboard.isMetaPressed) {
-      return false;
-    }
-    _controller.toggle(compact: isMacCompact(context));
-    return true;
-  }
-
   @override
-  Widget build(BuildContext context) =>
-      _ControllerScope(notifier: _controller, child: widget.child);
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _controller,
+    builder: (context, child) {
+      final compact = isMacCompact(context);
+      return MacCommandScope(
+        commands: {
+          MacCommand.toggleSidebar: MacCommandHandler(
+            () => _controller.toggle(compact: compact),
+            title: _controller.hidden(compact: compact)
+                ? 'Show Sidebar'
+                : 'Hide Sidebar',
+          ),
+        },
+        child: child!,
+      );
+    },
+    child: _ControllerScope(notifier: _controller, child: widget.child),
+  );
 }
 
 class _ControllerScope extends InheritedNotifier<MacSidebarController> {

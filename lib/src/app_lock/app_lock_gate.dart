@@ -19,7 +19,11 @@ class AppLockGate extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Offstage(offstage: covered, child: child),
+        // Without tickers the covered app also offers no menu bar commands.
+        Offstage(
+          offstage: covered,
+          child: TickerMode(enabled: !covered, child: child),
+        ),
         if (covered) _LockScreen(onUnlock: lock.loaded ? lock.unlock : null),
       ],
     );
