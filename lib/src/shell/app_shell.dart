@@ -78,6 +78,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// the first Mac build.
   ChatProfiles? _chatProfiles;
   bool _chatProfilesLoaded = false;
+
+  /// The sidebar of a Mac window, which a pick in it closes when it lies
+  /// over the page.
+  final _sidebar = MacSidebarController();
+  bool _sidebarLoaded = false;
   bool _kanban = false;
   bool _schedules = false;
   int _detection = 0;
@@ -151,6 +156,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _watcher?.dispose();
     _chatProfiles?.dispose();
+    _sidebar.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
     _gateway?.close();
@@ -213,6 +219,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _select(_Destination destination, {bool cancelHandoff = true}) {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
+    _sidebar.closeOverlay();
     if (_current == destination) return;
     setState(() {
       _current = destination;
@@ -373,9 +380,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final built = _build(context);
-    return platformChromeOf(context) == PlatformChrome.macos
-        ? MacSidebarScope(child: built)
-        : built;
+    if (platformChromeOf(context) != PlatformChrome.macos) return built;
+    if (!_sidebarLoaded) {
+      _sidebarLoaded = true;
+      _sidebar.load();
+    }
+    return MacSidebarScope(controller: _sidebar, child: built);
   }
 
   Widget _build(BuildContext context) {
