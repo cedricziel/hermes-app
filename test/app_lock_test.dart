@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -193,6 +194,37 @@ void main() {
 
       expect(find.text('chat'), findsNothing);
       expect(find.text('Unlock'), findsNothing);
+    });
+
+    testWidgets('the covered app offers no menu bar commands', (tester) async {
+      await tester.runAsync(enabledLock);
+      authenticator.succeeds = false;
+      final lock = (await tester.runAsync(relaunched))!;
+      final registry = MacCommandRegistry();
+      addTearDown(registry.dispose);
+
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: lock,
+          child: MaterialApp(
+            theme: buildHermesLightTheme(),
+            builder: (context, child) => MacCommandScope.root(
+              registry: registry,
+              child: AppLockGate(child: child!),
+            ),
+            home: MacCommandScope(
+              commands: {MacCommand.copyTranscript: MacCommandHandler(() {})},
+              child: const Text('chat'),
+            ),
+          ),
+        ),
+      );
+      expect(registry.handlerFor(MacCommand.copyTranscript), isNull);
+
+      authenticator.succeeds = true;
+      await tester.tap(find.text('Unlock'));
+      await tester.pumpAndSettle();
+      expect(registry.handlerFor(MacCommand.copyTranscript), isNotNull);
     });
 
     testWidgets('shows the app when the lock is off', (tester) async {
