@@ -116,4 +116,91 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Rename'), findsOneWidget);
   });
+
+  group('Mac menu rows', () {
+    Future<List<String>> pumpMac(
+      WidgetTester tester, {
+      AdaptiveMenuController? controller,
+      TargetPlatform platform = TargetPlatform.macOS,
+    }) async {
+      final picked = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(platform: platform),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: AdaptivePopupMenuButton<String>(
+                controller: controller,
+                onSelected: picked.add,
+                itemBuilder: (_) => const [
+                  AdaptiveMenuItem(
+                    value: 'pin',
+                    shortcut: '⇧⌘P',
+                    child: Text('Pin'),
+                  ),
+                  PopupMenuDivider(),
+                  AdaptiveMenuItem(
+                    value: 'delete',
+                    shortcut: '⌘⌫',
+                    destructive: true,
+                    child: Text('Delete…'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      return picked;
+    }
+
+    testWidgets('are 22pt tall with the shortcut on the right', (tester) async {
+      await pumpMac(tester);
+      await tester.tap(find.byType(IconButton));
+      await tester.pumpAndSettle();
+
+      expect(AdaptivePopupMenuButton.macRowHeight, 22);
+      final pin = find.widgetWithText(PopupMenuItem<String>, 'Pin');
+      expect(tester.getSize(pin).height, 22);
+      expect(
+        tester.getTopRight(find.text('⇧⌘P')).dx,
+        greaterThan(tester.getTopRight(find.text('Pin')).dx),
+      );
+    });
+
+    testWidgets('paint a destructive item in the error colour', (tester) async {
+      await pumpMac(tester);
+      await tester.tap(find.byType(IconButton));
+      await tester.pumpAndSettle();
+
+      final error = Theme.of(tester.element(find.text('Pin')))
+          .colorScheme
+          .error;
+      final style = DefaultTextStyle.of(tester.element(find.text('Delete…')));
+      expect(style.style.color, error);
+    });
+
+    testWidgets('open at a point puts the menu there', (tester) async {
+      final controller = AdaptiveMenuController();
+      final picked = await pumpMac(tester, controller: controller);
+      controller.open(at: const Offset(300, 200));
+      await tester.pumpAndSettle();
+
+      final pin = tester.getTopLeft(find.text('Pin'));
+      expect(pin.dx, greaterThan(300));
+      expect(pin.dy, greaterThan(200));
+      await tester.tap(find.text('Pin'));
+      await tester.pumpAndSettle();
+      expect(picked, ['pin']);
+    });
+
+    testWidgets('Material leaves the Mac shortcut out', (tester) async {
+      await pumpMac(tester, platform: TargetPlatform.android);
+      await tester.tap(find.byType(IconButton));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete…'), findsOneWidget);
+      expect(find.text('⌘⌫'), findsNothing);
+    });
+  });
 }
