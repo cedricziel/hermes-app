@@ -48,7 +48,7 @@ class MacToolbar extends StatelessWidget {
           children: [
             if (menu != null) ...[
               const SizedBox(width: kMacTrafficLightsWidth),
-              if (sidebar != null && sidebar.collapsed)
+              if (sidebar != null)
                 MacSidebarToggle(controller: sidebar)
               else
                 MacToolbarButton(
