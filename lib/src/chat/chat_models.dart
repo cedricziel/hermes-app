@@ -105,6 +105,105 @@ class ToolCall {
       copyWith(status: status, result: result);
 }
 
+/// Where a delegated subagent stands, mirroring the gateway's
+/// `SubagentStatus`: [failed] covers `failed`, `error` and `timeout`; the
+/// rest are terminal except [running] (and its spawn-accepted start).
+enum SubagentStatus { running, completed, failed, interrupted }
+
+/// One delegated subagent of a reply, as the gateway's `subagent.*` events
+/// relay it. [parentId], [depth] and [index] rebuild the spawn tree: an
+/// unknown or missing [parentId] makes a top-level spawn of the reply.
+class Subagent {
+  const Subagent({
+    required this.id,
+    required this.goal,
+    this.parentId,
+    this.depth = 0,
+    this.index = 0,
+    this.count = 1,
+    this.status = SubagentStatus.running,
+    this.toolCount,
+    this.lastTool,
+    this.lastToolPreview,
+    this.summary,
+    this.duration,
+    this.model,
+    this.childSessionId,
+    this.startedAt,
+  });
+
+  /// The gateway's id for the child; stable across its events.
+  final String id;
+
+  /// What the child was asked to do — its card's headline.
+  final String goal;
+
+  /// The parent's id, when this child was itself delegated by a subagent.
+  final String? parentId;
+
+  /// Nesting depth (0 = a spawn of the reply) and where in the parent's
+  /// batch this child sits, for a stable render order.
+  final int depth;
+  final int index;
+
+  /// How many children [parentId]'s batch asked for in total.
+  final int count;
+
+  final SubagentStatus status;
+
+  final int? toolCount;
+
+  /// The last tool the child started, and the preview of what it is (or was)
+  /// working on — its card's live activity line.
+  final String? lastTool;
+  final String? lastToolPreview;
+
+  /// What the child delivered, once it finished.
+  final String? summary;
+
+  final Duration? duration;
+
+  final String? model;
+
+  final String? childSessionId;
+
+  /// When the child started running, for its elapsed time while it runs.
+  final DateTime? startedAt;
+
+  Subagent copyWith({
+    String? parentId,
+    String? goal,
+    int? depth,
+    int? index,
+    int? count,
+    SubagentStatus? status,
+    int? toolCount,
+    String? lastTool,
+    String? lastToolPreview,
+    String? summary,
+    Duration? duration,
+    String? model,
+    String? childSessionId,
+    DateTime? startedAt,
+  }) => Subagent(
+    id: id,
+    goal: goal?.isEmpty != true ? (goal ?? this.goal) : this.goal,
+    parentId: parentId ?? this.parentId,
+    depth: depth ?? this.depth,
+    index: index ?? this.index,
+    count: count == null || count == 0 ? this.count : count,
+    status: status ?? this.status,
+    toolCount: toolCount ?? this.toolCount,
+    lastTool: lastTool ?? this.lastTool,
+    lastToolPreview: lastToolPreview ?? this.lastToolPreview,
+    summary: summary ?? this.summary,
+    duration: duration ?? this.duration,
+    model: model ?? this.model,
+    childSessionId: childSessionId ?? this.childSessionId,
+    startedAt: startedAt ?? this.startedAt,
+  );
+}
+
 enum InputRequestStatus { pending, answered, expired }
 
 /// Something the agent asked the user mid-turn and is waiting on.
@@ -325,6 +424,7 @@ class ChatMessage {
     this.attachments = const [],
     this.reasoning = '',
     this.sealedProse = const [],
+    this.subagents = const [],
     this.error,
   });
 
@@ -346,6 +446,11 @@ class ChatMessage {
   bool stopped = false;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
+
+  /// The delegated subagents of this reply, in the order they spawned. The
+  /// gateway relays their lifecycle as `subagent.*` events on the reply's
+  /// session; read-from-history replies do not carry them yet.
+  List<Subagent> subagents;
 
   /// Where each of [inputRequests] arrived, by request id, so its card
   /// renders after the call that asked and before whatever followed. A

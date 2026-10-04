@@ -14,6 +14,7 @@ import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
@@ -139,6 +140,28 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             calls: waitingToolRun,
             approvals: const {1: pendingApproval},
             onAnswerApproval: (_, _) async {},
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SubagentGroupCard',
+      useCases: [
+        _tool('Running', SubagentGroupCard(subagents: [timedSubagent()])),
+        _tool(
+          'Finished',
+          const SubagentGroupCard(subagents: [completedSubagent]),
+        ),
+        _tool('Failed', const SubagentGroupCard(subagents: [failedSubagent])),
+        _tool(
+          'Batch, collapsed',
+          const SubagentGroupCard(subagents: subagentBatch),
+        ),
+        _tool(
+          'Batch, open',
+          const SubagentGroupCard(
+            subagents: subagentBatch,
+            initiallyOpen: true,
           ),
         ),
       ],

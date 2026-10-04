@@ -696,8 +696,68 @@ class HermesGatewayTransport implements ChatTransport {
       'secret.expire' ||
       'sudo.expire' => InputRequestExpired(text('request_id')),
       'request.cancel' => InputRequestExpired(text('id')),
+      'subagent.spawn_requested' ||
+      'subagent.start' ||
+      'subagent.progress' ||
+      'subagent.tool' ||
+      'subagent.thinking' ||
+      'subagent.complete' => _subagentEvent(event.type, payload),
       _ => null,
     };
+  }
+
+  /// One `subagent.*` frame as a [SubagentUpdated], or null when the frame
+  /// names no child. Identity fields arrived later in the protocol's life and
+  /// remain optional, so a frame without an id cannot be shown.
+  ChatEvent? _subagentEvent(String type, Map<String, Object?> payload) {
+    String? field(String camel, String snake) {
+      final value = payload[camel] ?? payload[snake];
+      return value == null ? null : '$value';
+    }
+
+    final id = field('subagentId', 'subagent_id');
+    final goal = _plainText(payload['goal']);
+    if (id == null || id.isEmpty || goal.isEmpty) return null;
+    final parentId = field('parentId', 'parent_id');
+    final running = switch (type) {
+      'subagent.complete' => false,
+      _ => true,
+    };
+    return SubagentUpdated(
+      Subagent(
+        id: id,
+        goal: goal,
+        parentId: parentId == null || parentId.isEmpty ? null : parentId,
+        depth: int.tryParse(field('depth', 'depth') ?? '') ?? 0,
+        index: int.tryParse(field('taskIndex', 'task_index') ?? '') ?? 0,
+        count: int.tryParse(field('taskCount', 'task_count') ?? '') ?? 1,
+        status: switch (type) {
+          'subagent.complete' => switch (field('status', 'status')) {
+            'interrupted' => SubagentStatus.interrupted,
+            'queued' || 'running' || null => SubagentStatus.running,
+            'completed' => SubagentStatus.completed,
+            _ => SubagentStatus.failed,
+          },
+          _ => SubagentStatus.running,
+        },
+        toolCount: int.tryParse(field('toolCount', 'tool_count') ?? ''),
+        lastTool: running ? field('toolName', 'tool_name') : null,
+        lastToolPreview: running
+            ? _plainText(
+                payload['toolPreview'] ??
+                    payload['tool_preview'] ??
+                    payload['preview'],
+              ).trim()
+            : null,
+        summary: _plainText(payload['summary']),
+        duration: _seconds(
+          payload['durationSeconds'] ?? payload['duration_seconds'],
+        ),
+        model: field('model', 'model'),
+        childSessionId: field('childSessionId', 'child_session_id'),
+        startedAt: type == 'subagent.start' ? DateTime.now() : null,
+      ),
+    );
   }
 
   /// Hermes may send text as content parts rather than a string.

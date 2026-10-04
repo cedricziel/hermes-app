@@ -271,6 +271,104 @@ void main() {
       await shots.capture(tester, 'reply-completed');
     });
 
+    testWidgets('$name: delegated subagents run beside the reply', (
+      tester,
+    ) async {
+      final shots = ScreenshotRecorder('chat-$name-subagents');
+      await pumpChat(tester, shots, size: size);
+      final reply = await startReply(tester, 's1', 'Offload the batch.');
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-1',
+            goal: 'Review the PR #412 diff',
+            status: SubagentStatus.running,
+            lastTool: 'terminal',
+            lastToolPreview: 'git diff main..pr-412',
+            startedAt: null,
+          ),
+        ),
+        settle: false,
+      );
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-2',
+            goal: 'Update the CHANGELOG and docstrings',
+            status: SubagentStatus.running,
+            startedAt: null,
+          ),
+        ),
+      );
+      await tester.pump();
+      await shots.capture(tester, 'subagents-running');
+
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-2',
+            goal: '',
+            status: SubagentStatus.completed,
+            summary: 'CHANGELOG entry added; three docstrings rewritten.',
+            duration: Duration(seconds: 127),
+            toolCount: 5,
+          ),
+        ),
+      );
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-3',
+            goal: 'Verify the docstring examples compile',
+            parentId: 'agent-2',
+            depth: 1,
+            status: SubagentStatus.running,
+          ),
+        ),
+      );
+      await tester.pump();
+      await shots.capture(tester, 'subagents-nested');
+
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-1',
+            goal: '',
+            status: SubagentStatus.completed,
+            summary: 'Two comments, both about the retry guard naming.',
+            duration: Duration(seconds: 118),
+            toolCount: 9,
+          ),
+        ),
+      );
+      await emit(
+        tester,
+        reply,
+        const SubagentUpdated(
+          Subagent(
+            id: 'agent-3',
+            goal: '',
+            status: SubagentStatus.failed,
+            summary: 'dart pad is not installed on the runner.',
+            duration: Duration(seconds: 41),
+          ),
+        ),
+      );
+      await emit(tester, reply, const ReplyCompleted('Batch wrapped up.'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'subagents-done');
+    });
+
     testWidgets('$name: a reply that fails', (tester) async {
       final shots = ScreenshotRecorder('chat-$name-failure');
       await pumpChat(tester, shots, size: size);

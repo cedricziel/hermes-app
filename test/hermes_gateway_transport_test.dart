@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show ApprovalRequest, AttachmentKind, UnsupportedKind;
+    show ApprovalRequest, AttachmentKind, SubagentStatus, UnsupportedKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -559,6 +559,58 @@ void main() {
     });
     expect(finished.diff, '+x');
     expect(finished.duration, const Duration(milliseconds: 1250));
+  });
+
+  test('subagent frames map to one upsert per child', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('subagent.start', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'task_count': 2,
+        'model': 'glm-5.3',
+      });
+      g.event('subagent.tool', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'tool_name': 'terminal',
+        'tool_preview': 'pytest tests/ingest -x',
+      });
+      g.event('subagent.complete', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'status': 'completed',
+        'summary': '44 passed',
+        'duration_seconds': 123,
+        'tool_count': 6,
+      });
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    final frames = events.whereType<SubagentUpdated>().toList();
+    expect(frames, hasLength(3));
+    expect(frames[0].subagent.id, 'a1');
+    expect(frames[0].subagent.status, SubagentStatus.running);
+    expect(frames[0].subagent.model, 'glm-5.3');
+    expect(frames[1].subagent.lastTool, 'terminal');
+    expect(frames[1].subagent.lastToolPreview, 'pytest tests/ingest -x');
+    expect(frames[2].subagent.status, SubagentStatus.completed);
+    expect(frames[2].subagent.summary, '44 passed');
+    expect(frames[2].subagent.duration, const Duration(seconds: 123));
+  });
+
+  test('a subagent frame without an id shows nothing', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('subagent.start', sid, {'goal': 'no id'});
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    expect(events.whereType<SubagentUpdated>(), isEmpty);
   });
 
   test('a tool the model is still writing maps to a preparing event', () async {

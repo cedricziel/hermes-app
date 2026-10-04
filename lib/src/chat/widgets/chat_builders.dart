@@ -15,6 +15,7 @@ import '../chat_models.dart'
         ApprovalRequest,
         ChatAttachment,
         ClarifyRequest,
+        Subagent,
         ToolCall,
         UnsupportedKind,
         UnsupportedRequest;
@@ -27,6 +28,7 @@ import '../starter_prompts.dart';
 import 'reasoning_block.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'subagent_card.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
@@ -234,6 +236,10 @@ Widget _buildCustom(
             metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
             const {},
         onAnswerApproval: onAnswerApproval,
+      );
+    case kKindSubagents:
+      return SubagentGroupCard(
+        subagents: metadata![kMetaSubagents] as List<Subagent>,
       );
     case kKindReasoning:
       return ReasoningBlock(
