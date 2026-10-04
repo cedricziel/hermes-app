@@ -30,7 +30,7 @@ void main() {
     }
     fired = watchdog.onFollowingStep();
     expect(fired, isTrue);
-    // The eighth churn step after recovery starts a new count, not a fire.
+    // After the fire the count restarts: the next churn step is not a fire.
     expect(watchdog.onFollowingStep(), isFalse);
   });
 
@@ -42,21 +42,22 @@ void main() {
     );
 
     watchdog.onItemBuilt();
-    for (var i = 0; i < 8; i++) {
-      watchdog.onFollowingStep();
+    for (var i = 0; i < 7; i++) {
+      expect(watchdog.onFollowingStep(), isFalse);
     }
     expect(watchdog.onFollowingStep(), isTrue, reason: 'first incident fires');
 
     // Inside the cooldown a second blank stretch stays silent.
     now = now.add(const Duration(seconds: 5));
-    for (var i = 0; i < 9; i++) {
+    for (var i = 0; i < 7; i++) {
       expect(watchdog.onFollowingStep(), isFalse);
     }
+    expect(watchdog.onFollowingStep(), isFalse, reason: 'still in cooldown');
 
     // Past the cooldown it fires again.
     now = now.add(const Duration(seconds: 6));
-    for (var i = 0; i < 8; i++) {
-      watchdog.onFollowingStep();
+    for (var i = 0; i < 7; i++) {
+      expect(watchdog.onFollowingStep(), isFalse);
     }
     expect(watchdog.onFollowingStep(), isTrue);
   });
