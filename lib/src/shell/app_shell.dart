@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
@@ -176,6 +177,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _schedulesController = SchedulesController(
       repository: cron,
       profiles: _profiles,
+      prefs: SharedPreferencesAsync(),
     );
   }
 

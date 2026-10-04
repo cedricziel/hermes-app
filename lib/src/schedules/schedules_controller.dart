@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../profiles/hermes_profiles_repository.dart';
 import 'hermes_cron_repository.dart';
 import 'schedule_models.dart';
+
+const _allProfilesKey = 'hermes.schedules_all_profiles';
 
 /// Owns the job list behind the Schedules destination: which profile it
 /// shows, the filter, refreshing, and the changes a user can make.
@@ -16,6 +19,7 @@ class SchedulesController extends ChangeNotifier {
   SchedulesController({
     required this.repository,
     this.profiles,
+    this.prefs,
     this.refreshEvery = const Duration(minutes: 1),
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
@@ -24,6 +28,11 @@ class SchedulesController extends ChangeNotifier {
   final HermesProfilesRepository? profiles;
   final Duration refreshEvery;
   final DateTime Function() _now;
+
+  /// Where the scope the user picked is kept across launches; null keeps it
+  /// for this run only.
+  final SharedPreferencesAsync? prefs;
+  Future<void>? _restored;
 
   List<CronJob> _jobs = const [];
   bool _loading = false;
@@ -69,11 +78,28 @@ class SchedulesController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The user's pick between the active profile and every profile. It is
+  /// kept for the next launch.
   set allProfiles(bool value) {
-    if (_allProfiles == value) return;
-    _allProfiles = value;
+    _restored ??= Future.value();
+    prefs?.setBool(_allProfilesKey, value);
+    _setScope(value);
+  }
+
+  void _setScope(bool all) {
+    if (_allProfiles == all) return;
+    _allProfiles = all;
     notifyListeners();
     refresh();
+  }
+
+  Future<void> _restore() async {
+    try {
+      final all = await prefs?.getBool(_allProfilesKey);
+      if (all != null) _allProfiles = all;
+    } on Object {
+      // An unreadable setting leaves the default scope.
+    }
   }
 
   void select(CronJob? job) {
@@ -110,6 +136,7 @@ class SchedulesController extends ChangeNotifier {
   /// the server has no profiles to tell apart. A failure to read the active
   /// profile throws, so a list is never shown unscoped by accident.
   Future<String?> _scope() async {
+    await (_restored ??= _restore());
     if (_allProfiles) return 'all';
     if (_activeKnown) return _activeProfile;
     try {
@@ -294,7 +321,7 @@ class SchedulesController extends ChangeNotifier {
         job.profile != null &&
         job.profile != _activeProfile;
     if (elsewhere) {
-      allProfiles = true;
+      _setScope(true);
     } else {
       refresh();
     }
