@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/mac_search_results.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -84,6 +85,9 @@ void main() {
     }
   });
 
+  late MacCommandRegistry commands;
+  setUp(() => commands = MacCommandRegistry());
+
   Future<void> pump(WidgetTester tester, {double width = 1200}) async {
     tester.view
       ..physicalSize = Size(width, 800)
@@ -102,6 +106,8 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+          builder: (context, child) =>
+              MacCommandScope.root(registry: commands, child: child!),
           home: MacSidebarScope(
             child: ChatScreen(
               repository: HermesChatRepository(api),
@@ -114,10 +120,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Command-F, which the Mac menu bar's Find… item turns into this command.
   Future<void> commandF(WidgetTester tester) async {
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    expect(commands.invoke(MacCommand.find), isTrue);
     await tester.pumpAndSettle();
   }
 

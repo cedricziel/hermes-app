@@ -8,6 +8,7 @@ import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/starter_context_loader.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
@@ -29,7 +30,8 @@ final composerField = find.descendant(
 );
 
 /// Mounts the chat screen at desktop width. Without a [server] the screen
-/// falls back to its mock data.
+/// falls back to its mock data. With [commands], the screen offers its menu
+/// bar commands there.
 Future<void> pumpChatScreen(
   WidgetTester tester, {
   FakeHermesServer? server,
@@ -42,6 +44,7 @@ Future<void> pumpChatScreen(
   AttachmentSource? attachmentSource,
   StarterContextLoader? starterContext,
   TargetPlatform? platform,
+  MacCommandRegistry? commands,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -60,6 +63,10 @@ Future<void> pumpChatScreen(
       ],
       child: MaterialApp(
         theme: buildHermesLightTheme().copyWith(platform: platform),
+        builder: commands == null
+            ? null
+            : (context, child) =>
+                  MacCommandScope.root(registry: commands, child: child!),
         home: ChatScreen(
           repository: server == null
               ? null

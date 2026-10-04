@@ -5,7 +5,6 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart'
     show InMemoryChatController, User;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
@@ -31,6 +30,7 @@ import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
@@ -140,9 +140,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
 
-  /// Whether this is the page in front and the window is a Mac one, as of
-  /// the last build; Command-F only searches then.
-  bool _inFront = true;
+  /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
 
   /// The reply of the open thread that can be asked again: its last message,
@@ -160,7 +158,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    HardwareKeyboard.instance.addHandler(_onKey);
     widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
@@ -284,8 +281,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    HardwareKeyboard.instance.removeHandler(_onKey);
-    _searchFocus.dispose();
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();
@@ -295,6 +290,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _ownedTransport?.close();
     _composerController.dispose();
     _latestReplyId.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -326,17 +322,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _closeDrawerIfNarrow();
   }
 
-  bool _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent || !_inFront || !_mac) return false;
-    final keyboard = HardwareKeyboard.instance;
-    if (event.logicalKey != LogicalKeyboardKey.keyF ||
-        !keyboard.isMetaPressed ||
-        keyboard.isControlPressed ||
-        keyboard.isAltPressed) {
-      return false;
-    }
-    _beginSearch();
-    return true;
+  /// What the menu bar's File and Chat menus do here.
+  Map<MacCommand, MacCommandHandler> _menuCommands() {
+    final thread = _chat.selectedThread;
+    final housekeeping = _chat.housekeeping;
+    final managed = thread != null && thread.remote && housekeeping != null;
+    VoidCallback? on(ThreadAction action, {required bool when}) => when
+        ? () => runThreadAction(
+            context,
+            action,
+            thread: thread!,
+            housekeeping: housekeeping,
+          )
+        : null;
+    return {
+      MacCommand.newChat: MacCommandHandler(_newThread),
+      MacCommand.find: MacCommandHandler(
+        _chat.search == null ? null : _beginSearch,
+      ),
+      MacCommand.pinThread: MacCommandHandler(
+        on(ThreadAction.pin, when: managed),
+        title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
+      ),
+      MacCommand.renameThread: MacCommandHandler(
+        on(ThreadAction.rename, when: managed),
+      ),
+      MacCommand.copyTranscript: MacCommandHandler(
+        on(
+          ThreadAction.copyTranscript,
+          when: thread != null && thread.messages.isNotEmpty,
+        ),
+      ),
+      MacCommand.archiveThread: MacCommandHandler(
+        on(ThreadAction.archive, when: managed),
+      ),
+      MacCommand.deleteThread: MacCommandHandler(
+        on(ThreadAction.delete, when: managed),
+      ),
+    };
   }
 
   void _copyTranscript(ChatThread thread) => runThreadAction(
@@ -517,7 +540,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      MacCommandScope(commands: _menuCommands(), child: _buildScreen(context));
+
+  Widget _buildScreen(BuildContext context) {
     final chat = _chat;
     // Without its own drawer, the chat keeps the shell's menu reachable on a
     // narrow layout, or the other destinations would be too.
@@ -549,7 +575,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         ),
       );
     }
-    _inFront = Visibility.of(context);
     _mac = platformChromeOf(context) == PlatformChrome.macos;
     final macSidebar = hasMacSidebar(context);
     return LayoutBuilder(
