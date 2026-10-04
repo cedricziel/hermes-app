@@ -47,16 +47,23 @@ void main() {
       tester,
       ShellNavigation(
         destinations: const [
-          (icon: AppIcons.chat, selected: AppIcons.chatFilled, label: 'Chat'),
+          (
+            icon: AppIcons.chat,
+            selected: AppIcons.chatFilled,
+            label: 'Chat',
+            caption: null,
+          ),
           (
             icon: AppIcons.kanban,
             selected: AppIcons.kanbanFilled,
             label: 'Kanban',
+            caption: null,
           ),
           (
             icon: AppIcons.scheduleOutlined,
             selected: AppIcons.schedule,
             label: 'Schedules',
+            caption: null,
           ),
         ],
         selectedIndex: 1,

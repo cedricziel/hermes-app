@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../chat/widgets/thread_sidebar.dart';
 import '../macos/mac_sidebar.dart';
+import '../macos/mac_source_list.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
+import '../theme/platform_chrome.dart';
 
-/// One place the shell can show: the icon pair and the label of its entry.
+/// One place the shell can show: the icon pair and the label of its entry,
+/// and a caption a Mac sidebar shows after the label.
 typedef ShellDestination = ({
   AppIconSet icon,
   AppIconSet selected,
   String label,
+  String? caption,
 });
 
 /// The shell's destinations as sidebar rows: in the sidebar of a wide layout,
 /// and at the top of the drawer of a narrow one. Picking one closes the drawer
-/// it sits in.
+/// it sits in. On macOS they are source-list rows.
 class ShellNavigation extends StatelessWidget {
   const ShellNavigation({
     super.key,
@@ -29,20 +33,32 @@ class ShellNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
     return Column(
       children: [
         for (final (i, d) in destinations.indexed)
-          SidebarAction(
-            icon: i == selectedIndex ? d.selected : d.icon,
-            label: d.label,
-            selected: i == selectedIndex,
-            onTap: () {
-              Scaffold.maybeOf(context)?.closeDrawer();
-              onSelected(i);
-            },
-          ),
+          if (mac)
+            MacSourceListRow(
+              icon: d.icon,
+              label: d.label,
+              caption: d.caption,
+              selected: i == selectedIndex,
+              onTap: () => _select(context, i),
+            )
+          else
+            SidebarAction(
+              icon: i == selectedIndex ? d.selected : d.icon,
+              label: d.label,
+              selected: i == selectedIndex,
+              onTap: () => _select(context, i),
+            ),
       ],
     );
+  }
+
+  void _select(BuildContext context, int index) {
+    Scaffold.maybeOf(context)?.closeDrawer();
+    onSelected(index);
   }
 }
 

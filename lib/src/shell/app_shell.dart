@@ -217,16 +217,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       icon: AppIcons.chat,
       selected: AppIcons.chatFilled,
       label: 'Chat',
+      caption: null,
     ),
     _Destination.kanban: (
       icon: AppIcons.kanban,
       selected: AppIcons.kanbanFilled,
       label: 'Kanban',
+      // The board is shared by every profile.
+      caption: 'All profiles',
     ),
     _Destination.schedules: (
       icon: AppIcons.scheduleOutlined,
       selected: AppIcons.schedule,
       label: 'Schedules',
+      caption: null,
     ),
   };
 

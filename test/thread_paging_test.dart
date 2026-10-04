@@ -81,6 +81,22 @@ void main() {
     expect(find.byKey(const ValueKey('thread-pin')), findsNothing);
   });
 
+  testWidgets('the sectioned Mac list pages the same way', (tester) async {
+    await pumpChatScreen(
+      tester,
+      server: server,
+      platform: TargetPlatform.macOS,
+    );
+
+    await scrollToEnd(tester);
+
+    expect(sessionListRequests().map((r) => r.queryParameters['offset']), [
+      0,
+      50,
+    ]);
+    expect(find.text('Chat 58'), findsOneWidget);
+  });
+
   testWidgets('keeps the pinned thread on top without repeating it', (
     tester,
   ) async {

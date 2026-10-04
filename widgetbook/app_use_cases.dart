@@ -560,12 +560,23 @@ class _DestinationsState extends State<_Destinations> {
   @override
   Widget build(BuildContext context) => ShellNavigation(
     destinations: const [
-      (icon: AppIcons.chat, selected: AppIcons.chatFilled, label: 'Chat'),
-      (icon: AppIcons.kanban, selected: AppIcons.kanbanFilled, label: 'Kanban'),
+      (
+        icon: AppIcons.chat,
+        selected: AppIcons.chatFilled,
+        label: 'Chat',
+        caption: null,
+      ),
+      (
+        icon: AppIcons.kanban,
+        selected: AppIcons.kanbanFilled,
+        label: 'Kanban',
+        caption: 'All profiles',
+      ),
       (
         icon: AppIcons.scheduleOutlined,
         selected: AppIcons.schedule,
         label: 'Schedules',
+        caption: null,
       ),
     ],
     selectedIndex: _selected,
