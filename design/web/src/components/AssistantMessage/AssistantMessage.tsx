@@ -239,7 +239,7 @@ function Markdown({ source }: { source: string }) {
               <div key={i} className="h-assistant-message__code">
                 <div className="h-assistant-message__code-header">
                   <span className="h-assistant-message__code-lang">
-                    <Icon name="terminal" size={14} />
+                    <Icon name="terminal" apple={false} size={14} />
                     {block.lang || "Code"}
                   </span>
                   <button
@@ -248,7 +248,7 @@ function Markdown({ source }: { source: string }) {
                     aria-label="Copy code"
                     title="Copy code"
                   >
-                    <Icon name="content_copy" size={18} />
+                    <Icon name="content_copy" apple={false} size={18} />
                   </button>
                 </div>
                 <pre>

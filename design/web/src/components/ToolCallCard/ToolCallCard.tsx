@@ -337,6 +337,7 @@ export function ToolCallCard({
           {expandable ? (
             <Icon
               name="expand_more"
+              apple={false}
               size={24}
               className={[
                 "h-tool-call__chevron",

@@ -1,0 +1,7 @@
+/* CupertinoIcons, the SF Symbols-style glyphs Flutter shows on iOS and macOS
+   (cupertino_icons package, MIT, see CupertinoIcons.LICENSE). */
+@font-face {
+  font-family: "CupertinoIcons";
+  src: url("./CupertinoIcons.ttf") format("truetype");
+  font-display: block;
+}

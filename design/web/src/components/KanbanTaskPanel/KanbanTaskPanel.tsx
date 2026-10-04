@@ -713,7 +713,11 @@ function Expander({
         onClick={onToggle}
       >
         <span>{title}</span>
-        <Icon name={open ? "expand_less" : "expand_more"} size={24} />
+        <Icon
+          name={open ? "expand_less" : "expand_more"}
+          apple={false}
+          size={24}
+        />
       </button>
       {open ? <div>{children}</div> : null}
     </div>

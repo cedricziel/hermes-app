@@ -6,7 +6,7 @@ export interface IconButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "children"
 > {
-  /** Material Symbols icon name. */
+  /** Material Symbols icon name; under `platform="apple"` the paired CupertinoIcons glyph (see `Icon`). */
   icon: string;
   /** Accessible name, also shown as the tooltip. Required: the button has no text. */
   label: string;
