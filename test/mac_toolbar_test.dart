@@ -162,6 +162,7 @@ void main() {
       );
 
       final menu = find.byKey(const Key('shell-menu'));
+      expect(find.byTooltip('Open navigation menu'), findsOneWidget);
       expect(
         tester.getTopLeft(menu).dx,
         greaterThanOrEqualTo(kMacTrafficLightsWidth),

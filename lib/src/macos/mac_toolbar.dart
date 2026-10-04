@@ -53,8 +53,8 @@ class MacToolbar extends StatelessWidget {
               else
                 MacToolbarButton(
                   key: const Key('shell-menu'),
-                  label: 'Show sidebar',
-                  icon: AppIcons.sidebar,
+                  label: MaterialLocalizations.of(context).openAppDrawerTooltip,
+                  icon: AppIcons.menu,
                   onPressed: menu.onOpen,
                 ),
               const SizedBox(width: 8),
