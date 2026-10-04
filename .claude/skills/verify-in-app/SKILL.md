@@ -93,6 +93,24 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
 
 ## Gotchas
 
+- Hermes 0.21.4 runs one dashboard per machine: with another worktree's
+  backend up, `dev-backend.sh start` exits with "Hermes dashboard already
+  running on this host". Start it yourself with `--isolated`
+  (`HERMES_HOME=$PWD/.dart_tool/hermes-dev/home hermes dashboard --no-open
+--port 0 --isolated`), then write the port from the `HERMES_DASHBOARD_READY`
+  log line to `.dart_tool/hermes-dev/port` and its listening pid to `pid`, so
+  `dev-backend.sh url` and `dev-app.sh` find it.
+- Chats without model calls: insert rows into the throwaway home's
+  `state.db` (`sessions` with `title`, `started_at`, `last_activity_at`,
+  `pinned`, `profile_name`; `messages` with `session_id`, `role`, `content`,
+  `timestamp`). Search indexes them by trigger. A second profile
+  (`POST /api/profiles {"name": "work"}`) has its own
+  `profiles/<name>/state.db`, created on its first read.
+- `ax press` takes the first element whose name contains the text, so "work"
+  also matches a path with "worktrees" in it. Click by the frame `texts`
+  prints instead; the frames are global screen points.
+- The window moves between runs; read its position before converting
+  screenshot pixels to clicks.
 - macOS doesn't paint a covered window. `screenshot` brings the app forward
   for a moment and hands focus back; a hand-rolled capture of a background
   window shows a stale frame that makes a hot reload look like it did nothing.
@@ -274,7 +292,7 @@ answer. To check a watch change, use a booted iPhone and Apple Watch simulator
 pair (`xcrun simctl list pairs`).
 
 - Build once with `flutter build ios --simulator --debug -d <phone udid>
-  --dart-define=HERMES_SERVER_URL=<dev backend url>`. The watch app is embedded
+--dart-define=HERMES_SERVER_URL=<dev backend url>`. The watch app is embedded
   at `build/ios/iphonesimulator/Runner.app/Watch/HermesWatch.app`. Install the
   phone app and the watch app separately with `xcrun simctl install`. The
   bundle IDs are `com.cedricziel.hermesApp` and
@@ -288,7 +306,7 @@ pair (`xcrun simctl list pairs`).
   waiting a fixed time, and run a failure twice before trusting it.
 - Read the relay in the unified log on each simulator:
   `xcrun simctl spawn <udid> log show --last 5m --predicate 'subsystem ==
-  "com.apple.wcd"' --style compact`. `responseDataSize` on the phone shows
+"com.apple.wcd"' --style compact`. `responseDataSize` on the phone shows
   that an answer was sent and how big it was: an empty thread list is 15
   bytes, `{ok: false, error: unavailable}` is 24. "Firing background task
   expiration handlers" with `watch-relay` means Dart did not answer in time.
