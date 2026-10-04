@@ -148,3 +148,63 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+const weather = {
+  name: "hermes-plugin-weather",
+  version: "0.4.2",
+  description: "Forecasts and severe weather alerts for the places you name.",
+  status: "enabled" as const,
+  removable: true,
+};
+const netbox = {
+  name: "netbox",
+  version: "1.0.0",
+  description: "Query and update NetBox from the agent.",
+  status: "disabled" as const,
+  removable: true,
+};
+const phone = {
+  position: "relative",
+  width: 390,
+  height: 420,
+  overflow: "hidden",
+  borderRadius: 14,
+} as const;
+
+/** iPhone: an installed plugin swiped from the trailing edge shows Remove in red; the catalog's Install spins with the activity indicator. */
+export const AppleSwipe = () => (
+  <HermesProvider platform="apple" style={{ width: 390 }}>
+    <PluginRow plugin={weather} swipeRevealed />
+    <div style={divider} />
+    <PluginRow plugin={netbox} />
+    <div style={divider} />
+    <PluginRow
+      variant="catalog"
+      installing
+      plugin={{
+        name: "hermes-plugin-github",
+        maintainer: "Nous Research",
+        description: "Issues, pull requests and reviews from the agent.",
+        commit: "a3f9c21",
+        official: true,
+      }}
+    />
+  </HermesProvider>
+);
+
+/** iPhone: a long press on an installed plugin opens Disable and Remove in an action sheet. */
+export const AppleActionSheet = () => (
+  <HermesProvider platform="apple" style={phone}>
+    <PluginRow plugin={weather} actionSheetOpen />
+    <div style={divider} />
+    <PluginRow plugin={netbox} />
+  </HermesProvider>
+);
+
+export const AppleSwipeDark = () => (
+  <HermesProvider platform="apple" theme="dark" style={{ width: 390 }}>
+    <PluginRow plugin={weather} />
+    <div style={divider} />
+    <PluginRow plugin={netbox} swipeRevealed />
+  </HermesProvider>
+);

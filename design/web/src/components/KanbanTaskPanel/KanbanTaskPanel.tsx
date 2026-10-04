@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
+import { Menu, MenuAnchor } from "../Menu/Menu";
+import { Spinner } from "../Spinner/Spinner";
+import { Switch } from "../Switch/Switch";
 import { IconButton } from "../IconButton/IconButton";
 import type { KanbanTaskItem } from "../KanbanCard/KanbanCard";
 import { kanbanStatusLabel } from "../KanbanStatusChips/KanbanStatusChips";
@@ -292,14 +295,7 @@ export function KanbanTaskPanel({
                 <Button onClick={onRetry}>Retry</Button>
               </>
             ) : (
-              <span
-                className={cx(
-                  "h-kanban-task-panel__spinner",
-                  apple && "h-apple-spinner",
-                )}
-                role="progressbar"
-                aria-label="Loading"
-              />
+              <Spinner size={36} />
             )}
           </div>
         </div>
@@ -339,33 +335,28 @@ export function KanbanTaskPanel({
               onClick={onPrioritise}
             />
             {task.tenant ? <Chip label={task.tenant} /> : null}
-            <span className="h-kanban-task-panel__anchor">
+            <MenuAnchor>
               <Chip
                 icon="swap_horiz"
                 label="Move to…"
                 onClick={() => setMoveOpen(!moveOpen)}
               />
               {moveOpen ? (
-                <div className="h-kanban-task-panel__menu" role="menu">
-                  {settableStatuses
+                <Menu
+                  align={apple ? "end" : "start"}
+                  label="Move to"
+                  style={apple ? undefined : { minWidth: 160 }}
+                  device={frame === "sheet" ? "touch" : undefined}
+                  items={settableStatuses
                     .filter((s) => s !== task.status)
-                    .map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        role="menuitem"
-                        className="h-kanban-task-panel__menu-item"
-                        onClick={() => {
-                          setMoveOpen(false);
-                          onMove?.(s);
-                        }}
-                      >
-                        {kanbanStatusLabel(s)}
-                      </button>
-                    ))}
-                </div>
+                    .map((s) => ({ label: kanbanStatusLabel(s), value: s }))}
+                  onSelect={(item) => {
+                    setMoveOpen(false);
+                    if (item.value) onMove?.(item.value);
+                  }}
+                />
               ) : null}
-            </span>
+            </MenuAnchor>
           </div>
 
           {task.status === "triage" ? (
@@ -403,14 +394,7 @@ export function KanbanTaskPanel({
               Estimate
             </Button>
             {estimating ? (
-              <span
-                className={cx(
-                  "h-kanban-task-panel__spinner h-kanban-task-panel__spinner--small",
-                  apple && "h-apple-spinner",
-                )}
-                role="progressbar"
-                aria-label="Estimating"
-              />
+              <Spinner size={16} label="Estimating" />
             ) : estimate ? (
               <span>{estimate.summary}</span>
             ) : null}
@@ -543,16 +527,11 @@ export function KanbanTaskPanel({
                       {c.platform}
                     </span>
                   </span>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    className={cx(
-                      "h-kanban-task-panel__switch",
-                      apple && "h-apple-switch",
-                    )}
+                  <Switch
                     checked={c.subscribed}
+                    label={`Post updates to ${c.name}`}
                     disabled={c.switching}
-                    onChange={(e) => onToggleChannel?.(c, e.target.checked)}
+                    onChange={(on) => onToggleChannel?.(c, on)}
                   />
                 </label>
               ))}

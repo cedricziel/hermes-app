@@ -3,8 +3,15 @@ import { Button } from "../Button/Button";
 import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
+import { Menu, MenuAnchor } from "../Menu/Menu";
 import { TextField } from "../TextField/TextField";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  PlatformScope,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import "./KanbanToolbar.css";
 
 /** A board in the board switcher. */
@@ -64,8 +71,10 @@ export interface KanbanToolbarProps {
   onManageBoards?: () => void;
   /** Close button pressed in selection mode. */
   onExitSelection?: () => void;
-  /** `apple`: the search is the iOS search field (rounded 10px, 36px tall, tinted fill). Inherits the provider's platform. */
+  /** `apple`: the search is the iOS search field (rounded 10px, 36px tall, tinted fill), and the filter and board menus are iOS pull-downs on touch or compact Mac menus (see `device`). Inherits the provider's platform. */
   platform?: Platform;
+  /** Under `apple`, which menus to draw: `touch` (iPhone, iPad) or `mac`. Inherited from the enclosing `AppShell`, else `mac`. */
+  device?: AppleDevice;
 }
 
 /**
@@ -99,6 +108,7 @@ export function KanbanToolbar({
   onManageBoards,
   onExitSelection,
   platform,
+  device,
 }: KanbanToolbarProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
@@ -129,50 +139,35 @@ export function KanbanToolbar({
                 <span className="h-kanban-toolbar__title">{title}</span>
                 <span className="h-kanban-toolbar__actions">
                   {boards.length ? (
-                    <span className="h-kanban-toolbar__anchor">
+                    <MenuAnchor>
                       <IconButton
                         icon="dashboard_customize"
                         label="Switch board"
                         onClick={() => toggle("board")}
                       />
                       {open === "board" ? (
-                        <div className="h-kanban-toolbar__menu h-kanban-toolbar__menu--end">
-                          {boards.map((b) => (
-                            <button
-                              key={b.slug}
-                              type="button"
-                              className="h-kanban-toolbar__item h-kanban-toolbar__item--checkable"
-                              onClick={() => {
-                                setOpen(undefined);
-                                onBoardChange?.(b.slug);
-                              }}
-                            >
-                              <span className="h-kanban-toolbar__check">
-                                {b.slug === board ? (
-                                  <Icon
-                                    name="check"
-                                    apple="checkmark"
-                                    size={20}
-                                  />
-                                ) : null}
-                              </span>
-                              {`${b.name} (${b.total})`}
-                            </button>
-                          ))}
-                          <hr className="h-divider h-kanban-toolbar__menu-divider" />
-                          <button
-                            type="button"
-                            className="h-kanban-toolbar__item"
-                            onClick={() => {
-                              setOpen(undefined);
-                              onManageBoards?.();
-                            }}
-                          >
-                            Manage boards…
-                          </button>
-                        </div>
+                        <Menu
+                          align="end"
+                          label="Switch board"
+                          device={device}
+                          style={{ minWidth: 220, maxWidth: 320 }}
+                          items={[
+                            ...boards.map((b) => ({
+                              label: `${b.name} (${b.total})`,
+                              value: b.slug,
+                              checked: b.slug === board,
+                            })),
+                            "divider" as const,
+                            { label: "Manage boards…" },
+                          ]}
+                          onSelect={(item) => {
+                            setOpen(undefined);
+                            if (item.value) onBoardChange?.(item.value);
+                            else onManageBoards?.();
+                          }}
+                        />
                       ) : null}
-                    </span>
+                    </MenuAnchor>
                   ) : null}
                   <span
                     className={[
@@ -224,6 +219,7 @@ export function KanbanToolbar({
                 all="All assignees"
                 options={assignees}
                 open={open === "assignee"}
+                device={device}
                 onToggle={() => toggle("assignee")}
                 onSelect={(v) => {
                   setOpen(undefined);
@@ -237,6 +233,7 @@ export function KanbanToolbar({
                 all="All tenants"
                 options={tenants}
                 open={open === "tenant"}
+                device={device}
                 onToggle={() => toggle("tenant")}
                 onSelect={(v) => {
                   setOpen(undefined);
@@ -261,6 +258,7 @@ function FilterMenu({
   all,
   options,
   open,
+  device,
   onToggle,
   onSelect,
 }: {
@@ -268,36 +266,27 @@ function FilterMenu({
   all: string;
   options: string[];
   open: boolean;
+  device?: AppleDevice;
   onToggle: () => void;
   onSelect: (value: string | undefined) => void;
 }) {
   return (
-    <span className="h-kanban-toolbar__anchor">
+    <MenuAnchor>
       <Chip icon="filter_list" label={label} onClick={onToggle} />
       {open ? (
-        <div className="h-kanban-toolbar__menu" role="menu">
-          <button
-            type="button"
-            role="menuitem"
-            className="h-kanban-toolbar__item"
-            onClick={() => onSelect(undefined)}
-          >
-            {all}
-          </button>
-          {options.map((o) => (
-            <button
-              key={o}
-              type="button"
-              role="menuitem"
-              className="h-kanban-toolbar__item"
-              onClick={() => onSelect(o)}
-            >
-              {o}
-            </button>
-          ))}
-        </div>
+        <Menu
+          align="start"
+          label={all}
+          device={device}
+          style={{ minWidth: 200, maxWidth: 320 }}
+          items={[
+            { label: all },
+            ...options.map((o) => ({ label: o, value: o })),
+          ]}
+          onSelect={(item) => onSelect(item.value)}
+        />
       ) : null}
-    </span>
+    </MenuAnchor>
   );
 }
 

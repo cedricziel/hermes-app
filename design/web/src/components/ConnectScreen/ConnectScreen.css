@@ -117,27 +117,6 @@
   height: 12px;
 }
 
-.h-connect-screen__spinner {
-  display: inline-block;
-  box-sizing: border-box;
-  border-style: solid;
-  border-color: var(--h-fg);
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: h-connect-screen-spin 0.9s linear infinite;
-}
-
-.h-button:disabled .h-connect-screen__spinner {
-  border-color: var(--h-muted);
-  border-right-color: transparent;
-}
-
-@keyframes h-connect-screen-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* iOS: the 44px navigation bar height with the 17px bar title. The app's
    theme keeps the title leading (centerTitle: false) and draws no rule. */
 .h-connect-screen__bar--apple {

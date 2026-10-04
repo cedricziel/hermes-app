@@ -165,7 +165,7 @@ const sheetFrame = {
   overflow: "hidden",
 };
 
-/** iPhone: the medium (half) and large detents of the Apple sheet, with the 36x5 grabber and 12px radius. */
+/** iPhone: the medium (half) and large detents of the Apple sheet, with the 36x5 grabber and 12px radius; the large one has "Move to…" open as an iOS pull-down. */
 export const AppleSheetDetents = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
     <div style={sheetFrame}>
@@ -177,7 +177,12 @@ export const AppleSheetDetents = () => (
       />
     </div>
     <div style={sheetFrame}>
-      <KanbanTaskPanel frame="sheet" task={running} channels={channels} />
+      <KanbanTaskPanel
+        frame="sheet"
+        task={running}
+        channels={channels}
+        defaultMoveMenuOpen
+      />
     </div>
   </HermesProvider>
 );

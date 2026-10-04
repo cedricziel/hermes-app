@@ -1,6 +1,7 @@
 import { useContext, type ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
+import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 import {
   cx,
   PlatformScope,
@@ -149,31 +150,12 @@ export function ListDetailLayout({
           ) : null}
         </header>
         {tabs && tabs.length > 0 ? (
-          <div
-            className={cx(
-              "h-list-detail__tabs",
-              apple && "h-list-detail__tabs--segmented",
-            )}
-            role="tablist"
-          >
-            {tabs.map((tab, i) => (
-              <button
-                key={tab}
-                type="button"
-                role="tab"
-                aria-selected={i === activeTab}
-                className={[
-                  "h-list-detail__tab",
-                  i === activeTab ? "h-list-detail__tab--active" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                onClick={() => onTabChange?.(i)}
-              >
-                <span className="h-list-detail__tab-label">{tab}</span>
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            labels={tabs}
+            value={activeTab}
+            onChange={onTabChange}
+            label={title}
+          />
         ) : null}
         <div className="h-list-detail__body">
           <div

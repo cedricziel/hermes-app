@@ -70,7 +70,7 @@ export const EmptyAndPaging = () => (
   </div>
 );
 
-/** Apple touch (left): 44px rows with a 44px "…" target (the app also swipes and long-presses). Mac (right): 52px strip under the traffic lights, compact rows. */
+/** Apple touch (left): 44px rows without a "…" button; a chat is swiped or long-pressed instead. Mac (right): 52px strip under the traffic lights, compact rows with a "…". */
 export const AppleTouchAndMac = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
     <div style={frame}>
@@ -91,7 +91,7 @@ export const AppleTouchAndMac = () => (
   </HermesProvider>
 );
 
-/** The row menu on Apple: iOS pull-down (left, from the "…") and the compact Mac menu (right, "…" or right-click). */
+/** Menus on Apple: the account menu as an iOS pull-down on touch (left), a chat's compact Mac menu from its "…" or a right-click (right). */
 export const AppleMenus = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
     <div style={{ ...frame, marginRight: 40 }}>
@@ -99,7 +99,10 @@ export const AppleMenus = () => (
         layout="phone"
         threads={threads}
         selectedId="backup"
-        defaultMenuThreadId="nightly"
+        account="Ada Lovelace"
+        serverUrl="https://hermes.example.com"
+        authRequired
+        defaultAccountMenuOpen
       />
     </div>
     <div style={{ ...frame, marginRight: 80 }}>
@@ -117,5 +120,53 @@ export const Dark = () => (
     <div style={{ ...frame, border: "1px solid var(--h-border)" }}>
       <ThreadSidebar threads={threads} selectedId="nightly" />
     </div>
+  </HermesProvider>
+);
+
+/** Apple touch swipes: from the trailing edge Delete in red (left), from the leading edge Pin in orange (right). */
+export const AppleSwipe = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
+    <div style={frame}>
+      <ThreadSidebar
+        layout="phone"
+        threads={threads}
+        selectedId="backup"
+        swipedThreadId="nightly"
+      />
+    </div>
+    <div style={frame}>
+      <ThreadSidebar
+        layout="phone"
+        threads={threads}
+        selectedId="backup"
+        swipedThreadId="release"
+        swipeSide="leading"
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Apple touch long press: the action sheet with Rename, Pin, Archive and Delete over the sidebar. */
+export const AppleActionSheet = () => (
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
+    <div style={{ ...frame, width: 320 }}>
+      <ThreadSidebar
+        layout="phone"
+        threads={threads}
+        selectedId="backup"
+        actionSheetThreadId="nightly"
+      />
+    </div>
+    <HermesProvider theme="dark">
+      <div style={{ ...frame, width: 320 }}>
+        <ThreadSidebar
+          layout="phone"
+          threads={threads}
+          selectedId="backup"
+          swipedThreadId="backup"
+          swipeSide="leading"
+        />
+      </div>
+    </HermesProvider>
   </HermesProvider>
 );

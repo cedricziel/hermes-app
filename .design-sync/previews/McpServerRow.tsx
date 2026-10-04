@@ -144,3 +144,53 @@ export const PlatformSwitch = () => {
     </div>
   );
 };
+
+const grafana = {
+  name: "grafana",
+  transport: "remote" as const,
+  address: "https://mcp.grafana.com/mcp",
+  auth: "OAuth",
+  enabled: true,
+};
+const notes = {
+  name: "notes-fs",
+  transport: "command" as const,
+  address: "npx -y @modelcontextprotocol/server-filesystem /srv/notes",
+  enabled: false,
+};
+
+/** iPhone: grafana swiped from the trailing edge shows Remove in red. */
+export const AppleSwipe = () => (
+  <HermesProvider platform="apple" style={{ width: 390 }}>
+    <McpServerRow
+      server={grafana}
+      test={{ ok: true, toolCount: 4 }}
+      swipeRevealed
+    />
+    <McpServerRow server={notes} />
+  </HermesProvider>
+);
+
+/** iPhone: a long press opens Turn off and Remove in an action sheet. */
+export const AppleActionSheet = () => (
+  <HermesProvider
+    platform="apple"
+    style={{
+      position: "relative",
+      width: 390,
+      height: 400,
+      overflow: "hidden",
+      borderRadius: 14,
+    }}
+  >
+    <McpServerRow server={grafana} actionSheetOpen />
+    <McpServerRow server={notes} />
+  </HermesProvider>
+);
+
+export const AppleSwipeDark = () => (
+  <HermesProvider platform="apple" theme="dark" style={{ width: 390 }}>
+    <McpServerRow server={grafana} />
+    <McpServerRow server={notes} swipeRevealed />
+  </HermesProvider>
+);

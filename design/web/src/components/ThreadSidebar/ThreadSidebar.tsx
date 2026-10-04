@@ -4,10 +4,13 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
+import { ActionSheet } from "../ActionSheet/ActionSheet";
+import { Menu, MenuAnchor, type MenuItem } from "../Menu/Menu";
+import { SwipeActions } from "../SwipeActions/SwipeActions";
 import { Icon } from "../Icon/Icon";
+import { Spinner } from "../Spinner/Spinner";
 import { IconButton } from "../IconButton/IconButton";
 import {
   ShellChromeContext,
@@ -28,13 +31,6 @@ import "./ThreadSidebar.css";
  * Only matters under `apple`.
  */
 export type DeviceLayout = "desktop" | "phone";
-
-type MenuVariant = "material" | "ios" | "mac";
-
-function menuVariant(apple: boolean, layout: DeviceLayout): MenuVariant {
-  if (!apple) return "material";
-  return layout === "phone" ? "ios" : "mac";
-}
 
 /** One chat in the sidebar's thread list. */
 export interface ThreadItem {
@@ -86,64 +82,6 @@ export const DEFAULT_MORE_ENTRIES: SidebarMoreEntry[] = [
 
 const rowRadiusClass = "h-sidebar-row";
 
-interface MenuItem<T extends string> {
-  value?: T;
-  label: string;
-  disabled?: boolean;
-  divider?: boolean;
-  destructive?: boolean;
-}
-
-function PopupMenu<T extends string>({
-  items,
-  onSelect,
-  className,
-  style,
-  variant = "material",
-}: {
-  items: MenuItem<T>[];
-  onSelect: (value: T) => void;
-  className?: string;
-  style?: CSSProperties;
-  variant?: MenuVariant;
-}) {
-  return (
-    <div
-      role="menu"
-      className={cx(
-        "h-popup-menu",
-        variant !== "material" && `h-popup-menu--${variant}`,
-        className,
-      )}
-      style={style}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {items.map((item, i) =>
-        item.divider ? (
-          <div key={`d${i}`} className="h-popup-menu__divider" />
-        ) : (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            disabled={item.disabled}
-            className={[
-              "h-popup-menu__item",
-              item.disabled ? "h-popup-menu__item--info" : null,
-              item.destructive ? "h-popup-menu__item--destructive" : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => item.value && onSelect(item.value)}
-          >
-            {item.label}
-          </button>
-        ),
-      )}
-    </div>
-  );
-}
-
 function useDismiss(open: boolean, close: () => void) {
   useEffect(() => {
     if (!open) return;
@@ -158,30 +96,59 @@ function useDismiss(open: boolean, close: () => void) {
   }, [open, close]);
 }
 
+type ThreadMenuItems = Array<MenuItem<ThreadAction> | "divider">;
+
 function threadMenuItems(
   pinned: boolean,
   actionable: boolean,
   includeCopyTranscript: boolean,
-): MenuItem<ThreadAction>[] {
+  mac: boolean,
+): ThreadMenuItems {
+  if (mac) return macThreadMenuItems(pinned, actionable);
   return [
     ...(includeCopyTranscript
       ? [
           { value: "copy-transcript" as const, label: "Copy transcript" },
-          ...(actionable ? [{ label: "-", divider: true }] : []),
+          ...(actionable ? ["divider" as const] : []),
         ]
       : []),
-    ...(actionable
-      ? [
-          { value: "rename" as const, label: "Rename" },
-          { value: "pin" as const, label: pinned ? "Unpin" : "Pin" },
-          { value: "archive" as const, label: "Archive" },
-          {
-            value: "delete" as const,
-            label: "Delete",
-            destructive: true,
-          },
-        ]
-      : []),
+    ...(actionable ? threadActions(pinned) : []),
+  ];
+}
+
+/**
+ * A chat's menu as a Mac app lists it (the app's `macThreadMenuItems`), with
+ * the shortcuts the menu bar gives them, in the sidebar and the chat header
+ * alike. A chat the dashboard does not hold only offers the copy.
+ */
+function macThreadMenuItems(
+  pinned: boolean,
+  actionable: boolean,
+): ThreadMenuItems {
+  const copy = { value: "copy-transcript" as const, label: "Copy Transcript" };
+  if (!actionable) return [copy];
+  return [
+    { value: "rename", label: "Rename…" },
+    { value: "pin", label: pinned ? "Unpin" : "Pin", shortcut: "⇧⌘P" },
+    copy,
+    { value: "archive", label: "Archive" },
+    "divider",
+    {
+      value: "delete",
+      label: "Delete…",
+      shortcut: "⌘⌫",
+      destructive: true,
+    },
+  ];
+}
+
+/** Rename, Pin or Unpin, Archive, Delete: the menu's, the action sheet's and the swipes' actions. */
+function threadActions(pinned: boolean) {
+  return [
+    { value: "rename" as const, label: "Rename" },
+    { value: "pin" as const, label: pinned ? "Unpin" : "Pin" },
+    { value: "archive" as const, label: "Archive" },
+    { value: "delete" as const, label: "Delete", destructive: true },
   ];
 }
 
@@ -196,9 +163,9 @@ export interface ThreadActionsButtonProps {
   defaultOpen?: boolean;
   /** Called with the picked entry; the menu closes. */
   onAction?: (action: ThreadAction) => void;
-  /** `apple` draws the menu as an iOS pull-down (`layout="phone"`: rounded panel, 44px rows, Delete in red) or a compact Mac menu (`desktop`: 24px rows, 13px text, 6px radius). Inherits the provider's platform. */
+  /** `apple` draws the menu as an iOS pull-down on touch (rounded panel, 44px rows, Delete in red) or the Mac menu (22px rows with shortcuts: Rename…, Pin, Copy Transcript, Archive, Delete…). Inherits the provider's platform. */
   platform?: Platform;
-  /** Which Apple menu `platform="apple"` draws; see `platform`. Default `desktop`. */
+  /** `phone` is touch; `desktop` (default) follows the enclosing `AppShell`'s device, else Mac. Only matters under `apple`. */
   layout?: DeviceLayout;
 }
 
@@ -217,34 +184,39 @@ export function ThreadActionsButton({
   layout = "desktop",
 }: ThreadActionsButtonProps) {
   const resolvedPlatform = usePlatform(platform);
-  const variant = menuVariant(resolvedPlatform === "apple", layout);
+  const device = useAppleDevice(layout);
+  const mac = resolvedPlatform === "apple" && device === "mac";
   const [open, setOpen] = useState(defaultOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
   return (
     <PlatformScope platform={resolvedPlatform}>
-      <span
-        className="h-thread-actions"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <MenuAnchor className="h-thread-actions">
         <IconButton
           icon="more_horiz"
           label="Chat actions"
           tone="muted"
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={() => setOpen((o) => !o)}
         />
         {open ? (
-          <PopupMenu
-            variant={variant}
-            className="h-thread-actions__menu"
-            items={threadMenuItems(pinned, actionable, includeCopyTranscript)}
-            onSelect={(a) => {
+          <Menu
+            align="end"
+            label="Chat actions"
+            device={device}
+            items={threadMenuItems(
+              pinned,
+              actionable,
+              includeCopyTranscript,
+              mac,
+            )}
+            onSelect={(item) => {
               setOpen(false);
-              onAction?.(a);
+              if (item.value) onAction?.(item.value);
             }}
           />
         ) : null}
-      </span>
+      </MenuAnchor>
     </PlatformScope>
   );
 }
@@ -332,8 +304,10 @@ export interface AccountFooterProps {
   onAction?: (action: AccountAction) => void;
   /** Apple menu style for the account menu; see `ThreadActionsButton`. Inherits the provider's platform. */
   platform?: Platform;
-  /** Which Apple menu `platform="apple"` draws. Default `desktop`. */
+  /** `phone` is touch; `desktop` (default) follows `device`, then the enclosing `AppShell`'s, else Mac. */
   layout?: DeviceLayout;
+  /** Under `apple`, which menu to draw; overrides `layout`. */
+  device?: AppleDevice;
 }
 
 /** The sidebar footer: an avatar, the account label and a "…" that opens the account menu over it. */
@@ -345,15 +319,16 @@ export function AccountFooter({
   onAction,
   platform,
   layout = "desktop",
+  device,
 }: AccountFooterProps) {
   const resolvedPlatform = usePlatform(platform);
-  const variant = menuVariant(resolvedPlatform === "apple", layout);
+  const menuDevice = useAppleDevice(layout, device);
   const [open, setOpen] = useState(defaultMenuOpen);
   const close = useRef(() => setOpen(false)).current;
   useDismiss(open, close);
-  const items: MenuItem<AccountAction>[] = [
-    { label: serverUrl || " ", disabled: true },
-    { label: "-", divider: true },
+  const items: Array<MenuItem<AccountAction> | "divider"> = [
+    { label: serverUrl || " ", info: true },
+    "divider",
     { value: "appearance", label: "Appearance" },
     { value: "notifications", label: "Notifications" },
     { value: "app-lock", label: "App lock" },
@@ -386,13 +361,14 @@ export function AccountFooter({
           />
         </button>
         {open ? (
-          <PopupMenu
-            variant={variant}
+          <Menu
             className="h-account-footer__menu"
+            label="Account"
+            device={menuDevice}
             items={items}
-            onSelect={(a) => {
+            onSelect={(item) => {
               setOpen(false);
-              onAction?.(a);
+              if (item.value) onAction?.(item.value);
             }}
           />
         ) : null}
@@ -416,8 +392,14 @@ export interface ThreadSidebarProps {
   moreEntries?: SidebarMoreEntry[];
   /** Show the "More" section expanded initially. */
   defaultMoreOpen?: boolean;
-  /** Open this chat's "…" menu initially, for previews. */
+  /** Open this chat's "…" menu initially, for previews. Not on Apple touch, which has no "…" button. */
   defaultMenuThreadId?: string;
+  /** Apple touch: draw this chat's row swiped open, for previews; see `swipeSide`. */
+  swipedThreadId?: string;
+  /** Which way `swipedThreadId` is swiped: `trailing` (default) shows Delete in red, `leading` shows Pin or Unpin in orange. */
+  swipeSide?: "leading" | "trailing";
+  /** Apple touch: draw the long-press action sheet of this chat over the sidebar, for previews. */
+  actionSheetThreadId?: string;
   /** The server has more chats: end the list with a "Show more" row. */
   hasMore?: boolean;
   /** The next page is loading: the "Show more" row shows a spinner. */
@@ -443,10 +425,11 @@ export interface ThreadSidebarProps {
   /**
    * `apple` changes the sidebar to Apple's conventions, and what changes
    * depends on the device (see `layout` and `device`). Touch (iPhone and
-   * iPad): thread rows are at least 44px tall and the "…" button is a 44px
-   * target that opens the iOS pull-down with Rename, Pin, Archive and Delete
-   * (right-click opens it too). The app's swipe actions and long-press sheet
-   * are not recreated, so the button stays as the way to reach them. Mac: the
+   * iPad): thread rows are at least 44px tall and have no "…" button, as in
+   * the app: a swipe from the trailing edge reveals Delete, one from the
+   * leading edge Pin (or Unpin), and a long press opens an action sheet with
+   * Rename, Pin, Archive and Delete (see `swipedThreadId`,
+   * `actionSheetThreadId`). Mac: the
    * sidebar starts at the top of the window, drops the brand row for a 52px
    * strip that leaves 78px for the traffic lights, keeps the "…" button and
    * uses the compact Mac menu. Inherits the provider's platform.
@@ -471,6 +454,9 @@ export function ThreadSidebar({
   moreEntries = DEFAULT_MORE_ENTRIES,
   defaultMoreOpen = false,
   defaultMenuThreadId,
+  swipedThreadId,
+  swipeSide = "trailing",
+  actionSheetThreadId,
   hasMore = false,
   loadingMore = false,
   account,
@@ -491,8 +477,6 @@ export function ThreadSidebar({
   const device = useAppleDevice(layout, deviceProp);
   const touch = apple && device === "touch";
   const mac = apple && device === "mac";
-  const menuLayout: DeviceLayout = device === "touch" ? "phone" : "desktop";
-  const variant = menuVariant(apple, menuLayout);
   const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const [menuId, setMenuId] = useState<string | undefined>(defaultMenuThreadId);
   const [menuTop, setMenuTop] = useState<number | null>(null);
@@ -514,6 +498,9 @@ export function ThreadSidebar({
   }, [menuId, threads]);
 
   const menuThread = threads.find((t) => t.id === menuId);
+  const sheetThread = touch
+    ? threads.find((t) => t.id === actionSheetThreadId && t.remote !== false)
+    : undefined;
 
   return (
     <PlatformScope platform={resolvedPlatform}>
@@ -543,7 +530,8 @@ export function ThreadSidebar({
           {threads.map((t) => {
             const selected = t.id === selectedId;
             const actionable = t.remote !== false;
-            return (
+            const inlineButton = actionable && !touch;
+            const row = (
               <div
                 key={t.id}
                 ref={(el) => {
@@ -554,7 +542,7 @@ export function ThreadSidebar({
                   "h-thread-row",
                   rowRadiusClass,
                   selected ? "h-thread-row--selected" : null,
-                  actionable ? "h-thread-row--actionable" : null,
+                  inlineButton ? "h-thread-row--actionable" : null,
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -563,7 +551,7 @@ export function ThreadSidebar({
                 aria-current={selected ? "true" : undefined}
                 onClick={() => onSelect?.(t.id)}
                 onContextMenu={
-                  actionable
+                  inlineButton
                     ? (e) => {
                         e.preventDefault();
                         setMenuId(t.id);
@@ -580,7 +568,7 @@ export function ThreadSidebar({
                   />
                 ) : null}
                 <span className="h-thread-row__title">{t.title}</span>
-                {actionable ? (
+                {inlineButton ? (
                   <button
                     type="button"
                     className="h-thread-row__more"
@@ -597,17 +585,38 @@ export function ThreadSidebar({
                 ) : null}
               </div>
             );
+            if (!actionable || !touch) return row;
+            const pin = t.pinned ? "Unpin" : "Pin";
+            return (
+              <SwipeActions
+                key={t.id}
+                className={rowRadiusClass}
+                actions={[
+                  {
+                    label: "Delete",
+                    icon: "delete",
+                    onPress: () => onThreadAction?.(t.id, "delete"),
+                  },
+                ]}
+                leadingActions={[
+                  {
+                    label: pin,
+                    icon: "push_pin",
+                    color: "orange",
+                    onPress: () => onThreadAction?.(t.id, "pin"),
+                  },
+                ]}
+                revealed={t.id === swipedThreadId ? swipeSide : false}
+                device="touch"
+              >
+                {row}
+              </SwipeActions>
+            );
           })}
           {hasMore ? (
             <div className="h-thread-sidebar__show-more">
               {loadingMore ? (
-                <span
-                  className={cx(
-                    "h-thread-sidebar__spinner",
-                    apple && "h-apple-spinner",
-                  )}
-                  aria-label="Loading"
-                />
+                <Spinner size={16} color="var(--h-fg)" />
               ) : (
                 <button
                   type="button"
@@ -620,18 +629,16 @@ export function ThreadSidebar({
             </div>
           ) : null}
         </div>
-        {menuThread && menuTop !== null ? (
-          <PopupMenu
-            variant={variant}
-            className={cx(
-              "h-thread-sidebar__menu",
-              touch && "h-thread-sidebar__menu--touch",
-            )}
+        {menuThread && menuTop !== null && !touch ? (
+          <Menu
+            className="h-thread-sidebar__menu"
             style={{ top: menuTop }}
-            items={threadMenuItems(!!menuThread.pinned, true, false)}
-            onSelect={(a) => {
+            label="Chat actions"
+            device="mac"
+            items={threadMenuItems(!!menuThread.pinned, true, false, mac)}
+            onSelect={(item) => {
               setMenuId(undefined);
-              onThreadAction?.(menuThread.id, a);
+              if (item.value) onThreadAction?.(menuThread.id, item.value);
             }}
           />
         ) : null}
@@ -662,8 +669,18 @@ export function ThreadSidebar({
           authRequired={authRequired}
           defaultMenuOpen={defaultAccountMenuOpen}
           onAction={onAccountAction}
-          layout={menuLayout}
+          device={device}
         />
+        {sheetThread ? (
+          <ActionSheet
+            title={sheetThread.title}
+            actions={threadActions(!!sheetThread.pinned).map((a) => ({
+              label: a.label,
+              destructive: a.destructive,
+              onPress: () => onThreadAction?.(sheetThread.id, a.value),
+            }))}
+          />
+        ) : null}
       </nav>
     </PlatformScope>
   );
