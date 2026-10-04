@@ -28,15 +28,19 @@ Widget mac(Widget child) => Builder(
 WidgetbookUseCase _case(String name, Widget Function() build) =>
     WidgetbookUseCase(name: name, builder: (_) => mac(build()));
 
-Widget _row({required bool selected, String title = 'Plan the release'}) =>
-    MacThreadRow(
-      title: title,
-      selected: selected,
-      onTap: () {},
-      onArchive: () {},
-      menuItems: (_) => macThreadMenuItems(pinned: false, manageable: true),
-      onAction: (_) {},
-    );
+Widget _row({
+  required bool selected,
+  String title = 'Plan the release',
+  bool busy = false,
+}) => MacThreadRow(
+  title: title,
+  selected: selected,
+  busy: busy,
+  onTap: () {},
+  onArchive: () {},
+  menuItems: (_) => macThreadMenuItems(pinned: false, manageable: true),
+  onAction: (_) {},
+);
 
 /// A menu shown as it opens over a row, for the catalog to look at.
 class _OpenMenu extends StatefulWidget {
@@ -136,6 +140,14 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
             ),
             maxWidth: 260,
           ),
+        ),
+        _case(
+          'Working',
+          () => frame(_row(selected: false, busy: true), maxWidth: 260),
+        ),
+        _case(
+          'Selected and working',
+          () => frame(_row(selected: true, busy: true), maxWidth: 260),
         ),
       ],
     ),

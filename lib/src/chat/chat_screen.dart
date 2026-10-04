@@ -590,6 +590,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           selectedId: chat.selectedId,
           onSelect: _selectThread,
           onNewThread: _newThread,
+          busy: chat.activeThreads,
           housekeeping: chat.housekeeping,
           search: chat.search,
           onOpenHit: _openHit,

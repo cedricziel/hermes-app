@@ -48,6 +48,12 @@ class FakeChatTransport implements ChatTransport {
   @override
   Future<void> checkConnection() async => connectionChecks++;
 
+  /// Session id → status, as [ChatController.refreshActive] reads it.
+  final active = <String, String>{};
+
+  @override
+  Future<Map<String, String>> activeStatuses() async => Map.of(active);
+
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =
       <

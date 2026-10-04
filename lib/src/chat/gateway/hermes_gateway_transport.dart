@@ -297,14 +297,70 @@ class HermesGatewayTransport implements ChatTransport {
   @override
   Stream<ChatEvent> followUps(String threadId) {
     final watch = _idle[threadId];
-    if (watch == null) return const Stream.empty();
+    if (watch != null) {
+      final out = StreamController<ChatEvent>();
+      out.onListen = () => unawaited(_relay(watch, threadId, out));
+      out.onCancel = () {
+        if (_idle[threadId] == watch) _idle.remove(threadId);
+        return watch.close();
+      };
+      return out.stream;
+    }
+    // Nothing is being watched: a turn may still be running there that this
+    // client never streamed, started on the TUI or another device. Resume the
+    // session once and follow what comes back; an idle session ends the
+    // stream without events.
     final out = StreamController<ChatEvent>();
-    out.onListen = () => unawaited(_relay(watch, threadId, out));
+    out.onListen = () => unawaited(_pickUp(threadId, out));
+    return out.stream;
+  }
+
+  Future<void> _pickUp(String threadId, StreamController<ChatEvent> out) async {
+    final (watch, ended) = await _reattach(threadId);
+    if (out.isClosed) {
+      await watch?.close();
+      return;
+    }
+    if (watch == null) {
+      if (ended != null) out.add(ended);
+      await out.close();
+      return;
+    }
+    if (_idle.remove(threadId) case final previous?) {
+      await previous.close();
+    }
+    _idle[threadId] = watch;
     out.onCancel = () {
       if (_idle[threadId] == watch) _idle.remove(threadId);
       return watch.close();
     };
-    return out.stream;
+    await _relay(watch, threadId, out);
+  }
+
+  @override
+  Future<Map<String, String>> activeStatuses() async {
+    final GatewayRpcClient client;
+    final Map<String, Object?> result;
+    try {
+      client = await _client();
+      result = await _call(client, 'session.active_list', {});
+    } on Object {
+      return const {};
+    }
+    final statuses = <String, String>{};
+    if (result['sessions'] case final List<Object?> rows) {
+      for (final row in rows) {
+        if (row
+            case {
+              'session_key': final String key,
+              'status': final String status,
+            }
+            when key.isNotEmpty) {
+          statuses[key] = status;
+        }
+      }
+    }
+    return statuses;
   }
 
   Future<void> _relay(

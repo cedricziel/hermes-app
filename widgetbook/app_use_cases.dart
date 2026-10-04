@@ -259,6 +259,21 @@ WidgetbookNode appNode() => WidgetbookFolder(
           ),
         ),
         _screen(
+          'Working threads',
+          () => CatalogAuth(gated: true),
+          () => fill(
+            ThreadSidebar(
+              threads: threads,
+              selectedId: 'thread-1',
+              onSelect: (_) {},
+              onNewThread: () {},
+              busy: const {'thread-2'},
+              onOpenProfiles: () {},
+            ),
+            width: 300,
+          ),
+        ),
+        _screen(
           'With destinations',
           () => CatalogAuth(gated: true),
           () => fill(
