@@ -5,6 +5,7 @@ import '../widgets/adaptive_add_action.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
+import 'package:hermes_app/src/theme/platform_chrome.dart';
 
 import 'blueprint_screens.dart';
 import 'schedule_detail.dart';
@@ -14,6 +15,11 @@ import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
 import '../widgets/named_icon_button.dart';
+import 'widgets/schedules_mac_toolbar.dart';
+
+/// From this content width the Mac list column is 340 points wide, below it
+/// 250.
+const double _macWideListWidth = 760;
 
 /// The Schedules destination: the job list, and beside it (or pushed over it
 /// on a phone) the selected job.
@@ -34,6 +40,9 @@ class SchedulesScreen extends StatefulWidget {
 class _SchedulesScreenState extends State<SchedulesScreen> {
   SchedulesController get _controller => widget.controller;
 
+  /// Whether the last layout put the list and the detail side by side.
+  bool _split = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,7 +62,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     final request = _controller.takeOpenRequest();
     if (request == null || request.id.isEmpty || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final wide = isWideLayout(context);
+    final wide = _split;
     CronJob? job;
     try {
       job = await _controller.findJob(request.id, profile: request.profile);
@@ -108,7 +117,11 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
-        final wide = isWideLayout(context, width: box.maxWidth);
+        final mac = platformChromeOf(context) == PlatformChrome.macos;
+        final wide = mac
+            ? box.maxWidth >= kMacSplitBreakpoint
+            : isWideLayout(context, width: box.maxWidth);
+        _split = wide;
         return ListenableBuilder(
           listenable: _controller,
           builder: (context, _) {
@@ -117,9 +130,27 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
             final shown = selected ?? (wide ? visible.firstOrNull : null);
             final list = SchedulesList(
               controller: _controller,
+              macLayout: mac && wide,
               selectedKey: wide ? shown?.key : null,
               onSelect: wide ? _controller.select : _openNarrow,
             );
+            final detail = shown == null
+                ? const Center(child: Text('Select a task'))
+                : ScheduleDetail(
+                    controller: _controller,
+                    job: shown,
+                    onOpenRun: widget.onOpenRun,
+                  );
+            if (mac && wide) {
+              return _MacLayout(
+                controller: _controller,
+                jobCount: visible.length,
+                listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
+                list: list,
+                detail: detail,
+                onNew: () => _new(wide: true),
+              );
+            }
             final add = AdaptiveAddAction(
               label: 'New',
               toolbarLabel: 'New scheduled task',
@@ -144,15 +175,7 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                       children: [
                         SizedBox(width: 400, child: list),
                         const VerticalDivider(width: 1),
-                        Expanded(
-                          child: shown == null
-                              ? const Center(child: Text('Select a task'))
-                              : ScheduleDetail(
-                                  controller: _controller,
-                                  job: shown,
-                                  onOpenRun: widget.onOpenRun,
-                                ),
-                        ),
+                        Expanded(child: detail),
                       ],
                     )
                   : list,
@@ -162,6 +185,50 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
       },
     );
   }
+}
+
+/// Schedules in a Mac window: the unified toolbar over the job list column
+/// and the selected job.
+class _MacLayout extends StatelessWidget {
+  const _MacLayout({
+    required this.controller,
+    required this.jobCount,
+    required this.listWidth,
+    required this.list,
+    required this.detail,
+    required this.onNew,
+  });
+
+  final SchedulesController controller;
+  final int jobCount;
+  final double listWidth;
+  final Widget list;
+  final Widget detail;
+  final VoidCallback onNew;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Column(
+      children: [
+        SchedulesMacToolbar(
+          jobCount: jobCount,
+          allProfiles: controller.allProfiles,
+          onScopeChanged: (all) => controller.allProfiles = all,
+          onRefresh: controller.refresh,
+          onNew: onNew,
+        ),
+        Expanded(
+          child: Row(
+            children: [
+              SizedBox(width: listWidth, child: list),
+              const VerticalDivider(width: 1),
+              Expanded(child: detail),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// The detail on a phone, over the list. It closes itself when the job is

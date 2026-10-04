@@ -565,3 +565,30 @@ final searchHits = [
     updatedAt: _now.subtract(const Duration(days: 3)),
   ),
 ];
+
+final deliveryFailedJob = CronJob(
+  id: 'job-6',
+  name: 'Send the weekly report',
+  prompt: 'Summarise this week and send it to the team channel',
+  scheduleKind: 'cron',
+  scheduleExpr: '0 17 * * 5',
+  nextRunAt: _now.add(const Duration(days: 3)),
+  lastRunAt: _now.subtract(const Duration(days: 4)),
+  lastStatus: 'delivery_failed',
+  lastDeliveryError: 'Telegram answered 403: bot was blocked by the user',
+  deliver: 'telegram',
+  profile: 'home',
+);
+
+final cronRuns = [
+  for (final (hours, minutes) in [(2, 3), (26, 2), (50, 4)])
+    CronRun(
+      sessionId: 'run-$hours',
+      startedAt: _now.subtract(Duration(hours: hours)),
+      endedAt: _now.subtract(Duration(hours: hours, minutes: -minutes)),
+    ),
+  CronRun(
+    sessionId: 'run-unfinished',
+    startedAt: _now.subtract(const Duration(hours: 74)),
+  ),
+];

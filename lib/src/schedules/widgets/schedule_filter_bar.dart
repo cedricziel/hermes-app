@@ -13,6 +13,7 @@ class ScheduleFilterBar extends StatelessWidget {
     required this.failingCount,
     required this.onAllProfilesChanged,
     required this.onFilterChanged,
+    this.showScope = true,
   });
 
   final String? activeProfile;
@@ -21,6 +22,10 @@ class ScheduleFilterBar extends StatelessWidget {
   final int failingCount;
   final ValueChanged<bool> onAllProfilesChanged;
   final ValueChanged<ScheduleFilter> onFilterChanged;
+
+  /// Offers the profile chips; off where the scope is picked elsewhere, as in
+  /// a Mac window's toolbar.
+  final bool showScope;
 
   @override
   Widget build(BuildContext context) {
@@ -31,17 +36,18 @@ class ScheduleFilterBar extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: [
-          if (profile != null)
+          if (showScope && profile != null)
             ChoiceChip(
               label: Text('$profile (active)', overflow: TextOverflow.ellipsis),
               selected: !allProfiles,
               onSelected: (_) => onAllProfilesChanged(false),
             ),
-          ChoiceChip(
-            label: const Text('All profiles'),
-            selected: allProfiles || profile == null,
-            onSelected: (_) => onAllProfilesChanged(true),
-          ),
+          if (showScope)
+            ChoiceChip(
+              label: const Text('All profiles'),
+              selected: allProfiles || profile == null,
+              onSelected: (_) => onAllProfilesChanged(true),
+            ),
           FilterChip(
             label: Text(
               failingCount > 0 ? 'Failing ($failingCount)' : 'Failing',

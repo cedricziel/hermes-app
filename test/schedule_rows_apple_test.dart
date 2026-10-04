@@ -7,6 +7,7 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
+import 'package:hermes_app/src/schedules/widgets/mac_job_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/cron_fixtures.dart';
@@ -32,7 +33,11 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> pumpList(WidgetTester tester, TargetPlatform platform) async {
+  Future<void> pumpList(
+    WidgetTester tester,
+    TargetPlatform platform, {
+    bool macLayout = false,
+  }) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -42,7 +47,11 @@ void main() {
         debugShowCheckedModeBanner: false,
         theme: buildHermesLightTheme().copyWith(platform: platform),
         home: Scaffold(
-          body: SchedulesList(controller: controller, onSelect: (_) {}),
+          body: SchedulesList(
+            controller: controller,
+            onSelect: (_) {},
+            macLayout: macLayout,
+          ),
         ),
       ),
     );
@@ -50,18 +59,27 @@ void main() {
   }
 
   group('row layout', () {
-    for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
-      testWidgets('jobs are rows of one inset grouped list on $platform', (
-        tester,
-      ) async {
-        await pumpList(tester, platform);
+    testWidgets('jobs are rows of one inset grouped list on iOS', (
+      tester,
+    ) async {
+      await pumpList(tester, TargetPlatform.iOS);
 
-        expect(find.byType(CupertinoListSection), findsOneWidget);
-        expect(find.text('Morning brief'), findsOneWidget);
-        expect(find.text('Price watch'), findsOneWidget);
-        expect(find.text('Weekdays at 08:00'), findsNWidgets(2));
-      });
-    }
+      expect(find.byType(CupertinoListSection), findsOneWidget);
+      expect(find.text('Morning brief'), findsOneWidget);
+      expect(find.text('Price watch'), findsOneWidget);
+      expect(find.text('Weekdays at 08:00'), findsNWidgets(2));
+    });
+
+    testWidgets('jobs are rounded rows of their own in a Mac layout', (
+      tester,
+    ) async {
+      await pumpList(tester, TargetPlatform.macOS, macLayout: true);
+
+      expect(find.byType(MacJobList), findsOneWidget);
+      expect(find.byType(CupertinoListSection), findsNothing);
+      expect(find.text('Morning brief'), findsOneWidget);
+      expect(find.text('Price watch'), findsOneWidget);
+    });
 
     testWidgets('jobs stay separate cards on Android', (tester) async {
       await pumpList(tester, TargetPlatform.android);

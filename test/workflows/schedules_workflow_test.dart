@@ -140,6 +140,7 @@ void main() {
       ScreenshotRecorder shots, {
       required Size size,
       Brightness brightness = Brightness.light,
+      TargetPlatform? platform,
     }) => _mount(
       tester,
       shots,
@@ -154,16 +155,20 @@ void main() {
       ),
       size: size,
       brightness: brightness,
+      platform: platform,
       providers: [
         Provider<NotificationService>.value(value: FakeNotificationService()),
       ],
     );
 
     // A phone keeps the destinations in a drawer: Chat's own, or the shell's
-    // on another page.
+    // on another page. A compact Mac window opens its sidebar over the page.
     Future<void> openMenu(WidgetTester tester) async {
+      final drawer = find.byTooltip('Open navigation menu').hitTestable();
       await tester.tap(
-        find.byTooltip('Open navigation menu').hitTestable().first,
+        drawer.evaluate().isNotEmpty
+            ? drawer.first
+            : find.byKey(const Key('mac-sidebar-toggle')).hitTestable().first,
       );
       await _settle(tester);
     }
@@ -305,6 +310,37 @@ void main() {
       await resume(tester);
       await shots.capture(tester, 'cron-gone-back-to-chat');
     });
+
+    // The Mac window at the sizes the Mac design covers.
+    for (final (flow, size, brightness) in [
+      ('large', const Size(1160, 760), Brightness.light),
+      ('medium', const Size(900, 700), Brightness.light),
+      ('compact', const Size(680, 640), Brightness.light),
+      ('large-dark', const Size(1160, 760), Brightness.dark),
+    ]) {
+      testWidgets('macOS $flow: Schedules', (tester) async {
+        final shots = ScreenshotRecorder('schedules-shell-mac-$flow');
+        await pumpShell(
+          tester,
+          shots,
+          size: size,
+          brightness: brightness,
+          platform: TargetPlatform.macOS,
+        );
+        await openTab(tester, 'Schedules');
+        await shots.capture(tester, 'schedules');
+
+        await _openTile(tester, 'Morning brief');
+        await shots.capture(tester, 'healthy-job-with-runs');
+
+        await _openTile(tester, 'Weekly digest');
+        await shots.capture(tester, 'paused-job');
+
+        await tester.tap(find.text('All profiles'));
+        await _settle(tester);
+        await shots.capture(tester, 'all-profiles');
+      });
+    }
 
     for (final (flow, size) in [
       ('schedules-shell-phone-dark', phoneSize),
@@ -1383,6 +1419,7 @@ Future<void> _mount(
   required Size size,
   Brightness brightness = Brightness.light,
   List<SingleChildWidget> providers = const [],
+  TargetPlatform? platform,
 }) async {
   await shots.start(tester, size);
   final dark = brightness == Brightness.dark;
@@ -1403,7 +1440,7 @@ Future<void> _mount(
           debugShowCheckedModeBanner: false,
           theme: withScreenshotFont(
             dark ? buildHermesDarkTheme() : buildHermesLightTheme(),
-          ),
+          ).copyWith(platform: platform),
           home: home,
         ),
       ),
