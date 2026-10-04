@@ -666,6 +666,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onSkipUnsupported: selected == null
               ? null
               : (id, kind) => chat.skipUnsupported(selected, id, kind),
+          onAnswerVault: selected == null
+              ? null
+              : (id, kind, {identifier = '', password = '', code = ''}) =>
+                    chat.answerVaultRequest(
+                      selected,
+                      id,
+                      kind,
+                      identifier: identifier,
+                      password: password,
+                      code: code,
+                    ),
           onStop: selected == null || chat.transport == null
               ? null
               : () => chat.stopReply(selected),
@@ -744,6 +755,7 @@ class _ThreadView extends StatelessWidget {
     this.onAnswerApproval,
     this.onAnswerClarify,
     this.onSkipUnsupported,
+    this.onAnswerVault,
     this.onStop,
     this.queued = const [],
     this.onRemoveQueued,
@@ -776,6 +788,14 @@ class _ThreadView extends StatelessWidget {
   onAnswerClarify;
   final Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported;
+  final Future<void> Function(
+    String requestId,
+    VaultKind kind, {
+    String identifier,
+    String password,
+    String code,
+  })?
+  onAnswerVault;
   final Future<void> Function()? onStop;
   final List<QueuedPrompt> queued;
   final ValueChanged<QueuedPrompt>? onRemoveQueued;
@@ -797,6 +817,7 @@ class _ThreadView extends StatelessWidget {
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,
           onSkipUnsupported: onSkipUnsupported,
+          onAnswerVault: onAnswerVault,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,

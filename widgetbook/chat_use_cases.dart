@@ -22,6 +22,7 @@ import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
+import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -284,6 +285,30 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         ),
         _tool('Skipped', UnsupportedRequestCard(request: skippedSecretRequest)),
         _tool('Expired', UnsupportedRequestCard(request: expiredSecretRequest)),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'VaultRequestCard',
+      useCases: [
+        _tool(
+          'Save login',
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _answers),
+        ),
+        _tool(
+          'Save fails',
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _fails),
+        ),
+        _tool(
+          'Unlock manager',
+          VaultRequestCard(request: vaultUnlockRequest, onAnswer: _answers),
+        ),
+        _tool(
+          'One-time code',
+          VaultRequestCard(request: vaultCodeRequest, onAnswer: _answers),
+        ),
+        _tool('Answered', VaultRequestCard(request: answeredVaultCodeRequest)),
+        _tool('Declined', VaultRequestCard(request: declinedSaveLoginRequest)),
+        _tool('Expired', VaultRequestCard(request: expiredSaveLoginRequest)),
       ],
     ),
     WidgetbookComponent(

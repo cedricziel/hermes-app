@@ -297,6 +297,27 @@ void recordSkipped(ChatMessage reply, String requestId) => _editPending(
       r is UnsupportedRequest ? r.withStatus(InputRequestStatus.answered) : r,
 );
 
+void recordVaultAnswered(
+  ChatMessage reply,
+  String requestId, {
+  String? identifier,
+  String? password,
+  String? code,
+}) => _editPending(
+  reply,
+  requestId,
+  (r) => r is VaultRequest
+      ? r.answered(identifier: identifier, password: password, code: code)
+      : r,
+);
+
+/// Declines a vault prompt: no value goes out, and the card says so.
+void recordVaultDeclined(ChatMessage reply, String requestId) => _editPending(
+  reply,
+  requestId,
+  (r) => r is VaultRequest ? r.withStatus(InputRequestStatus.answered) : r,
+);
+
 /// Ends the pending requests of [reply], or only [requestId] when given.
 void expireInputRequests(ChatMessage reply, {String? requestId}) =>
     _editPending(

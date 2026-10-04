@@ -112,4 +112,57 @@ void main() {
         thread.messages.last.inputRequests.single as ApprovalRequest;
     expect(request.choice, 'once');
   });
+
+  test('an answered vault request is recorded on its reply', () async {
+    chat.newThread();
+    final thread = chat.selectedThread!;
+    chat.submit('Save it', const []);
+    transport.sends.single.emit(
+      VaultRequested(
+        const VaultRequest(
+          requestId: 'srq-1',
+          kind: VaultKind.saveLogin,
+          origin: 'https://www.example.com',
+          site: 'www.example.com',
+        ),
+      ),
+    );
+    await pumpEventQueue();
+
+    await chat.answerVaultRequest(
+      thread,
+      'srq-1',
+      VaultKind.saveLogin,
+      identifier: 'ada@example.com',
+      password: 's3cret',
+    );
+
+    expect(transport.vaultAnswers.single.identifier, 'ada@example.com');
+    final request = thread.messages.last.inputRequests.single as VaultRequest;
+    expect(request.status, InputRequestStatus.answered);
+    expect(request.identifier, 'ada@example.com');
+  });
+
+  test('a skipped vault request records a decline', () async {
+    chat.newThread();
+    final thread = chat.selectedThread!;
+    chat.submit('Save it', const []);
+    transport.sends.single.emit(
+      VaultRequested(
+        const VaultRequest(
+          requestId: 'srq-1',
+          kind: VaultKind.code,
+          site: 'example.com',
+        ),
+      ),
+    );
+    await pumpEventQueue();
+
+    await chat.answerVaultRequest(thread, 'srq-1', VaultKind.code);
+
+    expect(transport.vaultAnswers.single.code, isEmpty);
+    final request = thread.messages.last.inputRequests.single as VaultRequest;
+    expect(request.status, InputRequestStatus.answered);
+    expect(request.code, isEmpty);
+  });
 }
