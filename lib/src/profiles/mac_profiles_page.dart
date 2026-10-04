@@ -124,6 +124,18 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     ]);
   }
 
+  /// The selected profile's counts, without messaging and plugins when it is not
+  /// the chat's profile any more: they were read for the dashboard's scope.
+  Map<ProfileSection, int> _shownCounts() {
+    final counts = _counts[_selected] ?? const {};
+    if (_selected == _profiles.current) return counts;
+    return {
+      for (final MapEntry(:key, :value) in counts.entries)
+        if (key != ProfileSection.messaging && key != ProfileSection.plugins)
+          key: value,
+    };
+  }
+
   void _open(ProfileSection section) {
     final name = _selected;
     final repositories = HermesRepositories.maybeOf(context);
@@ -190,7 +202,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     profiles: profiles,
                     selected: _selected,
                     onSelect: _select,
-                    counts: _counts[_selected] ?? const {},
+                    counts: _shownCounts(),
                     onOpen: _open,
                   ),
           ),

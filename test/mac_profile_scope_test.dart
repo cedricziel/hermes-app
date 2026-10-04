@@ -161,6 +161,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-row-default')));
     await tester.pumpAndSettle();
     expect(countIn(ProfileSection.messaging), '1');
+
+    // After the chat moves to "work", the cached count of "default" goes.
+    await tester.tap(find.byKey(const Key('mac-profile-switcher')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('work').last);
+    await tester.pumpAndSettle();
+    expect(countIn(ProfileSection.messaging), isNull);
   });
 
   testWidgets('the account footer opens Settings', (tester) async {
