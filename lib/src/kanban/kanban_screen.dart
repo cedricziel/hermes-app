@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
+
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
@@ -15,6 +17,8 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
+import '../macos/mac_toolbar.dart';
+import '../theme/platform_chrome.dart';
 import '../shell/shell_navigation.dart';
 import '../telemetry/telemetry.dart';
 import '../theme/app_icons.dart';
@@ -26,6 +30,7 @@ import 'kanban_create_screen.dart';
 import 'kanban_errors.dart';
 import 'kanban_events_connection.dart';
 import 'kanban_files.dart';
+import 'kanban_inspector.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 import 'kanban_workers_screen.dart';
@@ -35,6 +40,8 @@ import 'widgets/kanban_bulk_bar.dart';
 import 'widgets/kanban_card.dart';
 import 'widgets/kanban_card_drag.dart';
 import 'widgets/kanban_drop_strip.dart';
+import 'widgets/kanban_inspector_layout.dart';
+import 'widgets/kanban_mac_toolbar.dart';
 import 'widgets/kanban_status_chips.dart';
 import 'widgets/kanban_orchestration_dialog.dart';
 import 'widgets/kanban_task_panel.dart';
@@ -64,6 +71,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
   late final KanbanBoardController _controller;
   late final KanbanRepository _repository;
   late final AppLifecycleListener _lifecycle;
+
+  /// The task a Mac window shows beside the board.
+  final _inspector = KanbanInspector();
 
   /// Whether the shell shows this page, and whether the app is on screen; the
   /// event stream runs only while both hold.
@@ -99,6 +109,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
       prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
       log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
     )..start();
+    unawaited(_inspector.load());
+    HardwareKeyboard.instance.addHandler(_onKey);
     _lifecycle = AppLifecycleListener(
       onStateChange: (state) {
         _foreground = _isForeground(state);
@@ -124,15 +136,85 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKey);
+    _inspector.dispose();
     _lifecycle.dispose();
     _controller.dispose();
     super.dispose();
   }
 
+  bool get _mac => platformChromeOf(context) == PlatformChrome.macos;
+
+  /// Option-Command-I shows or hides the inspector and Command-N adds a task,
+  /// while the board is the page in front.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        !_visible ||
+        !mounted ||
+        !_mac ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return false;
+    }
+    final keyboard = HardwareKeyboard.instance;
+    if (!keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isShiftPressed) {
+      return false;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.keyI && keyboard.isAltPressed) {
+      _inspector.toggle();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.keyN &&
+        !keyboard.isAltPressed &&
+        _controller.board != null &&
+        !_controller.selecting) {
+      unawaited(_create());
+      return true;
+    }
+    return false;
+  }
+
+  void _selectBoard(String slug) {
+    _inspector.close();
+    _controller.selectBoard(slug);
+  }
+
+  void _manageBoards() => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          KanbanBoardsScreen(controller: _controller, repository: _repository),
+    ),
+  );
+
+  PreferredSizeWidget _macToolbar() => KanbanMacToolbar(
+    taskCount: _controller.columns.fold(0, (n, c) => n + c.tasks.length),
+    boards: _controller.boards,
+    board: _controller.boardSlug,
+    profiles: _controller.board?.assignees ?? const [],
+    profile: _controller.assignee,
+    live: _controller.live,
+    inspectorShown: _inspector.shown,
+    onNewTask: _controller.board == null ? null : _create,
+    onSelectBoard: _selectBoard,
+    onManageBoards: _manageBoards,
+    onProfileChanged: _controller.setAssignee,
+    onToggleInspector: _inspector.toggle,
+    more: _controller.board == null
+        ? null
+        : MacToolbarMenu<String>(
+            label: 'More',
+            icon: AppIcons.more,
+            onSelected: _onMore,
+            itemBuilder: (_) => _moreItems,
+          ),
+  );
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _controller,
+      listenable: Listenable.merge([_controller, _inspector]),
       builder: (context, _) => Scaffold(
         appBar: _controller.selecting
             ? AppBar(
@@ -146,6 +228,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 ),
                 title: Text('${_controller.selected.length} selected'),
               )
+            : _mac
+            ? _macToolbar()
             : AppBar(
                 leading: ShellMenu.button(context),
                 title: const Text('Kanban'),
@@ -154,15 +238,8 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     KanbanBoardMenu(
                       boards: _controller.boards,
                       selected: _controller.boardSlug,
-                      onSelected: _controller.selectBoard,
-                      onManage: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => KanbanBoardsScreen(
-                            controller: _controller,
-                            repository: _repository,
-                          ),
-                        ),
-                      ),
+                      onSelected: _selectBoard,
+                      onManage: _manageBoards,
                     ),
                   KanbanLiveDot(live: _controller.live),
                   if (_controller.board != null) _moreMenu(),
@@ -184,8 +261,15 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 onArchive: () => unawaited(_bulk(archive: true)),
               )
             : null,
-        body: _body(context),
-        floatingActionButton: _controller.board == null || _controller.selecting
+        body: _mac
+            ? KanbanInspectorLayout(
+                board: _body(context),
+                shown: _inspector.shown,
+                inspector: _inspectorPanel(),
+              )
+            : _body(context),
+        floatingActionButton:
+            _mac || _controller.board == null || _controller.selecting
             ? null
             : FloatingActionButton.extended(
                 onPressed: _create,
@@ -209,14 +293,31 @@ class _KanbanScreenState extends State<KanbanScreen> {
     if (created == true) unawaited(_controller.refresh());
   }
 
-  void _open(KanbanTask task) => showKanbanTask(
-    context,
-    repository: _repository,
-    files: widget.files,
-    taskId: task.id,
-    board: _controller.boardSlug,
-    onChanged: _controller.refresh,
-  );
+  Widget? _inspectorPanel() {
+    final taskId = _inspector.taskId;
+    if (taskId == null) return null;
+    return KanbanTaskPanel(
+      key: ValueKey((_controller.boardSlug, taskId)),
+      repository: _repository,
+      files: widget.files,
+      taskId: taskId,
+      board: _controller.boardSlug,
+      onChanged: _controller.refresh,
+      onClose: _inspector.close,
+      topPadding: 16,
+    );
+  }
+
+  void _open(KanbanTask task) => _mac
+      ? _inspector.open(task.id)
+      : showKanbanTask(
+          context,
+          repository: _repository,
+          files: widget.files,
+          taskId: task.id,
+          board: _controller.boardSlug,
+          onChanged: _controller.refresh,
+        );
 
   Future<void> _move(KanbanTask task, String status) async {
     setState(() => _dragId = null);
@@ -226,39 +327,43 @@ class _KanbanScreenState extends State<KanbanScreen> {
   }
 
   Widget _moreMenu() => AdaptivePopupMenuButton<String>(
-    onSelected: (value) {
-      switch (value) {
-        case 'select':
-          _controller.startSelecting();
-        case 'dispatch':
-          _dispatch();
-        case 'workers':
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => KanbanWorkersScreen(
-                repository: _repository,
-                board: _controller.boardSlug,
-                onChanged: _controller.refresh,
-              ),
-            ),
-          );
-        case 'orchestration':
-          showDialog<void>(
-            context: context,
-            builder: (_) => KanbanOrchestrationDialog(
+    onSelected: _onMore,
+    itemBuilder: (_) => _moreItems,
+  );
+
+  static const _moreItems = [
+    PopupMenuItem(value: 'select', child: Text('Select tasks')),
+    PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
+    PopupMenuItem(value: 'workers', child: Text('Active workers…')),
+    PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
+  ];
+
+  void _onMore(String value) {
+    switch (value) {
+      case 'select':
+        _controller.startSelecting();
+      case 'dispatch':
+        _dispatch();
+      case 'workers':
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => KanbanWorkersScreen(
               repository: _repository,
               board: _controller.boardSlug,
+              onChanged: _controller.refresh,
             ),
-          );
-      }
-    },
-    itemBuilder: (_) => const [
-      PopupMenuItem(value: 'select', child: Text('Select tasks')),
-      PopupMenuItem(value: 'dispatch', child: Text('Run dispatcher now')),
-      PopupMenuItem(value: 'workers', child: Text('Active workers…')),
-      PopupMenuItem(value: 'orchestration', child: Text('Orchestration…')),
-    ],
-  );
+          ),
+        );
+      case 'orchestration':
+        showDialog<void>(
+          context: context,
+          builder: (_) => KanbanOrchestrationDialog(
+            repository: _repository,
+            board: _controller.boardSlug,
+          ),
+        );
+    }
+  }
 
   Future<void> _dispatch() async {
     final ok = await runKanbanAction(context, _controller.dispatch);
@@ -306,7 +411,9 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final selecting = _controller.selecting;
     return KanbanCard(
       task: task,
-      selected: _controller.isSelected(task.id),
+      selected: selecting
+          ? _controller.isSelected(task.id)
+          : _mac && _inspector.shown && _inspector.taskId == task.id,
       onTap: selecting
           ? () => _controller.toggleSelected(task.id)
           : () => _open(task),
@@ -357,13 +464,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= kKanbanColumnsBreakpoint;
+        final wide = _mac || constraints.maxWidth >= kKanbanColumnsBreakpoint;
         return Column(
           children: [
             if (_controller.refreshFailed)
               KanbanRefreshFailedNotice(onRetry: _controller.refresh),
             KanbanBoardToolbar(
-              assignees: board.assignees,
+              assignees: _mac ? const [] : board.assignees,
               tenants: board.tenants,
               assignee: _controller.assignee,
               tenant: _controller.tenant,
@@ -429,16 +536,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   Widget _columns(BuildContext context) {
     final columns = _controller.columns;
+    final mac = _mac;
     return ListView.separated(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(mac ? 16 : 12),
       itemCount: columns.length,
       separatorBuilder: (_, _) => const SizedBox(width: 12),
       itemBuilder: (context, i) {
         final column = columns[i];
         final droppable = kanbanSettableStatuses.contains(column.name);
         return SizedBox(
-          width: 260,
+          width: mac ? 232 : 260,
           child: DragTarget<KanbanTask>(
             onWillAcceptWithDetails: (d) =>
                 droppable && d.data.status != column.name,

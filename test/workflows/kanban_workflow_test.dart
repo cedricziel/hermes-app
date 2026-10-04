@@ -94,6 +94,25 @@ void main() {
       })
       ..on(
         'GET',
+        '/api/plugins/kanban/tasks/t_triage',
+        kanbanTaskDetailBody(
+          kanbanTaskRow(
+            id: 't_triage',
+            title: 'Investigate flaky checkout test',
+            status: 'triage',
+            priority: 1,
+          )..['body'] = 'The checkout test fails about one run in ten on CI.',
+          comments: [
+            {
+              'author': 'coder',
+              'body': 'It times out waiting for the payment stub.',
+              'created_at': 1780000000,
+            },
+          ],
+        ),
+      )
+      ..on(
+        'GET',
         '/api/plugins/kanban/tasks/t_run',
         kanbanTaskDetailBody(
           kanbanTaskRow(
@@ -198,6 +217,42 @@ void main() {
     await tester.pumpAndSettle();
     await shots.capture(tester, 'task-detail');
   });
+
+  for (final (flow, size, brightness) in [
+    ('kanban-macos-large', const Size(1160, 760), Brightness.light),
+    ('kanban-macos-medium', const Size(900, 760), Brightness.light),
+    ('kanban-macos-compact', const Size(680, 760), Brightness.light),
+    ('kanban-macos-large-dark', const Size(1160, 760), Brightness.dark),
+  ]) {
+    testWidgets('$flow: toolbar, inspector and its toggle', (tester) async {
+      final shots = ScreenshotRecorder(flow);
+      await pumpScreen(
+        tester,
+        shots,
+        Builder(
+          builder: (context) => Theme(
+            data: Theme.of(context).copyWith(platform: TargetPlatform.macOS),
+            child: KanbanScreen(
+              repository: KanbanRepository(server.client()),
+              connect: ({required since, board}) async =>
+                  StreamChannelController<String>().foreign,
+            ),
+          ),
+        ),
+        size: size,
+        brightness: brightness,
+      );
+      await shots.capture(tester, 'board');
+
+      await tester.tap(find.text('Investigate flaky checkout test'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'inspector');
+
+      await tester.tap(find.byKey(const Key('kanban-inspector-toggle')));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'inspector-hidden');
+    });
+  }
 
   for (final (flow, size) in [
     ('kanban-phone-dark', phoneSize),
