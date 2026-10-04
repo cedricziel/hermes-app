@@ -122,6 +122,17 @@ void main() {
     expect(tester.getSize(row('s1')).height, 28);
   });
 
+  testWidgets('screen readers get each row as a button', (tester) async {
+    final handle = tester.ensureSemantics();
+    await pump(tester);
+    final data = tester
+        .getSemantics(find.text('Release notes'))
+        .getSemanticsData();
+    expect(data.label, 'Release notes');
+    expect(data.flagsCollection.isButton, isTrue);
+    handle.dispose();
+  });
+
   testWidgets('other platforms keep the flat list', (tester) async {
     await pump(tester, platform: TargetPlatform.windows);
     expect(header('Today'), findsNothing);

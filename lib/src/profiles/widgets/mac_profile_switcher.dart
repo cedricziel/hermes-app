@@ -58,7 +58,7 @@ class MacProfileSwitcher extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         button: true,
-        label: 'Profile $label',
+        label: 'Profile',
         child: AdaptivePopupMenuButton<_Pick>(
           key: const Key('mac-profile-switcher'),
           tooltip: '',

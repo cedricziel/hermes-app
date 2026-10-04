@@ -65,7 +65,13 @@ class _MacSourceListTileState extends State<MacSourceListTile> {
               height: widget.height,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: widget.builder(context, _hovered),
+                // On the ink's own node, which holds the label, not on one
+                // around it that hover buttons would split from it.
+                child: Semantics(
+                  button: true,
+                  selected: widget.selected,
+                  child: widget.builder(context, _hovered),
+                ),
               ),
             ),
           ),
