@@ -92,6 +92,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   slightly see-through fill), window dragging. The Mac sidebar's resize handle is a `sidebarWidth` prop.
 - As in Flutter PR #376, touch thread rows have no inline "..."; their actions are the swipes and the long-press
   sheet. Mac and Material rows keep it.
+- Shared form and list parts: `FormSection` (Layout; Flutter has no widget, it is the heading/fields/helper rhythm of the job, Kanban task and blueprint forms, and `DisclosureTile` for "Advanced"), `SelectField` (Controls; `DropdownButtonFormField` and the job form's model `InputDecorator`, Material on every platform as in the app, its menu follows the platform) and `ListRow` (Lists; Material `ListTile`, an inset grouped row on Apple with a muted disclosure chevron).
 
 ## Follow-ups (base components the recreations asked for)
 

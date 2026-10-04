@@ -1,0 +1,54 @@
+.h-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.h-form-section__title {
+  font-size: var(--h-ramp-title-sm-size, 14px);
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--h-fg);
+}
+
+.h-form-section__title--label {
+  font-weight: 500;
+}
+
+.h-form-section__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-form-section__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.h-form-section__helper {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--h-muted);
+}
+
+/* As the app: a form error is a plain red Text at body size, not a field hint. */
+.h-form-section__error {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--h-error);
+}

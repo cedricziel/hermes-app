@@ -52,6 +52,8 @@ Layout rules from the app: list and detail side by side from 900px wide (`ListDe
 
 Read `styles.css` and its imports (tokens and every component's CSS) before styling, and each component's `.prompt.md` and `.d.ts` for props. Screens are composed, not drawn: chat = `AppShell` + `ThreadSidebar` + `ChatHeader` + messages (`UserMessage`, `AssistantMessage`, `ReasoningBlock`, `ToolCallGroup`/`ToolCallCard`, `ApprovalCard`, `ClarifyCard`, `ThinkingIndicator`) + `ChatComposer` with a `ModelPill`; Kanban = `KanbanToolbar` + `KanbanColumn` of `KanbanCard`s + `KanbanTaskPanel`; settings-style lists = `ListDetailLayout` with `McpServerRow`, `PluginRow`, `ScheduleJobRow`, `ProfileTile`; empty or failed screens = `StateMessage`.
 
+Forms and plain lists: a form screen is a column of `FormSection`s (heading, fields, helper or error; `collapsible` for "Advanced") holding `TextField`, `SelectField` (any dropdown or picker field), `Chip` rows and a `ModelPill`; any plain list (boards, workers, settings rows) is `ListRow`s, which form an inset grouped list by themselves under `platform="apple"`.
+
 ## Example
 
 ```jsx

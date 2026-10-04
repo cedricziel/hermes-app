@@ -38,6 +38,9 @@ export * from "./components/KanbanStatusChips/KanbanStatusChips";
 export * from "./components/KanbanColumn/KanbanColumn";
 export * from "./components/KanbanToolbar/KanbanToolbar";
 export * from "./components/KanbanTaskPanel/KanbanTaskPanel";
+export * from "./components/FormSection/FormSection";
+export * from "./components/SelectField/SelectField";
+export * from "./components/ListRow/ListRow";
 
 export type { AppleDevice, Platform } from "./platform";
 export * from "./components/SegmentedButton/SegmentedButton";

@@ -123,6 +123,15 @@
     },
     "SegmentedButton": {
       "cardMode": "column"
+    },
+    "FormSection": {
+      "cardMode": "column"
+    },
+    "ListRow": {
+      "cardMode": "column"
+    },
+    "SelectField": {
+      "cardMode": "column"
     }
   }
 }

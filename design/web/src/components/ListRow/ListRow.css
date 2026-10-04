@@ -1,0 +1,117 @@
+.h-list-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 8px 16px;
+  color: var(--h-fg);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.h-list-row--two-line {
+  min-height: 72px;
+}
+
+.h-list-row--interactive {
+  cursor: pointer;
+}
+
+.h-list-row--interactive:hover {
+  background: var(--h-hover);
+}
+
+.h-list-row--selected,
+.h-list-row--selected:hover {
+  background: var(--h-surface-high);
+}
+
+.h-list-row--disabled {
+  opacity: 0.38;
+}
+
+.h-list-row__leading {
+  flex: none;
+  display: inline-flex;
+}
+
+.h-list-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.h-list-row__title {
+  font-size: var(--h-ramp-body-lg-size, 16px);
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-list-row__subtitle {
+  font-size: var(--h-ramp-body-md-size, 14px);
+  line-height: 20px;
+  color: var(--h-muted);
+  overflow-wrap: anywhere;
+}
+
+.h-list-row__subtitle.h-mono {
+  font-size: 13px;
+}
+
+.h-list-row__trailing {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Apple: a row of an iOS list, 44px minimum, the chevron in the muted color. */
+.h-list-row--apple {
+  min-height: 44px;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.h-list-row--apple.h-list-row--two-line {
+  min-height: 58px;
+}
+
+.h-list-row__chevron {
+  color: var(--h-muted);
+}
+
+.h-list-row--apple .h-list-row__subtitle {
+  font-size: var(--h-ramp-body-md-size, 15px);
+}
+
+/* Inset grouped: one tinted group 16px in from the edges, 10px corners on
+   the first and last row, a hairline between rows. */
+.h-list-row--grouped {
+  margin: 0 16px;
+  background: var(--h-surface-high);
+  border-bottom: 0.5px solid var(--h-border);
+}
+
+.h-list-row--grouped.h-list-row--interactive:hover {
+  background: color-mix(in srgb, var(--h-surface-high) 80%, var(--h-fg));
+}
+
+.h-list-row--grouped.h-list-row--selected,
+.h-list-row--grouped.h-list-row--selected:hover {
+  background: color-mix(in srgb, var(--h-surface-high) 70%, var(--h-fg));
+}
+
+.h-list-row--grouped:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.h-list-row--grouped:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
