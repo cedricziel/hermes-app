@@ -217,6 +217,26 @@ void main() {
 
       expect(pasted, [SharedFile(path: file.path, name: 'note.txt')]);
     });
+
+    test('a web URL path that exists as a file is a known gap', () async {
+      // Without the clipboard entry's scheme, a web URL whose path portion
+      // coincides with a real file (e.g. https://example.com/etc/hosts) cannot
+      // be told apart from a copied file. Attaching it is wrong; the fix
+      // belongs in the pasteboard plugin, which should only report file URLs.
+      // Until then this documents what actually happens.
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final hosts = File('${dir.path}/hosts')..writeAsStringSync('hi');
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.macOS,
+        clipboardImage: () async => null,
+        clipboardFiles: () async => ['https://example.com${hosts.path}'],
+      );
+
+      final pasted = await source.pasted();
+
+      expect(pasted, [SharedFile(path: hosts.path, name: 'hosts')]);
+    });
   });
 
   group('the camera and the photo library', () {
