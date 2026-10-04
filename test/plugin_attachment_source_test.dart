@@ -147,7 +147,7 @@ void main() {
       expect(pasted.map((f) => f.isImage), [false, true]);
     });
 
-    test('a web URL the macOS pasteboard reports as a path is skipped', () async {
+    test('a web URL reported as a path is skipped', () async {
       // The macOS pasteboard plugin reads every NSURL on the clipboard; a
       // copied link arrives as its path portion without the host.
       final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
@@ -156,7 +156,11 @@ void main() {
       final source = PluginAttachmentSource(
         platform: TargetPlatform.macOS,
         clipboardImage: () async => null,
-        clipboardFiles: () async => ['/docs/page', 'https://example.com', file.path],
+        clipboardFiles: () async => [
+          '/docs/page',
+          'https://example.com',
+          file.path,
+        ],
       );
 
       final pasted = await source.pasted();
