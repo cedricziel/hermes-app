@@ -162,10 +162,13 @@ void main() {
     );
 
     // A phone keeps the destinations in a drawer: Chat's own, or the shell's
-    // on another page.
+    // on another page. A compact Mac window opens its sidebar over the page.
     Future<void> openMenu(WidgetTester tester) async {
+      final drawer = find.byTooltip('Open navigation menu').hitTestable();
       await tester.tap(
-        find.byTooltip('Open navigation menu').hitTestable().first,
+        drawer.evaluate().isNotEmpty
+            ? drawer.first
+            : find.byKey(const Key('mac-sidebar-toggle')).hitTestable().first,
       );
       await _settle(tester);
     }
