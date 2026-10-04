@@ -113,7 +113,7 @@ export interface KanbanTaskPanelProps {
    * Inherits the provider's platform.
    */
   platform?: Platform;
-  /** Apple `sheet` only: `medium` fills half the parent's height, `large` all of it (the default). The sheet snaps between them and a swipe down past medium closes it. */
+  /** Apple `sheet` only: the height the sheet is drawn at. `medium` fills half the parent's height, `large` all of it (the default). A static choice: the grabber is drawn but has no gesture, so pick the detent to preview. */
   detent?: "medium" | "large";
   /** Height of the frame in px; the content scrolls inside it. Defaults to 720 for a dialog; `auto` grows to fit the content. */
   height?: number | "auto";
