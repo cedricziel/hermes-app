@@ -305,10 +305,19 @@
   min-width: 168px;
 }
 
-/* Apple, touch: 44px thread rows, no inline "…" (swipe and long press in the app). */
+/* Apple, touch: 44px thread rows; the "…" is a 44px target at the row's end. */
 .h-thread-sidebar--touch .h-thread-row {
   min-height: 44px;
   padding: 0 10px;
+}
+
+.h-thread-sidebar--touch .h-thread-row--actionable {
+  padding-right: 0;
+}
+
+.h-thread-sidebar--touch .h-thread-row__more {
+  width: 44px;
+  height: 44px;
 }
 
 .h-thread-sidebar__menu--touch {

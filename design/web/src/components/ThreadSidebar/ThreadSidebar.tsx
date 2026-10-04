@@ -439,10 +439,10 @@ export interface ThreadSidebarProps {
   /**
    * `apple` changes the sidebar to Apple's conventions, and what changes
    * depends on `layout`. Touch (`phone`, iPhone and iPad): thread rows are at
-   * least 44px tall and have no inline "…" button; in the app a row swipes
-   * right to pin or unpin and left to delete, and a long press opens an action
-   * sheet with Rename, Pin, Archive and Delete (right-click opens the same
-   * menu here, as a stand-in). Mac (`desktop`): the sidebar starts at the top
+   * least 44px tall and the "…" button is a 44px target that opens the iOS
+   * pull-down with Rename, Pin, Archive and Delete (right-click opens it too).
+   * The app's swipe actions and long-press sheet are not recreated, so the
+   * button stays as the way to reach them. Mac (`desktop`): the sidebar starts at the top
    * of the window, drops the brand row for a 52px strip that leaves 78px for
    * the traffic lights, keeps the "…" button and uses the compact Mac menu.
    * Inherits the provider's platform.
@@ -534,7 +534,6 @@ export function ThreadSidebar({
           {threads.map((t) => {
             const selected = t.id === selectedId;
             const actionable = t.remote !== false;
-            const inlineMore = actionable && !touch;
             return (
               <div
                 key={t.id}
@@ -546,7 +545,7 @@ export function ThreadSidebar({
                   "h-thread-row",
                   rowRadiusClass,
                   selected ? "h-thread-row--selected" : null,
-                  inlineMore ? "h-thread-row--actionable" : null,
+                  actionable ? "h-thread-row--actionable" : null,
                 ]
                   .filter(Boolean)
                   .join(" ")}
@@ -572,7 +571,7 @@ export function ThreadSidebar({
                   />
                 ) : null}
                 <span className="h-thread-row__title">{t.title}</span>
-                {inlineMore ? (
+                {actionable ? (
                   <button
                     type="button"
                     className="h-thread-row__more"
