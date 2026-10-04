@@ -86,7 +86,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
             id: '${m.id}-sealed-$place',
             authorId: authorId,
             createdAt: createdAt,
-            text: decodeMarkdownEntities(m.sealedProse[place].text),
+            text: normalizeMarkdown(m.sealedProse[place].text),
           ),
       ],
     ];
@@ -136,7 +136,11 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         id: m.id,
         authorId: authorId,
         createdAt: createdAt,
-        text: media.text,
+        // User text renders as typed; assistant markdown is preprocessed
+        // (entities decoded, tables separated) before the renderer sees it.
+        text: m.role == ChatRole.user
+            ? media.text
+            : normalizeMarkdown(media.text),
         metadata: switch (m.status) {
           MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
