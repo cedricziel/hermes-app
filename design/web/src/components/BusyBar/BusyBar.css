@@ -1,0 +1,41 @@
+.h-busy-bar {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--h-primary) 16%, transparent);
+}
+
+.h-busy-bar__value {
+  height: 100%;
+  background: var(--h-primary);
+}
+
+.h-busy-bar--indeterminate .h-busy-bar__value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40%;
+  animation: h-busy-bar-slide 1.6s ease-in-out infinite;
+}
+
+@keyframes h-busy-bar-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
+/* Reduce Motion: a still, dimmed full bar. */
+@media (prefers-reduced-motion: reduce) {
+  .h-busy-bar--indeterminate {
+    background: transparent;
+  }
+
+  .h-busy-bar--indeterminate .h-busy-bar__value {
+    width: 100%;
+    animation: none;
+    background: color-mix(in srgb, var(--h-primary) 40%, transparent);
+  }
+}

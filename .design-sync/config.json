@@ -5,9 +5,13 @@
   "globalName": "HermesUI",
   "buildCmd": "cd design/web && npm ci && npm run build",
   "cssEntry": "dist/index.css",
-  "extraFonts": ["src/fonts/cupertino-icons.css"],
+  "extraFonts": [
+    "src/fonts/cupertino-icons.css"
+  ],
   "docsDir": "docs",
-  "guidelinesGlob": ["guides/**/*.md"],
+  "guidelinesGlob": [
+    "guides/**/*.md"
+  ],
   "provider": {
     "component": "HermesProvider"
   },
@@ -202,6 +206,15 @@
       "cardMode": "column"
     },
     "PluginsScreen": {
+      "cardMode": "column"
+    },
+    "BusyBar": {
+      "cardMode": "column"
+    },
+    "SecurityScanCard": {
+      "cardMode": "column"
+    },
+    "SkillJobSheet": {
       "cardMode": "column"
     }
   }

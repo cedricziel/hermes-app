@@ -46,6 +46,9 @@ export * from "./components/ChatThread/ChatThread";
 export * from "./components/ChatScreen/ChatScreen";
 export * from "./components/AppLockScreen/AppLockScreen";
 export * from "./components/ImageViewerScreen/ImageViewerScreen";
+export * from "./components/BusyBar/BusyBar";
+export * from "./components/SecurityScanCard/SecurityScanCard";
+export * from "./components/SkillJobSheet/SkillJobSheet";
 
 export type { AppleDevice, Platform } from "./platform";
 export * from "./components/Tag/Tag";
