@@ -1,15 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/auth/token_store.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
 
 class _FakeStorage extends FlutterSecureStorage {
-  _FakeStorage({this.value, this.readError, this.deleteError});
+  _FakeStorage({this.value, this.readError, this.deleteError, this.writeError});
 
   String? value;
   final Object? readError;
   final Object? deleteError;
+  final Object? writeError;
+  final writes = <String?>[];
 
   @override
   Future<String?> read({
@@ -23,6 +28,22 @@ class _FakeStorage extends FlutterSecureStorage {
   }) async {
     if (readError != null) throw readError!; // ignore: only_throw_errors
     return value;
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (writeError != null) throw writeError!; // ignore: only_throw_errors
+    writes.add(value);
+    this.value = value;
   }
 
   @override
@@ -40,7 +61,50 @@ class _FakeStorage extends FlutterSecureStorage {
   }
 }
 
+const _session = HermesSession(
+  accessToken: 'access',
+  refreshToken: 'refresh',
+  expiresAt: 4102444800,
+  provider: 'basic',
+  userId: 'u1',
+);
+
+String _stored() => jsonEncode(_session.toStorageJson());
+
 void main() {
+  test('the session stays readable on iOS while the phone is locked', () {
+    // A watch request wakes the phone app in the background, usually locked.
+    final options = TokenStore.defaultStorage.iOptions;
+
+    expect(
+      options.accessibility,
+      KeychainAccessibility.first_unlock_this_device,
+    );
+  });
+
+  test(
+    'a stored session is saved again once, under the current options',
+    () async {
+      final storage = _FakeStorage(value: _stored());
+      final store = TokenStore(storage: storage);
+
+      final first = await store.read();
+      await store.read();
+
+      expect(first?.accessToken, 'access');
+      expect(storage.writes, [_stored()]);
+    },
+  );
+
+  test('a session that cannot be saved again is still returned', () async {
+    final storage = _FakeStorage(
+      value: _stored(),
+      writeError: PlatformException(code: '-25299'),
+    );
+
+    expect((await TokenStore(storage: storage).read())?.accessToken, 'access');
+  });
+
   test('a debug build keeps the session in the login keychain on macOS', () {
     // An ad hoc signed debug build may not use the data protection keychain.
     final options = TokenStore.defaultStorage.mOptions as MacOsOptions;
