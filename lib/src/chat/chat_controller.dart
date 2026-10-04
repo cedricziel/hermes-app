@@ -890,6 +890,43 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
+  Future<void> answerVaultRequest(
+    ChatThread thread,
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    final transport = this.transport;
+    final reply = _replyAwaiting(thread, requestId);
+    if (transport == null || reply == null) return;
+    final declined = identifier.isEmpty && password.isEmpty && code.isEmpty;
+    final accepted = await transport.answerVault(
+      requestId,
+      kind,
+      identifier: identifier,
+      password: password,
+      code: code,
+    );
+    if (disposed) return;
+    _updateReply(
+      thread,
+      reply,
+      () => accepted
+          ? declined
+                ? recordVaultDeclined(reply, requestId)
+                : recordVaultAnswered(
+                    reply,
+                    requestId,
+                    identifier: identifier,
+                    password: password,
+                    code: code,
+                  )
+          : expireInputRequests(reply, requestId: requestId),
+    );
+  }
+
   Future<void> answerClarify(
     ChatThread thread,
     String requestId,

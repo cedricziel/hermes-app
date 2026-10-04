@@ -128,6 +128,13 @@ final class ClarifyRequested extends ChatEvent {
   final ClarifyRequest request;
 }
 
+/// The agent waits on a masked vault prompt this app renders itself.
+final class VaultRequested extends ChatEvent {
+  const VaultRequested(this.request);
+
+  final VaultRequest request;
+}
+
 /// The agent is waiting on something this app cannot ask for, so the user has
 /// to answer it elsewhere.
 final class UnsupportedRequested extends ChatEvent {
@@ -278,6 +285,19 @@ abstract interface class ChatTransport {
     List<String> values, {
     String? questionId,
     bool multiSelect = false,
+  });
+
+  /// Answers a masked vault prompt: the login to save for [origin], the
+  /// master password of [backend], or the one-time code. An empty everything
+  /// skips the request: Hermes carries on as if the user declined. Returns
+  /// false when the request is no longer pending, and throws when the call
+  /// itself fails.
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
   });
 
   /// Stops the reply being written to the thread [threadId]. The reply then

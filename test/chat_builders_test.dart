@@ -12,7 +12,9 @@ import 'package:hermes_app/src/chat/chat_models.dart'
         ToolCall,
         ToolCallStatus,
         UnsupportedKind,
-        UnsupportedRequest;
+        UnsupportedRequest,
+        VaultKind,
+        VaultRequest;
 import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/chat_builders.dart';
@@ -21,6 +23,7 @@ import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
+import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -317,6 +320,28 @@ void main() {
 
       final card = tester.widget<UnsupportedRequestCard>(
         find.byType(UnsupportedRequestCard),
+      );
+      expect(card.request, same(request));
+    });
+
+    testWidgets('a vault request renders as a VaultRequestCard', (
+      tester,
+    ) async {
+      const request = VaultRequest(
+        requestId: 'srq-1',
+        kind: VaultKind.saveLogin,
+        origin: 'https://www.example.com',
+        site: 'www.example.com',
+      );
+      await _pumpChat(
+        tester,
+        messages: [
+          _custom({kMetaKind: kKindInputRequest, kMetaInputRequest: request}),
+        ],
+      );
+
+      final card = tester.widget<VaultRequestCard>(
+        find.byType(VaultRequestCard),
       );
       expect(card.request, same(request));
     });

@@ -320,6 +320,37 @@ const sudoRequest = UnsupportedRequest(
   kind: UnsupportedKind.sudo,
 );
 
+const saveLoginRequest = VaultRequest(
+  requestId: 'vault-1',
+  kind: VaultKind.saveLogin,
+  origin: 'https://www.example.com',
+  site: 'www.example.com',
+);
+
+final declinedSaveLoginRequest = saveLoginRequest.withStatus(
+  InputRequestStatus.answered,
+);
+
+final expiredSaveLoginRequest = saveLoginRequest.withStatus(
+  InputRequestStatus.expired,
+);
+
+const vaultUnlockRequest = VaultRequest(
+  requestId: 'vault-2',
+  kind: VaultKind.unlock,
+  backend: 'onepassword',
+  displayName: '1Password',
+);
+
+const vaultCodeRequest = VaultRequest(
+  requestId: 'vault-3',
+  kind: VaultKind.code,
+  site: 'example.com',
+  hint: 'The 6-digit code from your authenticator app.',
+);
+
+final answeredVaultCodeRequest = vaultCodeRequest.answered(code: '123456');
+
 const reasoningText =
     'The user wants the build folder gone. It is generated output, so '
     'deleting it is safe, but I should ask before running rm.';
