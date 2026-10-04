@@ -314,6 +314,7 @@ void main() {
     transport.send(text: 'hi').listen((e) async {
       if (e is ApprovalRequested ||
           e is ClarifyRequested ||
+          e is VaultRequested ||
           e is UnsupportedRequested) {
         result = await answer();
         gateway.event('message.complete', 'rt-1', {
