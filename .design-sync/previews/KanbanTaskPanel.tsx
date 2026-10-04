@@ -6,7 +6,7 @@ const running = {
   status: "running",
   assignee: "coder",
   priority: 2,
-  body: "Move every outgoing webhook to **v2 signing**.\n\n- endpoints\n- retries\n- docs",
+  body: "Move every outgoing webhook to v2 signing.\n\n- endpoints\n- retries\n- docs",
 };
 
 const comments = [
@@ -169,7 +169,12 @@ const sheetFrame = {
 export const AppleSheetDetents = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
     <div style={sheetFrame}>
-      <KanbanTaskPanel frame="sheet" detent="medium" task={running} channels={channels} />
+      <KanbanTaskPanel
+        frame="sheet"
+        detent="medium"
+        task={running}
+        channels={channels}
+      />
     </div>
     <div style={sheetFrame}>
       <KanbanTaskPanel frame="sheet" task={running} channels={channels} />

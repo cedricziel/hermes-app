@@ -108,8 +108,9 @@ export interface KanbanTaskPanelProps {
   /**
    * `apple` presents the task the way iOS does. `sheet` (iPhone): a bottom
    * sheet with a 36x5 grabber, a 12px top radius and two detents, see
-   * `detent`. `dialog` (iPad, Mac): a centred form sheet, 560px wide, 12px
-   * radius. The switches are Apple toggles. The panel's content is the same.
+   * `detent`. `dialog` (iPad, Mac): a centred form sheet, 560px wide, with
+   * 12px of top padding and a 12px radius. The switches are Apple toggles.
+   * The panel's content is the same.
    * Inherits the provider's platform.
    */
   platform?: Platform;
