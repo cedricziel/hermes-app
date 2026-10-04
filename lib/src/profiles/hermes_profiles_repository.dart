@@ -9,6 +9,7 @@ class HermesProfile {
     this.description = '',
     this.model,
     this.skillCount = 0,
+    this.path,
   });
 
   final String name;
@@ -16,6 +17,9 @@ class HermesProfile {
   final String description;
   final String? model;
   final int skillCount;
+
+  /// The profile's Hermes home on the server.
+  final String? path;
 
   String get label => displayName.isNotEmpty ? displayName : name;
 }
@@ -79,8 +83,21 @@ class HermesProfilesRepository {
             description: row['description'] as String? ?? '',
             model: row['model'] as String?,
             skillCount: (row['skill_count'] as num?)?.toInt() ?? 0,
+            path: row['path'] as String?,
           ),
     ];
+  }
+
+  /// Makes a new, empty profile [name].
+  Future<void> create(String name, {String? description}) async {
+    await _api.createProfileEndpointApiProfilesPost(
+      profileCreate: ProfileCreate(
+        name: name,
+        description: description == null || description.isEmpty
+            ? null
+            : description,
+      ),
+    );
   }
 
   Future<void> setActive(String name) async {
