@@ -23,12 +23,17 @@ class AdaptiveMenuItem<T> extends PopupMenuItem<T> {
     super.enabled,
     this.shortcut,
     this.destructive = false,
+    this.macHeight,
     required super.child,
   });
 
   /// The shortcut as a Mac menu writes it, such as `⇧⌘P`.
   final String? shortcut;
   final bool destructive;
+
+  /// The row's height in a Mac menu, for an item of two lines; one line of
+  /// [AdaptivePopupMenuButton.macRowHeight] when null.
+  final double? macHeight;
 }
 
 /// A [PopupMenuButton] that follows the platform: a pull-down
@@ -203,6 +208,10 @@ class _AdaptivePopupMenuButtonState<T>
     _ => entry,
   };
 
+  static double _macHeight(PopupMenuItem<Object?> entry) =>
+      (entry is AdaptiveMenuItem ? entry.macHeight : null) ??
+      AdaptivePopupMenuButton.macRowHeight;
+
   PopupMenuEntry<T> _compact(PopupMenuEntry<T> entry) => switch (entry) {
     CheckedPopupMenuItem<T>() => CheckedPopupMenuItem<T>(
       value: entry.value,
@@ -215,9 +224,10 @@ class _AdaptivePopupMenuButtonState<T>
       value: entry.value,
       onTap: entry.onTap,
       enabled: entry.enabled,
-      height: AdaptivePopupMenuButton.macRowHeight,
+      height: _macHeight(entry),
       padding: const EdgeInsets.symmetric(horizontal: 5),
       child: MacMenuRow(
+        height: _macHeight(entry),
         enabled: entry.enabled,
         shortcut: entry is AdaptiveMenuItem<T> ? entry.shortcut : null,
         destructive: entry is AdaptiveMenuItem<T> && entry.destructive,
@@ -314,12 +324,14 @@ class MacMenuRow extends StatefulWidget {
     this.shortcut,
     this.destructive = false,
     this.enabled = true,
+    this.height = AdaptivePopupMenuButton.macRowHeight,
   });
 
   final Widget child;
   final String? shortcut;
   final bool destructive;
   final bool enabled;
+  final double height;
 
   @override
   State<MacMenuRow> createState() => _MacMenuRowState();
@@ -346,7 +358,7 @@ class _MacMenuRowState extends State<MacMenuRow> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: Container(
-        height: AdaptivePopupMenuButton.macRowHeight,
+        height: widget.height,
         padding: const EdgeInsets.symmetric(horizontal: 9),
         decoration: BoxDecoration(
           color: lit ? scheme.primary : null,
