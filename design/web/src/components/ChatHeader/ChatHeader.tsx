@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useLayoutEffect } from "react";
 import { IconButton } from "../IconButton/IconButton";
 import {
   ThreadActionsButton,
@@ -77,11 +77,16 @@ export function ChatHeader({
 }: ChatHeaderProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
-  const { sidebarCollapsed, toggleSidebar } = useContext(ShellChromeContext);
+  const { sidebarCollapsed, toggleSidebar, claimSidebarToggle } =
+    useContext(ShellChromeContext);
   const device = useAppleDevice(layout, deviceProp);
   const hasMenu = title != null && remote;
   const mac = apple && device === "mac";
   const showToggle = mac && sidebarCollapsed;
+  useLayoutEffect(
+    () => (mac ? claimSidebarToggle?.() : undefined),
+    [mac, claimSidebarToggle],
+  );
   return (
     <PlatformScope platform={resolvedPlatform}>
       <header

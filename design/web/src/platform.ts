@@ -62,6 +62,12 @@ export interface ShellChrome {
   sidebarCollapsed: boolean;
   /** Present only inside a Mac `AppShell`; hides or shows the sidebar. */
   toggleSidebar?: () => void;
+  /**
+   * A header that shows its own "Show sidebar" button calls this while
+   * mounted (it returns the release), so the shell draws its fallback
+   * button only on pages without one.
+   */
+  claimSidebarToggle?: () => () => void;
   /** The shell's resolved Apple device, which its sidebar and header inherit. */
   device?: AppleDevice;
 }

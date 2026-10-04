@@ -179,6 +179,26 @@ export const AppleMacSchedules = () => (
   </HermesProvider>
 );
 
+/** The Mac sidebar hidden on a page without a ChatHeader: the shell draws a 52px toolbar strip with the show-sidebar button. */
+export const AppleMacSchedulesSidebarHidden = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...desktop, height: 380 }}>
+      <AppShell
+        layout="desktop"
+        current="schedules"
+        sidebarCollapsed
+        showTrafficLights
+      >
+        <StateMessage
+          icon="schedule"
+          title="No scheduled tasks yet"
+          detail="Ask Hermes to run something on a schedule, such as a nightly backup check."
+        />
+      </AppShell>
+    </div>
+  </HermesProvider>
+);
+
 /** Full-screen iPad (`device="touch"`): the sidebar sits beside the page, but with the brand row, 44px touch rows and the iOS navigation bar instead of the Mac chrome. */
 export const AppleIPad = () => (
   <HermesProvider platform="apple">

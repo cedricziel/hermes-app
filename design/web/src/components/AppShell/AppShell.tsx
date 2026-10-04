@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
+import { IconButton } from "../IconButton/IconButton";
 import {
   AccountFooter,
   SidebarAction,
@@ -116,7 +117,7 @@ export interface AppShellProps {
    * inherit it. Ignored on `material`.
    */
   device?: AppleDevice;
-  /** Mac only: start with the sidebar hidden. The page's header then shows a "show sidebar" button and leaves room for the traffic lights. */
+  /** Mac only: start with the sidebar hidden. A page's `ChatHeader` then shows a "Show sidebar" button and leaves room for the traffic lights; a page without one (Kanban, Schedules) gets a 52px toolbar strip from the shell with the same button. */
   sidebarCollapsed?: boolean;
   /** Mac only: sidebar width in px, clamped to 220 to 360 (default 280). */
   sidebarWidth?: number;
@@ -166,6 +167,12 @@ export function AppShell({
   const mac =
     resolvedPlatform === "apple" && layout === "desktop" && device === "mac";
   const [collapsed, setCollapsed] = useState(sidebarCollapsed);
+  const toggleSidebar = () => setCollapsed((c) => !c);
+  const [headerToggles, setHeaderToggles] = useState(0);
+  const claimSidebarToggle = useCallback(() => {
+    setHeaderToggles((n) => n + 1);
+    return () => setHeaderToggles((n) => n - 1);
+  }, []);
   const single = destinations.length <= 1;
   const side =
     sidebar ??
@@ -208,7 +215,8 @@ export function AppShell({
       <ShellChromeContext.Provider
         value={{
           sidebarCollapsed: mac && collapsed,
-          toggleSidebar: mac ? () => setCollapsed((c) => !c) : undefined,
+          toggleSidebar: mac ? toggleSidebar : undefined,
+          claimSidebarToggle,
           device,
         }}
       >
@@ -233,7 +241,18 @@ export function AppShell({
               {side}
             </div>
           ) : null}
-          <div className="h-app-shell__content">{children}</div>
+          <div className="h-app-shell__content">
+            {mac && collapsed && headerToggles === 0 ? (
+              <div className="h-app-shell__toolbar">
+                <IconButton
+                  icon="left_panel_open"
+                  label="Show sidebar"
+                  onClick={toggleSidebar}
+                />
+              </div>
+            ) : null}
+            {children}
+          </div>
         </div>
       </ShellChromeContext.Provider>
     </PlatformScope>

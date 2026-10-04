@@ -54,6 +54,16 @@
   z-index: 5;
 }
 
+/* A collapsed Mac shell whose page has no ChatHeader: the toolbar strip
+   beside the traffic lights, holding the show-sidebar button. */
+.h-app-shell__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 52px;
+  padding-left: 78px;
+}
+
 .h-shell-sidebar--mac {
   background: color-mix(in srgb, var(--h-sidebar) 85%, transparent);
 }
