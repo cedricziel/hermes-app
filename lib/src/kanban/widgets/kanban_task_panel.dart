@@ -91,6 +91,7 @@ class KanbanTaskPanel extends StatefulWidget {
     this.onChanged,
     this.scrollController,
     this.topPadding = 0,
+    this.onClose,
   });
 
   final KanbanRepository repository;
@@ -108,6 +109,10 @@ class KanbanTaskPanel extends StatefulWidget {
 
   /// Called after every change that went through, so the board can refresh.
   final VoidCallback? onChanged;
+
+  /// Called once the task is archived or deleted. Null pops the route the
+  /// panel was presented in.
+  final VoidCallback? onClose;
 
   @override
   State<KanbanTaskPanel> createState() => _KanbanTaskPanelState();
@@ -194,7 +199,9 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
         !mounted) {
       return;
     }
-    if (await _run(action) && close && mounted) Navigator.pop(context);
+    if (!await _run(action) || !close || !mounted) return;
+    final onClose = widget.onClose;
+    onClose == null ? Navigator.pop(context) : onClose();
   }
 
   Future<void> _download(KanbanAttachment a) async {

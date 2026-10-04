@@ -49,7 +49,7 @@ void main() {
     changes = 0;
   });
 
-  Future<void> pumpPanel(WidgetTester tester) async {
+  Future<void> pumpPanel(WidgetTester tester, {VoidCallback? onClose}) async {
     tester.view.physicalSize = const Size(500, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -62,12 +62,30 @@ void main() {
             taskId: 't1',
             board: 'ops',
             onChanged: () => changes++,
+            onClose: onClose,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('a panel that is not a route hands closing back on delete', (
+    tester,
+  ) async {
+    server.on('DELETE', '/api/plugins/kanban/tasks/t1', {'ok': true});
+    var closed = 0;
+    await pumpPanel(tester, onClose: () => closed++);
+
+    await tester.ensureVisible(find.text('Delete'));
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(closed, 1);
+    expect(find.byType(KanbanTaskPanel), findsOneWidget);
+  });
 
   testWidgets('shows the task, its description, links and comments', (
     tester,

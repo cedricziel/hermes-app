@@ -28,19 +28,26 @@ class KanbanBoardMenu extends StatelessWidget {
       label: 'Switch board',
       icon: AppIcons.boardMenu,
       onSelected: (slug) => slug.isEmpty ? onManage() : onSelected(slug),
-      itemBuilder: (_) => [
-        for (final b in boards)
-          CheckedPopupMenuItem(
-            value: b.slug,
-            checked: b.slug == selected,
-            child: Text('${b.name} (${b.total})'),
-          ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(value: '', child: Text('Manage boards…')),
-      ],
+      itemBuilder: (_) => kanbanBoardMenuItems(boards, selected),
     );
   }
 }
+
+/// The boards with [selected] checked, then Manage boards…, whose value is
+/// the empty slug.
+List<PopupMenuEntry<String>> kanbanBoardMenuItems(
+  List<KanbanBoardInfo> boards,
+  String? selected,
+) => [
+  for (final b in boards)
+    CheckedPopupMenuItem(
+      value: b.slug,
+      checked: b.slug == selected,
+      child: Text('${b.name} (${b.total})'),
+    ),
+  const PopupMenuDivider(),
+  const PopupMenuItem(value: '', child: Text('Manage boards…')),
+];
 
 /// Whether the board's event stream is connected.
 class KanbanLiveDot extends StatelessWidget {

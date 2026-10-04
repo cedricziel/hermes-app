@@ -23,10 +23,15 @@ List<Widget> _actions({bool inspector = false}) => [
     icon: AppIcons.add,
     onPressed: () {},
   ),
-  MacToolbarButton(
+  MacToolbarMenu<String>(
     label: 'Filter by profile',
     icon: AppIcons.filter,
-    onPressed: () {},
+    selected: false,
+    onSelected: (_) {},
+    itemBuilder: (_) => const [
+      CheckedPopupMenuItem(value: '', checked: true, child: Text('All')),
+      CheckedPopupMenuItem(value: 'coder', child: Text('coder')),
+    ],
   ),
   const MacToolbarSeparator(),
   MacToolbarButton(

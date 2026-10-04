@@ -30,6 +30,7 @@ void main() {
     WidgetTester tester, {
     required Size size,
     double windowControlsInset = 0,
+    TargetPlatform? platform,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -38,7 +39,7 @@ void main() {
       ChangeNotifierProvider<AuthController>(
         create: (_) => AuthController(),
         child: MaterialApp(
-          theme: buildHermesLightTheme().copyWith(
+          theme: buildHermesLightTheme(platform: platform).copyWith(
             appBarTheme: AppBarTheme(
               leadingWidth: windowControlsInset == 0
                   ? null
@@ -268,7 +269,8 @@ void main() {
       try {
         serveTasks();
         server.on('PATCH', '/api/plugins/kanban/tasks/t_todo', {'ok': true});
-        await pumpBoard(tester, size: const Size(1600, 900));
+        // Wide enough that a Mac's inspector leaves Blocked in view.
+        await pumpBoard(tester, size: const Size(2000, 900));
 
         final gesture = await tester.startGesture(
           tester.getCenter(find.text('Write docs')),
