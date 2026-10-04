@@ -736,17 +736,13 @@ void main() {
       ),
     );
 
-    recordVaultAnswered(
-      reply,
-      'srq-1',
-      identifier: 'ada@example.com',
-      password: 'pw',
-    );
+    recordVaultAnswered(reply, 'srq-1', identifier: 'ada@example.com');
     expect(reply.inputRequests.single.status, InputRequestStatus.answered);
-    expect(
-      (reply.inputRequests.single as VaultRequest).identifier,
-      'ada@example.com',
-    );
+    final answered = reply.inputRequests.single as VaultRequest;
+    expect(answered.identifier, 'ada@example.com');
+    expect(answered.provided, isTrue);
+    // No secret is kept on the model: only the identifier travels with it.
+    expect(answered.toString(), isNot(contains('pw')));
 
     final other = _placeholder();
     applyReplyEvent(
@@ -763,6 +759,7 @@ void main() {
     final declined = other.inputRequests.single as VaultRequest;
     expect(declined.status, InputRequestStatus.answered);
     expect(declined.identifier, isEmpty);
+    expect(declined.provided, isFalse);
   });
 
   test('requests stack in the order they arrive', () {

@@ -356,8 +356,7 @@ final class VaultRequest extends InputRequest {
     this.hint = '',
     super.status,
     this.identifier = '',
-    this.password = '',
-    this.code = '',
+    this.provided = false,
   });
 
   final VaultKind kind;
@@ -375,25 +374,27 @@ final class VaultRequest extends InputRequest {
   final String displayName;
   final String hint;
 
-  /// The identifier and password the user gave, once answered.
+  /// The identifier the user gave, once answered — a username or email, not
+  /// itself a secret. The password and the one-time code live only in the
+  /// answer frame; the card keeps whether one was sent.
   final String identifier;
-  final String password;
-  final String code;
 
-  VaultRequest answered({String? identifier, String? password, String? code}) =>
-      VaultRequest(
-        requestId: requestId,
-        kind: kind,
-        origin: origin,
-        site: site,
-        backend: backend,
-        displayName: displayName,
-        hint: hint,
-        status: InputRequestStatus.answered,
-        identifier: identifier ?? this.identifier,
-        password: password ?? this.password,
-        code: code ?? this.code,
-      );
+  /// Whether the user submitted a value, as opposed to declining. [withStatus]
+  /// keeps it, so a declined card stays declined when it expires late.
+  final bool provided;
+
+  VaultRequest answered({String? identifier, bool? provided}) => VaultRequest(
+    requestId: requestId,
+    kind: kind,
+    origin: origin,
+    site: site,
+    backend: backend,
+    displayName: displayName,
+    hint: hint,
+    status: InputRequestStatus.answered,
+    identifier: identifier ?? this.identifier,
+    provided: provided ?? true,
+  );
 
   @override
   VaultRequest withStatus(InputRequestStatus status) => VaultRequest(
@@ -406,8 +407,7 @@ final class VaultRequest extends InputRequest {
     hint: hint,
     status: status,
     identifier: identifier,
-    password: password,
-    code: code,
+    provided: provided,
   );
 }
 

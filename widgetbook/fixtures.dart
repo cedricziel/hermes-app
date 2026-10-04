@@ -349,7 +349,7 @@ const vaultCodeRequest = VaultRequest(
   hint: 'The 6-digit code from your authenticator app.',
 );
 
-final answeredVaultCodeRequest = vaultCodeRequest.answered(code: '123456');
+final answeredVaultCodeRequest = vaultCodeRequest.answered(provided: true);
 
 const reasoningText =
     'The user wants the build folder gone. It is generated output, so '

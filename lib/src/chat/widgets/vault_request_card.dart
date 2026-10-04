@@ -67,6 +67,11 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
         _password.text,
         _code.text.trim(),
       );
+      if (mounted) {
+        // The values are on their way to Hermes; nothing of them may stay.
+        _password.clear();
+        _code.clear();
+      }
     } on Object catch (_) {
       if (mounted) setState(() => _error = kAnswerFailedMessage);
     } finally {
@@ -114,15 +119,15 @@ class _VaultRequestCardState extends State<VaultRequestCard> {
         ),
         InputRequestStatus.answered => InputCardNote(switch (request.kind) {
           VaultKind.saveLogin =>
-            request.identifier.isEmpty
-                ? 'You declined to save a login'
-                : 'Login saved for ${request.site}',
+            request.provided
+                ? 'Login saved for ${request.site}'
+                : 'You declined to save a login',
           VaultKind.unlock =>
-            request.password.isEmpty
-                ? 'You declined to unlock'
-                : '$_managerName unlocked',
+            request.provided
+                ? '$_managerName unlocked'
+                : 'You declined to unlock',
           VaultKind.code =>
-            request.code.isEmpty ? 'You skipped this request' : 'Code sent',
+            request.provided ? 'Code sent' : 'You skipped this request',
         }),
         InputRequestStatus.pending => AutofillGroup(
           child: Column(

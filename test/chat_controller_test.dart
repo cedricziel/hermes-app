@@ -163,6 +163,6 @@ void main() {
     expect(transport.vaultAnswers.single.code, isEmpty);
     final request = thread.messages.last.inputRequests.single as VaultRequest;
     expect(request.status, InputRequestStatus.answered);
-    expect(request.code, isEmpty);
+    expect(request.provided, isFalse);
   });
 }

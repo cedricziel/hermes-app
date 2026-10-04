@@ -330,25 +330,24 @@ void _upsertSubagent(ChatMessage reply, Subagent subagent) {
     );
 }
 
+/// Records a vault answer. Only the identifier is kept — a username is not
+/// itself a secret — while the password and the one-time code travelled only
+/// in the answer frame.
 void recordVaultAnswered(
   ChatMessage reply,
   String requestId, {
   String? identifier,
-  String? password,
-  String? code,
 }) => _editPending(
   reply,
   requestId,
-  (r) => r is VaultRequest
-      ? r.answered(identifier: identifier, password: password, code: code)
-      : r,
+  (r) => r is VaultRequest ? r.answered(identifier: identifier) : r,
 );
 
 /// Declines a vault prompt: no value goes out, and the card says so.
 void recordVaultDeclined(ChatMessage reply, String requestId) => _editPending(
   reply,
   requestId,
-  (r) => r is VaultRequest ? r.withStatus(InputRequestStatus.answered) : r,
+  (r) => r is VaultRequest ? r.answered(provided: false) : r,
 );
 
 /// Ends the pending requests of [reply], or only [requestId] when given.
