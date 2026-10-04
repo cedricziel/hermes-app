@@ -26,19 +26,21 @@ class MacSidebarController extends ChangeNotifier {
   double _width = kMacSidebarDefaultWidth;
   bool _collapsed = false;
   bool _touched = false;
-  final _foldedSections = <String>{};
-  bool _sectionsTouched = false;
+
+  /// Which sections are folded. Apart from the rest, so a resize does not
+  /// rebuild the lists that only care about the sections.
+  late final sections = MacSidebarSections._(this);
 
   double get width => _width;
   bool get collapsed => _collapsed;
 
-  bool isSectionCollapsed(String section) => _foldedSections.contains(section);
-
   Future<void> load() async {
-    final width = await _prefs.getDouble(_widthKey);
-    final collapsed = await _prefs.getBool(_collapsedKey);
-    final sections = await _prefs.getStringList(_sectionsKey);
-    if (!_sectionsTouched && sections != null) _foldedSections.addAll(sections);
+    final (width, collapsed, folded) = await (
+      _prefs.getDouble(_widthKey),
+      _prefs.getBool(_collapsedKey),
+      _prefs.getStringList(_sectionsKey),
+    ).wait;
+    sections._restore(folded);
     if (!_touched) {
       _width = (width ?? _width).clamp(
         kMacSidebarMinWidth,
@@ -49,11 +51,10 @@ class MacSidebarController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleSection(String section) {
-    _sectionsTouched = true;
-    if (!_foldedSections.remove(section)) _foldedSections.add(section);
-    notifyListeners();
-    _prefs.setStringList(_sectionsKey, _foldedSections.toList());
+  @override
+  void dispose() {
+    sections.dispose();
+    super.dispose();
   }
 
   void toggle() {
@@ -74,6 +75,30 @@ class MacSidebarController extends ChangeNotifier {
   void saveWidth() => _prefs.setDouble(_widthKey, _width);
 }
 
+/// The sections of a Mac sidebar the user folded away, kept across launches.
+class MacSidebarSections extends ChangeNotifier {
+  MacSidebarSections._(this._owner);
+
+  final MacSidebarController _owner;
+  final _folded = <String>{};
+  bool _touched = false;
+
+  bool isCollapsed(String section) => _folded.contains(section);
+
+  void toggle(String section) {
+    _touched = true;
+    if (!_folded.remove(section)) _folded.add(section);
+    notifyListeners();
+    _owner._prefs.setStringList(_sectionsKey, _folded.toList());
+  }
+
+  void _restore(List<String>? folded) {
+    if (_touched || folded == null) return;
+    _folded.addAll(folded);
+    notifyListeners();
+  }
+}
+
 /// Owns the [MacSidebarController] for a Mac window and binds Control-Command-S,
 /// the system's shortcut for showing and hiding a sidebar.
 class MacSidebarScope extends StatefulWidget {
@@ -90,6 +115,13 @@ class MacSidebarScope extends StatefulWidget {
       context.dependOnInheritedWidgetOfExactType<_ControllerScope>()?.notifier;
 
   static MacSidebarController of(BuildContext context) => maybeOf(context)!;
+
+  /// The folded sections of the sidebar above [context], without rebuilding
+  /// [context] when the sidebar is resized or hidden.
+  static MacSidebarSections? sectionsOf(BuildContext context) => context
+      .getInheritedWidgetOfExactType<_ControllerScope>()
+      ?.notifier
+      ?.sections;
 
   @override
   State<MacSidebarScope> createState() => _MacSidebarScopeState();

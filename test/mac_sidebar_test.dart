@@ -98,15 +98,15 @@ void main() {
   test('remembers which sections are folded', () async {
     final controller = MacSidebarController();
     await controller.load();
-    expect(controller.isSectionCollapsed('today'), isFalse);
-    controller.toggleSection('today');
-    expect(controller.isSectionCollapsed('today'), isTrue);
+    expect(controller.sections.isCollapsed('today'), isFalse);
+    controller.sections.toggle('today');
+    expect(controller.sections.isCollapsed('today'), isTrue);
     await Future<void>.delayed(Duration.zero);
 
     final reloaded = MacSidebarController();
     await reloaded.load();
-    expect(reloaded.isSectionCollapsed('today'), isTrue);
-    reloaded.toggleSection('today');
-    expect(reloaded.isSectionCollapsed('today'), isFalse);
+    expect(reloaded.sections.isCollapsed('today'), isTrue);
+    reloaded.sections.toggle('today');
+    expect(reloaded.sections.isCollapsed('today'), isFalse);
   });
 }
