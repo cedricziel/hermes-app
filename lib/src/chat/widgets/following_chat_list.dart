@@ -51,26 +51,27 @@ class _FollowingChatListState extends State<FollowingChatList> {
     super.dispose();
   }
 
-  ChatItem get _countingItemBuilder => (
-    context,
-    message,
-    index,
-    animation, {
-    messagesGroupingMode,
-    messageGroupingTimeoutInSeconds,
-    isRemoved,
-  }) {
-    _watchdog.onItemBuilt();
-    return widget.itemBuilder(
-      context,
-      message,
-      index,
-      animation,
-      messagesGroupingMode: messagesGroupingMode,
-      messageGroupingTimeoutInSeconds: messageGroupingTimeoutInSeconds,
-      isRemoved: isRemoved,
-    );
-  };
+  ChatItem get _countingItemBuilder =>
+      (
+        context,
+        message,
+        index,
+        animation, {
+        messagesGroupingMode,
+        messageGroupingTimeoutInSeconds,
+        isRemoved,
+      }) {
+        _watchdog.onItemBuilt();
+        return widget.itemBuilder(
+          context,
+          message,
+          index,
+          animation,
+          messagesGroupingMode: messagesGroupingMode,
+          messageGroupingTimeoutInSeconds: messageGroupingTimeoutInSeconds,
+          isRemoved: isRemoved,
+        );
+      };
 
   bool _onNotification(Notification notification) {
     // Code blocks and tool output scroll on their own; only the list counts.
