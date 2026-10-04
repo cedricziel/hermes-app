@@ -7,8 +7,8 @@ import 'package:hermes_app/src/theme/platform_chrome.dart';
 class AdaptiveMenuController {
   void Function(Offset? at)? _open;
 
-  /// Opens the menu at its button, or [at] a global position, as a Mac
-  /// context menu opens under the pointer. iOS always opens at the button.
+  /// Opens the menu at its button, or on macOS [at] a global position, as a
+  /// Mac context menu opens under the pointer.
   void open({Offset? at}) => _open?.call(at);
 }
 
@@ -107,14 +107,17 @@ class _AdaptivePopupMenuButtonState<T>
     controller?._open = _open;
   }
 
+  /// A menu opens under the pointer only on macOS; elsewhere at its button.
   void _open(Offset? at) {
+    if (!mounted) return;
+    final chrome = platformChromeOf(context);
     final popup = _popup.currentState;
-    if (popup != null && at != null) {
+    if (popup == null) {
+      if (chrome == PlatformChrome.ios) _menu.open();
+    } else if (at != null && chrome == PlatformChrome.macos) {
       _openAt(popup.context, at);
-    } else if (popup != null) {
+    } else {
       popup.showButtonMenu();
-    } else if (mounted && platformChromeOf(context) == PlatformChrome.ios) {
-      _menu.open();
     }
   }
 
@@ -297,11 +300,7 @@ class _ContextMenuRowState extends State<ContextMenuRow> {
   @override
   Widget build(BuildContext context) => GestureDetector(
     behavior: HitTestBehavior.translucent,
-    onSecondaryTapUp: (details) => _menu.open(
-      at: platformChromeOf(context) == PlatformChrome.macos
-          ? details.globalPosition
-          : null,
-    ),
+    onSecondaryTapUp: (details) => _menu.open(at: details.globalPosition),
     child: widget.builder(context, _menu),
   );
 }
