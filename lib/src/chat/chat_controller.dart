@@ -59,6 +59,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         changed: notifyListeners,
         report: report,
         removed: _threadRemoved,
+        history: _history,
       );
       search = ThreadSearch(
         (query) => repository.searchThreads(query, profile: _profile),
@@ -275,6 +276,33 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (disposed) return;
       report('Could not load this chat');
     }
+  }
+
+  /// Every message of [thread]: what is loaded, plus the pages the dashboard
+  /// holds beyond it. A thread whose messages were never loaded is read
+  /// whole; an open one is not read again.
+  Future<List<ChatMessage>> _history(ChatThread thread) async {
+    final repository = this.repository;
+    if (repository == null || !_bound.contains(thread)) return thread.messages;
+    final loaded = !_unloaded.contains(thread.id);
+    final newest = loaded ? thread.messages : const <ChatMessage>[];
+    final held = {for (final m in newest) m.id};
+    final pages = [newest];
+    final profile = _profile;
+    int? offset = loaded ? _olderRows[thread.id] : 0;
+    while (offset != null) {
+      final page = await repository.loadMessagePage(
+        thread.id,
+        profile: profile,
+        offset: offset,
+      );
+      pages.add([
+        for (final m in page.messages)
+          if (held.add(m.id)) m,
+      ]);
+      offset = page.hasMore && page.rows > 0 ? offset + page.rows : null;
+    }
+    return [for (final page in pages.reversed) ...page];
   }
 
   Future<void> loadOlder(String id) async {

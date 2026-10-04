@@ -5,11 +5,60 @@ import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 
-enum ThreadAction { copyTranscript, rename, pin, archive, delete }
+enum ThreadAction {
+  openInNewWindow,
+  copyTranscript,
+  rename,
+  pin,
+  archive,
+  delete,
+}
+
+/// The menu of one thread as a Mac app lists it, with the shortcuts the menu
+/// bar gives them. Without [manageable] (a thread the dashboard does not
+/// hold) only copying the transcript is offered; "Open in New Window" only
+/// with [canOpenInNewWindow].
+List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
+  required bool pinned,
+  required bool manageable,
+  bool canOpenInNewWindow = false,
+}) => [
+  if (canOpenInNewWindow) ...[
+    const AdaptiveMenuItem(
+      value: ThreadAction.openInNewWindow,
+      shortcut: '⌥⌘O',
+      child: Text('Open in New Window'),
+    ),
+    const PopupMenuDivider(),
+  ],
+  if (manageable) ...[
+    const AdaptiveMenuItem(value: ThreadAction.rename, child: Text('Rename…')),
+    AdaptiveMenuItem(
+      value: ThreadAction.pin,
+      shortcut: '⇧⌘P',
+      child: Text(pinned ? 'Unpin' : 'Pin'),
+    ),
+  ],
+  const AdaptiveMenuItem(
+    value: ThreadAction.copyTranscript,
+    child: Text('Copy Transcript'),
+  ),
+  if (manageable) ...[
+    const AdaptiveMenuItem(value: ThreadAction.archive, child: Text('Archive')),
+    const PopupMenuDivider(),
+    const AdaptiveMenuItem(
+      value: ThreadAction.delete,
+      shortcut: '⌘⌫',
+      destructive: true,
+      child: Text('Delete…'),
+    ),
+  ],
+];
 
 /// The rename / pin / archive / delete menu for one thread, shared by the
 /// sidebar row (dense, no copy) and the chat header (roomier, with
@@ -23,11 +72,16 @@ class ThreadActionsButton extends StatefulWidget {
     this.housekeeping,
     this.includeCopyTranscript = false,
     this.dense = false,
+    this.onOpenInNewWindow,
   });
 
   final ChatThread thread;
   final ThreadHousekeeping? housekeeping;
   final bool includeCopyTranscript;
+
+  /// Opens the thread in a window of its own; the menu leaves the item out
+  /// without it. Mac only.
+  final ValueChanged<ChatThread>? onOpenInNewWindow;
 
   /// A 28px icon-only button for a tight row, instead of a normal-sized
   /// [IconButton].
@@ -51,6 +105,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
     action,
     thread: _thread,
     housekeeping: widget.housekeeping,
+    onOpenInNewWindow: widget.onOpenInNewWindow,
   );
 
   @override
@@ -72,31 +127,39 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             )
           : null,
-      itemBuilder: (_) => [
-        if (widget.includeCopyTranscript) ...[
-          const PopupMenuItem(
-            value: ThreadAction.copyTranscript,
-            child: Text('Copy transcript'),
-          ),
-          if (housekeeping != null) const PopupMenuDivider(),
-        ],
-        if (housekeeping != null) ...[
-          const PopupMenuItem(
-            value: ThreadAction.rename,
-            child: Text('Rename'),
-          ),
-          PopupMenuItem(
-            value: ThreadAction.pin,
-            child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
-          ),
-          const PopupMenuItem(
-            value: ThreadAction.archive,
-            child: Text('Archive'),
-          ),
-          const PopupMenuItem(
-            value: ThreadAction.delete,
-            child: Text('Delete'),
-          ),
+      itemBuilder: (context) => [
+        if (platformChromeOf(context) == PlatformChrome.macos)
+          ...macThreadMenuItems(
+            pinned: _thread.pinned,
+            manageable: housekeeping != null,
+            canOpenInNewWindow: widget.onOpenInNewWindow != null,
+          )
+        else ...[
+          if (widget.includeCopyTranscript) ...[
+            const PopupMenuItem(
+              value: ThreadAction.copyTranscript,
+              child: Text('Copy transcript'),
+            ),
+            if (housekeeping != null) const PopupMenuDivider(),
+          ],
+          if (housekeeping != null) ...[
+            const PopupMenuItem(
+              value: ThreadAction.rename,
+              child: Text('Rename'),
+            ),
+            PopupMenuItem(
+              value: ThreadAction.pin,
+              child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
+            ),
+            const PopupMenuItem(
+              value: ThreadAction.archive,
+              child: Text('Archive'),
+            ),
+            const PopupMenuItem(
+              value: ThreadAction.delete,
+              child: Text('Delete'),
+            ),
+          ],
         ],
       ],
     );
@@ -104,26 +167,24 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
 }
 
 /// Carries out [action] on [thread]: copying needs no [housekeeping], the rest
-/// do. Rename asks for a title and delete for confirmation first.
+/// do. Rename asks for a title and delete for confirmation first. Copying
+/// reads the whole history of a thread that is not loaded through
+/// [housekeeping].
 Future<void> runThreadAction(
   BuildContext context,
   ThreadAction action, {
   required ChatThread thread,
   required ThreadHousekeeping? housekeeping,
+  ValueChanged<ChatThread>? onOpenInNewWindow,
 }) async {
-  if (action == ThreadAction.copyTranscript) {
-    await Clipboard.setData(ClipboardData(text: threadTranscript(thread)));
-    if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Transcript copied')));
-    }
-    return;
-  }
-  if (housekeeping == null) return;
-  switch (action) {
-    case ThreadAction.copyTranscript:
+  switch ((action, housekeeping)) {
+    case (ThreadAction.openInNewWindow, _):
+      onOpenInNewWindow?.call(thread);
+    case (ThreadAction.copyTranscript, _):
+      await _copyTranscript(context, thread, housekeeping);
+    case (_, null):
       break;
-    case ThreadAction.rename:
+    case (ThreadAction.rename, final housekeeping?):
       final title = await showAdaptiveDialog<String>(
         context: context,
         builder: (_) => _RenameDialog(initial: thread.title),
@@ -131,11 +192,11 @@ Future<void> runThreadAction(
       if (title != null && title != thread.title) {
         await housekeeping.rename(thread, title);
       }
-    case ThreadAction.pin:
+    case (ThreadAction.pin, final housekeeping?):
       await housekeeping.setPinned(thread, !thread.pinned);
-    case ThreadAction.archive:
+    case (ThreadAction.archive, final housekeeping?):
       await housekeeping.archive(thread);
-    case ThreadAction.delete:
+    case (ThreadAction.delete, final housekeeping?):
       final confirmed = await showConfirmDialog(
         context,
         title: 'Delete this chat?',
@@ -147,16 +208,36 @@ Future<void> runThreadAction(
   }
 }
 
-/// A plain-text rendering of [thread] for the clipboard: one paragraph per
-/// turn that has something to say, skipping ones that are only attachments
-/// or tool calls.
-String threadTranscript(ChatThread thread) {
+Future<void> _copyTranscript(
+  BuildContext context,
+  ChatThread thread,
+  ThreadHousekeeping? housekeeping,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final String text;
+  try {
+    text = threadTranscript(
+      await (housekeeping?.history(thread) ?? Future.value(thread.messages)),
+    );
+  } on Object {
+    messenger?.showSnackBar(
+      const SnackBar(content: Text('Could not copy the transcript')),
+    );
+    return;
+  }
+  await Clipboard.setData(ClipboardData(text: text));
+  messenger?.showSnackBar(const SnackBar(content: Text('Transcript copied')));
+}
+
+/// [messages] as Markdown for the clipboard: a heading per turn that has
+/// something to say, skipping ones that are only attachments or tool calls.
+String threadTranscript(Iterable<ChatMessage> messages) {
   final parts = <String>[];
-  for (final message in thread.messages) {
+  for (final message in messages) {
     final text = message.content.trim();
     if (text.isEmpty) continue;
     final speaker = message.role == ChatRole.user ? 'You' : 'Hermes';
-    parts.add('$speaker: $text');
+    parts.add('## $speaker\n\n$text');
   }
   return parts.join('\n\n');
 }

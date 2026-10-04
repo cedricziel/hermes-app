@@ -588,8 +588,9 @@ void main() {
       await openHeaderMenu(tester);
       await tester.tap(find.text('Copy transcript'));
       await tester.pump();
+      await tester.pump();
 
-      expect(copied, ['You: hi']);
+      expect(copied, ['## You\n\nhi']);
       expect(find.text('Transcript copied'), findsOneWidget);
     });
   });
