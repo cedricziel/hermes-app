@@ -1,0 +1,30 @@
+/* Reversed, so the list opens scrolled to the latest turn as the app's
+   FollowingChatList does; a short chat still starts at the top. */
+.h-chat-thread {
+  display: flex;
+  flex-direction: column-reverse;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+/* kChatColumnMaxWidth 680, kChatGutter 20, kChatTurnGap 20, kChatItemGap 8. */
+.h-chat-thread__column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto auto;
+  padding: 20px;
+}
+
+.h-chat-thread__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
