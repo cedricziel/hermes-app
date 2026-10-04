@@ -3,6 +3,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart' show ChatItem;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart'
     show ChatAnimatedList, InitialScrollToEndMode;
 
+import 'blank_list_watchdog.dart';
+
 /// A [ChatAnimatedList] that stays at the bottom while its content grows,
 /// until the reader scrolls up, and follows again once they are back.
 ///
@@ -12,6 +14,11 @@ import 'package:flutter_chat_ui/flutter_chat_ui.dart'
 /// inserts too. And its jump to the end on open stayed armed while a reply
 /// kept growing a thread that had fit the screen, pulling a reader who
 /// scrolled up back down; following covers the open as well.
+///
+/// While following a streaming reply it also arms [BlankListWatchdog]: if the
+/// list churns its metrics but paints no items, it has lost its sliver state
+/// (the blank-thread bug) and one remount recovers it, without losing any
+/// message — they live in the controller above.
 class FollowingChatList extends StatefulWidget {
   const FollowingChatList({
     super.key,
@@ -31,14 +38,39 @@ class _FollowingChatListState extends State<FollowingChatList> {
   static const _slack = 24.0;
 
   final _scroll = ScrollController();
+  final _watchdog = BlankListWatchdog();
   var _following = true;
   var _dragging = false;
+
+  /// Bumped when the watchdog recovers: remounts the list under a fresh key.
+  var _generation = 0;
 
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
   }
+
+  ChatItem get _countingItemBuilder => (
+    context,
+    message,
+    index,
+    animation, {
+    messagesGroupingMode,
+    messageGroupingTimeoutInSeconds,
+    isRemoved,
+  }) {
+    _watchdog.onItemBuilt();
+    return widget.itemBuilder(
+      context,
+      message,
+      index,
+      animation,
+      messagesGroupingMode: messagesGroupingMode,
+      messageGroupingTimeoutInSeconds: messageGroupingTimeoutInSeconds,
+      isRemoved: isRemoved,
+    );
+  };
 
   bool _onNotification(Notification notification) {
     // Code blocks and tool output scroll on their own; only the list counts.
@@ -47,6 +79,7 @@ class _FollowingChatListState extends State<FollowingChatList> {
     }
     if (notification is ScrollStartNotification) {
       _dragging = notification.dragDetails != null;
+      if (_dragging) _watchdog.disarm();
     } else if (notification is ScrollEndNotification) {
       _dragging = false;
       // Whatever grew during the drag went unfollowed.
@@ -61,6 +94,7 @@ class _FollowingChatListState extends State<FollowingChatList> {
         _following = true;
       } else if ((notification.scrollDelta ?? 0) < 0) {
         _following = false;
+        _watchdog.disarm();
       }
     } else if (notification is ScrollMetricsNotification) {
       _catchUp();
@@ -77,18 +111,34 @@ class _FollowingChatListState extends State<FollowingChatList> {
     if (position.pixels != position.maxScrollExtent) {
       position.jumpTo(position.maxScrollExtent);
     }
+    // Following at the end of a non-empty list whose metrics churn (a reply
+    // is streaming): every such step without an item build counts against
+    // the blank-thread state. An empty list has no items to paint, so it
+    // never arms the watchdog.
+    if (position.maxScrollExtent > 0 && _watchdog.onFollowingStep()) {
+      _recover();
+    }
+  }
+
+  void _recover() {
+    if (!mounted) return;
+    setState(() => _generation++);
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   @override
   Widget build(BuildContext context) {
     return NotificationListener<Notification>(
       onNotification: _onNotification,
-      child: ChatAnimatedList(
-        itemBuilder: widget.itemBuilder,
-        scrollController: _scroll,
-        onEndReached: widget.onEndReached,
-        initialScrollToEndMode: InitialScrollToEndMode.none,
-        shouldScrollToEndWhenAtBottom: false,
+      child: KeyedSubtree(
+        key: ValueKey(_generation),
+        child: ChatAnimatedList(
+          itemBuilder: _countingItemBuilder,
+          scrollController: _scroll,
+          onEndReached: widget.onEndReached,
+          initialScrollToEndMode: InitialScrollToEndMode.none,
+          shouldScrollToEndWhenAtBottom: false,
+        ),
       ),
     );
   }
