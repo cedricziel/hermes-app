@@ -176,7 +176,10 @@ class HermesGatewayTransport implements ChatTransport {
       if (type == 'alias') {
         final target = result['target'];
         if (target is! String || target.trim().isEmpty) break;
-        current = target.trim().replaceFirst(RegExp(r'^/'), '');
+        final targetCommand = target.trim().replaceFirst(RegExp(r'^/'), '');
+        final name = current.split(RegExp(r'\s+')).first;
+        final args = current.substring(name.length).trimLeft();
+        current = args.isEmpty ? targetCommand : '$targetCommand $args';
         continue;
       }
       final prompt = (type == 'send' || type == 'skill')

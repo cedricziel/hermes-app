@@ -98,6 +98,7 @@ class FakeGateway {
 
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
   Map<String, Object?> slashResult = {'output': 'Command output'};
+  final slashResults = <Map<String, Object?>>[];
   bool slashNeedsDispatch = false;
 
   Iterable<String> get methods => requests.map((r) => r['method'] as String);
@@ -200,7 +201,12 @@ class FakeGateway {
           'error': {'code': 4018, 'message': 'dispatch command'},
         });
       case 'slash.exec' || 'command.dispatch':
-        _send({'id': id, 'result': slashResult});
+        _send({
+          'id': id,
+          'result': slashResults.isEmpty
+              ? slashResult
+              : slashResults.removeAt(0),
+        });
       case 'session.interrupt':
         _send({
           'id': id,
@@ -345,6 +351,26 @@ void main() {
       'name': 'review',
       'arg': 'carefully',
     });
+  });
+
+  test('an alias forwards arguments after its target', () async {
+    gateway.slashNeedsDispatch = true;
+    gateway.slashResults.addAll([
+      {'type': 'alias', 'target': '/review --brief'},
+      {'type': 'skill', 'message': 'Use this skill'},
+    ]);
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/quick carefully',
+    );
+    expect(result.prompt, 'Use this skill');
+    final dispatches = gateway.requests
+        .where((request) => request['method'] == 'command.dispatch')
+        .toList();
+    expect(dispatches.map((request) => request['params']), [
+      {'session_id': 'rt-2', 'name': 'quick', 'arg': 'carefully'},
+      {'session_id': 'rt-2', 'name': 'review', 'arg': '--brief carefully'},
+    ]);
   });
 
   test('a prefill command returns the restored draft', () async {
