@@ -1,5 +1,6 @@
 import 'package:widgetbook/widgetbook.dart';
 
+import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
 import 'adaptive_chrome_use_cases.dart';
 import 'app_icons_use_cases.dart';
@@ -29,6 +30,7 @@ import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
+  handoffNode(),
   paletteNode(),
   stateMessageNode(),
   busyBarNode(),
