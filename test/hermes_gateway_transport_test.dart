@@ -2569,6 +2569,8 @@ void main() {
       await pumpEventQueue();
 
       expect(gateways, hasLength(2));
+      // Resuming a running turn may replay its start; it is still one reply.
+      gateways.last.event('message.start', 'rt-1');
       gateways.last.event('message.complete', 'rt-1', {
         'text': 'Checking done',
         'status': 'complete',
