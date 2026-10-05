@@ -119,6 +119,50 @@ void main() {
       controller.dispose();
     },
   );
+  test(
+    'failed retry reconciliation keeps the original send identity',
+    () async {
+      String? operationId;
+      var sends = 0;
+      var failLog = false;
+      final repo = HermesGroupsRepository((method, params) async {
+        if (method == 'groups.capabilities') return fixtures.capabilities();
+        if (method == 'groups.state') return {'room': fixtures.room()};
+        if (method == 'groups.send') {
+          sends++;
+          operationId = params['event_id'] as String;
+          throw const GatewayConnectionClosed();
+        }
+        if (method == 'groups.log') {
+          if (failLog) throw const GatewayRpcException(500, 'Log unavailable');
+          return operationId == null
+              ? {...fixtures.page([], 0), 'latest_seq': 0}
+              : fixtures.page([
+                  fixtures.event(1, id: serverUserEventId(operationId!)),
+                ], 1);
+        }
+        throw StateError(method);
+      }, interactionContractVerified: true);
+      final controller = GroupRoomController(
+        repo,
+        GroupRoom.fromJson(fixtures.room()),
+      );
+      await controller.refresh();
+      controller.draft = 'Keep this message';
+      failLog = true;
+      await controller.send();
+      expect(controller.canRetrySend, isTrue);
+      await controller.send(retry: true);
+      expect(controller.canRetrySend, isTrue);
+      expect(sends, 1);
+      failLog = false;
+      await controller.send(retry: true);
+      expect(sends, 1);
+      expect(controller.canRetrySend, isFalse);
+      expect(controller.draft, isEmpty);
+      controller.dispose();
+    },
+  );
 
   test(
     'stale approval is discarded and cannot be sent after state refresh',

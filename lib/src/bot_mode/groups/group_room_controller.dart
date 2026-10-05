@@ -248,7 +248,6 @@ class GroupRoomController extends ChangeNotifier {
     } on TimeoutException catch (error) {
       await _reconcile(operation, error);
     } on Object catch (error) {
-      _send = null;
       failure = GroupFailure.from(error);
     } finally {
       pending = false;
