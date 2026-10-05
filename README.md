@@ -16,6 +16,11 @@ Android.
   companion
 - OpenTelemetry export, off unless you configure it
 
+Hosted groups can run on Hermes dashboards with protocol 2 support. Clarify,
+sudo, and secret requests from group members cannot be answered in the room;
+if a member waits for one, use Stop. Direct bot chats support their own input
+requests.
+
 ## Try the beta
 
 Join the TestFlight beta for iPhone, iPad and Mac: <https://testflight.apple.com/join/NahPgSAB>
