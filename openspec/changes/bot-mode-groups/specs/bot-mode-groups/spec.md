@@ -6,7 +6,7 @@ Let users create and converse with groups of named Hermes specialists while view
 
 ### Requirement: Group roster and creation
 
-The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server when hosted execution is supported.
+The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server only when the hosted interaction contract is advertised and verified.
 
 #### Scenario: Create and open
 
@@ -35,11 +35,11 @@ The system SHALL render room history and activity from durable hosted events, an
 
 - **WHEN** the app reconnects, resumes, or the room driver becomes unavailable
 - **THEN** replay resumes without duplicate messages, history remains readable, unsent text is retained, and execution availability is explained
-- **AND** unsupported attachments, membership editing, and undocumented input actions are not offered; a reported unsupported input or failed turn is visibly actionable rather than displayed as endless thinking
+- **AND** unsupported attachments and membership editing are not offered; server-refused sudo and secret requests appear as attributed failures rather than endless thinking or password/value forms
 
 ### Requirement: Room work controls
 
-The system SHALL provide Stop, exact pending approval controls, and explicit task retry according to the server's advertised and observed contract.
+The system SHALL provide Stop, exact pending approval and clarify controls, and explicit task retry according to the server's advertised and observed contract.
 
 #### Scenario: Working or blocked
 
@@ -52,18 +52,25 @@ The system SHALL provide Stop, exact pending approval controls, and explicit tas
 - **WHEN** the server advertises a pending retry action for an indeterminate or deferred task
 - **THEN** the user sees the task state and confirms retry of that exact task; the app never automatically creates another prompt for it
 
+#### Scenario: Pending clarification
+
+- **WHEN** `groups.state` reports a hosted `clarify` action for a member, including a batch of questions
+- **THEN** the room shows the member, question text, choices, and selection mode in an answer card associated with the exact room, task, generation, and request ID
+- **AND** submitting answers or explicit skips uses the advertised fenced room response method, disables that card while pending, and clears it only after the server confirms resolution or reports expiry
+- **AND** reconnect restores an unanswered card from room state without duplicating it; a stale response cannot answer a newer member turn
+
 ### Requirement: Group UI backend compatibility
 
-The system SHALL use the `bot-mode-group-protocol` contract, verified against Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` with hosted protocol version 2; earlier released-version compatibility is unverified and SHALL be feature tested.
+The system SHALL use the `bot-mode-group-protocol` contract. Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` supplies hosted protocol version 2 transport but fails the hosted clarify interaction check; earlier released-version compatibility is unverified. Executable group compatibility SHALL be feature tested against a server advertising `hosted_interactions_v1` and `groups.respond` and passing the real-backend clarify and sudo/secret refusal checks.
 
 #### Scenario: Unsupported server
 
-- **WHEN** `groups.capabilities` lacks required methods/features or supported protocol
-- **THEN** Bots remains usable for direct bot conversations and group creation shows an update-required explanation
+- **WHEN** `groups.capabilities` lacks required methods/features, including `hosted_interactions_v1` and `groups.respond`, or the supported server fails interaction conformance
+- **THEN** Bots remains usable for direct bot conversations, existing hosted room history stays readable, and group creation and sending show an update-required explanation
 - **AND** no fallback starts a client-owned multi-agent room
 
 #### Scenario: Hosted boundaries
 
 - **WHEN** a compatible server provides rooms
-- **THEN** listing, creation, sending, replay/status, rename, stop, approval, retry, and disband use the specified `groups.*` payloads and responses
+- **THEN** listing, creation, sending, replay/status, rename, stop, approval, clarification, retry, and disband use the specified `groups.*` payloads and responses
 - **AND** legacy Desktop metadata rooms are not presented as hosted rooms without an explicit migration contract
