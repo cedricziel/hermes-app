@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/bots/bot_setup_screen.dart';
-import 'package:hermes_app/src/bots/bots_screen.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
-import 'package:hermes_app/src/bots/telegram_pairing_screen.dart';
+import 'package:hermes_app/src/messaging/messaging_setup_screen.dart';
+import 'package:hermes_app/src/messaging/messaging_screen.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/telegram_pairing_screen.dart';
+import 'package:hermes_app/src/messaging/widgets/messaging_introduction.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
@@ -26,7 +27,7 @@ import '../test/support/fake_hermes_server.dart';
 import 'frame.dart';
 import 'host.dart';
 
-/// Skills, the hub, bots and profiles of one invented dashboard.
+/// Skills, the hub, messaging and profiles of one invented dashboard.
 FakeHermesServer skillsServer() => FakeHermesServer()
   ..on('GET', '/api/skills', [
     skillRow(
@@ -255,20 +256,29 @@ WidgetbookUseCase _sheet(String name, SkillJob Function() job) =>
       ),
     );
 
-WidgetbookUseCase _bots(
+WidgetbookUseCase _messaging(
   String name,
-  Widget Function(HermesBotsRepository r) b,
+  Widget Function(HermesMessagingRepository r) b,
 ) => WidgetbookUseCase(
   name: name,
-  builder: (_) => Hosted<HermesBotsRepository>(
-    create: () => HermesBotsRepository(skillsServer().client().raw),
+  builder: (_) => Hosted<HermesMessagingRepository>(
+    create: () => HermesMessagingRepository(skillsServer().client().raw),
     builder: (_, repository) => b(repository),
   ),
 );
 
-WidgetbookNode skillsBotsNode() => WidgetbookFolder(
-  name: 'Skills, bots and profiles',
+WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
+  name: 'Skills, messaging and profiles',
   children: [
+    WidgetbookComponent(
+      name: 'MessagingIntroduction',
+      useCases: [
+        WidgetbookUseCase(
+          name: 'Purpose',
+          builder: (_) => frame(const MessagingIntroduction()),
+        ),
+      ],
+    ),
     WidgetbookComponent(
       name: 'SkillsScreen',
       useCases: [
@@ -398,27 +408,30 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
-      name: 'BotsScreen',
+      name: 'MessagingScreen',
       useCases: [
-        _bots('Platforms', (repository) => BotsScreen(repository: repository)),
+        _messaging(
+          'Platforms',
+          (repository) => MessagingScreen(repository: repository),
+        ),
       ],
     ),
     WidgetbookComponent(
-      name: 'BotSetupScreen',
+      name: 'MessagingSetupScreen',
       useCases: [
-        _bots(
+        _messaging(
           'Discord',
-          (repository) => FutureBuilder<List<HermesBot>>(
+          (repository) => FutureBuilder<List<HermesMessagingPlatform>>(
             future: repository.load(),
             builder: (_, snapshot) {
-              final bots = snapshot.data;
-              if (bots == null) {
+              final platforms = snapshot.data;
+              if (platforms == null) {
                 return const Center(
                   child: CircularProgressIndicator.adaptive(),
                 );
               }
-              return BotSetupScreen(
-                bot: bots.firstWhere((b) => b.id == 'discord'),
+              return MessagingSetupScreen(
+                platform: platforms.firstWhere((b) => b.id == 'discord'),
                 repository: repository,
               );
             },
@@ -429,7 +442,7 @@ WidgetbookNode skillsBotsNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'TelegramPairingScreen',
       useCases: [
-        _bots(
+        _messaging(
           'Waiting for Telegram',
           (repository) => TelegramPairingScreen(
             repository: repository,

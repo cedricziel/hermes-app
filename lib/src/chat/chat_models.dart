@@ -7,6 +7,7 @@ library;
 import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
+import '../bot_mode/bot_chat_context.dart';
 
 enum ChatRole { user, assistant }
 
@@ -489,6 +490,7 @@ class ChatMessage {
     required this.role,
     required this.content,
     this.submittedText,
+    this.displayText,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -510,6 +512,9 @@ class ChatMessage {
 
   /// The prompt sent to Hermes when [content] is a display-only command label.
   final String? submittedText;
+
+  /// Backend-provided transcript display text, separate from the original content.
+  final String? displayText;
 
   /// What the model reasoned after its last tool call, before answering, when
   /// the gateway shares it. Earlier reasoning belongs to [toolCalls].
@@ -583,8 +588,12 @@ class ChatThread {
     this.pinned = false,
     this.remote = false,
     this.modelChoice,
+    this.botContext,
     List<ChatMessage>? messages,
   }) : messages = messages ?? [];
+
+  BotChatContext? botContext;
+  bool get isCanonicalBotChat => botContext != null;
 
   String id;
   String title;

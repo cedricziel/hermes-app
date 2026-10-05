@@ -292,6 +292,12 @@ class HermesChatRepository {
         _ => null,
       };
       if (role == null) continue;
+      final metadata = row['display_metadata'] is String
+          ? _decode(row['display_metadata'] as String)
+          : row['display_metadata'];
+      final displayText = metadata is Map && metadata['display_text'] is String
+          ? metadata['display_text'] as String
+          : null;
       final content = row['content'];
       // An assistant's own text is shown as it is; only what the user
       // attached is read back from reference lines.
@@ -307,13 +313,17 @@ class HermesChatRepository {
       // A turn's text was written before the calls it made, so it renders
       // ahead of them, as it did live.
       final before = role == ChatRole.assistant && toolCalls.isNotEmpty;
+      final prose = displayText?.trim().isNotEmpty == true
+          ? displayText!
+          : stored.text;
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
           role: role,
           content: before ? '' : stored.text,
-          sealedProse: before && stored.text.trim().isNotEmpty
-              ? [SealedProse(stored.text, beforeToolCall: 0)]
+          displayText: before ? null : displayText,
+          sealedProse: before && prose.trim().isNotEmpty
+              ? [SealedProse(prose, beforeToolCall: 0)]
               : const [],
           createdAt: _time(row['timestamp']),
           toolCalls: toolCalls,

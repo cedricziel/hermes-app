@@ -502,6 +502,135 @@ void main() {
     },
   );
 
+  test(
+    'overlapping stored IDs keep each owner runtime and model cache',
+    () async {
+      gateway.turn = plainReply;
+      gateway.resumeResult = {'session_id': 'alpha-runtime'};
+      await transport
+          .send(
+            threadId: 'shared',
+            profile: 'alpha',
+            text: 'hello',
+            model: const ModelChoice('provider', 'model'),
+          )
+          .toList();
+      gateway.resumeResult = {'session_id': 'beta-runtime'};
+      await transport
+          .send(
+            threadId: 'shared',
+            profile: 'beta',
+            text: 'hello',
+            model: const ModelChoice('provider', 'model'),
+          )
+          .toList();
+      await transport.runSlashCommand(
+        threadId: 'shared',
+        profile: 'alpha',
+        command: '/help',
+      );
+      expect(
+        (gateway.requestOf('slash.exec')['params'] as Map)['session_id'],
+        'alpha-runtime',
+      );
+      expect(
+        gateway.requests.where((r) => r['method'] == 'config.set').length,
+        2,
+      );
+      final alpha = transport.followUps('shared', profile: 'alpha').toList();
+      final beta = transport.followUps('shared', profile: 'beta').toList();
+      gateway.event('message.start', 'alpha-runtime');
+      gateway.event('message.complete', 'alpha-runtime', {'text': 'alpha'});
+      gateway.event('message.start', 'beta-runtime');
+      gateway.event('message.complete', 'beta-runtime', {'text': 'beta'});
+      gateway.drop();
+      expect((await alpha).whereType<ReplyCompleted>().single.text, 'alpha');
+      expect((await beta).whereType<ReplyCompleted>().single.text, 'beta');
+    },
+  );
+
+  test(
+    'stop targets only the selected owner of overlapping stored IDs',
+    () async {
+      gateway.resumeResult = {'session_id': 'alpha-runtime'};
+      final alpha = transport
+          .send(threadId: 'shared', profile: 'alpha', text: 'hello')
+          .toList();
+      await pumpEventQueue();
+      gateway.resumeResult = {'session_id': 'beta-runtime'};
+      final beta = transport
+          .send(threadId: 'shared', profile: 'beta', text: 'hello')
+          .toList();
+      await pumpEventQueue();
+      expect(await transport.stopReply('shared'), isFalse);
+      expect(await transport.stopReply('shared', profile: 'alpha'), isTrue);
+      expect(gateway.requestOf('session.interrupt')['params'], {
+        'session_id': 'alpha-runtime',
+      });
+      gateway.event('message.complete', 'alpha-runtime', {'text': 'alpha'});
+      gateway.event('message.complete', 'beta-runtime', {'text': 'beta'});
+      await alpha;
+      await beta;
+    },
+  );
+
+  test('background turn reconnect retains owner profile', () async {
+    gateway.turn = plainReply;
+    gateway.resumeResult = {'session_id': 'alpha-runtime'};
+    final second = FakeGateway()
+      ..resumeResult = {
+        'running': false,
+        'messages': [
+          {'role': 'assistant', 'text': 'background finished'},
+        ],
+      };
+    var count = 0;
+    final scoped = HermesGatewayTransport(
+      connect: () async => count++ == 0 ? gateway.channel : second.channel,
+    );
+    addTearDown(scoped.close);
+    await scoped
+        .send(threadId: 'shared', profile: 'alpha', text: 'hello')
+        .toList();
+    final follow = scoped.followUps('shared', profile: 'alpha').toList();
+    gateway.event('message.start', 'alpha-runtime');
+    await pumpEventQueue();
+    gateway.drop();
+    expect(
+      (await follow).whereType<ReplyCompleted>().single.text,
+      'background finished',
+    );
+    expect(second.requestOf('session.resume')['params'], {
+      'session_id': 'shared',
+      'profile': 'alpha',
+    });
+  });
+
+  test('replacement socket resumes with the original profile', () async {
+    final second = FakeGateway()
+      ..resumeResult = {
+        'session_id': 'runtime-again',
+        'running': false,
+        'messages': [
+          {'role': 'assistant', 'text': 'finished'},
+        ],
+      };
+    gateway.turn = (g, _) => g.drop();
+    var count = 0;
+    final scoped = HermesGatewayTransport(
+      connect: () async => count++ == 0 ? gateway.channel : second.channel,
+    );
+    addTearDown(scoped.close);
+    final events = await scoped
+        .send(threadId: 'shared', profile: 'alpha', text: 'hello')
+        .toList();
+    expect((events.last as ReplyCompleted).text, 'finished');
+    expect(second.requestOf('session.resume')['params'], {
+      'session_id': 'shared',
+      'profile': 'alpha',
+    });
+  });
+
   group('model choice', () {
     const opus = ModelChoice('anthropic', 'claude-opus-4', effort: 'high');
 

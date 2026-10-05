@@ -19,9 +19,12 @@ import 'plugins_use_cases.dart';
 import 'schedules_mac_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
 import 'settings_screen_use_cases.dart';
-import 'skills_bots_use_cases.dart';
+import 'skills_messaging_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'busy_bar_use_cases.dart';
+import 'bot_mode_roster_use_cases.dart';
+import 'bot_chat_use_cases.dart';
+import 'group_use_cases.dart';
 import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
 
@@ -43,7 +46,10 @@ final List<WidgetbookNode> directories = [
   schedulesNode(),
   schedulesScreensNode(),
   schedulesMacNode(),
-  skillsBotsNode(),
+  skillsMessagingNode(),
+  botModeRosterNode(),
+  botChatNode(),
+  groupUiNode(),
   statesNode(),
   pluginsNode(),
   pluginsScreensNode(),

@@ -6,7 +6,7 @@ Define reliable transport, authority, replay, and exact user controls for Hermes
 
 ### Requirement: Hosted room capability discovery
 
-The system SHALL discover hosted room support through `groups.capabilities` over authenticated `/api/ws`. The verified baseline is Hermes 0.21.4 source commit `35fdb4608aa8af455d2597664cff1754a3722cd1`, hosted protocol version 2; earliest release support is unverified. It SHALL require a supported protocol, advertised required methods, `idempotent_send`, `monotonic_log`, and driver readiness for execution.
+The system SHALL discover hosted room support through `groups.capabilities` over authenticated `/api/ws`. The verified transport baseline is Hermes 0.21.4 source commit `35fdb4608aa8af455d2597664cff1754a3722cd1`, hosted protocol version 2; earliest release support is unverified. It SHALL require a supported protocol, advertised required methods, `idempotent_send`, `monotonic_log`, and driver readiness for execution. Interactive-input support is outside the first hosted-group release.
 
 #### Scenario: Capability and readiness
 
@@ -52,7 +52,18 @@ The system SHALL obtain pending actions from `groups.state` and apply approval o
 - **WHEN** room state reports an approval
 - **THEN** `groups.state` returns `room` and `driver_status` with `running`, `working`, `blocked`, `counts`, `pending_actions`, and `peer_routes`
 - **AND** `groups.approve` sends `room_id`, `member_id`, `task_id`, `execution_generation`, `request_id`, and a choice of `once` or `deny`
-- **AND** stale requests are not rebound to a newer task, and absent or unsupported clarify/sudo/secret interactions are never automatically answered
+- **AND** stale requests are not rebound to a newer task, and no request is automatically answered
+
+### Requirement: Unsupported hosted interactive inputs
+
+The system SHALL allow hosted group execution with the verified protocol 2 transport while clearly explaining that hosted member clarify, sudo, and secret requests cannot be answered from the room. It SHALL provide Stop for active or blocked work without a pending room action and SHALL not solicit passwords or secret values in the room.
+
+#### Scenario: Member waits for an input outside room state
+
+- **WHEN** a hosted member requests clarify, sudo, or a secret and `groups.state` reports work without a corresponding pending room action
+- **THEN** the app continues polling room state and log, explains that the member may be waiting on an unsupported interactive request, and keeps Stop available
+- **AND** Stop calls `groups.stop` and subsequent state and log replay reflect the server's cancellation result; the app does not claim that it answered or refused the request
+- **AND** the app does not attach to hidden member sessions or substitute ordinary `session.resume`, `request.answer`, or `clarify.lock` calls for a room action
 
 #### Scenario: Explicit retry
 

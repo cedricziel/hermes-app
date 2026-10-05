@@ -13,9 +13,11 @@ class WelcomeView extends StatelessWidget {
     required this.prompts,
     required this.onPick,
     this.bottomPadding = 0,
+    this.assistantName,
   });
 
   final String? greetingName;
+  final String? assistantName;
   final List<StarterPrompt> prompts;
   final ValueChanged<StarterPrompt> onPick;
 
@@ -25,7 +27,9 @@ class WelcomeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final greeting = greetingName == null || greetingName!.isEmpty
+    final greeting = assistantName != null
+        ? 'What can $assistantName help you with?'
+        : greetingName == null || greetingName!.isEmpty
         ? 'Where should we begin?'
         : 'Where should we begin, $greetingName?';
 
@@ -70,8 +74,10 @@ class WelcomeView extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Ask Hermes Agent about your server, your codebase, or '
-                      'anything it has tools for.',
+                      assistantName == null
+                          ? 'Ask Hermes Agent about your server, your codebase, or '
+                                'anything it has tools for.'
+                          : 'Start a conversation with $assistantName. Your Bot Chat stays available whenever you return.',
                       style: TextStyle(
                         color: context.hermesColors.subtleText,
                         fontSize: 14,

@@ -15,7 +15,7 @@ import 'package:hermes_api/hermes_api.dart'
         RawConfigUpdate,
         SessionRename;
 import 'package:hermes_app/src/api/hermes_api_client.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
@@ -427,7 +427,7 @@ void main() {
   }, skip: skip);
 
   test('messaging platforms load as bots', () async {
-    final bots = await HermesBotsRepository(client.raw).load();
+    final bots = await HermesMessagingRepository(client.raw).load();
 
     expect(bots, isNotEmpty);
     expect(bots.every((b) => b.name.isNotEmpty), isTrue);
@@ -930,8 +930,8 @@ void main() {
 
   test('a platform\'s setup can be saved, shows as set without its value, '
       'and cleared again', () async {
-    final repository = HermesBotsRepository(client.raw);
-    Future<HermesBotEnvVar> tokenVar() async => (await repository.load())
+    final repository = HermesMessagingRepository(client.raw);
+    Future<HermesMessagingEnvVar> tokenVar() async => (await repository.load())
         .firstWhere((b) => b.id == 'telegram')
         .envVars
         .firstWhere((v) => v.key == 'TELEGRAM_BOT_TOKEN');
@@ -956,12 +956,12 @@ void main() {
   }, skip: skip);
 
   test('a value the dashboard refuses comes back with the reason', () async {
-    final repository = HermesBotsRepository(client.raw);
+    final repository = HermesMessagingRepository(client.raw);
 
     await expectLater(
       repository.saveSetup('telegram', env: {'TELEGRAM_BOT_TOKEN': 'abc'}),
       throwsA(
-        isA<BotSetupRejected>().having(
+        isA<MessagingSetupRejected>().having(
           (e) => e.message,
           'message',
           contains('bot token'),
@@ -971,22 +971,22 @@ void main() {
   }, skip: skip);
 
   test('an unknown Telegram pairing is reported as such', () async {
-    final repository = HermesBotsRepository(client.raw);
+    final repository = HermesMessagingRepository(client.raw);
 
     await expectLater(
       repository.telegramPairingStatus('no-such-pairing'),
-      throwsA(isA<BotSetupRejected>()),
+      throwsA(isA<MessagingSetupRejected>()),
     );
   }, skip: skip);
 
   test('Telegram user ids that are not numeric are refused before anything is '
       'saved', () async {
-    final repository = HermesBotsRepository(client.raw);
+    final repository = HermesMessagingRepository(client.raw);
 
     await expectLater(
       repository.applyTelegramPairing('no-such-pairing', ['abc']),
       throwsA(
-        isA<BotSetupRejected>().having(
+        isA<MessagingSetupRejected>().having(
           (e) => e.message,
           'message',
           contains('numeric'),
@@ -998,7 +998,7 @@ void main() {
   test(
     'a Telegram pairing starts, waits for the user and can be cancelled',
     () async {
-      final repository = HermesBotsRepository(client.raw);
+      final repository = HermesMessagingRepository(client.raw);
 
       final pairing = await repository.startTelegramPairing();
       final status = await repository.telegramPairingStatus(pairing.id);
@@ -1014,7 +1014,7 @@ void main() {
   );
 
   test('platforms describe their setup variables', () async {
-    final bots = await HermesBotsRepository(client.raw).load();
+    final bots = await HermesMessagingRepository(client.raw).load();
 
     final token = bots
         .firstWhere((b) => b.id == 'telegram')

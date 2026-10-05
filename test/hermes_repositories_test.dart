@@ -6,7 +6,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
-import 'package:hermes_app/src/bots/bots_screen.dart';
+import 'package:hermes_app/src/messaging/messaging_screen.dart';
 
 import 'support/fake_hermes_server.dart';
 
@@ -32,7 +32,7 @@ void main() {
     await tester.pumpWidget(
       Provider<HermesRepositories?>.value(
         value: HermesRepositories(server.client()),
-        child: const MaterialApp(home: BotsScreen()),
+        child: const MaterialApp(home: MessagingScreen()),
       ),
     );
     await tester.pumpAndSettle();

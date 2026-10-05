@@ -8,6 +8,8 @@ import 'package:flutter_chat_core/flutter_chat_core.dart'
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
+import '../bot_mode/bot_chat_context.dart';
+import '../bot_mode/bot_mode_chat_repository.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../notifications/attention_notifier.dart';
@@ -42,6 +44,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.profiles,
     this.models,
     this.transport,
+    this.botChats,
     required this._attention,
     required this.report,
     this.onShowChat,
@@ -76,6 +79,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
   final ChatTransport? transport;
+  final BotModeChatRepository? botChats;
+  int _openGeneration = 0;
   final AttentionNotifier _attention;
 
   /// Tells the user something went wrong.
@@ -387,6 +392,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Opens the chat [target] names. With [fetchMissing] one the loaded
   /// threads do not hold is fetched, on its own profile.
   void open(NotificationTarget target, {required bool fetchMissing}) {
+    final generation = ++_openGeneration;
     onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
@@ -396,7 +402,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       select(target.threadId);
       onOpened?.call();
     } else if (fetchMissing) {
-      _openMissing(target);
+      unawaited(_openMissing(target, generation: generation));
     } else {
       report(_couldNotOpenChat);
     }
@@ -404,13 +410,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Opens a chat the loaded threads do not hold: one on another profile, or
   /// older than the first page of sessions.
-  Future<void> _openMissing(NotificationTarget target) async {
+  Future<void> _openMissing(
+    NotificationTarget target, {
+    int? generation,
+  }) async {
+    generation ??= _openGeneration;
     final repository = this.repository;
     final profile = target.profile ?? _profile;
     if (repository == null) return report(_couldNotOpenChat);
     try {
       if (profile != _profile) await loadThreads(profile);
-      if (disposed) return;
+      if (disposed || generation != _openGeneration) return;
       // A failed switch leaves the old profile's threads on screen.
       if (profile != _profile) return report(_couldNotOpenChat);
       if (!_threads.any((t) => t.id == target.threadId)) {
@@ -418,7 +428,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           target.threadId,
           profile: profile,
         );
-        if (disposed) return;
+        if (disposed || generation != _openGeneration) return;
         if (thread == null) return report(_couldNotOpenChat);
         _threads.insert(0, thread);
         _bound.add(thread);
@@ -429,6 +439,37 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       onOpened?.call();
     } on Object {
       if (!disposed) report(_couldNotOpenChat);
+    }
+  }
+
+  Future<void> openBot(BotChatContext context) async {
+    final generation = ++_openGeneration;
+    onShowChat?.call();
+    final repository = this.repository;
+    if (repository == null) return report(_couldNotOpenChat);
+    final profile = context.bot.name;
+    try {
+      if (_loadingThreads || _profile != profile) await loadThreads(profile);
+      if (disposed || generation != _openGeneration) return;
+      if (_profile != profile) return report(_couldNotOpenChat);
+      var thread = _threads.where((t) => t.id == context.storedId).firstOrNull;
+      if (thread == null) {
+        thread = await repository.loadThread(
+          context.storedId,
+          profile: profile,
+        );
+        if (disposed || generation != _openGeneration) return;
+        if (thread == null) return report(_couldNotOpenChat);
+        _threads.insert(0, thread);
+        _bound.add(thread);
+        _unloaded.add(thread.id);
+      }
+      thread.botContext = context;
+      thread.title = BotModeChatRepository.title;
+      select(thread.id);
+      onOpened?.call();
+    } on Object {
+      if (!disposed && generation == _openGeneration) report(_couldNotOpenChat);
     }
   }
 
@@ -501,6 +542,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void newThread() {
+    _openGeneration++;
     final thread = ChatThread(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
       title: 'New chat',
@@ -513,6 +555,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void select(String id) {
+    _openGeneration++;
     _selectedId = id;
     notifyListeners();
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
@@ -603,6 +646,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Runs a gateway command without putting it through prompt.submit or the
   /// reply queue. Display-only command output stays in this visit's chat.
   Future<bool> runSlashCommand(String command) async {
+    final bot = selectedThread?.botContext;
+    if (bot != null &&
+        RegExp(r'^/(?:title|rename)(?:\s|$)').hasMatch(command.trim())) {
+      report(
+        'Bot Chat keeps its canonical title. Edit the bot name in the roster.',
+      );
+      return false;
+    }
+    final compacting =
+        bot != null && {'/new', '/reset'}.contains(command.trim());
+    if (compacting) command = '/compress';
     if (command == '/new') {
       newThread();
       return true;
@@ -640,6 +694,23 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _bindThread(selected, result.threadId);
       }
       _bound.add(thread);
+      if (compacting && botChats != null) {
+        final BotModeChat canonical;
+        try {
+          canonical = await botChats!.open(bot.bot);
+        } on Object {
+          if (!disposed) {
+            report('Bot Chat was compacted. Reopen the bot to continue.');
+          }
+          return true;
+        }
+        if (disposed || _profile != profile) return true;
+        if (canonical.storedId != thread.id) {
+          _retargetBoundThread(thread, canonical.storedId);
+        }
+        thread.botContext = bot.withStoredId(canonical.storedId);
+        await _refreshAfterSlash(thread, profile);
+      }
       if (result.prefill != null && wasRemote) {
         await _refreshAfterSlash(thread, profile);
       }
@@ -985,7 +1056,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             final current = reply;
             if (current == null) {
               if (event is ThreadTitled) {
-                thread.title = event.title;
+                if (!thread.isCanonicalBotChat) thread.title = event.title;
                 notifyListeners();
               }
               return;
@@ -1014,7 +1085,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
       case ThreadTitled(:final title):
-        thread.title = title;
+        if (!thread.isCanonicalBotChat) thread.title = title;
         notifyListeners();
       case ReplyStarted():
         break;
@@ -1057,6 +1128,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _bound.add(thread);
     notifyListeners();
     if (controller != null) _chatControllers[id] = controller;
+  }
+
+  void _retargetBoundThread(ChatThread thread, String id) {
+    if (thread.id == id) return;
+    final previousId = thread.id;
+    final controller = _chatControllers.remove(previousId);
+    if (_selectedId == previousId) _selectedId = id;
+    _unloaded.remove(previousId);
+    _olderRows.remove(previousId);
+    thread.id = id;
+    if (controller != null) _chatControllers[id] = controller;
+    notifyListeners();
   }
 
   void _updateReply(
@@ -1104,7 +1187,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (reply.isPending) reply,
     ];
     try {
-      final stopped = await transport?.stopReply(thread.id);
+      final stopped = await transport?.stopReply(thread.id, profile: _profile);
       if (disposed || stopped != false) return;
       // The server has no turn left to interrupt. A completion was missed by
       // this listener, so release the stale pending reply and composer.

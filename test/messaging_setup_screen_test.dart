@@ -2,13 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:hermes_app/src/bots/bots_screen.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/messaging/messaging_screen.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
 
-/// Setting a bot up from its row on the bots screen, against a fake
+/// Setting a platform up from its row on the messaging screen, against a fake
 /// dashboard through the real generated client.
 void main() {
   late FakeHermesServer server;
@@ -55,7 +55,9 @@ void main() {
   Future<void> openSetup(WidgetTester tester, [String name = 'Discord']) async {
     await tester.pumpWidget(
       MaterialApp(
-        home: BotsScreen(repository: HermesBotsRepository(server.client().raw)),
+        home: MessagingScreen(
+          repository: HermesMessagingRepository(server.client().raw),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -169,7 +171,10 @@ void main() {
   testWidgets('a platform with nothing to set up says so', (tester) async {
     await openSetup(tester, 'Yuanbao');
 
-    expect(find.text('Nothing to set up for this bot.'), findsOneWidget);
+    expect(
+      find.text('Nothing to set up for this messaging platform.'),
+      findsOneWidget,
+    );
     expect(find.widgetWithText(FilledButton, 'Save'), findsNothing);
   });
 

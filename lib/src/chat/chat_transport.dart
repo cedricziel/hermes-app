@@ -322,7 +322,7 @@ abstract interface class ChatTransport {
   /// Stops the reply being written to the thread [threadId]. The reply then
   /// ends as [ReplyCompleted] with `stopped` set. Returns false when nothing is
   /// running there, and throws when the call itself fails.
-  Future<bool> stopReply(String threadId);
+  Future<bool> stopReply(String threadId, {String? profile});
 
   /// Skips a request the app cannot answer, a secret or a sudo password, by
   /// answering it with an empty value: Hermes carries on without it. Returns

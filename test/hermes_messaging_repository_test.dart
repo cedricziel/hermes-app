@@ -1,17 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 
 import 'support/fake_hermes_server.dart';
 
 void main() {
   late FakeHermesServer server;
-  late HermesBotsRepository repository;
+  late HermesMessagingRepository repository;
 
   setUp(() {
     server = FakeHermesServer();
-    repository = HermesBotsRepository(server.client().raw);
+    repository = HermesMessagingRepository(server.client().raw);
   });
 
   group('load', () {
@@ -131,7 +131,7 @@ void main() {
       expect(bots.single.envVars.map((v) => v.key), ['TELEGRAM_BOT_TOKEN']);
     });
 
-    test('returns no bots for an unexpected body', () async {
+    test('returns no platforms for an unexpected body', () async {
       server.on('GET', '/api/messaging/platforms', {'platforms': 'nope'});
 
       expect(await repository.load(), isEmpty);
@@ -173,7 +173,7 @@ void main() {
       expect(
         repository.saveSetup('telegram', env: {'TELEGRAM_BOT_TOKEN': 'abc'}),
         throwsA(
-          isA<BotSetupRejected>().having(
+          isA<MessagingSetupRejected>().having(
             (e) => e.message,
             'message',
             'Telegram bot token must be the complete token',
@@ -225,7 +225,7 @@ void main() {
       expect(
         repository.startTelegramPairing(),
         throwsA(
-          isA<BotSetupRejected>().having(
+          isA<MessagingSetupRejected>().having(
             (e) => e.message,
             'message',
             contains('unavailable'),
@@ -269,7 +269,7 @@ void main() {
       expect(
         repository.telegramPairingStatus('p1'),
         throwsA(
-          isA<BotSetupRejected>().having(
+          isA<MessagingSetupRejected>().having(
             (e) => e.message,
             'message',
             contains('expired'),
@@ -295,7 +295,7 @@ void main() {
 
       expect(
         repository.applyTelegramPairing('p1', ['abc']),
-        throwsA(isA<BotSetupRejected>()),
+        throwsA(isA<MessagingSetupRejected>()),
       );
     });
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -16,7 +16,7 @@ import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
 /// Everything reached from the chat sidebar besides chatting: skills,
-/// profiles, bots and the account menu's dialogs.
+/// profiles, messaging and the account menu's dialogs.
 void main() {
   late FakeHermesServer server;
 
@@ -194,7 +194,7 @@ void main() {
         profiles: HermesProfilesRepository(server.client().raw),
         models: HermesModelsRepository(server.client().raw),
         skills: HermesSkillsRepository(server.client().raw),
-        bots: HermesBotsRepository(server.client().raw),
+        messaging: HermesMessagingRepository(server.client().raw),
       ),
       size: size,
       brightness: brightness,
@@ -230,8 +230,8 @@ void main() {
       await shots.capture(tester, 'editor');
     });
 
-    testWidgets('$name: profiles and bots', (tester) async {
-      final shots = ScreenshotRecorder('bots-$name');
+    testWidgets('$name: profiles and messaging', (tester) async {
+      final shots = ScreenshotRecorder('messaging-$name');
       await pumpChat(tester, shots, size: size);
       await openFromSidebar(tester, 'Profiles');
       await shots.capture(tester, 'profiles');
@@ -248,7 +248,7 @@ void main() {
       await tester.pumpAndSettle();
       await popRoute(tester);
 
-      await openFromSidebar(tester, 'Bots');
+      await openFromSidebar(tester, 'Messaging');
       await shots.capture(tester, 'list');
 
       await tester.tap(find.text('Telegram'));
@@ -308,6 +308,15 @@ void main() {
 
       await pick('App lock');
       await shots.capture(tester, 'app-lock');
+    });
+  }
+
+  for (final (name, size) in [('phone', phoneSize), ('desktop', desktopSize)]) {
+    testWidgets('$name: messaging dark theme', (tester) async {
+      final shots = ScreenshotRecorder('messaging-$name-dark');
+      await pumpChat(tester, shots, size: size, brightness: Brightness.dark);
+      await openFromSidebar(tester, 'Messaging');
+      await shots.capture(tester, 'list');
     });
   }
 

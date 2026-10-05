@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/bots/bots_screen.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
-import 'package:hermes_app/src/bots/telegram_pairing_screen.dart';
+import 'package:hermes_app/src/messaging/messaging_screen.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/telegram_pairing_screen.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -37,7 +37,7 @@ import 'mcp_screen_use_cases.dart';
 import 'plugins_screen_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
 import 'settings_screen_use_cases.dart';
-import 'skills_bots_use_cases.dart';
+import 'skills_messaging_use_cases.dart';
 
 /// Answers [method] [path] with a server error.
 FakeHermesServer _failing(
@@ -271,12 +271,12 @@ WidgetbookNode statesNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
-      name: 'BotsScreen',
+      name: 'MessagingScreen',
       useCases: [
         _state(
           'Fails to load',
-          () => BotsScreen(
-            repository: HermesBotsRepository(
+          () => MessagingScreen(
+            repository: HermesMessagingRepository(
               _failing(
                 skillsServer(),
                 'GET',
@@ -287,8 +287,8 @@ WidgetbookNode statesNode() => WidgetbookFolder(
         ),
         _state(
           'Loading',
-          () => BotsScreen(
-            repository: HermesBotsRepository(
+          () => MessagingScreen(
+            repository: HermesMessagingRepository(
               _hanging(
                 skillsServer(),
                 'GET',
@@ -305,7 +305,7 @@ WidgetbookNode statesNode() => WidgetbookFolder(
         _state(
           'Pairing cannot start',
           () => TelegramPairingScreen(
-            repository: HermesBotsRepository(
+            repository: HermesMessagingRepository(
               _failing(
                 skillsServer(),
                 'POST',

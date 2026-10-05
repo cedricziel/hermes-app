@@ -1,6 +1,6 @@
 ## Context
 
-See `bot-mode-group-protocol/design.md` for the verified server contracts. The app has a shared shell, one ordinary chat renderer, adaptive toolbar conventions, approval cards, and Widgetbook/workflow harnesses. Hosted rooms are durable server objects, not ordinary `ChatThread` instances.
+See `bot-mode-group-protocol/design.md` for the verified server contracts and the isolated hosted clarify reproduction. The app has a shared shell, one ordinary chat renderer, adaptive toolbar conventions, approval cards, and Widgetbook/workflow harnesses. Hosted rooms are durable server objects, not ordinary `ChatThread` instances.
 
 ## Goals / Non-Goals
 
@@ -18,7 +18,7 @@ Project message events to attributed transcript rows and turn/activity events in
 
 Poll `groups.log` and `groups.state` on foreground visibility, drain replay pages immediately, and back off when idle or disconnected. Stop timers on dispose and suspension. Reconnection does not resend messages. Show driver-unavailable history and preserve composer drafts; action buttons use exact server coordinates and explicit retry confirmation only for advertised indeterminate/deferred tasks. Use the current AttentionPolicy for foreground room notices only; no background-push claim.
 
-Group approvals support once/deny. The protocol conformance gate must show unsupported interactive inputs as failure or refuse execution with a visible reason. If upstream cannot satisfy this, the affected group execution is not marked release-ready; no invented clarify/sudo/secret methods or silent toolset changes.
+Group approvals support once/deny. Hosted clarify, sudo, and secret requests have no room action in the verified protocol; the app does not poll or attach to hidden member sessions to copy Desktop's client-driven implementation. Show a concise limitation in the creation flow and during active room work: interactive requests cannot be answered here and a member may wait; Stop ends the server task. Never present a password or secret value form. Enable creation and send for a ready protocol 2 driver with required methods and transport features. Do not silently change profile tools.
 
 Platforms: iOS, Android, macOS, Windows, and Linux; watchOS group conversations are deferred. No native entitlement, manifest, Xcode project, or new dependency change.
 
@@ -30,8 +30,10 @@ Invariants: Managed auth, secure tokens, shared RPC ownership, bounded lifecycle
 
 [Member names change] → Preserve frozen member IDs and handles while displaying recorded authors accurately.
 
-[UI expands beyond 500 lines] → Reuse existing body widgets and adaptive primitives; keep protocol implementation in its dependent PR and split optional presentation additions before coding.
+[Member waits for an unsupported input] → Keep polling and show the limitation beside active work with Stop available; do not imply that the app can identify the hidden request from room state.
+
+[UI complexity grows] → Reuse existing body widgets and adaptive primitives; keep the protocol implementation in its own layer within the combined PR.
 
 ## Migration Plan
 
-Implement as `feat(bots): add hosted group conversations` after `bot-mode-group-protocol`. Publish the first feature release only with messaging terminology, roster, canonical DMs, local agent messaging, hosted protocol and group UI integrated and verified. Rollback removes the app surface without deleting server rooms.
+Implement hosted group conversations after `bot-mode-group-protocol` in the combined Bot Mode PR. Publish the first feature release only with messaging terminology, roster, canonical DMs, local agent messaging, hosted protocol and group UI integrated and verified. Rollback removes the app surface without deleting server rooms.

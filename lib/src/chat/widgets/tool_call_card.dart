@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_json_view/flutter_json_view.dart';
 
 import '../../theme/app_icons.dart';
+import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/disclosure_tile.dart';
@@ -65,7 +66,10 @@ class ToolCallCard extends StatelessWidget {
       ],
     ];
     final expandable = details.isNotEmpty;
-    final summary = call.preparing ? 'Preparing…' : call.summary;
+    final handoff = BotHandoffBody.of(call);
+    final summary = call.preparing
+        ? 'Preparing…'
+        : handoff?.label ?? call.summary;
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -93,7 +97,18 @@ class ToolCallCard extends StatelessWidget {
             trailing: expandable ? null : const SizedBox.shrink(),
             title: Row(
               children: [
-                ToolCallStatusIcon(status: call.status, waiting: _waiting),
+                if (handoff?.pending == true &&
+                    handoff!.data['status'] != 'ambiguous')
+                  AppIcon(AppIcons.schedule, size: 14, color: subtle)
+                else
+                  ToolCallStatusIcon(
+                    status:
+                        handoff?.failed == true ||
+                            handoff?.data['status'] == 'ambiguous'
+                        ? ToolCallStatus.error
+                        : call.status,
+                    waiting: _waiting,
+                  ),
                 const SizedBox(width: 8),
                 Text(
                   call.name,

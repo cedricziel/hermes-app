@@ -5,7 +5,7 @@ import '../widgets/adaptive_back_button.dart';
 import '../widgets/content_column.dart';
 import '../widgets/disclosure_tile.dart';
 import '../widgets/named_icon_button.dart';
-import 'hermes_bots_repository.dart';
+import 'hermes_messaging_repository.dart';
 import 'telegram_pairing_screen.dart';
 
 /// A form for the credentials and settings a platform reads from its
@@ -13,24 +13,24 @@ import 'telegram_pairing_screen.dart';
 /// that they are set; a field left blank keeps its value.
 ///
 /// Pops `true` once the setup was saved.
-class BotSetupScreen extends StatefulWidget {
-  const BotSetupScreen({
+class MessagingSetupScreen extends StatefulWidget {
+  const MessagingSetupScreen({
     super.key,
-    required this.bot,
+    required this.platform,
     required this.repository,
   });
 
-  final HermesBot bot;
-  final HermesBotsRepository repository;
+  final HermesMessagingPlatform platform;
+  final HermesMessagingRepository repository;
 
   @override
-  State<BotSetupScreen> createState() => _BotSetupScreenState();
+  State<MessagingSetupScreen> createState() => _MessagingSetupScreenState();
 }
 
-class _BotSetupScreenState extends State<BotSetupScreen> {
+class _MessagingSetupScreenState extends State<MessagingSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   late final Map<String, TextEditingController> _controllers = {
-    for (final v in widget.bot.envVars) v.key: TextEditingController(),
+    for (final v in widget.platform.envVars) v.key: TextEditingController(),
   };
   final _cleared = <String>{};
   bool _saving = false;
@@ -61,7 +61,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
     });
     try {
       await widget.repository.saveSetup(
-        widget.bot.id,
+        widget.platform.id,
         env: env,
         clear: _cleared.toList(),
       );
@@ -94,24 +94,26 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final vars = widget.bot.envVars;
+    final vars = widget.platform.envVars;
     final basic = vars.where((v) => !v.advanced);
     final advanced = vars.where((v) => v.advanced).toList();
     return Scaffold(
       appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leading: const AdaptiveBackButton(previousTitle: 'Messaging'),
         leadingWidth: adaptiveBackLeadingWidth(context),
-        title: Text('Set up ${widget.bot.name}'),
+        title: Text('Set up ${widget.platform.name}'),
       ),
       body: ContentColumn(
         child: vars.isEmpty
-            ? const Center(child: Text('Nothing to set up for this bot.'))
+            ? const Center(
+                child: Text('Nothing to set up for this messaging platform.'),
+              )
             : Form(
                 key: _formKey,
                 child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    if (widget.bot.id == 'telegram') ...[
+                    if (widget.platform.id == 'telegram') ...[
                       OutlinedButton.icon(
                         onPressed: _pairTelegram,
                         icon: const AppIcon(AppIcons.magic),
@@ -161,7 +163,7 @@ class _BotSetupScreenState extends State<BotSetupScreen> {
     );
   }
 
-  Widget _field(HermesBotEnvVar v) {
+  Widget _field(HermesMessagingEnvVar v) {
     final cleared = _cleared.contains(v.key);
     final helper = [
       if (cleared)

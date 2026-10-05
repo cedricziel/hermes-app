@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_icons.dart';
+import '../../bot_mode/widgets/bot_handoff_body.dart';
 import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../tool_result.dart';
@@ -22,6 +23,7 @@ Widget? toolCallBody(ToolCall call) {
         };
   if (diff.isNotEmpty) return ToolDiffBody(diff: diff);
   return switch (call.name) {
+    'message_agent' => BotHandoffBody.of(call),
     'terminal' => TerminalToolBody.of(call),
     'web_search' => WebSearchToolBody.of(call),
     'todo_list' || 'todo' => TodoToolBody.of(call),

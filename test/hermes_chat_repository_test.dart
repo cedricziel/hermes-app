@@ -15,6 +15,29 @@ void main() {
     repository = HermesChatRepository(server.client().raw);
   });
 
+  test('backend display metadata preserves attributed delivery text', () async {
+    server.on(
+      'GET',
+      '/api/sessions/bot/messages',
+      messageListBody('bot', [
+        {
+          ...messageRow(
+            id: 1,
+            role: 'user',
+            content: 'internal process payload',
+          ),
+          'display_kind': 'process_complete',
+          'display_metadata': {
+            'display_text': 'Writer (@writer): delivery reply',
+          },
+        },
+      ]),
+    );
+    final messages = await repository.loadMessages('bot', profile: 'research');
+    expect(messages.single.displayText, 'Writer (@writer): delivery reply');
+    expect(messages.single.content, 'internal process payload');
+  });
+
   group('loadThreads', () {
     test('asks the dashboard for the most recently active sessions', () async {
       server.on('GET', '/api/sessions', sessionListBody([]));
@@ -608,6 +631,24 @@ void main() {
       expect(m.sealedProse.map((p) => (p.text, p.beforeToolCall)), [
         ('Checking first.', 0),
       ]);
+    });
+
+    test('renders attributed tool-call prose once before the call', () async {
+      final messages = await load([
+        {
+          ...messageRow(
+            id: 1,
+            role: 'assistant',
+            content: 'Stored tool preface',
+            toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+          ),
+          'display_metadata': {'display_text': 'Writer: attributed preface'},
+        },
+      ]);
+
+      final message = messages.single;
+      expect(message.sealedProse.single.text, 'Writer: attributed preface');
+      expect(message.displayText, isNull);
     });
 
     test('puts a tool result row on the call it answers', () async {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
-import 'package:hermes_app/src/bots/bots_screen.dart';
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
+import 'package:hermes_app/src/messaging/messaging_screen.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/mock_chat_data.dart';
@@ -86,7 +86,7 @@ void main() {
           home: ChatScreen(
             repository: HermesChatRepository(server.client().raw),
             profiles: HermesProfilesRepository(server.client().raw),
-            bots: HermesBotsRepository(server.client().raw),
+            messaging: HermesMessagingRepository(server.client().raw),
             plugins: HermesPluginManagerRepository(server.client().raw),
             mcp: HermesMcpRepository(server.client().raw),
           ),
@@ -273,7 +273,7 @@ void main() {
     expect(find.text('Work'), findsOneWidget);
   });
 
-  testWidgets('the sidebar opens the bots of the connected dashboard', (
+  testWidgets('the sidebar opens Messaging of the connected dashboard', (
     tester,
   ) async {
     server.on(
@@ -286,10 +286,10 @@ void main() {
 
     await openSidebarMore(tester);
 
-    await tester.tap(find.text('Bots'));
+    await tester.tap(find.text('Messaging'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(BotsScreen), findsOneWidget);
+    expect(find.byType(MessagingScreen), findsOneWidget);
     expect(find.text('Telegram'), findsOneWidget);
   });
 
@@ -320,7 +320,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profiles'), findsNothing);
-    expect(find.text('Bots'), findsNothing);
+    expect(find.text('Messaging'), findsNothing);
 
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
@@ -331,19 +331,21 @@ void main() {
     expect(find.text('Profiles'), findsNothing);
   });
 
-  testWidgets('the Plugins entry follows Profiles and Bots', (tester) async {
+  testWidgets('the Plugins entry follows Profiles and Messaging', (
+    tester,
+  ) async {
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
     await openSidebarMore(tester);
     final profiles = tester.getTopLeft(find.text('Profiles')).dy;
-    final bots = tester.getTopLeft(find.text('Bots')).dy;
+    final messaging = tester.getTopLeft(find.text('Messaging')).dy;
     final plugins = tester.getTopLeft(find.text('Plugins')).dy;
-    expect(profiles, lessThan(bots));
-    expect(bots, lessThan(plugins));
+    expect(profiles, lessThan(messaging));
+    expect(messaging, lessThan(plugins));
   });
 
-  testWidgets('a narrow layout closes the drawer when it opens the bots', (
+  testWidgets('a narrow layout closes the drawer when it opens Messaging', (
     tester,
   ) async {
     server.on('GET', '/api/messaging/platforms', platformListBody([]));
@@ -354,12 +356,12 @@ void main() {
     await tester.tap(find.byTooltip('Open navigation menu'));
     await tester.pumpAndSettle();
     await openSidebarMore(tester);
-    await tester.tap(find.text('Bots'));
+    await tester.tap(find.text('Messaging'));
     await tester.pumpAndSettle();
     await tester.pageBack();
     await tester.pumpAndSettle();
 
-    expect(find.byType(BotsScreen), findsNothing);
+    expect(find.byType(MessagingScreen), findsNothing);
     expect(find.byType(Drawer), findsNothing);
   });
 

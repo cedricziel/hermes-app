@@ -6,13 +6,14 @@ Let users create and converse with groups of named Hermes specialists while view
 
 ### Requirement: Group roster and creation
 
-The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server when hosted execution is supported.
+The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server when the verified protocol 2 transport and driver are ready.
 
 #### Scenario: Create and open
 
 - **WHEN** the user creates a group
 - **THEN** a searchable checklist offers local bots, validates a nonblank name and 2–6 unique members, and explains that membership is fixed for this room
 - **AND** saving opens the returned hosted room; retries preserve its room identity; an empty or failed roster offers a useful action or Retry
+- **AND** the creation flow explains that hosted interactive requests cannot be answered in the room and may leave a member waiting until stopped
 
 #### Scenario: Existing groups and management
 
@@ -35,7 +36,7 @@ The system SHALL render room history and activity from durable hosted events, an
 
 - **WHEN** the app reconnects, resumes, or the room driver becomes unavailable
 - **THEN** replay resumes without duplicate messages, history remains readable, unsent text is retained, and execution availability is explained
-- **AND** unsupported attachments, membership editing, and undocumented input actions are not offered; a reported unsupported input or failed turn is visibly actionable rather than displayed as endless thinking
+- **AND** unsupported attachments and membership editing are not offered; no clarify, sudo, or secret input form appears in the room
 
 ### Requirement: Room work controls
 
@@ -52,14 +53,20 @@ The system SHALL provide Stop, exact pending approval controls, and explicit tas
 - **WHEN** the server advertises a pending retry action for an indeterminate or deferred task
 - **THEN** the user sees the task state and confirms retry of that exact task; the app never automatically creates another prompt for it
 
+#### Scenario: Unsupported interactive request
+
+- **WHEN** the server reports active or blocked work without an actionable room request
+- **THEN** the room explains that a member may be waiting for an interactive request that cannot be answered here and keeps Stop available
+- **AND** stopping refreshes the server state and durable log without claiming the request was answered or refused
+
 ### Requirement: Group UI backend compatibility
 
-The system SHALL use the `bot-mode-group-protocol` contract, verified against Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` with hosted protocol version 2; earlier released-version compatibility is unverified and SHALL be feature tested.
+The system SHALL use the `bot-mode-group-protocol` contract. Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` supplies hosted protocol version 2 transport; earlier released-version compatibility is unverified. The first release SHALL enable executable groups on a ready protocol 2 driver with the required advertised transport methods and features, while showing the known interactive-input limitation.
 
 #### Scenario: Unsupported server
 
-- **WHEN** `groups.capabilities` lacks required methods/features or supported protocol
-- **THEN** Bots remains usable for direct bot conversations and group creation shows an update-required explanation
+- **WHEN** `groups.capabilities` lacks the required transport methods or features, reports an unsupported protocol, or has no ready driver
+- **THEN** Bots remains usable for direct bot conversations, existing hosted room history stays readable, and group creation and sending show an update-required explanation
 - **AND** no fallback starts a client-owned multi-agent room
 
 #### Scenario: Hosted boundaries

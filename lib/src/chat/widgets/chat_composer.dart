@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
+import '../../bot_mode/bot_chat_context.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
@@ -39,6 +40,7 @@ class ChatComposer extends StatefulWidget {
     this.modelPill,
     this.slashCommands = const [],
     this.commandRunning = false,
+    this.botContext,
   });
 
   final TextEditingController controller;
@@ -55,6 +57,7 @@ class ChatComposer extends StatefulWidget {
   final Widget? modelPill;
   final List<SlashCommand> slashCommands;
   final bool commandRunning;
+  final BotChatContext? botContext;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -162,6 +165,30 @@ class _ChatComposerState extends State<ChatComposer> {
     _focusNode.requestFocus();
   }
 
+  List<BotMention> get _mentions =>
+      widget.botContext?.suggestions(
+        widget.controller.text,
+        widget.controller.selection.baseOffset < 0
+            ? widget.controller.text.length
+            : widget.controller.selection.baseOffset,
+      ) ??
+      const [];
+
+  void _chooseMention(BotMention mention) {
+    final replacement = '@${mention.handle} ';
+    widget.controller.value = TextEditingValue(
+      text: widget.controller.text.replaceRange(
+        mention.start,
+        mention.end,
+        replacement,
+      ),
+      selection: TextSelection.collapsed(
+        offset: mention.start + replacement.length,
+      ),
+    );
+    _focusNode.requestFocus();
+  }
+
   bool get _canSend =>
       !widget.commandRunning &&
       (widget.controller.text.trim().isNotEmpty ||
@@ -182,6 +209,45 @@ class _ChatComposerState extends State<ChatComposer> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_mentions.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 180),
+            child: Material(
+              color: scheme.surfaceContainerHigh,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: scheme.outlineVariant),
+              ),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+                    child: Text(
+                      'Mention a teammate',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                  for (final mention in _mentions)
+                    Material(
+                      color: Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        title: Text('@${mention.handle}'),
+                        subtitle: Text(
+                          mention.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => _chooseMention(mention),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        if (_mentions.isNotEmpty) const SizedBox(height: 8),
         if (_suggestions.isNotEmpty)
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 280),
@@ -244,7 +310,9 @@ class _ChatComposerState extends State<ChatComposer> {
                     decoration: InputDecoration(
                       hintText: widget.replying
                           ? 'Queue a message…'
-                          : 'Message Hermes…',
+                          : widget.botContext == null
+                          ? 'Message Hermes…'
+                          : 'Message ${widget.botContext!.title}…',
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,

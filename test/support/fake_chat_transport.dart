@@ -152,7 +152,7 @@ class FakeChatTransport implements ChatTransport {
   Completer<void>? stopGate;
 
   @override
-  Future<bool> stopReply(String threadId) async {
+  Future<bool> stopReply(String threadId, {String? profile}) async {
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     stops.add(threadId);
     await stopGate?.future;

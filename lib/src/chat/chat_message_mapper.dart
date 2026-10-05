@@ -37,8 +37,11 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       // A running subagent's cards do the same.
       !m.subagents.any((s) => s.status == SubagentStatus.running);
   final media = m.role == ChatRole.assistant
-      ? extractMedia(decodeMarkdownEntities(m.content), complete: !m.isPending)
-      : ExtractedMedia(m.content, const []);
+      ? extractMedia(
+          decodeMarkdownEntities(m.displayText ?? m.content),
+          complete: !m.isPending,
+        )
+      : ExtractedMedia(m.displayText ?? m.content, const []);
   InputRequestSlot slotOf(InputRequest request) =>
       m.inputRequestSlots[request.requestId] ??
       (toolCalls: m.toolCalls.length, sealed: m.sealedProse.length);
