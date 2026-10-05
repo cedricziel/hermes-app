@@ -87,6 +87,30 @@ void main() {
     );
   });
 
+  testWidgets('New chat focuses the composer for immediate typing', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_wrap(const ChatScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New chat'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<EditableText>(composerField).focusNode.hasFocus,
+      isTrue,
+    );
+    tester.testTextInput.enterText('Ready to type');
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(composerField).controller.text,
+      'Ready to type',
+    );
+  });
+
   testWidgets('the demo chat has no Plugins entry', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;

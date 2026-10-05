@@ -138,6 +138,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   String? _slashContext;
   int _slashFetchGeneration = 0;
   bool _slashSending = false;
+  final _composerFocus = FocusNode();
   final List<SharedFile> _attachments = [];
   late final AttachmentSource _attachmentSource;
   late final ShareController _share;
@@ -330,6 +331,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _ownedTransport?.close();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
+    _composerFocus.dispose();
     _latestReplyId.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -338,6 +340,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _newThread() {
     _chat.newThread();
     _closeDrawerIfNarrow();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _composerFocus.requestFocus();
+    });
   }
 
   /// Opens the toolbar search of a Mac window and puts the cursor in it. A
@@ -672,6 +677,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           thread: selected,
           chatController: chat.controllerFor(selected),
           composerController: _composerController,
+          composerFocus: _composerFocus,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,
@@ -806,6 +812,7 @@ class _ThreadView extends StatelessWidget {
     required this.thread,
     required this.chatController,
     required this.composerController,
+    required this.composerFocus,
     required this.attachments,
     required this.attachmentSource,
     required this.onAddAttachments,
@@ -833,6 +840,7 @@ class _ThreadView extends StatelessWidget {
   final ChatThread? thread;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
+  final FocusNode composerFocus;
   final List<SharedFile> attachments;
   final AttachmentSource attachmentSource;
   final ValueChanged<List<SharedFile>> onAddAttachments;
@@ -891,6 +899,7 @@ class _ThreadView extends StatelessWidget {
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
+            focusNode: composerFocus,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,
             replying: thread?.isReplying == true,
