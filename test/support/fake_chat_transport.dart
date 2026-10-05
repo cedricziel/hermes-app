@@ -67,11 +67,13 @@ class FakeChatTransport implements ChatTransport {
   /// [FakeFollowUps]. One asked for again after it was listened to is new,
   /// like the gateway's after a later send.
   final followUpStreams = <String, FakeFollowUps>{};
+  var followUpCalls = 0;
 
   @override
-  Stream<ChatEvent> followUps(String threadId) {
+  Stream<ChatEvent> followUps(String threadId, {String? profile}) {
+    followUpCalls++;
     var follow = followUpStreams[threadId];
-    if (follow == null || follow._events.hasListener) {
+    if (follow == null || follow._listened || follow._events.isClosed) {
       follow = followUpStreams[threadId] = FakeFollowUps();
     }
     return follow._events.stream;
@@ -81,6 +83,12 @@ class FakeChatTransport implements ChatTransport {
 
   @override
   Future<void> checkConnection() async => connectionChecks++;
+
+  /// Session id → status, as [ChatController.refreshActive] reads it.
+  final active = <String, String>{};
+
+  @override
+  Future<Map<String, String>> activeStatuses() async => Map.of(active);
 
   final approvalAnswers = <(String, String)>[];
   final clarifyAnswers =
@@ -221,11 +229,18 @@ class FakeSend {
 
 /// The turns Hermes chains on its own, fed by hand.
 class FakeFollowUps {
+  FakeFollowUps() {
+    _events.onListen = () => _listened = true;
+  }
+
   final _events = StreamController<ChatEvent>();
+  var _listened = false;
 
   void emit(ChatEvent event) => _events.add(event);
 
   void fail([Object error = 'connection lost']) => _events.addError(error);
+
+  void finish() => _events.close();
 
   /// Whether the screen is still listening.
   bool get hasListener => _events.hasListener;

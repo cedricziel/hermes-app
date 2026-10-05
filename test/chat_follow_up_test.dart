@@ -147,13 +147,14 @@ void main() {
   ) async {
     await sendAndFinish(tester, '', failed: true);
 
-    expect(transport.followUpStreams, isEmpty);
+    expect(transport.followUpCalls, 1);
     await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('a failed reply is not followed', (tester) async {
     await pumpChatScreen(tester, server: server, transport: transport);
     await openThread(tester, 'Run failure');
+    final initialFollowUps = transport.followUpCalls;
     await tester.enterText(composerField, 'Plan it');
     await tester.pump();
     await tester.tap(find.byIcon(Icons.arrow_upward));
@@ -161,7 +162,7 @@ void main() {
     transport.sends.last.fail();
     await tester.pump();
 
-    expect(transport.followUpStreams, isEmpty);
+    expect(transport.followUpCalls, initialFollowUps);
     await tester.pump(const Duration(seconds: 5));
   });
 }

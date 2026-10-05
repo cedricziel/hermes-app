@@ -273,7 +273,14 @@ abstract interface class ChatTransport {
   /// picked up again rather than failed, when the server still has it
   /// running; only a reply the server has since lost ends with an error.
   /// Cancel the stream to stop listening.
-  Stream<ChatEvent> followUps(String threadId);
+  Stream<ChatEvent> followUps(String threadId, {String? profile});
+
+  /// Which sessions are mid-turn right now, by stored session id: `working`
+  /// while a turn runs, `waiting` while it waits for the user's answer. A
+  /// turn started outside this client (the TUI, another device) shows up
+  /// here without this client ever having streamed it. A transport that
+  /// cannot ask returns an empty map.
+  Future<Map<String, String>> activeStatuses();
 
   /// Makes sure the connection still works, for when the app comes back from
   /// sleep: iOS and Android drop sockets then, often without saying so. A

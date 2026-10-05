@@ -248,6 +248,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     Widget chat({Widget? navigation}) => KeyedSubtree(
       key: _chatKey,
       child: ChatScreen(
+        visible: _current == _Destination.chat,
         onShowChat: _showChat,
         openRequests: _openRequests,
         onOpenJob: _openJob,

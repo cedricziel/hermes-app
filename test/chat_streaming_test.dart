@@ -454,7 +454,7 @@ void main() {
     await emit(tester, reply, const ReplyDelta('Streaming '));
 
     await tester.tap(find.text('Release notes'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
     await emit(tester, reply, const ReplyDelta('on'));
     await emit(tester, reply, const ReplyCompleted('Streaming on'));
 
@@ -472,11 +472,11 @@ void main() {
     await send(tester, 'And then?');
     final reply = transport.sends.single;
     await tester.tap(find.text('Release notes'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     await emit(tester, reply, const ReplyDelta('Partial'));
     await tester.tap(find.text('Run failure'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(inTranscript('Partial'), findsOneWidget);
   });
@@ -488,7 +488,7 @@ void main() {
 
     await send(tester, 'FIRSTQ');
     await tester.tap(find.text('Release notes'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
     await send(tester, 'SECONDQ');
     final [first, second] = transport.sends;
     await emit(tester, second, const ReplyCompleted('SECONDA'));

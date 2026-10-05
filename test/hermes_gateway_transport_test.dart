@@ -2384,6 +2384,31 @@ void main() {
   });
 
   group('follow-up turns', () {
+    test('a picked-up turn can be stopped under its profile', () async {
+      gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+      final followed = transport
+          .followUps('stored-1', profile: 'work')
+          .toList();
+      await pumpEventQueue();
+
+      expect(gateway.requestOf('session.resume')['params'], {
+        'session_id': 'stored-1',
+        'profile': 'work',
+      });
+      expect(await transport.stopReply('stored-1'), isTrue);
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      gateway.drop();
+
+      expect((await followed).map((event) => event.runtimeType), [
+        ReplyStarted,
+        ReplyCompleted,
+      ]);
+    });
+
     test('a turn Hermes chains after the reply is followed', () async {
       gateway.turn = plainReply;
       await reply();
@@ -2801,6 +2826,45 @@ void main() {
       });
       await result;
     });
+
+    test(
+      'Stop resumes a disconnected reply under its original profile',
+      () async {
+        final first = FakeGateway()
+          ..turn = (g, sid) => g.event('message.start', sid);
+        final next = FakeGateway()
+          ..resumeResult = {'session_id': 'rt-1', 'running': true};
+        final connections = [first.channel, next.channel].iterator;
+        reattaching = HermesGatewayTransport(
+          connect: () async {
+            connections.moveNext();
+            return connections.current;
+          },
+        );
+        final started = Completer<void>();
+        late final StreamSubscription<ChatEvent> subscription;
+        subscription = reattaching.send(text: 'hi', profile: 'work').listen((
+          event,
+        ) {
+          if (event is ReplyStarted) {
+            subscription.pause();
+            started.complete();
+          }
+        });
+        await started.future;
+        first.drop();
+        await pumpEventQueue();
+
+        final stopped = await reattaching.stopReply('stored-1');
+        final resumed = next.requestOf('session.resume')['params'];
+        final canceled = subscription.cancel();
+        next.drop();
+        await canceled;
+
+        expect(stopped, isTrue);
+        expect(resumed, {'session_id': 'stored-1', 'profile': 'work'});
+      },
+    );
   });
 }
 

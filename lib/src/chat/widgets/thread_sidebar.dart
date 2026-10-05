@@ -23,6 +23,7 @@ import 'sidebar_row.dart';
 import 'swipeable_thread_row.dart';
 import 'thread_actions_menu.dart';
 import 'thread_search_view.dart';
+import 'working_dot.dart';
 
 /// The thread list rail — assistant-ui's `<ThreadList />`: a "New thread"
 /// action pinned above a scrollable history, with the active thread picked
@@ -47,6 +48,7 @@ class ThreadSidebar extends StatelessWidget {
     required this.selectedId,
     required this.onSelect,
     required this.onNewThread,
+    this.busy = const {},
     this.housekeeping,
     this.search,
     this.onOpenHit,
@@ -65,6 +67,11 @@ class ThreadSidebar extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<String> onSelect;
   final VoidCallback onNewThread;
+
+  /// The ids of threads a turn is running in right now, shown as a small
+  /// spinner on their row.
+  final Set<String> busy;
+
   final ThreadHousekeeping? housekeeping;
   final ThreadSearch? search;
   final ValueChanged<ThreadSearchHit>? onOpenHit;
@@ -207,6 +214,7 @@ class ThreadSidebar extends StatelessWidget {
             threads: threads,
             selectedId: selectedId,
             onSelect: onSelect,
+            busy: busy,
             housekeeping: housekeeping,
             onOpenInNewWindow: onOpenInNewWindow,
           ),
@@ -255,6 +263,7 @@ class ThreadSidebar extends StatelessWidget {
           key: ValueKey('thread-${thread.id}'),
           thread: thread,
           selected: thread.id == selectedId,
+          busy: busy.contains(thread.id) || thread.isReplying,
           onTap: () => onSelect(thread.id),
           housekeeping: thread.remote ? housekeeping : null,
         );
@@ -365,12 +374,14 @@ class _ThreadRow extends StatefulWidget {
     super.key,
     required this.thread,
     required this.selected,
+    required this.busy,
     required this.onTap,
     this.housekeeping,
   });
 
   final ChatThread thread;
   final bool selected;
+  final bool busy;
   final VoidCallback onTap;
   final ThreadHousekeeping? housekeeping;
 
@@ -432,6 +443,10 @@ class _ThreadRowState extends State<_ThreadRow> {
                   ),
                 ),
               ),
+              if (widget.busy) ...[
+                const WorkingDot(),
+                const SizedBox(width: 4),
+              ],
               if (inlineButton)
                 ThreadActionsButton(
                   key: _actions,
@@ -467,6 +482,7 @@ class _MacThreadList extends StatefulWidget {
     required this.threads,
     required this.selectedId,
     required this.onSelect,
+    required this.busy,
     required this.housekeeping,
     required this.onOpenInNewWindow,
   });
@@ -474,6 +490,7 @@ class _MacThreadList extends StatefulWidget {
   final List<ChatThread> threads;
   final String? selectedId;
   final ValueChanged<String> onSelect;
+  final Set<String> busy;
   final ThreadHousekeeping? housekeeping;
   final ValueChanged<ChatThread>? onOpenInNewWindow;
 
@@ -545,6 +562,7 @@ class _MacThreadListState extends State<_MacThreadList> {
       key: ValueKey('thread-${thread.id}'),
       title: thread.title,
       selected: thread.id == widget.selectedId,
+      busy: widget.busy.contains(thread.id) || thread.isReplying,
       relativeTime: relativeTime(thread.updatedAt),
       onTap: () => widget.onSelect(thread.id),
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),

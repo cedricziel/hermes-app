@@ -7,6 +7,7 @@ import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/named_icon_button.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import 'thread_actions_menu.dart';
+import 'working_dot.dart';
 
 /// A thread in a Mac sidebar: a 28pt row with its title. Under the pointer an
 /// Archive button (when [onArchive] is given) and a More button show at the
@@ -19,6 +20,7 @@ class MacThreadRow extends StatefulWidget {
     required this.onTap,
     required this.menuItems,
     required this.onAction,
+    this.busy = false,
     this.onArchive,
     this.relativeTime,
   });
@@ -28,6 +30,10 @@ class MacThreadRow extends StatefulWidget {
   final VoidCallback onTap;
   final PopupMenuItemBuilder<ThreadAction> menuItems;
   final ValueChanged<ThreadAction> onAction;
+
+  /// Whether a turn is running in this thread: a small spinner at the
+  /// trailing edge.
+  final bool busy;
   final VoidCallback? onArchive;
 
   /// When the thread was last active, for screen readers.
@@ -71,6 +77,7 @@ class _MacThreadRowState extends State<MacThreadRow> {
                 ),
               ),
             ),
+            if (widget.busy) ...[const WorkingDot(), const SizedBox(width: 4)],
             Visibility(
               visible: hovered,
               maintainSize: true,

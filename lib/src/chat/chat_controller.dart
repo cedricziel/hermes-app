@@ -196,6 +196,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final threads = housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       _stopFollowing();
+      _active.clear();
       for (final controller in _chatControllers.values) {
         controller.dispose();
       }
@@ -234,7 +235,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           }
         }
       }
-      if (_selectedId != null) unawaited(_loadMessages(_selectedId!));
+      if (_selectedId != null) {
+        final selected = _threads.firstWhere((t) => t.id == _selectedId);
+        unawaited(
+          _loadMessages(selected.id).then((_) {
+            if (!disposed &&
+                _profile == profile &&
+                _selectedId == selected.id &&
+                _threads.contains(selected)) {
+              _pickUp(selected);
+            }
+          }),
+        );
+      }
+      unawaited(refreshActive());
     } on Object {
       if (disposed || generation != _loadGeneration) return;
       _loadingThreads = false;
@@ -457,9 +471,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId != null) _loadMessages(_selectedId!);
   }
 
-  /// Asks the transport to drop a connection the OS killed during sleep.
-  void checkConnection() =>
-      transport?.checkConnection().then((_) {}, onError: (Object _) {});
+  /// Asks the transport to drop a connection the OS killed during sleep, and
+  /// re-checks which sessions are mid-turn afterwards.
+  void checkConnection() => transport?.checkConnection().then(
+    (_) => unawaited(refreshActive()),
+    onError: (Object _) {},
+  );
 
   @override
   void dispose() {
@@ -498,7 +515,77 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void select(String id) {
     _selectedId = id;
     notifyListeners();
-    if (repository != null) _loadMessages(id);
+    final load = repository != null ? _loadMessages(id) : Future<void>.value();
+    final thread = _threads.where((t) => t.id == id).firstOrNull;
+    if (thread != null) {
+      final profile = _profile;
+      unawaited(
+        load.then((_) {
+          if (!disposed &&
+              _profile == profile &&
+              _selectedId == id &&
+              _threads.contains(thread)) {
+            _pickUp(thread);
+          }
+        }),
+      );
+    }
+    unawaited(refreshActive());
+  }
+
+  /// Starts following [thread] once, so a turn running there that this client
+  /// never streamed (started on the TUI or another device) streams into it
+  /// and shows its replying indicator. An idle thread closes the stream
+  /// without events.
+  void _pickUp(ChatThread thread) {
+    final transport = this.transport;
+    if (transport == null || !thread.remote) return;
+    if (thread.isReplying) return;
+    _followUps(transport, thread, _profile);
+  }
+
+  final _followingIds = <String>{};
+
+  /// The remote threads a turn is running in right now, by id — including
+  /// turns started outside this client. Drives the sidebar's working
+  /// indicator; a thread this client is streaming into already counts
+  /// through its pending reply.
+  final _active = <String>{};
+  var _activeRefresh = 0;
+  Set<String> get activeThreads => Set.unmodifiable(_active);
+
+  /// Asks the transport which sessions are mid-turn and marks their threads,
+  /// dropping ones whose turn ended.
+  Future<void> refreshActive() async {
+    final transport = this.transport;
+    if (transport == null || disposed) return;
+    final generation = _loadGeneration;
+    final refresh = ++_activeRefresh;
+    final active = await transport.activeStatuses();
+    if (disposed ||
+        generation != _loadGeneration ||
+        refresh != _activeRefresh) {
+      return;
+    }
+    final working = <String>{
+      for (final thread in _threads)
+        if (active[thread.id] == 'working' || active[thread.id] == 'waiting')
+          thread.id,
+    };
+    var changed = working.length != _active.length;
+    if (!changed) {
+      for (final id in working) {
+        if (!_active.contains(id)) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+    _active
+      ..clear()
+      ..addAll(working);
+    notifyListeners();
   }
 
   /// Loaded messages are keyed `<session>-<row id>`, so a count of the
@@ -833,6 +920,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (error == null && !failed) {
         _followUps(transport, thread, profile);
         if (!stopped) sendQueued(thread);
+        unawaited(refreshActive());
       } else {
         // The queue is left paused; the screen shows it.
         notifyListeners();
@@ -867,15 +955,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       subscription.cancel();
     }
     _following.clear();
+    _followingIds.clear();
   }
 
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    if (_profile != profile || !_threads.contains(thread)) return;
+    if (!_followingIds.add(thread.id)) return;
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       _following.remove(subscription);
+      _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -884,7 +976,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     subscription = transport
-        .followUps(thread.id)
+        .followUps(thread.id, profile: profile)
         .listen(
           (event) {
             if (event is ReplyStarted && reply == null) {
@@ -902,6 +994,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             if (event is ReplyCompleted) {
               reply = null;
               if (!event.failed && !event.stopped) sendQueued(thread);
+              unawaited(refreshActive());
             }
           },
           onError: end,

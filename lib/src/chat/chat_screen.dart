@@ -86,6 +86,7 @@ class ChatScreen extends StatefulWidget {
     this.onOpenJob,
     this.navigation,
     this.starterContext,
+    this.visible = true,
   });
 
   final HermesChatRepository? repository;
@@ -120,6 +121,9 @@ class ChatScreen extends StatefulWidget {
   /// the chat on a wide layout, in the drawer on a narrow one.
   final Widget? navigation;
 
+  /// Whether the shell currently shows this chat destination.
+  final bool visible;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -145,6 +149,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final AttentionNotifier _attention;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
+  Timer? _activeRefreshTimer;
+  bool _activeRefreshInFlight = false;
+  bool _foreground = true;
 
   /// Whether the window is a Mac one, as of the last build.
   bool _mac = false;
@@ -163,6 +170,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     _attention = AttentionNotifier(
@@ -222,6 +232,39 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() {});
     _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateActivePolling();
+  }
+
+  @override
+  void didUpdateWidget(ChatScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visible != oldWidget.visible) _updateActivePolling();
+  }
+
+  void _updateActivePolling() {
+    _activeRefreshTimer?.cancel();
+    if (!_foreground ||
+        !widget.visible ||
+        _chat.transport == null ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    _activeRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (_activeRefreshInFlight) return;
+      _activeRefreshInFlight = true;
+      try {
+        await _chat.refreshActive();
+      } on Object {
+        return;
+      } finally {
+        _activeRefreshInFlight = false;
+      }
+    });
   }
 
   void _onComposerText() {
@@ -314,13 +357,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
+    _foreground = state == AppLifecycleState.resumed;
+    _updateActivePolling();
+    if (!_foreground) return;
     _chat.checkConnection();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
 
   @override
   void dispose() {
+    _activeRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
@@ -659,6 +705,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           selectedId: chat.selectedId,
           onSelect: _selectThread,
           onNewThread: _newThread,
+          busy: chat.activeThreads,
           housekeeping: chat.housekeeping,
           search: chat.search,
           onOpenHit: _openHit,
