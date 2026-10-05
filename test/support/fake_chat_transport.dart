@@ -73,9 +73,7 @@ class FakeChatTransport implements ChatTransport {
   Stream<ChatEvent> followUps(String threadId, {String? profile}) {
     followUpCalls++;
     var follow = followUpStreams[threadId];
-    if (follow == null ||
-        follow._events.hasListener ||
-        follow._events.isClosed) {
+    if (follow == null || follow._listened || follow._events.isClosed) {
       follow = followUpStreams[threadId] = FakeFollowUps();
     }
     return follow._events.stream;
@@ -231,7 +229,12 @@ class FakeSend {
 
 /// The turns Hermes chains on its own, fed by hand.
 class FakeFollowUps {
+  FakeFollowUps() {
+    _events.onListen = () => _listened = true;
+  }
+
   final _events = StreamController<ChatEvent>();
+  var _listened = false;
 
   void emit(ChatEvent event) => _events.add(event);
 
