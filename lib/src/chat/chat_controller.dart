@@ -961,6 +961,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    if (_profile != profile || !_threads.contains(thread)) return;
     if (!_followingIds.add(thread.id)) return;
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
