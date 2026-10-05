@@ -273,7 +273,8 @@ class GroupActivity extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (unavailableReason != null) Text(unavailableReason!),
-        if (working || blocked) const GroupInteractionNotice(),
+        if ((working || blocked) && actions.isEmpty)
+          const GroupInteractionNotice(),
         Wrap(
           spacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,

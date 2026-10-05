@@ -145,7 +145,7 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(
           find.textContaining('Interactive requests cannot be answered'),
-          findsOneWidget,
+          findsNothing,
         );
         await shots.capture(tester, 'approval');
         await tester.tap(find.text('Allow once'));
