@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
+import 'package:hermes_app/src/chat/widgets/working_dot.dart';
 
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
@@ -52,23 +53,26 @@ void main() {
 
       await openSidebar(tester);
       transport.active['s1'] = 'working';
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await runFrames(tester);
+      expect(find.byType(WorkingDot), findsOneWidget);
       await shots.capture(tester, 'thread-list-working');
 
-      // Opening the thread picks the turn up mid-stream: its first event is
-      // a delta, with no ReplyStarted before it.
       await tester.tap(find.byKey(const ValueKey('thread-s1')));
       await runFrames(tester);
+      transport.followUpStreams['s1']!.emit(const ReplyStarted());
       transport.followUpStreams['s1']!.emit(const ReplyDelta('Still digging.'));
       await runFrames(tester);
+      expect(find.text('Stop'), findsOneWidget);
       await shots.capture(tester, 'picked-up-replying');
 
+      transport.active.clear();
       transport.followUpStreams['s1']!.emit(
         const ReplyCompleted('It was the retry loop.'),
       );
       await runFrames(tester);
       expect(find.text('Stop'), findsNothing);
-      transport.active.clear();
       await runFrames(tester);
     });
   }
