@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/content_column.dart';
-import 'hermes_bots_repository.dart';
+import 'hermes_messaging_repository.dart';
 
 typedef LinkLauncher = Future<bool> Function(Uri uri);
 
@@ -29,7 +29,7 @@ class TelegramPairingScreen extends StatefulWidget {
     this.launchLink = _defaultLaunchLink,
   });
 
-  final HermesBotsRepository repository;
+  final HermesMessagingRepository repository;
   final Duration pollInterval;
   final LinkLauncher launchLink;
 
@@ -168,7 +168,7 @@ class _TelegramPairingScreenState extends State<TelegramPairingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'Bots'),
+        leading: const AdaptiveBackButton(previousTitle: 'Messaging'),
         leadingWidth: adaptiveBackLeadingWidth(context),
         title: const Text('Set up with Telegram'),
       ),

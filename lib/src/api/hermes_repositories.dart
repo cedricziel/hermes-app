@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../auth/auth_controller.dart';
-import '../bots/hermes_bots_repository.dart';
+import '../messaging/hermes_messaging_repository.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../kanban/kanban_repository.dart';
@@ -21,7 +21,7 @@ class HermesRepositories {
   HermesRepositories(this.api)
     : chat = HermesChatRepository(api.raw),
       profiles = HermesProfilesRepository(api.raw),
-      bots = HermesBotsRepository(api.raw),
+      messaging = HermesMessagingRepository(api.raw),
       skills = HermesSkillsRepository(api.raw),
       skillsHub = HermesSkillsHubRepository(api.raw),
       pluginManager = HermesPluginManagerRepository(api.raw),
@@ -34,7 +34,7 @@ class HermesRepositories {
   final HermesApiClient api;
   final HermesChatRepository chat;
   final HermesProfilesRepository profiles;
-  final HermesBotsRepository bots;
+  final HermesMessagingRepository messaging;
   final HermesSkillsRepository skills;
   final HermesSkillsHubRepository skillsHub;
   final HermesPluginManagerRepository pluginManager;

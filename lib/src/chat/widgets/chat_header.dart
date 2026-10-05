@@ -14,12 +14,14 @@ class ChatHeader extends StatelessWidget {
     super.key,
     required this.thread,
     this.housekeeping,
+    this.displayTitle,
     required this.onShowConnection,
   });
 
   /// The open thread, or null before one is picked.
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
+  final String? displayTitle;
   final VoidCallback onShowConnection;
 
   @override
@@ -27,7 +29,7 @@ class ChatHeader extends StatelessWidget {
     final thread = this.thread;
     final title = Expanded(
       child: Text(
-        thread?.title ?? 'Hermes',
+        displayTitle ?? thread?.title ?? 'Hermes',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),

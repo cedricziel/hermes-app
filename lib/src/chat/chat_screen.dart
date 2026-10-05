@@ -13,8 +13,8 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
-import '../bots/bots_screen.dart';
-import '../bots/hermes_bots_repository.dart';
+import '../messaging/messaging_screen.dart';
+import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../models/hermes_models_repository.dart';
@@ -50,6 +50,9 @@ import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'queued_prompt.dart';
 import 'slash_command.dart';
+import '../bot_mode/bot_chat_context.dart';
+import '../bot_mode/bot_mode_chat_repository.dart';
+import '../bot_mode/widgets/bot_chat_banner.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
@@ -76,7 +79,7 @@ class ChatScreen extends StatefulWidget {
     this.transport,
     this.profiles,
     this.models,
-    this.bots,
+    this.messaging,
     this.skills,
     this.plugins,
     this.mcp,
@@ -93,7 +96,7 @@ class ChatScreen extends StatefulWidget {
   final ChatTransport? transport;
   final HermesProfilesRepository? profiles;
   final HermesModelsRepository? models;
-  final HermesBotsRepository? bots;
+  final HermesMessagingRepository? messaging;
   final HermesSkillsRepository? skills;
   final HermesPluginManagerRepository? plugins;
   final HermesMcpRepository? mcp;
@@ -131,7 +134,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
   HermesProfilesRepository? _profiles;
-  HermesBotsRepository? _bots;
+  HermesMessagingRepository? _messaging;
   HermesSkillsRepository? _skills;
   HermesPluginManagerRepository? _plugins;
   HermesMcpRepository? _mcp;
@@ -183,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;
     _profiles = widget.profiles ?? repositories?.profiles;
-    _bots = widget.bots ?? repositories?.bots;
+    _messaging = widget.messaging ?? repositories?.messaging;
     _skills = widget.skills ?? repositories?.skills;
     _plugins = widget.plugins ?? repositories?.pluginManager;
     _mcp = widget.mcp ?? repositories?.mcp;
@@ -210,6 +213,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       profiles: _profiles,
       models: _models,
       transport: transport,
+      botChats: transport is HermesGatewayTransport
+          ? BotModeChatRepository(transport.request)
+          : null,
       attention: _attention,
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
@@ -220,6 +226,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         selection: TextSelection.collapsed(offset: draft.length),
       ),
     )..addListener(_changed);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _onOpenRequest();
+    });
     _composerController.addListener(_onComposerText);
     if (_chat.repository != null) _chat.loadThreads();
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
@@ -314,8 +323,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// Another destination asked for a session. Unlike a notification tap, it
   /// is fetched when the loaded threads do not hold it, on its own profile.
   void _onOpenRequest() {
-    final target = widget.openRequests?.take();
-    if (target != null) _chat.open(target, fetchMissing: true);
+    final request = widget.openRequests?.takeRequest();
+    if (request == null) return;
+    if (request.bot case final bot?) {
+      unawaited(_chat.openBot(bot));
+    } else {
+      _chat.open(request.target, fetchMissing: true);
+    }
   }
 
   void _showMessage(String message) {
@@ -437,7 +451,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
       ),
       MacCommand.renameThread: MacCommandHandler(
-        on(ThreadAction.rename, when: managed),
+        on(ThreadAction.rename, when: managed && !thread.isCanonicalBotChat),
       ),
       MacCommand.copyTranscript: MacCommandHandler(
         on(
@@ -487,10 +501,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 
-  void _openBots() {
+  void _openMessaging() {
     _closeDrawerIfNarrow();
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => BotsScreen(repository: _bots)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MessagingScreen(repository: _messaging),
+      ),
+    );
   }
 
   /// Skills asks for a message to be drafted when the user wants the agent to
@@ -697,11 +714,14 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final isWide =
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
         final selected = chat.selectedThread;
+        final bot = selected?.botContext;
         final modelOptions = chat.modelOptions;
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
-          threads: chat.threads,
+          threads: chat.threads
+              .where((thread) => !thread.isCanonicalBotChat)
+              .toList(),
           selectedId: chat.selectedId,
           onSelect: _selectThread,
           onNewThread: _newThread,
@@ -711,7 +731,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onOpenHit: _openHit,
           searchProfile: chat.profile,
           onOpenProfiles: _profiles == null ? null : _openProfiles,
-          onOpenBots: _bots == null ? null : _openBots,
+          onOpenMessaging: _messaging == null ? null : _openMessaging,
           onOpenSkills: _skills == null ? null : _openSkills,
           onOpenPlugins: _plugins == null ? null : _openPlugins,
           onOpenMcp: _mcp == null ? null : _openMcp,
@@ -722,6 +742,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         final search = chat.search;
         final threadView = _ThreadView(
           thread: selected,
+          botContext: bot,
           chatController: chat.controllerFor(selected),
           composerController: _composerController,
           composerFocus: _composerFocus,
@@ -752,7 +773,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? ListenableBuilder(
                   listenable: search ?? const AlwaysStoppedAnimation(0),
                   builder: (context, _) => MacChatToolbar(
-                    title: selected?.title ?? 'Hermes',
+                    title: bot?.title ?? selected?.title ?? 'Hermes',
                     subtitle: _toolbarSubtitle(),
                     onNewChat: _newThread,
                     onShowConnection: _showConnection,
@@ -770,6 +791,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 )
               : ChatHeader(
                   thread: selected,
+                  displayTitle: bot?.title,
                   housekeeping: chat.housekeeping,
                   onShowConnection: _showConnection,
                 ),
@@ -820,7 +842,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               ? null
               : buildChatAppBar(
                   context,
-                  title: Text(selected?.title ?? 'Hermes'),
+                  title: Text(bot?.title ?? selected?.title ?? 'Hermes'),
                   actions: [
                     if (selected != null && selected.remote)
                       ThreadActionsButton(
@@ -857,6 +879,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 class _ThreadView extends StatelessWidget {
   const _ThreadView({
     required this.thread,
+    this.botContext,
     required this.chatController,
     required this.composerController,
     required this.composerFocus,
@@ -885,6 +908,7 @@ class _ThreadView extends StatelessWidget {
   });
 
   final ChatThread? thread;
+  final BotChatContext? botContext;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
   final FocusNode composerFocus;
@@ -936,6 +960,7 @@ class _ThreadView extends StatelessWidget {
           starterPrompts: starterPrompts,
           onPickPrompt: onPickStarter,
           greetingName: greetingName,
+          assistantName: botContext?.title,
           latestReplyId: latestReplyId,
           onRetry: onRetry,
           onLoadOlder: onLoadOlder,
@@ -947,6 +972,7 @@ class _ThreadView extends StatelessWidget {
           composerBuilder: buildChatComposer(
             controller: composerController,
             focusNode: composerFocus,
+            botContext: botContext,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,
             replying: thread?.isReplying == true,
@@ -967,6 +993,7 @@ class _ThreadView extends StatelessWidget {
           if (platformChromeOf(context) != PlatformChrome.macos)
             const Divider(height: 1),
         ],
+        if (botContext case final bot?) BotChatBanner(context: bot),
         Expanded(
           child: AttachmentSurface(
             source: attachmentSource,

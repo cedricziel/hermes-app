@@ -91,22 +91,29 @@ class ThreadHousekeeping {
     changed();
   }
 
-  Future<void> rename(ChatThread thread, String title) =>
-      _guarded(thread, (profile) async {
-        final previous = thread.title;
-        thread.title = title;
-        changed();
-        try {
-          thread.title = await repository.renameThread(
-            thread.id,
-            title,
-            profile: profile,
-          );
-        } on Object catch (error) {
-          thread.title = previous;
-          report(_failure('Could not rename this chat', error));
-        }
-      });
+  Future<void> rename(ChatThread thread, String title) async {
+    if (thread.isCanonicalBotChat) {
+      report(
+        'Bot Chat keeps its canonical title. Edit the bot name in the roster.',
+      );
+      return;
+    }
+    await _guarded(thread, (profile) async {
+      final previous = thread.title;
+      thread.title = title;
+      changed();
+      try {
+        thread.title = await repository.renameThread(
+          thread.id,
+          title,
+          profile: profile,
+        );
+      } on Object catch (error) {
+        thread.title = previous;
+        report(_failure('Could not rename this chat', error));
+      }
+    });
+  }
 
   Future<void> setPinned(ChatThread thread, bool pinned) =>
       _guarded(thread, (profile) async {
@@ -127,11 +134,20 @@ class ThreadHousekeeping {
         }
       });
 
-  Future<void> archive(ChatThread thread) => _remove(
-    thread,
-    (profile) => repository.archiveThread(thread.id, profile: profile),
-    'Could not archive this chat',
-  );
+  Future<void> archive(
+    ChatThread thread, {
+    bool retireCanonical = false,
+  }) async {
+    if (thread.isCanonicalBotChat && !retireCanonical) {
+      report('Use Retire Bot Chat in chat actions to confirm retirement.');
+      return;
+    }
+    await _remove(
+      thread,
+      (profile) => repository.archiveThread(thread.id, profile: profile),
+      'Could not archive this chat',
+    );
+  }
 
   Future<void> delete(ChatThread thread) => _remove(
     thread,

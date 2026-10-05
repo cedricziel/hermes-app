@@ -4,8 +4,8 @@ import 'package:hermes_api/hermes_api.dart';
 /// One credential or setting a platform reads from its environment.
 ///
 /// The dashboard only ever sends [redactedValue], never the value itself.
-class HermesBotEnvVar {
-  const HermesBotEnvVar({
+class HermesMessagingEnvVar {
+  const HermesMessagingEnvVar({
     required this.key,
     required this.label,
     this.description = '',
@@ -29,8 +29,8 @@ class HermesBotEnvVar {
 }
 
 /// A messaging platform Hermes can run as a bot (Telegram, Discord, ...).
-class HermesBot {
-  const HermesBot({
+class HermesMessagingPlatform {
+  const HermesMessagingPlatform({
     required this.id,
     required this.name,
     this.description = '',
@@ -48,13 +48,13 @@ class HermesBot {
   /// Whether every credential the platform requires is set.
   final bool configured;
   final String? errorMessage;
-  final List<HermesBotEnvVar> envVars;
+  final List<HermesMessagingEnvVar> envVars;
 }
 
 /// The dashboard refused a setup request and said why. The message names the
 /// key at fault, never the value.
-class BotSetupRejected implements Exception {
-  const BotSetupRejected(this.message);
+class MessagingSetupRejected implements Exception {
+  const MessagingSetupRejected(this.message);
 
   final String message;
 }
@@ -62,7 +62,7 @@ class BotSetupRejected implements Exception {
 /// The reason to show for a failed setup request: the dashboard's own when it
 /// gave one, otherwise [fallback].
 String explainSetupError(Object error, String fallback) =>
-    error is BotSetupRejected ? error.message : fallback;
+    error is MessagingSetupRejected ? error.message : fallback;
 
 /// A Telegram bot the dashboard's setup service created for this user, to be
 /// claimed by opening [deepLink] in Telegram.
@@ -94,12 +94,12 @@ class TelegramPairingStatus {
 /// The route declares no response schema in the spec, so the
 /// `{"platforms": [...]}` envelope is parsed by hand, skipping rows that
 /// don't fit.
-class HermesBotsRepository {
-  HermesBotsRepository(this._api);
+class HermesMessagingRepository {
+  HermesMessagingRepository(this._api);
 
   final DefaultApi _api;
 
-  Future<List<HermesBot>> load() async {
+  Future<List<HermesMessagingPlatform>> load() async {
     final response = await _api.getMessagingPlatformsApiMessagingPlatformsGet();
     final rows = switch (response.data) {
       {'platforms': final List<dynamic> rows} => rows,
@@ -108,7 +108,7 @@ class HermesBotsRepository {
     return [
       for (final row in rows.whereType<Map<String, dynamic>>())
         if (row case {'id': final String id, 'name': final String name})
-          HermesBot(
+          HermesMessagingPlatform(
             id: id,
             name: name,
             description: row['description'] as String? ?? '',
@@ -120,11 +120,11 @@ class HermesBotsRepository {
     ];
   }
 
-  static List<HermesBotEnvVar> _envVars(Object? rows) => [
+  static List<HermesMessagingEnvVar> _envVars(Object? rows) => [
     if (rows is List)
       for (final row in rows.whereType<Map<String, dynamic>>())
         if (row case {'key': final String key})
-          HermesBotEnvVar(
+          HermesMessagingEnvVar(
             key: key,
             label: row['prompt'] as String? ?? key,
             description: row['description'] as String? ?? '',
@@ -138,7 +138,7 @@ class HermesBotsRepository {
   ];
 
   /// Writes [env] and removes the [clear] keys, leaving the platform switched
-  /// as it was. Throws [BotSetupRejected] when the dashboard refuses a value.
+  /// as it was. Throws [MessagingSetupRejected] when the dashboard refuses a value.
   Future<void> saveSetup(
     String id, {
     Map<String, String> env = const {},
@@ -216,7 +216,7 @@ class HermesBotsRepository {
         statusCode: 400 || 404 || 409 || 410 || 502,
         data: {'detail': final String detail},
       )) {
-        throw BotSetupRejected(detail);
+        throw MessagingSetupRejected(detail);
       }
       rethrow;
     }

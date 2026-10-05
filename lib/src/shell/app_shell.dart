@@ -4,6 +4,15 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
+import '../auth/auth_controller.dart';
+import '../bot_mode/bot_mode_chat_repository.dart';
+import '../bot_mode/bot_chat_context.dart';
+import '../bot_mode/bot_mode_roster_repository.dart';
+import '../bot_mode/bot_mode_roster_screen.dart';
+import '../bot_mode/group_protocol/hermes_groups_repository.dart';
+import '../bot_mode/groups/group_chat_screen.dart';
+import '../chat/gateway/gateway_connection.dart';
+import '../chat/gateway/hermes_gateway_transport.dart';
 
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
@@ -22,7 +31,7 @@ import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import 'shell_navigation.dart';
 
-enum _Destination { chat, kanban, schedules }
+enum _Destination { chat, bots, kanban, schedules }
 
 /// Top-level navigation between Chat and the destinations the server offers:
 /// Kanban while its plugin is on, Schedules while it has the cron routes.
@@ -54,9 +63,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   HermesPluginsRepository? _plugins;
   HermesCronRepository? _cron;
   HermesProfilesRepository? _profiles;
+  HermesGatewayTransport? _gateway;
+  BotModeRosterRepository? _botsRepository;
+  BotModeChatRepository? _botChats;
+  HermesGroupsRepository? _groups;
+  bool _bots = false;
   bool _kanban = false;
   bool _schedules = false;
   int _detection = 0;
+  int _botOpenVersion = 0;
   _Destination _current = _Destination.chat;
 
   /// Destinations whose page has been built. A page loads only once its tab
@@ -76,6 +91,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _plugins = widget.plugins ?? repositories?.plugins;
     _cron = widget.cron ?? repositories?.cron;
     _profiles = repositories?.profiles;
+    final auth = _maybeRead<AuthController>();
+    if (repositories != null && auth?.baseUrl != null) {
+      _gateway = HermesGatewayTransport(
+        connect: hermesGatewayConnect(
+          baseUrl: auth!.baseUrl!,
+          authRequired: auth.status?.authRequired ?? true,
+          api: repositories.api,
+        ),
+      );
+      _botsRepository = BotModeRosterRepository(
+        _gateway!.request,
+        serverId: auth.baseUrl!,
+      );
+      _botChats = BotModeChatRepository(_gateway!.request);
+      _groups = HermesGroupsRepository(_gateway!.request);
+      _bots = true;
+    }
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
     if (service != null && settings != null && _cron != null) {
@@ -104,6 +136,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _watcher?.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
+    _gateway?.close();
     super.dispose();
   }
 
@@ -214,11 +247,64 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _openMenu() => _scaffoldKey.currentState?.openDrawer();
 
+  Future<void> _openBot(BotModeBot bot) async {
+    final version = ++_botOpenVersion;
+    try {
+      final roster = await _botsRepository!.load();
+      final currentBot = roster.bots.singleWhere(
+        (candidate) => candidate.identity == bot.identity,
+      );
+      final chat = await _botChats!.open(currentBot);
+      if (!mounted || version != _botOpenVersion) return;
+      _openRequests.request(
+        NotificationTarget(threadId: chat.storedId, profile: chat.profile),
+        bot: BotChatContext(
+          bot: currentBot,
+          rootId: chat.rootId,
+          storedId: chat.storedId,
+          peers: roster.bots,
+          protocolEnabled: roster.supported,
+        ),
+      );
+      _showChat();
+    } on Object {
+      if (mounted && version == _botOpenVersion) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open the bot chat. Retry from Bots.'),
+          ),
+        );
+      }
+    }
+  }
+
+  void _openGroup(GroupRoom room) {
+    final groups = _groups;
+    if (groups == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => GroupChatScreen(
+          repository: groups,
+          room: room,
+          onDisbanded: () {
+            if (mounted) Navigator.of(context).pop();
+          },
+        ),
+      ),
+    );
+  }
+
   static const Map<_Destination, ShellDestination> _labels = {
     _Destination.chat: (
       icon: AppIcons.chat,
       selected: AppIcons.chatFilled,
       label: 'Chat',
+      caption: null,
+    ),
+    _Destination.bots: (
+      icon: AppIcons.bot,
+      selected: AppIcons.bot,
+      label: 'Bots',
       caption: null,
     ),
     _Destination.kanban: (
@@ -249,6 +335,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       key: _chatKey,
       child: ChatScreen(
         visible: _current == _Destination.chat,
+        transport: _gateway,
         onShowChat: _showChat,
         openRequests: _openRequests,
         onOpenJob: _openJob,
@@ -257,6 +344,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
     final destinations = [
       _Destination.chat,
+      if (_bots) _Destination.bots,
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
     ];
@@ -281,6 +369,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           final content = switch (destination) {
             _Destination.chat => chat(navigation: navigation),
             _ when !_opened.contains(destination) => const SizedBox.shrink(),
+            _Destination.bots => BotModeRosterScreen(
+              repository: _botsRepository!,
+              models: HermesRepositories.maybeOf(context)?.models,
+              onOpen: _openBot,
+              groups: _groups,
+              onOpenGroup: _openGroup,
+            ),
             _Destination.kanban =>
               widget.kanbanBuilder?.call(context) ?? const KanbanScreen(),
             _Destination.schedules =>

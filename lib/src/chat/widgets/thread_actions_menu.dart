@@ -27,6 +27,7 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
   required bool pinned,
   required bool manageable,
   bool canOpenInNewWindow = false,
+  bool canonical = false,
 }) => [
   if (canOpenInNewWindow) ...[
     const AdaptiveMenuItem(
@@ -37,7 +38,11 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
     const PopupMenuDivider(),
   ],
   if (manageable) ...[
-    const AdaptiveMenuItem(value: ThreadAction.rename, child: Text('Rename…')),
+    if (!canonical)
+      const AdaptiveMenuItem(
+        value: ThreadAction.rename,
+        child: Text('Rename…'),
+      ),
     AdaptiveMenuItem(
       value: ThreadAction.pin,
       shortcut: '⇧⌘P',
@@ -49,7 +54,10 @@ List<PopupMenuEntry<ThreadAction>> macThreadMenuItems({
     child: Text('Copy Transcript'),
   ),
   if (manageable) ...[
-    const AdaptiveMenuItem(value: ThreadAction.archive, child: Text('Archive')),
+    AdaptiveMenuItem(
+      value: ThreadAction.archive,
+      child: Text(canonical ? 'Retire Bot Chat…' : 'Archive'),
+    ),
     const PopupMenuDivider(),
     const AdaptiveMenuItem(
       value: ThreadAction.delete,
@@ -131,6 +139,7 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
         if (platformChromeOf(context) == PlatformChrome.macos)
           ...macThreadMenuItems(
             pinned: _thread.pinned,
+            canonical: _thread.isCanonicalBotChat,
             manageable: housekeeping != null,
             canOpenInNewWindow: widget.onOpenInNewWindow != null,
           )
@@ -143,17 +152,20 @@ class ThreadActionsButtonState extends State<ThreadActionsButton> {
             if (housekeeping != null) const PopupMenuDivider(),
           ],
           if (housekeeping != null) ...[
-            const PopupMenuItem(
-              value: ThreadAction.rename,
-              child: Text('Rename'),
-            ),
+            if (!_thread.isCanonicalBotChat)
+              const PopupMenuItem(
+                value: ThreadAction.rename,
+                child: Text('Rename'),
+              ),
             PopupMenuItem(
               value: ThreadAction.pin,
               child: Text(_thread.pinned ? 'Unpin' : 'Pin'),
             ),
-            const PopupMenuItem(
+            PopupMenuItem(
               value: ThreadAction.archive,
-              child: Text('Archive'),
+              child: Text(
+                _thread.isCanonicalBotChat ? 'Retire Bot Chat…' : 'Archive',
+              ),
             ),
             const PopupMenuItem(
               value: ThreadAction.delete,
@@ -185,6 +197,7 @@ Future<void> runThreadAction(
     case (_, null):
       break;
     case (ThreadAction.rename, final housekeeping?):
+      if (thread.isCanonicalBotChat) return;
       final title = await showAdaptiveDialog<String>(
         context: context,
         builder: (_) => _RenameDialog(initial: thread.title),
@@ -195,7 +208,20 @@ Future<void> runThreadAction(
     case (ThreadAction.pin, final housekeeping?):
       await housekeeping.setPinned(thread, !thread.pinned);
     case (ThreadAction.archive, final housekeeping?):
-      await housekeeping.archive(thread);
+      if (thread.isCanonicalBotChat) {
+        final confirmed = await showConfirmDialog(
+          context,
+          title: 'Retire this Bot Chat?',
+          message: 'This archives the canonical conversation. The next time you open this bot, a new Bot Chat is created after the server confirms retirement.',
+          confirmLabel: 'Retire Bot Chat',
+          destructive: true,
+        );
+        if (confirmed) {
+          await housekeeping.archive(thread, retireCanonical: true);
+        }
+      } else {
+        await housekeeping.archive(thread);
+      }
     case (ThreadAction.delete, final housekeeping?):
       final confirmed = await showConfirmDialog(
         context,

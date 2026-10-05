@@ -292,6 +292,12 @@ class HermesChatRepository {
         _ => null,
       };
       if (role == null) continue;
+      final metadata = row['display_metadata'] is String
+          ? _decode(row['display_metadata'] as String)
+          : row['display_metadata'];
+      final displayText = metadata is Map && metadata['display_text'] is String
+          ? metadata['display_text'] as String
+          : null;
       final content = row['content'];
       // An assistant's own text is shown as it is; only what the user
       // attached is read back from reference lines.
@@ -312,6 +318,7 @@ class HermesChatRepository {
           id: '$sessionId-${row['id']}',
           role: role,
           content: before ? '' : stored.text,
+          displayText: displayText,
           sealedProse: before && stored.text.trim().isNotEmpty
               ? [SealedProse(stored.text, beforeToolCall: 0)]
               : const [],

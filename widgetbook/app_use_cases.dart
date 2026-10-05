@@ -250,7 +250,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
               onSelect: (_) {},
               onNewThread: () {},
               onOpenProfiles: () {},
-              onOpenBots: () {},
+              onOpenMessaging: () {},
               onOpenSkills: () {},
               onOpenPlugins: () {},
               onOpenMcp: () {},

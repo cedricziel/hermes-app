@@ -54,7 +54,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenHit,
     this.navigation,
     this.onOpenProfiles,
-    this.onOpenBots,
+    this.onOpenMessaging,
     this.onOpenSkills,
     this.onOpenPlugins,
     this.onOpenMcp,
@@ -79,7 +79,7 @@ class ThreadSidebar extends StatelessWidget {
   /// The destinations of the app shell, shown under the app name.
   final Widget? navigation;
   final VoidCallback? onOpenProfiles;
-  final VoidCallback? onOpenBots;
+  final VoidCallback? onOpenMessaging;
   final VoidCallback? onOpenSkills;
   final VoidCallback? onOpenPlugins;
   final VoidCallback? onOpenMcp;
@@ -181,7 +181,8 @@ class ThreadSidebar extends StatelessWidget {
                   (AppIcons.person, 'Profiles', onOpenProfiles!),
                 if (onOpenSkills != null)
                   (AppIcons.extension, 'Skills', onOpenSkills!),
-                if (onOpenBots != null) (AppIcons.bot, 'Bots', onOpenBots!),
+                if (onOpenMessaging != null)
+                  (AppIcons.bot, 'Messaging', onOpenMessaging!),
                 if (onOpenPlugins != null)
                   (AppIcons.extension, 'Plugins', onOpenPlugins!),
                 if (onOpenMcp != null)
@@ -332,7 +333,7 @@ class SidebarAction extends StatelessWidget {
   }
 }
 
-/// Profiles, skills, bots, plugins, MCP servers and helper models behind one
+/// Profiles, skills, messaging, plugins, MCP servers and helper models behind one
 /// row, so the thread list keeps the height.
 class _MoreSection extends StatefulWidget {
   const _MoreSection({required this.entries});
@@ -568,6 +569,7 @@ class _MacThreadListState extends State<_MacThreadList> {
       onArchive: housekeeping == null ? null : () => run(ThreadAction.archive),
       menuItems: (_) => macThreadMenuItems(
         pinned: thread.pinned,
+        canonical: thread.isCanonicalBotChat,
         manageable: housekeeping != null,
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
       ),

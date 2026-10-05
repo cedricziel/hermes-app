@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart' as mui;
 import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
+import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
 import 'chat_composer.dart';
@@ -24,11 +25,13 @@ WidgetBuilder buildChatComposer({
   Widget? modelPill,
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
+  BotChatContext? botContext,
 }) {
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) => ChatComposer(
       controller: controller,
       focusNode: focusNode,
+      botContext: botContext,
       onSend: onSend,
       onAttach: onAttach,
       attachments: attachments,

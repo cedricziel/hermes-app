@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:hermes_app/src/bots/hermes_bots_repository.dart';
-import 'package:hermes_app/src/bots/telegram_pairing_screen.dart';
+import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/telegram_pairing_screen.dart';
 
 import 'support/fake_hermes_server.dart';
 
@@ -55,7 +55,7 @@ void main() {
                 context,
                 MaterialPageRoute(
                   builder: (_) => TelegramPairingScreen(
-                    repository: HermesBotsRepository(server.client().raw),
+                    repository: HermesMessagingRepository(server.client().raw),
                     pollInterval: interval,
                     launchLink: (uri) async {
                       launched.add(uri);

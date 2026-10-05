@@ -69,6 +69,7 @@ Builders buildChatBuilders({
   required ValueChanged<StarterPrompt> onPickPrompt,
   List<StarterPrompt>? starterPrompts,
   String? greetingName,
+  String? assistantName,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
   Future<void> Function()? onLoadOlder,
@@ -153,7 +154,10 @@ Builders buildChatBuilders({
         ),
     emptyChatListBuilder: (context) => WelcomeView(
       greetingName: greetingName,
-      prompts: starterPrompts ?? kGenericStarterPrompts,
+      assistantName: assistantName,
+      prompts: assistantName == null
+          ? starterPrompts ?? kGenericStarterPrompts
+          : const [],
       onPick: onPickPrompt,
       bottomPadding:
           context.watch<ComposerHeightNotifier>().height +
