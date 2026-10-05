@@ -20,6 +20,29 @@ The system SHALL let the watch app read and send chats by asking the paired phon
 - **WHEN** the phone gets an operation it does not know, or one missing what it needs (a `messages` request without a thread id, a `send` with blank text)
 - **THEN** it answers `bad_request`
 
+### Requirement: Watch relay diagnostics
+
+When iPhone telemetry is enabled, the system SHALL export `watch.request.started` and `watch.request.completed` events for each request received by the Dart relay. Both events SHALL include the operation and current phone authentication state. The completion event SHALL include the result code and elapsed milliseconds. Unknown operations SHALL be recorded as `unknown`. Events SHALL NOT include message text, audio, thread identifiers, tokens, or request payloads. A telemetry failure SHALL NOT prevent the relay from replying.
+
+The watch SHALL write local Apple logs for activation, reachability changes, request starts, reply results, and delivery failures. The native iPhone relay SHALL write local Apple logs for activation, background-task expiry, a missing Dart handler, and invalid Dart replies. These local logs SHALL NOT contain request payloads or exception messages.
+
+When the phone cannot read its saved session from secure storage, it SHALL export `auth.session.read_failed` through its configured event logger, with the exception type only. The stored session SHALL remain untouched.
+
+#### Scenario: Signed-out relay reply
+
+- **WHEN** the phone answers a watch request with `signed_out` while telemetry is enabled
+- **THEN** the completion event records `signed_out`, the phone authentication state, and elapsed milliseconds
+
+#### Scenario: Secure storage unavailable
+
+- **WHEN** secure storage throws while the phone restores its session
+- **THEN** the phone records `auth.session.read_failed` without token contents or exception details
+
+#### Scenario: Watch cannot deliver a request
+
+- **WHEN** WatchConnectivity fails to deliver a request to the phone
+- **THEN** the watch writes a local delivery-failure log with the operation and numeric error code
+
 ### Requirement: Watch thread list
 
 The system SHALL answer a `threads` request with at most 20 of the most recent chats of the active Hermes profile, in the order the dashboard lists them. Each carries an id, a title, the time it was last active (whole seconds) and whether it is pinned. The watch SHALL show each title on up to two lines, mark pinned chats with a pin, refresh on pull, and offer a control to start a new chat. It SHALL show "No chats yet." for an empty list.

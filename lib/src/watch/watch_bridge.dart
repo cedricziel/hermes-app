@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/services.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 
 import '../api/hermes_api_client.dart';
 import '../auth/auth_controller.dart';
@@ -21,12 +23,16 @@ class WatchBridge {
   WatchBridge({
     required this._handler,
     this._channel = const MethodChannel(channelName),
+    this._events = noopAppEventLogger,
+    this._authState = _unknownAuthState,
   });
 
   static const channelName = 'app.hermes/watch';
 
   final WatchRequestHandler _handler;
   final MethodChannel _channel;
+  final AppEventLogger _events;
+  final String Function() _authState;
 
   /// A bridge that serves the watch from whoever is signed in right now, or
   /// null off iOS, where there is no watch to relay for.
@@ -37,9 +43,12 @@ class WatchBridge {
     AuthController auth, {
     NotificationService? notifications,
     NotificationSettings? settings,
+    AppEventLogger events = noopAppEventLogger,
   }) {
     if (!Platform.isIOS) return null;
     return WatchBridge(
+      events: events,
+      authState: () => auth.state.name,
       handler: handlerFor(auth, announce: announcer(notifications, settings)),
     );
   }
@@ -125,6 +134,16 @@ class WatchBridge {
 
   static void _ignore(AttentionNotification _) {}
 
+  static String _unknownAuthState() => 'unknown';
+
+  void _record(String name, Map<String, Object> attributes) {
+    try {
+      _events(name, attributes);
+    } on Object {
+      // Telemetry failure must not prevent a watch reply.
+    }
+  }
+
   void start() => _channel.setMethodCallHandler(_onCall);
 
   void dispose() => _channel.setMethodCallHandler(null);
@@ -132,6 +151,35 @@ class WatchBridge {
   Future<Object?> _onCall(MethodCall call) async {
     if (call.method != 'request') throw MissingPluginException();
     final arguments = call.arguments;
-    return _handler.handle(arguments is Map ? arguments : const {});
+    final request = arguments is Map ? arguments : const {};
+    final operation = switch (request['op']) {
+      'threads' ||
+      'messages' ||
+      'send' ||
+      'transcribe' => request['op'] as String,
+      _ => 'unknown',
+    };
+    final timer = Stopwatch()..start();
+    _record('watch.request.started', {
+      'watch.operation': operation,
+      'auth.state': _authState(),
+    });
+    final reply = await _handler.handle(request);
+    timer.stop();
+    final result = reply['ok'] == true
+        ? 'ok'
+        : switch (reply['error']) {
+            'signed_out' => 'signed_out',
+            'unavailable' => 'unavailable',
+            'bad_request' => 'bad_request',
+            _ => 'failed',
+          };
+    _record('watch.request.completed', {
+      'watch.operation': operation,
+      'auth.state': _authState(),
+      'watch.result': result,
+      'watch.duration_ms': timer.elapsedMilliseconds,
+    });
+    return reply;
   }
 }
