@@ -1,5 +1,14 @@
 # hermes-app
 
+<p>
+  <a href="https://apps.apple.com/app/id6813797761">
+    <img src="https://tools.applemediaservices.com/api/badges/download-on-the-app-store/black/en-us?size=250x83" height="40" alt="Download on the App Store">
+  </a>
+  <a href="https://testflight.apple.com/join/NahPgSAB">
+    <img src="https://img.shields.io/badge/Join_the_beta-TestFlight-007AFF?style=for-the-badge&amp;logo=apple&amp;logoColor=white" height="40" alt="Join the TestFlight beta">
+  </a>
+</p>
+
 A Flutter client for [Hermes Agent](https://github.com/NousResearch/hermes-agent)
 (by [Nous Research](https://nousresearch.com))'s web dashboard. Connect to a
 self-hosted `hermes dashboard`, sign in with an OIDC provider or a
@@ -21,9 +30,10 @@ sudo, and secret requests from group members cannot be answered in the room;
 if a member waits for one, use Stop. Direct bot chats support their own input
 requests.
 
-## Try the beta
+## Download
 
-Join the TestFlight beta for iPhone, iPad and Mac: <https://testflight.apple.com/join/NahPgSAB>
+Download the app for iPhone, iPad and Apple Watch from the App Store, or join
+the TestFlight beta for iPhone, iPad and Mac.
 
 The app checks for a newer version when it opens and offers to take you to it: in the App Store on iOS and macOS, on Google Play on Android, and on the GitHub release page on Linux and Windows. It finds nothing until the app is listed in a store.
 
