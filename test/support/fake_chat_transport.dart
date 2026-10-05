@@ -33,11 +33,15 @@ class FakeChatTransport implements ChatTransport {
   /// [FakeFollowUps]. One asked for again after it was listened to is new,
   /// like the gateway's after a later send.
   final followUpStreams = <String, FakeFollowUps>{};
+  var followUpCalls = 0;
 
   @override
-  Stream<ChatEvent> followUps(String threadId) {
+  Stream<ChatEvent> followUps(String threadId, {String? profile}) {
+    followUpCalls++;
     var follow = followUpStreams[threadId];
-    if (follow == null || follow._events.hasListener) {
+    if (follow == null ||
+        follow._events.hasListener ||
+        follow._events.isClosed) {
       follow = followUpStreams[threadId] = FakeFollowUps();
     }
     return follow._events.stream;
@@ -164,6 +168,8 @@ class FakeFollowUps {
   void emit(ChatEvent event) => _events.add(event);
 
   void fail([Object error = 'connection lost']) => _events.addError(error);
+
+  void finish() => _events.close();
 
   /// Whether the screen is still listening.
   bool get hasListener => _events.hasListener;

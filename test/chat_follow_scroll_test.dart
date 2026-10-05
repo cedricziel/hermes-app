@@ -65,7 +65,7 @@ void main() {
   /// What a mouse wheel over the transcript does; a negative [dy] scrolls up.
   Future<void> wheel(WidgetTester tester, double dy) async {
     transcript(tester).pointerScroll(dy);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
   }
 
   Future<FakeSend> startReply(WidgetTester tester) async {

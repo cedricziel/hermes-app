@@ -46,17 +46,22 @@ void main() {
     // The turn was picked up mid-stream: its first event is a delta, with no
     // ReplyStarted before it.
     final follow = transport.followUpStreams['s1']!;
+    expect(follow.hasListener, isTrue);
     follow.emit(const ReplyDelta('Still digging.'));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Still digging.'), findsOneWidget);
+    expect(find.text('Still digging.', findRichText: true), findsOneWidget);
     expect(find.text('Hermes is replying…'), findsOneWidget);
     expect(find.text('Stop'), findsOneWidget);
 
     follow.emit(const ReplyCompleted('It was the retry loop.'));
     await tester.pump();
 
-    expect(find.text('It was the retry loop.'), findsOneWidget);
+    expect(
+      find.text('It was the retry loop.', findRichText: true),
+      findsOneWidget,
+    );
     expect(find.text('Stop'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
@@ -71,8 +76,9 @@ void main() {
       transport: transport,
       settle: false,
     );
-    await tester.pump();
-    await tester.pump();
+    for (var i = 0; i < 10 && find.byType(WorkingDot).evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.byType(WorkingDot), findsOneWidget);
 
@@ -85,8 +91,22 @@ void main() {
         matching: find.text('Run failure'),
       ),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(WorkingDot), findsNothing);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('reopening a thread can pick up a later turn', (tester) async {
+    await pumpChatScreen(tester, server: server, transport: transport);
+    await openThread(tester, 'Run failure');
+    transport.followUpStreams['s1']!.finish();
+    await tester.pump();
+
+    await openThread(tester, 'Run failure');
+
+    expect(transport.followUpCalls, 2);
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('MacThreadRow shows the working mark when busy', (tester) async {
@@ -106,6 +126,11 @@ void main() {
       ),
     );
     expect(find.byType(WorkingDot), findsOneWidget);
-    expect(find.bySemanticsLabel('Working'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == 'Working',
+      ),
+      findsOneWidget,
+    );
   });
 }

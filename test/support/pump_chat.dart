@@ -90,11 +90,19 @@ Future<void> pumpChatScreen(
 
 /// Opens the sidebar row titled [title]; the screen starts on the welcome
 /// view, not on a thread.
-Future<void> openThread(WidgetTester tester, String title) async {
+Future<void> openThread(
+  WidgetTester tester,
+  String title, {
+  bool settle = true,
+}) async {
   await tester.tap(
     find.descendant(of: find.byType(ThreadSidebar), matching: find.text(title)),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 /// Unfolds the sidebar's "More" section, which holds Profiles, Skills, Bots,

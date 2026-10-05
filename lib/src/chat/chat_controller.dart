@@ -191,6 +191,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final threads = housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       _stopFollowing();
+      _active.clear();
       for (final controller in _chatControllers.values) {
         controller.dispose();
       }
@@ -229,7 +230,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           }
         }
       }
-      if (_selectedId != null) unawaited(_loadMessages(_selectedId!));
+      if (_selectedId != null) {
+        final selected = _threads.firstWhere((t) => t.id == _selectedId);
+        unawaited(
+          _loadMessages(selected.id).then((_) {
+            if (!disposed &&
+                _profile == profile &&
+                _selectedId == selected.id &&
+                _threads.contains(selected)) {
+              _pickUp(selected);
+            }
+          }),
+        );
+      }
       unawaited(refreshActive());
     } on Object {
       if (disposed || generation != _loadGeneration) return;
@@ -497,9 +510,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void select(String id) {
     _selectedId = id;
     notifyListeners();
-    if (repository != null) _loadMessages(id);
+    final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
-    if (thread != null) _pickUp(thread);
+    if (thread != null) {
+      final profile = _profile;
+      unawaited(
+        load.then((_) {
+          if (!disposed &&
+              _profile == profile &&
+              _selectedId == id &&
+              _threads.contains(thread)) {
+            _pickUp(thread);
+          }
+        }),
+      );
+    }
     unawaited(refreshActive());
   }
 
@@ -510,17 +535,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void _pickUp(ChatThread thread) {
     final transport = this.transport;
     if (transport == null || !thread.remote) return;
-    if (thread.isReplying || !_pickedUp.add(thread.id)) return;
+    if (thread.isReplying) return;
     _followUps(transport, thread, _profile);
   }
 
-  final _pickedUp = <String>{};
+  final _followingIds = <String>{};
 
   /// The remote threads a turn is running in right now, by id — including
   /// turns started outside this client. Drives the sidebar's working
   /// indicator; a thread this client is streaming into already counts
   /// through its pending reply.
   final _active = <String>{};
+  var _activeRefresh = 0;
   Set<String> get activeThreads => Set.unmodifiable(_active);
 
   /// Asks the transport which sessions are mid-turn and marks their threads,
@@ -528,8 +554,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> refreshActive() async {
     final transport = this.transport;
     if (transport == null || disposed) return;
+    final generation = _loadGeneration;
+    final refresh = ++_activeRefresh;
     final active = await transport.activeStatuses();
-    if (disposed) return;
+    if (disposed ||
+        generation != _loadGeneration ||
+        refresh != _activeRefresh) {
+      return;
+    }
     final working = <String>{
       for (final thread in _threads)
         if (active[thread.id] == 'working' || active[thread.id] == 'waiting')
@@ -784,15 +816,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       subscription.cancel();
     }
     _following.clear();
+    _followingIds.clear();
   }
 
   /// Hermes can chain turns on its own once a reply ended (a goal that goes
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
+    if (!_followingIds.add(thread.id)) return;
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       _following.remove(subscription);
+      _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -801,7 +836,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     subscription = transport
-        .followUps(thread.id)
+        .followUps(thread.id, profile: profile)
         .listen(
           (event) {
             // A turn picked up mid-stream (this thread was opened while a

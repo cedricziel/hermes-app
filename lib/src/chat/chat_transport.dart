@@ -243,7 +243,7 @@ abstract interface class ChatTransport {
   /// picked up again rather than failed, when the server still has it
   /// running; only a reply the server has since lost ends with an error.
   /// Cancel the stream to stop listening.
-  Stream<ChatEvent> followUps(String threadId);
+  Stream<ChatEvent> followUps(String threadId, {String? profile});
 
   /// Which sessions are mid-turn right now, by stored session id: `working`
   /// while a turn runs, `waiting` while it waits for the user's answer. A

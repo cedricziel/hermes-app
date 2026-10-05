@@ -2119,6 +2119,32 @@ void main() {
   });
 
   group('follow-up turns', () {
+    test('a picked-up turn can be stopped under its profile', () async {
+      gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+      final followed = transport
+          .followUps('stored-1', profile: 'work')
+          .toList();
+      await pumpEventQueue();
+
+      expect(gateway.requestOf('session.resume')['params'], {
+        'session_id': 'stored-1',
+        'profile': 'work',
+      });
+      expect(await transport.stopReply('stored-1'), isTrue);
+      gateway.event('message.delta', 'rt-1', {'text': 'Working'});
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      gateway.drop();
+
+      expect((await followed).map((event) => event.runtimeType), [
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+    });
+
     test('a turn Hermes chains after the reply is followed', () async {
       gateway.turn = plainReply;
       await reply();

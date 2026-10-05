@@ -186,7 +186,7 @@ class HermesGatewayTransport implements ChatTransport {
         // it, so pick it back up on a fresh connection rather than failing a
         // reply that is still on its way.
         final (next, ended) = attempt < _maxReattempts
-            ? await _reattach(storedId)
+            ? await _reattach(storedId, profile: profile)
             : (null, null);
         if (ended != null) {
           yield ended;
@@ -243,12 +243,18 @@ class HermesGatewayTransport implements ChatTransport {
   /// stored comes back as the turn's end instead. Returns neither when there
   /// is nothing left to pick up: the turn failed or left no reply, the
   /// session is gone, or the reconnect itself failed.
-  Future<(_Watch?, ReplyCompleted?)> _reattach(String storedId) async {
+  Future<(_Watch?, ReplyCompleted?)> _reattach(
+    String storedId, {
+    String? profile,
+  }) async {
     final GatewayRpcClient client;
     final Map<String, Object?> result;
     try {
       client = await _client();
-      result = await _call(client, 'session.resume', {'session_id': storedId});
+      result = await _call(client, 'session.resume', {
+        'session_id': storedId,
+        'profile': ?profile,
+      });
     } on Object {
       return (null, null);
     }
@@ -295,11 +301,11 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   @override
-  Stream<ChatEvent> followUps(String threadId) {
+  Stream<ChatEvent> followUps(String threadId, {String? profile}) {
     final watch = _idle[threadId];
     if (watch != null) {
       final out = StreamController<ChatEvent>();
-      out.onListen = () => unawaited(_relay(watch, threadId, out));
+      out.onListen = () => unawaited(_relay(watch, threadId, out, profile));
       out.onCancel = () {
         if (_idle[threadId] == watch) _idle.remove(threadId);
         return watch.close();
@@ -311,13 +317,19 @@ class HermesGatewayTransport implements ChatTransport {
     // session once and follow what comes back; an idle session ends the
     // stream without events.
     final out = StreamController<ChatEvent>();
-    out.onListen = () => unawaited(_pickUp(threadId, out));
+    out.onListen = () => unawaited(_pickUp(threadId, out, profile));
     return out.stream;
   }
 
-  Future<void> _pickUp(String threadId, StreamController<ChatEvent> out) async {
-    final (watch, ended) = await _reattach(threadId);
-    if (out.isClosed) {
+  Future<void> _pickUp(
+    String threadId,
+    StreamController<ChatEvent> out,
+    String? profile,
+  ) async {
+    var canceled = false;
+    out.onCancel = () => canceled = true;
+    final (watch, ended) = await _reattach(threadId, profile: profile);
+    if (canceled || out.isClosed) {
       await watch?.close();
       return;
     }
@@ -334,7 +346,7 @@ class HermesGatewayTransport implements ChatTransport {
       if (_idle[threadId] == watch) _idle.remove(threadId);
       return watch.close();
     };
-    await _relay(watch, threadId, out);
+    await _relay(watch, threadId, out, profile, initiallyReplying: true);
   }
 
   @override
@@ -367,10 +379,13 @@ class HermesGatewayTransport implements ChatTransport {
     _Watch initial,
     String threadId,
     StreamController<ChatEvent> out,
-  ) async {
+    String? profile, {
+    bool initiallyReplying = false,
+  }) async {
     var watch = initial;
     var runtimeId = watch.runtimeId;
-    var replying = false;
+    var replying = initiallyReplying;
+    if (replying) _beginReply(runtimeId, threadId);
     final mine = <String>{};
     try {
       for (var attempt = 0; ; attempt++) {
@@ -393,7 +408,7 @@ class HermesGatewayTransport implements ChatTransport {
         // connection dropping just ends the stream quietly.
         if (!replying) return;
         final (next, ended) = attempt < _maxReattempts
-            ? await _reattach(threadId)
+            ? await _reattach(threadId, profile: profile)
             : (null, null);
         if (ended != null) {
           if (!out.isClosed) out.add(ended);

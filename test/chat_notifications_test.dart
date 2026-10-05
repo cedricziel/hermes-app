@@ -142,7 +142,7 @@ void main() {
     await pump(tester);
     await openThread(tester, 'Run failure');
     final turn = await send(tester, 'Any news?');
-    await openThread(tester, 'Release notes');
+    await openThread(tester, 'Release notes', settle: false);
 
     await finish(tester, turn, 'Nothing new.');
 
