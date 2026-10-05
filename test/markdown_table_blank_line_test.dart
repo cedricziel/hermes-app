@@ -49,6 +49,27 @@ void main() {
     expect(insertTableBlankLines(markdown), markdown);
   });
 
+  test(
+    'leaves prose before a delimiter without a matching header unchanged',
+    () {
+      const markdown = 'Intro\nMore prose\n|---|---|';
+      expect(insertTableBlankLines(markdown), markdown);
+    },
+  );
+
+  test('leaves a mismatched table header unchanged', () {
+    const markdown = 'Intro\n| One |\n|---|---|';
+    expect(insertTableBlankLines(markdown), markdown);
+  });
+
+  test('separates a one-column table from a paragraph', () {
+    const markdown = 'Intro\n| Name |\n| --- |\n| Ada |';
+    expect(
+      insertTableBlankLines(markdown),
+      'Intro\n\n| Name |\n| --- |\n| Ada |',
+    );
+  });
+
   test('does not insert a blank line inside a closed code fence', () {
     const markdown =
         'Text\n\n'
@@ -61,6 +82,39 @@ void main() {
 
   test('does not insert a blank line inside a still-streaming code fence', () {
     const markdown = '```dart\nfinal t = |\n|---|---|\n';
+    expect(insertTableBlankLines(markdown), markdown);
+  });
+
+  test('keeps a four-backtick fence open after three backticks', () {
+    const markdown =
+        '````markdown\n'
+        '```\n'
+        'Prose\n'
+        '| a | b |\n'
+        '|---|---|\n'
+        '````';
+    expect(insertTableBlankLines(markdown), markdown);
+  });
+
+  test('keeps a fence open when a different marker looks like a close', () {
+    const markdown =
+        '~~~markdown\n'
+        '```\n'
+        'Prose\n'
+        '| a | b |\n'
+        '|---|---|\n'
+        '~~~';
+    expect(insertTableBlankLines(markdown), markdown);
+  });
+
+  test('keeps a fence open when a closing marker has trailing text', () {
+    const markdown =
+        '```markdown\n'
+        '```not closed\n'
+        'Prose\n'
+        '| a | b |\n'
+        '|---|---|\n'
+        '```';
     expect(insertTableBlankLines(markdown), markdown);
   });
 

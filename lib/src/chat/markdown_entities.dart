@@ -5,11 +5,18 @@ final _unescape = HtmlUnescape();
 /// Fenced code blocks (closed or still streaming) and inline code spans.
 final _code = RegExp(r'(```|~~~)[\s\S]*?(?:\1|$)|`[^`\n]*`');
 
-/// A GFM table delimiter row: cells of dashes/colons separated by pipes
-/// (`|---|:---:|` — outer pipes optional). Needs at least two columns, so a
-/// plain `---` rule never matches. An inline code span can never produce a
-/// full-line match: the backticks around it fail the pattern.
-final _tableDelimiter = RegExp(r'^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$');
+final _tableDelimiter = RegExp(
+  r'^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$',
+);
+final _fence = RegExp(r'^ {0,3}(`{3,}|~{3,})(.*)$');
+
+int _pipeCellCount(String line) {
+  if (!line.contains('|')) return 0;
+  final cells = line.trim().split('|');
+  if (cells.first.trim().isEmpty) cells.removeAt(0);
+  if (cells.last.trim().isEmpty) cells.removeLast();
+  return cells.length;
+}
 
 /// Decodes the HTML entities a model writes into markdown (`&lt;`, `&amp;`),
 /// which `gpt_markdown` would show as typed. Code keeps them, as in CommonMark.
@@ -29,49 +36,41 @@ String decodeMarkdownEntities(String markdown) => markdown.contains('&')
 /// and a fence interrupts an open table.
 String insertTableBlankLines(String markdown) {
   if (!markdown.contains('|')) return markdown;
-  // Start offsets of the regions the [_code] pattern protects: a line whose
-  // first character falls inside one is a code line, byte for byte.
-  final codeStarts = <int>[];
-  final codeEnds = <int>[];
-  for (final match in _code.allMatches(markdown)) {
-    codeStarts.add(match.start);
-    codeEnds.add(match.end);
-  }
-
   final out = <String>[];
-  // Inside a table body: set by a delimiter row, cleared by a blank line, a
-  // line without a pipe (a table row always contains one) or a code fence.
   var inTable = false;
-  var cursor = 0;
-  var nextRegion = 0;
+  String? fenceMarker;
 
   for (final line in markdown.split('\n')) {
-    final lineStart = cursor;
-    cursor += line.length + 1;
-    while (nextRegion < codeStarts.length &&
-        codeEnds[nextRegion] <= lineStart) {
-      nextRegion++;
-    }
-    final isCodeLine =
-        nextRegion < codeStarts.length && codeStarts[nextRegion] <= lineStart;
-    if (isCodeLine) {
+    final marker = _fence.firstMatch(line)?.group(1);
+    if (fenceMarker != null) {
+      if (marker != null &&
+          marker[0] == fenceMarker[0] &&
+          marker.length >= fenceMarker.length &&
+          line.substring(line.indexOf(marker) + marker.length).trim().isEmpty) {
+        fenceMarker = null;
+      }
       out.add(line);
       inTable = false;
       continue;
     }
-    if (_tableDelimiter.hasMatch(line)) {
+    if (marker != null) {
+      fenceMarker = marker;
+      out.add(line);
+      inTable = false;
+      continue;
+    }
+    if (_tableDelimiter.hasMatch(line) && line.contains('|')) {
       final header = out.isEmpty ? '' : out.last;
-      // Only insert when a real line sits directly above the header row: not
-      // at the very start of the message and not when a blank line already
-      // separates the block. A pipe-bearing header of a table an earlier
-      // delimiter row opened is a body row and must not split the table.
+      final isTable =
+          _pipeCellCount(header) > 0 &&
+          _pipeCellCount(header) == _pipeCellCount(line);
       final insert =
+          isTable &&
           out.length >= 2 &&
           out[out.length - 2].trim().isNotEmpty &&
           !(inTable && header.contains('|'));
-      // The blank line goes between the header row and the line above it.
       if (insert) out.insert(out.length - 1, '');
-      inTable = true;
+      inTable = isTable;
     } else if (line.trim().isEmpty || !line.contains('|')) {
       inTable = false;
     }
