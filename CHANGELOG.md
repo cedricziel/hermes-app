@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.48](https://github.com/cedricziel/hermes-app/compare/v0.1.47...v0.1.48) (2026-10-05)
+
+
+### Features
+
+* **bots:** add Bot Mode roster, chats, and hosted groups ([#429](https://github.com/cedricziel/hermes-app/issues/429)) ([4ccf7b8](https://github.com/cedricziel/hermes-app/commit/4ccf7b8cc2cc6c431e24d20263676e5aeb177ca5))
+* **chat:** mark working threads and pick up remote turns ([#421](https://github.com/cedricziel/hermes-app/issues/421)) ([032be9d](https://github.com/cedricziel/hermes-app/commit/032be9df9663a463c685381a8bb711e5351e25c8))
+
+
+### Bug Fixes
+
+* **chat:** paste only file URLs as attachments on macOS ([#417](https://github.com/cedricziel/hermes-app/issues/417)) ([d59f39b](https://github.com/cedricziel/hermes-app/commit/d59f39b843c356960c05c8506e0a82d97f248f7e))
+* **chat:** render GFM tables that interrupt a paragraph ([#415](https://github.com/cedricziel/hermes-app/issues/415)) ([9667381](https://github.com/cedricziel/hermes-app/commit/96673817206c361a0a7a039fa6bcbf772fd17d15))
+
 ## [0.1.47](https://github.com/cedricziel/hermes-app/compare/v0.1.46...v0.1.47) (2026-10-05)
 
 
