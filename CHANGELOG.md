@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.49](https://github.com/cedricziel/hermes-app/compare/v0.1.48...v0.1.49) (2026-10-05)
+
+
+### Features
+
+* **chat:** add folder grouping to chat lists ([#434](https://github.com/cedricziel/hermes-app/issues/434)) ([fd08e67](https://github.com/cedricziel/hermes-app/commit/fd08e671080c17005519914a4af0aa1cf11f64f5))
+* **handoff:** continue saved chats across Apple devices ([#436](https://github.com/cedricziel/hermes-app/issues/436)) ([aa1a3d7](https://github.com/cedricziel/hermes-app/commit/aa1a3d7d36916af83c723946cab64827284a450b))
+* **watch:** add relay and session restoration diagnostics ([#433](https://github.com/cedricziel/hermes-app/issues/433)) ([973ab15](https://github.com/cedricziel/hermes-app/commit/973ab15272c6b9ddd597b0093ca0d14294fb17b8))
+
+
+### Bug Fixes
+
+* **chat:** scope text selection to each message ([#431](https://github.com/cedricziel/hermes-app/issues/431)) ([9199772](https://github.com/cedricziel/hermes-app/commit/9199772e20517136b303a160c78e61c87bfb94c0))
+* **tests:** drain chained HTTP timeouts during workflow cleanup ([#432](https://github.com/cedricziel/hermes-app/issues/432)) ([d5c7627](https://github.com/cedricziel/hermes-app/commit/d5c7627c22f63c97b83b779e14df087c3c56cea5))
+
+
+### Documentation
+
+* **readme:** add App Store and TestFlight buttons ([#435](https://github.com/cedricziel/hermes-app/issues/435)) ([58aa4ef](https://github.com/cedricziel/hermes-app/commit/58aa4efa8cd331990e6006945e09c884fbe66ca5))
+
 ## [0.1.48](https://github.com/cedricziel/hermes-app/compare/v0.1.47...v0.1.48) (2026-10-05)
 
 
