@@ -46,6 +46,8 @@ class _FakeImagePicker implements ImagePicker {
 final _png = Uint8List.fromList([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('platform capabilities', () {
     test('phones offer files, the photo library and the camera', () {
       for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
@@ -131,16 +133,39 @@ void main() {
     });
 
     test('files on the clipboard are attached by path', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final pdf = File('${dir.path}/a.pdf')..writeAsStringSync('%PDF');
+      final png = File('${dir.path}/b.png')..writeAsBytesSync(_png);
       final source = PluginAttachmentSource(
         platform: TargetPlatform.linux,
         clipboardImage: () async => null,
-        clipboardFiles: () async => ['/home/me/a.pdf', '/home/me/b.png'],
+        clipboardFiles: () async => [pdf.path, png.path],
       );
 
       final pasted = await source.pasted();
 
       expect(pasted.map((f) => f.name), ['a.pdf', 'b.png']);
       expect(pasted.map((f) => f.isImage), [false, true]);
+    });
+
+    test('missing clipboard paths are skipped', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final file = File('${dir.path}/note.txt')..writeAsStringSync('hi');
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.macOS,
+        clipboardImage: () async => null,
+        clipboardFiles: () async => [
+          '/docs/page',
+          'https://example.com',
+          file.path,
+        ],
+      );
+
+      final pasted = await source.pasted();
+
+      expect(pasted, [SharedFile(path: file.path, name: 'note.txt')]);
     });
 
     test('an image wins over files', () async {
@@ -191,6 +216,28 @@ void main() {
       final pasted = await source.pasted();
 
       expect(pasted, [SharedFile(path: file.path, name: 'note.txt')]);
+    });
+
+    test('macOS uses native file URL filtering', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final hosts = File('${dir.path}/hosts')..writeAsStringSync('hi');
+      const channel = MethodChannel('hermes_app/clipboard');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'files');
+        return [hosts.path];
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.macOS,
+        clipboardImage: () async => null,
+      );
+
+      final pasted = await source.pasted();
+
+      expect(pasted, [SharedFile(path: hosts.path, name: 'hosts')]);
     });
   });
 
