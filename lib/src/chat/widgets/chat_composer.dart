@@ -26,6 +26,7 @@ class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
     required this.controller,
+    this.focusNode,
     required this.onSend,
     required this.onRemoveAttachment,
     this.onAttach,
@@ -41,6 +42,7 @@ class ChatComposer extends StatefulWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final ValueChanged<String> onSend;
   final VoidCallback? onAttach;
   final List<SharedFile> attachments;
@@ -59,7 +61,8 @@ class ChatComposer extends StatefulWidget {
 }
 
 class _ChatComposerState extends State<ChatComposer> {
-  late final _focusNode = FocusNode(onKeyEvent: _onKey);
+  late final _focusNode = widget.focusNode ?? FocusNode();
+  late final KeyEventResult Function(FocusNode, KeyEvent) _keyHandler = _onKey;
   int _selectedSlash = 0;
   bool _dismissSlash = false;
 
@@ -67,6 +70,7 @@ class _ChatComposerState extends State<ChatComposer> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onTextChanged);
+    _focusNode.onKeyEvent = _keyHandler;
   }
 
   @override
@@ -87,7 +91,11 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
-    _focusNode.dispose();
+    if (widget.focusNode == null) {
+      _focusNode.dispose();
+    } else if (identical(_focusNode.onKeyEvent, _keyHandler)) {
+      _focusNode.onKeyEvent = null;
+    }
     super.dispose();
   }
 

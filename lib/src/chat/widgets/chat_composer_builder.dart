@@ -13,6 +13,7 @@ import 'chat_composer.dart';
 /// attach button to `Chat.onAttachmentTap`; see [ChatComposer] for the rest.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
+  FocusNode? focusNode,
   required List<SharedFile> attachments,
   required ValueChanged<SharedFile> onRemoveAttachment,
   bool replying = false,
@@ -27,6 +28,7 @@ WidgetBuilder buildChatComposer({
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) => ChatComposer(
       controller: controller,
+      focusNode: focusNode,
       onSend: onSend,
       onAttach: onAttach,
       attachments: attachments,
