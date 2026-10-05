@@ -3,6 +3,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
     show ThreadSearchHit, ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
@@ -460,6 +461,14 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _composer('Empty'),
         _composer('Text', text: 'Why did the nightly upload fail?'),
         _composer(
+          'Slash suggestions',
+          text: '/he',
+          slashCommands: const [
+            SlashCommand('/help', 'Show available commands'),
+          ],
+        ),
+        _composer('Command running', text: '/help', commandRunning: true),
+        _composer(
           'With attachments',
           attachments: const [
             SharedFile(path: '/tmp/report.pdf', name: 'report.pdf'),
@@ -505,6 +514,8 @@ WidgetbookUseCase _composer(
   bool replying = false,
   List<QueuedPrompt> queued = const [],
   bool pill = true,
+  List<SlashCommand> slashCommands = const [],
+  bool commandRunning = false,
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => frame(
@@ -514,6 +525,8 @@ WidgetbookUseCase _composer(
       replying: replying,
       queued: queued,
       pill: pill,
+      slashCommands: slashCommands,
+      commandRunning: commandRunning,
     ),
     maxWidth: 760,
   ),
@@ -526,6 +539,8 @@ class _Composer extends StatefulWidget {
     required this.replying,
     required this.queued,
     required this.pill,
+    required this.slashCommands,
+    required this.commandRunning,
   });
 
   final String text;
@@ -533,6 +548,8 @@ class _Composer extends StatefulWidget {
   final bool replying;
   final List<QueuedPrompt> queued;
   final bool pill;
+  final List<SlashCommand> slashCommands;
+  final bool commandRunning;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -558,6 +575,8 @@ class _ComposerState extends State<_Composer> {
     onStop: widget.replying ? () => _skips() : null,
     queued: widget.queued,
     onRemoveQueued: (_) {},
+    slashCommands: widget.slashCommands,
+    commandRunning: widget.commandRunning,
     modelPill: widget.pill
         ? ComposerModelPill(
             options: modelOptions,

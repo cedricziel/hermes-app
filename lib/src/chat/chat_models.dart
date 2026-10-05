@@ -488,6 +488,7 @@ class ChatMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.submittedText,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -506,6 +507,9 @@ class ChatMessage {
   /// The text still being written: everything since the last [sealedProse]
   /// entry, or the whole reply when it never wrote text before a tool call.
   String content;
+
+  /// The prompt sent to Hermes when [content] is a display-only command label.
+  final String? submittedText;
 
   /// What the model reasoned after its last tool call, before answering, when
   /// the gateway shares it. Earlier reasoning belongs to [toolCalls].

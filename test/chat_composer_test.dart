@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -27,6 +28,7 @@ void main() {
     List<QueuedPrompt> queued = const [],
     Widget? modelPill = _pill,
     bool canAttach = true,
+    List<SlashCommand> slashCommands = const [],
   }) => tester.pumpWidget(
     MaterialApp(
       theme: buildHermesLightTheme(),
@@ -44,6 +46,7 @@ void main() {
             queued: queued,
             onRemoveQueued: (_) {},
             modelPill: modelPill,
+            slashCommands: slashCommands,
           ),
         ),
       ),
@@ -190,5 +193,28 @@ void main() {
     final field = tester.widget<TextField>(find.byType(TextField));
     expect(field.minLines, 1);
     expect(field.maxLines, 8);
+  });
+
+  testWidgets('slash suggestions complete on Tab and execute on Enter', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      slashCommands: const [
+        SlashCommand('/help', 'Show command help'),
+        SlashCommand('/model', 'Change the model'),
+      ],
+    );
+    await tester.tap(find.byType(EditableText));
+    await tester.enterText(find.byType(EditableText), '/he');
+    await tester.pump();
+    expect(find.text('/help'), findsOneWidget);
+    expect(find.text('/model'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    expect(controller.text, '/help ');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(sent, ['/help']);
   });
 }

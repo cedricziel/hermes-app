@@ -5,6 +5,7 @@ import '../../share/shared_item.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../queued_prompt.dart';
+import '../slash_command.dart';
 import 'queued_prompts.dart';
 import '../../widgets/named_icon_button.dart';
 
@@ -35,6 +36,8 @@ class ChatComposer extends StatefulWidget {
     this.onRemoveQueued,
     this.onSendQueued,
     this.modelPill,
+    this.slashCommands = const [],
+    this.commandRunning = false,
   });
 
   final TextEditingController controller;
@@ -48,6 +51,8 @@ class ChatComposer extends StatefulWidget {
   final ValueChanged<QueuedPrompt>? onRemoveQueued;
   final VoidCallback? onSendQueued;
   final Widget? modelPill;
+  final List<SlashCommand> slashCommands;
+  final bool commandRunning;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
@@ -55,25 +60,104 @@ class ChatComposer extends StatefulWidget {
 
 class _ChatComposerState extends State<ChatComposer> {
   late final _focusNode = FocusNode(onKeyEvent: _onKey);
+  int _selectedSlash = 0;
+  bool _dismissSlash = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(ChatComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
+  }
+
+  void _onTextChanged() {
+    _selectedSlash = 0;
+    _dismissSlash = false;
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_onTextChanged);
     _focusNode.dispose();
     super.dispose();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent && _suggestions.isNotEmpty) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        setState(
+          () => _selectedSlash = (_selectedSlash + 1) % _suggestions.length,
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        setState(
+          () => _selectedSlash =
+              (_selectedSlash - 1 + _suggestions.length) % _suggestions.length,
+        );
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.escape) {
+        setState(() => _dismissSlash = true);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.tab) {
+        _chooseSlash(_suggestions[_selectedSlash % _suggestions.length]);
+        return KeyEventResult.handled;
+      }
+    }
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.enter &&
         !HardwareKeyboard.instance.isShiftPressed) {
+      if (_suggestions.isNotEmpty &&
+          widget.controller.text.trim() !=
+              _suggestions[_selectedSlash % _suggestions.length].name) {
+        _chooseSlash(_suggestions[_selectedSlash % _suggestions.length]);
+        return KeyEventResult.handled;
+      }
       _send();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
+  List<SlashCommand> get _suggestions {
+    final text = widget.controller.text;
+    if (_dismissSlash ||
+        !text.startsWith('/') ||
+        text.contains(RegExp(r'\s'))) {
+      return const [];
+    }
+    return widget.slashCommands
+        .where(
+          (command) =>
+              command.name.toLowerCase().startsWith(text.toLowerCase()),
+        )
+        .take(8)
+        .toList();
+  }
+
+  void _chooseSlash(SlashCommand command) {
+    widget.controller.value = TextEditingValue(
+      text: '${command.name} ',
+      selection: TextSelection.collapsed(offset: command.name.length + 1),
+    );
+    _focusNode.requestFocus();
+  }
+
   bool get _canSend =>
-      widget.controller.text.trim().isNotEmpty || widget.attachments.isNotEmpty;
+      !widget.commandRunning &&
+      (widget.controller.text.trim().isNotEmpty ||
+          widget.attachments.isNotEmpty);
 
   void _send() {
     if (_canSend) widget.onSend(widget.controller.text.trim());
@@ -90,6 +174,31 @@ class _ChatComposerState extends State<ChatComposer> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_suggestions.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _suggestions.length,
+              itemBuilder: (context, index) {
+                final command = _suggestions[index];
+                return Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    dense: true,
+                    selected: index == _selectedSlash % _suggestions.length,
+                    title: Text(command.name),
+                    subtitle: Text(
+                      command.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => _chooseSlash(command),
+                  ),
+                );
+              },
+            ),
+          ),
         if (onStop != null) _StopBar(onStop: onStop),
         if (widget.queued.isNotEmpty && onRemoveQueued != null)
           QueuedPrompts(

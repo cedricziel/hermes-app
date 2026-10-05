@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -65,6 +66,50 @@ void main() {
     // A later send continues the bound session.
     chat.submit('Again', const []);
     expect(transport.sends.last.threadId, 's1');
+  });
+
+  test('slash command output is shown without a normal prompt send', () async {
+    chat.newThread();
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's-command',
+      output: 'Available commands',
+    );
+    expect(await chat.runSlashCommand('/help'), isTrue);
+    expect(transport.slashRuns, ['/help']);
+    expect(transport.sends, isEmpty);
+    expect(chat.selectedThread!.messages.map((m) => m.content), [
+      '/help',
+      'Available commands',
+    ]);
+    expect(chat.selectedThread!.remote, isTrue);
+  });
+
+  test('a command waits for the first prompt to bind its session', () async {
+    chat.newThread();
+    expect(chat.submit('First prompt', const []), isTrue);
+    expect(await chat.runSlashCommand('/help'), isFalse);
+    expect(transport.slashRuns, isEmpty);
+    expect(reports.single, contains('Wait for this chat to open'));
+  });
+
+  test('a skill command submits its expanded prompt', () async {
+    chat.newThread();
+    transport.slashResult = const SlashCommandResult(
+      threadId: 's-skill',
+      prompt: 'Expanded skill prompt',
+      display: '/review',
+    );
+    expect(await chat.runSlashCommand('/review'), isTrue);
+    expect(transport.sends.single.text, 'Expanded skill prompt');
+    expect(transport.sends.single.threadId, 's-skill');
+    expect(
+      chat.selectedThread!.messages
+          .where((m) => m.role == ChatRole.user)
+          .last
+          .content,
+      '/review',
+    );
+    expect(chat.lastPromptText(chat.selectedThread!), 'Expanded skill prompt');
   });
 
   test('a reply stays in its thread after the user switches away', () async {
