@@ -61,7 +61,7 @@ class AuthController extends ChangeNotifier {
     this._events = noopAppEventLogger,
     this._login = runNativeLogin,
     NetworkSignals networkSignals = const NoNetworkSignals(),
-  }) : _tokenStore = tokenStore ?? TokenStore(),
+  }) : _tokenStore = tokenStore ?? TokenStore(events: _events),
        _prefs = prefs ?? SharedPreferencesAsync(),
        _devServerUrl = devServerUrl ?? _devServerUrlDefine,
        _network = networkSignals {

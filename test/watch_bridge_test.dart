@@ -13,6 +13,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
 import 'support/fake_notification_service.dart';
+import 'support/recorded_events.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ void main() {
   const codec = StandardMethodCodec();
   late FakeHermesServer server;
   late WatchBridge bridge;
+  late RecordedEvents events;
 
   /// Calls the bridge the way the iOS runner does and decodes the reply.
   Future<Object?> fromNative(String method, Object? arguments) async {
@@ -38,7 +40,10 @@ void main() {
 
   setUp(() {
     server = FakeHermesServer();
+    events = RecordedEvents();
     bridge = WatchBridge(
+      events: events.call,
+      authState: () => 'ready',
       handler: WatchRequestHandler(
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => FakeChatTransport(),
@@ -76,6 +81,90 @@ void main() {
 
   test('ignores calls it does not know', () async {
     expect(await fromNative('nope', null), isNull);
+  });
+
+  test(
+    'records operation, auth state, outcome and duration without content',
+    () async {
+      final result = await fromNative('request', {
+        'op': 'send',
+        'text': 'private message',
+        'threadId': 'private thread',
+        'audio': Uint8List.fromList([1, 2]),
+      });
+
+      expect(result, {'ok': false, 'error': 'bad_request'});
+      expect(events.named('watch.request.started'), [
+        {'watch.operation': 'send', 'auth.state': 'ready'},
+      ]);
+      final completed = events.named('watch.request.completed').single;
+      expect(completed, {
+        'watch.operation': 'send',
+        'auth.state': 'ready',
+        'watch.result': 'bad_request',
+        'watch.duration_ms': isNonNegative,
+      });
+    },
+  );
+
+  test('records signed out with the current phone auth state', () async {
+    bridge.dispose();
+    bridge = WatchBridge(
+      events: events.call,
+      authState: () => 'needsLogin',
+      handler: WatchRequestHandler(
+        repository: () => null,
+        transport: () => null,
+        activeProfile: () async => null,
+      ),
+    )..start();
+
+    await fromNative('request', {'op': 'threads'});
+
+    expect(events.named('watch.request.completed').single, {
+      'watch.operation': 'threads',
+      'auth.state': 'needsLogin',
+      'watch.result': 'signed_out',
+      'watch.duration_ms': isNonNegative,
+    });
+  });
+
+  test('does not record arbitrary operation names', () async {
+    await fromNative('request', {'op': 'private user input'});
+
+    expect(
+      events.named('watch.request.started').single['watch.operation'],
+      'unknown',
+    );
+  });
+
+  test('records successful requests', () async {
+    server.on('GET', '/api/sessions', sessionListBody([]));
+
+    await fromNative('request', {'op': 'threads'});
+
+    expect(
+      events.named('watch.request.completed').single['watch.result'],
+      'ok',
+    );
+  });
+
+  test('telemetry failure does not prevent a watch reply', () async {
+    bridge.dispose();
+    bridge = WatchBridge(
+      events: (name, [attributes = const {}]) =>
+          throw StateError('logger failed'),
+      handler: WatchRequestHandler(
+        repository: () => null,
+        transport: () => null,
+        activeProfile: () async => null,
+      ),
+    )..start();
+
+    expect(await fromNative('request', {'op': 'threads'}), {
+      'ok': false,
+      'error': 'signed_out',
+    });
   });
 
   group('announcer', () {

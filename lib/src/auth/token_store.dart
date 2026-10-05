@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 
 import '../models/hermes_session.dart';
 
@@ -9,7 +11,7 @@ import '../models/hermes_session.dart';
 /// Keystore-encrypted prefs (Android) — the same trust boundary
 /// Hermes Desktop uses for its own token store, and never a browser cookie.
 class TokenStore {
-  TokenStore({FlutterSecureStorage? storage})
+  TokenStore({FlutterSecureStorage? storage, this._events = noopAppEventLogger})
     : _storage = storage ?? defaultStorage;
 
   /// On iOS the session stays readable while the phone is locked, once it has
@@ -29,6 +31,7 @@ class TokenStore {
   static const _sessionKey = 'hermes.session.v1';
 
   final FlutterSecureStorage _storage;
+  final AppEventLogger _events;
 
   /// Whether the stored session was written again under the current options.
   bool _resaved = false;
@@ -37,7 +40,14 @@ class TokenStore {
     final String? raw;
     try {
       raw = await _storage.read(key: _sessionKey);
-    } on Object {
+    } on Object catch (error) {
+      try {
+        _events('auth.session.read_failed', {
+          'error.type': error.runtimeType.toString(),
+        });
+      } on Object {
+        // Telemetry failure must not change session restoration.
+      }
       // A keychain that cannot be read right now (locked, unavailable) says
       // nothing about the stored session, so it is left alone.
       return null;

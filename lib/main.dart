@@ -78,6 +78,7 @@ Future<void> main() async {
           lazy: false,
           create: (context) => WatchBridge.forAuth(
             context.read<AuthController>(),
+            events: context.read<AppEventLogger>(),
             notifications: context.read<NotificationService>(),
             settings: context.read<NotificationSettings>(),
           )?..start(),

@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/token_store.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 
+import 'support/recorded_events.dart';
+
 class _FakeStorage extends FlutterSecureStorage {
   _FakeStorage({this.value, this.readError, this.deleteError, this.writeError});
 
@@ -111,6 +113,49 @@ void main() {
 
     expect(options.usesDataProtectionKeychain, isFalse);
   });
+
+  test(
+    'records keychain read failure without exception details or tokens',
+    () async {
+      final events = RecordedEvents();
+      final storage = _FakeStorage(
+        value: _stored(),
+        readError: PlatformException(
+          code: '-25308',
+          message: 'private details',
+        ),
+      );
+
+      final session = await TokenStore(
+        storage: storage,
+        events: events.call,
+      ).read();
+
+      expect(session, isNull);
+      expect(storage.value, _stored());
+      expect(events.named('auth.session.read_failed'), [
+        {'error.type': 'PlatformException'},
+      ]);
+    },
+  );
+
+  test(
+    'telemetry failure leaves an unreadable stored session untouched',
+    () async {
+      final storage = _FakeStorage(
+        value: _stored(),
+        readError: PlatformException(code: '-25308'),
+      );
+      final store = TokenStore(
+        storage: storage,
+        events: (name, [attributes = const {}]) =>
+            throw StateError('logger failed'),
+      );
+
+      expect(await store.read(), isNull);
+      expect(storage.value, _stored());
+    },
+  );
 
   group('TokenStore.read treats an unreadable session as signed out', () {
     for (final entry in {
