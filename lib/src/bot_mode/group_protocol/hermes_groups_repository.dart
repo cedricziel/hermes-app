@@ -307,14 +307,8 @@ class GroupRetryReceipt {
 }
 
 class HermesGroupsRepository {
-  HermesGroupsRepository(
-    this._request, {
-    this.interactionContractVerified = false,
-  });
+  HermesGroupsRepository(this._request);
   final GroupsRpc _request;
-
-  /// Set only after isolated conformance proves unsupported inputs refuse visibly.
-  final bool interactionContractVerified;
   GroupsProbe? _probe;
   static const requiredMethods = {
     'groups.list',
@@ -331,9 +325,6 @@ class HermesGroupsRepository {
   String? get executionUnavailableReason {
     if (_probe?.availability != GroupsAvailability.ready) {
       return 'Hosted group execution requires protocol 2 and a ready server driver.';
-    }
-    if (!interactionContractVerified) {
-      return 'Hosted group clarify, sudo and secret requests lack a verified observable refusal contract. Execution is unavailable until the server contract is verified.';
     }
     return null;
   }

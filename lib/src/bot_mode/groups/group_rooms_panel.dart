@@ -159,6 +159,7 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
                       enabled: !pending && !attempted,
                       onChanged: (value) => update(() => selected = value),
                     ),
+                    const GroupInteractionNotice(),
                     if (error != null) Text(error!),
                   ],
                 ),

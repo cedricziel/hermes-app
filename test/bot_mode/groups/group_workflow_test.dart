@@ -125,7 +125,7 @@ void main() {
             default:
               throw StateError(method);
           }
-        }, interactionContractVerified: true);
+        });
         var removed = false;
         await tester.pumpWidget(
           shots.frame(
@@ -143,6 +143,10 @@ void main() {
         await tester.pump();
         await tester.pump();
         expect(tester.takeException(), isNull);
+        expect(
+          find.textContaining('Interactive requests cannot be answered'),
+          findsOneWidget,
+        );
         await shots.capture(tester, 'approval');
         await tester.tap(find.text('Allow once'));
         await tester.pumpAndSettle();

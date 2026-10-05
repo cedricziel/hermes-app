@@ -115,6 +115,22 @@ WidgetbookNode groupUiNode() => WidgetbookComponent(
         ),
       ),
     ),
+    WidgetbookUseCase(
+      name: 'Waiting without room action',
+      builder: (_) => _frame(
+        GroupActivity(
+          working: true,
+          blocked: false,
+          counts: const {'running': 1},
+          members: [_member(1)],
+          actions: const [],
+          pending: false,
+          onStop: () {},
+          onApprove: (_, _) async {},
+          onRetry: (_) {},
+        ),
+      ),
+    ),
     for (final status in ['queued', 'working', 'blocked', 'failed'])
       WidgetbookUseCase(
         name: status,

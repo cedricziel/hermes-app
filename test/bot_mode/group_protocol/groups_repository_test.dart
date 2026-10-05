@@ -136,7 +136,7 @@ void main() {
           },
           _ => throw StateError(method),
         };
-      }, interactionContractVerified: true);
+      });
       await repo.probe();
       expect((await repo.list(limit: 10, offset: 0)).nextOffset, 10);
       final members = [
@@ -187,22 +187,38 @@ void main() {
     },
   );
   test(
-    'unverified interactive compatibility gates execution, retains reads',
+    'protocol 2 transport permits execution without interaction RPC',
     () async {
-      final repo = HermesGroupsRepository(
-        (method, _) async =>
-            method == 'groups.capabilities' ? capabilities() : {'rooms': []},
-      );
+      final repo = HermesGroupsRepository((method, params) async {
+        if (method == 'groups.capabilities') return capabilities();
+        if (method == 'groups.list') return {'rooms': []};
+        if (method == 'groups.send') {
+          return {
+            'event': {
+              ...event(1, id: serverUserEventId(params['event_id'] as String)),
+              'payload': params['payload'],
+            },
+            'accepted': true,
+            'driver_started': true,
+          };
+        }
+        throw StateError(method);
+      });
       await repo.probe();
       expect(await repo.list(), isA<GroupRoomPage>());
+      expect(repo.executionUnavailableReason, isNull);
       expect(
-        () => repo.send('room', text: 'hi', threadId: 't', operationId: 'id'),
-        throwsStateError,
+        (await repo.send(
+          'room',
+          text: 'hi',
+          threadId: 't',
+          operationId: 'id',
+        )).accepted,
+        isTrue,
       );
-      expect(repo.executionUnavailableReason, contains('clarify'));
     },
   );
-  test('unverified execution rejects Allow once but permits Deny', () async {
+  test('protocol 2 permits exact Allow once and Deny', () async {
     final action = GroupPendingAction.fromJson({
       'kind': 'approval',
       'task_id': 'task',
@@ -241,16 +257,16 @@ void main() {
       throw StateError(method);
     });
     await repo.probe();
-    await expectLater(
-      repo.approve('room', action, GroupApprovalChoice.once),
-      throwsStateError,
+    expect(
+      await repo.approve('room', action, GroupApprovalChoice.once),
+      isTrue,
     );
-    expect(approvals, isEmpty);
+    expect(approvals.single['choice'], 'once');
     expect(
       await repo.approve('room', action, GroupApprovalChoice.deny),
       isTrue,
     );
-    expect(approvals.single['choice'], 'deny');
+    expect(approvals.last['choice'], 'deny');
   });
   test(
     'multi-page replay deduplicates and reconciles hashed lost receipt',
@@ -348,7 +364,7 @@ void main() {
             ],
           },
         };
-      }, interactionContractVerified: true);
+      });
       await repo.probe();
       final state = await repo.state('room');
       final approval = state.pendingActions.first;
@@ -390,7 +406,7 @@ void main() {
           throw const GatewayConnectionClosed();
         }
         return page([event(1, id: serverUserEventId('lost'))], 1);
-      }, interactionContractVerified: true);
+      });
       await repo.probe();
       final pending = GroupSendOperation(
         GroupReplay(repo, GroupRoom.fromJson(room())),

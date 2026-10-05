@@ -8,9 +8,8 @@ import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.
 import 'package:hermes_app/src/chat/gateway/gateway_connection.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 
-/// Transport-only conformance against a throwaway home. This does not certify
-/// clarify/sudo/secret parity; production execution remains gated until those
-/// actual profile interactions have a visible backend refusal/action contract.
+/// Transport conformance against a throwaway home. Interactive requests can
+/// wait outside room state and are not covered by this test.
 void main() {
   final url = Platform.environment['HERMES_DEV_URL'];
   test(
@@ -48,7 +47,6 @@ void main() {
         var repo = HermesGroupsRepository(
           (method, params) =>
               rpc.request(method, params).timeout(const Duration(seconds: 15)),
-          interactionContractVerified: true,
         );
         final probe = await repo.probe();
         expect(probe.availability, GroupsAvailability.ready);
@@ -95,7 +93,6 @@ void main() {
         repo = HermesGroupsRepository(
           (method, params) =>
               rpc.request(method, params).timeout(const Duration(seconds: 15)),
-          interactionContractVerified: true,
         );
         await repo.probe();
         final replay = GroupReplay(repo, created);

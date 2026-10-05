@@ -33,7 +33,7 @@ void main() {
         default:
           throw StateError(method);
       }
-    }, interactionContractVerified: true);
+    });
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -55,6 +55,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Create group'));
     await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Interactive requests cannot be answered'),
+      findsOneWidget,
+    );
     expect(
       tester
           .widget<FilledButton>(find.widgetWithText(FilledButton, 'Create'))

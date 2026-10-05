@@ -16,6 +16,27 @@ String groupMemberName(List<GroupMember> members, String id) {
   return id;
 }
 
+class GroupInteractionNotice extends StatelessWidget {
+  const GroupInteractionNotice({super.key});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, size: 18),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text(
+            'Interactive requests cannot be answered in hosted groups. A member may wait for a response; use Stop if the task stalls.',
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class GroupRoomRow extends StatelessWidget {
   const GroupRoomRow({
     super.key,
@@ -252,6 +273,7 @@ class GroupActivity extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (unavailableReason != null) Text(unavailableReason!),
+        if (working || blocked) const GroupInteractionNotice(),
         Wrap(
           spacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -317,7 +339,7 @@ class GroupActivity extends StatelessWidget {
                     ),
                   if (!{'approval', 'retry'}.contains(action.kind))
                     const Text(
-                      'This input is unsupported by the hosted group protocol. Stop the task and update the server.',
+                      'This input cannot be answered in the hosted room. Stop the task if it stalls.',
                     ),
                   if (action.kind == 'retry')
                     TextButton(

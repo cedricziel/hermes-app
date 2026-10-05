@@ -118,7 +118,36 @@ void main() {
       }
     },
   );
-  testWidgets('unverified rooms offer Deny and Stop without Allow once', (
+  testWidgets(
+    'waiting without a room action explains limitation and offers Stop',
+    (tester) async {
+      var stopped = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GroupActivity(
+              working: true,
+              blocked: false,
+              counts: const {'running': 1},
+              members: const [],
+              actions: const [],
+              pending: false,
+              onStop: () => stopped = true,
+              onApprove: (_, _) async {},
+              onRetry: (_) {},
+            ),
+          ),
+        ),
+      );
+      expect(
+        find.textContaining('Interactive requests cannot be answered'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Stop'));
+      expect(stopped, isTrue);
+    },
+  );
+  testWidgets('unavailable rooms offer Deny and Stop without Allow once', (
     tester,
   ) async {
     final action = GroupPendingAction.fromJson({

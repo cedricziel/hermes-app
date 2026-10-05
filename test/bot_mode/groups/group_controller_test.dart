@@ -21,7 +21,6 @@ void main() {
             (++logs > 0) ? {...fixtures.page([], 0), 'latest_seq': 0} : {},
           _ => throw StateError(method),
         },
-        interactionContractVerified: true,
       );
       final controller = GroupRoomController(
         repo,
@@ -100,7 +99,7 @@ void main() {
                 ], 1),
                 'latest_seq': 1,
               };
-      }, interactionContractVerified: true);
+      });
       final controller = GroupRoomController(
         repo,
         GroupRoom.fromJson(fixtures.room()),
@@ -142,7 +141,7 @@ void main() {
                 ], 1);
         }
         throw StateError(method);
-      }, interactionContractVerified: true);
+      });
       final controller = GroupRoomController(
         repo,
         GroupRoom.fromJson(fixtures.room()),
@@ -206,7 +205,7 @@ void main() {
             };
           }
           throw StateError(method);
-        }, interactionContractVerified: true);
+        });
         final controller = GroupRoomController(
           repo,
           GroupRoom.fromJson(fixtures.room()),
@@ -350,7 +349,7 @@ void main() {
           return {'approved': true};
         }
         return {...fixtures.page([], 0), 'latest_seq': 0};
-      }, interactionContractVerified: true);
+      });
       final controller = GroupRoomController(
         repo,
         GroupRoom.fromJson(fixtures.room()),
