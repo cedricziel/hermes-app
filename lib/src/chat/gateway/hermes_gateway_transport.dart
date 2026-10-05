@@ -773,7 +773,17 @@ class HermesGatewayTransport implements ChatTransport {
 
   @override
   Future<bool> stopReply(String threadId, {String? profile}) async {
-    var runtimeId = _runtimeOf[(profile, threadId)];
+    var owner = (profile, threadId);
+    var runtimeId = _runtimeOf[owner];
+    if (runtimeId == null && profile == null) {
+      final matches = _runtimeOf.entries
+          .where((entry) => entry.key.$2 == threadId)
+          .toList();
+      if (matches.length == 1) {
+        owner = matches.single.key;
+        runtimeId = matches.single.value;
+      }
+    }
     if (runtimeId == null) return false;
     var client = _connected();
     if (client == null) {
@@ -783,7 +793,7 @@ class HermesGatewayTransport implements ChatTransport {
       client = await _client();
       final resumed = await _call(client, 'session.resume', {
         'session_id': threadId,
-        'profile': ?profile,
+        'profile': ?owner.$1,
       });
       if (resumed['running'] != true) return false;
       runtimeId = resumed['session_id'] as String? ?? threadId;

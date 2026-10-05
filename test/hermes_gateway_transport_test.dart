@@ -562,6 +562,7 @@ void main() {
           .send(threadId: 'shared', profile: 'beta', text: 'hello')
           .toList();
       await pumpEventQueue();
+      expect(await transport.stopReply('shared'), isFalse);
       expect(await transport.stopReply('shared', profile: 'alpha'), isTrue);
       expect(gateway.requestOf('session.interrupt')['params'], {
         'session_id': 'alpha-runtime',
