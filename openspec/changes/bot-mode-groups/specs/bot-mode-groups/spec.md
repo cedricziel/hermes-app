@@ -6,13 +6,14 @@ Let users create and converse with groups of named Hermes specialists while view
 
 ### Requirement: Group roster and creation
 
-The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server only when the hosted interaction contract is advertised and verified.
+The system SHALL display hosted group rooms in the Bots destination and allow creating a named room with 2–6 distinct bots on the connected server when the verified protocol 2 transport and driver are ready.
 
 #### Scenario: Create and open
 
 - **WHEN** the user creates a group
 - **THEN** a searchable checklist offers local bots, validates a nonblank name and 2–6 unique members, and explains that membership is fixed for this room
 - **AND** saving opens the returned hosted room; retries preserve its room identity; an empty or failed roster offers a useful action or Retry
+- **AND** the creation flow explains that hosted interactive requests cannot be answered in the room and may leave a member waiting until stopped
 
 #### Scenario: Existing groups and management
 
@@ -35,11 +36,11 @@ The system SHALL render room history and activity from durable hosted events, an
 
 - **WHEN** the app reconnects, resumes, or the room driver becomes unavailable
 - **THEN** replay resumes without duplicate messages, history remains readable, unsent text is retained, and execution availability is explained
-- **AND** unsupported attachments and membership editing are not offered; server-refused sudo and secret requests appear as attributed failures rather than endless thinking or password/value forms
+- **AND** unsupported attachments and membership editing are not offered; no clarify, sudo, or secret input form appears in the room
 
 ### Requirement: Room work controls
 
-The system SHALL provide Stop, exact pending approval and clarify controls, and explicit task retry according to the server's advertised and observed contract.
+The system SHALL provide Stop, exact pending approval controls, and explicit task retry according to the server's advertised and observed contract.
 
 #### Scenario: Working or blocked
 
@@ -52,25 +53,24 @@ The system SHALL provide Stop, exact pending approval and clarify controls, and 
 - **WHEN** the server advertises a pending retry action for an indeterminate or deferred task
 - **THEN** the user sees the task state and confirms retry of that exact task; the app never automatically creates another prompt for it
 
-#### Scenario: Pending clarification
+#### Scenario: Unsupported interactive request
 
-- **WHEN** `groups.state` reports a hosted `clarify` action for a member, including a batch of questions
-- **THEN** the room shows the member, question text, choices, and selection mode in an answer card associated with the exact room, task, generation, and request ID
-- **AND** submitting answers or explicit skips uses the advertised fenced room response method, disables that card while pending, and clears it only after the server confirms resolution or reports expiry
-- **AND** reconnect restores an unanswered card from room state without duplicating it; a stale response cannot answer a newer member turn
+- **WHEN** the server reports active or blocked work without an actionable room request
+- **THEN** the room explains that a member may be waiting for an interactive request that cannot be answered here and keeps Stop available
+- **AND** stopping refreshes the server state and durable log without claiming the request was answered or refused
 
 ### Requirement: Group UI backend compatibility
 
-The system SHALL use the `bot-mode-group-protocol` contract. Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` supplies hosted protocol version 2 transport but fails the hosted clarify interaction check; earlier released-version compatibility is unverified. Executable group compatibility SHALL be feature tested against a server advertising `hosted_interactions_v1` and `groups.respond` and passing the real-backend clarify and sudo/secret refusal checks.
+The system SHALL use the `bot-mode-group-protocol` contract. Hermes 0.21.4 commit `35fdb4608aa8af455d2597664cff1754a3722cd1` supplies hosted protocol version 2 transport; earlier released-version compatibility is unverified. The first release SHALL enable executable groups on a ready protocol 2 driver with the required advertised transport methods and features, while showing the known interactive-input limitation.
 
 #### Scenario: Unsupported server
 
-- **WHEN** `groups.capabilities` lacks required methods/features, including `hosted_interactions_v1` and `groups.respond`, or the supported server fails interaction conformance
+- **WHEN** `groups.capabilities` lacks the required transport methods or features, reports an unsupported protocol, or has no ready driver
 - **THEN** Bots remains usable for direct bot conversations, existing hosted room history stays readable, and group creation and sending show an update-required explanation
 - **AND** no fallback starts a client-owned multi-agent room
 
 #### Scenario: Hosted boundaries
 
 - **WHEN** a compatible server provides rooms
-- **THEN** listing, creation, sending, replay/status, rename, stop, approval, clarification, retry, and disband use the specified `groups.*` payloads and responses
+- **THEN** listing, creation, sending, replay/status, rename, stop, approval, retry, and disband use the specified `groups.*` payloads and responses
 - **AND** legacy Desktop metadata rooms are not presented as hosted rooms without an explicit migration contract

@@ -6,13 +6,13 @@ Define reliable transport, authority, replay, and exact user controls for Hermes
 
 ### Requirement: Hosted room capability discovery
 
-The system SHALL discover hosted room support through `groups.capabilities` over authenticated `/api/ws`. The verified transport baseline is Hermes 0.21.4 source commit `35fdb4608aa8af455d2597664cff1754a3722cd1`, hosted protocol version 2; earliest release support is unverified. It SHALL require a supported protocol, advertised required methods, `idempotent_send`, `monotonic_log`, `hosted_interactions_v1`, and driver readiness for execution. `hosted_interactions_v1` SHALL advertise task-fenced `groups.respond` for clarify and visible server refusal of hosted sudo and secret requests. Protocol version 2 alone does not establish interaction compatibility.
+The system SHALL discover hosted room support through `groups.capabilities` over authenticated `/api/ws`. The verified transport baseline is Hermes 0.21.4 source commit `35fdb4608aa8af455d2597664cff1754a3722cd1`, hosted protocol version 2; earliest release support is unverified. It SHALL require a supported protocol, advertised required methods, `idempotent_send`, `monotonic_log`, and driver readiness for execution. Interactive-input support is outside the first hosted-group release.
 
 #### Scenario: Capability and readiness
 
 - **WHEN** the app probes rooms
 - **THEN** it reads `protocol_version`, `driver`, `persistent_process`, `authority_gateway_id`, `features`, `methods`, and `max_log_limit`
-- **AND** absent support is distinguished from a transient/offline/unauthorized probe; driver unavailability or missing interaction support disables execution without erasing readable history
+- **AND** absent support is distinguished from a transient/offline/unauthorized probe; driver unavailability disables execution without erasing readable history
 
 ### Requirement: Hosted room requests
 
@@ -54,29 +54,16 @@ The system SHALL obtain pending actions from `groups.state` and apply approval o
 - **AND** `groups.approve` sends `room_id`, `member_id`, `task_id`, `execution_generation`, `request_id`, and a choice of `once` or `deny`
 - **AND** stale requests are not rebound to a newer task, and no request is automatically answered
 
-### Requirement: Hosted clarification and unsupported input outcomes
+### Requirement: Unsupported hosted interactive inputs
 
-The system SHALL let the user answer a hosted member's clarify request through a server-advertised room action. It SHALL never ask for sudo passwords or secret values in hosted groups. A server that cannot provide both behaviors SHALL leave group execution unavailable with a specific compatibility explanation while retaining readable room history.
+The system SHALL allow hosted group execution with the verified protocol 2 transport while clearly explaining that hosted member clarify, sudo, and secret requests cannot be answered from the room. It SHALL provide Stop for active or blocked work without a pending room action and SHALL not solicit passwords or secret values in the room.
 
-#### Scenario: Exact pending clarification
+#### Scenario: Member waits for an input outside room state
 
-- **WHEN** a hosted member calls `clarify`, including a batch of questions
-- **THEN** `groups.state.driver_status.pending_actions` exposes a `clarify` action with `room_id`, `member_id`, `task_id`, `execution_generation`, `request_id`, and the question IDs, text, choices, and selection mode needed to answer it
-- **AND** `groups.respond` submits answers or explicit skips for those question IDs against those exact coordinates; the server refuses a stale, already answered, stopped, or mismatched request without affecting another turn
-- **AND** the action remains discoverable after app reconnect until answered, cancelled, or expired, and its resolution clears the pending action
-
-#### Scenario: Sudo and secret refusal
-
-- **WHEN** a hosted member requests a sudo password or secret value
-- **THEN** the server refuses that request without accepting a value and publishes an attributed, durable failed-turn outcome with a non-sensitive reason code
-- **AND** `groups.state` and `groups.log` expose the failure within 10 seconds in an isolated local conformance run, without waiting for the ordinary prompt or whole-turn timeout or requiring the user to press Stop
-- **AND** no password, secret, prompt arguments, or answer appears in room state, room events, or added telemetry
-
-#### Scenario: Missing interaction contract
-
-- **WHEN** a protocol 2 server lacks `hosted_interactions_v1` or `groups.respond`, or the real-backend clarification and refusal checks fail
-- **THEN** the app does not create or send executable hosted room work, explains the missing interaction support, and keeps existing room history readable
-- **AND** it does not attach to hidden member sessions or substitute ordinary `session.resume`, `request.answer`, or `clarify.lock` calls for the fenced room action
+- **WHEN** a hosted member requests clarify, sudo, or a secret and `groups.state` reports work without a corresponding pending room action
+- **THEN** the app continues polling room state and log, explains that the member may be waiting on an unsupported interactive request, and keeps Stop available
+- **AND** Stop calls `groups.stop` and subsequent state and log replay reflect the server's cancellation result; the app does not claim that it answered or refused the request
+- **AND** the app does not attach to hidden member sessions or substitute ordinary `session.resume`, `request.answer`, or `clarify.lock` calls for a room action
 
 #### Scenario: Explicit retry
 
