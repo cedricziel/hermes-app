@@ -46,6 +46,8 @@ class _FakeImagePicker implements ImagePicker {
 final _png = Uint8List.fromList([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('platform capabilities', () {
     test('phones offer files, the photo library and the camera', () {
       for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
@@ -147,9 +149,7 @@ void main() {
       expect(pasted.map((f) => f.isImage), [false, true]);
     });
 
-    test('a web URL reported as a path is skipped', () async {
-      // The macOS pasteboard plugin reads every NSURL on the clipboard; a
-      // copied link arrives as its path portion without the host.
+    test('missing clipboard paths are skipped', () async {
       final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
       addTearDown(() => dir.delete(recursive: true));
       final file = File('${dir.path}/note.txt')..writeAsStringSync('hi');
@@ -218,19 +218,21 @@ void main() {
       expect(pasted, [SharedFile(path: file.path, name: 'note.txt')]);
     });
 
-    test('a web URL path that exists as a file is a known gap', () async {
-      // Without the clipboard entry's scheme, a web URL whose path portion
-      // coincides with a real file (e.g. https://example.com/etc/hosts) cannot
-      // be told apart from a copied file. Attaching it is wrong; the fix
-      // belongs in the pasteboard plugin, which should only report file URLs.
-      // Until then this documents what actually happens.
+    test('macOS uses native file URL filtering', () async {
       final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
       addTearDown(() => dir.delete(recursive: true));
       final hosts = File('${dir.path}/hosts')..writeAsStringSync('hi');
+      const channel = MethodChannel('hermes_app/clipboard');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        expect(call.method, 'files');
+        return [hosts.path];
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
       final source = PluginAttachmentSource(
         platform: TargetPlatform.macOS,
         clipboardImage: () async => null,
-        clipboardFiles: () async => ['https://example.com${hosts.path}'],
       );
 
       final pasted = await source.pasted();
