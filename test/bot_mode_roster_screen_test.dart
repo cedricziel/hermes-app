@@ -50,4 +50,31 @@ void main() {
     expect(find.textContaining('Bot Mode compatible update'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
+  testWidgets('non-string presentation summary does not break the roster', (
+    tester,
+  ) async {
+    final repository = BotModeRosterRepository(
+      (_, _) async => {
+        'bot_mode_protocol': true,
+        'profiles': [
+          {
+            'name': 'writer',
+            'description': 'Server description',
+            'ui_meta_revisions': {'hermes-bots': 1},
+            'ui_meta': {
+              'hermes-bots': {'title': 'Editor', 'description': 12},
+            },
+          },
+        ],
+      },
+      serverId: 'local',
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: BotModeRosterScreen(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Editor'), findsOneWidget);
+    expect(find.text('Server description'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

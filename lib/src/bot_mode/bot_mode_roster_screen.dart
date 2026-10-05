@@ -45,6 +45,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -241,8 +242,9 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
     }
     if (!mounted) return;
     final title = TextEditingController(text: bot.title);
+    final rawSummary = bot.metadata['description'];
     final summary = TextEditingController(
-      text: bot.metadata['description'] as String? ?? '',
+      text: rawSummary is String ? rawSummary : '',
     );
     final description = TextEditingController(text: details.description);
     final soul = TextEditingController(text: details.soul);
@@ -527,7 +529,8 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
 
   Widget _botCard(BotModeBot bot, ThemeData theme, Color muted) {
     final scheme = theme.colorScheme;
-    final summary = bot.metadata['description'] as String? ?? bot.description;
+    final rawSummary = bot.metadata['description'];
+    final summary = rawSummary is String ? rawSummary : bot.description;
     return Material(
       color: scheme.surface,
       shape: RoundedRectangleBorder(
