@@ -328,7 +328,10 @@ class HermesGatewayTransport implements ChatTransport {
       for (var attempt = 0; ; attempt++) {
         while (await watch.events.moveNext()) {
           final (event, serverRequest) = watch.events.current;
-          if (event is ReplyStarted && !replying) {
+          if (event is ReplyStarted) {
+            // A resumed running turn can replay its start. Forwarding that
+            // would create a second pending bubble with no completion.
+            if (replying) continue;
             replying = true;
             _beginReply(runtimeId, threadId);
           }
@@ -400,8 +403,10 @@ class HermesGatewayTransport implements ChatTransport {
 
   void _endReply(String runtimeId, String storedId) {
     _replying.update(runtimeId, (count) => count - 1);
-    if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
-    if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+    if (_replying[runtimeId] == 0) {
+      _replying.remove(runtimeId);
+      if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+    }
   }
 
   void _forgetRequests(Set<String> mine) {
@@ -589,10 +594,21 @@ class HermesGatewayTransport implements ChatTransport {
 
   @override
   Future<bool> stopReply(String threadId) async {
-    final runtimeId = _runtimeOf[threadId];
-    final client = _connected();
-    if (runtimeId == null || client == null) return false;
-    final result = await client.request('session.interrupt', {
+    var runtimeId = _runtimeOf[threadId];
+    if (runtimeId == null) return false;
+    var client = _connected();
+    if (client == null) {
+      // The listener may still be reconnecting after a dropped socket. Ask
+      // the server which runtime session owns this stored thread before
+      // concluding that the reply has already ended.
+      client = await _client();
+      final resumed = await _call(client, 'session.resume', {
+        'session_id': threadId,
+      });
+      if (resumed['running'] != true) return false;
+      runtimeId = resumed['session_id'] as String? ?? threadId;
+    }
+    final result = await _call(client, 'session.interrupt', {
       'session_id': runtimeId,
     });
     return result['status'] == 'interrupted';

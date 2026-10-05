@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -102,6 +104,50 @@ void main() {
 
     expect(find.text('Could not stop the reply. Try again.'), findsOneWidget);
     expect(find.text('Stop'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('Stop clears a reply the server has already lost', (
+    tester,
+  ) async {
+    await pump(tester);
+    await openThread(tester, 'Run failure');
+    await send(tester, 'One');
+    transport.stopsRunning = false;
+
+    await tester.tap(find.text('Stop'));
+    await tester.pump();
+
+    expect(find.text('Stop'), findsNothing);
+    expect(find.text('Stopped.'), findsOneWidget);
+    await send(tester, 'Two');
+    expect(transport.sends, hasLength(2));
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('a late Stop response leaves the next queued reply running', (
+    tester,
+  ) async {
+    await pump(tester);
+    await openThread(tester, 'Run failure');
+    final first = await send(tester, 'One');
+    await send(tester, 'Two');
+    expect(transport.sends, hasLength(1));
+
+    final gate = transport.stopGate = Completer<void>();
+    transport.stopsRunning = false;
+    await tester.tap(find.text('Stop'));
+    await tester.pump();
+
+    first.emit(const ReplyCompleted('One done.'));
+    first.finish();
+    await tester.pump();
+    expect(transport.sends, hasLength(2));
+
+    gate.complete();
+    await tester.pump();
+    expect(find.text('Stop'), findsOneWidget);
+    expect(find.text('Stopped.'), findsNothing);
     await tester.pump(const Duration(seconds: 5));
   });
 }
