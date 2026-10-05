@@ -432,3 +432,33 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
 - A newer Hermes: bump `HERMES_REF` in the workflow (the cache path follows
   it), not a floating tag.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
+
+
+## Verify Apple Handoff
+
+Use an isolated backend and invented saved chats. Never install a test build
+under an identifier that would replace an existing user app. Inspect the built
+bundle IDs first. The macOS Debug app uses `com.cedricziel.hermesApp.dev`, but
+the iOS Debug target currently uses the release ID. A physical iOS test needs
+an isolated installation and valid signing before it can run safely.
+
+Both test apps must use the same developer Team ID and activity type. Debug
+builds advertise `com.cedricziel.hermesApp.continueChat.dev`; release builds
+advertise `com.cedricziel.hermesApp.continueChat`. Verify the resolved
+`NSUserActivityTypes` in each built Info.plist. Simulator builds and Dart
+channel tests do not prove cross-device delivery.
+
+On physical devices signed into the same Apple Account with Wi-Fi, Bluetooth,
+and Handoff enabled, open an invented saved chat and choose Hermes from the
+other device's Handoff suggestion. Repeat in both directions with the receiver
+running and terminated. Check sign-in and app lock, identical thread IDs on
+different profiles, a missing chat, an unreachable dashboard followed by retry,
+and a reply already running. Confirm that continuing sends no new prompt and
+does not stop the source reply. Check a different dashboard with both Cancel
+and Connect. Keep addresses and credentials confined to test instances.
+
+The source should withdraw its activity when leaving the chat or locking.
+Backgrounding with app lock off should still allow continuation. Open another
+chat while a target loads and confirm the late result cannot change selection.
+Record any unavailable device or signing checks as outstanding. Do not mark
+the physical-device task complete from simulator or method-channel evidence.
