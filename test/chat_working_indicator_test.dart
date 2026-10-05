@@ -6,6 +6,7 @@ import 'package:hermes_app/src/chat/widgets/working_dot.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/chat_screen.dart';
 
 import 'support/fake_chat_transport.dart';
 import 'support/fake_hermes_server.dart';
@@ -106,6 +107,61 @@ void main() {
 
     expect(transport.followUpCalls, 2);
     await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('remote activity updates while the list stays open', (
+    tester,
+  ) async {
+    await pumpChatScreen(tester, server: server, transport: transport);
+
+    transport.active['s1'] = 'working';
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot), findsOneWidget);
+
+    transport.active.clear();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot), findsNothing);
+  });
+
+  testWidgets('activity polling pauses while the app is in the background', (
+    tester,
+  ) async {
+    await pumpChatScreen(tester, server: server, transport: transport);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    transport.active['s1'] = 'working';
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot), findsNothing);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot), findsOneWidget);
+  });
+
+  testWidgets('activity polling pauses while another route covers chat', (
+    tester,
+  ) async {
+    await pumpChatScreen(tester, server: server, transport: transport);
+    final navigator = Navigator.of(tester.element(find.byType(ChatScreen)));
+    navigator.push(MaterialPageRoute<void>(builder: (_) => const Scaffold()));
+    await tester.pumpAndSettle();
+    transport.active['s1'] = 'working';
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot, skipOffstage: false), findsNothing);
+
+    navigator.pop();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(WorkingDot), findsOneWidget);
   });
 
   testWidgets('MacThreadRow shows the working mark when busy', (tester) async {
