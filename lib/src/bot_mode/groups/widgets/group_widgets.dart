@@ -199,7 +199,10 @@ class GroupEventRow extends StatelessWidget {
 String? _actionText(Object? value) =>
     value is String && value.isNotEmpty ? value : null;
 
-ApprovalRequest _approvalRequest(GroupPendingAction action) {
+ApprovalRequest _approvalRequest(
+  GroupPendingAction action, {
+  bool allowOnce = true,
+}) {
   final details = action.details['approval'] is Map
       ? action.details['approval'] as Map
       : action.details;
@@ -209,7 +212,7 @@ ApprovalRequest _approvalRequest(GroupPendingAction action) {
     description:
         _actionText(details['description']) ??
         'This member is waiting for your approval.',
-    choices: const ['once', 'deny'],
+    choices: allowOnce ? const ['once', 'deny'] : const ['deny'],
   );
 }
 
@@ -294,7 +297,10 @@ class GroupActivity extends StatelessWidget {
                       key: ValueKey(
                         '${action.taskId}/${action.executionGeneration}/${action.requestId}',
                       ),
-                      request: _approvalRequest(action),
+                      request: _approvalRequest(
+                        action,
+                        allowOnce: unavailableReason == null,
+                      ),
                       onAnswer: pending
                           ? null
                           : (choice) => onApprove(

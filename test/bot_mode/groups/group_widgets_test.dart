@@ -118,4 +118,36 @@ void main() {
       }
     },
   );
+  testWidgets('unverified rooms offer Deny and Stop without Allow once', (
+    tester,
+  ) async {
+    final action = GroupPendingAction.fromJson({
+      'kind': 'approval',
+      'task_id': 'task',
+      'member_id': 'one',
+      'request_id': 'request',
+      'execution_generation': 2,
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupActivity(
+            working: true,
+            blocked: true,
+            counts: const {},
+            members: [GroupMember.fromJson(fixtures.member('one'))],
+            actions: [action],
+            pending: false,
+            unavailableReason: 'Execution unavailable',
+            onStop: () {},
+            onApprove: (_, _) async {},
+            onRetry: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Allow once'), findsNothing);
+    expect(find.text('Deny'), findsOneWidget);
+    expect(find.text('Stop'), findsOneWidget);
+  });
 }

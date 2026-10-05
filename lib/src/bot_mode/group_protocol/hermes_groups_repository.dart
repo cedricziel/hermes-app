@@ -492,6 +492,7 @@ class HermesGroupsRepository {
     GroupPendingAction action,
     GroupApprovalChoice choice,
   ) async {
+    if (choice == GroupApprovalChoice.once) _execution();
     if (action.kind != 'approval' ||
         !(await state(roomId)).pendingActions.any(action.matches)) {
       throw StateError('Approval is no longer pending');

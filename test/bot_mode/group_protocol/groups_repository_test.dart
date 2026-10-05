@@ -202,6 +202,56 @@ void main() {
       expect(repo.executionUnavailableReason, contains('clarify'));
     },
   );
+  test('unverified execution rejects Allow once but permits Deny', () async {
+    final action = GroupPendingAction.fromJson({
+      'kind': 'approval',
+      'task_id': 'task',
+      'member_id': 'one',
+      'request_id': 'request',
+      'execution_generation': 2,
+    });
+    final approvals = <Map<String, Object?>>[];
+    final repo = HermesGroupsRepository((method, params) async {
+      if (method == 'groups.capabilities') return capabilities();
+      if (method == 'groups.state') {
+        return {
+          'room': room(),
+          'driver_status': {
+            'running': true,
+            'working': false,
+            'blocked': true,
+            'counts': <String, int>{},
+            'pending_actions': [
+              {
+                'kind': 'approval',
+                'task_id': 'task',
+                'member_id': 'one',
+                'request_id': 'request',
+                'execution_generation': 2,
+              },
+            ],
+            'peer_routes': <Object>[],
+          },
+        };
+      }
+      if (method == 'groups.approve') {
+        approvals.add(params);
+        return {'approved': true};
+      }
+      throw StateError(method);
+    });
+    await repo.probe();
+    await expectLater(
+      repo.approve('room', action, GroupApprovalChoice.once),
+      throwsStateError,
+    );
+    expect(approvals, isEmpty);
+    expect(
+      await repo.approve('room', action, GroupApprovalChoice.deny),
+      isTrue,
+    );
+    expect(approvals.single['choice'], 'deny');
+  });
   test(
     'multi-page replay deduplicates and reconciles hashed lost receipt',
     () async {
