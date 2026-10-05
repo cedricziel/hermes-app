@@ -104,4 +104,22 @@ void main() {
     expect(find.text('Stop'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));
   });
+
+  testWidgets('Stop clears a reply the server has already lost', (
+    tester,
+  ) async {
+    await pump(tester);
+    await openThread(tester, 'Run failure');
+    await send(tester, 'One');
+    transport.stopsRunning = false;
+
+    await tester.tap(find.text('Stop'));
+    await tester.pump();
+
+    expect(find.text('Stop'), findsNothing);
+    expect(find.text('Stopped.'), findsOneWidget);
+    await send(tester, 'Two');
+    expect(transport.sends, hasLength(2));
+    await tester.pump(const Duration(seconds: 5));
+  });
 }

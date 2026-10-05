@@ -748,7 +748,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         .followUps(thread.id)
         .listen(
           (event) {
-            if (event is ReplyStarted) reply = _addPlaceholder(thread);
+            if (event is ReplyStarted && reply == null) {
+              reply = _addPlaceholder(thread);
+            }
             final current = reply;
             if (current == null) {
               if (event is ThreadTitled) {
@@ -864,7 +866,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   Future<void> stopReply(ChatThread thread) async {
     try {
-      await transport?.stopReply(thread.id);
+      final stopped = await transport?.stopReply(thread.id);
+      if (disposed || stopped != false || !thread.isReplying) return;
+      // The server has no turn left to interrupt. A completion was missed by
+      // this listener, so release the stale pending reply and composer.
+      for (final reply in thread.messages.where((m) => m.isPending).toList()) {
+        _updateReply(
+          thread,
+          reply,
+          () => applyReplyEvent(reply, const ReplyCompleted('', stopped: true)),
+        );
+      }
     } on Object {
       report(_couldNotStop);
     }
