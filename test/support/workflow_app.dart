@@ -82,17 +82,16 @@ Future<void> pumpWorkflowApp(
   );
 }
 
-/// Unmounts the app, lets real socket requests settle, then advances past
-/// the HTTP request timeouts that the test binding tracks as fake timers.
+/// Unmounts the app and drains real sockets and fake HTTP timeouts in bounded
+/// rounds, since completing one request can start another during teardown.
 Future<void> letSocketsIdle(WidgetTester tester) async {
   await tester.pumpWidget(const SizedBox.shrink());
   for (var i = 0; i < 5; i++) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 50)),
     );
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(seconds: 31));
   }
-  await tester.pump(const Duration(seconds: 31));
 }
 
 /// Pumps until [finder] matches, giving real sockets time to answer in
