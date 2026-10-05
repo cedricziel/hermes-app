@@ -183,21 +183,25 @@ Widget _buildText(
     fontSize: messageFontSizeFor(Theme.of(context).platform),
     height: 1.5,
   );
-  final bubble = FlyerChatTextMessage(
-    message: message,
-    index: index,
-    showTime: false,
-    showStatus: false,
-    linksDecoration: TextDecoration.underline,
-    onLinkTap: onLinkTap,
-    sentTextStyle: style,
-    receivedTextStyle: style,
-    sentBackgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-    receivedBackgroundColor: Colors.transparent,
-    borderRadius: BorderRadius.circular(isSentByMe ? kHermesRadius : 0),
-    padding: isSentByMe
-        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
-        : EdgeInsets.zero,
+  final bubble = SelectionArea(
+    child: FlyerChatTextMessage(
+      message: message,
+      index: index,
+      showTime: false,
+      showStatus: false,
+      linksDecoration: TextDecoration.underline,
+      onLinkTap: onLinkTap,
+      sentTextStyle: style,
+      receivedTextStyle: style,
+      sentBackgroundColor: scheme.surfaceContainerHighest.withValues(
+        alpha: 0.6,
+      ),
+      receivedBackgroundColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(isSentByMe ? kHermesRadius : 0),
+      padding: isSentByMe
+          ? const EdgeInsets.symmetric(horizontal: 16, vertical: 12)
+          : EdgeInsets.zero,
+    ),
   );
   if (isSentByMe || message.metadata?[kMetaStreaming] == true) return bubble;
 

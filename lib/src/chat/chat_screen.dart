@@ -1005,19 +1005,17 @@ class _ThreadView extends StatelessWidget {
                 ),
                 child: SizedBox.expand(
                   child: FlyerMaterialScope(
-                    child: SelectionArea(
-                      child: Chat(
-                        // The controller too: after a profile switch the same
-                        // id names another thread.
-                        key: ValueKey((thread?.id, chatController)),
-                        chatController: chatController,
-                        currentUserId: kUserAuthorId,
-                        resolveUser: (id) async => User(id: id),
-                        onMessageSend: onSend,
-                        onAttachmentTap: openAttachMenu,
-                        theme: buildChatTheme(Theme.of(context)),
-                        builders: builders,
-                      ),
+                    child: Chat(
+                      // The controller too: after a profile switch the same
+                      // id names another thread.
+                      key: ValueKey((thread?.id, chatController)),
+                      chatController: chatController,
+                      currentUserId: kUserAuthorId,
+                      resolveUser: (id) async => User(id: id),
+                      onMessageSend: onSend,
+                      onAttachmentTap: openAttachMenu,
+                      theme: buildChatTheme(Theme.of(context)),
+                      builders: builders,
                     ),
                   ),
                 ),
