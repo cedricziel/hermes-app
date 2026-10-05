@@ -85,6 +85,17 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.ancestor(of: composerField, matching: find.byType(SelectionArea)),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(
+        of: find.byType(ChatAnimatedList),
+        matching: find.byType(SelectionArea),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('New chat focuses the composer for immediate typing', (
