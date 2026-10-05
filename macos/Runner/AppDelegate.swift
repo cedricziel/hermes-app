@@ -20,6 +20,7 @@ class AppDelegate: FlutterAppDelegate {
             }
             shareChannel = channel
             webAuth = WebAuthSession(messenger: controller.engine.binaryMessenger)
+            ChatHandoff.shared.install(messenger: controller.engine.binaryMessenger)
         }
         super.applicationDidFinishLaunching(notification)
     }
@@ -32,6 +33,17 @@ class AppDelegate: FlutterAppDelegate {
         }
     }
 
+    override func application(_ application: NSApplication, continue userActivity: NSUserActivity,
+                              restorationHandler: @escaping ([NSUserActivityRestoring]) -> Void) -> Bool {
+        if ChatHandoff.shared.receive(userActivity) { return true }
+        return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+    }
+
+    override func application(_ application: NSApplication, didFailToContinueUserActivityWithType type: String, error: Error) {
+        ChatHandoff.shared.failed(type)
+        super.application(application, didFailToContinueUserActivityWithType: type, error: error)
+    }
+
     override func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         return true
     }
@@ -39,4 +51,61 @@ class AppDelegate: FlutterAppDelegate {
     override func applicationSupportsSecureRestorableState(_: NSApplication) -> Bool {
         return true
     }
+}
+
+class ChatHandoff {
+  static let shared = ChatHandoff()
+  static var activityType: String {
+    (Bundle.main.object(forInfoDictionaryKey: "NSUserActivityTypes") as? [String])?.first ?? "com.cedricziel.hermesApp.continueChat.dev"
+  }
+  private var activity: NSUserActivity?
+  private var pending: [AnyHashable: Any]?
+  private var channel: FlutterMethodChannel?
+
+  func install(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "hermes_app/handoff", binaryMessenger: messenger)
+    self.channel = channel
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else { result(nil); return }
+      switch call.method {
+      case "take":
+        result(self.take())
+      case "clear":
+        self.activity?.invalidate()
+        self.activity = nil
+        result(nil)
+      case "publish":
+        self.activity?.invalidate()
+        let next = NSUserActivity(activityType: Self.activityType)
+        next.title = "Continue chat in Hermes"
+        next.userInfo = call.arguments as? [AnyHashable: Any]
+        next.requiredUserInfoKeys = ["version", "serverUrl", "profile", "threadId"]
+        next.isEligibleForHandoff = true
+        next.isEligibleForSearch = false
+        next.isEligibleForPublicIndexing = false
+        self.activity = next
+        next.becomeCurrent()
+        result(nil)
+      default: result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  func take() -> [AnyHashable: Any]? {
+    defer { pending = nil }
+    return pending
+  }
+
+  func receive(_ activity: NSUserActivity) -> Bool {
+    guard activity.activityType == Self.activityType else { return false }
+    pending = activity.userInfo ?? ["error": true]
+    channel?.invokeMethod("incoming", arguments: nil)
+    return true
+  }
+
+  func failed(_ type: String) {
+    guard type == Self.activityType else { return }
+    pending = ["error": true]
+    channel?.invokeMethod("incoming", arguments: nil)
+  }
 }
