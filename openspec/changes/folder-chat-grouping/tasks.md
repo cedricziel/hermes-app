@@ -9,4 +9,13 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run dart format, flutter analyze, flutter test, strict spec validation, and the isolated verify-in-app loop; inspect real renders. Review existing verification skills for stale guidance. Commit as feat(chat): add folder grouping to chat lists.
+- [x] 3.1 Run dart format, flutter analyze, flutter test, strict spec validation, and the isolated verify-in-app loop; inspect real renders. Review existing verification skills for stale guidance. Commit as feat(chat): add folder grouping to chat lists.
+
+Validation completed on 2026-10-05: formatting, static analysis, and strict
+spec validation passed. The final test run passed 4,858 tests with 96 skipped,
+excluding `onboarding_workflow_test.dart`. Its phone onboarding test fails
+with pending HTTP timers against the original sidebar as well.
+
+The isolated macOS app verified grouping, header placement, selection, and
+preserved disclosure state. iOS was checked with widget tests and rendered
+previews. The disposable app and backend were stopped.
