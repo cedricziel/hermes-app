@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../app_lock/app_lock_dialog.dart';
 import '../../auth/auth_controller.dart';
 import '../../macos/mac_sidebar.dart';
-import '../../macos/mac_source_list.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
@@ -16,6 +15,8 @@ import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
 import '../thread_sections.dart';
+import '../thread_list_preferences.dart';
+import 'thread_grouping_controls.dart';
 import 'mac_search_results.dart';
 import 'mac_thread_row.dart';
 import 'relative_time.dart';
@@ -94,7 +95,11 @@ class ThreadSidebar extends StatelessWidget {
   final String? searchProfile;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _ThreadListScope(
+    builder: (context, preferences) => _build(context, preferences),
+  );
+
+  Widget _build(BuildContext context, ThreadListPreferences preferences) {
     final colors = context.hermesColors;
     final search = this.search;
     final mac = platformChromeOf(context) == PlatformChrome.macos;
@@ -114,18 +119,20 @@ class ThreadSidebar extends StatelessWidget {
                         color: Theme.of(context).colorScheme.onSurface,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Hermes',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                      const Expanded(
+                        child: Text(
+                          'Hermes',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
             if (mac)
-              Expanded(child: _macBody())
+              Expanded(child: _macBody(preferences))
             else ...[
               if (navigation != null) ...[
                 Padding(
@@ -158,12 +165,12 @@ class ThreadSidebar extends StatelessWidget {
               ],
               Expanded(
                 child: search == null
-                    ? _threadList()
+                    ? _threadList(context, preferences)
                     : ListenableBuilder(
                         listenable: search,
                         builder: (context, _) =>
                             search.status == ThreadSearchStatus.idle
-                            ? _threadList()
+                            ? _threadList(context, preferences)
                             : ThreadSearchResults(
                                 query: search.query,
                                 status: search.status,
@@ -201,7 +208,7 @@ class ThreadSidebar extends StatelessWidget {
   /// The Mac sidebar under its header: the destinations and the threads, or
   /// while a search is open, its results. New Chat and the search field are
   /// in the toolbar there.
-  Widget _macBody() {
+  Widget _macBody(ThreadListPreferences preferences) {
     final navigation = this.navigation;
     final body = Column(
       children: [
@@ -211,7 +218,8 @@ class ThreadSidebar extends StatelessWidget {
             child: navigation,
           ),
         Expanded(
-          child: _MacThreadList(
+          child: _SectionedThreadList(
+            preferences: preferences,
             threads: threads,
             selectedId: selectedId,
             onSelect: onSelect,
@@ -245,30 +253,49 @@ class ThreadSidebar extends StatelessWidget {
     );
   }
 
-  Widget _threadList() {
+  Widget _threadList(BuildContext context, ThreadListPreferences preferences) {
+    if (platformChromeOf(context).isApple ||
+        preferences.grouping == ThreadGrouping.folder) {
+      return _SectionedThreadList(
+        threads: threads,
+        selectedId: selectedId,
+        onSelect: onSelect,
+        busy: busy,
+        housekeeping: this.housekeeping,
+        onOpenInNewWindow: onOpenInNewWindow,
+        preferences: preferences,
+      );
+    }
     final housekeeping = this.housekeeping;
     final showMore = housekeeping != null && housekeeping.hasMore;
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      itemCount: threads.length + (showMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == threads.length) {
-          return _ShowMoreRow(
-            key: ValueKey(threads.length),
-            loading: housekeeping!.loadingMore,
-            onLoad: housekeeping.loadMore,
-          );
-        }
-        final thread = threads[index];
-        return _ThreadRow(
-          key: ValueKey('thread-${thread.id}'),
-          thread: thread,
-          selected: thread.id == selectedId,
-          busy: busy.contains(thread.id) || thread.isReplying,
-          onTap: () => onSelect(thread.id),
-          housekeeping: thread.remote ? housekeeping : null,
-        );
-      },
+    return Column(
+      children: [
+        _ThreadListHeading(preferences: preferences),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            itemCount: threads.length + (showMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == threads.length) {
+                return _ShowMoreRow(
+                  key: ValueKey(threads.length),
+                  loading: housekeeping!.loadingMore,
+                  onLoad: housekeeping.loadMore,
+                );
+              }
+              final thread = threads[index];
+              return _ThreadRow(
+                key: ValueKey('thread-${thread.id}'),
+                thread: thread,
+                selected: thread.id == selectedId,
+                busy: busy.contains(thread.id) || thread.isReplying,
+                onTap: () => onSelect(thread.id),
+                housekeeping: thread.remote ? housekeeping : null,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -475,11 +502,9 @@ class _ThreadRowState extends State<_ThreadRow> {
   }
 }
 
-/// The threads of a Mac sidebar in sections. Which sections are folded comes
-/// from the window's [MacSidebarScope], so it outlasts a relaunch; without one
-/// the list keeps it itself.
-class _MacThreadList extends StatefulWidget {
-  const _MacThreadList({
+class _SectionedThreadList extends StatefulWidget {
+  const _SectionedThreadList({
+    required this.preferences,
     required this.threads,
     required this.selectedId,
     required this.onSelect,
@@ -488,6 +513,7 @@ class _MacThreadList extends StatefulWidget {
     required this.onOpenInNewWindow,
   });
 
+  final ThreadListPreferences preferences;
   final List<ChatThread> threads;
   final String? selectedId;
   final ValueChanged<String> onSelect;
@@ -496,12 +522,10 @@ class _MacThreadList extends StatefulWidget {
   final ValueChanged<ChatThread>? onOpenInNewWindow;
 
   @override
-  State<_MacThreadList> createState() => _MacThreadListState();
+  State<_SectionedThreadList> createState() => _SectionedThreadListState();
 }
 
-class _MacThreadListState extends State<_MacThreadList> {
-  final _folded = <String>{};
-
+class _SectionedThreadListState extends State<_SectionedThreadList> {
   @override
   Widget build(BuildContext context) {
     final sections = MacSidebarScope.sectionsOf(context);
@@ -513,31 +537,51 @@ class _MacThreadListState extends State<_MacThreadList> {
   }
 
   Widget _list(BuildContext context, [MacSidebarSections? sections]) {
-    bool folded(ThreadSectionKind kind) =>
-        sections?.isCollapsed(kind.name) ?? _folded.contains(kind.name);
-    void toggle(ThreadSectionKind kind) => sections != null
-        ? sections.toggle(kind.name)
-        : setState(() {
-            if (!_folded.remove(kind.name)) _folded.add(kind.name);
-          });
-
+    final preferences = widget.preferences;
+    final folder = preferences.grouping == ThreadGrouping.folder;
+    bool folded(String id) => folder || sections == null
+        ? preferences.isCollapsed(id)
+        : sections.isCollapsed(id);
+    void toggle(String id) => folder || sections == null
+        ? preferences.toggle(id)
+        : sections.toggle(id);
+    final groups = folder
+        ? groupThreadsByFolder(widget.threads)
+        : [
+            for (final group in groupThreads(
+              widget.threads,
+              now: DateTime.now(),
+            ))
+              (
+                id: group.kind.name,
+                label: group.kind.label,
+                threads: group.threads,
+              ),
+          ];
     final housekeeping = widget.housekeeping;
     final items = <Object>[
-      for (final section in groupThreads(
-        widget.threads,
-        now: DateTime.now(),
-      )) ...[section.kind, if (!folded(section.kind)) ...section.threads],
+      if (groups.isEmpty) preferences,
+      for (final group in groups) ...[
+        group,
+        if (!folded(group.id)) ...group.threads,
+      ],
       if (housekeeping != null && housekeeping.hasMore) housekeeping,
     ];
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       itemCount: items.length,
       itemBuilder: (context, index) => switch (items[index]) {
-        final ThreadSectionKind kind => MacSidebarSectionHeader(
-          key: ValueKey('thread-section-${kind.label}'),
-          label: kind.label,
-          collapsed: folded(kind),
-          onToggle: () => toggle(kind),
+        final FolderThreadSection group => ThreadSectionHeading(
+          key: ValueKey('thread-section-${folder ? group.id : group.label}'),
+          label: group.label,
+          grouping: preferences.grouping,
+          count: folder && group.id != 'pinned' ? group.threads.length : null,
+          collapsed: folded(group.id),
+          onToggle: () => toggle(group.id),
+          onGroupingChanged: index == 0 ? preferences.choose : null,
+        ),
+        final ThreadListPreferences preferences => _ThreadListHeading(
+          preferences: preferences,
         ),
         final ChatThread thread => _row(context, thread),
         _ => _ShowMoreRow(
@@ -550,6 +594,16 @@ class _MacThreadListState extends State<_MacThreadList> {
   }
 
   Widget _row(BuildContext context, ChatThread thread) {
+    if (platformChromeOf(context) != PlatformChrome.macos) {
+      return _ThreadRow(
+        key: ValueKey('thread-${thread.id}'),
+        thread: thread,
+        selected: thread.id == widget.selectedId,
+        busy: widget.busy.contains(thread.id) || thread.isReplying,
+        onTap: () => widget.onSelect(thread.id),
+        housekeeping: thread.remote ? widget.housekeeping : null,
+      );
+    }
     final housekeeping = thread.remote ? widget.housekeeping : null;
     final onOpenInNewWindow = widget.onOpenInNewWindow;
     void run(ThreadAction action) => runThreadAction(
@@ -723,4 +777,50 @@ class AccountFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ThreadListScope extends StatefulWidget {
+  const _ThreadListScope({required this.builder});
+
+  final Widget Function(BuildContext, ThreadListPreferences) builder;
+
+  @override
+  State<_ThreadListScope> createState() => _ThreadListScopeState();
+}
+
+class _ThreadListScopeState extends State<_ThreadListScope> {
+  ThreadListPreferences? _preferences;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _preferences ??= ThreadListPreferences(
+      platform: Theme.of(context).platform.name,
+    )..load();
+  }
+
+  @override
+  void dispose() {
+    _preferences?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _preferences!,
+    builder: (context, _) => widget.builder(context, _preferences!),
+  );
+}
+
+class _ThreadListHeading extends StatelessWidget {
+  const _ThreadListHeading({required this.preferences});
+
+  final ThreadListPreferences preferences;
+
+  @override
+  Widget build(BuildContext context) => ThreadSectionHeading(
+    label: 'Chats',
+    grouping: preferences.grouping,
+    onGroupingChanged: preferences.choose,
+  );
 }

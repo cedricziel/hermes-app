@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/chat/thread_list_preferences.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/pump_chat.dart';
@@ -96,6 +97,46 @@ void main() {
     ]);
     expect(find.text('Chat 58'), findsOneWidget);
   });
+
+  testWidgets(
+    'collapsed folders receive later pages without duplicating pinned chats',
+    (tester) async {
+      server.onRequest('GET', '/api/sessions', (request) {
+        final offset = request.queryParameters['offset'] as int;
+        final body = offset == 0 ? page(0, 50) : page(50, 9);
+        for (final row in body['sessions'] as List) {
+          (row as Map)['git_repo_root'] = '/code/app';
+        }
+        return (status: 200, body: body);
+      });
+      await pumpChatScreen(
+        tester,
+        server: server,
+        platform: TargetPlatform.macOS,
+      );
+      await tester.tap(find.byTooltip('Group chats'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Folder'),
+              matching: find.byType(CheckedPopupMenuItem<ThreadGrouping>),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('app'));
+      await tester.pumpAndSettle();
+      expect(sessionListRequests().map((r) => r.queryParameters['offset']), [
+        0,
+        50,
+      ]);
+      expect(find.text('59'), findsOneWidget);
+      expect(find.text('Pinned chat'), findsOneWidget);
+      expect(find.text('Chat 58'), findsNothing);
+      expect(find.byTooltip('Group chats'), findsOneWidget);
+    },
+  );
 
   testWidgets('keeps the pinned thread on top without repeating it', (
     tester,

@@ -586,6 +586,7 @@ class ChatThread {
     required this.title,
     required this.updatedAt,
     this.pinned = false,
+    this.folderPath,
     this.remote = false,
     this.modelChoice,
     this.botContext,
@@ -599,6 +600,7 @@ class ChatThread {
   String title;
   DateTime updatedAt;
   bool pinned;
+  final String? folderPath;
 
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.

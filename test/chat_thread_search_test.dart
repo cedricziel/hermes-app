@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
+import 'package:hermes_app/src/chat/thread_list_preferences.dart';
 import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 
@@ -71,6 +72,32 @@ void main() {
     expect(inSidebar(find.text('Recent chat')), findsOneWidget);
     expect(find.byType(ThreadSearchResults), findsNothing);
   });
+
+  testWidgets(
+    'search replaces folder sections and clearing restores grouping',
+    (tester) async {
+      await pumpChatScreen(tester, server: server);
+      await tester.tap(find.byTooltip('Group chats'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find
+            .ancestor(
+              of: find.text('Folder'),
+              matching: find.byType(CheckedPopupMenuItem<ThreadGrouping>),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(inSidebar(find.text('No folder')), findsOneWidget);
+      await type(tester, 'backup');
+      expect(find.byType(ThreadSearchResults), findsOneWidget);
+      expect(inSidebar(find.text('No folder')), findsNothing);
+      await tester.tap(find.byTooltip('Clear search'));
+      await tester.pumpAndSettle();
+      expect(inSidebar(find.text('No folder')), findsOneWidget);
+      expect(inSidebar(find.text('Recent chat')), findsOneWidget);
+    },
+  );
 
   testWidgets('a result older than the loaded pages opens', (tester) async {
     await pumpChatScreen(tester, server: server);

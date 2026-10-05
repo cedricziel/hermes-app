@@ -1,3 +1,5 @@
+import 'thread_grouping_use_cases.dart';
+
 import 'package:widgetbook/widgetbook.dart';
 
 import 'adaptive_use_cases.dart';
@@ -41,6 +43,7 @@ final List<WidgetbookNode> directories = [
   chatNode(),
   chatThreadNode(),
   macSidebarNode(),
+  threadGroupingNode(),
   modelNode(),
   kanbanNode(),
   schedulesNode(),
