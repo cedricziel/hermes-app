@@ -82,17 +82,17 @@ Future<void> pumpWorkflowApp(
   );
 }
 
-/// Lets requests still in flight on real sockets answer, then the keep-alive
-/// timers of the app's HTTP connections run out, which the test would
-/// otherwise report as still pending.
+/// Unmounts the app, lets real socket requests settle, then advances past
+/// the HTTP request timeouts that the test binding tracks as fake timers.
 Future<void> letSocketsIdle(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
   for (var i = 0; i < 5; i++) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 50)),
     );
     await tester.pump(const Duration(milliseconds: 50));
   }
-  await tester.pump(const Duration(seconds: 10));
+  await tester.pump(const Duration(seconds: 31));
 }
 
 /// Pumps until [finder] matches, giving real sockets time to answer in
