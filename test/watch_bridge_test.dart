@@ -167,6 +167,21 @@ void main() {
     });
   });
 
+  for (final error in [null, 42, 'private error details']) {
+    test('records a safe fallback for handler error $error', () async {
+      bridge.dispose();
+      final reply = <String, Object?>{'ok': false, 'error': error};
+      bridge = WatchBridge(events: events.call, handler: _ReplyHandler(reply))
+        ..start();
+
+      expect(await fromNative('request', {'op': 'threads'}), reply);
+      expect(
+        events.named('watch.request.completed').single['watch.result'],
+        'failed',
+      );
+    });
+  }
+
   group('announcer', () {
     const notification = AttentionNotification(
       threadId: 's1',
@@ -236,4 +251,19 @@ class _FailingService extends FakeNotificationService {
   @override
   Future<void> show(AttentionNotification notification) =>
       Future.error(StateError('no notifications here'));
+}
+
+class _ReplyHandler extends WatchRequestHandler {
+  _ReplyHandler(this.reply)
+    : super(
+        repository: () => null,
+        transport: () => null,
+        activeProfile: () async => null,
+      );
+
+  final Map<String, Object?> reply;
+
+  @override
+  Future<Map<String, Object?>> handle(Map<Object?, Object?> request) async =>
+      reply;
 }

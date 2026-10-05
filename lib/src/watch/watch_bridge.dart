@@ -166,10 +166,18 @@ class WatchBridge {
     });
     final reply = await _handler.handle(request);
     timer.stop();
+    final result = reply['ok'] == true
+        ? 'ok'
+        : switch (reply['error']) {
+            'signed_out' => 'signed_out',
+            'unavailable' => 'unavailable',
+            'bad_request' => 'bad_request',
+            _ => 'failed',
+          };
     _record('watch.request.completed', {
       'watch.operation': operation,
       'auth.state': _authState(),
-      'watch.result': reply['ok'] == true ? 'ok' : reply['error'] as String,
+      'watch.result': result,
       'watch.duration_ms': timer.elapsedMilliseconds,
     });
     return reply;
