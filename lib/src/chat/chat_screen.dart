@@ -13,6 +13,8 @@ import 'package:provider/provider.dart';
 import '../api/hermes_repositories.dart';
 
 import '../auth/auth_controller.dart';
+import '../handoff/handoff_controller.dart';
+import '../handoff/handoff_activity.dart';
 import '../messaging/messaging_screen.dart';
 import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
@@ -133,6 +135,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
+  HandoffController? _handoff;
   HermesProfilesRepository? _profiles;
   HermesMessagingRepository? _messaging;
   HermesSkillsRepository? _skills;
@@ -226,6 +229,21 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         selection: TextSelection.collapsed(offset: draft.length),
       ),
     )..addListener(_changed);
+    _handoff = _maybeRead<HandoffController>();
+    _handoff?.bind((activity, valid) async {
+      final opened = await _chat.restoreHandoff(
+        NotificationTarget(
+          threadId: activity.threadId,
+          profile: activity.profile,
+        ),
+        valid,
+      );
+      if (opened && valid() && mounted) {
+        widget.onShowChat?.call();
+        _advertise();
+      }
+      return opened;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _onOpenRequest();
     });
@@ -236,9 +254,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _absorbShared();
   }
 
+  void _advertise() {
+    if (!mounted) return;
+    final thread = _chat.selectedThread;
+    final server = _maybeRead<AuthController>()?.baseUrl;
+    final profile = _chat.profile;
+    _handoff?.advertise(
+      widget.visible &&
+              ModalRoute.of(context)?.isCurrent != false &&
+              thread?.remote == true &&
+              server != null &&
+              profile != null
+          ? HandoffActivity.parse({
+              'version': 1,
+              'serverUrl': server,
+              'profile': profile,
+              'threadId': thread!.id,
+            })
+          : null,
+    );
+  }
+
   void _changed() {
     if (!mounted) return;
     setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
@@ -247,12 +287,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _updateActivePolling();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
   }
 
   @override
   void didUpdateWidget(ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.visible != oldWidget.visible) _updateActivePolling();
+    if (widget.visible != oldWidget.visible) {
+      _updateActivePolling();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
+    }
   }
 
   void _updateActivePolling() {
@@ -316,6 +360,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _openFromNotification(NotificationTarget target) {
+    _handoff?.cancel();
     if (target.isJob) return widget.onOpenJob?.call(target);
     _chat.open(target, fetchMissing: false);
   }
@@ -325,6 +370,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _onOpenRequest() {
     final request = widget.openRequests?.takeRequest();
     if (request == null) return;
+    _handoff?.cancel();
     if (request.bot case final bot?) {
       unawaited(_chat.openBot(bot));
     } else {
@@ -380,6 +426,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _handoff?.bind(null);
+    _handoff?.advertise(null);
     _activeRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.openRequests?.removeListener(_onOpenRequest);
@@ -398,6 +446,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _newThread() {
+    _handoff?.cancel();
     _chat.newThread();
     _closeDrawerIfNarrow();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -483,6 +532,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _selectThread(String id) {
+    _handoff?.cancel();
     _chat.select(id);
     _closeDrawerIfNarrow();
   }

@@ -116,6 +116,9 @@ class AuthController extends ChangeNotifier {
 
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
+  int _userGeneration = 0;
+  int get userGeneration => _userGeneration;
+  bool get hasDevServer => _devServerUrl.isNotEmpty;
 
   /// The remembered server address, known from launch on. Unlike [baseUrl] it
   /// does not mean the server was reached.
@@ -409,6 +412,8 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    _userGeneration++;
+    notifyListeners();
     await _tokenStore.clear();
     _session = null;
     _identity = null;
@@ -431,6 +436,8 @@ class AuthController extends ChangeNotifier {
 
   /// Forgets the configured server entirely and returns to setup.
   Future<void> changeServer() async {
+    _userGeneration++;
+    notifyListeners();
     ++_connectGeneration;
     cancelSignIn();
     _savedServerUrl = null;

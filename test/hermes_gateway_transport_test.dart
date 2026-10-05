@@ -2513,6 +2513,33 @@ void main() {
   });
 
   group('follow-up turns', () {
+    test(
+      'handoff attaches an existing reply without sending or interrupting',
+      () async {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        final followed = transport
+            .followUps('stored-1', profile: 'work')
+            .toList();
+        await pumpEventQueue();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'Continued reply',
+          'status': 'complete',
+        });
+        await pumpEventQueue();
+        gateway.drop();
+        expect(
+          (await followed).whereType<ReplyCompleted>().single.text,
+          'Continued reply',
+        );
+        expect(gateway.requestOf('session.resume')['params'], {
+          'session_id': 'stored-1',
+          'profile': 'work',
+        });
+        expect(gateway.methods, isNot(contains('prompt.submit')));
+        expect(gateway.methods, isNot(contains('session.interrupt')));
+      },
+    );
+
     test('a picked-up turn can be stopped under its profile', () async {
       gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
       final followed = transport
