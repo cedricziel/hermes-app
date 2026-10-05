@@ -103,8 +103,8 @@ class HermesGatewayTransport implements ChatTransport {
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
 
-  /// The runtime session a reply is in flight in, by the thread it belongs to.
-  final _runtimeOf = <String, String>{};
+  /// The runtime session and profile of each thread's in-flight reply.
+  final _runtimeOf = <String, ({String runtimeId, String? profile})>{};
 
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <String, ModelChoice>{};
@@ -202,7 +202,8 @@ class HermesGatewayTransport implements ChatTransport {
     String storedId,
     String? profile,
   ) async {
-    final active = _runtimeOf[storedId] ?? _idle[storedId]?.runtimeId;
+    final active =
+        _runtimeOf[storedId]?.runtimeId ?? _idle[storedId]?.runtimeId;
     if (active != null) return active;
     final session = await _call(client, 'session.resume', {
       'session_id': storedId,
@@ -251,7 +252,7 @@ class HermesGatewayTransport implements ChatTransport {
       }
       _modelOf[storedId] = model;
     }
-    _beginReply(runtimeId, storedId);
+    _beginReply(runtimeId, storedId, profile: profile);
     // Buffered from here on: events can arrive before the consumer asks for
     // the next one, and the broadcast stream would drop them.
     var watch = _watch(client, runtimeId);
@@ -307,7 +308,7 @@ class HermesGatewayTransport implements ChatTransport {
         await watch.close();
         _endReply(runtimeId, storedId);
         runtimeId = next.runtimeId;
-        _beginReply(runtimeId, storedId);
+        _beginReply(runtimeId, storedId, profile: profile);
         watch = next;
       }
     } finally {
@@ -497,7 +498,7 @@ class HermesGatewayTransport implements ChatTransport {
     var watch = initial;
     var runtimeId = watch.runtimeId;
     var replying = initiallyReplying;
-    if (replying) _beginReply(runtimeId, threadId);
+    if (replying) _beginReply(runtimeId, threadId, profile: profile);
     final mine = <String>{};
     try {
       for (var attempt = 0; ; attempt++) {
@@ -508,7 +509,7 @@ class HermesGatewayTransport implements ChatTransport {
             // would create a second pending bubble with no completion.
             if (replying) continue;
             replying = true;
-            _beginReply(runtimeId, threadId);
+            _beginReply(runtimeId, threadId, profile: profile);
           }
           _track(event, runtimeId, mine, serverRequest: serverRequest);
           if (out.isClosed) return;
@@ -536,7 +537,7 @@ class HermesGatewayTransport implements ChatTransport {
         await watch.close();
         _endReply(runtimeId, threadId);
         runtimeId = next.runtimeId;
-        _beginReply(runtimeId, threadId);
+        _beginReply(runtimeId, threadId, profile: profile);
         watch = next;
       }
     } finally {
@@ -571,16 +572,18 @@ class HermesGatewayTransport implements ChatTransport {
     return _Watch(runtimeId, inbox, sources);
   }
 
-  void _beginReply(String runtimeId, String storedId) {
+  void _beginReply(String runtimeId, String storedId, {String? profile}) {
     _replying.update(runtimeId, (count) => count + 1, ifAbsent: () => 1);
-    _runtimeOf[storedId] = runtimeId;
+    _runtimeOf[storedId] = (runtimeId: runtimeId, profile: profile);
   }
 
   void _endReply(String runtimeId, String storedId) {
     _replying.update(runtimeId, (count) => count - 1);
     if (_replying[runtimeId] == 0) {
       _replying.remove(runtimeId);
-      if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+      if (_runtimeOf[storedId]?.runtimeId == runtimeId) {
+        _runtimeOf.remove(storedId);
+      }
     }
   }
 
@@ -769,8 +772,9 @@ class HermesGatewayTransport implements ChatTransport {
 
   @override
   Future<bool> stopReply(String threadId) async {
-    var runtimeId = _runtimeOf[threadId];
-    if (runtimeId == null) return false;
+    final active = _runtimeOf[threadId];
+    if (active == null) return false;
+    var runtimeId = active.runtimeId;
     var client = _connected();
     if (client == null) {
       // The listener may still be reconnecting after a dropped socket. Ask
@@ -779,6 +783,7 @@ class HermesGatewayTransport implements ChatTransport {
       client = await _client();
       final resumed = await _call(client, 'session.resume', {
         'session_id': threadId,
+        'profile': ?active.profile,
       });
       if (resumed['running'] != true) return false;
       runtimeId = resumed['session_id'] as String? ?? threadId;

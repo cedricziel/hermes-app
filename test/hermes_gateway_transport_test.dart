@@ -2826,6 +2826,45 @@ void main() {
       });
       await result;
     });
+
+    test(
+      'Stop resumes a disconnected reply under its original profile',
+      () async {
+        final first = FakeGateway()
+          ..turn = (g, sid) => g.event('message.start', sid);
+        final next = FakeGateway()
+          ..resumeResult = {'session_id': 'rt-1', 'running': true};
+        final connections = [first.channel, next.channel].iterator;
+        reattaching = HermesGatewayTransport(
+          connect: () async {
+            connections.moveNext();
+            return connections.current;
+          },
+        );
+        final started = Completer<void>();
+        late final StreamSubscription<ChatEvent> subscription;
+        subscription = reattaching.send(text: 'hi', profile: 'work').listen((
+          event,
+        ) {
+          if (event is ReplyStarted) {
+            subscription.pause();
+            started.complete();
+          }
+        });
+        await started.future;
+        first.drop();
+        await pumpEventQueue();
+
+        final stopped = await reattaching.stopReply('stored-1');
+        final resumed = next.requestOf('session.resume')['params'];
+        final canceled = subscription.cancel();
+        next.drop();
+        await canceled;
+
+        expect(stopped, isTrue);
+        expect(resumed, {'session_id': 'stored-1', 'profile': 'work'});
+      },
+    );
   });
 }
 
