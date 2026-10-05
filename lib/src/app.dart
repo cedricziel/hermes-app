@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:upgrader/upgrader.dart';
 
 import 'app_lock/app_lock_gate.dart';
+import 'handoff/handoff_controller.dart';
+import 'handoff/handoff_gate.dart';
 import 'auth/auth_controller.dart';
 import 'macos/mac_menu_bar.dart';
 import 'macos/mac_window.dart';
@@ -35,11 +37,14 @@ class HermesApp extends StatefulWidget {
 
 class _HermesAppState extends State<HermesApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  final _handoffObserver = HandoffNavigationObserver();
 
   @override
   Widget build(BuildContext context) {
+    _handoffObserver.handoff = context.read<HandoffController?>();
     return MaterialApp(
       navigatorKey: _navigatorKey,
+      navigatorObservers: [_handoffObserver],
       title: 'Hermes',
       debugShowCheckedModeBanner: false,
       theme: widget.lightTheme ?? buildHermesLightTheme(),
@@ -47,7 +52,9 @@ class _HermesAppState extends State<HermesApp> {
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
       builder: (context, child) => MacMenuBar(
         navigatorKey: _navigatorKey,
-        child: MacWindowChrome(child: AppLockGate(child: child!)),
+        child: MacWindowChrome(
+          child: AppLockGate(child: HandoffGate(child: child!)),
+        ),
       ),
       home: _RootRouter(updateChecker: widget.updateChecker),
     );
@@ -71,7 +78,9 @@ class _RootRouter extends StatelessWidget {
       case HermesConnectionState.needsServerUrl:
       case HermesConnectionState.connecting:
       case HermesConnectionState.connectionError:
-        return const ServerSetupScreen();
+        return ServerSetupScreen(
+          initialUrl: context.watch<HandoffController?>()?.setupUrl,
+        );
       case HermesConnectionState.needsLogin:
       case HermesConnectionState.signingIn:
         return const LoginScreen();

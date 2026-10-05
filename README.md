@@ -133,6 +133,21 @@ and again on any `401`. When `/api/status` reports `auth_required: false` (the
 dashboard's loopback dev mode), sign-in is skipped. The flow mirrors the one in
 Hermes Desktop; the code is in `lib/src/auth/`.
 
+## Continue a chat with Apple Handoff
+
+On iPhone, iPad, and Mac, Handoff can reopen a saved chat on another device.
+Sign into the same Apple Account on both devices, enable Wi-Fi, Bluetooth,
+and Handoff, and install Hermes on each device. Open a saved chat, then select
+Hermes from the receiving device's Handoff suggestion. Both devices must be
+able to reach the dashboard. Each device signs into Hermes independently.
+
+If the receiving device uses another dashboard, Hermes asks before connecting
+to the incoming address. Changing dashboards clears the current session and
+local queued messages. App lock still requires an unlock before continuation.
+Handoff transfers the dashboard address, profile, and chat ID. Drafts,
+attachments, queued messages, and unsaved chats remain on their source device.
+Hosted group rooms and browser continuation are not supported.
+
 ## The API client
 
 Most REST calls go through `packages/hermes_api`, a client generated from

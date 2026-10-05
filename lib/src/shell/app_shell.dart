@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
 import '../auth/auth_controller.dart';
+import '../handoff/handoff_controller.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_roster_repository.dart';
@@ -157,7 +158,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _showChat() {
     if (_current == _Destination.chat) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
-    _select(_Destination.chat);
+    _select(_Destination.chat, cancelHandoff: false);
   }
 
   Future<void> _detect() async {
@@ -198,7 +199,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  void _select(_Destination destination) {
+  void _select(_Destination destination, {bool cancelHandoff = true}) {
+    if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
     if (_current == destination) return;
     setState(() {
       _current = destination;

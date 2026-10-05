@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import 'src/app.dart';
+import 'src/handoff/handoff_controller.dart';
+import 'src/handoff/handoff_bridge.dart';
 import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
@@ -35,6 +37,10 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(
+          lazy: false,
+          create: (_) => HandoffController(HandoffBridge())..start(),
+        ),
         ChangeNotifierProvider(
           create: (_) => AuthController(
             interceptors: [?httpInterceptor],

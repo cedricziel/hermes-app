@@ -14,7 +14,8 @@ final _vpnGuide = Uri.parse(
 /// First-run screen: point the app at a `hermes dashboard` instance
 /// (e.g. `http://192.168.1.20:9119`).
 class ServerSetupScreen extends StatefulWidget {
-  const ServerSetupScreen({super.key});
+  const ServerSetupScreen({super.key, this.initialUrl});
+  final String? initialUrl;
 
   @override
   State<ServerSetupScreen> createState() => _ServerSetupScreenState();
@@ -22,9 +23,21 @@ class ServerSetupScreen extends StatefulWidget {
 
 class _ServerSetupScreenState extends State<ServerSetupScreen> {
   late final _controller = TextEditingController(
-    text: context.read<AuthController>().savedServerUrl ?? 'http://',
+    text:
+        widget.initialUrl ??
+        context.read<AuthController>().savedServerUrl ??
+        'http://',
   );
   final _formKey = GlobalKey<FormState>();
+
+  @override
+  void didUpdateWidget(ServerSetupScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialUrl != null &&
+        widget.initialUrl != oldWidget.initialUrl) {
+      _controller.text = widget.initialUrl!;
+    }
+  }
 
   @override
   void dispose() {

@@ -1,2 +1,4 @@
 #include "../../Flutter/Flutter-Debug.xcconfig"
 #include "Warnings.xcconfig"
+
+HERMES_HANDOFF_TYPE = com.cedricziel.hermesApp.continueChat.dev

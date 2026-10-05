@@ -179,7 +179,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Lists the threads of [profile], or of the sticky active profile when
   /// none is given. The dashboard does not scope sessions to that profile by
   /// itself, so it is passed on every read.
-  Future<void> loadThreads([String? profile]) async {
+  Future<void> loadThreads([String? profile]) => _loadThreads(profile);
+
+  Future<void> _loadThreads(String? profile, {bool Function()? valid}) async {
     final generation = ++_loadGeneration;
     _loadingThreads = true;
     _threadsFailed = false;
@@ -193,6 +195,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         launched = null;
       }
       if (disposed || generation != _loadGeneration) return;
+      if (valid?.call() == false) {
+        _loadingThreads = false;
+        notifyListeners();
+        return;
+      }
       final held = _pendingTap;
       final fetchHeld = held != null && _pendingFetch;
       final launch = held ?? launched;
@@ -440,6 +447,67 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } on Object {
       if (!disposed) report(_couldNotOpenChat);
     }
+  }
+
+  Future<bool> restoreHandoff(
+    NotificationTarget target,
+    bool Function() valid,
+  ) async {
+    final repository = this.repository;
+    final profile = target.profile;
+    if (repository == null || profile == null || !valid()) return false;
+    final generation = ++_openGeneration;
+    bool current() => !disposed && generation == _openGeneration && valid();
+    final active = _profile == profile
+        ? _threads.where((t) => t.id == target.threadId).firstOrNull
+        : null;
+    if (active?.isReplying == true) {
+      _selectedId = active!.id;
+      notifyListeners();
+      onOpened?.call();
+      return true;
+    }
+
+    if (profiles != null &&
+        !(await profiles!.list()).any((p) => p.name == profile)) {
+      return false;
+    }
+    if (!current()) return false;
+    final thread = await repository.loadThread(
+      target.threadId,
+      profile: profile,
+    );
+    if (thread == null || !current()) return false;
+    final page = await repository.loadMessagePage(
+      target.threadId,
+      profile: profile,
+    );
+    if (!current()) return false;
+    if (_profile != profile || _loadingThreads) {
+      await _loadThreads(profile, valid: current);
+    }
+    if (current() && _threadsFailed) {
+      throw StateError('Could not load the profile');
+    }
+    if (!current() || _profile != profile || _threadsFailed) return false;
+    final existing = _threads.where((t) => t.id == target.threadId).firstOrNull;
+    final selected = existing ?? thread;
+    if (existing == null) {
+      _threads.insert(0, selected);
+      _bound.add(selected);
+    }
+    selected.messages
+      ..clear()
+      ..addAll(page.messages);
+    _unloaded.remove(selected.id);
+    if (page.hasMore) _olderRows[selected.id] = page.rows;
+    _selectedId = selected.id;
+    await controllerFor(selected).setMessages(chatThreadToFlyer(selected));
+    if (!current()) return false;
+    notifyListeners();
+    _pickUp(selected);
+    onOpened?.call();
+    return true;
   }
 
   Future<void> openBot(BotChatContext context) async {
