@@ -633,6 +633,24 @@ void main() {
       ]);
     });
 
+    test('renders attributed tool-call prose once before the call', () async {
+      final messages = await load([
+        {
+          ...messageRow(
+            id: 1,
+            role: 'assistant',
+            content: 'Stored tool preface',
+            toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+          ),
+          'display_metadata': {'display_text': 'Writer: attributed preface'},
+        },
+      ]);
+
+      final message = messages.single;
+      expect(message.sealedProse.single.text, 'Writer: attributed preface');
+      expect(message.displayText, isNull);
+    });
+
     test('puts a tool result row on the call it answers', () async {
       final messages = await load([
         messageRow(

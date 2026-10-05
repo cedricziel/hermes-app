@@ -313,14 +313,17 @@ class HermesChatRepository {
       // A turn's text was written before the calls it made, so it renders
       // ahead of them, as it did live.
       final before = role == ChatRole.assistant && toolCalls.isNotEmpty;
+      final prose = displayText?.trim().isNotEmpty == true
+          ? displayText!
+          : stored.text;
       messages.add(
         ChatMessage(
           id: '$sessionId-${row['id']}',
           role: role,
           content: before ? '' : stored.text,
-          displayText: displayText,
-          sealedProse: before && stored.text.trim().isNotEmpty
-              ? [SealedProse(stored.text, beforeToolCall: 0)]
+          displayText: before ? null : displayText,
+          sealedProse: before && prose.trim().isNotEmpty
+              ? [SealedProse(prose, beforeToolCall: 0)]
               : const [],
           createdAt: _time(row['timestamp']),
           toolCalls: toolCalls,

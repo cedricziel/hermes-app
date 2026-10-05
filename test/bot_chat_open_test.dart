@@ -167,4 +167,29 @@ void main() {
       expect(transport.sends.last.profile, 'research');
     },
   );
+  test('a failed tip lookup reports completed compaction accurately', () async {
+    chat.dispose();
+    final reports = <String>[];
+    final attention = AttentionNotifier(
+      service: null,
+      settings: null,
+      onOpen: (_) {},
+    );
+    addTearDown(attention.dispose);
+    chat = ChatController(
+      repository: HermesChatRepository(server.client().raw),
+      transport: transport,
+      botChats: BotModeChatRepository((_, _) async {
+        throw StateError('lookup unavailable');
+      }),
+      attention: attention,
+      report: reports.add,
+    );
+    await chat.openBot(context('research', 'alpha'));
+
+    expect(await chat.runSlashCommand('/reset'), isTrue);
+    expect(transport.slashRuns, ['/compress']);
+    expect(reports.single, contains('compacted'));
+    expect(reports.single, isNot(contains('Could not run')));
+  });
 }

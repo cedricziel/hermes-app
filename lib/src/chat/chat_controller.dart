@@ -695,7 +695,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       _bound.add(thread);
       if (compacting && botChats != null) {
-        final canonical = await botChats!.open(bot.bot);
+        final BotModeChat canonical;
+        try {
+          canonical = await botChats!.open(bot.bot);
+        } on Object {
+          if (!disposed) {
+            report('Bot Chat was compacted. Reopen the bot to continue.');
+          }
+          return true;
+        }
         if (disposed || _profile != profile) return true;
         if (canonical.storedId != thread.id) {
           _retargetBoundThread(thread, canonical.storedId);
