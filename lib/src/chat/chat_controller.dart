@@ -698,7 +698,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         final canonical = await botChats!.open(bot.bot);
         if (disposed || _profile != profile) return true;
         if (canonical.storedId != thread.id) {
-          _bindThread(thread, canonical.storedId);
+          _retargetBoundThread(thread, canonical.storedId);
         }
         thread.botContext = bot.withStoredId(canonical.storedId);
         await _refreshAfterSlash(thread, profile);
@@ -1120,6 +1120,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _bound.add(thread);
     notifyListeners();
     if (controller != null) _chatControllers[id] = controller;
+  }
+
+  void _retargetBoundThread(ChatThread thread, String id) {
+    if (thread.id == id) return;
+    final previousId = thread.id;
+    final controller = _chatControllers.remove(previousId);
+    if (_selectedId == previousId) _selectedId = id;
+    _unloaded.remove(previousId);
+    _olderRows.remove(previousId);
+    thread.id = id;
+    if (controller != null) _chatControllers[id] = controller;
+    notifyListeners();
   }
 
   void _updateReply(

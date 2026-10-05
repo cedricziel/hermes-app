@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:hermes_app/src/bot_mode/bot_chat_context.dart';
+import 'package:hermes_app/src/bot_mode/bot_mode_chat_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -118,6 +119,52 @@ void main() {
       chat.newThread();
       expect(chat.selectedThread!.botContext, isNull);
       expect(chat.selectedThread!.remote, isFalse);
+    },
+  );
+  test(
+    'compaction follows the stored tip for history and later sends',
+    () async {
+      chat.dispose();
+      server.on(
+        'GET',
+        '/api/sessions/alpha-tip/messages',
+        messageListBody('alpha-tip', []),
+      );
+      final attention = AttentionNotifier(
+        service: null,
+        settings: null,
+        onOpen: (_) {},
+      );
+      addTearDown(attention.dispose);
+      chat = ChatController(
+        repository: HermesChatRepository(server.client().raw),
+        transport: transport,
+        botChats: BotModeChatRepository((method, _) async {
+          expect(method, 'session.list');
+          return {
+            'sessions': [
+              {'id': 'alpha', 'title': 'Bot Chat', 'resolved_id': 'alpha-tip'},
+            ],
+          };
+        }),
+        attention: attention,
+        report: (_) {},
+      );
+      await chat.openBot(context('research', 'alpha'));
+
+      await chat.runSlashCommand('/new');
+
+      expect(chat.selectedId, 'alpha-tip');
+      expect(chat.selectedThread!.id, 'alpha-tip');
+      expect(chat.selectedThread!.botContext!.rootId, 'alpha');
+      expect(chat.selectedThread!.botContext!.storedId, 'alpha-tip');
+      expect(
+        server.requestsTo('GET', '/api/sessions/alpha-tip/messages'),
+        isNotEmpty,
+      );
+      chat.submit('Next question', const []);
+      expect(transport.sends.last.threadId, 'alpha-tip');
+      expect(transport.sends.last.profile, 'research');
     },
   );
 }
