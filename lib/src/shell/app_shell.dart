@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
@@ -93,12 +94,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _profiles = repositories?.profiles;
     final auth = _maybeRead<AuthController>();
     if (repositories != null && auth?.baseUrl != null) {
+      final telemetry = _maybeRead<MessagingConnectionTracer>();
       _gateway = HermesGatewayTransport(
         connect: hermesGatewayConnect(
           baseUrl: auth!.baseUrl!,
           authRequired: auth.status?.authRequired ?? true,
           api: repositories.api,
+          telemetry: telemetry,
         ),
+        telemetry: telemetry,
       );
       _botsRepository = BotModeRosterRepository(
         _gateway!.request,
