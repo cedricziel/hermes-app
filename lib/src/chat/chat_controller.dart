@@ -865,12 +865,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   Future<void> stopReply(ChatThread thread) async {
+    final pending = [
+      for (final reply in thread.messages)
+        if (reply.isPending) reply,
+    ];
     try {
       final stopped = await transport?.stopReply(thread.id);
-      if (disposed || stopped != false || !thread.isReplying) return;
+      if (disposed || stopped != false) return;
       // The server has no turn left to interrupt. A completion was missed by
       // this listener, so release the stale pending reply and composer.
-      for (final reply in thread.messages.where((m) => m.isPending).toList()) {
+      for (final reply in pending.where((reply) => reply.isPending)) {
         _updateReply(
           thread,
           reply,
