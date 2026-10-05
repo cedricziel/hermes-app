@@ -6,7 +6,7 @@ description: Use when adding or changing a workflow test (test/workflows/), when
 # Workflow tests with screenshots
 
 `test/workflows/*_workflow_test.dart` walk a user flow through the real widgets
-(onboarding, chat, kanban, skills/bots/settings) and write a numbered PNG at
+(onboarding, chat, kanban, skills/messaging/settings) and write a numbered PNG at
 each step to `build/workflow_screenshots/<flow>/NN-name.png` (`WORKFLOW_SHOTS_DIR`
 overrides it; CI uploads it as the `workflow-screenshots` artifact). They run
 with plain `flutter test`, on phone (`phoneSize`) and desktop (`desktopSize`),

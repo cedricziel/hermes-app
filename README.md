@@ -8,7 +8,8 @@ Android.
 
 - Chat with history, streaming replies, tool calls, and approval and question
   requests from the agent
-- A thread list with pinning, archive and delete, plus profiles and bots
+- A thread list with pinning, archive and delete, plus profiles and messaging connections
+- Bot Mode specialists with profile-backed identities, a canonical chat for each bot, and hosted group rooms on compatible Hermes dashboards
 - A Kanban board, when the server has the Kanban plugin on
 - Notifications when a reply finishes or the agent needs you
 - A share extension on iOS and a share inbox on macOS, and an Apple Watch
