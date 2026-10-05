@@ -164,6 +164,160 @@ void main() {
     },
   );
 
+  for (final rotation in [
+    (gateway: 'gateway', epoch: 2),
+    (gateway: 'replacement-gateway', epoch: 1),
+  ]) {
+    test(
+      'authority ${rotation.gateway}/${rotation.epoch} recovers history and an ambiguous send',
+      () async {
+        var gateway = 'gateway';
+        var epoch = 1;
+        var failLog = false;
+        String? operationId;
+        var sends = 0;
+        final cursors = <int>[];
+        final repo = HermesGroupsRepository((method, params) async {
+          if (method == 'groups.capabilities') return fixtures.capabilities();
+          if (method == 'groups.state') {
+            return {
+              'room': {
+                ...fixtures.room(),
+                'authority_gateway_id': gateway,
+                'authority_epoch': epoch,
+              },
+            };
+          }
+          if (method == 'groups.send') {
+            sends++;
+            operationId = params['event_id'] as String;
+            throw const GatewayConnectionClosed();
+          }
+          if (method == 'groups.log') {
+            if (failLog) throw const GatewayConnectionClosed();
+            cursors.add(params['since_seq'] as int);
+            return {
+              ...fixtures.page([
+                fixtures.event(1),
+                if (operationId != null)
+                  fixtures.event(2, id: serverUserEventId(operationId!)),
+              ], operationId == null ? 1 : 2),
+              'authority': {'gateway_id': gateway, 'epoch': epoch},
+            };
+          }
+          throw StateError(method);
+        }, interactionContractVerified: true);
+        final controller = GroupRoomController(
+          repo,
+          GroupRoom.fromJson(fixtures.room()),
+        );
+        addTearDown(controller.dispose);
+        await controller.refresh();
+        controller.draft = 'Keep this message';
+        failLog = true;
+        await controller.send();
+        expect(controller.canRetrySend, isTrue);
+
+        gateway = rotation.gateway;
+        epoch = rotation.epoch;
+        failLog = false;
+        await controller.refresh();
+        await controller.send(retry: true);
+
+        expect(controller.failure, isNull);
+        expect(controller.room.authorityGatewayId, rotation.gateway);
+        expect(controller.room.authorityEpoch, rotation.epoch);
+        expect(cursors.take(2), [0, 0]);
+        expect(controller.events.map((event) => event.eventId), [
+          'event-1',
+          serverUserEventId(operationId!),
+        ]);
+        expect(controller.canRetrySend, isFalse);
+        expect(controller.draft, isEmpty);
+        expect(sends, 1);
+      },
+    );
+  }
+
+  test(
+    'topic labels follow first-seen order after replay and rotation',
+    () async {
+      var epoch = 1;
+      var log = [
+        {
+          ...fixtures.event(1),
+          'payload': {'thread_id': 'second'},
+        },
+        {
+          ...fixtures.event(2),
+          'payload': {'thread_id': 'first'},
+        },
+        {
+          ...fixtures.event(3),
+          'payload': {'thread_id': 'second'},
+        },
+      ];
+      final repo = HermesGroupsRepository((method, params) async {
+        if (method == 'groups.capabilities') return fixtures.capabilities();
+        if (method == 'groups.state') {
+          return {
+            'room': {...fixtures.room(), 'authority_epoch': epoch},
+          };
+        }
+        if (method == 'groups.log') {
+          return {
+            ...fixtures.page(log, log.length),
+            'latest_seq': log.length,
+            'authority': {'gateway_id': 'gateway', 'epoch': epoch},
+          };
+        }
+        throw StateError(method);
+      });
+      final controller = GroupRoomController(
+        repo,
+        GroupRoom.fromJson(fixtures.room()),
+      );
+      addTearDown(controller.dispose);
+      await controller.refresh();
+      expect(controller.labelForThread('second'), 'Topic 1');
+      expect(controller.labelForThread('first'), 'Topic 2');
+      expect(controller.labelForThread('new'), 'New topic');
+
+      log.add({
+        ...fixtures.event(4),
+        'payload': {'thread_id': 'new'},
+      });
+      await controller.refresh();
+      expect(controller.labelForThread('second'), 'Topic 1');
+      expect(controller.labelForThread('new'), 'Topic 3');
+
+      epoch = 2;
+      log = [
+        {
+          ...fixtures.event(1),
+          'payload': {'thread_id': 'first'},
+        },
+        {
+          ...fixtures.event(2),
+          'payload': {'thread_id': 'second'},
+        },
+        {
+          ...fixtures.event(3),
+          'payload': {'thread_id': 'new'},
+        },
+        {
+          ...fixtures.event(4),
+          'payload': {'thread_id': 'first'},
+        },
+      ];
+      await controller.refresh();
+      expect(controller.failure, isNull);
+      expect(controller.labelForThread('first'), 'Topic 1');
+      expect(controller.labelForThread('second'), 'Topic 2');
+      expect(controller.labelForThread('new'), 'Topic 3');
+    },
+  );
+
   test(
     'stale approval is discarded and cannot be sent after state refresh',
     () async {

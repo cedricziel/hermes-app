@@ -58,9 +58,10 @@ class GroupFailure {
 /// every member turn. Reconnection only replays and never resubmits a prompt.
 class GroupRoomController extends ChangeNotifier {
   GroupRoomController(this.repository, this.room)
-    : replay = GroupReplay(repository, room);
+    : _replay = GroupReplay(repository, room);
   final HermesGroupsRepository repository;
-  final GroupReplay replay;
+  GroupReplay _replay;
+  GroupReplay get replay => _replay;
   GroupRoom room;
   GroupState? state;
   GroupFailure? failure;
@@ -75,6 +76,9 @@ class GroupRoomController extends ChangeNotifier {
   bool _refreshAgain = false;
   String _draft = '', _threadId = groupOperationId();
   GroupSendOperation? _send;
+  GroupReplay? _topicReplay;
+  int _topicCursor = -1;
+  final _topicLabels = <String, String>{};
   List<GroupEvent> get events => replay.events;
   String get draft => _draft;
   set draft(String value) {
@@ -84,13 +88,21 @@ class GroupRoomController extends ChangeNotifier {
 
   String get threadId => _threadId;
   String labelForThread(String id) {
-    final ids = events
-        .map((event) => event.payload['thread_id'])
-        .whereType<String>()
-        .toSet()
-        .toList();
-    final index = ids.indexOf(id);
-    return index < 0 ? 'New topic' : 'Topic ${index + 1}';
+    if (_topicReplay != replay || _topicCursor != replay.cursor) {
+      _topicLabels.clear();
+      for (final event in events) {
+        final thread = event.payload['thread_id'];
+        if (thread is String) {
+          _topicLabels.putIfAbsent(
+            thread,
+            () => 'Topic ${_topicLabels.length + 1}',
+          );
+        }
+      }
+      _topicReplay = replay;
+      _topicCursor = replay.cursor;
+    }
+    return _topicLabels[id] ?? 'New topic';
   }
 
   String get discussionLabel => labelForThread(_threadId);
@@ -188,8 +200,27 @@ class GroupRoomController extends ChangeNotifier {
         _tombstone();
         return;
       }
-      await replay.refresh();
+      final authorityChanged =
+          latest.room.authorityGatewayId != replay.room.authorityGatewayId ||
+          latest.room.authorityEpoch != replay.room.authorityEpoch;
+      final latestReplay = authorityChanged
+          ? GroupReplay(repository, latest.room)
+          : replay;
+      if (authorityChanged) replay.invalidate();
+      await latestReplay.refresh();
       if (_disposed || generation != _generation || disbanded) return;
+      if (authorityChanged) {
+        _replay = latestReplay;
+        final operation = _send;
+        if (operation != null) {
+          _send = GroupSendOperation(
+            replay,
+            text: operation.text,
+            threadId: operation.threadId,
+            operationId: operation.operationId,
+          )..accepted = operation.accepted;
+        }
+      }
       room = latest.room;
       state = latest;
       if (events.any((event) => event.kind == 'room.disbanded')) {
