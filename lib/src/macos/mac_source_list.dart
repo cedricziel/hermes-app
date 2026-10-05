@@ -140,9 +140,11 @@ class MacSidebarSectionHeader extends StatefulWidget {
     required this.label,
     required this.collapsed,
     required this.onToggle,
+    this.count,
   });
 
   final String label;
+  final int? count;
   final bool collapsed;
   final VoidCallback onToggle;
 
@@ -179,6 +181,14 @@ class _MacSidebarSectionHeaderState extends State<MacSidebarSectionHeader> {
                     style: macSectionHeaderStyle(context),
                   ),
                 ),
+                if (widget.count != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '${widget.count}',
+                    style: macSectionHeaderStyle(context),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 Opacity(
                   opacity: _hovered ? 1 : 0,
                   child: AnimatedRotation(

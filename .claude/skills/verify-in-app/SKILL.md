@@ -119,6 +119,18 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
 
 ## Driving the window
 
+When `cua_repl` is available, use it for native UI actions and screenshots.
+Bind the exact app path under this checkout's
+`build/macos/Build/Products/Debug/Hermes.app`; the installed app can share its
+name and bundle ID. Read the accessibility tree after each action before
+reusing element indices. Check that the account row shows the throwaway
+server URL before interacting.
+
+If the terminal accessibility helper reports `NOT_TRUSTED`, use `cua_repl`
+instead of changing system permissions. For hot reload after an attached
+runner loses stdin, use `flutter attach -d macos --debug-url=<VM service URL>`
+in a persistent terminal with the same `HERMES_SERVER_URL` build flag.
+
 Try the accessibility tree first: it presses buttons, tabs, list rows and
 dialog actions by name, without moving the pointer or taking focus, so it
 works while the user keeps using the machine. Fall back to the mouse and

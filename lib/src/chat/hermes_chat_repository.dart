@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import 'chat_models.dart';
+import 'thread_sections.dart';
 import 'stored_content.dart';
 import 'tool_result.dart';
 
@@ -183,6 +184,7 @@ class HermesChatRepository {
       title: _title(row),
       updatedAt: _time(row['last_active'] ?? row['started_at']),
       pinned: row['pinned'] == true,
+      folderPath: sessionFolderPath(row),
       remote: true,
     );
   }
