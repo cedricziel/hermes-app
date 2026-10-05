@@ -88,7 +88,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
             id: '${m.id}-sealed-$place',
             authorId: authorId,
             createdAt: createdAt,
-            text: decodeMarkdownEntities(m.sealedProse[place].text),
+            text: normalizeMarkdown(m.sealedProse[place].text),
           ),
       ],
     ];
@@ -145,7 +145,9 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         id: m.id,
         authorId: authorId,
         createdAt: createdAt,
-        text: media.text,
+        text: m.role == ChatRole.user
+            ? media.text
+            : insertTableBlankLines(media.text),
         metadata: switch (m.status) {
           MessageStatus.error => {kMetaError: m.error ?? kReplyFailedMessage},
           MessageStatus.streaming => {kMetaStreaming: true},
