@@ -105,6 +105,105 @@ class ToolCall {
       copyWith(status: status, result: result);
 }
 
+/// Where a delegated subagent stands, mirroring the gateway's
+/// `SubagentStatus`: [failed] covers `failed`, `error` and `timeout`; the
+/// rest are terminal except [running] (and its spawn-accepted start).
+enum SubagentStatus { running, completed, failed, interrupted }
+
+/// One delegated subagent of a reply, as the gateway's `subagent.*` events
+/// relay it. [parentId], [depth] and [index] rebuild the spawn tree: an
+/// unknown or missing [parentId] makes a top-level spawn of the reply.
+class Subagent {
+  const Subagent({
+    required this.id,
+    required this.goal,
+    this.parentId,
+    this.depth = 0,
+    this.index = 0,
+    this.count = 1,
+    this.status = SubagentStatus.running,
+    this.toolCount,
+    this.lastTool,
+    this.lastToolPreview,
+    this.summary,
+    this.duration,
+    this.model,
+    this.childSessionId,
+    this.startedAt,
+  });
+
+  /// The gateway's id for the child; stable across its events.
+  final String id;
+
+  /// What the child was asked to do — its card's headline.
+  final String goal;
+
+  /// The parent's id, when this child was itself delegated by a subagent.
+  final String? parentId;
+
+  /// Nesting depth (0 = a spawn of the reply) and where in the parent's
+  /// batch this child sits, for a stable render order.
+  final int depth;
+  final int index;
+
+  /// How many children [parentId]'s batch asked for in total.
+  final int count;
+
+  final SubagentStatus status;
+
+  final int? toolCount;
+
+  /// The last tool the child started, and the preview of what it is (or was)
+  /// working on — its card's live activity line.
+  final String? lastTool;
+  final String? lastToolPreview;
+
+  /// What the child delivered, once it finished.
+  final String? summary;
+
+  final Duration? duration;
+
+  final String? model;
+
+  final String? childSessionId;
+
+  /// When the child started running, for its elapsed time while it runs.
+  final DateTime? startedAt;
+
+  Subagent copyWith({
+    String? parentId,
+    String? goal,
+    int? depth,
+    int? index,
+    int? count,
+    SubagentStatus? status,
+    int? toolCount,
+    String? lastTool,
+    String? lastToolPreview,
+    String? summary,
+    Duration? duration,
+    String? model,
+    String? childSessionId,
+    DateTime? startedAt,
+  }) => Subagent(
+    id: id,
+    goal: goal?.isEmpty != true ? (goal ?? this.goal) : this.goal,
+    parentId: parentId ?? this.parentId,
+    depth: depth ?? this.depth,
+    index: index ?? this.index,
+    count: count == null || count == 0 ? this.count : count,
+    status: status ?? this.status,
+    toolCount: toolCount ?? this.toolCount,
+    lastTool: lastTool ?? this.lastTool,
+    lastToolPreview: lastToolPreview ?? this.lastToolPreview,
+    summary: summary ?? this.summary,
+    duration: duration ?? this.duration,
+    model: model ?? this.model,
+    childSessionId: childSessionId ?? this.childSessionId,
+    startedAt: startedAt ?? this.startedAt,
+  );
+}
+
 enum InputRequestStatus { pending, answered, expired }
 
 /// Something the agent asked the user mid-turn and is waiting on.
@@ -240,6 +339,78 @@ final class ClarifyRequest extends InputRequest {
   );
 }
 
+/// Which masked vault prompt Hermes raised.
+enum VaultKind { saveLogin, unlock, code }
+
+/// The agent asks the user, through a masked prompt this app renders itself,
+/// for a credential the conversation must never see: a login to save for a
+/// site, an external password manager's master password, or a one-time code.
+final class VaultRequest extends InputRequest {
+  const VaultRequest({
+    required super.requestId,
+    required this.kind,
+    this.origin = '',
+    this.site = '',
+    this.backend = '',
+    this.displayName = '',
+    this.hint = '',
+    super.status,
+    this.identifier = '',
+    this.provided = false,
+  });
+
+  final VaultKind kind;
+
+  /// The page the login is saved for; empty for the other kinds.
+  final String origin;
+
+  /// The site the prompt names the user by: the host of [origin] for a
+  /// save-login, the code's site for a one-time code.
+  final String site;
+
+  /// The password manager to unlock, and its display name; empty for the
+  /// other kinds.
+  final String backend;
+  final String displayName;
+  final String hint;
+
+  /// The identifier the user gave, once answered — a username or email, not
+  /// itself a secret. The password and the one-time code live only in the
+  /// answer frame; the card keeps whether one was sent.
+  final String identifier;
+
+  /// Whether the user submitted a value, as opposed to declining. [withStatus]
+  /// keeps it, so a declined card stays declined when it expires late.
+  final bool provided;
+
+  VaultRequest answered({String? identifier, bool? provided}) => VaultRequest(
+    requestId: requestId,
+    kind: kind,
+    origin: origin,
+    site: site,
+    backend: backend,
+    displayName: displayName,
+    hint: hint,
+    status: InputRequestStatus.answered,
+    identifier: identifier ?? this.identifier,
+    provided: provided ?? true,
+  );
+
+  @override
+  VaultRequest withStatus(InputRequestStatus status) => VaultRequest(
+    requestId: requestId,
+    kind: kind,
+    origin: origin,
+    site: site,
+    backend: backend,
+    displayName: displayName,
+    hint: hint,
+    status: status,
+    identifier: identifier,
+    provided: provided,
+  );
+}
+
 enum UnsupportedKind { secret, sudo }
 
 /// The agent asked for something this app cannot ask the user for yet, such
@@ -317,6 +488,7 @@ class ChatMessage {
     required this.id,
     required this.role,
     required this.content,
+    this.submittedText,
     required this.createdAt,
     this.status = MessageStatus.sent,
     this.toolCalls = const [],
@@ -325,6 +497,7 @@ class ChatMessage {
     this.attachments = const [],
     this.reasoning = '',
     this.sealedProse = const [],
+    this.subagents = const [],
     this.error,
   });
 
@@ -334,6 +507,9 @@ class ChatMessage {
   /// The text still being written: everything since the last [sealedProse]
   /// entry, or the whole reply when it never wrote text before a tool call.
   String content;
+
+  /// The prompt sent to Hermes when [content] is a display-only command label.
+  final String? submittedText;
 
   /// What the model reasoned after its last tool call, before answering, when
   /// the gateway shares it. Earlier reasoning belongs to [toolCalls].
@@ -346,6 +522,11 @@ class ChatMessage {
   bool stopped = false;
   List<ToolCall> toolCalls;
   List<InputRequest> inputRequests;
+
+  /// The delegated subagents of this reply, in the order they spawned. The
+  /// gateway relays their lifecycle as `subagent.*` events on the reply's
+  /// session; read-from-history replies do not carry them yet.
+  List<Subagent> subagents;
 
   /// Where each of [inputRequests] arrived, by request id, so its card
   /// renders after the call that asked and before whatever followed. A

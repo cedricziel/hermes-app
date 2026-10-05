@@ -77,6 +77,17 @@ void main() {
       expect((out.single as TextMessage).text, 'What is &lt;?');
     });
 
+    test('decodes assistant entities once before separating a table', () {
+      final out = chatMessageToFlyer(
+        message(content: 'A &amp;lt; B\n| a | b |\n|---|---|'),
+      );
+
+      expect(
+        (out.single as TextMessage).text,
+        'A &lt; B\n\n| a | b |\n|---|---|',
+      );
+    });
+
     test('puts the reasoning that led to a call before it', () {
       final out = chatMessageToFlyer(
         message(

@@ -15,9 +15,12 @@ import '../chat_models.dart'
         ApprovalRequest,
         ChatAttachment,
         ClarifyRequest,
+        Subagent,
         ToolCall,
         UnsupportedKind,
-        UnsupportedRequest;
+        UnsupportedRequest,
+        VaultKind,
+        VaultRequest;
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
@@ -27,9 +30,11 @@ import '../starter_prompts.dart';
 import 'reasoning_block.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
+import 'subagent_card.dart';
 import 'thinking_indicator.dart';
 import 'tool_call_group.dart';
 import 'unsupported_request_card.dart';
+import 'vault_request_card.dart';
 import 'welcome_view.dart';
 
 /// The widest the messages and the composer grow; a wider window centers the
@@ -72,6 +77,14 @@ Builders buildChatBuilders({
   onAnswerClarify,
   Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported,
+  Future<void> Function(
+    String requestId,
+    VaultKind kind, {
+    String identifier,
+    String password,
+    String code,
+  })?
+  onAnswerVault,
   LinkOpener? openLink,
 }) {
   final onLinkTap = markdownLinkHandler(open: openLink);
@@ -115,6 +128,7 @@ Builders buildChatBuilders({
               onAnswerApproval: onAnswerApproval,
               onAnswerClarify: onAnswerClarify,
               onSkipUnsupported: onSkipUnsupported,
+              onAnswerVault: onAnswerVault,
             ),
     chatMessageBuilder:
         (
@@ -224,6 +238,14 @@ Widget _buildCustom(
   onAnswerClarify,
   Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported,
+  Future<void> Function(
+    String requestId,
+    VaultKind kind, {
+    String identifier,
+    String password,
+    String code,
+  })?
+  onAnswerVault,
 }) {
   final metadata = message.metadata;
   switch (metadata?[kMetaKind]) {
@@ -234,6 +256,10 @@ Widget _buildCustom(
             metadata[kMetaToolApprovals] as Map<int, ApprovalRequest>? ??
             const {},
         onAnswerApproval: onAnswerApproval,
+      );
+    case kKindSubagents:
+      return SubagentGroupCard(
+        subagents: metadata![kMetaSubagents] as List<Subagent>,
       );
     case kKindReasoning:
       return ReasoningBlock(
@@ -264,6 +290,21 @@ Widget _buildCustom(
           onSkip: onSkipUnsupported == null
               ? null
               : () => onSkipUnsupported(request.requestId, request.kind),
+        ),
+        VaultRequest request => VaultRequestCard(
+          request: request,
+          onAnswer: onAnswerVault == null
+              ? null
+              : (identifier, password, code) => onAnswerVault(
+                  request.requestId,
+                  request.kind,
+                  identifier: identifier,
+                  password: password,
+                  code: code,
+                ),
+          onSkip: onAnswerVault == null
+              ? null
+              : () => onAnswerVault(request.requestId, request.kind),
         ),
         _ => const SizedBox.shrink(),
       };

@@ -49,6 +49,7 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'queued_prompt.dart';
+import 'slash_command.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
@@ -133,6 +134,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
   final _composerController = TextEditingController();
+  List<SlashCommand> _slashCommands = const [];
+  String? _slashContext;
+  int _slashFetchGeneration = 0;
+  bool _slashSending = false;
+  final _composerFocus = FocusNode();
   final List<SharedFile> _attachments = [];
   late final AttachmentSource _attachmentSource;
   late final ShareController _share;
@@ -199,7 +205,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
       onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
+      onPrefill: (draft) => _composerController.value = TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      ),
     )..addListener(_changed);
+    _composerController.addListener(_onComposerText);
     if (_chat.repository != null) _chat.loadThreads();
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
@@ -209,7 +220,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _changed() {
     if (!mounted) return;
     setState(() {});
+    _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
+  }
+
+  void _onComposerText() {
+    if (!_composerController.text.startsWith('/')) {
+      _slashContext = null;
+      _slashFetchGeneration++;
+      return;
+    }
+    final contextKey = '${_chat.profile}\u0000${_chat.selectedId}';
+    if (_slashContext == contextKey) return;
+    _slashContext = contextKey;
+    final generation = ++_slashFetchGeneration;
+    setState(() => _slashCommands = const []);
+    _chat
+        .slashCommands()
+        .then((commands) {
+          if (mounted &&
+              _slashContext == contextKey &&
+              _slashFetchGeneration == generation) {
+            setState(() => _slashCommands = commands);
+          }
+        })
+        .catchError((Object _) {
+          if (mounted &&
+              _slashContext == contextKey &&
+              _slashFetchGeneration == generation) {
+            setState(() => _slashCommands = const []);
+          }
+        });
   }
 
   bool get _showsWelcome => _chat.selectedThread?.messages.isEmpty ?? true;
@@ -288,7 +329,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..removeListener(_changed)
       ..dispose();
     _ownedTransport?.close();
+    _composerController.removeListener(_onComposerText);
     _composerController.dispose();
+    _composerFocus.dispose();
     _latestReplyId.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -297,6 +340,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _newThread() {
     _chat.newThread();
     _closeDrawerIfNarrow();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _composerFocus.requestFocus();
+    });
   }
 
   /// Opens the toolbar search of a Mac window and puts the cursor in it. A
@@ -515,14 +561,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// The package composer reports attachments-only sends as an empty [text].
   void _send(String text) {
+    if (_slashSending) return;
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;
+    if (typed.startsWith('/')) {
+      if (files.isNotEmpty) {
+        _showMessage('Remove attachments before running a slash command.');
+        return;
+      }
+      unawaited(_sendSlash(typed));
+      return;
+    }
     if (!_chat.submit(typed, files)) return;
     setState(() {
       _composerController.clear();
       _attachments.clear();
     });
+  }
+
+  Future<void> _sendSlash(String command) async {
+    if (_slashSending) return;
+    setState(() => _slashSending = true);
+    try {
+      if (!await _chat.runSlashCommand(command) || !mounted) return;
+      if (_composerController.text.trim() == command) {
+        _composerController.clear();
+      }
+    } finally {
+      _slashSending = false;
+      if (mounted) setState(() {});
+    }
   }
 
   /// The notifier changes after the frame: the action bars listening to it
@@ -609,12 +678,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           thread: selected,
           chatController: chat.controllerFor(selected),
           composerController: _composerController,
+          composerFocus: _composerFocus,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,
           onRemoveAttachment: (file) =>
               setState(() => _attachments.remove(file)),
           onSend: _send,
+          slashCommands: _slashCommands,
+          commandRunning: _slashSending,
           starterPrompts: _showsWelcome ? _starterPrompts() : null,
           onPickStarter: _pickStarter,
           latestReplyId: _latestReplyId,
@@ -667,6 +739,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onSkipUnsupported: selected == null
               ? null
               : (id, kind) => chat.skipUnsupported(selected, id, kind),
+          onAnswerVault: selected == null
+              ? null
+              : (id, kind, {identifier = '', password = '', code = ''}) =>
+                    chat.answerVaultRequest(
+                      selected,
+                      id,
+                      kind,
+                      identifier: identifier,
+                      password: password,
+                      code: code,
+                    ),
           onStop: selected == null || chat.transport == null
               ? null
               : () => chat.stopReply(selected),
@@ -730,11 +813,14 @@ class _ThreadView extends StatelessWidget {
     required this.thread,
     required this.chatController,
     required this.composerController,
+    required this.composerFocus,
     required this.attachments,
     required this.attachmentSource,
     required this.onAddAttachments,
     required this.onRemoveAttachment,
     required this.onSend,
+    this.slashCommands = const [],
+    this.commandRunning = false,
     this.starterPrompts,
     required this.onPickStarter,
     required this.latestReplyId,
@@ -745,6 +831,7 @@ class _ThreadView extends StatelessWidget {
     this.onAnswerApproval,
     this.onAnswerClarify,
     this.onSkipUnsupported,
+    this.onAnswerVault,
     this.onStop,
     this.queued = const [],
     this.onRemoveQueued,
@@ -754,11 +841,14 @@ class _ThreadView extends StatelessWidget {
   final ChatThread? thread;
   final InMemoryChatController chatController;
   final TextEditingController composerController;
+  final FocusNode composerFocus;
   final List<SharedFile> attachments;
   final AttachmentSource attachmentSource;
   final ValueChanged<List<SharedFile>> onAddAttachments;
   final ValueChanged<SharedFile> onRemoveAttachment;
   final ValueChanged<String> onSend;
+  final List<SlashCommand> slashCommands;
+  final bool commandRunning;
   final List<StarterPrompt>? starterPrompts;
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
@@ -777,6 +867,14 @@ class _ThreadView extends StatelessWidget {
   onAnswerClarify;
   final Future<void> Function(String requestId, UnsupportedKind kind)?
   onSkipUnsupported;
+  final Future<void> Function(
+    String requestId,
+    VaultKind kind, {
+    String identifier,
+    String password,
+    String code,
+  })?
+  onAnswerVault;
   final Future<void> Function()? onStop;
   final List<QueuedPrompt> queued;
   final ValueChanged<QueuedPrompt>? onRemoveQueued;
@@ -798,9 +896,11 @@ class _ThreadView extends StatelessWidget {
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,
           onSkipUnsupported: onSkipUnsupported,
+          onAnswerVault: onAnswerVault,
         ).copyWith(
           composerBuilder: buildChatComposer(
             controller: composerController,
+            focusNode: composerFocus,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,
             replying: thread?.isReplying == true,
@@ -809,6 +909,8 @@ class _ThreadView extends StatelessWidget {
             onRemoveQueued: onRemoveQueued,
             onSendQueued: onSendQueued,
             modelPill: modelPill,
+            slashCommands: slashCommands,
+            commandRunning: commandRunning,
           ),
         );
 

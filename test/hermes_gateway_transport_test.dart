@@ -6,7 +6,12 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show ApprovalRequest, AttachmentKind, UnsupportedKind;
+    show
+        ApprovalRequest,
+        AttachmentKind,
+        SubagentStatus,
+        UnsupportedKind,
+        VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -92,6 +97,9 @@ class FakeGateway {
   final queuedImages = <String>[];
 
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
+  Map<String, Object?> slashResult = {'output': 'Command output'};
+  final slashResults = <Map<String, Object?>>[];
+  bool slashNeedsDispatch = false;
 
   Iterable<String> get methods => requests.map((r) => r['method'] as String);
 
@@ -172,6 +180,32 @@ class FakeGateway {
         _send({
           'id': id,
           'result': {'key': params['key'], 'value': params['value']},
+        });
+      case 'commands.catalog':
+        _send({
+          'id': id,
+          'result': {
+            'pairs': [
+              ['/help', 'Show help'],
+              ['/model', 'Choose a model'],
+              ['/quit', 'Exit the CLI'],
+            ],
+            'commands': {
+              '/quit': {'desktop': 'terminal'},
+            },
+          },
+        });
+      case 'slash.exec' when slashNeedsDispatch:
+        _send({
+          'id': id,
+          'error': {'code': 4018, 'message': 'dispatch command'},
+        });
+      case 'slash.exec' || 'command.dispatch':
+        _send({
+          'id': id,
+          'result': slashResults.isEmpty
+              ? slashResult
+              : slashResults.removeAt(0),
         });
       case 'session.interrupt':
         _send({
@@ -281,6 +315,80 @@ void main() {
 
   tearDown(() => transport.close());
 
+  test(
+    'slash catalog uses the active profile and commands bypass prompts',
+    () async {
+      final commands = await transport.slashCommands(profile: 'work');
+      expect(commands.map((c) => c.name), ['/help', '/model']);
+      expect(gateway.requestOf('commands.catalog')['params'], {
+        'profile': 'work',
+      });
+
+      final result = await transport.runSlashCommand(
+        profile: 'work',
+        command: '/help',
+      );
+      expect(result.threadId, 'stored-1');
+      expect(result.output, 'Command output');
+      expect(gateway.requestOf('slash.exec')['params'], {
+        'session_id': 'rt-1',
+        'command': 'help',
+      });
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    },
+  );
+
+  test('a skill command falls back to dispatch and returns a prompt', () async {
+    gateway.slashNeedsDispatch = true;
+    gateway.slashResult = {'type': 'skill', 'message': 'Use this skill'};
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/review carefully',
+    );
+    expect(result.prompt, 'Use this skill');
+    expect(gateway.requestOf('command.dispatch')['params'], {
+      'session_id': 'rt-2',
+      'name': 'review',
+      'arg': 'carefully',
+    });
+  });
+
+  test('an alias forwards arguments after its target', () async {
+    gateway.slashNeedsDispatch = true;
+    gateway.slashResults.addAll([
+      {'type': 'alias', 'target': '/review --brief'},
+      {'type': 'skill', 'message': 'Use this skill'},
+    ]);
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/quick carefully',
+    );
+    expect(result.prompt, 'Use this skill');
+    final dispatches = gateway.requests
+        .where((request) => request['method'] == 'command.dispatch')
+        .toList();
+    expect(dispatches.map((request) => request['params']), [
+      {'session_id': 'rt-2', 'name': 'quick', 'arg': 'carefully'},
+      {'session_id': 'rt-2', 'name': 'review', 'arg': '--brief carefully'},
+    ]);
+  });
+
+  test('a prefill command returns the restored draft', () async {
+    gateway.slashResult = {
+      'type': 'prefill',
+      'message': 'Previous prompt',
+      'notice': 'Undid one turn',
+    };
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/undo',
+    );
+    expect(result.prefill, 'Previous prompt');
+    expect(result.output, 'Undid one turn');
+    expect(result.prompt, isNull);
+    expect(gateway.methods, isNot(contains('prompt.submit')));
+  });
+
   Future<List<ChatEvent>> reply({
     String? threadId,
     String? profile,
@@ -309,6 +417,7 @@ void main() {
     transport.send(text: 'hi').listen((e) async {
       if (e is ApprovalRequested ||
           e is ClarifyRequested ||
+          e is VaultRequested ||
           e is UnsupportedRequested) {
         result = await answer();
         gateway.event('message.complete', 'rt-1', {
@@ -559,6 +668,58 @@ void main() {
     });
     expect(finished.diff, '+x');
     expect(finished.duration, const Duration(milliseconds: 1250));
+  });
+
+  test('subagent frames map to one upsert per child', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('subagent.start', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'task_count': 2,
+        'model': 'glm-5.3',
+      });
+      g.event('subagent.tool', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'tool_name': 'terminal',
+        'tool_preview': 'pytest tests/ingest -x',
+      });
+      g.event('subagent.complete', sid, {
+        'subagent_id': 'a1',
+        'goal': 'Fix the retry double-call',
+        'status': 'completed',
+        'summary': '44 passed',
+        'duration_seconds': 123,
+        'tool_count': 6,
+      });
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    final frames = events.whereType<SubagentUpdated>().toList();
+    expect(frames, hasLength(3));
+    expect(frames[0].subagent.id, 'a1');
+    expect(frames[0].subagent.status, SubagentStatus.running);
+    expect(frames[0].subagent.model, 'glm-5.3');
+    expect(frames[1].subagent.lastTool, 'terminal');
+    expect(frames[1].subagent.lastToolPreview, 'pytest tests/ingest -x');
+    expect(frames[2].subagent.status, SubagentStatus.completed);
+    expect(frames[2].subagent.summary, '44 passed');
+    expect(frames[2].subagent.duration, const Duration(seconds: 123));
+  });
+
+  test('a subagent frame without an id shows nothing', () async {
+    gateway.turn = (g, sid) {
+      g.event('message.start', sid);
+      g.event('subagent.start', sid, {'goal': 'no id'});
+      g.event('message.complete', sid, {'text': 'done', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    expect(events.whereType<SubagentUpdated>(), isEmpty);
   });
 
   test('a tool the model is still writing maps to a preparing event', () async {
@@ -1548,9 +1709,118 @@ void main() {
       expect(gateway.responses, isEmpty);
     });
 
+    test('a save-login request becomes a vault request', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.save_login', sid, {
+          'origin': 'https://www.example.com',
+          'site': 'www.example.com',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.requestId, 'srq-6');
+      expect(request.kind, VaultKind.saveLogin);
+      expect(request.origin, 'https://www.example.com');
+      expect(request.site, 'www.example.com');
+    });
+
+    test('an unlock prompt carries the manager it is for', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.unlock_prompt', sid, {
+          'backend': 'onepassword',
+          'display_name': '1Password',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.kind, VaultKind.unlock);
+      expect(request.backend, 'onepassword');
+      expect(request.displayName, '1Password');
+    });
+
+    test('a code request carries the site and the hint', () async {
+      gateway.turn = (g, sid) {
+        g.serverRequest('srq-6', 'vault.code', sid, {
+          'site': 'example.com',
+          'hint': 'The 6-digit code.',
+        });
+        g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      final request = events.whereType<VaultRequested>().single.request;
+      expect(request.kind, VaultKind.code);
+      expect(request.site, 'example.com');
+      expect(request.hint, 'The 6-digit code.');
+    });
+
+    test('a save-login answer round-trips as JSON under value', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-6',
+        'vault.save_login',
+        {'origin': 'https://www.example.com', 'site': 'www.example.com'},
+        () => transport.answerVault(
+          'srq-6',
+          VaultKind.saveLogin,
+          identifier: 'ada@example.com',
+          password: 's3cret',
+        ),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses, [
+        {
+          'jsonrpc': '2.0',
+          'id': 'srq-6',
+          'result': {
+            'value': {'identifier': 'ada@example.com', 'password': 's3cret'},
+          },
+        },
+      ]);
+    });
+
+    test('an unlock answer sends the master password', () async {
+      final accepted = await answerWhileWaiting(
+        'srq-6',
+        'vault.unlock_prompt',
+        {'backend': 'onepassword', 'display_name': '1Password'},
+        () => transport.answerVault('srq-6', VaultKind.unlock, password: 'pw'),
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {'value': 'pw'});
+    });
+
+    test('a code answer sends the code', () async {
+      final accepted = await answerWhileWaiting('srq-6', 'vault.code', {
+        'site': 'example.com',
+      }, () => transport.answerVault('srq-6', VaultKind.code, code: '123456'));
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {'value': '123456'});
+    });
+
+    test('a vault prompt answered empty declines it', () async {
+      final accepted = await answerWhileWaiting('srq-6', 'vault.save_login', {
+        'origin': 'https://www.example.com',
+        'site': 'www.example.com',
+      }, () => transport.answerVault('srq-6', VaultKind.saveLogin));
+
+      expect(accepted, isTrue);
+      expect(gateway.responses.single['result'], {
+        'value': {'identifier': '', 'password': ''},
+      });
+    });
+
     test('a request the app has no handler for is refused at once', () async {
       gateway.turn = (g, sid) {
-        g.serverRequest('srq-6', 'vault.code', sid, {'site': 'example.com'});
         g.serverRequest('srq-7', 'terminal.read', sid);
         g.event('message.complete', sid, {'text': 'ok', 'status': 'complete'});
       };
@@ -1560,11 +1830,6 @@ void main() {
 
       expect(events.map((e) => e.runtimeType), [ThreadBound, ReplyCompleted]);
       expect(gateway.responses, [
-        {
-          'jsonrpc': '2.0',
-          'id': 'srq-6',
-          'error': {'code': -32601, 'message': 'Method not found'},
-        },
         {
           'jsonrpc': '2.0',
           'id': 'srq-7',
@@ -2131,7 +2396,6 @@ void main() {
         'profile': 'work',
       });
       expect(await transport.stopReply('stored-1'), isTrue);
-      gateway.event('message.delta', 'rt-1', {'text': 'Working'});
       gateway.event('message.complete', 'rt-1', {
         'text': 'Done',
         'status': 'complete',
@@ -2140,7 +2404,7 @@ void main() {
       gateway.drop();
 
       expect((await followed).map((event) => event.runtimeType), [
-        ReplyDelta,
+        ReplyStarted,
         ReplyCompleted,
       ]);
     });
@@ -2433,6 +2697,8 @@ void main() {
       await pumpEventQueue();
 
       expect(gateways, hasLength(2));
+      // Resuming a running turn may replay its start; it is still one reply.
+      gateways.last.event('message.start', 'rt-1');
       gateways.last.event('message.complete', 'rt-1', {
         'text': 'Checking done',
         'status': 'complete',

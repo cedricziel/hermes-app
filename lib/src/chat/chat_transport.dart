@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
 import 'chat_models.dart';
+import 'slash_command.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -128,6 +129,13 @@ final class ClarifyRequested extends ChatEvent {
   final ClarifyRequest request;
 }
 
+/// The agent waits on a masked vault prompt this app renders itself.
+final class VaultRequested extends ChatEvent {
+  const VaultRequested(this.request);
+
+  final VaultRequest request;
+}
+
 /// The agent is waiting on something this app cannot ask for, so the user has
 /// to answer it elsewhere.
 final class UnsupportedRequested extends ChatEvent {
@@ -141,6 +149,17 @@ final class InputRequestExpired extends ChatEvent {
   const InputRequestExpired(this.requestId);
 
   final String requestId;
+}
+
+/// A `subagent.*` frame the gateway relayed on the reply's session: one
+/// delegated child upserted by its [subagent] id. The gateway sends
+/// `subagent.spawn_requested` / `subagent.start` when a child begins,
+/// `subagent.progress` / `subagent.tool` / `subagent.thinking` while it
+/// works, and `subagent.complete` when it ends.
+final class SubagentUpdated extends ChatEvent {
+  const SubagentUpdated(this.subagent);
+
+  final Subagent subagent;
 }
 
 /// Last event of a reply. [text] is the full final text; [failed] is true when
@@ -212,6 +231,17 @@ class AttachmentException implements Exception {
 }
 
 abstract interface class ChatTransport {
+  /// Commands available in the current session or new-chat profile.
+  Future<List<SlashCommand>> slashCommands({String? threadId, String? profile});
+
+  /// Executes a slash command immediately, even while a reply is active.
+  /// [threadId] is the stored id; a null id creates a Hermes session first.
+  Future<SlashCommandResult> runSlashCommand({
+    String? threadId,
+    String? profile,
+    required String command,
+  });
+
   /// Sends [text] to the thread [threadId], or starts a new thread when it is
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
   /// with an error if the connection or the request fails, a
@@ -274,6 +304,19 @@ abstract interface class ChatTransport {
     List<String> values, {
     String? questionId,
     bool multiSelect = false,
+  });
+
+  /// Answers a masked vault prompt: the login to save for [origin], the
+  /// master password of [backend], or the one-time code. An empty everything
+  /// skips the request: Hermes carries on as if the user declined. Returns
+  /// false when the request is no longer pending, and throws when the call
+  /// itself fails.
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
   });
 
   /// Stops the reply being written to the thread [threadId]. The reply then

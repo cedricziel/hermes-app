@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
 import '../queued_prompt.dart';
+import '../slash_command.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -12,6 +13,7 @@ import 'chat_composer.dart';
 /// attach button to `Chat.onAttachmentTap`; see [ChatComposer] for the rest.
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
+  FocusNode? focusNode,
   required List<SharedFile> attachments,
   required ValueChanged<SharedFile> onRemoveAttachment,
   bool replying = false,
@@ -20,10 +22,13 @@ WidgetBuilder buildChatComposer({
   ValueChanged<QueuedPrompt>? onRemoveQueued,
   VoidCallback? onSendQueued,
   Widget? modelPill,
+  List<SlashCommand> slashCommands = const [],
+  bool commandRunning = false,
 }) {
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) => ChatComposer(
       controller: controller,
+      focusNode: focusNode,
       onSend: onSend,
       onAttach: onAttach,
       attachments: attachments,
@@ -34,6 +39,8 @@ WidgetBuilder buildChatComposer({
       onRemoveQueued: onRemoveQueued,
       onSendQueued: onSendQueued,
       modelPill: modelPill,
+      slashCommands: slashCommands,
+      commandRunning: commandRunning,
     ),
   );
 }

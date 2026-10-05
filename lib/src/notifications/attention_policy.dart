@@ -71,6 +71,7 @@ AttentionNotification? attentionFor({
           : (replyPreview(text).isEmpty ? kReplyReadyBody : replyPreview(text)),
     ApprovalRequested() => kApprovalBody,
     ClarifyRequested() => kQuestionBody,
+    VaultRequested() => kNeedsYouBody,
     UnsupportedRequested() => kNeedsYouBody,
     _ => null,
   };

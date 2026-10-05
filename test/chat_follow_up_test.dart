@@ -95,6 +95,23 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
   });
 
+  testWidgets('a replayed start leaves no phantom reply after completion', (
+    tester,
+  ) async {
+    await sendAndFinish(tester, 'One.');
+    final follow = transport.followUpStreams['s1']!;
+
+    follow.emit(const ReplyStarted());
+    follow.emit(const ReplyDelta('Working'));
+    follow.emit(const ReplyStarted());
+    follow.emit(const ReplyCompleted('Done.'));
+    await tester.pump();
+
+    expect(find.text('Done.'), findsOneWidget);
+    expect(find.text('Stop'), findsNothing);
+    await tester.pump(const Duration(seconds: 5));
+  });
+
   testWidgets('a title between turns does not touch the last reply', (
     tester,
   ) async {

@@ -82,7 +82,8 @@ class QueuedPrompts extends StatelessWidget {
     );
   }
 
-  static String _label(QueuedPrompt prompt) => prompt.text.isNotEmpty
-      ? prompt.text
+  static String _label(QueuedPrompt prompt) =>
+      (prompt.displayText ?? prompt.text).isNotEmpty
+      ? prompt.displayText ?? prompt.text
       : prompt.files.map((f) => f.name).join(', ');
 }

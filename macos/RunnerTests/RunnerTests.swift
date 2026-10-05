@@ -1,12 +1,23 @@
 import Cocoa
 import FlutterMacOS
 import XCTest
+@testable import Hermes
 
 class RunnerTests: XCTestCase {
 
-  func testExample() {
-    // If you add code to the Runner application, consider adding tests here.
-    // See https://developer.apple.com/documentation/xctest for more information about using XCTest.
+  func testClipboardFilePathsExcludeWebURLsWithExistingFilePaths() throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try Data("test".utf8).write(to: file)
+    defer { try? FileManager.default.removeItem(at: file) }
+
+    let pasteboard = NSPasteboard.withUniqueName()
+    defer { pasteboard.releaseGlobally() }
+    XCTAssertTrue(pasteboard.writeObjects([
+      URL(string: "https://example.com\(file.path)")! as NSURL,
+      file as NSURL,
+    ]))
+
+    XCTAssertEqual(MainFlutterWindow.clipboardFilePaths(from: pasteboard), [file.path])
   }
 
 }

@@ -100,10 +100,16 @@ void main() {
     expect(server.requestsTo('DELETE', '/api/sessions/s2'), hasLength(1));
   });
 
-  testWidgets('New Chat leaves the selected thread', (tester) async {
+  testWidgets('New Chat leaves the selected thread and focuses the composer', (
+    tester,
+  ) async {
     await pump(tester);
     await openThread(tester, 'Release notes');
     await run(tester, MacCommand.newChat);
     expect(enabled(MacCommand.pinThread), isFalse);
+    expect(
+      tester.widget<EditableText>(composerField).focusNode.hasFocus,
+      isTrue,
+    );
   });
 }

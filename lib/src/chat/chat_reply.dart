@@ -95,6 +95,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
     case ToolFinished():
       _closeCheckpoint(reply);
       _settleTool(reply, event);
+    case SubagentUpdated(:final subagent):
+      _upsertSubagent(reply, subagent);
     case ApprovalRequested(:final request):
       final call = _callAwaiting(reply, request);
       _addInputRequest(
@@ -102,6 +104,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         call == null ? request : request.forToolCall(call),
       );
     case ClarifyRequested(:final request):
+      _addInputRequest(reply, request);
+    case VaultRequested(:final request):
       _addInputRequest(reply, request);
     case UnsupportedRequested(:final request):
       _addInputRequest(reply, request);
@@ -295,6 +299,55 @@ void recordSkipped(ChatMessage reply, String requestId) => _editPending(
   requestId,
   (r) =>
       r is UnsupportedRequest ? r.withStatus(InputRequestStatus.answered) : r,
+);
+
+/// Inserts or refreshes the subagent the event names, keeping the spawn
+/// order and what earlier frames of the same child already knew: a later
+/// frame often omits fields the spawn frame carried.
+void _upsertSubagent(ChatMessage reply, Subagent subagent) {
+  final i = reply.subagents.indexWhere((s) => s.id == subagent.id);
+  if (i < 0) {
+    reply.subagents = [...reply.subagents, subagent];
+    return;
+  }
+  reply.subagents = [...reply.subagents]
+    ..[i] = reply.subagents[i].copyWith(
+      parentId: subagent.parentId,
+      depth: subagent.depth == 0 ? null : subagent.depth,
+      index: subagent.index == 0 ? null : subagent.index,
+      count: subagent.count == 1 ? null : subagent.count,
+      status: subagent.status == SubagentStatus.running
+          ? null
+          : subagent.status,
+      toolCount: subagent.toolCount,
+      lastTool: subagent.lastTool,
+      lastToolPreview: subagent.lastToolPreview,
+      summary: subagent.summary,
+      duration: subagent.duration,
+      model: subagent.model,
+      childSessionId: subagent.childSessionId,
+      startedAt: subagent.startedAt,
+    );
+}
+
+/// Records a vault answer. Only the identifier is kept — a username is not
+/// itself a secret — while the password and the one-time code travelled only
+/// in the answer frame.
+void recordVaultAnswered(
+  ChatMessage reply,
+  String requestId, {
+  String? identifier,
+}) => _editPending(
+  reply,
+  requestId,
+  (r) => r is VaultRequest ? r.answered(identifier: identifier) : r,
+);
+
+/// Declines a vault prompt: no value goes out, and the card says so.
+void recordVaultDeclined(ChatMessage reply, String requestId) => _editPending(
+  reply,
+  requestId,
+  (r) => r is VaultRequest ? r.answered(provided: false) : r,
 );
 
 /// Ends the pending requests of [reply], or only [requestId] when given.

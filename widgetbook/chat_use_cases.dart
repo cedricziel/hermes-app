@@ -3,6 +3,7 @@ import 'package:hermes_app/src/chat/chat_models.dart'
     show ThreadSearchHit, ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/chat/starter_prompts.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
@@ -14,6 +15,7 @@ import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
 import 'package:hermes_app/src/chat/widgets/swipeable_thread_row.dart';
@@ -22,6 +24,7 @@ import 'package:hermes_app/src/chat/widgets/thread_search_view.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_card.dart';
 import 'package:hermes_app/src/chat/widgets/tool_call_group.dart';
 import 'package:hermes_app/src/chat/widgets/unsupported_request_card.dart';
+import 'package:hermes_app/src/chat/widgets/vault_request_card.dart';
 import 'package:hermes_app/src/chat/widgets/welcome_view.dart';
 import 'package:hermes_app/src/models/widgets/composer_model_pill.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
@@ -40,6 +43,15 @@ Future<void> _skips() =>
     Future<void>.delayed(const Duration(milliseconds: 600));
 
 Future<void> _skipFails() async => throw StateError('offline');
+
+Future<void> _vaultAnswers(String identifier, String password, String code) =>
+    Future<void>.delayed(const Duration(milliseconds: 600));
+
+Future<void> _vaultFails(
+  String identifier,
+  String password,
+  String code,
+) async => throw StateError('offline');
 
 Widget _noStore(Widget child) =>
     Provider<MediaStore?>.value(value: null, child: child);
@@ -139,6 +151,28 @@ WidgetbookNode chatNode() => WidgetbookFolder(
             calls: waitingToolRun,
             approvals: const {1: pendingApproval},
             onAnswerApproval: (_, _) async {},
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'SubagentGroupCard',
+      useCases: [
+        _tool('Running', SubagentGroupCard(subagents: [timedSubagent()])),
+        _tool(
+          'Finished',
+          const SubagentGroupCard(subagents: [completedSubagent]),
+        ),
+        _tool('Failed', const SubagentGroupCard(subagents: [failedSubagent])),
+        _tool(
+          'Batch, collapsed',
+          const SubagentGroupCard(subagents: subagentBatch),
+        ),
+        _tool(
+          'Batch, open',
+          const SubagentGroupCard(
+            subagents: subagentBatch,
+            initiallyOpen: true,
           ),
         ),
       ],
@@ -287,6 +321,33 @@ WidgetbookNode chatNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'VaultRequestCard',
+      useCases: [
+        _tool(
+          'Save login',
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _vaultAnswers),
+        ),
+        _tool(
+          'Save fails',
+          VaultRequestCard(request: saveLoginRequest, onAnswer: _vaultFails),
+        ),
+        _tool(
+          'Unlock manager',
+          VaultRequestCard(
+            request: vaultUnlockRequest,
+            onAnswer: _vaultAnswers,
+          ),
+        ),
+        _tool(
+          'One-time code',
+          VaultRequestCard(request: vaultCodeRequest, onAnswer: _vaultAnswers),
+        ),
+        _tool('Answered', VaultRequestCard(request: answeredVaultCodeRequest)),
+        _tool('Declined', VaultRequestCard(request: declinedSaveLoginRequest)),
+        _tool('Expired', VaultRequestCard(request: expiredSaveLoginRequest)),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'ReasoningBlock',
       useCases: [
         _tool('Folded', const ReasoningBlock(text: reasoningText)),
@@ -400,6 +461,14 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _composer('Empty'),
         _composer('Text', text: 'Why did the nightly upload fail?'),
         _composer(
+          'Slash suggestions',
+          text: '/he',
+          slashCommands: const [
+            SlashCommand('/help', 'Show available commands'),
+          ],
+        ),
+        _composer('Command running', text: '/help', commandRunning: true),
+        _composer(
           'With attachments',
           attachments: const [
             SharedFile(path: '/tmp/report.pdf', name: 'report.pdf'),
@@ -445,6 +514,8 @@ WidgetbookUseCase _composer(
   bool replying = false,
   List<QueuedPrompt> queued = const [],
   bool pill = true,
+  List<SlashCommand> slashCommands = const [],
+  bool commandRunning = false,
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => frame(
@@ -454,6 +525,8 @@ WidgetbookUseCase _composer(
       replying: replying,
       queued: queued,
       pill: pill,
+      slashCommands: slashCommands,
+      commandRunning: commandRunning,
     ),
     maxWidth: 760,
   ),
@@ -466,6 +539,8 @@ class _Composer extends StatefulWidget {
     required this.replying,
     required this.queued,
     required this.pill,
+    required this.slashCommands,
+    required this.commandRunning,
   });
 
   final String text;
@@ -473,6 +548,8 @@ class _Composer extends StatefulWidget {
   final bool replying;
   final List<QueuedPrompt> queued;
   final bool pill;
+  final List<SlashCommand> slashCommands;
+  final bool commandRunning;
 
   @override
   State<_Composer> createState() => _ComposerState();
@@ -498,6 +575,8 @@ class _ComposerState extends State<_Composer> {
     onStop: widget.replying ? () => _skips() : null,
     queued: widget.queued,
     onRemoveQueued: (_) {},
+    slashCommands: widget.slashCommands,
+    commandRunning: widget.commandRunning,
     modelPill: widget.pill
         ? ComposerModelPill(
             options: modelOptions,

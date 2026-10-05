@@ -138,6 +138,20 @@ dart run tool/setup_git_hooks.dart
 
 The hook is installed once per clone and is shared by all its git worktrees.
 
+### OpenSpec
+
+OpenSpec changes live in `openspec/`. Its six core workflow skills are
+available to Codex in `.agents/skills/` and to Claude Code in `.claude/skills/`.
+In Codex, use `$openspec-propose` to plan a change and
+`$openspec-apply-change` to implement it; the desktop app also offers them in
+the Skills selector. Claude Code uses `/opsx:propose` and `/opsx:apply`.
+
+Refresh both integrations with the version used to generate them:
+
+```bash
+npm exec --yes --package @fission-ai/openspec@1.14.0 -- openspec init --tools claude,codex --profile core --no-animation
+```
+
 ### Component catalog
 
 Every widget and screen is shown in each of its states, in light and dark, on

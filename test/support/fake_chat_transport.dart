@@ -1,7 +1,9 @@
 import 'dart:async';
 
-import 'package:hermes_app/src/chat/chat_models.dart' show UnsupportedKind;
+import 'package:hermes_app/src/chat/chat_models.dart'
+    show UnsupportedKind, VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
@@ -9,6 +11,38 @@ import 'package:hermes_app/src/models/model_provider_option.dart';
 class FakeChatTransport implements ChatTransport {
   final sends = <FakeSend>[];
   bool closed = false;
+
+  List<SlashCommand> availableSlashCommands = const [];
+  final catalogGates = <Completer<List<SlashCommand>>>[];
+  final catalogContexts = <(String?, String?)>[];
+  final slashRuns = <String>[];
+  SlashCommandResult? slashResult;
+  Completer<SlashCommandResult>? slashGate;
+
+  @override
+  Future<List<SlashCommand>> slashCommands({
+    String? threadId,
+    String? profile,
+  }) async {
+    catalogContexts.add((threadId, profile));
+    if (catalogGates.isNotEmpty) return catalogGates.removeAt(0).future;
+    return availableSlashCommands;
+  }
+
+  @override
+  Future<SlashCommandResult> runSlashCommand({
+    String? threadId,
+    String? profile,
+    required String command,
+  }) async {
+    slashRuns.add(command);
+    if (slashGate case final gate?) return gate.future;
+    return slashResult ??
+        SlashCommandResult(
+          threadId: threadId ?? 'slash-thread',
+          output: 'Done',
+        );
+  }
 
   @override
   Stream<ChatEvent> send({
@@ -116,10 +150,14 @@ class FakeChatTransport implements ChatTransport {
   /// What [stopReply] reports; false means nothing was running.
   bool stopsRunning = true;
 
+  /// Holds a stop response while another reply event arrives.
+  Completer<void>? stopGate;
+
   @override
   Future<bool> stopReply(String threadId) async {
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     stops.add(threadId);
+    await stopGate?.future;
     return stopsRunning;
   }
 
@@ -129,6 +167,36 @@ class FakeChatTransport implements ChatTransport {
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     skips.add((requestId, kind));
+    return accepts;
+  }
+
+  final vaultAnswers =
+      <
+        ({
+          String requestId,
+          VaultKind kind,
+          String identifier,
+          String password,
+          String code,
+        })
+      >[];
+
+  @override
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    if (answerError case final error?) throw error; // ignore: only_throw_errors
+    vaultAnswers.add((
+      requestId: requestId,
+      kind: kind,
+      identifier: identifier,
+      password: password,
+      code: code,
+    ));
     return accepts;
   }
 

@@ -43,10 +43,9 @@ void main() {
     await pumpChatScreen(tester, server: server, transport: transport);
     await openThread(tester, 'Run failure');
 
-    // The turn was picked up mid-stream: its first event is a delta, with no
-    // ReplyStarted before it.
     final follow = transport.followUpStreams['s1']!;
     expect(follow.hasListener, isTrue);
+    follow.emit(const ReplyStarted());
     follow.emit(const ReplyDelta('Still digging.'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));

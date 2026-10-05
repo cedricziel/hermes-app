@@ -22,7 +22,8 @@ its own `HERMES_HOME`, and the app is told its server by a build flag.
 2. `scripts/dev-backend.sh start`. Prints `ready: <url>`; needs `hermes` on
    PATH. Run `command -v hermes` first: if it is missing, do the install in
    "Hermes Agent setup" below (about two minutes) before anything else. Don't
-   conclude the backend can't be run.
+   conclude the backend can't be run. If Hermes reports another dashboard
+   already running on this host, use the isolated-mode fallback below.
 3. `scripts/dev-app.sh start`. Prints `app up against <url>` when the app is
    running, and the app window stays open. A cold first build takes minutes,
    a cached one under a minute. Don't close the window: closing it quits the app.
@@ -46,6 +47,36 @@ Say plainly what you could not check.
 - Never rely on the app's saved server address. Only the
   `HERMES_SERVER_URL` build flag (set by `dev-app.sh`) is safe in parallel.
 
+### When another Hermes dashboard is already running
+
+The normal `dev-backend.sh start` can exit with "Hermes dashboard already
+running on this host" even though this checkout has its own `HERMES_HOME`.
+Do not stop the other dashboard. Start this checkout's backend with
+`--isolated` in a separate terminal; keep that terminal open:
+
+```bash
+mkdir -p .dart_tool/hermes-dev/home
+HERMES_HOME="$PWD/.dart_tool/hermes-dev/home" \
+  hermes dashboard --isolated --no-open --port 0
+```
+
+After it prints `HERMES_DASHBOARD_READY port=<port>`, register **that port**
+for `dev-app.sh` from another terminal in the same checkout:
+
+```bash
+HERMES_TEST_PORT=55479 # replace with the port Hermes printed
+printf '%s\n' "$HERMES_TEST_PORT" > .dart_tool/hermes-dev/port
+lsof -tiTCP:"$HERMES_TEST_PORT" -sTCP:LISTEN | head -n1 > .dart_tool/hermes-dev/pid
+scripts/dev-backend.sh status
+```
+
+Before launching the app, confirm `/api/status` reports this checkout's
+`.dart_tool/hermes-dev/home` as `hermes_home`. Finish with the usual
+`scripts/dev-app.sh stop` and `scripts/dev-backend.sh stop`; the latter kills
+only the PID listening on the registered port. The `--isolated` fallback was
+verified with Hermes on 2026-10-05. If Hermes's web UI assets are already
+built, add `--skip-build` to the isolated command to avoid rebuilding them.
+
 ## What this can and can't show
 
 - Buttons and tabs can be pressed by name, and clicks and keys can be sent
@@ -68,6 +99,12 @@ Say plainly what you could not check.
 - The macOS build rewrites tracked `ios/` and `macos/` Xcode/xcconfig files
   and adds `Podfile`s. Don't commit them: stage files by name, never
   `git add -A`, and `git restore` the tracked ones afterwards.
+- In a detached command runner, `dev-app.sh start` may print `app up` but its
+  background Flutter process may exit as the command session closes. Check
+  the recorded Flutter PID with `kill -0 "$(cat .dart_tool/hermes-dev/flutter.pid)"`
+  before driving it. If it exited,
+  keep `flutter run -d macos --dart-define=HERMES_SERVER_URL=<throwaway URL>`
+  attached to a terminal session during verification.
 - Debug builds use bundle ID `com.cedricziel.hermesApp.dev`. Any macOS app
   extension needs a Debug ID that starts with it (`…dev.ShareExtension`), or
   the build fails with "not prefixed with the parent app's bundle identifier".

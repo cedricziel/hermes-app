@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.47](https://github.com/cedricziel/hermes-app/compare/v0.1.46...v0.1.47) (2026-10-05)
+
+
+### Features
+
+* **chat:** support Hermes slash commands ([#425](https://github.com/cedricziel/hermes-app/issues/425)) ([6ee9b0a](https://github.com/cedricziel/hermes-app/commit/6ee9b0a4127a452ca846f9548e07f766112c986c))
+
+
+### Bug Fixes
+
+* **chat:** clear phantom replies after reconnect ([#423](https://github.com/cedricziel/hermes-app/issues/423)) ([16c0f48](https://github.com/cedricziel/hermes-app/commit/16c0f488a837d0b3e411ebb679b002bb79e7ee1a))
+* **chat:** focus composer when starting a new chat ([#428](https://github.com/cedricziel/hermes-app/issues/428)) ([a5774e1](https://github.com/cedricziel/hermes-app/commit/a5774e1a96de5217c240db52497b8b56ebb4a77e))
+
+
+### Documentation
+
+* add Hermes observability skill ([#426](https://github.com/cedricziel/hermes-app/issues/426)) ([48ffde9](https://github.com/cedricziel/hermes-app/commit/48ffde95f2b7f464819118c7a086a91e0aa6bd4c))
+* plan Bot Mode and refresh OpenSpec integrations ([#427](https://github.com/cedricziel/hermes-app/issues/427)) ([6e9ca04](https://github.com/cedricziel/hermes-app/commit/6e9ca04834d713138b11bf092e25f119a717170a))
+
+## [0.1.46](https://github.com/cedricziel/hermes-app/compare/v0.1.45...v0.1.46) (2026-10-04)
+
+
+### Features
+
+* **chat:** render delegated subagents as cards in the thread ([#420](https://github.com/cedricziel/hermes-app/issues/420)) ([d49decc](https://github.com/cedricziel/hermes-app/commit/d49deccc749734d7e54eee7bd42d1ef6dc884f6a))
+
+
+### Bug Fixes
+
+* **chat:** recover the blank transcript while a reply streams ([#414](https://github.com/cedricziel/hermes-app/issues/414)) ([f4aa4c4](https://github.com/cedricziel/hermes-app/commit/f4aa4c4d6994ee1c61e3f6834d73d51fc21f4eb6))
+* **chat:** render interactive vault prompts ([#422](https://github.com/cedricziel/hermes-app/issues/422)) ([0407972](https://github.com/cedricziel/hermes-app/commit/04079729a30abf52f2137f7d61d58f1cd0356dcf))
+
 ## [0.1.45](https://github.com/cedricziel/hermes-app/compare/v0.1.44...v0.1.45) (2026-10-04)
 
 

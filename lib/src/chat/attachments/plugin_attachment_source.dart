@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import 'package:flutter/widgets.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pasteboard/pasteboard.dart';
@@ -13,10 +13,14 @@ import 'attachment_source.dart';
 
 const _cameraUnavailable =
     'The camera is not available. Check that Hermes may use it in Settings.';
+const _macosClipboardChannel = MethodChannel('hermes_app/clipboard');
+
+Future<List<String>> _macosClipboardFiles() async =>
+    await _macosClipboardChannel.invokeListMethod<String>('files') ?? const [];
 
 /// The real thing: `file_picker` for files, `image_picker` for the photo
-/// library and the camera, `desktop_drop` for drops and `pasteboard` for the
-/// clipboard.
+/// library and the camera, `desktop_drop` for drops, and platform clipboard
+/// readers for paste.
 class PluginAttachmentSource implements AttachmentSource {
   /// The optional arguments stand in for the plugins and the platform, so the
   /// logic around them can be tested.
@@ -29,7 +33,11 @@ class PluginAttachmentSource implements AttachmentSource {
     ImagePicker? images,
   }) : _platform = platform ?? defaultTargetPlatform,
        _clipboardImage = clipboardImage ?? (() => Pasteboard.image),
-       _clipboardFiles = clipboardFiles ?? Pasteboard.files,
+       _clipboardFiles =
+           clipboardFiles ??
+           ((platform ?? defaultTargetPlatform) == TargetPlatform.macOS
+               ? _macosClipboardFiles
+               : Pasteboard.files),
        _clock = clock ?? DateTime.now,
        _images = images ?? ImagePicker();
 
@@ -80,9 +88,12 @@ class PluginAttachmentSource implements AttachmentSource {
     try {
       final image = await _clipboardImage();
       if (image != null && image.isNotEmpty) return [await _pastedImage(image)];
+      // A stale clipboard path should fall through to text paste.
       return [
         for (final path in await _clipboardFiles())
-          if (!FileSystemEntity.isDirectorySync(path)) sharedFileFromPath(path),
+          if (!FileSystemEntity.isDirectorySync(path) &&
+              FileSystemEntity.isFileSync(path))
+            sharedFileFromPath(path),
       ];
     } on Object {
       return const [];

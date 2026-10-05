@@ -8,6 +8,7 @@ import 'package:stream_channel/stream_channel.dart';
 import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
+import '../slash_command.dart';
 import '../tool_result.dart';
 import 'gateway_rpc_client.dart';
 
@@ -16,7 +17,15 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 
 /// The server-to-client request methods the app answers. The gateway sends
 /// many more (vault prompts, desktop bridges); those are refused at once.
-const _handledRequests = {'approval', 'clarify', 'sudo', 'secret'};
+const _handledRequests = {
+  'approval',
+  'clarify',
+  'sudo',
+  'secret',
+  'vault.save_login',
+  'vault.unlock_prompt',
+  'vault.code',
+};
 
 /// What `image.attach_bytes` answers for a file that is not an image type it
 /// knows.
@@ -99,6 +108,108 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// The model each thread was last set to from here, by thread.
   final _modelOf = <String, ModelChoice>{};
+
+  @override
+  Future<List<SlashCommand>> slashCommands({
+    String? threadId,
+    String? profile,
+  }) async {
+    final client = await _client();
+    final runtimeId = threadId == null
+        ? null
+        : await _commandRuntime(client, threadId, profile);
+    final result = await _call(client, 'commands.catalog', {
+      'session_id': ?runtimeId,
+      'profile': ?profile,
+    });
+    final pairs = result['pairs'];
+    if (pairs is! List) return const [];
+    final metadata = result['commands'];
+    return [
+      for (final pair in pairs)
+        if (pair is List &&
+            pair.length >= 2 &&
+            pair[0] is String &&
+            pair[1] is String &&
+            (pair[0] as String).startsWith('/') &&
+            !{'terminal', 'hidden'}.contains(
+              metadata is Map && metadata[pair[0]] is Map
+                  ? (metadata[pair[0]] as Map)['desktop']
+                  : null,
+            ))
+          SlashCommand(pair[0] as String, pair[1] as String),
+    ];
+  }
+
+  @override
+  Future<SlashCommandResult> runSlashCommand({
+    String? threadId,
+    String? profile,
+    required String command,
+  }) async {
+    final client = await _client();
+    final session = threadId == null
+        ? await _call(client, 'session.create', {'profile': ?profile})
+        : null;
+    final runtimeId = threadId == null
+        ? session!['session_id'] as String
+        : await _commandRuntime(client, threadId, profile);
+    final storedId = threadId ?? session!['stored_session_id'] as String;
+    var current = command.trim().replaceFirst(RegExp(r'^/'), '');
+    for (var depth = 0; depth < 5; depth++) {
+      Map<String, Object?> result;
+      try {
+        result = await _call(client, 'slash.exec', {
+          'session_id': runtimeId,
+          'command': current,
+        });
+      } on GatewayRpcException catch (error) {
+        if (error.code != 4018) rethrow;
+        final parts = current.split(RegExp(r'\s+'));
+        result = await _call(client, 'command.dispatch', {
+          'session_id': runtimeId,
+          'name': parts.first,
+          'arg': current.substring(parts.first.length).trimLeft(),
+        });
+      }
+      final type = result['type'];
+      if (type == 'alias') {
+        final target = result['target'];
+        if (target is! String || target.trim().isEmpty) break;
+        final targetCommand = target.trim().replaceFirst(RegExp(r'^/'), '');
+        final name = current.split(RegExp(r'\s+')).first;
+        final args = current.substring(name.length).trimLeft();
+        current = args.isEmpty ? targetCommand : '$targetCommand $args';
+        continue;
+      }
+      final prompt = (type == 'send' || type == 'skill')
+          ? result['message'] as String?
+          : null;
+      return SlashCommandResult(
+        threadId: storedId,
+        output:
+            result['output'] as String? ?? result['notice'] as String? ?? '',
+        prompt: prompt,
+        display: result['display'] as String?,
+        prefill: type == 'prefill' ? result['message'] as String? : null,
+      );
+    }
+    throw StateError('Could not resolve slash command');
+  }
+
+  Future<String> _commandRuntime(
+    GatewayRpcClient client,
+    String storedId,
+    String? profile,
+  ) async {
+    final active = _runtimeOf[storedId] ?? _idle[storedId]?.runtimeId;
+    if (active != null) return active;
+    final session = await _call(client, 'session.resume', {
+      'session_id': storedId,
+      'profile': ?profile,
+    });
+    return session['session_id'] as String;
+  }
 
   @override
   Stream<ChatEvent> send({
@@ -346,6 +457,7 @@ class HermesGatewayTransport implements ChatTransport {
       if (_idle[threadId] == watch) _idle.remove(threadId);
       return watch.close();
     };
+    out.add(const ReplyStarted());
     await _relay(watch, threadId, out, profile, initiallyReplying: true);
   }
 
@@ -391,7 +503,10 @@ class HermesGatewayTransport implements ChatTransport {
       for (var attempt = 0; ; attempt++) {
         while (await watch.events.moveNext()) {
           final (event, serverRequest) = watch.events.current;
-          if (event is ReplyStarted && !replying) {
+          if (event is ReplyStarted) {
+            // A resumed running turn can replay its start. Forwarding that
+            // would create a second pending bubble with no completion.
+            if (replying) continue;
             replying = true;
             _beginReply(runtimeId, threadId);
           }
@@ -463,8 +578,10 @@ class HermesGatewayTransport implements ChatTransport {
 
   void _endReply(String runtimeId, String storedId) {
     _replying.update(runtimeId, (count) => count - 1);
-    if (_replying[runtimeId] == 0) _replying.remove(runtimeId);
-    if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+    if (_replying[runtimeId] == 0) {
+      _replying.remove(runtimeId);
+      if (_runtimeOf[storedId] == runtimeId) _runtimeOf.remove(storedId);
+    }
   }
 
   void _forgetRequests(Set<String> mine) {
@@ -567,6 +684,7 @@ class HermesGatewayTransport implements ChatTransport {
         request.requestId,
         request.batch,
       ),
+      VaultRequested(:final request) => (request.requestId, false),
       UnsupportedRequested(:final request) => (request.requestId, false),
       _ => null,
     };
@@ -630,11 +748,42 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   @override
+  Future<bool> answerVault(
+    String requestId,
+    VaultKind kind, {
+    String identifier = '',
+    String password = '',
+    String code = '',
+  }) async {
+    final open = _awaiting[requestId];
+    // A vault prompt is always a server-to-client request: the gateway has
+    // no `*.respond` method for it.
+    if (open == null || !open.serverRequest) return false;
+    final value = switch (kind) {
+      VaultKind.saveLogin => {'identifier': identifier, 'password': password},
+      VaultKind.unlock => password,
+      VaultKind.code => code,
+    };
+    return _respond(requestId, {'value': value});
+  }
+
+  @override
   Future<bool> stopReply(String threadId) async {
-    final runtimeId = _runtimeOf[threadId];
-    final client = _connected();
-    if (runtimeId == null || client == null) return false;
-    final result = await client.request('session.interrupt', {
+    var runtimeId = _runtimeOf[threadId];
+    if (runtimeId == null) return false;
+    var client = _connected();
+    if (client == null) {
+      // The listener may still be reconnecting after a dropped socket. Ask
+      // the server which runtime session owns this stored thread before
+      // concluding that the reply has already ended.
+      client = await _client();
+      final resumed = await _call(client, 'session.resume', {
+        'session_id': threadId,
+      });
+      if (resumed['running'] != true) return false;
+      runtimeId = resumed['session_id'] as String? ?? threadId;
+    }
+    final result = await _call(client, 'session.interrupt', {
       'session_id': runtimeId,
     });
     return result['status'] == 'interrupted';
@@ -767,8 +916,68 @@ class HermesGatewayTransport implements ChatTransport {
       'secret.expire' ||
       'sudo.expire' => InputRequestExpired(text('request_id')),
       'request.cancel' => InputRequestExpired(text('id')),
+      'subagent.spawn_requested' ||
+      'subagent.start' ||
+      'subagent.progress' ||
+      'subagent.tool' ||
+      'subagent.thinking' ||
+      'subagent.complete' => _subagentEvent(event.type, payload),
       _ => null,
     };
+  }
+
+  /// One `subagent.*` frame as a [SubagentUpdated], or null when the frame
+  /// names no child. Identity fields arrived later in the protocol's life and
+  /// remain optional, so a frame without an id cannot be shown.
+  ChatEvent? _subagentEvent(String type, Map<String, Object?> payload) {
+    String? field(String camel, String snake) {
+      final value = payload[camel] ?? payload[snake];
+      return value == null ? null : '$value';
+    }
+
+    final id = field('subagentId', 'subagent_id');
+    final goal = _plainText(payload['goal']);
+    if (id == null || id.isEmpty || goal.isEmpty) return null;
+    final parentId = field('parentId', 'parent_id');
+    final running = switch (type) {
+      'subagent.complete' => false,
+      _ => true,
+    };
+    return SubagentUpdated(
+      Subagent(
+        id: id,
+        goal: goal,
+        parentId: parentId == null || parentId.isEmpty ? null : parentId,
+        depth: int.tryParse(field('depth', 'depth') ?? '') ?? 0,
+        index: int.tryParse(field('taskIndex', 'task_index') ?? '') ?? 0,
+        count: int.tryParse(field('taskCount', 'task_count') ?? '') ?? 1,
+        status: switch (type) {
+          'subagent.complete' => switch (field('status', 'status')) {
+            'interrupted' => SubagentStatus.interrupted,
+            'queued' || 'running' || null => SubagentStatus.running,
+            'completed' => SubagentStatus.completed,
+            _ => SubagentStatus.failed,
+          },
+          _ => SubagentStatus.running,
+        },
+        toolCount: int.tryParse(field('toolCount', 'tool_count') ?? ''),
+        lastTool: running ? field('toolName', 'tool_name') : null,
+        lastToolPreview: running
+            ? _plainText(
+                payload['toolPreview'] ??
+                    payload['tool_preview'] ??
+                    payload['preview'],
+              ).trim()
+            : null,
+        summary: _plainText(payload['summary']),
+        duration: _seconds(
+          payload['durationSeconds'] ?? payload['duration_seconds'],
+        ),
+        model: field('model', 'model'),
+        childSessionId: field('childSessionId', 'child_session_id'),
+        startedAt: type == 'subagent.start' ? DateTime.now() : null,
+      ),
+    );
   }
 
   /// Hermes may send text as content parts rather than a string.
@@ -791,11 +1000,40 @@ class HermesGatewayTransport implements ChatTransport {
     return switch (request.method) {
       'approval' => ApprovalRequested(_toApproval(request.id, request.params)),
       'clarify' => ClarifyRequested(_toClarify(request.id, request.params)),
+      'vault.save_login' => _vault(
+        request.id,
+        VaultKind.saveLogin,
+        request.params,
+      ),
+      'vault.unlock_prompt' => _vault(
+        request.id,
+        VaultKind.unlock,
+        request.params,
+      ),
+      'vault.code' => _vault(request.id, VaultKind.code, request.params),
       'sudo' => _unsupported(request.id, UnsupportedKind.sudo),
       'secret' => _unsupported(request.id, UnsupportedKind.secret),
       _ => null,
     };
   }
+
+  /// A masked vault prompt: the login to save for a site, an external
+  /// password manager's master password, or a one-time code.
+  VaultRequested _vault(
+    String requestId,
+    VaultKind kind,
+    Map<String, Object?> fields,
+  ) => VaultRequested(
+    VaultRequest(
+      requestId: requestId,
+      kind: kind,
+      origin: fields['origin'] as String? ?? '',
+      site: fields['site'] as String? ?? '',
+      backend: fields['backend'] as String? ?? '',
+      displayName: fields['display_name'] as String? ?? '',
+      hint: fields['hint'] as String? ?? '',
+    ),
+  );
 
   ApprovalRequest _toApproval(String requestId, Map<String, Object?> fields) =>
       ApprovalRequest(
