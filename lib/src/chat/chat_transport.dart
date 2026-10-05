@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
 import 'chat_models.dart';
+import 'slash_command.dart';
 
 sealed class ChatEvent {
   const ChatEvent();
@@ -230,6 +231,17 @@ class AttachmentException implements Exception {
 }
 
 abstract interface class ChatTransport {
+  /// Commands available in the current session or new-chat profile.
+  Future<List<SlashCommand>> slashCommands({String? threadId, String? profile});
+
+  /// Executes a slash command immediately, even while a reply is active.
+  /// [threadId] is the stored id; a null id creates a Hermes session first.
+  Future<SlashCommandResult> runSlashCommand({
+    String? threadId,
+    String? profile,
+    required String command,
+  });
+
   /// Sends [text] to the thread [threadId], or starts a new thread when it is
   /// null, and streams the reply. The stream ends after [ReplyCompleted] or
   /// with an error if the connection or the request fails, a

@@ -22,6 +22,7 @@ import 'chat_transport.dart';
 import 'hermes_chat_repository.dart';
 import 'mock_chat_data.dart';
 import 'queued_prompt.dart';
+import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 
@@ -46,6 +47,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onShowChat,
     this.onOpenJob,
     this.onOpened,
+    this.onPrefill,
   }) {
     final repository = this.repository;
     if (repository == null) {
@@ -87,6 +89,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Called after a chat asked for from outside was selected.
   final VoidCallback? onOpened;
+
+  /// Restores a draft returned by a command such as `/undo`.
+  final ValueChanged<String>? onPrefill;
 
   ThreadHousekeeping? housekeeping;
 
@@ -501,12 +506,125 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   String _newMessageId(ChatThread thread) =>
       '${thread.id}-local-${_sentMessages++}';
 
+  Future<List<SlashCommand>> slashCommands() =>
+      transport?.slashCommands(
+        threadId: selectedThread?.remote == true ? selectedThread!.id : null,
+        profile: _profile,
+      ) ??
+      Future.value(const []);
+
+  /// Runs a gateway command without putting it through prompt.submit or the
+  /// reply queue. Display-only command output stays in this visit's chat.
+  Future<bool> runSlashCommand(String command) async {
+    if (command == '/new') {
+      newThread();
+      return true;
+    }
+    final transport = this.transport;
+    if (transport == null) return false;
+    final selected = selectedThread;
+    if (selected != null && !selected.remote && selected.isReplying) {
+      report('Wait for this chat to open before running a command.');
+      return false;
+    }
+    final wasRemote = selected?.remote == true;
+    final profile = _profile;
+    try {
+      final result = await transport.runSlashCommand(
+        threadId: wasRemote ? selected!.id : null,
+        profile: profile,
+        command: command,
+      );
+      if (disposed) return false;
+      if (_profile != profile) return true;
+      final thread =
+          selected ??
+          ChatThread(
+            id: result.threadId,
+            title: command,
+            updatedAt: DateTime.now(),
+            remote: true,
+            modelChoice: _newChatModel,
+          );
+      if (selected == null) {
+        _threads.insert(0, thread);
+        _selectedId ??= thread.id;
+      } else if (!selected.remote) {
+        _bindThread(selected, result.threadId);
+      }
+      _bound.add(thread);
+      if (result.prefill != null && wasRemote) {
+        await _refreshAfterSlash(thread, profile);
+      }
+      void append(ChatRole role, String content) {
+        if (content.isEmpty) return;
+        final message = ChatMessage(
+          id: _newMessageId(thread),
+          role: role,
+          content: content,
+          createdAt: DateTime.now(),
+        );
+        thread.messages.add(message);
+        for (final flyer in chatMessageToFlyer(message)) {
+          controllerFor(thread).insertMessage(flyer);
+        }
+      }
+
+      append(ChatRole.user, command);
+      append(ChatRole.assistant, result.output);
+      thread.updatedAt = DateTime.now();
+      notifyListeners();
+      if (result.prefill case final draft?) onPrefill?.call(draft);
+      if (result.prompt case final prompt? when prompt.isNotEmpty) {
+        _submitTo(
+          thread,
+          prompt,
+          const [],
+          displayText: result.display ?? command,
+        );
+      }
+      return true;
+    } on Object catch (error) {
+      if (!disposed) report('Could not run $command: $error');
+      return false;
+    }
+  }
+
+  Future<void> _refreshAfterSlash(ChatThread thread, String? profile) async {
+    final repository = this.repository;
+    if (repository == null) return;
+    await _loadingMessages[thread.id];
+    try {
+      final page = await repository.loadMessagePage(
+        thread.id,
+        profile: profile,
+      );
+      if (disposed || _profile != profile || !_threads.contains(thread)) return;
+      thread.messages
+        ..clear()
+        ..addAll(page.messages);
+      _unloaded.remove(thread.id);
+      if (page.hasMore) {
+        _olderRows[thread.id] = page.rows;
+      } else {
+        _olderRows.remove(thread.id);
+      }
+      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+      notifyListeners();
+    } on Object {
+      if (!disposed) {
+        report('Command ran, but this chat could not be refreshed.');
+      }
+    }
+  }
+
   /// The text of the last prompt of [thread], or null when it had none (it
   /// was only files) or there is no prompt.
   String? lastPromptText(ChatThread thread) {
     for (final message in thread.messages.reversed) {
       if (message.role != ChatRole.user) continue;
-      return message.content.isEmpty ? null : message.content;
+      final text = message.submittedText ?? message.content;
+      return text.isEmpty ? null : text;
     }
     return null;
   }
@@ -515,7 +633,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// sent again.
   void retry(ChatThread thread) {
     final prompt = lastPromptText(thread);
-    if (prompt != null) submit(prompt, const []);
+    if (prompt == null) return;
+    if (prompt.startsWith('/')) {
+      unawaited(runSlashCommand(prompt));
+    } else {
+      submit(prompt, const []);
+    }
   }
 
   /// The prompts waiting in [thread] for its reply to end.
@@ -541,7 +664,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (thread.isReplying || queue == null || queue.isEmpty) return;
     final next = queue.removeAt(0);
     if (queue.isEmpty) _queues.remove(thread);
-    if (!_send(thread, next.text, next.files)) {
+    if (!_send(thread, next.text, next.files, displayText: next.displayText)) {
       (_queues[thread] ??= []).insert(0, next);
     }
     notifyListeners();
@@ -552,18 +675,33 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// queue, the prompt joins its queue instead. Returns false when it was
   /// neither sent nor queued, after telling the user why.
   bool submit(String typed, List<SharedFile> files) {
-    final selected = selectedThread;
+    return _submitTo(selectedThread, typed, files);
+  }
+
+  bool _submitTo(
+    ChatThread? selected,
+    String typed,
+    List<SharedFile> files, {
+    String? displayText,
+  }) {
     if (selected == null ||
         !selected.isReplying && !_queues.containsKey(selected)) {
-      return _send(selected, typed, files);
+      return _send(selected, typed, files, displayText: displayText);
     }
     if (_sizesOrExplain(files) == null) return false;
-    (_queues[selected] ??= []).add(QueuedPrompt(typed, files));
+    (_queues[selected] ??= []).add(
+      QueuedPrompt(typed, files, displayText: displayText),
+    );
     selected.isReplying ? notifyListeners() : sendQueued(selected);
     return true;
   }
 
-  bool _send(ChatThread? selected, String typed, List<SharedFile> files) {
+  bool _send(
+    ChatThread? selected,
+    String typed,
+    List<SharedFile> files, {
+    String? displayText,
+  }) {
     final sizes = _sizesOrExplain(files);
     if (sizes == null) return false;
     final attachments = <ChatAttachment>[];
@@ -588,7 +726,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       );
     }
 
-    final label = typed.isEmpty ? files.first.name : typed;
+    final label = typed.isEmpty ? files.first.name : displayText ?? typed;
     final thread =
         selected ??
         ChatThread(
@@ -609,7 +747,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final userMessage = ChatMessage(
       id: _newMessageId(thread),
       role: ChatRole.user,
-      content: typed,
+      content: displayText ?? typed,
+      submittedText: displayText == null ? null : typed,
       createdAt: DateTime.now(),
       attachments: attachments,
     );

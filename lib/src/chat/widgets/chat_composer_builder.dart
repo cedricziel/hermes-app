@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../share/shared_item.dart';
 import '../queued_prompt.dart';
+import '../slash_command.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -20,6 +21,8 @@ WidgetBuilder buildChatComposer({
   ValueChanged<QueuedPrompt>? onRemoveQueued,
   VoidCallback? onSendQueued,
   Widget? modelPill,
+  List<SlashCommand> slashCommands = const [],
+  bool commandRunning = false,
 }) {
   return (context) => _ComposerSlot(
     builder: (onSend, onAttach) => ChatComposer(
@@ -34,6 +37,8 @@ WidgetBuilder buildChatComposer({
       onRemoveQueued: onRemoveQueued,
       onSendQueued: onSendQueued,
       modelPill: modelPill,
+      slashCommands: slashCommands,
+      commandRunning: commandRunning,
     ),
   );
 }

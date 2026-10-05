@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:hermes_app/src/chat/chat_models.dart'
     show UnsupportedKind, VaultKind;
 import 'package:hermes_app/src/chat/chat_transport.dart';
+import 'package:hermes_app/src/chat/slash_command.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
 
 /// A [ChatTransport] the test drives by hand: every [send] is recorded and
@@ -10,6 +11,38 @@ import 'package:hermes_app/src/models/model_provider_option.dart';
 class FakeChatTransport implements ChatTransport {
   final sends = <FakeSend>[];
   bool closed = false;
+
+  List<SlashCommand> availableSlashCommands = const [];
+  final catalogGates = <Completer<List<SlashCommand>>>[];
+  final catalogContexts = <(String?, String?)>[];
+  final slashRuns = <String>[];
+  SlashCommandResult? slashResult;
+  Completer<SlashCommandResult>? slashGate;
+
+  @override
+  Future<List<SlashCommand>> slashCommands({
+    String? threadId,
+    String? profile,
+  }) async {
+    catalogContexts.add((threadId, profile));
+    if (catalogGates.isNotEmpty) return catalogGates.removeAt(0).future;
+    return availableSlashCommands;
+  }
+
+  @override
+  Future<SlashCommandResult> runSlashCommand({
+    String? threadId,
+    String? profile,
+    required String command,
+  }) async {
+    slashRuns.add(command);
+    if (slashGate case final gate?) return gate.future;
+    return slashResult ??
+        SlashCommandResult(
+          threadId: threadId ?? 'slash-thread',
+          output: 'Done',
+        );
+  }
 
   @override
   Stream<ChatEvent> send({

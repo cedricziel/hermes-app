@@ -97,6 +97,8 @@ class FakeGateway {
   final queuedImages = <String>[];
 
   Object? resumeResult = {'session_id': 'rt-2', 'session_key': 'stored-2'};
+  Map<String, Object?> slashResult = {'output': 'Command output'};
+  bool slashNeedsDispatch = false;
 
   Iterable<String> get methods => requests.map((r) => r['method'] as String);
 
@@ -178,6 +180,27 @@ class FakeGateway {
           'id': id,
           'result': {'key': params['key'], 'value': params['value']},
         });
+      case 'commands.catalog':
+        _send({
+          'id': id,
+          'result': {
+            'pairs': [
+              ['/help', 'Show help'],
+              ['/model', 'Choose a model'],
+              ['/quit', 'Exit the CLI'],
+            ],
+            'commands': {
+              '/quit': {'desktop': 'terminal'},
+            },
+          },
+        });
+      case 'slash.exec' when slashNeedsDispatch:
+        _send({
+          'id': id,
+          'error': {'code': 4018, 'message': 'dispatch command'},
+        });
+      case 'slash.exec' || 'command.dispatch':
+        _send({'id': id, 'result': slashResult});
       case 'session.interrupt':
         _send({
           'id': id,
@@ -285,6 +308,60 @@ void main() {
   });
 
   tearDown(() => transport.close());
+
+  test(
+    'slash catalog uses the active profile and commands bypass prompts',
+    () async {
+      final commands = await transport.slashCommands(profile: 'work');
+      expect(commands.map((c) => c.name), ['/help', '/model']);
+      expect(gateway.requestOf('commands.catalog')['params'], {
+        'profile': 'work',
+      });
+
+      final result = await transport.runSlashCommand(
+        profile: 'work',
+        command: '/help',
+      );
+      expect(result.threadId, 'stored-1');
+      expect(result.output, 'Command output');
+      expect(gateway.requestOf('slash.exec')['params'], {
+        'session_id': 'rt-1',
+        'command': 'help',
+      });
+      expect(gateway.methods, isNot(contains('prompt.submit')));
+    },
+  );
+
+  test('a skill command falls back to dispatch and returns a prompt', () async {
+    gateway.slashNeedsDispatch = true;
+    gateway.slashResult = {'type': 'skill', 'message': 'Use this skill'};
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/review carefully',
+    );
+    expect(result.prompt, 'Use this skill');
+    expect(gateway.requestOf('command.dispatch')['params'], {
+      'session_id': 'rt-2',
+      'name': 'review',
+      'arg': 'carefully',
+    });
+  });
+
+  test('a prefill command returns the restored draft', () async {
+    gateway.slashResult = {
+      'type': 'prefill',
+      'message': 'Previous prompt',
+      'notice': 'Undid one turn',
+    };
+    final result = await transport.runSlashCommand(
+      threadId: 'stored-2',
+      command: '/undo',
+    );
+    expect(result.prefill, 'Previous prompt');
+    expect(result.output, 'Undid one turn');
+    expect(result.prompt, isNull);
+    expect(gateway.methods, isNot(contains('prompt.submit')));
+  });
 
   Future<List<ChatEvent>> reply({
     String? threadId,
