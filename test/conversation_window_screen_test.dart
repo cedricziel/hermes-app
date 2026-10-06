@@ -174,15 +174,6 @@ void main() {
     expect(link.titles, contains('Porto'));
   });
 
-  testWidgets('closes when the main window says so', (tester) async {
-    await pump(tester);
-
-    link.commandsIn.add('close');
-    await tester.pump();
-
-    expect(link.calls, contains('close'));
-  });
-
   testWidgets('the pin command pins the chat', (tester) async {
     await pump(tester);
     server.on(

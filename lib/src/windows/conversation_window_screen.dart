@@ -113,10 +113,9 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     setState(() {});
   }
 
-  /// A command from the main window's menu bar while this window is key:
-  /// `close`, or a [ThreadAction] by name.
+  /// A [ThreadAction], by name, from the main window's menu bar while this
+  /// window is key. The main window closes windows natively.
   void _onCommand(String command) {
-    if (command == 'close') return unawaited(_link.close());
     final action = ThreadAction.values.asNameMap()[command];
     final thread = _thread;
     if (action == null || thread == null || !mounted) return;
