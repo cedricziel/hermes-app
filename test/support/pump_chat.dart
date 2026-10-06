@@ -22,6 +22,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'fake_hermes_server.dart';
 import 'find_app_icon.dart';
 import 'fake_share_inbox.dart';
+import 'mac_commands_builder.dart';
 
 /// The composer's editable text; the sidebar's search field is another one.
 final composerField = find.descendant(
@@ -63,10 +64,7 @@ Future<void> pumpChatScreen(
       ],
       child: MaterialApp(
         theme: buildHermesLightTheme().copyWith(platform: platform),
-        builder: commands == null
-            ? null
-            : (context, child) =>
-                  MacCommandScope.root(registry: commands, child: child!),
+        builder: macCommandsBuilder(commands),
         home: ChatScreen(
           repository: server == null
               ? null
