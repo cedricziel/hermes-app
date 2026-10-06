@@ -70,6 +70,10 @@ export interface ShellChrome {
   claimSidebarToggle?: () => () => void;
   /** The shell's resolved Apple device, which its sidebar and header inherit. */
   device?: AppleDevice;
+  /** A compact Mac window (under 760px): the sidebar opens over the page, and the page's toolbar folds its secondary buttons into a menu. */
+  compact?: boolean;
+  /** Present while a compact Mac window's sidebar lies over the page; a pick in the sidebar calls it. */
+  closeOverlay?: () => void;
 }
 
 export const ShellChromeContext = createContext<ShellChrome>({

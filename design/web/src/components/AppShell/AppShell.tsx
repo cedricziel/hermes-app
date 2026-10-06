@@ -1,10 +1,23 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { MacSourceListRow } from "../ThreadSidebar/MacSourceList";
+import {
+  MacProfileSwitcher,
+  SettingsSheet,
+  type MacProfileScope,
+  type SettingsEntry,
+} from "../ThreadSidebar/MacAccount";
 import { IconButton } from "../IconButton/IconButton";
 import {
   AccountFooter,
   SidebarAction,
   SidebarBrand,
+  type AccountAction,
 } from "../ThreadSidebar/ThreadSidebar";
 import {
   ShellChromeContext,
@@ -17,17 +30,25 @@ import {
 } from "../../platform";
 import "./AppShell.css";
 
-/** A top-level place in the app. Kanban and Schedules only exist while the server offers them. */
-export type ShellDestination = "chat" | "kanban" | "schedules";
+/**
+ * A top-level place in the app. Bots (the Bot Mode roster) only exists
+ * while the dashboard's gateway is reachable, Kanban and Schedules only
+ * while the server offers them, and Profiles only on a Mac (#402), where it
+ * opens `MacProfilesPage` in the shell.
+ */
+export type ShellDestination =
+  "chat" | "bots" | "kanban" | "schedules" | "profiles";
 
 const destinationInfo: Record<
   ShellDestination,
   { icon: string; label: string; caption?: string }
 > = {
   chat: { icon: "chat_bubble", label: "Chat" },
+  bots: { icon: "smart_toy", label: "Bots" },
   // The board is shared by every profile, which the Mac row says.
   kanban: { icon: "view_kanban", label: "Kanban", caption: "All profiles" },
   schedules: { icon: "schedule", label: "Schedules" },
+  profiles: { icon: "person", label: "Profiles" },
 };
 
 export interface ShellNavigationProps {
@@ -35,8 +56,14 @@ export interface ShellNavigationProps {
   destinations: ShellDestination[];
   /** The open destination: a filled row, bold label and filled icon. */
   current: ShellDestination;
-  /** A destination row was clicked. */
+  /** A destination row was clicked. In a compact Mac window this also closes the sidebar lying over the page. */
   onSelect?: (destination: ShellDestination) => void;
+  /**
+   * Mac only: the profile switcher card above the rows (#402): the profile
+   * the sidebar works in, and a menu of every profile ("Profiles", each with
+   * a check and its home path, "New Profile…", "Manage Profiles…").
+   */
+  profiles?: MacProfileScope;
   /** `apple` on a Mac draws source-list rows; see the component. Inherits the provider's platform. */
   platform?: Platform;
   /** Under `apple`, `mac` (default) or `touch`; inherited from the enclosing `AppShell` or `ThreadSidebar`. */
@@ -44,25 +71,41 @@ export interface ShellNavigationProps {
 }
 
 /**
- * The shell's destinations as sidebar rows (Chat, Kanban, Schedules), in the
- * wide sidebar and the phone drawer alike. Pass it as `navigation` to
- * `ThreadSidebar`, so it sits under the app name above "New chat". On a Mac
- * they are source-list rows: 28px, a 16px muted outline icon, a 13px label,
- * a soft fill on the open one, and Kanban captioned "All profiles" at the
- * trailing edge (the board is shared by every profile).
+ * The shell's destinations as sidebar rows (Chat, Bots, Kanban, Schedules,
+ * and Profiles on a Mac), in the wide sidebar and the phone drawer alike.
+ * Pass it as `navigation` to `ThreadSidebar`, so it sits under the app name
+ * above "New chat". On a Mac they are source-list rows: 28px, a 16px muted
+ * outline icon, a 13px label, a soft fill on the open one, and Kanban
+ * captioned "All profiles" at the trailing edge (the board is shared by
+ * every profile); with `profiles` the profile switcher sits above them.
  */
 export function ShellNavigation({
   destinations,
   current,
   onSelect,
+  profiles,
   platform,
   device: deviceProp,
 }: ShellNavigationProps) {
   const resolvedPlatform = usePlatform(platform);
   const device = useAppleDevice("desktop", deviceProp);
+  const { closeOverlay } = useContext(ShellChromeContext);
   const mac = resolvedPlatform === "apple" && device === "mac";
+  const select = (d: ShellDestination) => {
+    closeOverlay?.();
+    onSelect?.(d);
+  };
   return (
     <div className="h-shell-navigation">
+      {mac && profiles ? (
+        <MacProfileSwitcher
+          {...profiles}
+          onManage={() => {
+            closeOverlay?.();
+            profiles.onManage?.();
+          }}
+        />
+      ) : null}
       {destinations.map((d) => {
         const { icon, label, caption } = destinationInfo[d];
         const selected = d === current;
@@ -73,7 +116,7 @@ export function ShellNavigation({
             label={label}
             caption={caption}
             selected={selected}
-            onClick={() => onSelect?.(d)}
+            onClick={() => select(d)}
           />
         ) : (
           <SidebarAction
@@ -82,7 +125,7 @@ export function ShellNavigation({
             filledIcon={selected}
             label={label}
             selected={selected}
-            onClick={() => onSelect?.(d)}
+            onClick={() => select(d)}
           />
         );
       })}
@@ -95,18 +138,40 @@ export interface ShellSidebarProps {
   navigation: ReactNode;
   /** Account label for the footer ("Not connected" without one). */
   account?: string;
+  /** The server address for the account footer; see `AccountFooter`. */
+  serverUrl?: string;
+  /** The server requires sign-in: the account menu offers Sign out. */
+  authRequired?: boolean;
+  /** Open the account menu initially, for previews. */
+  defaultAccountMenuOpen?: boolean;
+  /** An account menu entry was picked. */
+  onAccountAction?: (action: AccountAction) => void;
   /** Mac sidebar: a 52px strip for the traffic lights and the hide button replaces the app name. Set by `AppShell` under `platform="apple"`. */
   mac?: boolean;
 }
 
-/** The 280px sidebar beside a page that has no thread list of its own (Kanban, Schedules): app name, destinations, account footer. */
-export function ShellSidebar({ navigation, account, mac }: ShellSidebarProps) {
+/** The 280px sidebar beside a page that has no thread list of its own (Bots, Kanban, Schedules, Profiles): app name, destinations, account footer. */
+export function ShellSidebar({
+  navigation,
+  account,
+  serverUrl,
+  authRequired,
+  defaultAccountMenuOpen,
+  onAccountAction,
+  mac,
+}: ShellSidebarProps) {
   return (
     <aside className={cx("h-shell-sidebar", mac && "h-shell-sidebar--mac")}>
       <SidebarBrand mac={mac} />
       <div className="h-shell-sidebar__nav">{navigation}</div>
       <div className="h-shell-sidebar__spacer" />
-      <AccountFooter label={account} />
+      <AccountFooter
+        label={account}
+        serverUrl={serverUrl}
+        authRequired={authRequired}
+        defaultMenuOpen={defaultAccountMenuOpen}
+        onAction={onAccountAction}
+      />
     </aside>
   );
 }
@@ -115,6 +180,7 @@ export interface AppShellProps {
   /**
    * The destinations the server offers, Chat first. With only Chat the shell
    * draws nothing of its own and shows `children` (and `sidebar`) bare.
+   * `profiles` belongs on a Mac only.
    */
   destinations?: ShellDestination[];
   /** The open destination. */
@@ -125,7 +191,8 @@ export interface AppShellProps {
    * 600px) in either orientation; Split View halves and Slide Over stay
    * `phone`. `phone` (narrower): there is no bottom bar; the same sidebar is
    * a 280px drawer over the page, opened from the menu button in the page's
-   * app bar. The drawer stays on phones under `apple` too.
+   * app bar. The drawer stays on phones under `apple` too. A Mac window is
+   * always `desktop`; see `compact`.
    */
   layout?: "desktop" | "phone";
   /**
@@ -146,6 +213,17 @@ export interface AppShellProps {
   device?: AppleDevice;
   /** Mac only: start with the sidebar hidden. A page's `ChatHeader` then shows a "Show sidebar" button and leaves room for the traffic lights; a page without one (Kanban, Schedules) gets a 52px toolbar strip from the shell with the same button. */
   sidebarCollapsed?: boolean;
+  /**
+   * Mac only: the window is narrower than 760px (#399). The sidebar does not
+   * sit beside the page: the page's toolbar clears the traffic lights and
+   * starts with the sidebar button, which opens the sidebar over the page
+   * behind a 20% scrim; picking a chat or a destination, the scrim or the
+   * sidebar's own hide button closes it. A `ChatHeader` inside also folds
+   * Copy Transcript and Connection Details into a "…" menu.
+   */
+  compact?: boolean;
+  /** Mac, `compact`: show the sidebar open over the page, for previews. */
+  sidebarOverlayOpen?: boolean;
   /** Mac only: sidebar width in px, clamped to 220 to 360 (default 280). */
   sidebarWidth?: number;
   /** Mac only: draw the three window buttons (traffic lights) at the top left, for previews of the window. */
@@ -155,23 +233,44 @@ export interface AppShellProps {
   /**
    * The left column (desktop) or the drawer (phone). For Chat pass a
    * `ThreadSidebar` with `navigation={<ShellNavigation .../>}`; leave it out
-   * for Kanban and Schedules to get the plain `ShellSidebar`.
+   * for the other destinations to get the plain `ShellSidebar`.
    */
   sidebar?: ReactNode;
+  /** Mac: the profile switcher of the default `ShellSidebar`'s navigation; see `ShellNavigation`. */
+  profiles?: MacProfileScope;
   /** Account label for the default `ShellSidebar`'s footer. */
   account?: string;
+  /** Server address for the default `ShellSidebar`'s account footer. */
+  serverUrl?: string;
+  /** The server requires sign-in (the default `ShellSidebar`'s account menu offers Sign out). */
+  authRequired?: boolean;
+  /** Open the default `ShellSidebar`'s account menu initially, for previews. */
+  defaultAccountMenuOpen?: boolean;
+  /** An entry of the default `ShellSidebar`'s account menu was picked. */
+  onAccountAction?: (action: AccountAction) => void;
+  /**
+   * Mac only: show the Settings list (the account menu's Settings…, ⌘,): a
+   * dialog titled "Settings" with Appearance…, Notifications…, App Lock…,
+   * About Hermes and Change Server…, each opening its own dialog.
+   */
+  settingsOpen?: boolean;
+  /** An entry of the Settings list was picked. */
+  onSettingsPick?: (entry: SettingsEntry) => void;
+  /** The Settings list was dismissed. */
+  onDismissSettings?: () => void;
   /** A destination was picked in the sidebar or the drawer. */
   onSelect?: (destination: ShellDestination) => void;
   /** The scrim beside the open drawer was clicked. */
   onCloseDrawer?: () => void;
-  /** The open page: for Chat, a `ChatHeader` over the thread or a `WelcomeView`. */
+  /** The open page: for Chat, a `ChatHeader` over the thread or a `WelcomeView`; for Profiles on a Mac, `MacProfilesPage`. */
   children?: ReactNode;
 }
 
 /**
- * The app's frame around the open page. The destinations (Chat, Kanban,
- * Schedules) are rows at the top of the sidebar: beside the page on a wide
- * screen, in a drawer on a phone. It fills its parent; give it a size.
+ * The app's frame around the open page. The destinations (Chat, Bots,
+ * Kanban, Schedules, and Profiles on a Mac) are rows at the top of the
+ * sidebar: beside the page on a wide screen, in a drawer on a phone, and in
+ * a compact Mac window over the page. It fills its parent; give it a size.
  */
 export function AppShell({
   destinations = ["chat", "kanban", "schedules"],
@@ -180,11 +279,21 @@ export function AppShell({
   platform,
   device: deviceProp,
   sidebarCollapsed = false,
+  compact = false,
+  sidebarOverlayOpen = false,
   sidebarWidth = 280,
   showTrafficLights = false,
   drawerOpen = false,
   sidebar,
+  profiles,
   account,
+  serverUrl,
+  authRequired,
+  defaultAccountMenuOpen,
+  onAccountAction,
+  settingsOpen = false,
+  onSettingsPick,
+  onDismissSettings,
   onSelect,
   onCloseDrawer,
   children,
@@ -193,9 +302,16 @@ export function AppShell({
   const device = useAppleDevice(layout, deviceProp);
   const mac =
     resolvedPlatform === "apple" && layout === "desktop" && device === "mac";
+  const compactMac = mac && compact;
   const [collapsed, setCollapsed] = useState(sidebarCollapsed);
-  const hidden = mac && collapsed;
-  const toggleSidebar = useCallback(() => setCollapsed((c) => !c), []);
+  const [overlay, setOverlay] = useState(sidebarOverlayOpen);
+  const hidden = mac && (compact || collapsed);
+  const toggleSidebar = useCallback(
+    () => (compact ? setOverlay((o) => !o) : setCollapsed((c) => !c)),
+    [compact],
+  );
+  const closeOverlay = useCallback(() => setOverlay(false), []);
+  const overlayShown = compactMac && overlay;
   const [headerToggles, setHeaderToggles] = useState(0);
   const claimSidebarToggle = useCallback(() => {
     setHeaderToggles((n) => n + 1);
@@ -207,8 +323,19 @@ export function AppShell({
       toggleSidebar: mac ? toggleSidebar : undefined,
       claimSidebarToggle,
       device,
+      compact: compactMac,
+      closeOverlay: overlayShown ? closeOverlay : undefined,
     }),
-    [hidden, mac, toggleSidebar, claimSidebarToggle, device],
+    [
+      hidden,
+      mac,
+      toggleSidebar,
+      claimSidebarToggle,
+      device,
+      compactMac,
+      overlayShown,
+      closeOverlay,
+    ],
   );
   const single = destinations.length <= 1;
   const side =
@@ -216,12 +343,17 @@ export function AppShell({
     (single ? null : (
       <ShellSidebar
         account={account}
+        serverUrl={serverUrl}
+        authRequired={authRequired}
+        defaultAccountMenuOpen={defaultAccountMenuOpen}
+        onAccountAction={onAccountAction}
         mac={mac}
         navigation={
           <ShellNavigation
             destinations={destinations}
             current={current}
             onSelect={onSelect}
+            profiles={profiles}
           />
         }
       />
@@ -274,7 +406,7 @@ export function AppShell({
             </div>
           ) : null}
           <div className="h-app-shell__content">
-            {hidden && headerToggles === 0 ? (
+            {hidden && side && headerToggles === 0 ? (
               <div className="h-app-shell__toolbar">
                 <IconButton
                   icon="left_panel_open"
@@ -285,6 +417,27 @@ export function AppShell({
             ) : null}
             {children}
           </div>
+          {overlayShown && side ? (
+            <>
+              <div
+                className="h-app-shell__overlay-scrim"
+                aria-hidden="true"
+                onClick={closeOverlay}
+              />
+              <div
+                className="h-app-shell__overlay"
+                style={{ width: width - 1 }}
+              >
+                {side}
+              </div>
+            </>
+          ) : null}
+          {mac && settingsOpen ? (
+            <SettingsSheet
+              onPick={onSettingsPick}
+              onDismiss={onDismissSettings}
+            />
+          ) : null}
         </div>
       </ShellChromeContext.Provider>
     </PlatformScope>

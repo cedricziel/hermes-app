@@ -28,6 +28,10 @@ export interface MenuItem<T extends string = string> {
   disabled?: boolean;
   /** A line of small muted text that is not an action, such as the server address on top of the account menu. */
   info?: boolean;
+  /** With `info`: a small bold heading over the entries ("Profiles", "Group by"), as the app's disabled menu titles. */
+  heading?: boolean;
+  /** A second, smaller line under the label (a profile's home path); the Mac row grows to 36px. */
+  detail?: string;
 }
 
 export interface MenuProps<T extends string = string> {
@@ -134,7 +138,13 @@ function MenuRow<T extends string>({
 }) {
   if (item.info) {
     return (
-      <div className="h-menu__item h-menu__item--info" role="presentation">
+      <div
+        className={cx(
+          "h-menu__item h-menu__item--info",
+          item.heading && "h-menu__item--heading",
+        )}
+        role="presentation"
+      >
         <span className="h-menu__label">{item.label}</span>
       </div>
     );
@@ -161,6 +171,7 @@ function MenuRow<T extends string>({
       className={cx(
         "h-menu__item",
         item.destructive && "h-menu__item--destructive",
+        item.detail && "h-menu__item--detail",
       )}
       onClick={onPick}
     >
@@ -168,7 +179,14 @@ function MenuRow<T extends string>({
         <span className="h-menu__check">{check}</span>
       ) : null}
       {!ios ? icon : null}
-      <span className="h-menu__label">{item.label}</span>
+      {item.detail ? (
+        <span className="h-menu__label h-menu__label--stacked">
+          <span className="h-menu__label-text">{item.label}</span>
+          <span className="h-menu__detail">{item.detail}</span>
+        </span>
+      ) : (
+        <span className="h-menu__label">{item.label}</span>
+      )}
       {trailing ? <span className="h-menu__trailing">{trailing}</span> : null}
       {mac && item.shortcut ? (
         <span className="h-menu__shortcut">{item.shortcut}</span>

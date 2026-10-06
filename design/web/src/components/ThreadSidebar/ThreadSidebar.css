@@ -14,6 +14,19 @@
   padding: 0 8px;
 }
 
+.h-thread-sidebar__search {
+  margin-top: 4px;
+}
+
+/* Mac: the switcher and destinations sit 8px over the source list. */
+.h-thread-sidebar__nav--mac {
+  padding-bottom: 8px;
+}
+
+.h-thread-sidebar__list--mac {
+  margin-top: 0;
+}
+
 .h-sidebar-row {
   border-radius: calc(var(--h-radius-xs) + 2px);
 }

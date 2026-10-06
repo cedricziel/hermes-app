@@ -107,3 +107,100 @@
 .h-mac-row__button:hover {
   background: var(--h-hover);
 }
+
+/* A section header row: the folding header, and on the first one the
+   grouping "…" (ThreadSectionHeading in the app). */
+.h-section-row {
+  display: flex;
+  align-items: center;
+}
+
+.h-section-row > .h-mac-section,
+.h-section-row > .h-thread-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-section-count {
+  flex: none;
+  margin: 0 4px 0 8px;
+}
+
+/* Touch and Material section headers (ThreadSectionHeader): 13px semibold
+   muted, the folder count in 12px, the chevron always shown. */
+.h-thread-section {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-thread-section .h-section-count {
+  margin: 0 0 0 8px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.h-thread-section .h-mac-section__chevron {
+  margin-left: 8px;
+  opacity: 1;
+}
+
+.h-grouping {
+  flex: none;
+}
+
+.h-grouping__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: pointer;
+}
+
+.h-grouping__button:hover {
+  background: var(--h-hover);
+}
+
+.h-grouping__button--mac {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+/* The plain "Chats" heading of a Material list by recency
+   (_ThreadListHeading): the Mac section style, unfoldable. It sits outside
+   the list's 8px inset in the app. */
+.h-thread-heading {
+  display: flex;
+  align-items: center;
+}
+
+.h-thread-heading--material {
+  margin: 0 -8px;
+}
+
+.h-thread-heading__label {
+  flex: 1;
+  padding: 0 12px;
+  color: var(--h-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+}
