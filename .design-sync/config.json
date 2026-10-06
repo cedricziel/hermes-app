@@ -26,7 +26,8 @@
     "MenuAnchor": null,
     "MacToolbarButton": null,
     "MacToolbarSeparator": null,
-    "MacToolbarSearchField": null
+    "MacToolbarSearchField": null,
+    "RadioGroup": null
   },
   "overrides": {
     "TextField": {
