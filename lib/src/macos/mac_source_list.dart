@@ -23,9 +23,11 @@ class MacSourceListTile extends StatefulWidget {
     required this.onTap,
     this.selected = false,
     this.onSecondaryTapUp,
+    this.height = kMacSourceListRowHeight,
   });
 
   final Widget Function(BuildContext context, bool hovered) builder;
+  final double height;
   final VoidCallback onTap;
   final bool selected;
   final GestureTapUpCallback? onSecondaryTapUp;
@@ -60,10 +62,16 @@ class _MacSourceListTileState extends State<MacSourceListTile> {
             splashFactory: NoSplash.splashFactory,
             highlightColor: Colors.transparent,
             child: SizedBox(
-              height: kMacSourceListRowHeight,
+              height: widget.height,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: widget.builder(context, _hovered),
+                // On the ink's own node, which holds the label, not on one
+                // around it that hover buttons would split from it.
+                child: Semantics(
+                  button: true,
+                  selected: widget.selected,
+                  child: widget.builder(context, _hovered),
+                ),
               ),
             ),
           ),

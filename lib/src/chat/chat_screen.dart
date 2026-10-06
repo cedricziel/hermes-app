@@ -26,6 +26,7 @@ import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../plugins/plugins_screen.dart';
+import '../profiles/chat_profiles.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/profiles_screen.dart';
 import '../settings/helper_models_screen.dart';
@@ -92,6 +93,7 @@ class ChatScreen extends StatefulWidget {
     this.navigation,
     this.starterContext,
     this.visible = true,
+    this.chatProfiles,
   });
 
   final HermesChatRepository? repository;
@@ -128,6 +130,10 @@ class ChatScreen extends StatefulWidget {
 
   /// Whether the shell currently shows this chat destination.
   final bool visible;
+
+  /// The profiles the window's sidebar switches between. The chat reports
+  /// the profile it shows and follows a switch made there.
+  final ChatProfiles? chatProfiles;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -248,7 +254,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (mounted) _onOpenRequest();
     });
     _composerController.addListener(_onComposerText);
-    if (_chat.repository != null) _chat.loadThreads();
+    if (_chat.repository != null) {
+      _chat.loadThreads();
+      widget.chatProfiles?.attach(_chat.loadThreads);
+    }
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared();
@@ -277,6 +286,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _changed() {
     if (!mounted) return;
+    widget.chatProfiles?.showing(_chat.profile);
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     _onComposerText();
@@ -430,6 +440,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _handoff?.advertise(null);
     _activeRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    widget.chatProfiles?.attach(null);
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _attention.dispose();

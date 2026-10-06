@@ -8,6 +8,9 @@ import '../../macos/mac_sidebar.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
+import '../../settings/settings_dialog.dart';
+import '../../settings/widgets/mac_account_footer.dart';
+import '../../screens/home_screen.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -181,23 +184,25 @@ class ThreadSidebar extends StatelessWidget {
                       ),
               ),
             ],
-            const Divider(height: 1),
-            _MoreSection(
-              entries: [
-                if (onOpenProfiles != null)
-                  (AppIcons.person, 'Profiles', onOpenProfiles!),
-                if (onOpenSkills != null)
-                  (AppIcons.extension, 'Skills', onOpenSkills!),
-                if (onOpenMessaging != null)
-                  (AppIcons.bot, 'Messaging', onOpenMessaging!),
-                if (onOpenPlugins != null)
-                  (AppIcons.extension, 'Plugins', onOpenPlugins!),
-                if (onOpenMcp != null)
-                  (AppIcons.power, 'MCP servers', onOpenMcp!),
-                if (onOpenHelperModels != null)
-                  (AppIcons.tune, 'Helper models', onOpenHelperModels!),
-              ],
-            ),
+            if (!mac) ...[
+              const Divider(height: 1),
+              _MoreSection(
+                entries: [
+                  if (onOpenProfiles != null)
+                    (AppIcons.person, 'Profiles', onOpenProfiles!),
+                  if (onOpenSkills != null)
+                    (AppIcons.extension, 'Skills', onOpenSkills!),
+                  if (onOpenMessaging != null)
+                    (AppIcons.bot, 'Messaging', onOpenMessaging!),
+                  if (onOpenPlugins != null)
+                    (AppIcons.extension, 'Plugins', onOpenPlugins!),
+                  if (onOpenMcp != null)
+                    (AppIcons.power, 'MCP servers', onOpenMcp!),
+                  if (onOpenHelperModels != null)
+                    (AppIcons.tune, 'Helper models', onOpenHelperModels!),
+                ],
+              ),
+            ],
             const AccountFooter(),
           ],
         ),
@@ -672,7 +677,8 @@ class _ShowMoreRowState extends State<_ShowMoreRow> {
   }
 }
 
-/// The signed-in user with the account menu.
+/// The signed-in user with the account menu. A Mac window shows
+/// [MacAccountFooter], whose Settings… gathers the settings dialogs.
 class AccountFooter extends StatelessWidget {
   const AccountFooter({super.key});
 
@@ -680,11 +686,26 @@ class AccountFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
     final identity = auth.identity;
-    final label = identity == null
-        ? (auth.baseUrl ?? 'Not connected')
+    final user = identity == null
+        ? null
         : (identity.displayName.isNotEmpty
               ? identity.displayName
               : identity.email);
+    if (platformChromeOf(context) == PlatformChrome.macos) {
+      final baseUrl = auth.baseUrl;
+      final host = baseUrl == null
+          ? 'Not connected'
+          : (Uri.tryParse(baseUrl)?.authority ?? baseUrl);
+      return MacAccountFooter(
+        name: user,
+        host: host,
+        onSettings: () => showSettingsDialog(context),
+        onConnection: () => Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => const HomeScreen())),
+        onSignOut: (auth.status?.authRequired ?? false) ? auth.signOut : null,
+      );
+    }
+    final label = user ?? auth.baseUrl ?? 'Not connected';
 
     return Padding(
       padding: const EdgeInsets.all(8),

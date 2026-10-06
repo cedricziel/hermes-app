@@ -144,4 +144,37 @@ void main() {
       expect(repository.setActive('nope'), throwsA(isA<DioException>()));
     });
   });
+
+  test('list reads each profile home', () async {
+    server.on(
+      'GET',
+      '/api/profiles',
+      profileListBody([profileRow(name: 'work')]),
+    );
+
+    final profiles = await repository.list();
+
+    expect(profiles.single.path, '/home/hermes/work');
+    expect(server.requestsTo('GET', '/api/profiles/active'), isEmpty);
+  });
+
+  group('create', () {
+    test('posts the name and description', () async {
+      server.on('POST', '/api/profiles', {'ok': true, 'name': 'travel'});
+
+      await repository.create('travel', description: 'Trips');
+
+      final request = server.requestsTo('POST', '/api/profiles').single;
+      expect(jsonBody(request), containsPair('name', 'travel'));
+      expect(jsonBody(request), containsPair('description', 'Trips'));
+    });
+
+    test('surfaces a refused name as a DioException', () async {
+      server.on('POST', '/api/profiles', {
+        'detail': 'Profile exists',
+      }, status: 400);
+
+      expect(repository.create('work'), throwsA(isA<DioException>()));
+    });
+  });
 }

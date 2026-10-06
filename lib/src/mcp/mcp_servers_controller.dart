@@ -142,11 +142,16 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
   McpServersController({
     required this.repository,
     this.profiles,
+    this.forProfile,
     McpLinkLauncher? launchLink,
   }) : launchLink = launchLink ?? _openInBrowser;
 
   final HermesMcpRepository repository;
   final HermesProfilesRepository? profiles;
+
+  /// The profile to act on, for a visit from the Profiles page; the active
+  /// one, learned from [profiles], when null.
+  final String? forProfile;
   final McpLinkLauncher launchLink;
 
   String? _profile;
@@ -192,7 +197,7 @@ class McpServersController extends ChangeNotifier with SafeNotifier {
     _failed = false;
     notifyListeners();
     try {
-      _profile = await _activeProfile();
+      _profile = forProfile ?? await _activeProfile();
       await _fetch();
     } on Object {
       if (disposed) return;

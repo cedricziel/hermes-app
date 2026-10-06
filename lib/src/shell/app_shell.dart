@@ -19,11 +19,16 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
+import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../profiles/chat_profiles.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import '../profiles/mac_profiles_page.dart';
+import '../profiles/widgets/mac_profile_switcher.dart';
 import '../schedules/hermes_cron_repository.dart';
 import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
@@ -33,7 +38,7 @@ import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import 'shell_navigation.dart';
 
-enum _Destination { chat, bots, kanban, schedules }
+enum _Destination { chat, bots, kanban, schedules, profiles }
 
 /// Top-level navigation between Chat and the destinations the server offers:
 /// Kanban while its plugin is on, Schedules while it has the cron routes.
@@ -70,6 +75,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   BotModeChatRepository? _botChats;
   HermesGroupsRepository? _groups;
   bool _bots = false;
+
+  /// The profiles a Mac window switches between in its sidebar; listed on
+  /// the first Mac build.
+  ChatProfiles? _chatProfiles;
+
+  /// The sidebar of a Mac window, which a pick in it closes when it lies
+  /// over the page.
+  final _sidebar = MacSidebarController();
+
+  /// Whether the Mac-only state has been read, on the first Mac build.
+  bool _macLoaded = false;
   bool _kanban = false;
   bool _schedules = false;
   int _detection = 0;
@@ -93,6 +109,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     _plugins = widget.plugins ?? repositories?.plugins;
     _cron = widget.cron ?? repositories?.cron;
     _profiles = repositories?.profiles;
+    if (_profiles case final profiles?) {
+      _chatProfiles = ChatProfiles(profiles);
+    }
     final auth = _maybeRead<AuthController>();
     if (repositories != null && auth?.baseUrl != null) {
       final telemetry = _maybeRead<MessagingConnectionTracer>();
@@ -139,6 +158,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _watcher?.dispose();
+    _chatProfiles?.dispose();
+    _sidebar.dispose();
     _schedulesController?.dispose();
     _openRequests.dispose();
     _gateway?.close();
@@ -201,6 +222,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _select(_Destination destination, {bool cancelHandoff = true}) {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
+    _sidebar.closeOverlay();
     if (_current == destination) return;
     setState(() {
       _current = destination;
@@ -326,17 +348,59 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       label: 'Schedules',
       caption: null,
     ),
+    _Destination.profiles: (
+      icon: AppIcons.person,
+      selected: AppIcons.person,
+      label: 'Profiles',
+      caption: null,
+    ),
   };
+
+  Future<void> _switchProfile(String name) async {
+    final switched = await _chatProfiles?.switchTo(name) ?? false;
+    if (switched || !mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Could not switch profile')));
+  }
+
+  /// The profile switcher above the destinations of a Mac sidebar.
+  Widget? _profileSwitcher() {
+    final profiles = _chatProfiles;
+    if (profiles == null) return null;
+    return ListenableBuilder(
+      listenable: profiles,
+      builder: (context, _) => MacProfileSwitcher(
+        profiles: profiles.profiles,
+        current: profiles.current,
+        onSwitch: _switchProfile,
+        onNewProfile: () => createProfile(context, profiles),
+        onManage: () => _select(_Destination.profiles),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final built = _build(context);
-    return platformChromeOf(context) == PlatformChrome.macos
-        ? MacSidebarScope(child: built)
-        : built;
+    if (platformChromeOf(context) != PlatformChrome.macos) return built;
+    if (!_macLoaded) {
+      _macLoaded = true;
+      _sidebar.load();
+      _chatProfiles?.load();
+    }
+    return MacCommandScope(
+      commands: {
+        MacCommand.settings: MacCommandHandler(
+          () => showSettingsDialog(context),
+        ),
+      },
+      child: MacSidebarScope(controller: _sidebar, child: built),
+    );
   }
 
   Widget _build(BuildContext context) {
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
     Widget chat({Widget? navigation}) => KeyedSubtree(
       key: _chatKey,
       child: ChatScreen(
@@ -346,6 +410,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         openRequests: _openRequests,
         onOpenJob: _openJob,
         navigation: navigation,
+        chatProfiles: mac ? _chatProfiles : null,
       ),
     );
     final destinations = [
@@ -353,6 +418,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       if (_bots) _Destination.bots,
       if (_kanban) _Destination.kanban,
       if (_schedules) _Destination.schedules,
+      if (mac && _chatProfiles != null) _Destination.profiles,
     ];
     if (destinations.length == 1) return chat();
 
@@ -365,11 +431,23 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             isWideLayout(context, width: constraints.maxWidth);
         final index = destinations.indexOf(_current);
         void select(int i) => _select(destinations[i]);
-        final navigation = ShellNavigation(
+        final switcher = mac ? _profileSwitcher() : null;
+        final shellNavigation = ShellNavigation(
           destinations: [for (final d in destinations) _labels[d]!],
           selectedIndex: index,
           onSelected: select,
         );
+        final navigation = switcher == null
+            ? shellNavigation
+            : Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: switcher,
+                  ),
+                  shellNavigation,
+                ],
+              );
 
         Widget page(_Destination destination) {
           final content = switch (destination) {
@@ -391,6 +469,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       controller: _schedulesController!,
                       onOpenRun: _openRun,
                     ),
+            _Destination.profiles => MacProfilesPage(profiles: _chatProfiles!),
           };
           if (!wide ||
               destination == _Destination.chat ||

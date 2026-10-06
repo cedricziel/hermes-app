@@ -181,6 +181,33 @@ void main() {
       expect(style.style.color, error);
     });
 
+    testWidgets('a two-line item takes its own height', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: AdaptivePopupMenuButton<String>(
+              itemBuilder: (_) => const [
+                AdaptiveMenuItem(
+                  value: 'work',
+                  macHeight: 36,
+                  child: Text('Work'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(IconButton));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getSize(find.widgetWithText(PopupMenuItem<String>, 'Work'))
+            .height,
+        36,
+      );
+    });
+
     testWidgets('open at a point puts the menu there', (tester) async {
       final controller = AdaptiveMenuController();
       final picked = await pumpMac(tester, controller: controller);
