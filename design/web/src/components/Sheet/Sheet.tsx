@@ -1,11 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  type CSSProperties,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useId, type CSSProperties, type ReactNode } from "react";
+import { useModalFocus } from "../../modalFocus";
 import { cx } from "../../platform";
 import "./Sheet.css";
 
@@ -27,6 +21,8 @@ export interface SheetProps {
   actions?: ReactNode;
   /** `dialog`: the widest the panel gets, in px (560 for an alert, 520 for the command review). */
   width?: number;
+  /** `dialog`: as wide as its content (280px to `width`) instead of `width`, as Flutter's `AlertDialog` sizes itself. */
+  fitContent?: boolean;
   /** `bottom`: the tallest the sheet gets, as a CSS length. Default 90%, leaving the screen's top visible. */
   maxHeight?: string;
   /** Inner padding in px around the content: 24 for an alert, 0 when the content pads itself. */
@@ -36,9 +32,6 @@ export interface SheetProps {
   /** What the sheet shows. It scrolls when it is taller than the sheet. */
   children?: ReactNode;
 }
-
-const focusable =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * A modal surface over a dimmed screen: a bottom sheet on a phone or a
@@ -57,6 +50,7 @@ export function Sheet({
   label,
   actions,
   width = 560,
+  fitContent = false,
   maxHeight = "90%",
   padding = 24,
   onDismiss,
@@ -64,45 +58,7 @@ export function Sheet({
 }: SheetProps) {
   const dialog = presentation === "dialog";
   const titleId = useId();
-  const panel = useRef<HTMLDivElement>(null);
-  const dismiss = useRef(onDismiss);
-  dismiss.current = onDismiss;
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    panel.current?.focus({ preventScroll: true });
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape" && dismiss.current) {
-        e.stopPropagation();
-        dismiss.current();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      previous?.focus?.({ preventScroll: true });
-    };
-  }, []);
-
-  const trapTab = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab" || !panel.current) return;
-    const items = Array.from(
-      panel.current.querySelectorAll<HTMLElement>(focusable),
-    );
-    if (items.length === 0) {
-      e.preventDefault();
-      return;
-    }
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  const { ref: panel, onKeyDown } = useModalFocus<HTMLDivElement>(onDismiss);
 
   return (
     <div
@@ -119,13 +75,14 @@ export function Sheet({
         className={cx(
           "h-sheet",
           dialog ? "h-sheet--dialog" : "h-sheet--bottom",
+          dialog && fitContent && "h-sheet--fit",
         )}
         style={{
           ...(dialog ? { maxWidth: width } : { maxHeight }),
           ...({ "--h-sheet-pad": `${padding}px` } as CSSProperties),
         }}
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={trapTab}
+        onKeyDown={onKeyDown}
       >
         {!dialog && dragHandle ? (
           <div className="h-sheet__handle-area">

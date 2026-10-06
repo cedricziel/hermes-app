@@ -156,6 +156,9 @@
     "Sheet": {
       "cardMode": "column"
     },
+    "AlertDialog": {
+      "cardMode": "column"
+    },
     "MacToolbar": {
       "cardMode": "column"
     },

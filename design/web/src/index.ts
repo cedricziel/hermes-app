@@ -84,6 +84,7 @@ export * from "./components/RadioRow/RadioRow";
 export * from "./components/FactList/FactList";
 export * from "./components/SectionHeader/SectionHeader";
 export * from "./components/Sheet/Sheet";
+export * from "./components/AlertDialog/AlertDialog";
 export * from "./components/McpCatalogRow/McpCatalogRow";
 export * from "./components/McpServerDetail/McpServerDetail";
 export * from "./components/McpInstallPanel/McpInstallPanel";

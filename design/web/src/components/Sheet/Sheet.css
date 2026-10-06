@@ -37,6 +37,10 @@
   border-radius: 28px;
 }
 
+.h-sheet--fit {
+  width: auto;
+}
+
 .h-sheet__handle-area {
   flex: none;
   display: flex;
