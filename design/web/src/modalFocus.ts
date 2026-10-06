@@ -41,10 +41,11 @@ export function useModalFocus<T extends HTMLElement>(onDismiss?: () => void) {
     }
     const first = items[0];
     const last = items[items.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
+    const active = document.activeElement;
+    if (e.shiftKey && (active === first || active === panel.current)) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
+    } else if (!e.shiftKey && active === last) {
       e.preventDefault();
       first.focus();
     }
