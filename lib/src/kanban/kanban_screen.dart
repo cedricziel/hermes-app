@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/services.dart';
-
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/state_message.dart';
 
@@ -17,6 +15,7 @@ import '../api/hermes_repositories.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../auth/auth_controller.dart';
+import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../theme/platform_chrome.dart';
 import '../shell/shell_navigation.dart';
@@ -110,7 +109,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
       log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
     )..start();
     unawaited(_inspector.load());
-    HardwareKeyboard.instance.addHandler(_onKey);
     _lifecycle = AppLifecycleListener(
       onStateChange: (state) {
         _foreground = _isForeground(state);
@@ -136,7 +134,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
     _inspector.dispose();
     _lifecycle.dispose();
     _controller.dispose();
@@ -145,36 +142,20 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   bool get _mac => platformChromeOf(context) == PlatformChrome.macos;
 
-  /// Option-Command-I shows or hides the inspector and Command-N adds a task,
-  /// while the board is the page in front.
-  bool _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        !_visible ||
-        !mounted ||
-        !_mac ||
-        ModalRoute.of(context)?.isCurrent == false) {
-      return false;
-    }
-    final keyboard = HardwareKeyboard.instance;
-    if (!keyboard.isMetaPressed ||
-        keyboard.isControlPressed ||
-        keyboard.isShiftPressed) {
-      return false;
-    }
-    final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.keyI && keyboard.isAltPressed) {
-      _inspector.toggle();
-      return true;
-    }
-    if (key == LogicalKeyboardKey.keyN &&
-        !keyboard.isAltPressed &&
-        _controller.board != null &&
-        !_controller.selecting) {
-      unawaited(_create());
-      return true;
-    }
-    return false;
-  }
+  /// Adds a task, or null while there is no board to add to or tasks are
+  /// being selected.
+  VoidCallback? get _newTask =>
+      _controller.board == null || _controller.selecting ? null : _create;
+
+  /// What File > New and View > Inspector do while the board is in front.
+  Map<MacCommand, MacCommandHandler> _menuCommands() => {
+    MacCommand.newChat: MacCommandHandler(_newTask, title: 'New Task'),
+    if (_mac)
+      MacCommand.toggleInspector: MacCommandHandler(
+        _inspector.toggle,
+        title: _inspector.shown ? 'Hide Inspector' : 'Show Inspector',
+      ),
+  };
 
   void _selectBoard(String slug) {
     _inspector.close();
@@ -196,7 +177,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
     profile: _controller.assignee,
     live: _controller.live,
     inspectorShown: _inspector.shown,
-    onNewTask: _controller.board == null ? null : _create,
+    onNewTask: _newTask,
     onSelectBoard: _selectBoard,
     onManageBoards: _manageBoards,
     onProfileChanged: _controller.setAssignee,
@@ -261,18 +242,20 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 onArchive: () => unawaited(_bulk(archive: true)),
               )
             : null,
-        body: _mac
-            ? KanbanInspectorLayout(
-                board: _body(context),
-                shown: _inspector.shown,
-                inspector: _inspectorPanel(),
-              )
-            : _body(context),
-        floatingActionButton:
-            _mac || _controller.board == null || _controller.selecting
+        body: MacCommandScope(
+          commands: _menuCommands(),
+          child: _mac
+              ? KanbanInspectorLayout(
+                  board: _body(context),
+                  shown: _inspector.shown,
+                  inspector: _inspectorPanel(),
+                )
+              : _body(context),
+        ),
+        floatingActionButton: _mac || _newTask == null
             ? null
             : FloatingActionButton.extended(
-                onPressed: _create,
+                onPressed: _newTask,
                 icon: const AppIcon(AppIcons.add),
                 label: const Text('New task'),
               ),
