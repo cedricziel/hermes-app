@@ -1,4 +1,4 @@
-import { HermesProvider, ThreadSidebar } from "@hermes-app/ui";
+import { HermesProvider, ShellNavigation, ThreadSidebar } from "@hermes-app/ui";
 import type { ThreadItem } from "@hermes-app/ui";
 
 const threads: ThreadItem[] = [
@@ -70,7 +70,63 @@ export const EmptyAndPaging = () => (
   </div>
 );
 
-/** Apple touch (left): 44px rows without a "…" button; a chat is swiped or long-pressed instead. Mac (right): 52px strip under the traffic lights, compact rows with a "…". */
+/** The Mac source list sorts chats by `updatedAt`, counted back from `now`. */
+const macThreads: ThreadItem[] = [
+  { ...threads[0], updatedAt: "2026-09-29T10:00:00" },
+  { ...threads[1], updatedAt: "2026-10-04T08:30:00" },
+  { ...threads[2], updatedAt: "2026-10-01T15:00:00" },
+  {
+    id: "certs",
+    title: "Rotate the staging certificates",
+    updatedAt: "2026-09-14T09:00:00",
+  },
+  {
+    id: "pkce",
+    title: "Explain the PKCE flow to a new hire",
+    updatedAt: "2026-07-02T09:00:00",
+  },
+  { ...threads[3], updatedAt: "2026-10-04T11:00:00", remote: false },
+];
+const now = "2026-10-04T12:00:00";
+
+/** Mac source list: sections Pinned, Today, Previous 7 days, Previous 30 days and Older; "Older" folded (left); a row under the pointer shows Archive and More, and the right-click menu leads with "Open in New Window" (right). */
+export const AppleMacSourceList = () => (
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    style={{ display: "flex", gap: 24 }}
+  >
+    <div style={{ ...frame, height: 600 }}>
+      <ThreadSidebar
+        threads={macThreads}
+        now={now}
+        selectedId="nightly"
+        defaultFoldedSections={["older"]}
+        hoveredThreadId="release"
+        account="Ada Lovelace"
+        navigation={
+          <ShellNavigation
+            destinations={["chat", "kanban", "schedules"]}
+            current="chat"
+          />
+        }
+      />
+    </div>
+    <div style={{ ...frame, marginRight: 140 }}>
+      <ThreadSidebar
+        threads={macThreads}
+        now={now}
+        selectedId="nightly"
+        hoveredThreadId="release"
+        defaultMenuThreadId="release"
+        canOpenInNewWindow
+        account="Ada Lovelace"
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Apple touch (left): 44px rows without a "…" button; a chat is swiped or long-pressed instead. Mac (right): 52px strip under the traffic lights, the source list. */
 export const AppleTouchAndMac = () => (
   <HermesProvider platform="apple" style={{ display: "flex", gap: 24 }}>
     <div style={frame}>

@@ -1,0 +1,56 @@
+/* Black and white in both themes, as the app's Colors.black / white / white54.
+   The tokens are set here so the IconButtons and Icon follow them. */
+.h-image-viewer {
+  --h-bg: #000;
+  --h-fg: #fff;
+  --h-muted: rgba(255, 255, 255, 0.54);
+  --h-hover: rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-image-viewer__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  height: 56px;
+  padding: 0 4px;
+}
+
+/* The app bar title: 16px (17px on iOS) semibold. */
+.h-image-viewer__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.h-image-viewer__bar--apple .h-image-viewer__title {
+  font-size: 17px;
+}
+
+.h-image-viewer__stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.h-image-viewer__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

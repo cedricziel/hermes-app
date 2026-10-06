@@ -1,0 +1,109 @@
+/* Apple, Mac: the source list (MacSourceListTile, MacSourceListRow,
+   MacThreadRow and MacSidebarSectionHeader in the app). 28px rows, 6px
+   radius, onSurface at 10% when selected and 5% under the pointer. */
+
+.h-mac-section {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 10px 4px 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  font: inherit;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-mac-section__label,
+.h-mac-row__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-mac-section__chevron {
+  opacity: 0;
+  transition: transform 150ms ease;
+}
+
+.h-mac-section:is(:hover, :focus-visible) .h-mac-section__chevron {
+  opacity: 1;
+}
+
+.h-mac-section__chevron--folded {
+  transform: rotate(-90deg);
+}
+
+.h-mac-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--h-fg);
+  cursor: default;
+}
+
+.h-mac-row:is(:hover, .h-mac-row--hovered) {
+  background: color-mix(in srgb, var(--h-fg) 5%, transparent);
+}
+
+.h-mac-row.h-mac-row--selected {
+  background: color-mix(in srgb, var(--h-fg) 10%, transparent);
+}
+
+.h-mac-row:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-mac-row__title {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.h-mac-row__icon,
+.h-mac-row__caption {
+  flex-shrink: 0;
+  color: var(--h-muted);
+}
+
+.h-mac-row__caption {
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.h-mac-row__actions {
+  display: inline-flex;
+  gap: 2px;
+  visibility: hidden;
+}
+
+.h-mac-row:is(:hover, :focus-within, .h-mac-row--hovered) .h-mac-row__actions {
+  visibility: visible;
+}
+
+.h-mac-row__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: default;
+}
+
+.h-mac-row__button:hover {
+  background: var(--h-hover);
+}

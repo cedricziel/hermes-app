@@ -79,3 +79,24 @@ export const AppleSignIn = () => (
     </div>
   </HermesProvider>
 );
+
+/** The Widgetbook's other states on Apple: sign-in cancelled (left) and an address that is not a URL (right). */
+export const AppleErrors = () => (
+  <HermesProvider platform="apple">
+    <div style={{ ...phone, display: "inline-block", marginRight: 20 }}>
+      <ConnectScreen
+        step="signin"
+        serverUrl="https://hermes.example.net"
+        providers={[{ id: "sso", displayName: "Company SSO" }]}
+        error="Sign-in was cancelled."
+      />
+    </div>
+    <div style={{ ...phone, display: "inline-block" }}>
+      <ConnectScreen
+        step="server"
+        serverUrl="hermes.local"
+        error="Enter a valid http(s) URL, e.g. http://192.168.1.20:9119"
+      />
+    </div>
+  </HermesProvider>
+);

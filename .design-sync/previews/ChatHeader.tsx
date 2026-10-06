@@ -56,7 +56,7 @@ export const PlatformPhone = () => (
   </div>
 );
 
-/** Material (top, 77px with a rule) and Apple (bottom, 52px unified toolbar, no rule) desktop bars. */
+/** Material (top, 77px with a rule) and Apple on a Mac (bottom, the 52px MacToolbar, no rule) desktop bars. */
 export const PlatformDesktop = () => (
   <div style={{ ...wide, display: "flex", flexDirection: "column", gap: 20 }}>
     <div style={{ border: "1px solid var(--h-border)" }}>
@@ -83,10 +83,32 @@ export const ApplePhoneMenuOpen = () => (
   </HermesProvider>
 );
 
-export const AppleMacMenuOpen = () => (
-  <HermesProvider platform="apple">
-    <div style={{ ...wide, height: 260 }}>
-      <ChatHeader title="Backup failure" pinned defaultMenuOpen />
+/** Mac: the chat's toolbar (title over "profile · model", New Chat, Copy Transcript, Connection Details) with the search field in a wide window, a search button in a medium one, a "…" for the two middle buttons in a compact one, and the wide field while a search is open. */
+export const AppleMacToolbar = () => (
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    style={{ display: "flex", flexDirection: "column", gap: 12 }}
+  >
+    {(["wide", "medium", "compact"] as const).map((size) => (
+      <div key={size} style={{ ...wide, border: "1px solid var(--h-border)" }}>
+        <ChatHeader
+          title="Backup failure"
+          subtitle="default · claude-opus-4"
+          windowSize={size}
+          onCopyTranscript={() => {}}
+        />
+      </div>
+    ))}
+    <div style={{ ...wide, border: "1px solid var(--h-border)" }}>
+      <ChatHeader
+        title="Backup failure"
+        subtitle="default · claude-opus-4"
+        windowSize="medium"
+        searchActive
+        searchQuery="nas-02"
+        onCopyTranscript={() => {}}
+      />
     </div>
   </HermesProvider>
 );
