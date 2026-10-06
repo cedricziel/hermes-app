@@ -50,6 +50,14 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/messaging/platforms',
+        platformListBody([
+          platformRow(id: 'telegram', name: 'Telegram', enabled: true),
+          platformRow(id: 'slack', name: 'Slack'),
+        ]),
+      )
+      ..on(
+        'GET',
         '/api/model/auxiliary',
         {'detail': 'down'},
         status: 500,
@@ -149,6 +157,10 @@ void main() {
     expect(countIn(ProfileSection.mcp), '1');
     expect(countIn(ProfileSection.helperModels), isNull);
     expect(countIn(ProfileSection.messaging), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('profile-row-default')));
+    await tester.pumpAndSettle();
+    expect(countIn(ProfileSection.messaging), '1');
   });
 
   testWidgets('the account footer opens Settings', (tester) async {

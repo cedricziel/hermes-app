@@ -7,6 +7,7 @@ import '../auth/auth_controller.dart';
 import '../messaging/messaging_screen.dart';
 import '../macos/mac_toolbar.dart';
 import '../mcp/mcp_servers_screen.dart';
+import '../plugins/installed_plugin.dart';
 import '../plugins/plugins_screen.dart';
 import '../settings/helper_models_screen.dart';
 import '../skills/skills_screen.dart';
@@ -21,8 +22,9 @@ import 'widgets/new_profile_dialog.dart';
 /// it for that profile.
 ///
 /// Counts are read when a profile is selected and left out when a read
-/// fails. Messaging and plugins are managed for the profile the dashboard is
-/// scoped to, so their counts only show for the chat's profile.
+/// fails. Messaging platforms and plugins count the ones switched on, and only for the
+/// chat's profile: they are managed for the profile the dashboard is scoped
+/// to.
 class MacProfilesPage extends StatefulWidget {
   const MacProfilesPage({super.key, required this.profiles});
 
@@ -108,11 +110,15 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
       if (current) ...[
         count(
           ProfileSection.messaging,
-          () async => (await repositories.messaging.load()).length,
+          () async => (await repositories.messaging.load())
+              .where((p) => p.enabled)
+              .length,
         ),
         count(
           ProfileSection.plugins,
-          () async => (await repositories.pluginManager.load()).length,
+          () async => (await repositories.pluginManager.load())
+              .where((p) => p.status == PluginStatus.enabled)
+              .length,
         ),
       ],
     ]);
