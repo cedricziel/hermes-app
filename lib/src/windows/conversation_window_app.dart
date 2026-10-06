@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +19,23 @@ import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
 import 'window_auth_interceptor.dart';
+
+/// The conversation window [main] was started for: desktop_multi_window
+/// starts each window's engine at `main(["multi_window", id, arguments])`.
+/// Only macOS has conversation windows; null starts the app as usual.
+({String windowId, String arguments})? conversationWindowLaunch(
+  List<String> args, {
+  bool? macOS,
+}) {
+  if (!(macOS ?? (!kIsWeb && Platform.isMacOS))) return null;
+  return switch (args) {
+    ['multi_window', final windowId, final arguments, ...] => (
+      windowId: windowId,
+      arguments: arguments,
+    ),
+    _ => null,
+  };
+}
 
 /// Runs the engine of conversation window [windowId], which
 /// desktop_multi_window started with [arguments]. Unlike the main engine it

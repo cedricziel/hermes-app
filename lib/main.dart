@@ -31,9 +31,8 @@ import 'src/windows/desktop_conversation_windows.dart';
 
 Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
-  // desktop_multi_window starts a conversation window's engine here too.
-  if (args case ['multi_window', final windowId, final arguments, ...]) {
-    return runConversationWindow(windowId, arguments);
+  if (conversationWindowLaunch(args) case final window?) {
+    return runConversationWindow(window.windowId, window.arguments);
   }
   await MacWindow.initialize();
   final telemetry = await Telemetry.initialize(
