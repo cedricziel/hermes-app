@@ -117,6 +117,12 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         return;
       }
       if (text.isNotEmpty) reply.content = text;
+      // A model that stops without writing text gets its reasoning returned
+      // as the answer, which Hermes stores as reasoning only.
+      if (reply.reasoning.isNotEmpty &&
+          reply.content.trim() == reply.reasoning.trim()) {
+        reply.content = '';
+      }
       reply.stopped = stopped && reply.content.isNotEmpty;
       if (stopped && reply.content.isEmpty) {
         reply.content = kReplyStoppedMessage;
