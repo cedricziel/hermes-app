@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -114,4 +116,26 @@ void main() {
     expect(asked, 2);
     expect(server.requests, hasLength(1));
   });
+
+  test(
+    'a main window that does not answer does not hold the request',
+    () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://hermes.test'))
+        ..httpClientAdapter = server;
+      dio.interceptors.add(
+        WindowAuthInterceptor(
+          dio,
+          ({rejected}) => Completer<Map<String, String>>().future,
+          timeout: const Duration(milliseconds: 20),
+        ),
+      );
+
+      await expectLater(
+        HermesApiClient(dio).raw.getSessionsApiSessionsGet(),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(sent, [null]);
+    },
+  );
 }

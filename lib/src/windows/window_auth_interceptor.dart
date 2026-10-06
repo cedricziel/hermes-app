@@ -10,10 +10,22 @@ typedef WindowAuthHeaders = Future<Map<String, String>> Function({
 /// refresh token, so the main window stays the one place the session is
 /// refreshed and rotating refresh tokens cannot race.
 class WindowAuthInterceptor extends Interceptor {
-  WindowAuthInterceptor(this._dio, this._headers);
+  WindowAuthInterceptor(
+    this._dio,
+    this._headers, {
+    this.timeout = const Duration(seconds: 20),
+  });
 
   final Dio _dio;
   final WindowAuthHeaders _headers;
+
+  /// How long to wait for the main window; past it the request goes out
+  /// without credentials and fails on its own.
+  final Duration timeout;
+
+  Future<Map<String, String>> _ask({Map<String, String>? rejected}) =>
+      _headers(rejected: rejected)
+          .timeout(timeout, onTimeout: () => const <String, String>{});
 
   static const _sentKey = 'hermes_window_auth';
   static const _retriedKey = 'hermes_window_retried';
@@ -24,7 +36,7 @@ class WindowAuthInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     if (options.extra[_retriedKey] != true) {
-      _apply(options, await _headers());
+      _apply(options, await _ask());
     }
     handler.next(options);
   }
@@ -39,7 +51,7 @@ class WindowAuthInterceptor extends Interceptor {
       return handler.next(err);
     }
     final sent = options.extra[_sentKey] as Map<String, String>? ?? const {};
-    final fresh = await _headers(rejected: sent);
+    final fresh = await _ask(rejected: sent);
     if (fresh.isEmpty) return handler.next(err);
     for (final key in sent.keys) {
       options.headers.remove(key);
