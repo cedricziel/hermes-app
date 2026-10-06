@@ -10,7 +10,8 @@ Release builds send diagnostic logs and traces to a server run by the developer.
 
 - the app version and whether it is a release build
 - the operating system (iOS, macOS, Android, Windows or Linux) and its version, and whether the device is a phone, a tablet or a desktop; the form factor is left out when it is not known
-- the hardware model, such as `iPhone17,1`, `Mac14,2` or `Pixel 9`, its manufacturer, the processor architecture on a Mac, the Android API level, and whether it is a simulator or an iOS app running on a Mac. These are shared by every unit of a model. The device name, vendor or hardware IDs, locale, memory and disk sizes are never sent
+- the hardware model, such as `iPhone17,1`, `Mac14,2` or `Pixel 9`, its manufacturer, the processor architecture on a Mac, the Android API level, and whether it is a simulator or an iOS app running on a Mac. These are shared by every unit of a model. The device name, hardware IDs, locale, memory and disk sizes are never sent
+- an installation ID, used to count how many devices use the app: on iOS the vendor ID Apple gives this developer's apps, which changes once all of them are removed; on Android the ID Android gives apps signed by this developer; elsewhere a random ID the app creates and keeps. It is not linked to your server, your account or any other app's data
 - a random ID that changes on every launch
 - for each request the app makes: the HTTP method, the first two segments of the API path (for example `/api/status`, or `/api/sessions` for a request about one conversation; IDs and names further along the path are never sent), the status code and how long it took
 - the type of error when a request fails

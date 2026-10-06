@@ -16,4 +16,4 @@ WHAT YOU GET
 
 PRIVACY
 
-No account with us and no advertising. The app talks to the server address you enter. Release builds also send diagnostics to a server run by the developer: the app version, your device model and system version, and request timings and error types. They never contain your messages, your session tokens or your server address. The full list is in the privacy policy.
+No account with us and no advertising. The app talks to the server address you enter. Release builds also send diagnostics to a server run by the developer: the app version, your device model and system version, an installation ID, and request timings and error types. They never contain your messages, your session tokens or your server address. The full list is in the privacy policy.

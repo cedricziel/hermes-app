@@ -60,7 +60,7 @@ dependencies:
   # OpenTelemetry logs and traces, exported to SignalDB.
   flutter_otel: ^0.1.1
   # Coarse device facts for the telemetry resource.
-  flutter_otel_device_info: ^0.1.0
+  flutter_otel_device_info: ^0.1.1
   # Request spans and logs that record the route only, never the server address.
   dart_otel_instrumentation_dio: ^0.1.2
   # The chat WebSocket as an upgrade span plus linked message spans.
