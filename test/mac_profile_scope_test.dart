@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -68,6 +69,7 @@ void main() {
   Future<void> pump(
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
+    MacCommandRegistry? registry,
   }) async {
     tester.view
       ..physicalSize = const Size(1200, 800)
@@ -80,7 +82,12 @@ void main() {
         auth,
         MaterialApp(
           theme: buildHermesLightTheme(platform: platform),
-          home: const AppShell(),
+          home: registry == null
+              ? const AppShell()
+              : MacCommandScope.root(
+                  registry: registry,
+                  child: const AppShell(),
+                ),
         ),
       ),
     );
@@ -180,5 +187,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Appearance…'), findsOneWidget);
     expect(find.text('About Hermes'), findsOneWidget);
+  });
+
+  testWidgets('Settings in the menu bar opens the settings list', (
+    tester,
+  ) async {
+    final registry = MacCommandRegistry();
+    addTearDown(registry.dispose);
+    await pump(tester, registry: registry);
+
+    expect(registry.invoke(MacCommand.settings), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('Appearance…'), findsOneWidget);
   });
 }

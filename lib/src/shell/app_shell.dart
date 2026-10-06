@@ -19,7 +19,9 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
+import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -387,7 +389,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _sidebar.load();
       _chatProfiles?.load();
     }
-    return MacSidebarScope(controller: _sidebar, child: built);
+    return MacCommandScope(
+      commands: {
+        MacCommand.settings: MacCommandHandler(
+          () => showSettingsDialog(context),
+        ),
+      },
+      child: MacSidebarScope(controller: _sidebar, child: built),
+    );
   }
 
   Widget _build(BuildContext context) {
