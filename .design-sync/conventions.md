@@ -89,3 +89,5 @@ Screen cards show whole app screens from plain data; start a mock of one of them
   </div>
 </HermesProvider>
 ```
+
+Settings-style screens have whole-screen cards (group Screens) to start from: `ProfilesScreen` (on a Mac, `MacProfilesPage`), `MessagingScreen`, `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillsScreen`, `SkillDetailScreen`, `SkillEditorScreen`, `HubSkillScreen` and `HelperModelsScreen`. Each takes plain data, a `state` for loading and failure, `layout="phone" | "desktop"` and `platform`; their rows are `SkillRow`, `HubSkillRow`, `MessagingPlatformRow` and `ModelSlotRow`.

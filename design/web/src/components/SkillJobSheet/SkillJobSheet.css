@@ -1,0 +1,33 @@
+.h-skill-job {
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+  color: var(--h-fg);
+}
+
+.h-skill-job__title {
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+.h-skill-job__outcome--error {
+  color: var(--h-error);
+}
+
+.h-skill-job__log {
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--h-fg);
+  color: var(--h-bg);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.h-skill-job__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}

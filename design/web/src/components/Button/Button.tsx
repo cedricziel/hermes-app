@@ -9,9 +9,11 @@ export interface ButtonProps extends Omit<
   /**
    * `filled`: the one primary action (near-black in light, near-white in dark).
    * `outlined`: secondary actions next to it. `text`: quiet actions such as
-   * Cancel or Deny. `danger`: a destructive confirm.
+   * Cancel or Deny. `danger`: a destructive confirm. `danger-outlined`: a
+   * destructive secondary action in the error color ("Uninstall", "Ask agent
+   * to delete").
    */
-  variant?: "filled" | "outlined" | "text" | "danger";
+  variant?: "filled" | "outlined" | "text" | "danger" | "danger-outlined";
   /** Leading Material Symbols icon name. */
   icon?: string;
   /** Stretch to the parent's width. */

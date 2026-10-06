@@ -11,6 +11,7 @@ import {
   type Platform,
 } from "../../platform";
 import { Icon } from "../Icon/Icon";
+import { MacToolbar, MacToolbarButton } from "../MacToolbar/MacToolbar";
 import "./ListDetailLayout.css";
 
 export interface ListDetailLayoutProps {
@@ -18,7 +19,7 @@ export interface ListDetailLayoutProps {
   title: string;
   /** Small line under the title, e.g. "Profile: work". */
   subtitle?: string;
-  /** Shows a back arrow before the title and calls this when it is pressed (a pushed screen on phone). Under `apple` it is a chevron, with `backLabel` beside it in the `list` layout. */
+  /** Shows a back arrow before the title and calls this when it is pressed (a pushed screen on phone). Under `apple` it is a chevron, with `backLabel` beside it in the `list` layout on touch (a Mac shows the chevron alone). */
   onBack?: () => void;
   /**
    * Shows a close (X) button where the back button goes and calls this when
@@ -68,14 +69,15 @@ export interface ListDetailLayoutProps {
    * `apple` follows the HIG: a chevron back button (with the parent's title
    * on a phone), a "+" in the bar instead of the FAB and a segmented control
    * instead of underline tabs. The split layout starts at 900px, and on a
-   * full-screen iPad from 700px. Inside a Mac `AppShell` the bar is the
-   * 52px unified toolbar (44px elsewhere under `apple`). Inherits the
-   * provider's platform.
+   * full-screen iPad from 700px. On a Mac a page without a back or close
+   * button gets a `MacToolbar` (its actions and the "+" as 28px toolbar
+   * buttons); a pushed screen keeps a 52px bar with the Mac back chevron.
+   * 44px elsewhere under `apple`. Inherits the provider's platform.
    */
   platform?: Platform;
   /**
-   * Under `apple`: `mac` draws the 52px unified toolbar and the Mac back
-   * button, `touch` the 44px iOS bar. Defaults to the enclosing `AppShell`'s
+   * Under `apple`: `mac` draws the Mac bar (a `MacToolbar`, or a 52px bar
+   * with the back chevron on a pushed screen), `touch` the 44px iOS bar. Defaults to the enclosing `AppShell`'s
    * device, else `touch`. Pass `mac` for a pushed screen that fills a Mac
    * window outside an `AppShell`. Ignored on `material`.
    */
@@ -124,50 +126,72 @@ export function ListDetailLayout({
           mac && "h-list-detail--mac",
         )}
       >
-        <header className="h-list-detail__bar">
-          {onClose ? (
-            <IconButton icon="close" label="Close" onClick={onClose} />
-          ) : onBack && apple ? (
-            <button
-              type="button"
-              className="h-list-detail__back"
-              aria-label="Back"
-              onClick={onBack}
-            >
-              {/* The app's back button: CupertinoIcons.back on iOS, Flutter's
-                  Material BackButton (a rounded chevron) on macOS. */}
-              {mac ? (
-                <Icon name="arrow_back_ios_new" apple={false} size={20} />
-              ) : (
-                <Icon name="arrow_back" apple="back" size={30} />
-              )}
-              {!split && backLabel ? <span>{backLabel}</span> : null}
-            </button>
-          ) : onBack ? (
-            <IconButton icon="arrow_back" label="Back" onClick={onBack} />
-          ) : null}
-          <div
-            className={[
-              "h-list-detail__titles",
-              onBack || onClose ? "h-list-detail__titles--after-back" : null,
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            <div className="h-list-detail__title">{title}</div>
-            {subtitle ? (
-              <div className="h-list-detail__subtitle">{subtitle}</div>
+        {mac && !onBack && !onClose ? (
+          // A Mac page in the shell (no back button) gets the unified toolbar.
+          <MacToolbar
+            title={title}
+            subtitle={subtitle}
+            actions={
+              actions || onAdd ? (
+                <>
+                  {actions}
+                  {onAdd ? (
+                    <MacToolbarButton
+                      icon="add"
+                      label={addLabel}
+                      onClick={onAdd}
+                    />
+                  ) : null}
+                </>
+              ) : undefined
+            }
+          />
+        ) : (
+          <header className="h-list-detail__bar">
+            {onClose ? (
+              <IconButton icon="close" label="Close" onClick={onClose} />
+            ) : onBack && apple ? (
+              <button
+                type="button"
+                className="h-list-detail__back"
+                aria-label="Back"
+                onClick={onBack}
+              >
+                {/* The app's back button: CupertinoIcons.back on iOS, Flutter's
+                    Material BackButton (a rounded chevron) on macOS. */}
+                {mac ? (
+                  <Icon name="arrow_back_ios_new" apple={false} size={20} />
+                ) : (
+                  <Icon name="arrow_back" apple="back" size={30} />
+                )}
+                {!split && !mac && backLabel ? <span>{backLabel}</span> : null}
+              </button>
+            ) : onBack ? (
+              <IconButton icon="arrow_back" label="Back" onClick={onBack} />
             ) : null}
-          </div>
-          {actions || (apple && onAdd) ? (
-            <div className="h-list-detail__actions">
-              {actions}
-              {apple && onAdd ? (
-                <IconButton icon="add" label={addLabel} onClick={onAdd} />
+            <div
+              className={[
+                "h-list-detail__titles",
+                onBack || onClose ? "h-list-detail__titles--after-back" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <div className="h-list-detail__title">{title}</div>
+              {subtitle ? (
+                <div className="h-list-detail__subtitle">{subtitle}</div>
               ) : null}
             </div>
-          ) : null}
-        </header>
+            {actions || (apple && onAdd) ? (
+              <div className="h-list-detail__actions">
+                {actions}
+                {apple && onAdd ? (
+                  <IconButton icon="add" label={addLabel} onClick={onAdd} />
+                ) : null}
+              </div>
+            ) : null}
+          </header>
+        )}
         {tabs && tabs.length > 0 ? (
           <SegmentedControl
             labels={tabs}

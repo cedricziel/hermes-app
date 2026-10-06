@@ -13,6 +13,7 @@ export const Variants = () => (
     <Button variant="outlined">Allow for session</Button>
     <Button variant="text">Deny</Button>
     <Button variant="danger">Remove server</Button>
+    <Button variant="danger-outlined">Uninstall</Button>
   </div>
 );
 
@@ -46,6 +47,9 @@ export const Disabled = () => (
     <Button variant="outlined" disabled>
       Install
     </Button>
+    <Button variant="danger-outlined" disabled>
+      Uninstall
+    </Button>
   </div>
 );
 
@@ -55,6 +59,7 @@ export const Dark = () => (
       <Button>Allow once</Button>
       <Button variant="outlined">Allow for session</Button>
       <Button variant="text">Deny</Button>
+      <Button variant="danger-outlined">Ask agent to delete</Button>
     </div>
   </HermesProvider>
 );

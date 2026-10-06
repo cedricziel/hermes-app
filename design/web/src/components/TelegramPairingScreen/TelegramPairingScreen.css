@@ -1,0 +1,33 @@
+.h-pairing {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.h-pairing__center {
+  display: flex;
+  justify-content: center;
+}
+
+.h-pairing__link {
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.h-pairing__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.h-pairing__waiting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.h-pairing__error {
+  color: var(--h-error);
+}

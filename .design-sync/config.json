@@ -5,9 +5,13 @@
   "globalName": "HermesUI",
   "buildCmd": "cd design/web && npm ci && npm run build",
   "cssEntry": "dist/index.css",
-  "extraFonts": ["src/fonts/cupertino-icons.css"],
+  "extraFonts": [
+    "src/fonts/cupertino-icons.css"
+  ],
   "docsDir": "docs",
-  "guidelinesGlob": ["guides/**/*.md"],
+  "guidelinesGlob": [
+    "guides/**/*.md"
+  ],
   "provider": {
     "component": "HermesProvider"
   },
@@ -202,6 +206,57 @@
       "cardMode": "column"
     },
     "PluginsScreen": {
+      "cardMode": "column"
+    },
+    "BusyBar": {
+      "cardMode": "column"
+    },
+    "SecurityScanCard": {
+      "cardMode": "column"
+    },
+    "SkillJobSheet": {
+      "cardMode": "column"
+    },
+    "SkillEditorScreen": {
+      "cardMode": "column"
+    },
+    "TelegramPairingScreen": {
+      "cardMode": "column"
+    },
+    "ModelSlotRow": {
+      "cardMode": "column"
+    },
+    "MessagingPlatformRow": {
+      "cardMode": "column"
+    },
+    "SkillRow": {
+      "cardMode": "column"
+    },
+    "HubSkillRow": {
+      "cardMode": "column"
+    },
+    "ProfilesScreen": {
+      "cardMode": "column"
+    },
+    "MessagingScreen": {
+      "cardMode": "column"
+    },
+    "MessagingSetupScreen": {
+      "cardMode": "column"
+    },
+    "HelperModelsScreen": {
+      "cardMode": "column"
+    },
+    "SkillsScreen": {
+      "cardMode": "column"
+    },
+    "SkillDetailScreen": {
+      "cardMode": "column"
+    },
+    "HubSkillScreen": {
+      "cardMode": "column"
+    },
+    "MacProfilesPage": {
       "cardMode": "column"
     }
   }

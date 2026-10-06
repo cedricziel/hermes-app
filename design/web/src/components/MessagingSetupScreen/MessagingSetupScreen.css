@@ -1,0 +1,35 @@
+.h-messaging-setup {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.h-messaging-setup__or {
+  padding: 12px 0;
+}
+
+.h-messaging-setup__field {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.h-messaging-setup__field > .h-field {
+  flex: 1;
+}
+
+/* The clear button sits level with the input, below the label. */
+.h-messaging-setup__clear {
+  flex: none;
+  margin-top: 28px;
+}
+
+.h-messaging-setup__error {
+  padding-top: 8px;
+  color: var(--h-error);
+}
+
+.h-messaging-setup__save {
+  padding-top: 16px;
+}
