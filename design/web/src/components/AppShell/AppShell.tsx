@@ -9,6 +9,7 @@ import { MacSourceListRow } from "../ThreadSidebar/MacSourceList";
 import {
   MacProfileSwitcher,
   SettingsSheet,
+  SignOutAlert,
   type MacProfileScope,
   type SettingsEntry,
 } from "../ThreadSidebar/MacAccount";
@@ -258,6 +259,17 @@ export interface AppShellProps {
   onSettingsPick?: (entry: SettingsEntry) => void;
   /** The Settings list was dismissed. */
   onDismissSettings?: () => void;
+  /**
+   * Mac only: Sign Out asks first (#445), from the account menu or the
+   * Hermes menu's "Sign Out…": an Apple alert "Sign out of the dashboard?"
+   * with Cancel and Sign Out. Only a server that needs sign-in offers
+   * Sign Out (`authRequired`), so leave it closed without one.
+   */
+  signOutConfirmOpen?: boolean;
+  /** Sign Out was confirmed. */
+  onConfirmSignOut?: () => void;
+  /** The Sign Out question was cancelled or dismissed. */
+  onCancelSignOut?: () => void;
   /** A destination was picked in the sidebar or the drawer. */
   onSelect?: (destination: ShellDestination) => void;
   /** The scrim beside the open drawer was clicked. */
@@ -294,6 +306,9 @@ export function AppShell({
   settingsOpen = false,
   onSettingsPick,
   onDismissSettings,
+  signOutConfirmOpen = false,
+  onConfirmSignOut,
+  onCancelSignOut,
   onSelect,
   onCloseDrawer,
   children,
@@ -436,6 +451,12 @@ export function AppShell({
             <SettingsSheet
               onPick={onSettingsPick}
               onDismiss={onDismissSettings}
+            />
+          ) : null}
+          {mac && signOutConfirmOpen ? (
+            <SignOutAlert
+              onConfirm={onConfirmSignOut}
+              onCancel={onCancelSignOut}
             />
           ) : null}
         </div>

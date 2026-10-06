@@ -32,6 +32,7 @@ const profiles = [
   },
 ];
 
+/** The chat's own profile selected: every section has its count, Plugins included. */
 export const Selected = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={mac}>
@@ -54,7 +55,26 @@ export const Selected = () => (
   </HermesProvider>
 );
 
-/** Another profile than the chat's: messaging and plugins are counted only for the chat's profile, and a count still loading is left out. */
+/** Another profile than the chat's (#445): Messaging counts that profile's own platforms; `plugins` is left out of `counts`, as the dashboard's plugin hub answers only for the chat's profile, so the row shows no count. */
+export const OtherProfile = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={mac}>
+      <MacProfilesPage
+        profiles={profiles}
+        selected="work"
+        host="hermes.example.com"
+        counts={{
+          skills: 12,
+          messaging: 1,
+          mcp: 4,
+          helperModels: 4,
+        }}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Counts still loading are left out. */
 export const CountsLoading = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={mac}>

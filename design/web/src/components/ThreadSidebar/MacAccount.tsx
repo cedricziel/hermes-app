@@ -1,3 +1,4 @@
+import { AlertDialog } from "../AlertDialog/AlertDialog";
 import { Icon } from "../Icon/Icon";
 import { Menu, useMenuState, type MenuItem } from "../Menu/Menu";
 import { Sheet } from "../Sheet/Sheet";
@@ -152,7 +153,7 @@ export type MacAccountAction = "settings" | "connection" | "sign-out";
  * dashboard reports no user) and an up-down chevron. A click opens a menu
  * above it: "Signed in to the dashboard" (or "Connected to the dashboard"
  * without sign-in), Settings… (⌘,), Connection Details and, when the server
- * needs sign-in, Sign Out.
+ * needs sign-in, Sign Out, which asks first (`SignOutAlert`).
  */
 export function MacAccountFooter({
   name,
@@ -219,6 +220,32 @@ export function MacAccountFooter({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * What Sign Out asks first on a Mac (`confirmSignOut`, #445), from the
+ * account footer's menu or the Hermes menu's "Sign Out…": an Apple alert
+ * with Cancel and Sign Out. Dismissing it is Cancel.
+ */
+export function SignOutAlert({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm?: () => void;
+  onCancel?: () => void;
+}) {
+  return (
+    <AlertDialog
+      platform="apple"
+      title="Sign out of the dashboard?"
+      message="You will need to sign in again to see your chats."
+      actions={[
+        { label: "Cancel", onClick: onCancel },
+        { label: "Sign Out", isDefault: true, onClick: onConfirm },
+      ]}
+      onDismiss={onCancel}
+    />
   );
 }
 

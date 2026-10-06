@@ -314,6 +314,25 @@ export const AppleMacProfiles = () => (
   </HermesProvider>
 );
 
+/** Mac, Sign Out picked in the account menu (#445): it asks first, "Sign out of the dashboard?" with Cancel and Sign Out, as an Apple alert over the window. */
+export const AppleMacSignOut = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...desktop, overflow: "hidden" }}>
+      <AppShell
+        layout="desktop"
+        destinations={["chat", "kanban", "schedules", "profiles"]}
+        current="chat"
+        sidebar={macSidebar}
+        signOutConfirmOpen
+        showTrafficLights
+      >
+        <ChatHeader windowSize="medium" subtitle="default · claude-opus-4" />
+        <WelcomeView prompts={prompts} />
+      </AppShell>
+    </div>
+  </HermesProvider>
+);
+
 /** Kanban and Schedules get the same Mac sidebar from the plain ShellSidebar. */
 export const AppleMacSchedules = () => (
   <HermesProvider platform="apple" typeRamp="default">

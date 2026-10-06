@@ -80,6 +80,23 @@ export const MoreMenu = () => (
   </HermesProvider>
 );
 
+/** Just opened from the main window (⌥⌘O, #444): the half-written message and the files that window's composer held moved here with the chat, and the main window went back to its welcome view. */
+export const CarriedOverDraft = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={frame}>
+      <ConversationWindowScreen
+        {...chat}
+        turns={finished}
+        composerValue="Book the Memmo for the 9th. We land at 10:40, so ask whether"
+        attachments={[
+          { name: "tap-booking-TP537.pdf" },
+          { name: "alfama-map.png", image: true },
+        ]}
+      />
+    </div>
+  </HermesProvider>
+);
+
 /** A reply streaming in: no actions under it yet, and the send button is Stop. */
 export const Streaming = () => (
   <HermesProvider platform="apple" typeRamp="default">
