@@ -54,6 +54,8 @@ Read `styles.css` and its imports (tokens and every component's CSS) before styl
 
 Forms and plain lists: a form screen is a column of `FormSection`s (heading, fields, helper or error; `collapsible` for "Advanced") holding `TextField`, `SelectField` (any dropdown or picker field), `Chip` rows and a `ModelPill`; any plain list (boards, workers, settings rows) is `ListRow`s, which form an inset grouped list by themselves under `platform="apple"`.
 
+On a Mac (`platform="apple"`, `layout="desktop"`) a page's top bar is a `MacToolbar`: title over subtitle, `MacToolbarButton`s, a `MacToolbarSeparator` between groups, and a `MacToolbarSearchField` where the page searches.
+
 ## Example
 
 ```jsx

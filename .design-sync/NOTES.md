@@ -26,7 +26,7 @@
 
 - Helper exports that are not standalone components (InputCardFrame, InputCardNote, ToolCallStatusIcon,
   AccountFooter, ShellNavigation, ShellSidebar, SidebarAction, SidebarBrand, ThreadActionsButton, KanbanBulkBar,
-  MenuAnchor)
+  MenuAnchor, MacToolbarButton, MacToolbarSeparator, MacToolbarSearchField)
   are excluded from cards via `componentSrcMap: null`; they stay in the bundle. A new PascalCase export shows up
   as `[DOCS_UNMAPPED]`: give it a `docs/<Name>.md` category stub, or exclude it the same way.
 - Almost every card uses `cardMode: "column"`: the real column card is about 840px wide, so full-screen
@@ -93,6 +93,12 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - As in Flutter PR #376, touch thread rows have no inline "..."; their actions are the swipes and the long-press
   sheet. Mac and Material rows keep it.
 - Shared form and list parts: `FormSection` (Layout; Flutter has no widget, it is the heading/fields/helper rhythm of the job, Kanban task and blueprint forms, and `DisclosureTile` for "Advanced"), `SelectField` (Controls; `DropdownButtonFormField` and the job form's model `InputDecorator`, Material on every platform as in the app, its menu follows the platform) and `ListRow` (Lists; Material `ListTile`, an inset grouped row on Apple with a muted disclosure chevron).
+
+- `MacToolbar` is the app's Mac unified toolbar (#399, #396, #401): title over subtitle, 28px
+  `MacToolbarButton`s, `MacToolbarSeparator`, `MacToolbarSearchField`, and the traffic-light clearance with the
+  show-sidebar button while the sidebar is hidden. Pages on a Mac use it instead of their Material bar. The
+  inspector toggle draws `sidebar_left`, since its Material name (`view_sidebar_outlined`) is shared with the
+  sidebar toggle; the app draws `sidebar_right`.
 
 ## Follow-ups (base components the recreations asked for)
 

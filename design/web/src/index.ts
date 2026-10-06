@@ -41,6 +41,7 @@ export * from "./components/KanbanTaskPanel/KanbanTaskPanel";
 export * from "./components/FormSection/FormSection";
 export * from "./components/SelectField/SelectField";
 export * from "./components/ListRow/ListRow";
+export * from "./components/MacToolbar/MacToolbar";
 
 export type { AppleDevice, Platform } from "./platform";
 export * from "./components/SegmentedButton/SegmentedButton";

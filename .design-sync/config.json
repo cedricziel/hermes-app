@@ -7,9 +7,7 @@
   "cssEntry": "dist/index.css",
   "extraFonts": ["src/fonts/cupertino-icons.css"],
   "docsDir": "docs",
-  "guidelinesGlob": [
-    "guides/**/*.md"
-  ],
+  "guidelinesGlob": ["guides/**/*.md"],
   "provider": {
     "component": "HermesProvider"
   },
@@ -25,7 +23,10 @@
     "SidebarBrand": null,
     "ThreadActionsButton": null,
     "KanbanBulkBar": null,
-    "MenuAnchor": null
+    "MenuAnchor": null,
+    "MacToolbarButton": null,
+    "MacToolbarSeparator": null,
+    "MacToolbarSearchField": null
   },
   "overrides": {
     "TextField": {
@@ -131,6 +132,9 @@
       "cardMode": "column"
     },
     "SelectField": {
+      "cardMode": "column"
+    },
+    "MacToolbar": {
       "cardMode": "column"
     }
   }
