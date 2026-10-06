@@ -1,6 +1,6 @@
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
-import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
+import { SegmentedButton } from "../SegmentedButton/SegmentedButton";
 import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
 import { SkillMarkdown } from "../../skillMarkdown";
@@ -57,9 +57,9 @@ export interface SkillEditorScreenProps {
   /** `phone` or `desktop` (a Mac window or a Material desktop). The editor fills the width on both. */
   layout?: ScreenLayout;
   /**
-   * `apple`: the 44px bar (52px Mac toolbar on `desktop`), the iOS segmented
-   * control for Edit and Preview, and Apple spinners. Material keeps the
-   * underline tabs. Inherits the provider's platform.
+   * `apple`: the 44px bar (52px Mac toolbar on `desktop`) and Apple
+   * spinners. Edit and Preview are a Material `SegmentedButton` everywhere,
+   * as in the app. Inherits the provider's platform.
    */
   platform?: Platform;
   /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
@@ -79,8 +79,7 @@ const snippets: { id: SkillSnippet; label: string; name: string }[] = [
  * Preview switch, a monospace editor that fills the screen and a format
  * toolbar (heading, bold, bullet, code block, undo, redo) under it. Leaving
  * with unsaved changes asks first in the app (not drawn). Built from
- * `ListDetailLayout` (`onClose`), `TextField`, `SegmentedControl` and
- * `AssistantMessage` for the preview.
+ * `ListDetailLayout` (`onClose`), `TextField` and `SegmentedButton`.
  */
 export function SkillEditorScreen({
   mode,
@@ -175,7 +174,7 @@ export function SkillEditorScreen({
           </div>
         ) : null}
         <div className="h-skill-editor__switch">
-          <SegmentedControl
+          <SegmentedButton
             labels={["Edit", "Preview"]}
             value={editing ? 0 : 1}
             onChange={(i) => onViewChange?.(i === 0 ? "edit" : "preview")}
