@@ -96,7 +96,10 @@ Future<void> main([List<String> args = const []]) async {
               },
               headers: auth.windowAuthHeaders,
             );
-            auth.signedOut.listen((_) => windows.closeAll());
+            // An expired session keeps the windows for after the sign-in.
+            auth.signedOut.listen(
+              (_) => windows.closeAll(forget: !auth.sessionExpired),
+            );
             return windows;
           },
         ),
