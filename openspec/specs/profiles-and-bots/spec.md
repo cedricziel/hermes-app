@@ -280,14 +280,14 @@ On macOS the sidebar SHALL show the profile the chat works in as a card at its t
 
 ### Requirement: Profiles page on macOS
 
-On macOS the sidebar SHALL have a Profiles destination under Schedules, opening a page with the toolbar title "Profiles", the subtitle "N profiles on <server host>" and a New Profile button. The page SHALL list the profiles in a 220 point column (avatar, name, description) and show the selected one's home: its name, its home directory, and a card of what it holds (Skills, Bots, Plugins, MCP servers, Helper models), each with a count and opening the screen that manages it, scoped to that profile where the screen supports one. Counts SHALL be read when a profile is selected; a count that cannot be read SHALL show nothing rather than 0. Bots and plugins are managed for the profile the dashboard is scoped to, so their counts SHALL only show for the profile the chat shows. A footnote SHALL say that everything listed lives in the profile's home directory, that chats, schedules, memory and API keys are per profile too, and that Kanban and sign-in are shared.
+On macOS the sidebar SHALL have a Profiles destination under Schedules, opening a page with the toolbar title "Profiles", the subtitle "N profiles on <server host>" and a New Profile button. The page SHALL list the profiles in a 220 point column (avatar, name, description) and show the selected one's home: its name, its home directory, and a card of what it holds (Skills, Messaging, Plugins, MCP servers, Helper models), each with a count and opening the screen that manages it, scoped to that profile where the screen supports one. Counts SHALL be read when a profile is selected; a count that cannot be read SHALL show nothing rather than 0. Messaging platforms and plugins are managed for the profile the dashboard is scoped to, so their counts (of those switched on) SHALL only show for the profile the chat shows. A footnote SHALL say that everything listed lives in the profile's home directory, that chats, schedules, memory and API keys are per profile too, and that Kanban and sign-in are shared.
 
-The per-profile management entries of the chat sidebar (Profiles, Skills, Bots, Plugins, MCP servers, Helper models) SHALL not be shown on macOS; other platforms SHALL keep them.
+The per-profile management entries of the chat sidebar (Profiles, Skills, Messaging, Plugins, MCP servers, Helper models) SHALL not be shown on macOS; other platforms SHALL keep them.
 
 #### Scenario: Counts of another profile
 
 - **WHEN** the user selects "work" on the Profiles page and its helper models cannot be read
-- **THEN** Skills and MCP servers show their counts, Helper models shows none, and Bots and Plugins show none because "work" is not the chat's profile
+- **THEN** Skills and MCP servers show their counts, Helper models shows none, and Messaging and Plugins show none because "work" is not the chat's profile
 
 ### Requirement: Creating a profile
 
