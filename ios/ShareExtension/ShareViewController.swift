@@ -136,11 +136,14 @@ class ShareViewController: UIViewController {
         _ item: NSSecureCoding?, into container: URL, name: String?, fileExtension: String
     ) -> SharedMediaFile? {
         let data: Data?
+        var name = name
         var fallback = "Shared.\(fileExtension)"
         switch item {
         case let url as URL: return copy(url, into: container, name: name)
         case let image as UIImage:
             data = image.pngData()
+            // The bytes are PNG now, whatever the suggested name says.
+            name = name.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
             fallback = "Image.png"
         case let bytes as Data: data = bytes
         default: data = nil
@@ -214,6 +217,8 @@ class ShareViewController: UIViewController {
         else { return }
         defaults.set(data, forKey: kUserDefaultsKey)
         defaults.removeObject(forKey: kUserDefaultsMessageKey)
+        // The app reads this from another process as soon as it opens.
+        defaults.synchronize()
     }
 
     /// Extensions can't call `UIApplication.shared`, but the instance is still
