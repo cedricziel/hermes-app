@@ -1,0 +1,45 @@
+/* PluginTag (outlined, strong, filled) and McpChip (tinted, warning). */
+.h-tag {
+  display: inline-block;
+  flex: none;
+  padding: 1px 9px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-pill);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--h-secondary);
+  white-space: nowrap;
+}
+
+.h-tag--strong {
+  border-color: var(--h-fg);
+  color: var(--h-fg);
+}
+
+.h-tag--filled {
+  border-color: var(--h-primary);
+  background: var(--h-primary);
+  color: var(--h-on-primary);
+  font-weight: 600;
+}
+
+.h-tag--tinted,
+.h-tag--warning {
+  --h-tag-tone: var(--h-fg);
+  padding: 1px 8px;
+  border-color: color-mix(in srgb, var(--h-tag-tone) 18%, transparent);
+  background: var(--h-surface-high);
+  color: var(--h-fg);
+  font-weight: 500;
+}
+
+.h-tag--warning {
+  --h-tag-tone: var(--h-warning);
+  border-color: color-mix(in srgb, var(--h-tag-tone) 40%, transparent);
+  background: color-mix(in srgb, var(--h-tag-tone) 15%, transparent);
+  color: var(--h-tag-tone);
+}
+
+.h-tag--mono {
+  font-family: var(--h-font-mono);
+}

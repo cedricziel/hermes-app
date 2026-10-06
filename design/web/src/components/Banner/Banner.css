@@ -1,0 +1,43 @@
+.h-banner {
+  --h-banner-tone: var(--h-error);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--h-banner-tone) 35%, transparent);
+  border-radius: var(--h-radius-sm);
+  background: color-mix(in srgb, var(--h-banner-tone) 10%, transparent);
+  color: var(--h-fg);
+  font-size: var(--h-ramp-body-md-size, 14px);
+  line-height: 20px;
+}
+
+.h-banner--success {
+  --h-banner-tone: var(--h-success);
+}
+
+.h-banner--warning {
+  --h-banner-tone: var(--h-warning);
+}
+
+.h-banner__icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--h-banner-tone);
+}
+
+.h-banner__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-banner__title {
+  font-weight: 600;
+}
+
+.h-banner__action {
+  flex: none;
+  margin: -8px -4px -8px 0;
+  align-self: center;
+}

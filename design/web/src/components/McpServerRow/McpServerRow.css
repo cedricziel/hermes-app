@@ -69,20 +69,3 @@
   gap: 4px 6px;
   margin-top: 4px;
 }
-
-.h-mcp-server-row__chip {
-  padding: 1px 8px;
-  border: 1px solid color-mix(in srgb, var(--h-fg) 18%, transparent);
-  border-radius: var(--h-radius-pill);
-  background: var(--h-surface-high);
-  font-size: 11px;
-  line-height: 16px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.h-mcp-server-row__chip--warning {
-  color: var(--h-warning);
-  background: color-mix(in srgb, var(--h-warning) 15%, transparent);
-  border-color: color-mix(in srgb, var(--h-warning) 40%, transparent);
-}

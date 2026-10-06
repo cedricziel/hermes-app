@@ -1,4 +1,5 @@
 import { Switch } from "../Switch/Switch";
+import { Tag } from "../Tag/Tag";
 import { RowActions } from "../SwipeActions/RowActions";
 import {
   PlatformScope,
@@ -157,17 +158,9 @@ export function McpServerRow({
             ) : null}
             <div className="h-mcp-server-row__chips">
               {chips.map((c) => (
-                <span
-                  key={c.label}
-                  className={[
-                    "h-mcp-server-row__chip",
-                    c.warning ? "h-mcp-server-row__chip--warning" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
+                <Tag key={c.label} variant={c.warning ? "warning" : "tinted"}>
                   {c.label}
-                </span>
+                </Tag>
               ))}
             </div>
           </div>

@@ -1,0 +1,48 @@
+.h-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--h-fg);
+}
+
+.h-section-header__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-section-header__title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.h-section-header--title {
+  padding: 20px 16px 4px;
+}
+
+.h-section-header--title .h-section-header__title {
+  font-size: var(--h-ramp-title-md-size, 16px);
+  line-height: var(--h-ramp-title-md-lh, 24px);
+  font-weight: 600;
+}
+
+.h-section-header__caption {
+  font-size: var(--h-ramp-body-sm-size, 12px);
+  line-height: var(--h-ramp-body-sm-lh, 16px);
+  color: var(--h-muted);
+}
+
+.h-section-header--overline .h-section-header__title {
+  font-size: var(--h-ramp-label-sm-size, 11px);
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--h-muted);
+}
+
+.h-section-header--label .h-section-header__title {
+  font-size: var(--h-ramp-label-lg-size, 14px);
+  line-height: 20px;
+  font-weight: 500;
+}

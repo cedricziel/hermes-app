@@ -26,7 +26,8 @@
     "MenuAnchor": null,
     "MacToolbarButton": null,
     "MacToolbarSeparator": null,
-    "MacToolbarSearchField": null
+    "MacToolbarSearchField": null,
+    "RadioGroup": null
   },
   "overrides": {
     "TextField": {
@@ -132,6 +133,27 @@
       "cardMode": "column"
     },
     "SelectField": {
+      "cardMode": "column"
+    },
+    "Tag": {
+      "cardMode": "column"
+    },
+    "Banner": {
+      "cardMode": "column"
+    },
+    "SwitchRow": {
+      "cardMode": "column"
+    },
+    "RadioRow": {
+      "cardMode": "column"
+    },
+    "FactList": {
+      "cardMode": "column"
+    },
+    "SectionHeader": {
+      "cardMode": "column"
+    },
+    "Sheet": {
       "cardMode": "column"
     },
     "MacToolbar": {

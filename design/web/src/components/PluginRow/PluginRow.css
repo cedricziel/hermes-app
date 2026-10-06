@@ -82,31 +82,3 @@
   display: flex;
   align-items: center;
 }
-
-.h-plugin-row__tag {
-  display: inline-block;
-  flex: none;
-  padding: 1px 9px;
-  border: 1px solid var(--h-border);
-  border-radius: var(--h-radius-pill);
-  font-size: 11px;
-  line-height: 16px;
-  color: var(--h-secondary);
-  white-space: nowrap;
-}
-
-.h-plugin-row__tag--strong {
-  border-color: var(--h-fg);
-  color: var(--h-fg);
-}
-
-.h-plugin-row__tag--filled {
-  border-color: var(--h-primary);
-  background: var(--h-primary);
-  color: var(--h-on-primary);
-  font-weight: 600;
-}
-
-.h-plugin-row__tag--mono {
-  font-family: var(--h-font-mono);
-}

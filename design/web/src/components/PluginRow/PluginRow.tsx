@@ -1,5 +1,6 @@
 import { Button } from "../Button/Button";
 import { Spinner } from "../Spinner/Spinner";
+import { Tag } from "../Tag/Tag";
 import { RowActions } from "../SwipeActions/RowActions";
 import {
   PlatformScope,
@@ -76,33 +77,6 @@ export interface PluginRowProps {
   actionSheetOpen?: boolean;
 }
 
-function Tag({
-  children,
-  strong,
-  filled,
-  mono,
-}: {
-  children: string;
-  strong?: boolean;
-  filled?: boolean;
-  mono?: boolean;
-}) {
-  return (
-    <span
-      className={[
-        "h-plugin-row__tag",
-        strong ? "h-plugin-row__tag--strong" : null,
-        filled ? "h-plugin-row__tag--filled" : null,
-        mono ? "h-plugin-row__tag--mono" : null,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {children}
-    </span>
-  );
-}
-
 /**
  * One plugin in the Plugins screen's Installed or Catalog list: a full-width
  * list tile with the name, a two-line description, small pill tags and a
@@ -132,7 +106,7 @@ export function PluginRow({
           </Tag>
         ) : null,
         plugin.installed && plugin.updateAvailable ? (
-          <Tag key="update" strong>
+          <Tag key="update" variant="strong">
             Update available
           </Tag>
         ) : null,
@@ -140,12 +114,12 @@ export function PluginRow({
     : [
         plugin.bundled ? <Tag key="bundled">Bundled</Tag> : null,
         plugin.authRequired ? (
-          <Tag key="login" strong>
+          <Tag key="login" variant="strong">
             Needs login
           </Tag>
         ) : null,
         plugin.removedReason ? (
-          <Tag key="removed" strong>
+          <Tag key="removed" variant="strong">
             {`Removed: ${plugin.removedReason}`}
           </Tag>
         ) : null,
@@ -204,7 +178,9 @@ export function PluginRow({
               {!catalog && plugin.version ? (
                 <span className="h-plugin-row__version">{plugin.version}</span>
               ) : null}
-              {catalog && plugin.official ? <Tag filled>Official</Tag> : null}
+              {catalog && plugin.official ? (
+                <Tag variant="filled">Official</Tag>
+              ) : null}
             </div>
             {catalog && plugin.maintainer ? (
               <div className="h-plugin-row__maintainer">
@@ -223,7 +199,7 @@ export function PluginRow({
           <div className="h-plugin-row__trailing">
             {catalog ? (
               plugin.installed ? (
-                <Tag filled>Installed</Tag>
+                <Tag variant="filled">Installed</Tag>
               ) : (
                 <Button
                   disabled={installing}
@@ -245,7 +221,7 @@ export function PluginRow({
                 </Button>
               )
             ) : (
-              <Tag filled={enabled}>
+              <Tag variant={enabled ? "filled" : "outlined"}>
                 {enabled
                   ? "Enabled"
                   : status === "disabled"
