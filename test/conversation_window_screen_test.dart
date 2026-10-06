@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
@@ -41,7 +43,7 @@ class _FakeLink implements ConversationWindowLink {
   void reportFocus(bool focused) => calls.add('focus:$focused');
 
   @override
-  void reportTitle(String title) => titles.add(title);
+  void reportThread(String title, {required bool pinned}) => titles.add(title);
 
   @override
   Future<void> showInMain(String threadId, String? profile) async =>
@@ -78,6 +80,8 @@ void main() {
   late FakeChatTransport transport;
 
   setUp(() {
+    SharedPreferencesAsyncPlatform.instance =
+        InMemorySharedPreferencesAsync.empty();
     server = FakeHermesServer();
     link = _FakeLink();
     transport = FakeChatTransport();
