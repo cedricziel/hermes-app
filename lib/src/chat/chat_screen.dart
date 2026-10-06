@@ -37,6 +37,7 @@ import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
 import '../theme/platform_chrome.dart';
+import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
@@ -279,10 +280,31 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Opens [thread] in a conversation window of its own (macOS).
+  /// The selected chat moves to the window with what the composer held, so
+  /// only that window answers, retries, stops or sends in it.
   void _openInWindow(ChatThread? thread) {
     final windows = _windows;
     if (windows == null || thread == null || !thread.remote) return;
-    windows.open(thread.id, profile: _chat.profile, title: thread.title);
+    ConversationDraft? draft;
+    if (thread.id == _chat.selectedId) {
+      draft = ConversationDraft(
+        text: _composerController.text,
+        files: List.of(_attachments),
+      );
+      setState(() {
+        _composerController.clear();
+        _attachments.clear();
+      });
+      _chat.clearSelection();
+    }
+    unawaited(
+      windows.open(
+        thread.id,
+        profile: _chat.profile,
+        title: thread.title,
+        draft: draft == null || draft.isEmpty ? null : draft,
+      ),
+    );
   }
 
   /// Offers the chat in front for Handoff: a key conversation window's, or

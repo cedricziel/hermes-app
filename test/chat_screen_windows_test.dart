@@ -100,6 +100,37 @@ void main() {
     expect(host.created.values.single.threadId, 's1');
   });
 
+  testWidgets('a chat opened in a window leaves the main window with its '
+      'draft', (tester) async {
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.drafts.values.single?.text, 'Half a thought');
+    expect(find.text('Half a thought'), findsNothing);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
+  });
+
+  testWidgets('a chat not open in the main window goes without a draft', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.enterText(composerField, 'A new chat');
+    await tester.pump();
+
+    await tester.tap(row('Trip plan'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in New Window'));
+    await tester.pumpAndSettle();
+
+    expect(host.drafts.values.single, isNull);
+    expect(find.text('A new chat'), findsOneWidget);
+  });
+
   testWidgets('a single click only selects the thread', (tester) async {
     await pump(tester);
 

@@ -663,6 +663,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
+  /// Leaves no chat selected, as when the selected one moves to a window of
+  /// its own.
+  void clearSelection() {
+    if (_selectedId == null) return;
+    _openGeneration++;
+    _selectedId = null;
+    notifyListeners();
+  }
+
   void newThread() {
     _openGeneration++;
     final thread = ChatThread(
