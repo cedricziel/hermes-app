@@ -160,6 +160,22 @@ void main() {
     expect(windows.windows.map((w) => w.windowId), ['w1']);
   });
 
+  test(
+    'a window the native side closed is forgotten before it answers',
+    () async {
+      await windows.open('s1', profile: null, title: 'A');
+
+      await host.call('closed', {'window_id': 'w0'});
+      windows.dispose();
+
+      expect(windows.windows, isEmpty);
+      host = FakeConversationWindowHost();
+      windows = build();
+      await windows.restore();
+      expect(host.created, isEmpty);
+    },
+  );
+
   test('focusing a window that went away drops it', () async {
     await windows.open('s1', profile: null, title: 'A');
     host.vanished('w0');

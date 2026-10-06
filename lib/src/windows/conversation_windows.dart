@@ -133,12 +133,7 @@ class ConversationWindows extends ChangeNotifier {
   final _touched = <ConversationRef>{};
 
   /// The conversation window that is key, or null while the main window is.
-  ConversationWindowEntry? get keyWindow {
-    for (final window in _windows) {
-      if (window.windowId == _keyWindowId) return window;
-    }
-    return null;
-  }
+  ConversationWindowEntry? get keyWindow => _keyWindow;
 
   /// The open window of [threadId] on [profile], if there is one.
   ConversationWindowEntry? windowFor(String threadId, String? profile) {
@@ -236,7 +231,7 @@ class ConversationWindows extends ChangeNotifier {
     }
     _windows.add(ConversationWindowEntry(windowId, args));
     _touched.add((threadId: args.threadId, profile: args.profile));
-    _changed();
+    unawaited(_changed());
   }
 
   /// Brings [windowId] to the front. A window that went away without the
@@ -247,17 +242,25 @@ class ConversationWindows extends ChangeNotifier {
       return true;
     } on Object catch (error) {
       debugPrint('Conversation window $windowId is gone: $error');
-      _drop(windowId);
+      await _drop(windowId);
       return false;
     }
   }
 
-  void _drop(String windowId) {
+  Future<void> _drop(String windowId) =>
+      _removeWhere((w) => w.windowId == windowId);
+
+  Future<void> _removeWhere(bool Function(ConversationWindowEntry) test) async {
     final before = _windows.length;
-    _windows.removeWhere((w) => w.windowId == windowId);
-    if (_keyWindowId == windowId) _setKey(null);
-    if (_windows.length != before) _changed();
+    _windows.removeWhere(test);
+    if (_keyWindow == null) _setKey(null);
+    if (_windows.length != before) await _changed();
   }
+
+  ConversationWindowEntry? _entry(Object? windowId) =>
+      _windows.where((w) => w.windowId == windowId).firstOrNull;
+
+  ConversationWindowEntry? get _keyWindow => _entry(_keyWindowId);
 
   Future<void> showMainWindow() => _host.showMain();
 
@@ -289,7 +292,7 @@ class ConversationWindows extends ChangeNotifier {
     _windows.clear();
     _setKey(null);
     if (forget) {
-      _changed();
+      unawaited(_changed());
     } else {
       _restored = false;
       notifyListeners();
@@ -297,25 +300,19 @@ class ConversationWindows extends ChangeNotifier {
     await _host.closeAll();
   }
 
-  void _retain(Set<String> live) {
-    final before = _windows.length;
-    _windows.removeWhere((w) => !live.contains(w.windowId));
-    if (_keyWindowId != null && !live.contains(_keyWindowId)) _setKey(null);
-    if (_windows.length != before) _changed();
-  }
+  void _retain(Set<String> live) =>
+      unawaited(_removeWhere((w) => !live.contains(w.windowId)));
 
   Future<Object?> _handle(String method, Map<String, Object?> args) async {
     final windowId = args['window_id'];
     switch (method) {
       case 'auth.headers':
         // Only a window of the server signed in to gets its credentials.
-        ConversationWindowEntry? known() =>
-            _windows.where((w) => w.windowId == windowId).firstOrNull;
-        if (known() == null) await Future.wait([..._creating]);
-        final window = known();
+        if (_entry(windowId) == null) await Future.wait([..._creating]);
+        final window = _entry(windowId);
         if (window == null || !_isCurrent(window.args)) {
           if (windowId is String) {
-            _drop(windowId);
+            unawaited(_drop(windowId));
             unawaited(_host.close(windowId));
           }
           return const <String, String>{};
@@ -345,7 +342,7 @@ class ConversationWindows extends ChangeNotifier {
         if (window.args.title == title) {
           notifyListeners();
         } else {
-          _changed();
+          unawaited(_changed());
         }
       case 'showInMain':
         final threadId = args['thread_id'];
@@ -358,6 +355,9 @@ class ConversationWindows extends ChangeNotifier {
         await _host.showMain();
       case 'showMain':
         await _host.showMain();
+      case 'closed':
+        // The native side waits for this before the app may quit.
+        if (windowId is String) await _drop(windowId);
     }
     return null;
   }
@@ -368,9 +368,10 @@ class ConversationWindows extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _changed() {
-    unawaited(_store.save(_windows.map((w) => w.args)));
+  Future<void> _changed() {
+    final saved = _store.save(_windows.map((w) => w.args));
     notifyListeners();
+    return saved;
   }
 
   @override

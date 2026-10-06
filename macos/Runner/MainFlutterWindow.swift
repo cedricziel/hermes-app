@@ -10,7 +10,11 @@ import shared_preferences_foundation
 import url_launcher_macos
 
 class MainFlutterWindow: NSWindow {
+  /// The one main window, whose engine owns the session.
+  static weak var shared: MainFlutterWindow?
+
   private var keyObserver: WindowKeyObserver?
+  private var channel: FlutterMethodChannel?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -52,6 +56,8 @@ class MainFlutterWindow: NSWindow {
       }
     }
     keyObserver = WindowKeyObserver(window: self, channel: channel)
+    self.channel = channel
+    Self.shared = self
 
     FlutterMultiWindowPlugin.setOnWindowCreatedCallback { controller in
       ConversationWindow.attach(to: controller)
@@ -71,6 +77,17 @@ class MainFlutterWindow: NSWindow {
     } else {
       orderOut(nil)
     }
+  }
+
+  /// Tells the main engine that conversation window [id] closed, then runs
+  /// [done] once it has forgotten the window (and saved that), so a quit
+  /// that follows cannot bring the window back on the next launch.
+  func conversationClosed(id: String?, done: @escaping () -> Void) {
+    guard let id, let channel else {
+      DispatchQueue.main.async(execute: done)
+      return
+    }
+    channel.invokeMethod("conversationClosed", arguments: id) { _ in done() }
   }
 
   /// Closes the hidden main window once its last conversation window is
@@ -183,13 +200,12 @@ final class ConversationWindow: NSObject {
     keyObserver = WindowKeyObserver(window: window, channel: channel)
     closeObserver = NotificationCenter.default.addObserver(
       forName: NSWindow.willCloseNotification, object: window, queue: .main
-    ) { _ in
+    ) { [weak self] _ in
+      let id = self?.windowId
       ConversationWindow.open.removeValue(forKey: ObjectIdentifier(window))
-      guard ConversationWindow.open.isEmpty else { return }
-      // After this window has finished closing.
-      DispatchQueue.main.async {
-        (NSApp.windows.first { $0 is MainFlutterWindow } as? MainFlutterWindow)?
-          .closeIfHidden()
+      let last = ConversationWindow.open.isEmpty
+      MainFlutterWindow.shared?.conversationClosed(id: id) {
+        if last { MainFlutterWindow.shared?.closeIfHidden() }
       }
     }
     channel.setMethodCallHandler { [weak self] call, result in

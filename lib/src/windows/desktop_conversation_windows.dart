@@ -25,11 +25,18 @@ const _nativeWindow = MethodChannel('hermes_app/window');
 
 final StreamController<bool> _keyChangeController = StreamController.broadcast(
   onListen: () => _nativeWindow.setMethodCallHandler((call) async {
-    if (call.method == 'keyChanged' && call.arguments is bool) {
-      _keyChangeController.add(call.arguments as bool);
+    switch (call.method) {
+      case 'keyChanged' when call.arguments is bool:
+        _keyChangeController.add(call.arguments as bool);
+      case 'conversationClosed':
+        await _onConversationClosed?.call(call.arguments);
     }
   }),
 );
+
+/// The main engine's answer when the native side closed a conversation
+/// window.
+Future<void> Function(Object? windowId)? _onConversationClosed;
 
 /// Whether this engine's native window became (true) or stopped being
 /// (false) the key window.
@@ -91,6 +98,8 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
 
   @override
   void listen(ConversationWindowCallHandler handler) {
+    _onConversationClosed = (windowId) =>
+        handler('closed', {'window_id': windowId});
     unawaited(
       _mainChannel.setMethodCallHandler((call) {
         final args = call.arguments;
