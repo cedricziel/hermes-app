@@ -23,6 +23,7 @@ import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
 import '../notifications/notification_service.dart';
@@ -404,10 +405,19 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _sidebar.load();
       _chatProfiles?.load();
     }
+    final auth = context.watch<AuthController?>();
     return MacCommandScope(
       commands: {
         MacCommand.settings: MacCommandHandler(
           () => showSettingsDialog(context),
+        ),
+        MacCommand.connectionDetails: MacCommandHandler(
+          () => showConnectionDetails(context),
+        ),
+        MacCommand.signOut: MacCommandHandler(
+          auth != null && (auth.status?.authRequired ?? false)
+              ? () => confirmSignOut(context, auth)
+              : null,
         ),
       },
       child: MacSidebarScope(controller: _sidebar, child: built),

@@ -135,6 +135,10 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
             shortcut: _meta(LogicalKeyboardKey.comma),
           ),
         ]),
+        group([
+          item(MacCommand.connectionDetails, 'Connection Details'),
+          item(MacCommand.signOut, 'Sign Out…'),
+        ]),
         group([provided(PlatformProvidedMenuItemType.servicesSubmenu)]),
         group([
           provided(PlatformProvidedMenuItemType.hide),
