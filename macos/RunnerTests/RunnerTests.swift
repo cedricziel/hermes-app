@@ -44,4 +44,12 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual(MainFlutterWindow.clipboardFilePaths(from: pasteboard), [file.path])
   }
 
+
+  func testAWindowClosedBeforeItShowsClosesWhenItDoes() {
+    var pending = PendingCloses()
+    pending.remember("w1")
+    XCTAssertFalse(pending.take("w2"))
+    XCTAssertTrue(pending.take("w1"))
+    XCTAssertFalse(pending.take("w1"))
+  }
 }
