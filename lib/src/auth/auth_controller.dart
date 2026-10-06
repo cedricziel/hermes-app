@@ -486,14 +486,10 @@ class AuthController extends ChangeNotifier {
       );
 
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
+    _pageToken = null;
     final dio = _plainDio(baseUrl);
     if (!gated) {
-      final page = _pageToken = _PageToken(
-        HermesApiClient(
-          Dio(BaseOptions(baseUrl: baseUrl))
-            ..interceptors.addAll(_interceptors),
-        ),
-      );
+      final page = _pageToken = _PageToken(HermesApiClient(_plainDio(baseUrl)));
       dio.interceptors.add(_pageTokenInterceptor(dio, page));
     }
     dio.interceptors.add(

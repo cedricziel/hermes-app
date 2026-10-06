@@ -22,6 +22,7 @@ class _LoopbackDashboard {
 
   final HttpServer _server;
   String token = 'token-1';
+  bool authRequired = false;
   int pageFetches = 0;
   final List<String?> sessionTokens = [];
 
@@ -38,7 +39,10 @@ class _LoopbackDashboard {
           ..headers.contentType = ContentType.html
           ..write('<script>window.__HERMES_SESSION_TOKEN__="$token";</script>');
       case '/api/status':
-        _json(response, 200, {'auth_required': false, 'version': 'test'});
+        _json(response, 200, {
+          'auth_required': authRequired,
+          'version': 'test',
+        });
         return;
       case '/api/sessions':
         final sent = request.headers.value('X-Hermes-Session-Token');
@@ -119,6 +123,15 @@ void main() {
 
     expect(headers, {'X-Hermes-Session-Token': 'token-2'});
     expect(dashboard.pageFetches, 2);
+  });
+
+  test('a window gets no page token once the dashboard is gated', () async {
+    expect(await controller.windowAuthHeaders(), isNotEmpty);
+    dashboard.authRequired = true;
+
+    await controller.connect(dashboard.url);
+
+    expect(await controller.windowAuthHeaders(), isEmpty);
   });
 
   test('a token the dashboard keeps rejecting fails with 401', () async {
