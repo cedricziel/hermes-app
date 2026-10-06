@@ -1,11 +1,14 @@
 import { useContext, useLayoutEffect, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
+import type { CupertinoIconName } from "../Icon/cupertinoIcons";
 import { cx, PlatformScope, ShellChromeContext } from "../../platform";
 import "./MacToolbar.css";
 
 export interface MacToolbarButtonProps {
   /** Material Symbols name; drawn as its CupertinoIcons pair (`edit_square` a square and pencil, `ios_share` the share arrow). */
   icon: string;
+  /** The glyph by Flutter's `CupertinoIcons.*` name, where the Material name pairs with another one: `pin` for an unpinned chat's Pin (AppIcons.pinOutline), whose `push_pin` would draw `pin_slash`. */
+  apple?: CupertinoIconName;
   /** Accessible name and tooltip: "New Chat". */
   label: string;
   /** Key equivalent shown after the label in the tooltip: "⌘N". */
@@ -19,6 +22,7 @@ export interface MacToolbarButtonProps {
 /** A borderless 28px toolbar button with an 18px glyph, filled under the pointer and while `selected`. */
 export function MacToolbarButton({
   icon,
+  apple,
   label,
   shortcut,
   selected,
@@ -38,7 +42,7 @@ export function MacToolbarButton({
       disabled={disabled}
       onClick={onClick}
     >
-      <Icon name={icon} size={18} />
+      <Icon name={icon} apple={apple} size={18} />
     </button>
   );
 }
@@ -126,6 +130,8 @@ export interface MacToolbarProps {
   sidebarHidden?: boolean;
   /** The show-sidebar button was pressed; defaults to the enclosing `AppShell`'s toggle. */
   onShowSidebar?: () => void;
+  /** Space in px before the title in a window with no sidebar at all: 86 (the traffic lights' 78 and 8) in a conversation window. Overrides the 20px default and the hidden sidebar's 78px. */
+  leadingInset?: number;
 }
 
 /**
@@ -146,6 +152,7 @@ export function MacToolbar({
   border = false,
   sidebarHidden,
   onShowSidebar,
+  leadingInset,
 }: MacToolbarProps) {
   const shell = useContext(ShellChromeContext);
   const hidden = sidebarHidden ?? shell.sidebarCollapsed;
@@ -162,6 +169,9 @@ export function MacToolbar({
           border && "h-mac-toolbar--border",
           hidden && "h-mac-toolbar--sidebar-hidden",
         )}
+        style={
+          leadingInset === undefined ? undefined : { paddingLeft: leadingInset }
+        }
       >
         {hidden && showSidebar ? (
           <MacToolbarButton
