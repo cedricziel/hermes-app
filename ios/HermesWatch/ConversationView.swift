@@ -9,7 +9,10 @@ struct ConversationView: View {
   var body: some View {
     ScrollViewReader { proxy in
       ScrollView {
-        LazyVStack(alignment: .leading, spacing: 8) {
+        // Not lazy: a lazy stack guesses the height of unmeasured rows, and with
+        // long messages the jump to the composer lands past the content on a
+        // blank screen.
+        VStack(alignment: .leading, spacing: 8) {
           if model.phase == .loading {
             ProgressView()
           }
