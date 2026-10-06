@@ -290,6 +290,7 @@ class ConversationWindows extends ChangeNotifier {
   Future<void> closeAll({bool forget = true}) async {
     _generation++;
     _windows.clear();
+    _touched.clear();
     _setKey(null);
     if (forget) {
       unawaited(_changed());

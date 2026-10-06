@@ -291,6 +291,14 @@ void main() {
     expect(windows.touched, [(threadId: 's1', profile: 'work')]);
   });
 
+  test('closing all windows forgets the chats they had open', () async {
+    await windows.open('s1', profile: 'work', title: 'A');
+
+    await windows.closeAll();
+
+    expect(windows.touched, isEmpty);
+  });
+
   test('without a connection nothing opens', () async {
     connection = null;
 
