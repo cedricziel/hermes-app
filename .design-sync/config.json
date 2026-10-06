@@ -5,13 +5,9 @@
   "globalName": "HermesUI",
   "buildCmd": "cd design/web && npm ci && npm run build",
   "cssEntry": "dist/index.css",
-  "extraFonts": [
-    "src/fonts/cupertino-icons.css"
-  ],
+  "extraFonts": ["src/fonts/cupertino-icons.css"],
   "docsDir": "docs",
-  "guidelinesGlob": [
-    "guides/**/*.md"
-  ],
+  "guidelinesGlob": ["guides/**/*.md"],
   "provider": {
     "component": "HermesProvider"
   },
@@ -257,6 +253,42 @@
       "cardMode": "column"
     },
     "MacProfilesPage": {
+      "cardMode": "column"
+    },
+    "ScheduleFilterBar": {
+      "cardMode": "column"
+    },
+    "BlueprintCard": {
+      "cardMode": "column"
+    },
+    "KanbanScreen": {
+      "cardMode": "column"
+    },
+    "KanbanBoardsScreen": {
+      "cardMode": "column"
+    },
+    "KanbanWorkersScreen": {
+      "cardMode": "column"
+    },
+    "KanbanCreateScreen": {
+      "cardMode": "column"
+    },
+    "BlueprintFormScreen": {
+      "cardMode": "column"
+    },
+    "BlueprintGalleryScreen": {
+      "cardMode": "column"
+    },
+    "SchedulePicker": {
+      "cardMode": "column"
+    },
+    "JobFormScreen": {
+      "cardMode": "column"
+    },
+    "ScheduleJobDetail": {
+      "cardMode": "column"
+    },
+    "SchedulesScreen": {
       "cardMode": "column"
     }
   }

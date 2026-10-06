@@ -58,7 +58,7 @@ Forms and plain lists: a form screen is a column of `FormSection`s (heading, fie
 
 On a Mac (`platform="apple"`, `layout="desktop"`) a page's top bar is a `MacToolbar`: title over subtitle, `MacToolbarButton`s, a `MacToolbarSeparator` between groups, and a `MacToolbarSearchField` where the page searches.
 
-Screen cards show whole app screens from plain data; start a mock of one of them from its card: `ChatScreen` (a chat's messages alone: `ChatThread`), `ConnectScreen`, `AppLockScreen`, `ImageViewerScreen`.
+Screen cards show whole app screens from plain data; start a mock of one of them from its card: `ChatScreen` (a chat's messages alone: `ChatThread`), `ConnectScreen`, `AppLockScreen`, `ImageViewerScreen`, `KanbanScreen` (board, selection, task sheet, Mac inspector), `KanbanBoardsScreen`, `KanbanWorkersScreen`, `KanbanCreateScreen`, `SchedulesScreen` (with `ScheduleJobDetail`), `JobFormScreen` (with `SchedulePicker`), `BlueprintGalleryScreen`, `BlueprintFormScreen`.
 
 ## Example
 

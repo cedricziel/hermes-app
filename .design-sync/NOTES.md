@@ -115,8 +115,8 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
   `useDismiss` is private); export it next to `Menu` if a screen needs it.
 - Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a
-  screen-sized component and preview here built from the existing components. Today only ConnectScreen,
-  AppShell and the list/detail layout are screen-sized.
+  screen-sized component and preview here built from the existing components. The Kanban and Schedules
+  screens have theirs (see above).
 - Before a re-sync or a port, check `gh pr list` for open PRs touching `design/web/` or `.design-sync/`
   (#387 was once ported twice in parallel).
 
@@ -131,6 +131,25 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   every Widgetbook state. The splash is a bare spinner, so it has no card.
 - `AppLockScreen` (the AppLockGate cover) and `ImageViewerScreen` (black in both themes). The app's image viewer
   title takes the app bar theme's onSurface color, which is dark on black in light mode; the card draws it white.
+
+## Board and schedules screen cards
+
+- `KanbanScreen`: phone (status chips over one list, FAB, menu button), desktop columns, selection mode with the bulk
+  bar, the task sheet or dialog (`openTask` takes `KanbanTaskPanel` props), loading, error, unavailable, and the Mac
+  window from #396 (its `KanbanMacToolbar` is internal; the 380px inspector is docked from 760px of board width and
+  covers the board from the right below that, through a container query). Not drawn: the phone drop strip and a drag
+  in progress.
+- `KanbanBoardsScreen`, `KanbanWorkersScreen`: `ListRow` lists with row menus; the import, export and rename dialogs
+  and Inspect process are callbacks only.
+- `KanbanCreateScreen`, `JobFormScreen` (with `SchedulePicker`), `BlueprintFormScreen`: `FormSection` columns; the
+  time, date and model pickers are callbacks. `styles/form-screen.css` holds the shared form body.
+- `SchedulesScreen` with `ScheduleFilterBar`, `ScheduleJobRow` and `ScheduleJobDetail` (the default detail and the
+  Mac one from #401); `BlueprintGalleryScreen` with `BlueprintCard`. The Mac window (`device="mac"`) has the
+  `MacToolbar` scope control and separate job cards (`ScheduleJobRow device="mac"`). The phone's pushed detail is
+  `ScheduleJobDetail` on its own.
+- Small additions to shared parts for these: `KanbanToolbar` `showSearch`, `showMore`, `onOpenMenu` and
+  `onMoreAction`; `KanbanColumn` `showHandles`; `ListDetailLayout` `onOpenMenu`; `ScheduleJobRow` Mac cards and a
+  status line that wraps the next run under it; `FactList` `mono`.
 
 ## Known gaps in the recreations
 

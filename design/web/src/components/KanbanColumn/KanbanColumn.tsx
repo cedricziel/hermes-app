@@ -19,6 +19,8 @@ export interface KanbanColumnProps {
    * "No tasks here" when empty.
    */
   variant?: "column" | "list";
+  /** `list` only: draw the cards' drag handles (default true). Off in selection mode, where a tap picks a card instead. */
+  showHandles?: boolean;
   /** A card is being dragged over this column: tints it `surface-high`. */
   dropTarget?: boolean;
   /** Width of a `column`, in px. The app uses 260. */
@@ -38,6 +40,7 @@ export function KanbanColumn({
   count,
   selectedIds = [],
   variant = "column",
+  showHandles = true,
   dropTarget = false,
   width = 260,
   onTaskClick,
@@ -47,7 +50,7 @@ export function KanbanColumn({
       key={t.id}
       task={t}
       selected={selectedIds.includes(t.id)}
-      showHandle={variant === "list"}
+      showHandle={variant === "list" && showHandles}
       onClick={onTaskClick ? () => onTaskClick(t) : undefined}
     />
   ));

@@ -1,0 +1,150 @@
+.h-kanban-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--h-bg);
+  color: var(--h-fg);
+}
+
+.h-kanban-screen__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Wide: the columns side by side, scrolling sideways, each scrolling down. */
+.h-kanban-screen__columns {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.h-kanban-screen__columns .h-kanban-column__cards {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Phone: one status as a list under the chips, room left for the button. */
+.h-kanban-screen__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 76px;
+}
+
+.h-kanban-screen__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.h-kanban-screen__body > .h-state {
+  flex: 1;
+}
+
+.h-kanban-screen__fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+}
+
+.h-kanban-screen__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--h-scrim);
+}
+
+.h-kanban-screen__panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  min-height: 0;
+}
+
+.h-kanban-screen__overlay--sheet {
+  align-items: stretch;
+  padding: 48px 0 0;
+}
+
+.h-kanban-screen__overlay--sheet .h-kanban-screen__panel {
+  max-width: none;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+/* Mac: the board (search, filters, columns) with the 380px inspector on
+   its right: docked beside it from 760px, over it from the right below. */
+.h-kanban-screen__inspected {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  container-type: inline-size;
+}
+
+.h-kanban-screen__board {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.h-kanban-screen__board > .h-kanban-screen__columns,
+.h-kanban-screen__board > .h-state,
+.h-kanban-screen__board > .h-kanban-screen__center {
+  flex: 1;
+  min-height: 0;
+}
+
+.h-kanban-screen__inspector {
+  flex: none;
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--h-border);
+  background: var(--h-bg);
+}
+
+.h-kanban-screen__inspector > .h-kanban-task-panel {
+  padding-top: 16px;
+  background: transparent;
+}
+
+.h-kanban-screen__inspector > .h-state {
+  flex: 1;
+}
+
+@container (max-width: 759px) {
+  .h-kanban-screen__inspector {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(380px, 100%);
+    box-shadow: var(--h-shadow);
+  }
+
+  .h-kanban-screen__inspector--empty {
+    display: none;
+  }
+}

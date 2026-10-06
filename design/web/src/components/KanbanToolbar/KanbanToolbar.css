@@ -27,6 +27,14 @@
   white-space: nowrap;
 }
 
+.h-kanban-toolbar__appbar:has(.h-kanban-toolbar__title--after-menu) {
+  padding-left: 4px;
+}
+
+.h-kanban-toolbar__title--after-menu {
+  padding-left: 12px;
+}
+
 .h-kanban-toolbar__title--selecting {
   padding-left: 16px;
 }

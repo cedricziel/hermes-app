@@ -3,6 +3,7 @@ import { RowActions } from "../SwipeActions/RowActions";
 import {
   PlatformScope,
   usePlatform,
+  useRowDevice,
   type AppleDevice,
   type Platform,
 } from "../../platform";
@@ -53,7 +54,13 @@ export interface ScheduleJobRowProps {
    * them. Inherits the provider's platform.
    */
   platform?: Platform;
-  /** Under `apple`, `touch` (default) or `mac`; only touch swipes. Inherited from the enclosing `AppShell`. */
+  /**
+   * Under `apple`, `touch` (default) or `mac`; only touch swipes.
+   * Inherited from the enclosing `AppShell`. `mac` draws the row as a Mac
+   * window lists jobs: a card of its own (10px corners, 1px outline, 2px
+   * primary outline when `selected`), stacked 8px apart in a 12px padded
+   * column, instead of a row of an inset group.
+   */
   device?: AppleDevice;
   /** Apple touch: draw the row swiped open, Delete showing in red. A static preview state. */
   swipeRevealed?: boolean;
@@ -66,7 +73,8 @@ export interface ScheduleJobRowProps {
 /** What a job's swipe and action sheet ask for. */
 export type ScheduleJobAction = "run-now" | "pause" | "resume" | "delete";
 
-function statusText(job: ScheduleJob): string {
+/** A job's status line: "Paused", "Failed 40 min ago", "Last run succeeded 2 h ago"… */
+export function scheduleJobStatusText(job: ScheduleJob): string {
   if (job.state === "paused") return "Paused";
   if (job.state === "completed") return "Completed";
   const at = job.lastRun ? ` ${job.lastRun}` : "";
@@ -82,7 +90,8 @@ function statusText(job: ScheduleJob): string {
   }
 }
 
-function tone(job: ScheduleJob): string {
+/** The status tone: `error`, `warning`, `success` or `muted`. */
+export function scheduleJobTone(job: ScheduleJob): string {
   if (job.state !== "scheduled") return "muted";
   switch (job.outcome) {
     case "failed":
@@ -115,6 +124,8 @@ export function ScheduleJobRow({
 }: ScheduleJobRowProps) {
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
+  const rowDevice = useRowDevice(device);
+  const macCard = apple && rowDevice === "mac";
   const on = job.state === "scheduled";
   const locked = job.state === "completed";
   const failing = job.outcome === "failed" || job.outcome === "deliveryFailed";
@@ -123,9 +134,10 @@ export function ScheduleJobRow({
   const next = on && job.nextRun ? `Next run ${job.nextRun}` : null;
   const classes = [
     "h-schedule-job-row",
-    `h-schedule-job-row--${tone(job)}`,
+    `h-schedule-job-row--${scheduleJobTone(job)}`,
     selected ? "h-schedule-job-row--selected" : null,
     apple ? "h-schedule-job-row--apple" : null,
+    macCard ? "h-schedule-job-row--mac" : null,
   ]
     .filter(Boolean)
     .join(" ");
@@ -193,7 +205,7 @@ export function ScheduleJobRow({
           <div className="h-schedule-job-row__status">
             <span className="h-schedule-job-row__dot" />
             <span className="h-schedule-job-row__status-text">
-              {statusText(job)}
+              {scheduleJobStatusText(job)}
             </span>
             {next ? (
               <span className="h-schedule-job-row__next">{next}</span>

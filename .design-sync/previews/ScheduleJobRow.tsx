@@ -251,3 +251,22 @@ export const AppleSwipeDark = () => (
     </div>
   </HermesProvider>
 );
+
+/** Mac window (`device="mac"`): each job a card of its own, 8px apart; the selected one has a 2px primary outline. In a narrow column the next run moves under the status. */
+export const MacCards = () => (
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    style={{
+      width: 300,
+      padding: 12,
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    }}
+  >
+    {jobs.map((job, i) => (
+      <ScheduleJobRow key={job.id} job={job} device="mac" selected={i === 1} />
+    ))}
+  </HermesProvider>
+);

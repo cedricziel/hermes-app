@@ -20,8 +20,21 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-family: var(--h-font-mono);
   font-size: 13px;
   line-height: 20px;
   overflow-wrap: anywhere;
+}
+
+.h-facts__value--mono {
+  font-family: var(--h-font-mono);
+}
+
+/* Body text: a job's settings rather than what Hermes runs. */
+.h-facts--plain .h-facts__label,
+.h-facts--plain .h-facts__value {
+  font-size: var(--h-ramp-body-md-size, 14px);
+}
+
+.h-facts--plain .h-facts__value--mono {
+  font-size: 13px;
 }
