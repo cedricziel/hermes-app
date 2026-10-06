@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
+import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
@@ -25,6 +28,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_notification_service.dart';
 import 'support/fake_share_inbox.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/mac_commands_builder.dart';
 
 /// The Kanban tab exists only while the server has the plugin on.
 void main() {
@@ -51,6 +55,7 @@ void main() {
     bool settle = true,
     WidgetBuilder? kanbanBuilder,
     TargetPlatform? platform,
+    MacCommandRegistry? commands,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -71,6 +76,7 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: platform),
+          builder: macCommandsBuilder(commands),
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -525,6 +531,64 @@ void main() {
         ),
       ],
     });
+
+  testWidgets('File > New (Command-N) adds what the page in front holds', (
+    tester,
+  ) async {
+    kanbanPlugin(on: true);
+    cronRoutes(on: true);
+    jobRoutes();
+    server
+      ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody([]))
+      ..on('GET', '/api/plugins/kanban/board', kanbanBoardBody([]))
+      ..on('GET', '/api/plugins/kanban/assignees', {'assignees': <String>[]})
+      ..on('GET', '/api/plugins/kanban/model-options', {'providers': []})
+      ..on('GET', '/api/profiles', {'profiles': <Object>[]});
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpShell(
+      tester,
+      size: const Size(1400, 900),
+      platform: TargetPlatform.macOS,
+      commands: commands,
+      kanbanBuilder: (_) => KanbanScreen(
+        repository: KanbanRepository(server.client()),
+        connect: ({required since, board}) async =>
+            StreamChannelController<String>().foreign,
+      ),
+    );
+    String? newTitle() => commands.handlerFor(MacCommand.newChat)?.title;
+    Future<void> open(String page) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ShellNavigation),
+          matching: find.text(page),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(newTitle(), isNull, reason: 'Chat keeps the New Chat label');
+
+    await open('Kanban');
+    expect(newTitle(), 'New Task');
+    expect(commands.invoke(MacCommand.newChat), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byType(KanbanCreateScreen), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+
+    await open('Schedules');
+    expect(newTitle(), 'New Schedule');
+    expect(commands.invoke(MacCommand.newChat), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byType(BlueprintGalleryScreen), findsOneWidget);
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+
+    await open('Chat');
+    expect(newTitle(), isNull);
+  });
 
   group('Schedules', () {
     testWidgets('is offered without Kanban when the server has cron routes', (

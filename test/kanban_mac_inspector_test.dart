@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
@@ -10,6 +9,7 @@ import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_inspector_layout.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_mac_toolbar.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_task_panel.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -20,6 +20,7 @@ import 'package:stream_channel/stream_channel.dart';
 
 import 'support/fake_hermes_server.dart';
 import 'support/kanban_fixtures.dart';
+import 'support/mac_commands_builder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -67,6 +68,7 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(1400, 900),
     TargetPlatform platform = TargetPlatform.macOS,
+    MacCommandRegistry? commands,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -76,6 +78,7 @@ void main() {
         create: (_) => AuthController(),
         child: MaterialApp(
           theme: buildHermesLightTheme(platform: platform),
+          builder: macCommandsBuilder(commands),
           home: KanbanScreen(
             repository: KanbanRepository(server.client()),
             connect: ({required since, board}) async =>
@@ -95,19 +98,6 @@ void main() {
         find.ancestor(of: find.text(title), matching: find.byType(KanbanCard)),
       )
       .selected;
-
-  Future<void> chord(
-    WidgetTester tester,
-    LogicalKeyboardKey key, {
-    bool alt = false,
-  }) async {
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-    if (alt) await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-    await tester.sendKeyEvent(key);
-    if (alt) await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
-    await tester.pumpAndSettle();
-  }
 
   testWidgets('the Mac toolbar names the board, the filter and the count', (
     tester,
@@ -218,23 +208,46 @@ void main() {
     expect(find.text('Details here'), findsOneWidget);
   });
 
-  testWidgets('option-command-I shows and hides the inspector', (tester) async {
-    await pumpBoard(tester);
+  testWidgets('View > Inspector (option-command-I) hides and shows it', (
+    tester,
+  ) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpBoard(tester, commands: commands);
+    String? title() => commands.handlerFor(MacCommand.toggleInspector)?.title;
     expect(inspector, findsOneWidget);
+    expect(title(), 'Hide Inspector');
 
-    await chord(tester, LogicalKeyboardKey.keyI, alt: true);
+    expect(commands.invoke(MacCommand.toggleInspector), isTrue);
+    await tester.pumpAndSettle();
     expect(inspector, findsNothing);
+    expect(title(), 'Show Inspector');
 
-    await chord(tester, LogicalKeyboardKey.keyI, alt: true);
+    commands.invoke(MacCommand.toggleInspector);
+    await tester.pumpAndSettle();
     expect(inspector, findsOneWidget);
   });
 
-  testWidgets('command-N opens the new task form', (tester) async {
-    await pumpBoard(tester);
+  testWidgets('File > New Task (command-N) opens the new task form', (
+    tester,
+  ) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpBoard(tester, commands: commands);
+    expect(commands.handlerFor(MacCommand.newChat)?.title, 'New Task');
 
-    await chord(tester, LogicalKeyboardKey.keyN);
+    expect(commands.invoke(MacCommand.newChat), isTrue);
+    await tester.pumpAndSettle();
 
     expect(find.byType(KanbanCreateScreen), findsOneWidget);
+  });
+
+  testWidgets('the inspector is not in the menu off macOS', (tester) async {
+    final commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
+    await pumpBoard(tester, platform: TargetPlatform.iOS, commands: commands);
+
+    expect(commands.handlerFor(MacCommand.toggleInspector), isNull);
   });
 
   testWidgets('a compact window lays the inspector over the board', (
