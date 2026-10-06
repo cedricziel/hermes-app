@@ -279,14 +279,17 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Opens [thread] in a conversation window of its own (macOS).
-  /// The selected chat moves to the window with what the composer held, so
-  /// only that window answers, retries, stops or sends in it.
+  /// Opens [thread] in a conversation window of its own (macOS). The
+  /// selected chat leaves the main window, so only its window answers,
+  /// retries, stops or sends in it; a new window takes over what the
+  /// composer held.
   void _openInWindow(ChatThread? thread) {
     final windows = _windows;
     if (windows == null || thread == null || !thread.remote) return;
+    final selected = thread.id == _chat.selectedId;
+    final hasWindow = windows.windowFor(thread.id, _chat.profile) != null;
     ConversationDraft? draft;
-    if (thread.id == _chat.selectedId) {
+    if (selected && !hasWindow) {
       draft = ConversationDraft(
         text: _composerController.text,
         files: List.of(_attachments),
@@ -295,8 +298,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _composerController.clear();
         _attachments.clear();
       });
-      _chat.clearSelection();
     }
+    if (selected) _chat.clearSelection();
     unawaited(
       windows.open(
         thread.id,

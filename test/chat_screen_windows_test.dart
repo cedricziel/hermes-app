@@ -115,6 +115,23 @@ void main() {
     expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
   });
 
+  testWidgets('a draft stays in the main window when the chat already has a '
+      'window', (tester) async {
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await windows.open('s1', profile: null, title: 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.focused, ['w0']);
+    expect(host.drafts['w0'], isNull);
+    expect(find.text('Half a thought'), findsOneWidget);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
+  });
+
   testWidgets('a chat not open in the main window goes without a draft', (
     tester,
   ) async {
