@@ -6,7 +6,6 @@ import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -523,6 +522,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         : null;
     return {
       MacCommand.newChat: MacCommandHandler(_newThread),
+      MacCommand.openInNewWindow: MacCommandHandler(
+        _windows != null && thread != null && thread.remote
+            ? () => _openInWindow(thread)
+            : null,
+      ),
       MacCommand.find: MacCommandHandler(
         _chat.search == null ? null : _beginSearch,
       ),
@@ -927,7 +931,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               : () => chat.sendQueued(selected),
         );
 
-        final scaffold = Scaffold(
+        return Scaffold(
           key: _scaffoldKey,
           drawer: isWide
               ? null
@@ -967,18 +971,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Expanded(child: threadView),
                   ],
                 ),
-        );
-        if (_windows == null) return scaffold;
-        return CallbackShortcuts(
-          bindings: {
-            const SingleActivator(
-              LogicalKeyboardKey.keyO,
-              meta: true,
-              alt: true,
-            ): () =>
-                _openInWindow(selected),
-          },
-          child: scaffold,
         );
       },
     );

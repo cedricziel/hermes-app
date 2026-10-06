@@ -28,7 +28,7 @@ class _QuietLink implements ConversationWindowLink {
   void reportFocus(bool focused) {}
 
   @override
-  void reportTitle(String title) {}
+  void reportThread(String title, {required bool pinned}) {}
 
   @override
   Future<void> showInMain(String threadId, String? profile) async {}

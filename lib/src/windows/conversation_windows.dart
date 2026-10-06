@@ -44,10 +44,17 @@ abstract interface class ConversationWindowHost {
 
 /// One open conversation window.
 class ConversationWindowEntry {
-  const ConversationWindowEntry(this.windowId, this.args);
+  const ConversationWindowEntry(
+    this.windowId,
+    this.args, {
+    this.pinned = false,
+  });
 
   final String windowId;
   final ConversationWindowArgs args;
+
+  /// Whether the window's chat is pinned, as the window last reported.
+  final bool pinned;
 }
 
 /// Keeps the open windows' arguments for the next launch.
@@ -119,6 +126,22 @@ class ConversationWindows extends ChangeNotifier {
 
   final _touched = <ConversationRef>{};
 
+  /// The conversation window that is key, or null while the main window is.
+  ConversationWindowEntry? get keyWindow {
+    for (final window in _windows) {
+      if (window.windowId == _keyWindowId) return window;
+    }
+    return null;
+  }
+
+  /// The open window of [threadId] on [profile], if there is one.
+  ConversationWindowEntry? windowFor(String threadId, String? profile) {
+    for (final window in _windows) {
+      if (window.args.shows(threadId, profile)) return window;
+    }
+    return null;
+  }
+
   /// The chats opened in a window this session, which the main window
   /// reloads when it becomes key again.
   List<ConversationRef> get touched => [..._touched];
@@ -139,10 +162,8 @@ class ConversationWindows extends ChangeNotifier {
     required String? profile,
     required String title,
   }) async {
-    for (final window in _windows) {
-      if (window.args.shows(threadId, profile)) {
-        return _host.focus(window.windowId);
-      }
+    if (windowFor(threadId, profile) case final window?) {
+      return _host.focus(window.windowId);
     }
     final connection = _connection();
     if (connection == null) return;
@@ -238,15 +259,21 @@ class ConversationWindows extends ChangeNotifier {
         }
       case 'title':
         final title = args['title'];
+        final pinned = args['pinned'] == true;
         final index = _windows.indexWhere((w) => w.windowId == windowId);
         if (index < 0 || title is! String) return null;
         final window = _windows[index];
-        if (window.args.title == title) return null;
+        if (window.args.title == title && window.pinned == pinned) return null;
         _windows[index] = ConversationWindowEntry(
           window.windowId,
           window.args.withTitle(title),
+          pinned: pinned,
         );
-        _changed();
+        if (window.args.title == title) {
+          notifyListeners();
+        } else {
+          _changed();
+        }
       case 'showInMain':
         final threadId = args['thread_id'];
         if (threadId is String) {

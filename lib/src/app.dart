@@ -5,6 +5,7 @@ import 'package:upgrader/upgrader.dart';
 import 'app_lock/app_lock_gate.dart';
 import 'handoff/handoff_controller.dart';
 import 'handoff/handoff_gate.dart';
+import 'windows/conversation_windows_menu.dart';
 import 'auth/auth_controller.dart';
 import 'macos/mac_menu_bar.dart';
 import 'macos/mac_window.dart';
@@ -52,8 +53,10 @@ class _HermesAppState extends State<HermesApp> {
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
       builder: (context, child) => MacMenuBar(
         navigatorKey: _navigatorKey,
-        child: MacWindowChrome(
-          child: AppLockGate(child: HandoffGate(child: child!)),
+        child: ConversationWindowsMenu(
+          child: MacWindowChrome(
+            child: AppLockGate(child: HandoffGate(child: child!)),
+          ),
         ),
       ),
       home: _RootRouter(updateChecker: widget.updateChecker),

@@ -99,8 +99,9 @@ abstract interface class ConversationWindowLink {
 
   void reportFocus(bool focused);
 
-  /// Names the window after its chat, here and in the Window menu.
-  void reportTitle(String title);
+  /// Names the window after its chat, here and in the Window menu, and tells
+  /// the menu bar whether the chat is pinned.
+  void reportThread(String title, {required bool pinned});
 
   Future<void> showInMain(String threadId, String? profile);
 
@@ -156,8 +157,10 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
       unawaited(_quietly(_main<void>('focused', {'focused': focused})));
 
   @override
-  void reportTitle(String title) {
-    unawaited(_quietly(_main<void>('title', {'title': title})));
+  void reportThread(String title, {required bool pinned}) {
+    unawaited(
+      _quietly(_main<void>('title', {'title': title, 'pinned': pinned})),
+    );
     unawaited(_quietly(_nativeWindow.invokeMethod<void>('setTitle', title)));
   }
 

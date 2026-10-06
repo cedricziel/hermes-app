@@ -60,7 +60,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
   /// closes the window.
   bool _opened = false;
-  String? _reportedTitle;
+  ({String title, bool pinned})? _reported;
 
   ConversationWindowArgs get _args => widget.args;
   ConversationWindowLink get _link => widget.link;
@@ -102,9 +102,10 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     final thread = _thread;
     if (thread != null) {
       _opened = true;
-      if (thread.title != _reportedTitle) {
-        _reportedTitle = thread.title;
-        _link.reportTitle(thread.title);
+      final state = (title: thread.title, pinned: thread.pinned);
+      if (state != _reported) {
+        _reported = state;
+        _link.reportThread(thread.title, pinned: thread.pinned);
       }
     } else if (_opened && !_chat.loadingThreads) {
       unawaited(_link.close());

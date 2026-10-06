@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +18,7 @@ void main() {
   late FakeHermesServer server;
   late FakeConversationWindowHost host;
   late ConversationWindows windows;
+  late MacCommandRegistry commands;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -51,8 +53,11 @@ void main() {
       windows.dispose();
       host.dispose();
     });
+    commands = MacCommandRegistry();
+    addTearDown(commands.dispose);
     return pumpChatScreen(
       tester,
+      commands: commands,
       server: server,
       platform: TargetPlatform.macOS,
       providers: [
@@ -100,18 +105,14 @@ void main() {
     expect(host.created, isEmpty);
   });
 
-  testWidgets('option-command-O opens the open thread in a window', (
+  testWidgets('File > Open in New Window opens the open thread in a window', (
     tester,
   ) async {
     await pump(tester);
+    expect(commands.handlerFor(MacCommand.openInNewWindow)?.enabled, isFalse);
     await openThread(tester, 'Trip plan');
-    await tester.tap(composerField);
 
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyO);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
     await tester.pumpAndSettle();
 
     expect(host.created.values.single.threadId, 's1');
