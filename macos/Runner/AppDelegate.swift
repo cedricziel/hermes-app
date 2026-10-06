@@ -48,11 +48,11 @@ class AppDelegate: FlutterAppDelegate {
         super.application(application, didFailToContinueUserActivityWithType: type, error: error)
     }
 
-    /// A click on the Dock icon with every window closed brings the main window
-    /// back.
-    override func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows: Bool) -> Bool {
-        if !hasVisibleWindows {
-            mainWindow?.makeKeyAndOrderFront(nil)
+    /// A click on the Dock icon brings back the main window when it is hidden,
+    /// also while conversation windows are open.
+    override func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
+        if let main = mainWindow, !main.isVisible {
+            main.makeKeyAndOrderFront(nil)
         }
         return true
     }
