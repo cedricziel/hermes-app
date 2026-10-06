@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.50](https://github.com/cedricziel/hermes-app/compare/v0.1.49...v0.1.50) (2026-10-06)
+
+
+### Features
+
+* **design:** add MacToolbar, the Mac unified toolbar ([#409](https://github.com/cedricziel/hermes-app/issues/409)) ([0a715b5](https://github.com/cedricziel/hermes-app/commit/0a715b5bf6e98f5d887056178f7d551dbb8da3d8))
+* **design:** add MCP servers and Plugins screen cards ([#411](https://github.com/cedricziel/hermes-app/issues/411)) ([c56f44a](https://github.com/cedricziel/hermes-app/commit/c56f44a9cbb58e2069b6848750eefbf8c8213b05))
+* **design:** add profile, messaging, skill and helper model screen cards ([#438](https://github.com/cedricziel/hermes-app/issues/438)) ([720192f](https://github.com/cedricziel/hermes-app/commit/720192faf185b6fe9261dee92e87ba305ad22a04))
+* **design:** add screen cards for the shell, chat and onboarding ([#410](https://github.com/cedricziel/hermes-app/issues/410)) ([83cc2a6](https://github.com/cedricziel/hermes-app/commit/83cc2a6cc46e1f13f59ff3293d6866e6c0ebdf35))
+* **design:** add shared screen parts for the screen cards ([#405](https://github.com/cedricziel/hermes-app/issues/405)) ([fc059dd](https://github.com/cedricziel/hermes-app/commit/fc059dd694e2d6578261a5cbe3808bcc6e5338d9))
+* **design:** add the Kanban and Schedules screen cards ([#441](https://github.com/cedricziel/hermes-app/issues/441)) ([293b1ae](https://github.com/cedricziel/hermes-app/commit/293b1ae29621a18ca489968338c09271d344a0e5))
+* **design:** add the Mac conversation window screen card ([#446](https://github.com/cedricziel/hermes-app/issues/446)) ([9aa5015](https://github.com/cedricziel/hermes-app/commit/9aa5015494ad98e7548a1c521be1a22486fd3578))
+* **design:** port the Mac main window's search, compact layout, profile scope and folder grouping ([#447](https://github.com/cedricziel/hermes-app/issues/447)) ([b3510a0](https://github.com/cedricziel/hermes-app/commit/b3510a0962a188a77322edb529a0e0657b72ca18))
+* **design:** port the Mac sign-out confirmation, per-profile messaging counts and window drafts ([#448](https://github.com/cedricziel/hermes-app/issues/448)) ([2319999](https://github.com/cedricziel/hermes-app/commit/2319999818b6a58327463a60c236e1efa3a522d6))
+* **macos:** add account commands to the menu bar and count messaging per profile ([#445](https://github.com/cedricziel/hermes-app/issues/445)) ([a19099d](https://github.com/cedricziel/hermes-app/commit/a19099d2932113b43975879f71d28fb954f156f9))
+* **macos:** open a chat in its own conversation window ([#398](https://github.com/cedricziel/hermes-app/issues/398)) ([83ab572](https://github.com/cedricziel/hermes-app/commit/83ab572ebbe00428c7e4ac20ef9928bf31f01927))
+* **macos:** route Kanban and Schedules shortcuts through the menu bar ([#439](https://github.com/cedricziel/hermes-app/issues/439)) ([1c47b5f](https://github.com/cedricziel/hermes-app/commit/1c47b5f6e5c8478af6565ed843b07900f8c33f9c))
+* **macos:** scope the sidebar to a profile, with a Profiles page and account footer ([#402](https://github.com/cedricziel/hermes-app/issues/402)) ([b49bf13](https://github.com/cedricziel/hermes-app/commit/b49bf131e1a917cdd680f24c44ebf0e5a46af211))
+
+
+### Bug Fixes
+
+* **macos:** hand a chat and its draft to its window, and close windows before they show ([#444](https://github.com/cedricziel/hermes-app/issues/444)) ([cc02dc6](https://github.com/cedricziel/hermes-app/commit/cc02dc606bbc4cd28d8cf64eaada8c47083b6294))
+* **shell:** keep hidden pages' floating buttons out of route heroes ([#443](https://github.com/cedricziel/hermes-app/issues/443)) ([19ed8cd](https://github.com/cedricziel/hermes-app/commit/19ed8cdf64d7df09ecb280d9e4faacad46bf29ce))
+* **watch:** show long chats instead of a blank screen ([#442](https://github.com/cedricziel/hermes-app/issues/442)) ([43526e7](https://github.com/cedricziel/hermes-app/commit/43526e7eaf7f3d0df394fb721e563c125d9611e1))
+
 ## [0.1.49](https://github.com/cedricziel/hermes-app/compare/v0.1.48...v0.1.49) (2026-10-05)
 
 
