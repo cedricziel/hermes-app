@@ -3,7 +3,7 @@ import { Button } from "../Button/Button";
 import { Chip } from "../Chip/Chip";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { Menu, MenuAnchor } from "../Menu/Menu";
+import { Menu, MenuAnchor, type MenuItem } from "../Menu/Menu";
 import { TextField } from "../TextField/TextField";
 import {
   cx,
@@ -22,6 +22,34 @@ export interface KanbanBoardItem {
   name: string;
   /** Tasks on the board, shown as "Platform (12)". */
   total: number;
+}
+
+/** What the Kanban "…" menu asks for. */
+export type KanbanMoreAction =
+  "select" | "dispatch" | "workers" | "orchestration";
+
+/** The Kanban "…" menu, as `Menu` items: Select tasks, Run dispatcher now, Active workers…, Orchestration…. */
+export const kanbanMoreItems: { label: string; value: KanbanMoreAction }[] = [
+  { label: "Select tasks", value: "select" },
+  { label: "Run dispatcher now", value: "dispatch" },
+  { label: "Active workers…", value: "workers" },
+  { label: "Orchestration…", value: "orchestration" },
+];
+
+/** The board switcher's items: each board as "Name (12)", the one on screen checked, then "Manage boards…" (no `value`). */
+export function kanbanBoardMenuItems(
+  boards: KanbanBoardItem[],
+  board?: string,
+): Array<MenuItem | "divider"> {
+  return [
+    ...boards.map((b) => ({
+      label: `${b.name} (${b.total})`,
+      value: b.slug,
+      checked: b.slug === board,
+    })),
+    "divider",
+    { label: "Manage boards…" },
+  ];
 }
 
 export interface KanbanToolbarProps {
@@ -53,8 +81,16 @@ export interface KanbanToolbarProps {
   wide?: boolean;
   /** The last refresh failed: shows the red "Could not refresh" notice with Retry above the toolbar. */
   refreshFailed?: boolean;
-  /** Which menu starts open, for previews: the assignee or tenant filter, or the board switcher. */
-  defaultOpenMenu?: "assignee" | "tenant" | "board";
+  /** Which menu starts open, for previews: the assignee or tenant filter, the board switcher, or the "…" menu. */
+  defaultOpenMenu?: "assignee" | "tenant" | "board" | "more";
+  /** Show the search field and the filter chips under the app bar (default true). Off while the board loads or failed to load, when only the app bar is shown. */
+  showSearch?: boolean;
+  /** Show the "…" menu (Select tasks, Run dispatcher now, Active workers…, Orchestration…). Default true; the app hides it until a board has loaded. */
+  showMore?: boolean;
+  /** Phone: a menu button before the title that opens the shell's navigation drawer. Leave out on a wide screen, where the sidebar is beside the page. */
+  onOpenMenu?: () => void;
+  /** An entry of the "…" menu was picked. */
+  onMoreAction?: (action: KanbanMoreAction) => void;
   /** Search text changed. */
   onQueryChange?: (query: string) => void;
   /** An assignee was picked; `undefined` for "All assignees". */
@@ -99,6 +135,10 @@ export function KanbanToolbar({
   wide = true,
   refreshFailed = false,
   defaultOpenMenu,
+  showSearch = true,
+  showMore = true,
+  onOpenMenu,
+  onMoreAction,
   onQueryChange,
   onAssigneeChange,
   onTenantChange,
@@ -113,7 +153,7 @@ export function KanbanToolbar({
   const resolvedPlatform = usePlatform(platform);
   const apple = resolvedPlatform === "apple";
   const [open, setOpen] = useState(defaultOpenMenu);
-  const toggle = (menu: "assignee" | "tenant" | "board") =>
+  const toggle = (menu: "assignee" | "tenant" | "board" | "more") =>
     setOpen(open === menu ? undefined : menu);
   const selecting = selectedCount !== undefined;
   return (
@@ -136,7 +176,21 @@ export function KanbanToolbar({
               </>
             ) : (
               <>
-                <span className="h-kanban-toolbar__title">{title}</span>
+                {onOpenMenu ? (
+                  <IconButton
+                    icon="menu"
+                    label="Open navigation menu"
+                    onClick={onOpenMenu}
+                  />
+                ) : null}
+                <span
+                  className={cx(
+                    "h-kanban-toolbar__title",
+                    onOpenMenu && "h-kanban-toolbar__title--after-menu",
+                  )}
+                >
+                  {title}
+                </span>
                 <span className="h-kanban-toolbar__actions">
                   {boards.length ? (
                     <MenuAnchor>
@@ -151,15 +205,7 @@ export function KanbanToolbar({
                           label="Switch board"
                           device={device}
                           style={{ minWidth: 220, maxWidth: 320 }}
-                          items={[
-                            ...boards.map((b) => ({
-                              label: `${b.name} (${b.total})`,
-                              value: b.slug,
-                              checked: b.slug === board,
-                            })),
-                            "divider" as const,
-                            { label: "Manage boards…" },
-                          ]}
+                          items={kanbanBoardMenuItems(boards, board)}
                           onSelect={(item) => {
                             setOpen(undefined);
                             if (item.value) onBoardChange?.(item.value);
@@ -180,7 +226,28 @@ export function KanbanToolbar({
                     aria-label={live ? "Live" : "Reconnecting…"}
                     role="img"
                   />
-                  <IconButton icon="more_vert" label="More" />
+                  {showMore ? (
+                    <MenuAnchor>
+                      <IconButton
+                        icon="more_vert"
+                        label="More"
+                        onClick={() => toggle("more")}
+                      />
+                      {open === "more" ? (
+                        <Menu
+                          align="end"
+                          label="More"
+                          device={device}
+                          style={{ minWidth: 220 }}
+                          items={kanbanMoreItems}
+                          onSelect={(item) => {
+                            setOpen(undefined);
+                            if (item.value) onMoreAction?.(item.value);
+                          }}
+                        />
+                      ) : null}
+                    </MenuAnchor>
+                  ) : null}
                 </span>
               </>
             )}
@@ -197,57 +264,63 @@ export function KanbanToolbar({
             </Button>
           </div>
         ) : null}
-        <div className="h-kanban-toolbar__body">
-          <div className="h-kanban-toolbar__search-row">
-            <TextField
-              className="h-kanban-toolbar__search"
-              variant="search"
-              leadingIcon="search"
-              placeholder="Search tasks"
-              value={query}
-              onChange={(e) => onQueryChange?.(e.target.value)}
-              readOnly={query !== undefined && !onQueryChange}
-            />
-            {wide ? (
-              <IconButton icon="refresh" label="Refresh" onClick={onRefresh} />
-            ) : null}
-          </div>
-          <div className="h-kanban-toolbar__filters">
-            {assignees.length ? (
-              <FilterMenu
-                label={assignee ?? "All assignees"}
-                all="All assignees"
-                options={assignees}
-                open={open === "assignee"}
-                device={device}
-                onToggle={() => toggle("assignee")}
-                onSelect={(v) => {
-                  setOpen(undefined);
-                  onAssigneeChange?.(v);
-                }}
+        {showSearch ? (
+          <div className="h-kanban-toolbar__body">
+            <div className="h-kanban-toolbar__search-row">
+              <TextField
+                className="h-kanban-toolbar__search"
+                variant="search"
+                leadingIcon="search"
+                placeholder="Search tasks"
+                value={query}
+                onChange={(e) => onQueryChange?.(e.target.value)}
+                readOnly={query !== undefined && !onQueryChange}
               />
-            ) : null}
-            {tenants.length ? (
-              <FilterMenu
-                label={tenant ?? "All tenants"}
-                all="All tenants"
-                options={tenants}
-                open={open === "tenant"}
-                device={device}
-                onToggle={() => toggle("tenant")}
-                onSelect={(v) => {
-                  setOpen(undefined);
-                  onTenantChange?.(v);
-                }}
+              {wide ? (
+                <IconButton
+                  icon="refresh"
+                  label="Refresh"
+                  onClick={onRefresh}
+                />
+              ) : null}
+            </div>
+            <div className="h-kanban-toolbar__filters">
+              {assignees.length ? (
+                <FilterMenu
+                  label={assignee ?? "All assignees"}
+                  all="All assignees"
+                  options={assignees}
+                  open={open === "assignee"}
+                  device={device}
+                  onToggle={() => toggle("assignee")}
+                  onSelect={(v) => {
+                    setOpen(undefined);
+                    onAssigneeChange?.(v);
+                  }}
+                />
+              ) : null}
+              {tenants.length ? (
+                <FilterMenu
+                  label={tenant ?? "All tenants"}
+                  all="All tenants"
+                  options={tenants}
+                  open={open === "tenant"}
+                  device={device}
+                  onToggle={() => toggle("tenant")}
+                  onSelect={(v) => {
+                    setOpen(undefined);
+                    onTenantChange?.(v);
+                  }}
+                />
+              ) : null}
+              <Chip
+                label="Archived"
+                selected={includeArchived}
+                onClick={() => onIncludeArchivedChange?.(!includeArchived)}
               />
-            ) : null}
-            <Chip
-              label="Archived"
-              selected={includeArchived}
-              onClick={() => onIncludeArchivedChange?.(!includeArchived)}
-            />
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </PlatformScope>
   );

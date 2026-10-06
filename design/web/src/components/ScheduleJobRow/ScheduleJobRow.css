@@ -87,8 +87,9 @@
 
 .h-schedule-job-row__status {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 2px 8px;
   font-size: 12px;
   line-height: 16px;
 }
@@ -106,7 +107,7 @@
 }
 
 .h-schedule-job-row__status-text {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   color: var(--h-schedule-job-row-tone);
 }
@@ -196,4 +197,23 @@
   )
   .h-schedule-job-row--apple {
   border-bottom: 0;
+}
+
+/* Mac window: each job a card of its own, as MacJobList. */
+.h-schedule-job-row--apple.h-schedule-job-row--mac {
+  margin: 0;
+  border: 1px solid var(--h-border);
+  border-radius: 10px;
+  background: var(--h-surface);
+}
+
+.h-schedule-job-row--apple.h-schedule-job-row--mac:hover {
+  background: var(--h-hover);
+}
+
+.h-schedule-job-row--apple.h-schedule-job-row--mac.h-schedule-job-row--selected,
+.h-schedule-job-row--apple.h-schedule-job-row--mac.h-schedule-job-row--selected:hover {
+  border: 2px solid var(--h-primary);
+  padding: 11px 15px;
+  background: var(--h-surface);
 }

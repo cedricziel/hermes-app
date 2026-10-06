@@ -28,6 +28,8 @@ export interface ListDetailLayoutProps {
    * platform. Wins over `onBack` when both are given.
    */
   onClose?: () => void;
+  /** A top-level page on a phone (Schedules): a menu button where the back button goes, which opens the shell's navigation drawer. Ignored when `onBack` or `onClose` is set. */
+  onOpenMenu?: () => void;
   /** Apple, `list` layout (iPhone): the parent screen's title shown beside the back chevron, "Settings" or "Chats". Ignored on `material` and in the `split` layout, where the chevron stands alone. */
   backLabel?: string;
   /** Right side of the app bar: text buttons such as `<Button variant="text" icon="add">Add</Button>` and icon buttons (refresh, more_vert). */
@@ -95,6 +97,7 @@ export function ListDetailLayout({
   subtitle,
   onBack,
   onClose,
+  onOpenMenu,
   backLabel,
   actions,
   tabs,
@@ -168,11 +171,19 @@ export function ListDetailLayout({
               </button>
             ) : onBack ? (
               <IconButton icon="arrow_back" label="Back" onClick={onBack} />
+            ) : onOpenMenu ? (
+              <IconButton
+                icon="menu"
+                label="Open navigation menu"
+                onClick={onOpenMenu}
+              />
             ) : null}
             <div
               className={[
                 "h-list-detail__titles",
-                onBack || onClose ? "h-list-detail__titles--after-back" : null,
+                onBack || onClose || onOpenMenu
+                  ? "h-list-detail__titles--after-back"
+                  : null,
               ]
                 .filter(Boolean)
                 .join(" ")}

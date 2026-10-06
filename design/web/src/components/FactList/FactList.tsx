@@ -1,3 +1,4 @@
+import { cx } from "../../platform";
 import "./FactList.css";
 
 /** One line of a `FactList`. */
@@ -6,6 +7,8 @@ export interface Fact {
   label: string;
   /** The value, in monospace. An array draws one line per entry (each argument, each variable name). */
   value: string | string[];
+  /** Overrides the list's `mono` for this line: a cron expression among plain settings. */
+  mono?: boolean;
 }
 
 export interface FactListProps {
@@ -13,6 +16,12 @@ export interface FactListProps {
   facts: Fact[];
   /** Width of the label column in px: 92 in the install panel, 72 in the command review. */
   labelWidth?: number;
+  /**
+   * Values in monospace at 13px (default), for what Hermes runs or stores.
+   * `false` sets labels and values in body text, for a job's settings
+   * ("Deliver to", "Skills", "Model"); a single fact can still be `mono`.
+   */
+  mono?: boolean;
 }
 
 /**
@@ -21,15 +30,24 @@ export interface FactListProps {
  * lines). Put it in a `Card` under a heading such as "What Hermes will run".
  * Same on every platform.
  */
-export function FactList({ facts, labelWidth = 92 }: FactListProps) {
+export function FactList({
+  facts,
+  labelWidth = 92,
+  mono = true,
+}: FactListProps) {
   return (
-    <dl className="h-facts">
+    <dl className={cx("h-facts", !mono && "h-facts--plain")}>
       {facts.map((fact, i) => (
         <div key={i} className="h-facts__row">
           <dt className="h-facts__label" style={{ width: labelWidth }}>
             {fact.label}
           </dt>
-          <dd className="h-facts__value">
+          <dd
+            className={cx(
+              "h-facts__value",
+              (fact.mono ?? mono) && "h-facts__value--mono",
+            )}
+          >
             {(Array.isArray(fact.value) ? fact.value : [fact.value]).map(
               (line, j) => (
                 <div key={j}>{line}</div>
