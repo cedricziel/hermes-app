@@ -183,4 +183,18 @@ void main() {
     expect(host.focused, ['w0']);
     expect(find.text('Hello'), findsOneWidget);
   });
+
+  testWidgets('a chat whose window went away opens in the main window', (
+    tester,
+  ) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'Trip plan');
+    host.vanished('w0');
+
+    await tester.tap(row('Trip plan'));
+    await tester.pumpAndSettle();
+
+    expect(windows.windows, isEmpty);
+    expect(server.requestsTo('GET', '/api/sessions/s1/messages'), isNotEmpty);
+  });
 }
