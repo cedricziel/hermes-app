@@ -1,4 +1,4 @@
-import { BotsScreen, HermesProvider } from "@hermes-app/ui";
+import { MessagingScreen, HermesProvider } from "@hermes-app/ui";
 
 const phone = {
   width: 390,
@@ -10,7 +10,7 @@ const phone = {
 const desktop = { ...phone, width: 800, height: 480 } as const;
 const noop = () => {};
 
-const bots = [
+const platforms = [
   {
     id: "telegram",
     name: "Telegram",
@@ -38,33 +38,33 @@ const bots = [
 export const ApplePhone = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
-      <BotsScreen bots={bots} onBack={noop} />
+      <MessagingScreen platforms={platforms} onBack={noop} />
     </div>
   </HermesProvider>
 );
 
 export const MaterialPhone = () => (
   <div style={phone}>
-    <BotsScreen bots={bots} onBack={noop} />
+    <MessagingScreen platforms={platforms} onBack={noop} />
   </div>
 );
 
 export const MaterialDesktop = () => (
   <div style={desktop}>
-    <BotsScreen layout="desktop" bots={bots} onBack={noop} />
+    <MessagingScreen layout="desktop" platforms={platforms} onBack={noop} />
   </div>
 );
 
 export const Loading = () => (
   <div style={phone}>
-    <BotsScreen state="loading" onBack={noop} />
+    <MessagingScreen state="loading" onBack={noop} />
   </div>
 );
 
 export const Failed = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
-      <BotsScreen state="failed" onBack={noop} />
+      <MessagingScreen state="failed" onBack={noop} />
     </div>
   </HermesProvider>
 );
@@ -75,7 +75,7 @@ export const Dark = () => (
     style={{ width: "fit-content", borderRadius: 14 }}
   >
     <div style={phone}>
-      <BotsScreen bots={bots} onBack={noop} />
+      <MessagingScreen platforms={platforms} onBack={noop} />
     </div>
   </HermesProvider>
 );

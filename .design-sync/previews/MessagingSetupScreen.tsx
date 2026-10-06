@@ -1,4 +1,4 @@
-import { BotSetupScreen, HermesProvider } from "@hermes-app/ui";
+import { MessagingSetupScreen, HermesProvider } from "@hermes-app/ui";
 
 const phone = {
   width: 390,
@@ -53,15 +53,19 @@ const telegramVars = [
 export const AppleTelegram = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
-      <BotSetupScreen bot={telegram} envVars={telegramVars} onBack={noop} />
+      <MessagingSetupScreen
+        messagingPlatform={telegram}
+        envVars={telegramVars}
+        onBack={noop}
+      />
     </div>
   </HermesProvider>
 );
 
 export const MaterialDiscord = () => (
   <div style={phone}>
-    <BotSetupScreen
-      bot={discord}
+    <MessagingSetupScreen
+      messagingPlatform={discord}
       envVars={discordVars}
       values={{ DISCORD_BOT_TOKEN: "MTEx.Gk2.secret" }}
       advancedOpen
@@ -72,8 +76,8 @@ export const MaterialDiscord = () => (
 
 export const ValidationAndClear = () => (
   <div style={phone}>
-    <BotSetupScreen
-      bot={discord}
+    <MessagingSetupScreen
+      messagingPlatform={discord}
       envVars={discordVars}
       cleared={["DISCORD_ALLOWED_USERS"]}
       fieldErrors={{ DISCORD_BOT_TOKEN: "Required" }}
@@ -86,9 +90,9 @@ export const ValidationAndClear = () => (
 export const AppleMacSaving = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={desktop}>
-      <BotSetupScreen
+      <MessagingSetupScreen
         layout="desktop"
-        bot={discord}
+        messagingPlatform={discord}
         envVars={discordVars}
         values={{ DISCORD_BOT_TOKEN: "MTEx.Gk2.secret" }}
         saving
@@ -100,7 +104,10 @@ export const AppleMacSaving = () => (
 
 export const NothingToSetUp = () => (
   <div style={phone}>
-    <BotSetupScreen bot={{ id: "api", name: "API server" }} onBack={noop} />
+    <MessagingSetupScreen
+      messagingPlatform={{ id: "api", name: "API server" }}
+      onBack={noop}
+    />
   </div>
 );
 
@@ -110,7 +117,11 @@ export const Dark = () => (
     style={{ width: "fit-content", borderRadius: 14 }}
   >
     <div style={phone}>
-      <BotSetupScreen bot={telegram} envVars={telegramVars} onBack={noop} />
+      <MessagingSetupScreen
+        messagingPlatform={telegram}
+        envVars={telegramVars}
+        onBack={noop}
+      />
     </div>
   </HermesProvider>
 );

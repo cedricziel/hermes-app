@@ -1,0 +1,169 @@
+.h-mac-profiles {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+}
+
+.h-mac-profiles__state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.h-mac-profiles__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.h-mac-profiles__list {
+  flex: none;
+  width: 220px;
+  padding: 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--h-border);
+}
+
+.h-mac-profiles__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-mac-profiles__row:hover {
+  background: var(--h-hover);
+}
+
+.h-mac-profiles__row--selected,
+.h-mac-profiles__row--selected:hover {
+  background: var(--h-surface-high);
+}
+
+.h-mac-profiles__avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--h-surface-high);
+  color: var(--h-fg);
+  font-weight: 600;
+}
+
+.h-mac-profiles__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.h-mac-profiles__row-title {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-mac-profiles__row-detail {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--h-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.h-mac-profiles__detail {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.h-mac-profiles__home {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.h-mac-profiles__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.h-mac-profiles__path {
+  font-size: 12px;
+  user-select: text;
+}
+
+.h-mac-profiles__card {
+  margin-top: 20px;
+  border: 1px solid var(--h-border);
+  border-radius: 10px;
+  background: var(--h-surface);
+  overflow: hidden;
+}
+
+.h-mac-profiles__section {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-mac-profiles__section:hover {
+  background: var(--h-hover);
+}
+
+/* A divider between rows, indented past the icon. */
+.h-mac-profiles__section + .h-mac-profiles__section::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 44px;
+  right: 0;
+  border-top: 1px solid var(--h-border);
+}
+
+.h-mac-profiles__section-title {
+  font-size: 13px;
+  line-height: 16px;
+}
+
+.h-mac-profiles__count {
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.h-mac-profiles__note {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--h-muted);
+}

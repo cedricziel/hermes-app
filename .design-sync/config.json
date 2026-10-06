@@ -226,7 +226,7 @@
     "ModelSlotRow": {
       "cardMode": "column"
     },
-    "BotRow": {
+    "MessagingPlatformRow": {
       "cardMode": "column"
     },
     "SkillRow": {
@@ -238,10 +238,10 @@
     "ProfilesScreen": {
       "cardMode": "column"
     },
-    "BotsScreen": {
+    "MessagingScreen": {
       "cardMode": "column"
     },
-    "BotSetupScreen": {
+    "MessagingSetupScreen": {
       "cardMode": "column"
     },
     "HelperModelsScreen": {
@@ -254,6 +254,9 @@
       "cardMode": "column"
     },
     "HubSkillScreen": {
+      "cardMode": "column"
+    },
+    "MacProfilesPage": {
       "cardMode": "column"
     }
   }

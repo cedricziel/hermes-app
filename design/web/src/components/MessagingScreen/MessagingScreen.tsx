@@ -1,17 +1,22 @@
-import { BotRow, type Bot } from "../BotRow/BotRow";
 import { Button } from "../Button/Button";
+import {
+  MessagingPlatformRow,
+  type MessagingPlatform,
+} from "../MessagingPlatformRow/MessagingPlatformRow";
+import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
 import type { AppleDevice, Platform } from "../../platform";
+import "./MessagingScreen.css";
 
-export interface BotsScreenProps {
+export interface MessagingScreenProps {
   /** The messaging platforms the dashboard knows, in its order. */
-  bots?: Bot[];
-  /** `loaded` (default), `loading` (a spinner) or `failed` ("Could not load bots" with Retry). */
+  platforms?: MessagingPlatform[];
+  /** `loaded` (default), `loading` (a spinner) or `failed` ("Could not load messaging platforms" with Retry). The introduction stays above either. */
   state?: "loaded" | "loading" | "failed";
-  /** A row was pressed: open its setup (`BotSetupScreen`). */
+  /** A row was pressed: open its setup (`MessagingSetupScreen`). */
   onOpen?: (id: string) => void;
-  /** A bot's switch was flipped. */
+  /** A platform's switch was flipped. */
   onEnabledChange?: (id: string, enabled: boolean) => void;
   onRetry?: () => void;
   /** Back to the chat ("Chat" beside the iOS chevron). */
@@ -25,13 +30,14 @@ export interface BotsScreenProps {
 }
 
 /**
- * The Bots screen, pushed from the chat sidebar: the messaging platforms
- * Hermes can run as bots (Telegram, Discord, Slack...) as `BotRow`s with an
- * enabled switch. A platform without credentials says "Needs setup" and
- * can't be switched on until its row is opened and set up.
+ * The Messaging screen, pushed from the chat sidebar: a line on what it is
+ * for, then the messaging platforms Hermes can connect to (Telegram,
+ * Discord, Slack...) as `MessagingPlatformRow`s with an enabled switch. A
+ * platform without credentials says "Needs setup" and can't be switched on
+ * until its row is opened and set up.
  */
-export function BotsScreen({
-  bots = [],
+export function MessagingScreen({
+  platforms = [],
   state = "loaded",
   onOpen,
   onEnabledChange,
@@ -40,28 +46,42 @@ export function BotsScreen({
   layout = "phone",
   platform,
   device,
-}: BotsScreenProps) {
+}: MessagingScreenProps) {
   return (
     <ScreenFrame
-      title="Bots"
+      title="Messaging"
       onBack={onBack}
       backLabel="Chat"
       layout={layout}
       platform={platform}
       device={device}
-      state={state}
-      loadingLabel="Loading bots"
-      failedTitle="Could not load bots"
-      onRetry={onRetry}
     >
-      {bots.map((bot) => (
-        <BotRow
-          key={bot.id}
-          bot={bot}
-          onClick={() => onOpen?.(bot.id)}
-          onEnabledChange={(v) => onEnabledChange?.(bot.id, v)}
-        />
-      ))}
+      <div className="h-messaging">
+        <div className="h-body-md h-messaging__intro">
+          Connect Hermes to Telegram, Discord, and other messaging platforms.
+        </div>
+        {state === "loaded" ? (
+          platforms.map((p) => (
+            <MessagingPlatformRow
+              key={p.id}
+              messagingPlatform={p}
+              onClick={() => onOpen?.(p.id)}
+              onEnabledChange={(v) => onEnabledChange?.(p.id, v)}
+            />
+          ))
+        ) : (
+          <div className="h-messaging__state">
+            {state === "loading" ? (
+              <Spinner size={36} label="Loading messaging platforms" />
+            ) : (
+              <StateMessage
+                title="Could not load messaging platforms"
+                action={<Button onClick={onRetry}>Retry</Button>}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </ScreenFrame>
   );
 }

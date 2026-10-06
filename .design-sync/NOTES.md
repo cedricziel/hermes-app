@@ -174,24 +174,28 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
 - `[FONT_REMOTE]` for "SF Pro Text", "Roboto Mono", "Material Symbols Outlined": expected (system fonts and the
   Google Fonts icon import).
 
-## Settings, skills and bots screen cards
+## Settings, skills and messaging screen cards
 
-- `ProfilesScreen`, `BotsScreen`, `BotSetupScreen`, `TelegramPairingScreen`, `SkillsScreen` (Installed and Discover
+- `ProfilesScreen`, `MessagingScreen`, `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillsScreen` (Installed and Discover
   tabs, background job strip), `SkillDetailScreen`, `SkillEditorScreen`, `HubSkillScreen` and `HelperModelsScreen`
-  mirror `lib/src/profiles`, `lib/src/bots`, `lib/src/skills` and `lib/src/settings/helper_models_screen.dart`, with
+  mirror `lib/src/profiles`, `lib/src/messaging`, `lib/src/skills` and `lib/src/settings/helper_models_screen.dart`, with
   the states from their Widgetbook use cases (`skills_bots_use_cases.dart`, `settings_screen_use_cases.dart`,
-  `state_use_cases.dart`). Appearance and About are dialogs, so they have no screen card.
+  `state_use_cases.dart`). Appearance and About are dialogs, so they have no screen card. Bots became Messaging in
+  #429 (the Bot Mode roster is a separate screen, not carded here). `MacProfilesPage` is the Mac sidebar's Profiles
+  page from #402 (`mac_profiles_page.dart`), which replaces the pushed `ProfilesScreen` on macOS.
 - They share an internal `ScreenFrame` (`src/screenFrame.tsx`, not exported): `ListDetailLayout` in its `list`
   layout with a centred content column (640px like `ContentColumn`, 720px like `kDetailContentMaxWidth`) and an
   optional pinned footer. On `apple` + `desktop` it passes `device="mac"` for the 52px toolbar, since a pushed route
   fills the Mac window.
-- New parts: `SkillRow`, `HubSkillRow`, `BotRow`, `ModelSlotRow` (with `describeModelChoice`), `SecurityScanCard`,
+- New parts: `SkillRow`, `HubSkillRow`, `MessagingPlatformRow`, `ModelSlotRow` (with `describeModelChoice`), `SecurityScanCard`,
   `SkillJobSheet` (sheet content only) and `BusyBar`. `ListDetailLayout` gained `onClose` (an X for full-screen
-  editors) and `device`; a Mac bar shows the back chevron without the previous title.
+  editors) and `device`; a Mac bar shows the back chevron without the previous title, and a Mac page without a back
+  or close button (a page in the shell) gets a `MacToolbar` instead.
 - `Button` gained `variant="danger-outlined"` (Uninstall, Ask agent to delete); a skill's rendered `SKILL.md` fills its card
   by setting `--h-chat-column: none` (internal `src/skillMarkdown.tsx`).
 - Follow-ups: KanbanTaskPanel's progress bar duplicates `BusyBar` (swap it in); the skill editor reaches into
   `TextField`'s classes for its borderless, full-height area (a `plain` variant would be cleaner).
 - Gaps: pushed screens on a Mac don't leave room for the traffic lights (neither does the app); the Skills profile
-  chip draws its dropdown arrow before the name; bot subtitles join their lines with " · " (Flutter stacks them);
-  the iOS long-press sheet of a profile row is not drawn (the tune button stays).
+  chip draws its dropdown arrow before the name; messaging platform subtitles join their lines with " · " (Flutter stacks them);
+  the iOS long-press sheet of a profile row is not drawn (the tune button stays); `AppShell` has no Profiles
+  destination for `MacProfilesPage`, so its card shows the page alone.

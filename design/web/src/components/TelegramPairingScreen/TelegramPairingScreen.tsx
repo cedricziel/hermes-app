@@ -38,14 +38,14 @@ export interface TelegramPairingScreenProps {
   onStartAgain?: () => void;
   /** `phone` or `desktop`; the content stays in a 640px column. */
   layout?: ScreenLayout;
-  /** `apple`: chevron back with "Bots", Apple spinners. Inherits the provider's platform. */
+  /** `apple`: chevron back with "Messaging", Apple spinners. Inherits the provider's platform. */
   platform?: Platform;
   /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
   device?: AppleDevice;
 }
 
 /**
- * Pairs a Telegram bot without making one by hand, pushed from Bot setup's
+ * Pairs a Telegram bot without making one by hand, pushed from Messaging setup's
  * "Set up with Telegram": the user opens a link in Telegram to claim a bot
  * Hermes had made, then says which Telegram accounts may talk to it. The
  * bot's token never reaches the app. Built from `ListDetailLayout`,
@@ -78,7 +78,7 @@ export function TelegramPairingScreen({
     <ScreenFrame
       title="Set up with Telegram"
       onBack={onBack}
-      backLabel="Bots"
+      backLabel="Messaging"
       layout={layout}
       platform={platform}
       device={device}

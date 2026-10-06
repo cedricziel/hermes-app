@@ -1,8 +1,8 @@
-import { BotRow, HermesProvider } from "@hermes-app/ui";
+import { MessagingPlatformRow, HermesProvider } from "@hermes-app/ui";
 
 const pane = { width: 480 } as const;
 
-const bots = [
+const platforms = [
   {
     id: "telegram",
     name: "Telegram",
@@ -29,16 +29,16 @@ const bots = [
 
 export const Platforms = () => (
   <div style={pane}>
-    {bots.map((b) => (
-      <BotRow key={b.id} bot={b} />
+    {platforms.map((b) => (
+      <MessagingPlatformRow key={b.id} messagingPlatform={b} />
     ))}
   </div>
 );
 
 export const Apple = () => (
   <HermesProvider platform="apple" style={{ width: 390 }}>
-    {bots.slice(0, 3).map((b) => (
-      <BotRow key={b.id} bot={b} />
+    {platforms.slice(0, 3).map((b) => (
+      <MessagingPlatformRow key={b.id} messagingPlatform={b} />
     ))}
   </HermesProvider>
 );
@@ -46,8 +46,8 @@ export const Apple = () => (
 export const Dark = () => (
   <HermesProvider theme="dark" style={{ padding: "8px 0", borderRadius: 14 }}>
     <div style={pane}>
-      {bots.map((b) => (
-        <BotRow key={b.id} bot={b} />
+      {platforms.map((b) => (
+        <MessagingPlatformRow key={b.id} messagingPlatform={b} />
       ))}
     </div>
   </HermesProvider>

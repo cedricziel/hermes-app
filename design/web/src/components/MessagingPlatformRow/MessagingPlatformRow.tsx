@@ -2,8 +2,8 @@ import { ListRow } from "../ListRow/ListRow";
 import { Switch } from "../Switch/Switch";
 import type { Platform } from "../../platform";
 
-/** A messaging platform Hermes can run as a bot. */
-export interface Bot {
+/** A messaging platform Hermes can connect to (Telegram, Discord, Slack...). */
+export interface MessagingPlatform {
   /** Platform id: "telegram", "discord", "slack". */
   id: string;
   /** Display name: "Telegram". */
@@ -18,9 +18,9 @@ export interface Bot {
   errorMessage?: string;
 }
 
-export interface BotRowProps {
+export interface MessagingPlatformRowProps {
   /** The platform to show. */
-  bot: Bot;
+  messagingPlatform: MessagingPlatform;
   /** The row was pressed: open its setup. */
   onClick?: () => void;
   /** The switch was flipped to this value. */
@@ -30,21 +30,21 @@ export interface BotRowProps {
 }
 
 /**
- * One platform on the Bots screen: a bot icon, the name, a subtitle of its
- * description, "Needs setup" and the last error, and an enabled switch that
- * is disabled while the bot is off and not set up. Built on `ListRow` as a
- * plain, full-width row on every platform, as the app draws it.
+ * One platform on the Messaging screen: a bot icon, the name, a subtitle of
+ * its description, "Needs setup" and the last error, and an enabled switch
+ * that is disabled while the platform is off and not set up. Built on
+ * `ListRow` as a plain, full-width row on every platform, as the app draws it.
  */
-export function BotRow({
-  bot,
+export function MessagingPlatformRow({
+  messagingPlatform: p,
   onClick,
   onEnabledChange,
   platform,
-}: BotRowProps) {
+}: MessagingPlatformRowProps) {
   const subtitle = [
-    bot.description,
-    bot.configured ? undefined : "Needs setup",
-    bot.errorMessage,
+    p.description,
+    p.configured ? undefined : "Needs setup",
+    p.errorMessage,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -53,14 +53,14 @@ export function BotRow({
       platform={platform}
       grouped={false}
       icon="smart_toy"
-      title={bot.name}
+      title={p.name}
       subtitle={subtitle || undefined}
       onClick={onClick}
       trailing={
         <Switch
-          checked={bot.enabled}
-          label={`${bot.name} enabled`}
-          disabled={!bot.configured && !bot.enabled}
+          checked={p.enabled}
+          label={`${p.name} enabled`}
+          disabled={!p.configured && !p.enabled}
           onChange={onEnabledChange}
         />
       }

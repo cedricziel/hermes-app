@@ -1,35 +1,35 @@
-.h-bot-setup {
+.h-messaging-setup {
   display: flex;
   flex-direction: column;
   padding: 16px;
 }
 
-.h-bot-setup__or {
+.h-messaging-setup__or {
   padding: 12px 0;
 }
 
-.h-bot-setup__field {
+.h-messaging-setup__field {
   display: flex;
   align-items: flex-start;
   gap: 4px;
   padding: 8px 0;
 }
 
-.h-bot-setup__field > .h-field {
+.h-messaging-setup__field > .h-field {
   flex: 1;
 }
 
 /* The clear button sits level with the input, below the label. */
-.h-bot-setup__clear {
+.h-messaging-setup__clear {
   flex: none;
   margin-top: 28px;
 }
 
-.h-bot-setup__error {
+.h-messaging-setup__error {
   padding-top: 8px;
   color: var(--h-error);
 }
 
-.h-bot-setup__save {
+.h-messaging-setup__save {
   padding-top: 16px;
 }
