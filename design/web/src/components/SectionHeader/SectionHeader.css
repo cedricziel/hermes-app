@@ -10,6 +10,12 @@
   min-width: 0;
 }
 
+.h-section-header__title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 .h-section-header--title {
   padding: 20px 16px 4px;
 }

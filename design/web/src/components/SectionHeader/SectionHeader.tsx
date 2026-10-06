@@ -15,24 +15,33 @@ export interface SectionHeaderProps {
    * ("Authentication", "Environment variables", "Tools").
    */
   variant?: "title" | "overline" | "label";
+  /**
+   * The heading level screen readers navigate by: 2 (default) for a section
+   * of a screen, 3 for a group inside one. Only the look comes from
+   * `variant`; `label` is never a heading (it names a control).
+   */
+  level?: 2 | 3 | 4 | 5 | 6;
   /** Trailing content on the heading's line, e.g. a text button. */
   action?: ReactNode;
 }
 
 /**
  * The heading of a group in a list, a detail pane or a form. Pick the
- * `variant` by where it sits; it is the same on every platform.
+ * `variant` by where it sits; it is the same on every platform. `title` and
+ * `overline` render a real heading (`h2` by default, see `level`).
  */
 export function SectionHeader({
   title,
   caption,
   variant = "title",
+  level = 2,
   action,
 }: SectionHeaderProps) {
+  const Heading = variant === "label" ? "div" : (`h${level}` as const);
   return (
     <div className={`h-section-header h-section-header--${variant}`}>
       <div className="h-section-header__text">
-        <div className="h-section-header__title">{title}</div>
+        <Heading className="h-section-header__title">{title}</Heading>
         {caption && variant === "title" ? (
           <div className="h-section-header__caption">{caption}</div>
         ) : null}
