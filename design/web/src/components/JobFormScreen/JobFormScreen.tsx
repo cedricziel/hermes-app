@@ -230,7 +230,11 @@ export function JobFormScreen({
               )}
               {field("workdir", "Working directory", advanced.workdir)}
             </FormSection>
-            {error ? <div className="h-form-screen__error">{error}</div> : null}
+            {error ? (
+              <div className="h-form-screen__error" role="alert">
+                {error}
+              </div>
+            ) : null}
             <Button fullWidth disabled={saving} onClick={onSave}>
               {saving ? <Spinner size={18} label="Saving" /> : "Save task"}
             </Button>

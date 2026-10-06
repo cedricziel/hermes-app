@@ -87,7 +87,7 @@ export function BlueprintGalleryScreen({
               onClick={onCustom}
             />
             {state === "error" ? (
-              <div className="h-blueprint-gallery__failed">
+              <div className="h-blueprint-gallery__failed" role="alert">
                 <span>The templates could not be loaded.</span>
                 <Button variant="text" onClick={onRetry}>
                   Retry

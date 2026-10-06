@@ -128,7 +128,11 @@ export function BlueprintFormScreen({
                 )}
               </FormSection>
             ))}
-            {error ? <div className="h-form-screen__error">{error}</div> : null}
+            {error ? (
+              <div className="h-form-screen__error" role="alert">
+                {error}
+              </div>
+            ) : null}
             <Button fullWidth disabled={saving} onClick={onCreate}>
               {saving ? <Spinner size={18} label="Creating" /> : "Create task"}
             </Button>
