@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -36,6 +38,7 @@ import '../schedules/schedules_controller.dart';
 import '../schedules/schedules_screen.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
+import '../windows/conversation_windows.dart';
 import 'shell_navigation.dart';
 
 enum _Destination { chat, bots, kanban, schedules, profiles }
@@ -101,6 +104,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// A tap on a scheduled task's notification that came before the cron
   /// check was done.
   NotificationTarget? _pendingJob;
+  StreamSubscription<void>? _showInMain;
 
   @override
   void initState() {
@@ -144,6 +148,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.addObserver(this);
     _detect();
+    final windows = _maybeRead<ConversationWindows?>();
+    if (windows != null) {
+      _showInMain = windows.showInMainRequests.listen((chat) {
+        _openRequests.request(
+          NotificationTarget(threadId: chat.threadId, profile: chat.profile),
+        );
+        _showChat();
+      });
+      unawaited(windows.restore());
+    }
   }
 
   T? _maybeRead<T>() {
@@ -157,6 +171,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _showInMain?.cancel();
     _watcher?.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();

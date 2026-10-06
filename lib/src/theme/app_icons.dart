@@ -231,6 +231,10 @@ abstract final class AppIcons {
     Icons.push_pin_outlined,
     CupertinoIcons.pin_slash,
   );
+  static const pinOutline = AppIconSet(
+    Icons.push_pin_outlined,
+    CupertinoIcons.pin,
+  );
   static const power = AppIconSet(Icons.power_outlined, CupertinoIcons.power);
   static const photoLibrary = AppIconSet(
     Icons.photo_library_outlined,

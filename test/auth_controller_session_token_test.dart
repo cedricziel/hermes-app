@@ -106,6 +106,21 @@ void main() {
     expect(dashboard.sessionTokens, ['token-1', 'token-1', 'token-2']);
   });
 
+  test('a window gets the session token and a new one once it is '
+      'rejected', () async {
+    expect(await controller.windowAuthHeaders(), {
+      'X-Hermes-Session-Token': 'token-1',
+    });
+    dashboard.token = 'token-2';
+
+    final headers = await controller.windowAuthHeaders(
+      rejected: {'X-Hermes-Session-Token': 'token-1'},
+    );
+
+    expect(headers, {'X-Hermes-Session-Token': 'token-2'});
+    expect(dashboard.pageFetches, 2);
+  });
+
   test('a token the dashboard keeps rejecting fails with 401', () async {
     final rejecting = _RejectingPage();
     await rejecting.start();

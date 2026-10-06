@@ -166,11 +166,26 @@ class ThreadHousekeeping {
       report(_failure(failure, error));
       return;
     }
-    threads().remove(thread);
+    forget(thread);
+  });
+
+  /// Takes on what the dashboard now holds for [thread]: its title, pin and
+  /// last activity, changed elsewhere (another window).
+  void adopt(ChatThread thread, ChatThread fresh) {
+    thread
+      ..title = fresh.title
+      ..pinned = fresh.pinned
+      ..updatedAt = fresh.updatedAt;
+    _sort();
+  }
+
+  /// Drops [thread], which the dashboard no longer lists.
+  void forget(ChatThread thread) {
+    if (!threads().remove(thread)) return;
     // Everything after it moved up a place, so the next page starts sooner.
     if (_nextOffset > 0) _nextOffset--;
     removed(thread);
-  });
+  }
 
   /// Runs one action per thread at a time, under the profile in force when it
   /// starts, then tells the screen.

@@ -2,12 +2,11 @@ import 'dart:async';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
+import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
-import 'package:flutter/foundation.dart' show ValueListenable, ValueNotifier;
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
-import 'package:flutter_chat_core/flutter_chat_core.dart'
-    show InMemoryChatController, User;
-import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -39,30 +38,24 @@ import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
 import '../theme/platform_chrome.dart';
+import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
-import 'attachments/attachment_surface.dart';
 import 'attachments/plugin_attachment_source.dart';
 import 'chat_controller.dart';
-import 'chat_message_kinds.dart';
 import 'chat_models.dart';
 import 'chat_open_requests.dart';
-import 'chat_theme.dart';
 import 'chat_transport.dart';
 import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
-import 'queued_prompt.dart';
 import 'slash_command.dart';
-import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
-import '../bot_mode/widgets/bot_chat_banner.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
-import 'widgets/chat_builders.dart';
+import 'widgets/chat_thread_view.dart';
 import 'widgets/chat_header.dart';
 import 'widgets/mac_chat_toolbar.dart';
-import 'widgets/chat_composer_builder.dart';
 import 'widgets/thread_actions_menu.dart';
 import 'widgets/thread_sidebar.dart';
 
@@ -174,6 +167,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   StarterContextLoader? _starterLoader;
 
+  /// Conversation windows (macOS); null elsewhere.
+  ConversationWindows? _windows;
+  StreamSubscription<void>? _mainFocused;
+
+  /// The last thread picked in the sidebar and when, to tell a double-click.
+  ({String id, DateTime at})? _lastPick;
+
   /// The starter context of the profile last asked for, null until it has
   /// loaded.
   StarterContext? _starter;
@@ -261,6 +261,25 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared();
+    _windows = _maybeRead<ConversationWindows?>();
+
+    _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
+  }
+
+  /// Reads again the chats of this profile that have been open in a
+  /// conversation window, which may have changed them.
+  void _refreshFromWindows() {
+    _chat.checkConnection();
+    for (final chat in _windows?.touched ?? const <ConversationRef>[]) {
+      if (chat.profile == _chat.profile) _chat.refreshThread(chat.threadId);
+    }
+  }
+
+  /// Opens [thread] in a conversation window of its own (macOS).
+  void _openInWindow(ChatThread? thread) {
+    final windows = _windows;
+    if (windows == null || thread == null || !thread.remote) return;
+    windows.open(thread.id, profile: _chat.profile, title: thread.title);
   }
 
   void _advertise() {
@@ -443,6 +462,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     widget.chatProfiles?.attach(null);
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
+    _mainFocused?.cancel();
     _attention.dispose();
     _chat
       ..removeListener(_changed)
@@ -546,6 +566,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _handoff?.cancel();
     _chat.select(id);
     _closeDrawerIfNarrow();
+  }
+
+  /// A click on a sidebar row; a second one on the same row within the
+  /// double-click time opens the chat in a window of its own (macOS).
+  void _pickInSidebar(String id) {
+    final now = clock.now();
+    final last = _lastPick;
+    _lastPick = (id: id, at: now);
+    if (_windows != null &&
+        last != null &&
+        last.id == id &&
+        now.difference(last.at) <= kDoubleTapTimeout) {
+      _lastPick = null;
+      return _openInWindow(_chat.threads.where((t) => t.id == id).firstOrNull);
+    }
+    _selectThread(id);
   }
 
   void _openProfiles() {
@@ -721,11 +757,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The notifier changes after the frame: the action bars listening to it
   /// are built in this one.
   void _followLatestReply(ChatThread? thread) {
-    final last = thread?.messages.lastOrNull;
-    final id =
-        last != null && last.role == ChatRole.assistant && !last.isPending
-        ? last.id
-        : null;
+    final id = latestFinishedReplyId(thread);
     if (_latestReplyId.value == id) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _latestReplyId.value = id;
@@ -780,11 +812,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
+          onOpenInNewWindow: _windows == null ? null : _openInWindow,
           threads: chat.threads
               .where((thread) => !thread.isCanonicalBotChat)
               .toList(),
           selectedId: chat.selectedId,
-          onSelect: _selectThread,
+          onSelect: _pickInSidebar,
           onNewThread: _newThread,
           busy: chat.activeThreads,
           housekeeping: chat.housekeeping,
@@ -801,7 +834,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         final macSplit = isWide && _mac;
         final search = chat.search;
-        final threadView = _ThreadView(
+        final threadView = ChatThreadView(
+          greetingName: context.select<AuthController, String?>(
+            (auth) => auth.identity?.displayName,
+          ),
           thread: selected,
           botContext: bot,
           chatController: chat.controllerFor(selected),
@@ -891,7 +927,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               : () => chat.sendQueued(selected),
         );
 
-        return Scaffold(
+        final scaffold = Scaffold(
           key: _scaffoldKey,
           drawer: isWide
               ? null
@@ -932,159 +968,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   ],
                 ),
         );
-      },
-    );
-  }
-}
-
-class _ThreadView extends StatelessWidget {
-  const _ThreadView({
-    required this.thread,
-    this.botContext,
-    required this.chatController,
-    required this.composerController,
-    required this.composerFocus,
-    required this.attachments,
-    required this.attachmentSource,
-    required this.onAddAttachments,
-    required this.onRemoveAttachment,
-    required this.onSend,
-    this.slashCommands = const [],
-    this.commandRunning = false,
-    this.starterPrompts,
-    required this.onPickStarter,
-    required this.latestReplyId,
-    this.modelPill,
-    this.header,
-    this.onRetry,
-    this.onLoadOlder,
-    this.onAnswerApproval,
-    this.onAnswerClarify,
-    this.onSkipUnsupported,
-    this.onAnswerVault,
-    this.onStop,
-    this.queued = const [],
-    this.onRemoveQueued,
-    this.onSendQueued,
-  });
-
-  final ChatThread? thread;
-  final BotChatContext? botContext;
-  final InMemoryChatController chatController;
-  final TextEditingController composerController;
-  final FocusNode composerFocus;
-  final List<SharedFile> attachments;
-  final AttachmentSource attachmentSource;
-  final ValueChanged<List<SharedFile>> onAddAttachments;
-  final ValueChanged<SharedFile> onRemoveAttachment;
-  final ValueChanged<String> onSend;
-  final List<SlashCommand> slashCommands;
-  final bool commandRunning;
-  final List<StarterPrompt>? starterPrompts;
-  final ValueChanged<StarterPrompt> onPickStarter;
-  final ValueListenable<String?> latestReplyId;
-  final VoidCallback? onRetry;
-  final Widget? modelPill;
-
-  /// Shown above the thread in a wide layout.
-  final Widget? header;
-  final Future<void> Function()? onLoadOlder;
-  final Future<void> Function(String requestId, String choice)?
-  onAnswerApproval;
-  final Future<void> Function(
-    String requestId,
-    Map<String, List<String>> answers,
-  )?
-  onAnswerClarify;
-  final Future<void> Function(String requestId, UnsupportedKind kind)?
-  onSkipUnsupported;
-  final Future<void> Function(
-    String requestId,
-    VaultKind kind, {
-    String identifier,
-    String password,
-    String code,
-  })?
-  onAnswerVault;
-  final Future<void> Function()? onStop;
-  final List<QueuedPrompt> queued;
-  final ValueChanged<QueuedPrompt>? onRemoveQueued;
-  final VoidCallback? onSendQueued;
-
-  @override
-  Widget build(BuildContext context) {
-    final greetingName = context.select<AuthController, String?>(
-      (auth) => auth.identity?.displayName,
-    );
-    final builders =
-        buildChatBuilders(
-          starterPrompts: starterPrompts,
-          onPickPrompt: onPickStarter,
-          greetingName: greetingName,
-          assistantName: botContext?.title,
-          latestReplyId: latestReplyId,
-          onRetry: onRetry,
-          onLoadOlder: onLoadOlder,
-          onAnswerApproval: onAnswerApproval,
-          onAnswerClarify: onAnswerClarify,
-          onSkipUnsupported: onSkipUnsupported,
-          onAnswerVault: onAnswerVault,
-        ).copyWith(
-          composerBuilder: buildChatComposer(
-            controller: composerController,
-            focusNode: composerFocus,
-            botContext: botContext,
-            attachments: attachments,
-            onRemoveAttachment: onRemoveAttachment,
-            replying: thread?.isReplying == true,
-            onStop: thread?.isReplying == true ? onStop : null,
-            queued: queued,
-            onRemoveQueued: onRemoveQueued,
-            onSendQueued: onSendQueued,
-            modelPill: modelPill,
-            slashCommands: slashCommands,
-            commandRunning: commandRunning,
-          ),
+        if (_windows == null) return scaffold;
+        return CallbackShortcuts(
+          bindings: {
+            const SingleActivator(
+              LogicalKeyboardKey.keyO,
+              meta: true,
+              alt: true,
+            ): () =>
+                _openInWindow(selected),
+          },
+          child: scaffold,
         );
-
-    return Column(
-      children: [
-        if (header case final header?) ...[
-          header,
-          if (platformChromeOf(context) != PlatformChrome.macos)
-            const Divider(height: 1),
-        ],
-        if (botContext case final bot?) BotChatBanner(context: bot),
-        Expanded(
-          child: AttachmentSurface(
-            source: attachmentSource,
-            onAdd: onAddAttachments,
-            builder: (context, openAttachMenu) => Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: kChatColumnMaxWidth,
-                ),
-                child: SizedBox.expand(
-                  child: FlyerMaterialScope(
-                    child: Chat(
-                      // The controller too: after a profile switch the same
-                      // id names another thread.
-                      key: ValueKey((thread?.id, chatController)),
-                      chatController: chatController,
-                      currentUserId: kUserAuthorId,
-                      resolveUser: (id) async => User(id: id),
-                      onMessageSend: onSend,
-                      onAttachmentTap: openAttachMenu,
-                      theme: buildChatTheme(Theme.of(context)),
-                      builders: builders,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      },
     );
   }
 }
