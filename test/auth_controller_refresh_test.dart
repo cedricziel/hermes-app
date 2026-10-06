@@ -313,11 +313,16 @@ void main() {
 
   group('signedOut', () {
     late int signedOut;
+    final expired = <bool>[];
+    setUp(expired.clear);
 
     Future<void> listen(HermesSession session) async {
       await bootstrapWith(session);
       signedOut = 0;
-      controller.signedOut.listen((_) => signedOut++);
+      controller.signedOut.listen((_) {
+        signedOut++;
+        expired.add(controller.sessionExpired);
+      });
     }
 
     test('fires when the user signs out', () async {
@@ -326,6 +331,7 @@ void main() {
       await controller.signOut();
 
       expect(signedOut, 1);
+      expect(expired, [false]);
     });
 
     test('fires when the user removes the server', () async {
@@ -334,6 +340,7 @@ void main() {
       await controller.changeServer();
 
       expect(signedOut, 1);
+      expect(expired, [false]);
     });
 
     test('fires when the server rejects the refresh token', () async {
@@ -348,6 +355,7 @@ void main() {
       );
 
       expect(signedOut, 1);
+      expect(expired, [true]);
     });
 
     test('stays quiet while requests race to refresh the session', () async {

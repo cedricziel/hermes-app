@@ -117,6 +117,11 @@ class AuthController extends ChangeNotifier {
   /// delete it here. A request that races to refresh the token does not fire.
   Stream<void> get signedOut => _signedOut.stream;
 
+  /// Whether the last [signedOut] was the session expiring, as opposed to
+  /// the user signing out or removing the server.
+  bool get sessionExpired => _sessionExpired;
+  bool _sessionExpired = false;
+
   HermesConnectionState get state => _state;
   String? get baseUrl => _baseUrl;
   int _userGeneration = 0;
@@ -666,7 +671,7 @@ class AuthController extends ChangeNotifier {
     _session = null;
     _identity = null;
     _errorMessage = 'Your session expired. Please sign in again.';
-    _announceSignedOut();
+    _announceSignedOut(expired: true);
     _setState(HermesConnectionState.needsLogin);
   }
 
@@ -685,7 +690,8 @@ class AuthController extends ChangeNotifier {
     ),
   )..interceptors.addAll(_interceptors);
 
-  void _announceSignedOut() {
+  void _announceSignedOut({bool expired = false}) {
+    _sessionExpired = expired;
     if (!_signedOut.isClosed) _signedOut.add(null);
   }
 
