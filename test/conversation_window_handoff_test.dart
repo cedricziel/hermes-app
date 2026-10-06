@@ -104,4 +104,27 @@ void main() {
     expect(handoff.error, isNull);
     expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
   });
+
+  testWidgets('a handed-over chat whose window went away opens in the main '
+      'window', (tester) async {
+    server
+      ..on('GET', '/api/profiles', profileListBody([profileRow(name: 'work')]))
+      ..on('GET', '/api/sessions/s1', sessionRow(id: 's1', title: 'Trip plan'))
+      ..on('GET', '/api/sessions/s1/messages', messageListBody('s1', []));
+    await pump(tester);
+    await windows.open('s1', profile: 'work', title: 'Trip plan');
+    host.vanished('w0');
+
+    handoff.receive(
+      const HandoffActivity('https://hermes.test', 'work', 's1').payload,
+    );
+    final driving = handoff.drive();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await driving;
+
+    expect(windows.windows, isEmpty);
+    expect(server.requestsTo('GET', '/api/sessions/s1'), isNotEmpty);
+  });
 }
