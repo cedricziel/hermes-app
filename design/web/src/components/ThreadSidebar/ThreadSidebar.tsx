@@ -7,7 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { ActionSheet } from "../ActionSheet/ActionSheet";
-import { Menu, MenuAnchor, type MenuItem } from "../Menu/Menu";
+import {
+  Menu,
+  MenuAnchor,
+  useDismiss,
+  useMenuState,
+  type MenuItem,
+} from "../Menu/Menu";
 import { SwipeActions } from "../SwipeActions/SwipeActions";
 import { Icon } from "../Icon/Icon";
 import { Spinner } from "../Spinner/Spinner";
@@ -28,7 +34,7 @@ import {
   ThreadListHeading,
   type ThreadGrouping,
 } from "./MacSourceList";
-import { MacAccountFooter, useDismiss } from "./MacAccount";
+import { MacAccountFooter } from "./MacAccount";
 import {
   MacSearchResults,
   ThreadSearchField,
@@ -236,9 +242,7 @@ export function ThreadActionsButton({
   const resolvedPlatform = usePlatform(platform);
   const device = useAppleDevice(layout);
   const mac = resolvedPlatform === "apple" && device === "mac";
-  const [open, setOpen] = useState(defaultOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  const [open, setOpen] = useMenuState(defaultOpen);
   return (
     <PlatformScope platform={resolvedPlatform}>
       <MenuAnchor className="h-thread-actions">
@@ -395,6 +399,7 @@ export function AccountFooter(props: AccountFooterProps) {
   return (
     <TouchAccountFooter
       {...props}
+      label={props.label || props.serverUrl || "Not connected"}
       platform={resolvedPlatform}
       device={menuDevice}
     />
@@ -409,12 +414,8 @@ function TouchAccountFooter({
   onAction,
   platform,
   device: menuDevice,
-}: AccountFooterProps) {
-  const resolvedPlatform = platform ?? "material";
-  const [open, setOpen] = useState(defaultMenuOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
-  label = label || serverUrl || "Not connected";
+}: AccountFooterProps & { platform: Platform; device: AppleDevice }) {
+  const [open, setOpen] = useMenuState(defaultMenuOpen);
   const items: Array<MenuItem<AccountAction> | "divider"> = [
     { label: serverUrl || " ", info: true },
     "divider",
@@ -428,7 +429,7 @@ function TouchAccountFooter({
     { value: "change-server", label: "Change server" },
   ];
   return (
-    <PlatformScope platform={resolvedPlatform}>
+    <PlatformScope platform={platform}>
       <div
         className="h-account-footer"
         onMouseDown={(e) => e.stopPropagation()}
@@ -648,7 +649,7 @@ export function ThreadSidebar({
     () => ({ ...shell, device }),
     [shell, device],
   );
-  const today = now ? new Date(now) : new Date();
+  const today = useMemo(() => (now ? new Date(now) : new Date()), [now]);
   const select = (id: string) => {
     shell.closeOverlay?.();
     onSelect?.(id);
@@ -934,31 +935,27 @@ export function ThreadSidebar({
             }}
           />
         ) : null}
-        {mac ? null : (
-          <>
+        {mac ? null : <div className="h-thread-sidebar__divider" />}
+        {!mac && moreEntries.length ? (
+          <div className="h-thread-sidebar__pad">
             <div className="h-thread-sidebar__divider" />
-            {moreEntries.length ? (
-              <div className="h-thread-sidebar__pad">
-                <div className="h-thread-sidebar__divider" />
-                <SidebarAction
-                  icon={moreOpen ? "expand_more" : "chevron_right"}
-                  label="More"
-                  onClick={() => setMoreOpen((o) => !o)}
-                />
-                {moreOpen
-                  ? moreEntries.map((e) => (
-                      <SidebarAction
-                        key={e.label}
-                        icon={e.icon}
-                        label={e.label}
-                        onClick={e.onClick}
-                      />
-                    ))
-                  : null}
-              </div>
-            ) : null}
-          </>
-        )}
+            <SidebarAction
+              icon={moreOpen ? "expand_more" : "chevron_right"}
+              label="More"
+              onClick={() => setMoreOpen((o) => !o)}
+            />
+            {moreOpen
+              ? moreEntries.map((e) => (
+                  <SidebarAction
+                    key={e.label}
+                    icon={e.icon}
+                    label={e.label}
+                    onClick={e.onClick}
+                  />
+                ))
+              : null}
+          </div>
+        ) : null}
         <AccountFooter
           label={account}
           serverUrl={serverUrl}

@@ -211,96 +211,94 @@ function MacChatToolbar({
 }) {
   const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const showField = searchActive || windowSize === "wide";
-  const root = useRef<HTMLSpanElement>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const begin = useRef(onSearchBegin);
+  begin.current = onSearchBegin;
   // Command-F opens the search: it focuses the field, or asks for it where
   // the window only has room for the button.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey && e.key.toLowerCase() === "f")) return;
       e.preventDefault();
-      const field = root.current?.querySelector<HTMLInputElement>(
-        ".h-mac-toolbar__search input",
-      );
-      if (field) field.focus();
-      else onSearchBegin?.();
+      if (field.current) field.current.focus();
+      else begin.current?.();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onSearchBegin]);
+  }, []);
   return (
-    <span ref={root} className="h-chat-header__mac">
-      <MacToolbar
-        title={title}
-        subtitle={subtitle}
-        actions={
-          <>
-            <MacToolbarButton
-              icon="edit_square"
-              label="New Chat"
-              shortcut="⌘N"
-              onClick={onNewChat}
-            />
-            {windowSize === "compact" ? (
-              <MenuAnchor>
-                <MacToolbarButton
-                  icon="more_horiz"
-                  label="More"
-                  onClick={() => setMoreOpen((o) => !o)}
-                />
-                {moreOpen ? (
-                  <Menu
-                    align="end"
-                    device="mac"
-                    items={[
-                      {
-                        value: "copy",
-                        label: "Copy Transcript",
-                        disabled: !onCopyTranscript,
-                      },
-                      { value: "connection", label: "Connection Details" },
-                    ]}
-                    onSelect={(item) => {
-                      setMoreOpen(false);
-                      if (item.value === "copy") onCopyTranscript?.();
-                      else onShowConnection?.();
-                    }}
-                  />
-                ) : null}
-              </MenuAnchor>
-            ) : (
-              <>
-                <MacToolbarButton
-                  icon="ios_share"
-                  label="Copy Transcript"
-                  disabled={!onCopyTranscript}
-                  onClick={onCopyTranscript}
-                />
-                <MacToolbarButton
-                  icon="info_outline"
-                  label="Connection Details"
-                  onClick={onShowConnection}
-                />
-              </>
-            )}
-            {showField ? (
-              <MacToolbarSearchField
-                query={searchQuery}
-                active={searchActive}
-                onChange={onSearchChange}
-                onBegin={onSearchBegin}
-                onEnd={onSearchEnd}
-              />
-            ) : (
+    <MacToolbar
+      title={title}
+      subtitle={subtitle}
+      actions={
+        <>
+          <MacToolbarButton
+            icon="edit_square"
+            label="New Chat"
+            shortcut="⌘N"
+            onClick={onNewChat}
+          />
+          {windowSize === "compact" ? (
+            <MenuAnchor>
               <MacToolbarButton
-                icon="search"
-                label="Search"
-                shortcut="⌘F"
-                onClick={onSearchBegin}
+                icon="more_horiz"
+                label="More"
+                onClick={() => setMoreOpen((o) => !o)}
               />
-            )}
-          </>
-        }
-      />
-    </span>
+              {moreOpen ? (
+                <Menu
+                  align="end"
+                  device="mac"
+                  items={[
+                    {
+                      value: "copy",
+                      label: "Copy Transcript",
+                      disabled: !onCopyTranscript,
+                    },
+                    { value: "connection", label: "Connection Details" },
+                  ]}
+                  onSelect={(item) => {
+                    setMoreOpen(false);
+                    if (item.value === "copy") onCopyTranscript?.();
+                    else onShowConnection?.();
+                  }}
+                />
+              ) : null}
+            </MenuAnchor>
+          ) : (
+            <>
+              <MacToolbarButton
+                icon="ios_share"
+                label="Copy Transcript"
+                disabled={!onCopyTranscript}
+                onClick={onCopyTranscript}
+              />
+              <MacToolbarButton
+                icon="info_outline"
+                label="Connection Details"
+                onClick={onShowConnection}
+              />
+            </>
+          )}
+          {showField ? (
+            <MacToolbarSearchField
+              query={searchQuery}
+              active={searchActive}
+              onChange={onSearchChange}
+              onBegin={onSearchBegin}
+              onEnd={onSearchEnd}
+              inputRef={field}
+            />
+          ) : (
+            <MacToolbarButton
+              icon="search"
+              label="Search"
+              shortcut="⌘F"
+              onClick={onSearchBegin}
+            />
+          )}
+        </>
+      }
+    />
   );
 }

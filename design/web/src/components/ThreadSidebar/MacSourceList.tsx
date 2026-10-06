@@ -1,8 +1,7 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
-import { Menu, MenuAnchor } from "../Menu/Menu";
+import { Menu, MenuAnchor, useMenuState } from "../Menu/Menu";
 import { cx } from "../../platform";
-import { useDismiss } from "./MacAccount";
 import "./MacSourceList.css";
 
 /**
@@ -97,18 +96,22 @@ function groupThreadsByFolder<T extends SectionedThread>(threads: T[]) {
       items.push(t);
     } else unassigned.push(t);
   }
-  const basename = (path: string) =>
-    path.split(/[/\\]/).filter(Boolean).pop() ?? path;
+  const bases = new Map(
+    [...folders.keys()].map((path) => [
+      path,
+      path.split(/[/\\]/).filter(Boolean).pop() ?? path,
+    ]),
+  );
   const names = new Map<string, number>();
-  for (const path of folders.keys())
-    names.set(basename(path), (names.get(basename(path)) ?? 0) + 1);
+  for (const base of bases.values())
+    names.set(base, (names.get(base) ?? 0) + 1);
   const groups: ThreadGroup<T>[] = [];
   if (pinned.length)
     groups.push({ id: "pinned", label: "Pinned", threads: pinned });
   for (const [path, items] of folders)
     groups.push({
       id: `folder:${path}`,
-      label: (names.get(basename(path)) ?? 0) > 1 ? path : basename(path),
+      label: (names.get(bases.get(path)!) ?? 0) > 1 ? path : bases.get(path)!,
       threads: items,
     });
   if (unassigned.length)
@@ -220,9 +223,7 @@ function GroupingMenuButton({
   defaultOpen?: boolean;
   onChange?: (grouping: ThreadGrouping) => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  const [open, setOpen] = useMenuState(defaultOpen);
   return (
     <MenuAnchor className="h-grouping">
       <button
@@ -328,9 +329,14 @@ export function SectionedThreadList<T extends SectionedThread>({
       return next;
     });
   const folder = grouping === "folder";
-  const groups = folder
-    ? groupThreadsByFolder(threads)
-    : groupThreads(threads, now);
+  const day = now.getTime();
+  const groups = useMemo(
+    () =>
+      folder
+        ? groupThreadsByFolder(threads)
+        : groupThreads(threads, new Date(day)),
+    [folder, threads, day],
+  );
   if (!groups.length)
     return (
       <ThreadListHeading

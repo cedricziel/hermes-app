@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icon/Icon";
-import { Menu, type MenuItem } from "../Menu/Menu";
+import { Menu, useMenuState, type MenuItem } from "../Menu/Menu";
 import { Sheet } from "../Sheet/Sheet";
 import "./MacAccount.css";
 
@@ -12,7 +11,7 @@ import "./MacAccount.css";
  */
 
 /** The first letters of up to two words of `label`, upper case; "?" without any (the app's `initialsOf`). */
-export function initialsOf(label: string) {
+function initialsOf(label: string) {
   const letters = label
     .split(/[\s_\-.@/:]+/)
     .filter(Boolean)
@@ -26,9 +25,12 @@ export function initialsOf(label: string) {
 export function InitialsAvatar({
   label,
   size = 24,
+  icon,
 }: {
-  label: string;
+  label?: string;
   size?: number;
+  /** Drawn instead of the initials (the footer without a user name). */
+  icon?: string;
 }) {
   return (
     <span
@@ -36,24 +38,9 @@ export function InitialsAvatar({
       aria-hidden
       style={{ width: size, height: size, fontSize: size * 0.42 }}
     >
-      {initialsOf(label)}
+      {icon ? <Icon name={icon} size={14} /> : initialsOf(label ?? "")}
     </span>
   );
-}
-
-/** Closes a menu on a click elsewhere or Escape. */
-export function useDismiss(open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onDown = () => close();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
 }
 
 /** A profile the Mac sidebar's switcher lists. */
@@ -100,11 +87,10 @@ export function MacProfileSwitcher({
   onNewProfile,
   onManage,
 }: MacProfileScope) {
-  const [open, setOpen] = useState(defaultMenuOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  const [open, setOpen] = useMenuState(defaultMenuOpen);
   const profile = profiles.find((p) => p.name === current);
-  const label = profile ? profile.displayName || profile.name : current;
+  const label =
+    (profile ? profile.displayName || profile.name : current) ?? "Profile";
   const items: Array<MenuItem<ProfilePick> | "divider"> = [
     { label: "Profiles", info: true, heading: true },
     ...profiles.map((p) => ({
@@ -127,9 +113,9 @@ export function MacProfileSwitcher({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        <InitialsAvatar label={label ?? "Profile"} />
+        <InitialsAvatar label={label} />
         <span className="h-mac-account__text">
-          <span className="h-mac-account__name">{label ?? "Profile"}</span>
+          <span className="h-mac-account__name">{label}</span>
           {profile?.description ? (
             <span className="h-mac-account__detail">{profile.description}</span>
           ) : null}
@@ -181,9 +167,7 @@ export function MacAccountFooter({
   defaultMenuOpen?: boolean;
   onAction?: (action: MacAccountAction) => void;
 }) {
-  const [open, setOpen] = useState(defaultMenuOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  const [open, setOpen] = useMenuState(defaultMenuOpen);
   const items: Array<MenuItem<MacAccountAction> | "divider"> = [
     {
       label: canSignOut
@@ -211,13 +195,11 @@ export function MacAccountFooter({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {name ? (
-          <InitialsAvatar label={name} size={26} />
-        ) : (
-          <span className="h-initials-avatar" style={{ width: 26, height: 26 }}>
-            <Icon name="person" size={14} />
-          </span>
-        )}
+        <InitialsAvatar
+          label={name}
+          size={26}
+          icon={name ? undefined : "person"}
+        />
         <span className="h-mac-account__text">
           <span className="h-mac-account__name">{name ?? host}</span>
           {name ? <span className="h-mac-account__detail">{host}</span> : null}

@@ -3,6 +3,7 @@ import { IconButton } from "../IconButton/IconButton";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 import { Spinner } from "../Spinner/Spinner";
 import { cx } from "../../platform";
+import { MacSourceListRow } from "./MacSourceList";
 import "./SidebarSearch.css";
 
 /**
@@ -42,7 +43,7 @@ export interface ThreadSidebarSearch {
 }
 
 /** The app's `relativeTime`: "Just now", "5m ago", "3h ago", "Yesterday", "4d ago", else the date. */
-export function relativeTime(iso: string | undefined, now: Date) {
+function relativeTime(iso: string | undefined, now: Date) {
   if (!iso) return "";
   const at = new Date(iso);
   const minutes = Math.floor((now.getTime() - at.getTime()) / 60000);
@@ -80,6 +81,43 @@ function Snippet({ hit, profile }: { hit: ThreadSearchHit; profile?: string }) {
         p.match ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>,
       )}
     </span>
+  );
+}
+
+/** One hit: the title over when it was last active, then two lines of the matched text. */
+function SearchHitRow({
+  hit,
+  mac = false,
+  selected,
+  profile,
+  now,
+  onOpen,
+}: {
+  hit: ThreadSearchHit;
+  mac?: boolean;
+  selected: boolean;
+  profile?: string;
+  now: Date;
+  onOpen?: (hit: ThreadSearchHit) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cx(
+        "h-search-hit",
+        mac ? "h-search-hit--mac" : "h-sidebar-row",
+        selected && "h-search-hit--selected",
+      )}
+      onClick={() => onOpen?.(hit)}
+    >
+      <span className="h-search-hit__head">
+        <span className="h-search-hit__title">{hit.title}</span>
+        <span className="h-search-hit__time">
+          {relativeTime(hit.updatedAt, now)}
+        </span>
+      </span>
+      <Snippet hit={hit} profile={profile} />
+    </button>
   );
 }
 
@@ -143,16 +181,12 @@ export function MacSearchResults({
       <div className="h-search-list">
         <GroupHeader label="Recent searches" />
         {recent.map((q) => (
-          <div
+          <MacSourceListRow
             key={q}
-            className="h-mac-row"
-            role="button"
-            tabIndex={0}
+            icon="history"
+            label={q}
             onClick={() => onPickRecent?.(q)}
-          >
-            <Icon name="history" size={14} className="h-mac-row__icon" />
-            <span className="h-mac-row__title">{q}</span>
-          </div>
+          />
         ))}
       </div>
     ) : (
@@ -166,8 +200,10 @@ export function MacSearchResults({
     body = <Note>{`No results for “${trimmed}”`}</Note>;
   } else {
     const needle = trimmed.toLowerCase();
-    const chats = hits.filter((h) => h.title.toLowerCase().includes(needle));
-    const messages = hits.filter((h) => !chats.includes(h));
+    const chats: ThreadSearchHit[] = [];
+    const messages: ThreadSearchHit[] = [];
+    for (const hit of hits)
+      (hit.title.toLowerCase().includes(needle) ? chats : messages).push(hit);
     body = (
       <div className="h-search-list">
         {(
@@ -180,28 +216,15 @@ export function MacSearchResults({
             <div key={label}>
               <GroupHeader label={label} count={group.length} />
               {group.map((hit) => (
-                <button
+                <SearchHitRow
                   key={`${hit.profile}-${hit.id}`}
-                  type="button"
-                  className={cx(
-                    "h-search-hit h-search-hit--mac",
-                    hit.id === selectedId &&
-                      onCurrent(hit) &&
-                      "h-search-hit--selected",
-                  )}
-                  onClick={() => onOpen?.(hit)}
-                >
-                  <span className="h-search-hit__head">
-                    <span className="h-search-hit__title">{hit.title}</span>
-                    <span className="h-search-hit__time">
-                      {relativeTime(hit.updatedAt, now)}
-                    </span>
-                  </span>
-                  <Snippet
-                    hit={hit}
-                    profile={onCurrent(hit) ? undefined : hit.profile}
-                  />
-                </button>
+                  hit={hit}
+                  mac
+                  selected={hit.id === selectedId && onCurrent(hit)}
+                  profile={onCurrent(hit) ? undefined : hit.profile}
+                  now={now}
+                  onOpen={onOpen}
+                />
               ))}
             </div>
           ) : null,
@@ -280,23 +303,13 @@ export function ThreadSearchResults({
   return (
     <>
       {hits.map((hit) => (
-        <button
+        <SearchHitRow
           key={hit.id}
-          type="button"
-          className={cx(
-            "h-search-hit h-sidebar-row",
-            hit.id === selectedId && "h-search-hit--selected",
-          )}
-          onClick={() => onOpen?.(hit)}
-        >
-          <span className="h-search-hit__head">
-            <span className="h-search-hit__title">{hit.title}</span>
-            <span className="h-search-hit__time">
-              {relativeTime(hit.updatedAt, now)}
-            </span>
-          </span>
-          <Snippet hit={hit} />
-        </button>
+          hit={hit}
+          selected={hit.id === selectedId}
+          now={now}
+          onOpen={onOpen}
+        />
       ))}
     </>
   );

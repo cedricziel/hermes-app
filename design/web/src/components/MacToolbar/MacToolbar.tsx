@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, type ReactNode } from "react";
+import { useContext, useLayoutEffect, type ReactNode, type Ref } from "react";
 import { Icon } from "../Icon/Icon";
 import type { CupertinoIconName } from "../Icon/cupertinoIcons";
 import { cx, PlatformScope, ShellChromeContext } from "../../platform";
@@ -64,6 +64,8 @@ export interface MacToolbarSearchFieldProps {
   onBegin?: () => void;
   /** The clear button or Escape: end the search. */
   onEnd?: () => void;
+  /** The text input, for a page that focuses it (Command-F). */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 /** The toolbar's search field: 26px tall and 180px wide, 240px with a focus ring while in use; Escape and the clear button end the search. */
@@ -74,6 +76,7 @@ export function MacToolbarSearchField({
   onChange,
   onBegin,
   onEnd,
+  inputRef,
 }: MacToolbarSearchFieldProps) {
   return (
     <label
@@ -85,6 +88,7 @@ export function MacToolbarSearchField({
     >
       <Icon name="search" size={14} className="h-muted" />
       <input
+        ref={inputRef}
         type="search"
         placeholder="Search"
         value={query}

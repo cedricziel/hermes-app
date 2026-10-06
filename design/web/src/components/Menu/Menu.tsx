@@ -1,4 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Icon } from "../Icon/Icon";
 import {
   cx,
@@ -9,6 +15,29 @@ import {
   type Platform,
 } from "../../platform";
 import "./Menu.css";
+
+/** Closes an open menu on a click elsewhere or Escape. A menu's own button stops `mousedown` so it does not count as elsewhere. */
+export function useDismiss(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onDown = () => close();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open, close]);
+}
+
+/** A menu's open state that `useDismiss` closes: `[open, setOpen]`. */
+export function useMenuState(defaultOpen = false) {
+  const [open, setOpen] = useState(defaultOpen);
+  const close = useRef(() => setOpen(false)).current;
+  useDismiss(open, close);
+  return [open, setOpen] as const;
+}
 
 /** One entry of a `Menu`. */
 export interface MenuItem<T extends string = string> {

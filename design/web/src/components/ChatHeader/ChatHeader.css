@@ -85,8 +85,3 @@
 .h-chat-header--ios .h-thread-actions + .h-chat-header__info {
   margin-left: 0;
 }
-
-/* The Mac toolbar wrapper only scopes Command-F; it adds no box. */
-.h-chat-header__mac {
-  display: contents;
-}
