@@ -45,9 +45,14 @@ Stream<bool> get _keyChanges => _keyChangeController.stream;
 /// [ConversationWindowHost] over desktop_multi_window, for the main engine.
 class DesktopConversationWindowHost implements ConversationWindowHost {
   @override
-  Future<String> create(ConversationWindowArgs args) async {
+  Future<String> create(
+    ConversationWindowArgs args, {
+    ConversationDraft? draft,
+  }) async {
     final controller = await WindowController.create(
-      WindowConfiguration(arguments: args.encode()),
+      WindowConfiguration(
+        arguments: ConversationWindowLaunch(args, draft: draft).encode(),
+      ),
     );
     return controller.windowId;
   }

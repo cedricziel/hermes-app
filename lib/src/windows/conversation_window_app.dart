@@ -43,8 +43,9 @@ import 'window_auth_interceptor.dart';
 /// session: every request gets its auth headers from the main window.
 Future<void> runConversationWindow(String windowId, String arguments) async {
   final link = DesktopConversationWindowLink(windowId);
-  final args = ConversationWindowArgs.decode(arguments);
-  if (args == null) return link.close();
+  final launch = ConversationWindowLaunch.decode(arguments);
+  if (launch == null) return link.close();
+  final args = launch.args;
   await MacWindow.initializeConversationWindow();
 
   final dio = Dio(
@@ -88,6 +89,7 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
           builder: (context, child) => MacWindowChrome(child: child!),
           home: ConversationWindowScreen(
             args: args,
+            draft: launch.draft,
             link: link,
             chat: repositories.chat,
             models: repositories.models,

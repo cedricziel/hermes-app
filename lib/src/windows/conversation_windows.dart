@@ -20,9 +20,12 @@ typedef ConversationWindowCallHandler = Future<Object?> Function(
 
 /// The native side of conversation windows, as the main window sees it.
 abstract interface class ConversationWindowHost {
-  /// Opens a window for [args] and returns its id. The window shows itself
-  /// once it has set up its frame.
-  Future<String> create(ConversationWindowArgs args);
+  /// Opens a window for [args], starting with [draft] in its composer, and
+  /// returns its id. The window shows itself once it has set up its frame.
+  Future<String> create(
+    ConversationWindowArgs args, {
+    ConversationDraft? draft,
+  });
 
   /// Brings the window to the front; throws for a window that is gone.
   Future<void> focus(String windowId);
@@ -164,12 +167,14 @@ class ConversationWindows extends ChangeNotifier {
   /// session are closed again.
   int _generation = 0;
 
-  /// Opens [threadId] of [profile] in a window of its own, or brings its
-  /// window to the front when it already has one.
+  /// Opens [threadId] of [profile] in a window of its own, starting with
+  /// [draft] in its composer, or brings its window to the front when it
+  /// already has one.
   Future<void> open(
     String threadId, {
     required String? profile,
     required String title,
+    ConversationDraft? draft,
   }) async {
     if (windowFor(threadId, profile) case final window?) {
       if (await focus(window.windowId)) return;
@@ -184,6 +189,7 @@ class ConversationWindows extends ChangeNotifier {
         baseUrl: connection.baseUrl,
         authRequired: connection.authRequired,
       ),
+      draft: draft,
     );
   }
 
@@ -206,22 +212,28 @@ class ConversationWindows extends ChangeNotifier {
   bool _isCurrent(ConversationWindowArgs args) =>
       _connection()?.baseUrl == args.baseUrl;
 
-  Future<void> _create(ConversationWindowArgs args) async {
+  Future<void> _create(
+    ConversationWindowArgs args, {
+    ConversationDraft? draft,
+  }) async {
     final done = Completer<void>();
     _creating.add(done.future);
     try {
-      await _createWindow(args);
+      await _createWindow(args, draft);
     } finally {
       _creating.remove(done.future);
       done.complete();
     }
   }
 
-  Future<void> _createWindow(ConversationWindowArgs args) async {
+  Future<void> _createWindow(
+    ConversationWindowArgs args,
+    ConversationDraft? draft,
+  ) async {
     final generation = _generation;
     final String windowId;
     try {
-      windowId = await _host.create(args);
+      windowId = await _host.create(args, draft: draft);
     } on Object catch (error) {
       debugPrint('Could not open a conversation window: $error');
       return;
