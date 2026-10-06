@@ -48,9 +48,9 @@ export interface ConversationWindowScreenProps {
   model?: { model?: string; effort?: string } | null;
   /** Show the toolbar's "…" menu open (Rename…, Copy Transcript, Archive, Delete… ⌘⌫), for previews. Clicking "…" toggles it. */
   menuOpen?: boolean;
-  /** The composer's text. */
+  /** The composer's text, at first the draft carried over from the main window. */
   composerValue?: string;
-  /** Files waiting in the composer. */
+  /** Files waiting in the composer, at first those carried over from the main window. */
   attachments?: ComposerAttachment[];
   /** A reply is running: the send button becomes Stop. */
   replying?: boolean;
@@ -71,6 +71,8 @@ export interface ConversationWindowScreenProps {
   onComposerChange?: (value: string) => void;
   onSend?: (text: string) => void;
   onAttach?: () => void;
+  /** An attachment chip's close button was pressed. */
+  onRemoveAttachment?: (attachment: ComposerAttachment) => void;
   onStop?: () => void;
   /** "Try again" under the latest reply. */
   onRetryReply?: () => void;
@@ -85,7 +87,10 @@ export interface ConversationWindowScreenProps {
  * lights and holds the chat's title over "profile · model", then Show in
  * Main Window, Pin (filled while pinned), Share and a "…" menu with Rename…,
  * Copy Transcript, Archive and Delete…; under it the chat's `ChatThread` and
- * the `ChatComposer` in the 680px column. There is no iOS or Material
+ * the `ChatComposer` in the 680px column. Opening the main window's
+ * selected chat moves it here (#444): the main window goes back to its
+ * welcome view, and its composer's draft text and files start in this
+ * window's composer (`composerValue`, `attachments`). There is no iOS or Material
  * version: other platforms open a chat in the main window only. Always draws
  * the Apple look; give it a size (it fills its parent).
  */
@@ -110,6 +115,7 @@ export function ConversationWindowScreen({
   onComposerChange,
   onSend,
   onAttach,
+  onRemoveAttachment,
   onStop,
   onRetryReply,
   onAnswerApproval,
@@ -208,6 +214,7 @@ export function ConversationWindowScreen({
                 onSend={onSend}
                 onAttach={onAttach}
                 attachments={attachments}
+                onRemoveAttachment={onRemoveAttachment}
                 replying={replying}
                 onStop={onStop}
                 queued={queued}
