@@ -6,7 +6,7 @@ import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
 import { ListRow } from "../ListRow/ListRow";
 import { PluginDetail, type PluginDetails } from "../PluginDetail/PluginDetail";
 import { PluginRow } from "../PluginRow/PluginRow";
-import { RadioRow } from "../RadioRow/RadioRow";
+import { RadioGroup, RadioRow } from "../RadioRow/RadioRow";
 import { SectionHeader } from "../SectionHeader/SectionHeader";
 import { Sheet } from "../Sheet/Sheet";
 import { Spinner } from "../Spinner/Spinner";
@@ -374,53 +374,57 @@ export function PluginsScreen({
             title="Memory provider"
             caption="Where the agent keeps long-term memory"
           />
-          <RadioRow
-            title="Built-in"
-            subtitle="No external memory"
-            selected={memoryChoice === ""}
-            disabled={providersSaving}
-            onSelect={() => onChooseMemory?.("")}
-          />
-          {memoryProviders.map((o) => (
+          <RadioGroup label="Memory provider">
             <RadioRow
-              key={o.name}
-              title={o.name}
-              titleTrailing={<StatusTag status={o.status} />}
-              subtitle={o.description}
-              selected={memoryChoice === o.name}
-              disabled={
-                providersSaving ||
-                (o.status !== "ready" && o.name !== memoryInUse)
-              }
-              onSelect={() => onChooseMemory?.(o.name)}
-            >
-              {o.status !== "ready" ? (
-                <FormSection
-                  collapsible
-                  title="What it needs"
-                  open={needsOpen.includes(o.name)}
-                  onToggle={() => onToggleNeeds?.(o.name)}
-                >
-                  <Needs option={o} />
-                </FormSection>
-              ) : null}
-            </RadioRow>
-          ))}
+              title="Built-in"
+              subtitle="No external memory"
+              selected={memoryChoice === ""}
+              disabled={providersSaving}
+              onSelect={() => onChooseMemory?.("")}
+            />
+            {memoryProviders.map((o) => (
+              <RadioRow
+                key={o.name}
+                title={o.name}
+                titleTrailing={<StatusTag status={o.status} />}
+                subtitle={o.description}
+                selected={memoryChoice === o.name}
+                disabled={
+                  providersSaving ||
+                  (o.status !== "ready" && o.name !== memoryInUse)
+                }
+                onSelect={() => onChooseMemory?.(o.name)}
+              >
+                {o.status !== "ready" ? (
+                  <FormSection
+                    collapsible
+                    title="What it needs"
+                    open={needsOpen.includes(o.name)}
+                    onToggle={() => onToggleNeeds?.(o.name)}
+                  >
+                    <Needs option={o} />
+                  </FormSection>
+                ) : null}
+              </RadioRow>
+            ))}
+          </RadioGroup>
           <SectionHeader
             title="Context engine"
             caption="How long conversations are compressed"
           />
           {contextEngines.length > 1 ? (
-            contextEngines.map((o) => (
-              <RadioRow
-                key={o.name}
-                title={o.name}
-                subtitle={o.description}
-                selected={contextChoice === o.name}
-                disabled={providersSaving}
-                onSelect={() => onChooseContext?.(o.name)}
-              />
-            ))
+            <RadioGroup label="Context engine">
+              {contextEngines.map((o) => (
+                <RadioRow
+                  key={o.name}
+                  title={o.name}
+                  subtitle={o.description}
+                  selected={contextChoice === o.name}
+                  disabled={providersSaving}
+                  onSelect={() => onChooseContext?.(o.name)}
+                />
+              ))}
+            </RadioGroup>
           ) : (
             <div className="h-plugins__single-engine h-body-md">
               {contextEngines[0] ? <div>{contextEngines[0].name}</div> : null}
@@ -465,7 +469,12 @@ export function PluginsScreen({
         placeholder="Select a plugin"
       />
       {!desktop && detailOpen && detail ? (
-        <Sheet dragHandle padding={0} onDismiss={onDismissDetail}>
+        <Sheet
+          dragHandle
+          padding={0}
+          label="Plugin details"
+          onDismiss={onDismissDetail}
+        >
           {detail}
         </Sheet>
       ) : null}

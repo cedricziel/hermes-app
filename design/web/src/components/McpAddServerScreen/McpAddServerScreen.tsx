@@ -261,6 +261,7 @@ export function McpAddServerScreen({
           presentation={layout === "desktop" ? "dialog" : "bottom"}
           width={520}
           padding={0}
+          label="Review command server"
           onDismiss={onCancelReview}
         >
           <McpCommandReview

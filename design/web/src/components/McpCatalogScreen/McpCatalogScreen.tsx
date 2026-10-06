@@ -196,7 +196,11 @@ export function McpCatalogScreen({
         placeholder="Pick a server to see what Hermes would run."
       />
       {sheet ? (
-        <Sheet padding={0} onDismiss={onDismissSheet}>
+        <Sheet
+          padding={0}
+          label={`Install ${sheet.name}`}
+          onDismiss={onDismissSheet}
+        >
           {panelFor(sheet)}
         </Sheet>
       ) : null}

@@ -20,7 +20,7 @@ const notes = {
 /** One server, from the Add server form, in a phone's bottom sheet. */
 export const OneServerSheet = () => (
   <div style={frame}>
-    <Sheet padding={0}>
+    <Sheet padding={0} label="Review command server">
       <McpCommandReview
         commands={[notes]}
         confirmLabel="Add and run on server"
@@ -32,7 +32,12 @@ export const OneServerSheet = () => (
 /** Two servers from a JSON save, in the 520px dialog used from 900px. */
 export const TwoServersDialog = () => (
   <div style={{ ...frame, width: 800, height: 560 }}>
-    <Sheet presentation="dialog" width={520} padding={0}>
+    <Sheet
+      presentation="dialog"
+      width={520}
+      padding={0}
+      label="Review command server"
+    >
       <McpCommandReview
         commands={[
           { name: "time", command: "uvx", args: ["mcp-server-time"] },
@@ -57,7 +62,7 @@ export const Dark = () => (
     style={{ padding: 16, borderRadius: 14 }}
   >
     <div style={frame}>
-      <Sheet padding={0}>
+      <Sheet padding={0} label="Review command server">
         <McpCommandReview
           commands={[notes]}
           confirmLabel="Add and run on server"
