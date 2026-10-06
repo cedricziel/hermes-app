@@ -1,0 +1,12 @@
+.h-kanban-workers-screen__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Rows divided by a 1px line, as the app's ListView.separated. */
+.h-kanban-workers-screen__list > * + * {
+  border-top: 1px solid var(--h-border);
+}

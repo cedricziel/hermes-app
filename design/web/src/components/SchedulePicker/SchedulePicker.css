@@ -1,0 +1,38 @@
+.h-schedule-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.h-schedule-picker__chips,
+.h-schedule-picker__days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.h-schedule-picker__days {
+  gap: 6px;
+}
+
+.h-schedule-picker__every {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.h-schedule-picker__amount {
+  width: 90px;
+  flex: none;
+}
+
+.h-schedule-picker__unit {
+  width: 150px;
+}
+
+.h-schedule-picker__note {
+  font-size: var(--h-ramp-body-sm-size, 12px);
+  line-height: 16px;
+  color: var(--h-muted);
+}
