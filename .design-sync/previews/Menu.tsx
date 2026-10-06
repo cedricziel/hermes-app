@@ -78,6 +78,28 @@ export const AppleMac = () => (
   </HermesProvider>
 );
 
+/** Mac menu with a `heading` and two-line `detail` rows (36px): the sidebar's profile switcher. */
+export const AppleMacDetail = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={stage}>
+    <Menu
+      device="mac"
+      width={240}
+      items={[
+        { label: "Profiles", info: true, heading: true },
+        { label: "default", detail: "~/.hermes", checked: false },
+        {
+          label: "Work assistant",
+          detail: "~/.hermes/profiles/work",
+          checked: true,
+        },
+        "divider",
+        { label: "New Profile…" },
+        { label: "Manage Profiles…" },
+      ]}
+    />
+  </HermesProvider>
+);
+
 /** Anchored: `MenuAnchor` holds the button and the open menu; `align="end"` lines the menu up with the button's right edge, `start` with its left. */
 export const Anchored = () => (
   <HermesProvider

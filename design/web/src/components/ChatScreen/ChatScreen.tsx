@@ -18,8 +18,13 @@ import { StateMessage } from "../StateMessage/StateMessage";
 import {
   ThreadSidebar,
   type AccountAction,
+  type MacProfileScope,
+  type SettingsEntry,
   type ThreadAction,
+  type ThreadGrouping,
   type ThreadItem,
+  type ThreadSearchHit,
+  type ThreadSidebarSearch,
 } from "../ThreadSidebar/ThreadSidebar";
 import {
   WelcomeView,
@@ -66,15 +71,44 @@ export interface ChatScreenProps {
   model?: { model?: string; effort?: string } | null;
   /** Mac: the active profile, shown with the model under the toolbar title ("default · claude-opus-4"). */
   profile?: string;
-  /** Mac: the window's size class for the toolbar; see `ChatHeader`'s `windowSize`. */
+  /**
+   * Mac: the window's size class. `wide` (1000px and up) has the toolbar's
+   * search field; `medium` a search button until a search is open;
+   * `compact` (under 760px) also undocks the sidebar, which the toolbar's
+   * sidebar button opens over the chat (`sidebarOverlayOpen`), and folds
+   * Copy Transcript and Connection Details into a "…" menu.
+   */
   windowSize?: "wide" | "medium" | "compact";
-  /** Mac: a search is open with this query in the toolbar field. */
+  /** Mac, `compact`: the sidebar lies open over the chat behind a scrim. */
+  sidebarOverlayOpen?: boolean;
+  /** Mac, `compact`: the toolbar's "…" menu is open. */
+  toolbarMenuOpen?: boolean;
+  /**
+   * A chat search, as preview state; see `ThreadSidebar`'s `search`. On a
+   * Mac the query sits in the toolbar's field and the sidebar shows the
+   * scope switch, recent searches or the hits; elsewhere the sidebar's
+   * field holds it.
+   */
+  search?: ThreadSidebarSearch;
+  /** Mac: a search is open with this query in the toolbar field (the sidebar unchanged); prefer `search`. */
   searchQuery?: string;
   searchActive?: boolean;
+  /** How the sidebar groups the chats; see `ThreadSidebar`'s `grouping`. */
+  grouping?: ThreadGrouping;
+  /** Open the sidebar's grouping menu, for previews. */
+  groupingMenuOpen?: boolean;
+  /** Mac: the profile switcher at the top of the sidebar; see `ShellNavigation`. Its `current` also names the profile in the toolbar subtitle when `profile` is left out. */
+  profiles?: MacProfileScope;
   /** Account label in the sidebar footer. */
   account?: string;
-  /** The server address at the top of the account menu. */
+  /** The server address at the top of the account menu (its host under the name on a Mac). */
   serverUrl?: string;
+  /** The server requires sign-in: the account menu offers Sign out. */
+  authRequired?: boolean;
+  /** Open the account menu, for previews. */
+  accountMenuOpen?: boolean;
+  /** Mac: the Settings list (Settings… ⌘,) is open over the window. */
+  settingsOpen?: boolean;
   /** Mac: the day the sidebar's recency sections count back from (ISO date); see `ThreadSidebar`. */
   now?: string;
   /**
@@ -102,6 +136,13 @@ export interface ChatScreenProps {
   onNewThread?: () => void;
   onThreadAction?: (id: string, action: ThreadAction) => void;
   onAccountAction?: (action: AccountAction) => void;
+  onSettingsPick?: (entry: SettingsEntry) => void;
+  onGroupingChange?: (grouping: ThreadGrouping) => void;
+  /** Mac: the toolbar's search began, changed or ended. */
+  onSearchBegin?: () => void;
+  onSearchChange?: (query: string) => void;
+  onSearchEnd?: () => void;
+  onOpenSearchHit?: (hit: ThreadSearchHit) => void;
   onSelectDestination?: (destination: ShellDestination) => void;
   onOpenMenu?: () => void;
   onCloseDrawer?: () => void;
@@ -144,10 +185,19 @@ export function ChatScreen({
   model = { model: "claude-opus-4" },
   profile,
   windowSize,
+  sidebarOverlayOpen,
+  toolbarMenuOpen,
+  search,
   searchQuery,
   searchActive,
+  grouping,
+  groupingMenuOpen,
+  profiles,
   account,
   serverUrl,
+  authRequired,
+  accountMenuOpen,
+  settingsOpen,
   now,
   layout = "desktop",
   platform,
@@ -159,6 +209,12 @@ export function ChatScreen({
   onNewThread,
   onThreadAction,
   onAccountAction,
+  onSettingsPick,
+  onGroupingChange,
+  onSearchBegin,
+  onSearchChange,
+  onSearchEnd,
+  onOpenSearchHit,
   onSelectDestination,
   onOpenMenu,
   onCloseDrawer,
@@ -216,6 +272,7 @@ export function ChatScreen({
   }
 
   const selected = threads.find((t) => t.id === selectedId);
+  const profileName = profile ?? profiles?.current;
   const sidebar = (
     <ThreadSidebar
       threads={threads}
@@ -224,12 +281,19 @@ export function ChatScreen({
       layout={layout}
       account={account}
       serverUrl={serverUrl}
+      authRequired={authRequired}
+      defaultAccountMenuOpen={accountMenuOpen}
+      grouping={grouping}
+      defaultGroupingMenuOpen={groupingMenuOpen}
+      search={search}
+      searchProfile={profileName}
       navigation={
-        destinations.length > 1 ? (
+        destinations.length > 1 || profiles ? (
           <ShellNavigation
             destinations={destinations}
             current="chat"
             onSelect={onSelectDestination}
+            profiles={profiles}
           />
         ) : undefined
       }
@@ -237,6 +301,9 @@ export function ChatScreen({
       onNewThread={onNewThread}
       onThreadAction={onThreadAction}
       onAccountAction={onAccountAction}
+      onGroupingChange={onGroupingChange}
+      onSearchChange={onSearchChange}
+      onOpenSearchHit={onOpenSearchHit}
     />
   );
   return (
@@ -250,6 +317,10 @@ export function ChatScreen({
       drawerOpen={drawerOpen}
       showTrafficLights={showTrafficLights}
       sidebarCollapsed={sidebarCollapsed}
+      compact={windowSize === "compact"}
+      sidebarOverlayOpen={sidebarOverlayOpen}
+      settingsOpen={settingsOpen}
+      onSettingsPick={onSettingsPick}
       onSelect={onSelectDestination}
       onCloseDrawer={onCloseDrawer}
     >
@@ -264,11 +335,15 @@ export function ChatScreen({
           selected && onThreadAction?.(selected.id, action)
         }
         subtitle={
-          [profile, model?.model].filter(Boolean).join(" · ") || undefined
+          [profileName, model?.model].filter(Boolean).join(" · ") || undefined
         }
         windowSize={windowSize}
-        searchQuery={searchQuery}
-        searchActive={searchActive}
+        defaultMenuOpen={toolbarMenuOpen}
+        searchQuery={search?.query ?? searchQuery}
+        searchActive={!!search || searchActive}
+        onSearchBegin={onSearchBegin}
+        onSearchChange={onSearchChange}
+        onSearchEnd={onSearchEnd}
         onNewChat={onNewThread}
         onCopyTranscript={
           selected

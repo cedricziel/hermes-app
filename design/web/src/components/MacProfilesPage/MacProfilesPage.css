@@ -54,17 +54,6 @@
   background: var(--h-surface-high);
 }
 
-.h-mac-profiles__avatar {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--h-surface-high);
-  color: var(--h-fg);
-  font-weight: 600;
-}
-
 .h-mac-profiles__row-text {
   flex: 1;
   min-width: 0;

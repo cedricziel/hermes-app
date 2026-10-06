@@ -126,6 +126,227 @@ export const AppleMac = () => (
   </HermesProvider>
 );
 
+const macProfiles = {
+  current: "work",
+  profiles: [
+    { name: "default", path: "~/.hermes" },
+    {
+      name: "work",
+      displayName: "Work assistant",
+      description: "Tickets, reviews and the on-call rota",
+      path: "~/.hermes/profiles/work",
+    },
+    {
+      name: "research",
+      displayName: "Research",
+      path: "~/.hermes/profiles/research",
+    },
+  ],
+};
+
+/** The Mac window as of #399 and #402: profile switcher, destinations with Profiles, the source list, the account footer, no New chat row or sidebar search. */
+const mac = {
+  ...loaded,
+  profile: undefined,
+  profiles: macProfiles,
+  destinations: ["chat", "kanban", "schedules", "profiles"] as const,
+  authRequired: true,
+  showTrafficLights: true,
+};
+
+const macWindow = { ...desktop, borderRadius: 10 } as const;
+
+/** Mac, wide window: the toolbar holds the 180px search field (⌘F); the sidebar opens on the profile switcher. */
+export const AppleMacWide = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="wide"
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, compact window (under 760px): the sidebar is not docked; the toolbar's sidebar button opened it over the chat behind a scrim, and a pick closes it. */
+export const AppleMacCompactOverlay = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...macWindow, width: 700, height: 520 }}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="compact"
+        sidebarOverlayOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, compact window with the sidebar closed: traffic lights, the sidebar button, and Copy Transcript and Connection Details folded into the "…" menu (open). */
+export const AppleMacCompactMenu = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...macWindow, width: 700, height: 520 }}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="compact"
+        toolbarMenuOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
+const hits = [
+  {
+    id: "backup",
+    title: "Why did the nightly backup fail?",
+    snippet: "restic could not reach >>>nas-02<<< at 03:00",
+    updatedAt: "2026-10-04T08:40:00",
+    profile: "work",
+  },
+  {
+    id: "login",
+    title: "Fix the flaky login test",
+    snippet: "the test waits for the >>>backup<<< service before it signs in",
+    updatedAt: "2026-10-03T10:15:00",
+    profile: "work",
+  },
+  {
+    id: "photos",
+    title: "Photo library",
+    snippet: "move the nightly >>>backup<<< window to 03:30",
+    updatedAt: "2026-09-20T09:00:00",
+    profile: "research",
+  },
+];
+
+/** Mac, searching: the toolbar field is wide with its clear button; the sidebar shows the scope switch and the hits as Chats and Messages, a hit from another profile led by its name. */
+export const AppleMacSearching = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        search={{ query: "backup", scope: "all-profiles", hits }}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, a search just opened: the recent searches while the field is empty. */
+export const AppleMacRecentSearches = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        search={{
+          query: "",
+          recent: ["nas-02", "release notes", "certificates"],
+        }}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, a search that found nothing: "No results for “q”". */
+export const AppleMacNoResults = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        search={{ query: "kubernetes", hits: [] }}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, the profile switcher's menu: "Profiles", each profile with a check and its home, New Profile… and Manage Profiles…. */
+export const AppleMacProfileMenu = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        profiles={{ ...macProfiles, defaultMenuOpen: true }}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, the account footer's menu opening above it: "Signed in to the dashboard", Settings… ⌘,, Connection Details, Sign Out. */
+export const AppleMacAccountMenu = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        accountMenuOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, Settings… (⌘,): the Settings list over the window, each entry opening its own dialog. */
+export const AppleMacSettings = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        settingsOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac with folder grouping (#434): folders with their counts replace the recency sections, "No folder" last; the first header carries the grouping "…". */
+export const AppleMacFolders = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        grouping="folder"
+        threads={threads.map((t, i) =>
+          i === 1 || i === 2
+            ? { ...t, folderPath: "/home/ada/code/infra" }
+            : i === 3
+              ? { ...t, folderPath: "/srv/photos" }
+              : t,
+        )}
+      />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac, dark: the wide window with the search field. */
+export const AppleMacDark = () => (
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    theme="dark"
+    style={{ padding: 16, borderRadius: 14 }}
+  >
+    <div style={{ ...macWindow, width: 768, height: 528 }}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="wide"
+      />
+    </div>
+  </HermesProvider>
+);
+
 /** Material desktop (Windows, Linux): the 280px sidebar beside the chat. */
 export const MaterialDesktop = () => (
   <div style={desktop}>

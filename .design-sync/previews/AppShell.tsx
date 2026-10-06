@@ -7,6 +7,7 @@ import {
   KanbanStatusChips,
   KanbanToolbar,
   ListDetailLayout,
+  MacProfilesPage,
   ShellNavigation,
   StateMessage,
   ThreadSidebar,
@@ -213,6 +214,7 @@ const macSidebar = (
     now="2026-10-04T12:00:00"
     selectedId="logs"
     account="Ada Lovelace"
+    serverUrl="https://hermes.example.net"
     navigation={
       <ShellNavigation
         destinations={["chat", "kanban", "schedules"]}
@@ -262,6 +264,51 @@ export const AppleMacSidebarHidden = () => (
           onCopyTranscript={() => {}}
         />
         <WelcomeView prompts={prompts} />
+      </AppShell>
+    </div>
+  </HermesProvider>
+);
+
+const macProfileList = [
+  { name: "default", path: "~/.hermes", skillCount: 58 },
+  {
+    name: "work",
+    displayName: "Work assistant",
+    description: "Tickets, reviews and the on-call rota",
+    path: "~/.hermes/profiles/work",
+    skillCount: 12,
+  },
+];
+
+/** The Mac Profiles destination (#402): the plain ShellSidebar with the profile switcher, Profiles selected, and MacProfilesPage as the page. */
+export const AppleMacProfiles = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...desktop, overflow: "hidden" }}>
+      <AppShell
+        layout="desktop"
+        destinations={["chat", "kanban", "schedules", "profiles"]}
+        current="profiles"
+        account="Ada Lovelace"
+        serverUrl="https://hermes.example.net"
+        authRequired
+        profiles={{
+          current: "work",
+          profiles: macProfileList,
+        }}
+        showTrafficLights
+      >
+        <MacProfilesPage
+          host="hermes.example.net"
+          selected="work"
+          counts={{
+            skills: 12,
+            messaging: 1,
+            plugins: 3,
+            mcp: 2,
+            helperModels: 4,
+          }}
+          profiles={macProfileList}
+        />
       </AppShell>
     </div>
   </HermesProvider>

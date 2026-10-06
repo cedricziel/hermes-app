@@ -97,6 +97,33 @@
   background: transparent;
 }
 
+.h-menu__item--heading {
+  font-weight: 700;
+}
+
+.h-menu__label--stacked {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.h-menu__label-text,
+.h-menu__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-menu__detail {
+  font-size: 11px;
+  line-height: 14px;
+  opacity: 0.65;
+}
+
+.h-menu--mac .h-menu__item.h-menu__item--detail {
+  height: 36px;
+}
+
 .h-menu__item--destructive {
   color: var(--h-error);
 }

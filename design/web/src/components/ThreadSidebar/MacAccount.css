@@ -1,0 +1,133 @@
+/* Mac sidebar: the profile switcher card at the top and the account footer
+   at the bottom (MacProfileSwitcher and MacAccountFooter in the app). */
+
+.h-initials-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--h-surface-high);
+  color: var(--h-fg);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.h-mac-switcher {
+  position: relative;
+  padding-bottom: 8px;
+}
+
+.h-mac-switcher__card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--h-border);
+  border-radius: 7px;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.h-mac-account__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.h-mac-account__name,
+.h-mac-account__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h-mac-account__name {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.h-mac-account__detail {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--h-muted);
+}
+
+.h-mac-account__unfold {
+  flex: none;
+  color: var(--h-muted);
+}
+
+.h-mac-switcher__menu {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+.h-mac-account-footer {
+  position: relative;
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--h-border);
+}
+
+.h-mac-account-footer__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.h-mac-account-footer__menu {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% - 4px);
+  z-index: 10;
+}
+
+/* Settings… on a Mac: the app's SimpleDialog of settings. */
+.h-settings-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 16px;
+}
+
+.h-settings-list__title {
+  margin: 0;
+  padding: 24px 24px 12px;
+}
+
+.h-settings-list__option {
+  padding: 8px 24px;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-settings-list__option:hover {
+  background: var(--h-hover);
+}

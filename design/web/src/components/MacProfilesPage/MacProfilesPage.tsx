@@ -3,6 +3,7 @@ import { Icon } from "../Icon/Icon";
 import { MacToolbar, MacToolbarButton } from "../MacToolbar/MacToolbar";
 import type { Profile } from "../ProfileTile/ProfileTile";
 import { StateMessage } from "../StateMessage/StateMessage";
+import { InitialsAvatar as Avatar } from "../ThreadSidebar/MacAccount";
 import { cx, PlatformScope } from "../../platform";
 import "./MacProfilesPage.css";
 
@@ -71,28 +72,6 @@ export interface MacProfilesPageProps {
   /** The toolbar's New Profile button (the app asks for a name in a dialog). */
   onNewProfile?: () => void;
   onRetry?: () => void;
-}
-
-function initials(label: string) {
-  const letters = label
-    .split(/[\s_\-.@/:]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w.charAt(0).toUpperCase())
-    .join("");
-  return letters || "?";
-}
-
-function Avatar({ label, size }: { label: string; size: number }) {
-  return (
-    <span
-      className="h-mac-profiles__avatar"
-      aria-hidden
-      style={{ width: size, height: size, fontSize: size * 0.42 }}
-    >
-      {initials(label)}
-    </span>
-  );
 }
 
 /**

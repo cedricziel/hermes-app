@@ -1,6 +1,5 @@
 import {
   useContext,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -8,7 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { ActionSheet } from "../ActionSheet/ActionSheet";
-import { Menu, MenuAnchor, type MenuItem } from "../Menu/Menu";
+import {
+  Menu,
+  MenuAnchor,
+  useDismiss,
+  useMenuState,
+  type MenuItem,
+} from "../Menu/Menu";
 import { SwipeActions } from "../SwipeActions/SwipeActions";
 import { Icon } from "../Icon/Icon";
 import { Spinner } from "../Spinner/Spinner";
@@ -22,10 +27,30 @@ import {
   type AppleDevice,
   type Platform,
 } from "../../platform";
-import { MacThreadList, type ThreadSection } from "./MacSourceList";
+import {
+  MacRowButton,
+  MacSourceListRow,
+  SectionedThreadList,
+  ThreadListHeading,
+  type ThreadGrouping,
+} from "./MacSourceList";
+import { MacAccountFooter } from "./MacAccount";
+import {
+  MacSearchResults,
+  ThreadSearchField,
+  ThreadSearchResults,
+  type ThreadSearchHit,
+  type ThreadSidebarSearch,
+} from "./SidebarSearch";
 import "./ThreadSidebar.css";
 
-export type { ThreadSection } from "./MacSourceList";
+export type { ThreadGrouping, ThreadSection } from "./MacSourceList";
+export type { ThreadSearchHit, ThreadSidebarSearch } from "./SidebarSearch";
+export type {
+  MacProfileScope,
+  SettingsEntry,
+  SwitcherProfile,
+} from "./MacAccount";
 
 /**
  * Which device a component is laid out for. `phone` is touch (iPhone, iPad
@@ -55,6 +80,13 @@ export interface ThreadItem {
    * (see `ThreadSection`); without it the chat counts as today's.
    */
   updatedAt?: string;
+  /**
+   * The folder the chat ran in (the session's git repository root, else its
+   * working directory): "/home/ada/code/hermes-app". With `grouping="folder"`
+   * the chat sits under the folder's last segment ("hermes-app"), or the
+   * whole path where two folders share one; without it under "No folder".
+   */
+  folderPath?: string;
 }
 
 /** What a chat's "…" menu asks for. `pin` toggles: it reads "Unpin" on a pinned chat. */
@@ -76,40 +108,33 @@ export interface SidebarMoreEntry {
   onClick?: () => void;
 }
 
-/** What the account menu in the sidebar footer asks for. */
+/**
+ * What the account menu in the sidebar footer asks for. Touch and Material:
+ * Appearance, Notifications, App lock, About, Sign out, Change server. Mac:
+ * `settings` (Settings…, which opens the Settings list), `connection`
+ * (Connection Details) and `sign-out`.
+ */
 export type AccountAction =
   | "appearance"
   | "notifications"
   | "app-lock"
   | "about"
   | "sign-out"
-  | "change-server";
+  | "change-server"
+  | "settings"
+  | "connection";
 
-/** The six entries the app puts behind "More", in its order. */
+/** The six entries the app puts behind "More", in its order (Bots became Messaging in #429). Not on a Mac, whose profile pages are reached from the Profiles page. */
 export const DEFAULT_MORE_ENTRIES: SidebarMoreEntry[] = [
   { icon: "person", label: "Profiles" },
   { icon: "extension", label: "Skills" },
-  { icon: "smart_toy", label: "Bots" },
+  { icon: "smart_toy", label: "Messaging" },
   { icon: "extension", label: "Plugins" },
   { icon: "power", label: "MCP servers" },
   { icon: "tune", label: "Helper models" },
 ];
 
 const rowRadiusClass = "h-sidebar-row";
-
-function useDismiss(open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onDown = () => close();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
-}
 
 type ThreadMenuItems = Array<MenuItem<ThreadAction> | "divider">;
 
@@ -138,7 +163,7 @@ function threadMenuItems(
  * alike. A chat the dashboard does not hold only offers the copy; one it
  * holds leads with "Open in New Window" when the window can open one.
  */
-function macThreadMenuItems(
+export function macThreadMenuItems(
   pinned: boolean,
   actionable: boolean,
   canOpenInNewWindow: boolean,
@@ -217,9 +242,7 @@ export function ThreadActionsButton({
   const resolvedPlatform = usePlatform(platform);
   const device = useAppleDevice(layout);
   const mac = resolvedPlatform === "apple" && device === "mac";
-  const [open, setOpen] = useState(defaultOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  const [open, setOpen] = useMenuState(defaultOpen);
   return (
     <PlatformScope platform={resolvedPlatform}>
       <MenuAnchor className="h-thread-actions">
@@ -324,11 +347,11 @@ export function SidebarBrand({ mac = false }: SidebarBrandProps) {
 }
 
 export interface AccountFooterProps {
-  /** Display name or email of the signed-in user; the server URL, or "Not connected", without one. */
+  /** Display name or email of the signed-in user; the server URL, or "Not connected", without one. On a Mac the name over the server's host, or the host alone. */
   label?: string;
-  /** The server address, shown greyed out at the top of the menu. */
+  /** The server address, shown greyed out at the top of the menu (touch, Material) or as its host under the name (Mac). */
   serverUrl?: string;
-  /** The server requires sign-in, so the menu offers "Sign out". */
+  /** The server requires sign-in, so the menu offers "Sign out" ("Sign Out" on a Mac, whose menu then reads "Signed in to the dashboard"). */
   authRequired?: boolean;
   /** Open the account menu initially, for previews. */
   defaultMenuOpen?: boolean;
@@ -342,22 +365,57 @@ export interface AccountFooterProps {
   device?: AppleDevice;
 }
 
-/** The sidebar footer: an avatar, the account label and a "…" that opens the account menu over it. */
-export function AccountFooter({
-  label = "Not connected",
+/** The host of `url` ("hermes.example.net"), or `url` itself when it does not parse. */
+function hostOf(url: string) {
+  try {
+    return new URL(url).host || url;
+  } catch {
+    return url;
+  }
+}
+
+/**
+ * The sidebar footer: an avatar, the account label and a "…" that opens the
+ * account menu over it. On a Mac (#402) it sits over a hairline: initials,
+ * the name in bold over the server's host and an up-down chevron, and its
+ * menu opens above it with "Signed in to the dashboard", Settings… ⌘,,
+ * Connection Details and Sign Out.
+ */
+export function AccountFooter(props: AccountFooterProps) {
+  const resolvedPlatform = usePlatform(props.platform);
+  const menuDevice = useAppleDevice(props.layout ?? "desktop", props.device);
+  if (resolvedPlatform === "apple" && menuDevice === "mac")
+    return (
+      <PlatformScope platform="apple">
+        <MacAccountFooter
+          name={props.label}
+          host={props.serverUrl ? hostOf(props.serverUrl) : "Not connected"}
+          canSignOut={!!props.authRequired}
+          defaultMenuOpen={props.defaultMenuOpen}
+          onAction={props.onAction}
+        />
+      </PlatformScope>
+    );
+  return (
+    <TouchAccountFooter
+      {...props}
+      label={props.label || props.serverUrl || "Not connected"}
+      platform={resolvedPlatform}
+      device={menuDevice}
+    />
+  );
+}
+
+function TouchAccountFooter({
+  label,
   serverUrl = "",
   authRequired = false,
   defaultMenuOpen = false,
   onAction,
   platform,
-  layout = "desktop",
-  device,
-}: AccountFooterProps) {
-  const resolvedPlatform = usePlatform(platform);
-  const menuDevice = useAppleDevice(layout, device);
-  const [open, setOpen] = useState(defaultMenuOpen);
-  const close = useRef(() => setOpen(false)).current;
-  useDismiss(open, close);
+  device: menuDevice,
+}: AccountFooterProps & { platform: Platform; device: AppleDevice }) {
+  const [open, setOpen] = useMenuState(defaultMenuOpen);
   const items: Array<MenuItem<AccountAction> | "divider"> = [
     { label: serverUrl || " ", info: true },
     "divider",
@@ -371,7 +429,7 @@ export function AccountFooter({
     { value: "change-server", label: "Change server" },
   ];
   return (
-    <PlatformScope platform={resolvedPlatform}>
+    <PlatformScope platform={platform}>
       <div
         className="h-account-footer"
         onMouseDown={(e) => e.stopPropagation()}
@@ -417,10 +475,11 @@ export interface ThreadSidebarProps {
   /**
    * The app shell's destinations, shown under the app name and divided from
    * "New chat", in the wide sidebar and the phone drawer (pass a
-   * `ShellNavigation`). Leave it out when the shell has only Chat.
+   * `ShellNavigation`, which on a Mac also carries the profile switcher).
+   * Leave it out when the shell has only Chat.
    */
   navigation?: ReactNode;
-  /** Entries behind the collapsible "More" row. Defaults to Profiles, Skills, Bots, Plugins, MCP servers, Helper models; an empty list hides the section. */
+  /** Entries behind the collapsible "More" row (touch and Material). Defaults to Profiles, Skills, Messaging, Plugins, MCP servers, Helper models; an empty list hides the section. A Mac sidebar has no "More": its Profiles page reaches those screens. */
   moreEntries?: SidebarMoreEntry[];
   /** Show the "More" section expanded initially. */
   defaultMoreOpen?: boolean;
@@ -432,27 +491,51 @@ export interface ThreadSidebarProps {
   swipeSide?: "leading" | "trailing";
   /** Apple touch: draw the long-press action sheet of this chat over the sidebar, for previews. */
   actionSheetThreadId?: string;
-  /** Mac: the day the recency sections count back from, as an ISO date; defaults to today. Pin it in previews so the sections stay put. */
+  /**
+   * How the chats are grouped (#434), picked from the "…" on the first
+   * header (or beside "Chats"): `recent` (default) or `folder`. By recency a
+   * Mac and an iPhone or iPad list the chats under Pinned, Today, Previous 7
+   * days, Previous 30 days and Older (from `updatedAt`), while Material lists
+   * them flat under a "Chats" heading. By folder every platform lists Pinned,
+   * then each folder (from `folderPath`) with its count, then "No folder".
+   */
+  grouping?: ThreadGrouping;
+  /** Open the grouping menu ("Group by": Recent, Folder) initially, for previews. */
+  defaultGroupingMenuOpen?: boolean;
+  /** The day the recency sections count back from (and search hits' "2h ago"), as an ISO date; defaults to today. Pin it in previews so the sections stay put. */
   now?: string;
-  /** Mac: sections folded away initially; their header stays, with the chevron turned. */
-  defaultFoldedSections?: ThreadSection[];
+  /** Sections folded away initially (their header stays, with the chevron turned): a recency section (`pinned`, `today`, `previous-7-days`, `previous-30-days`, `older`), `folder:<folderPath>` or `no-folder`. */
+  defaultFoldedSections?: string[];
   /** Mac: draw this chat's row as if under the pointer (hover fill, Archive and More buttons), for previews. */
   hoveredThreadId?: string;
   /** Mac: chats the dashboard holds lead their menu with "Open in New Window" (⌥⌘O). */
   canOpenInNewWindow?: boolean;
+  /**
+   * A chat search, as preview state. On a Mac (#399) the search lives in
+   * the toolbar (`ChatHeader`), and while one is open the sidebar shows its
+   * results instead of the destinations and chats: the "This profile | All
+   * profiles" switch, "Recent searches" while the query is empty, else the
+   * hits under "Chats" (title matches) and "Messages" with counts and the
+   * term in bold, a hit from another profile prefixed with its name, or
+   * "No results for “q”". On touch and Material a "Search chats" field sits
+   * under "New chat" and, holding text, its hits replace the chats.
+   */
+  search?: ThreadSidebarSearch;
+  /** Mac: the profile the sidebar lists, so hits from other profiles name theirs. */
+  searchProfile?: string;
   /** The server has more chats: end the list with a "Show more" row. */
   hasMore?: boolean;
   /** The next page is loading: the "Show more" row shows a spinner. */
   loadingMore?: boolean;
   /** Account label for the footer; see `AccountFooter`. */
   account?: string;
-  /** Server address shown at the top of the account menu. */
+  /** Server address shown at the top of the account menu (its host under the name on a Mac). */
   serverUrl?: string;
   /** The server requires sign-in, so the account menu offers "Sign out". */
   authRequired?: boolean;
   /** Open the account menu initially, for previews. */
   defaultAccountMenuOpen?: boolean;
-  /** A chat row was clicked. */
+  /** A chat row was clicked. In a compact Mac window this also closes the sidebar lying over the page. */
   onSelect?: (id: string) => void;
   /** "New chat" was clicked (not on a Mac, whose New Chat is in the toolbar). */
   onNewThread?: () => void;
@@ -462,6 +545,16 @@ export interface ThreadSidebarProps {
   onLoadMore?: () => void;
   /** An account menu entry was picked. */
   onAccountAction?: (action: AccountAction) => void;
+  /** Recent or Folder was picked from the grouping menu. */
+  onGroupingChange?: (grouping: ThreadGrouping) => void;
+  /** Touch and Material: the search field changed (empty when cleared). */
+  onSearchChange?: (query: string) => void;
+  /** A search hit was clicked. */
+  onOpenSearchHit?: (hit: ThreadSearchHit) => void;
+  /** Mac: a recent search was clicked. */
+  onPickRecentSearch?: (query: string) => void;
+  /** Mac: the scope switch was flipped. */
+  onSearchScopeChange?: (scope: "profile" | "all-profiles") => void;
   /**
    * `apple` changes the sidebar to Apple's conventions, and what changes
    * depends on the device (see `layout` and `device`). Touch (iPhone and
@@ -469,17 +562,17 @@ export interface ThreadSidebarProps {
    * the app: a swipe from the trailing edge reveals Delete, one from the
    * leading edge Pin (or Unpin), and a long press opens an action sheet with
    * Rename, Pin, Archive and Delete (see `swipedThreadId`,
-   * `actionSheetThreadId`). Mac: the
-   * sidebar starts at the top of the window and drops the brand row for a
-   * 52px strip that leaves 78px for the traffic lights; it is a source list:
-   * the chats sit under small bold section headers (Pinned, Today, Previous
-   * 7 days, Previous 30 days, Older, from `updatedAt`) that fold away on a
-   * click, as 28px rows without a pin glyph whose Archive and More buttons
-   * show under the pointer (`hoveredThreadId`), and More or a right-click
-   * opens the compact Mac menu (`canOpenInNewWindow` adds "Open in New
-   * Window"). New chat moves to the toolbar (`ChatHeader`), and destinations
-   * passed in `navigation` become source-list rows
-   * too. Inherits the provider's platform.
+   * `actionSheetThreadId`). Mac: the sidebar starts at the top of the window
+   * and drops the brand row for a 52px strip that leaves 78px for the
+   * traffic lights; it is a source list: the chats sit under small bold
+   * section headers that fold away on a click, as 28px rows without a pin
+   * glyph whose Archive and More buttons show under the pointer
+   * (`hoveredThreadId`), and More or a right-click opens the compact Mac
+   * menu (`canOpenInNewWindow` adds "Open in New Window"). New chat and
+   * search move to the toolbar (`ChatHeader`), the "More" section goes
+   * (the Profiles page holds those screens), the footer becomes the Mac
+   * account footer, and destinations passed in `navigation` become
+   * source-list rows too. Inherits the provider's platform.
    */
   platform?: Platform;
   /** `phone` draws touch rows and menus under `platform="apple"`; `desktop` (default) draws the Mac sidebar unless `device` or the enclosing `AppShell` says touch. Has no effect on `material`. */
@@ -490,9 +583,12 @@ export interface ThreadSidebarProps {
 
 /**
  * The chat sidebar (280px wide in the app, phone drawer included): the Hermes
- * name, optional shell destinations, "New chat", the scrolling thread list with
- * the open chat filled, the "More" section and the account footer. It fills its
- * parent's height; give it a width.
+ * name, optional shell destinations, "New chat", the search field, the
+ * scrolling thread list with the open chat filled, the "More" section and
+ * the account footer. On a Mac: the strip under the traffic lights, the
+ * profile switcher and destinations, the source list (or a search's
+ * results) and the Mac account footer. It fills its parent's height; give
+ * it a width.
  */
 export function ThreadSidebar({
   threads,
@@ -504,10 +600,14 @@ export function ThreadSidebar({
   swipedThreadId,
   swipeSide = "trailing",
   actionSheetThreadId,
+  grouping = "recent",
+  defaultGroupingMenuOpen,
   now,
   defaultFoldedSections,
   hoveredThreadId,
   canOpenInNewWindow = false,
+  search,
+  searchProfile,
   hasMore = false,
   loadingMore = false,
   account,
@@ -519,6 +619,11 @@ export function ThreadSidebar({
   onThreadAction,
   onLoadMore,
   onAccountAction,
+  onGroupingChange,
+  onSearchChange,
+  onOpenSearchHit,
+  onPickRecentSearch,
+  onSearchScopeChange,
   platform,
   layout = "desktop",
   device: deviceProp,
@@ -544,6 +649,15 @@ export function ThreadSidebar({
     () => ({ ...shell, device }),
     [shell, device],
   );
+  const today = useMemo(() => (now ? new Date(now) : new Date()), [now]);
+  const select = (id: string) => {
+    shell.closeOverlay?.();
+    onSelect?.(id);
+  };
+  const openHit = (hit: ThreadSearchHit) => {
+    shell.closeOverlay?.();
+    onOpenSearchHit?.(hit);
+  };
 
   useLayoutEffect(() => {
     const list = listRef.current;
@@ -562,6 +676,166 @@ export function ThreadSidebar({
     ? threads.find((t) => t.id === actionSheetThreadId && t.remote !== false)
     : undefined;
 
+  const macRow = (t: ThreadItem) => (
+    <MacSourceListRow
+      key={t.id}
+      label={t.title}
+      selected={t.id === selectedId}
+      hovered={t.id === hoveredThreadId}
+      rowRef={trackRow(t.id)}
+      onClick={() => select(t.id)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setMenuId(t.id);
+      }}
+      actions={
+        <>
+          {t.remote !== false ? (
+            <MacRowButton
+              icon="archive"
+              label="Archive"
+              title="Archive"
+              onPress={() => onThreadAction?.(t.id, "archive")}
+            />
+          ) : null}
+          <MacRowButton
+            icon="more_horiz"
+            label={`More actions for ${t.title}`}
+            title="More"
+            onPress={() =>
+              setMenuId((open) => (open === t.id ? undefined : t.id))
+            }
+          />
+        </>
+      }
+    />
+  );
+
+  const touchRow = (t: ThreadItem) => {
+    const selected = t.id === selectedId;
+    const actionable = t.remote !== false;
+    const inlineButton = actionable && !touch;
+    const row = (
+      <div
+        key={t.id}
+        ref={trackRow(t.id)}
+        className={cx(
+          "h-thread-row",
+          rowRadiusClass,
+          selected && "h-thread-row--selected",
+          inlineButton && "h-thread-row--actionable",
+        )}
+        role="button"
+        tabIndex={0}
+        aria-current={selected ? "true" : undefined}
+        onClick={() => select(t.id)}
+        onContextMenu={
+          inlineButton
+            ? (e) => {
+                e.preventDefault();
+                setMenuId(t.id);
+              }
+            : undefined
+        }
+      >
+        {t.pinned ? (
+          <Icon
+            name="push_pin"
+            filled
+            size={12}
+            className="h-thread-row__pin"
+          />
+        ) : null}
+        <span className="h-thread-row__title">{t.title}</span>
+        {inlineButton ? (
+          <button
+            type="button"
+            className="h-thread-row__more"
+            aria-label="Chat actions"
+            title="Chat actions"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuId((id) => (id === t.id ? undefined : t.id));
+            }}
+          >
+            <Icon name="more_horiz" size={16} />
+          </button>
+        ) : null}
+      </div>
+    );
+    if (!actionable || !touch) return row;
+    const pin = t.pinned ? "Unpin" : "Pin";
+    return (
+      <SwipeActions
+        key={t.id}
+        className={rowRadiusClass}
+        actions={[
+          {
+            label: "Delete",
+            icon: "delete",
+            onPress: () => onThreadAction?.(t.id, "delete"),
+          },
+        ]}
+        leadingActions={[
+          {
+            label: pin,
+            icon: "push_pin",
+            filled: !t.pinned,
+            color: "orange",
+            onPress: () => onThreadAction?.(t.id, "pin"),
+          },
+        ]}
+        revealed={t.id === swipedThreadId ? swipeSide : false}
+        device="touch"
+      >
+        {row}
+      </SwipeActions>
+    );
+  };
+
+  const variant = mac ? "mac" : touch ? "touch" : "material";
+  // Apple lists sections by recency too; Material only by folder (#434).
+  const sectioned = apple || grouping === "folder";
+  const threadList = sectioned ? (
+    <SectionedThreadList
+      threads={threads}
+      grouping={grouping}
+      variant={variant}
+      now={today}
+      defaultFolded={defaultFoldedSections}
+      groupingMenuOpen={defaultGroupingMenuOpen}
+      onGroupingChange={onGroupingChange}
+      renderRow={mac ? macRow : touchRow}
+    />
+  ) : (
+    <>
+      <ThreadListHeading
+        grouping={grouping}
+        variant={variant}
+        menuOpen={defaultGroupingMenuOpen}
+        onGroupingChange={onGroupingChange}
+      />
+      {threads.map(touchRow)}
+    </>
+  );
+  const showMore = hasMore ? (
+    <div className="h-thread-sidebar__show-more">
+      {loadingMore ? (
+        <Spinner size={16} color="var(--h-fg)" />
+      ) : (
+        <button
+          type="button"
+          className="h-thread-sidebar__show-more-button"
+          onClick={onLoadMore}
+        >
+          Show more
+        </button>
+      )}
+    </div>
+  ) : null;
+  const searching = !mac && !!search && search.query.trim() !== "";
+
   return (
     <PlatformScope platform={resolvedPlatform}>
       <nav
@@ -573,143 +847,75 @@ export function ThreadSidebar({
         aria-label="Chats"
       >
         <SidebarBrand mac={mac} />
-        {navigation ? (
+        {mac && search ? (
+          <MacSearchResults
+            search={search}
+            currentProfile={searchProfile}
+            selectedId={selectedId}
+            now={today}
+            onOpen={openHit}
+            onPickRecent={onPickRecentSearch}
+            onScopeChange={onSearchScopeChange}
+          />
+        ) : (
           <>
-            <div className="h-thread-sidebar__pad">
-              <ShellChromeContext.Provider value={navigationChrome}>
-                {navigation}
-              </ShellChromeContext.Provider>
-            </div>
-            {mac ? null : <hr className="h-thread-sidebar__nav-divider" />}
-          </>
-        ) : null}
-        {/* A Mac window's New Chat is in the toolbar. */}
-        {mac ? null : (
-          <div className="h-thread-sidebar__pad">
-            <SidebarAction icon="add" label="New chat" onClick={onNewThread} />
-          </div>
-        )}
-        <div
-          ref={listRef}
-          className="h-thread-sidebar__list"
-          onScroll={() => menuId && setMenuId(undefined)}
-        >
-          {mac ? (
-            <MacThreadList
-              threads={threads}
-              selectedId={selectedId}
-              now={now ? new Date(now) : new Date()}
-              defaultFolded={defaultFoldedSections}
-              hoveredId={hoveredThreadId}
-              rowRef={trackRow}
-              onSelect={onSelect}
-              onArchive={(id) => onThreadAction?.(id, "archive")}
-              onMenu={(id, toggle) =>
-                setMenuId((open) => (toggle && open === id ? undefined : id))
-              }
-            />
-          ) : (
-            threads.map((t) => {
-              const selected = t.id === selectedId;
-              const actionable = t.remote !== false;
-              const inlineButton = actionable && !touch;
-              const row = (
+            {navigation ? (
+              <>
                 <div
-                  key={t.id}
-                  ref={trackRow(t.id)}
-                  className={[
-                    "h-thread-row",
-                    rowRadiusClass,
-                    selected ? "h-thread-row--selected" : null,
-                    inlineButton ? "h-thread-row--actionable" : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  role="button"
-                  tabIndex={0}
-                  aria-current={selected ? "true" : undefined}
-                  onClick={() => onSelect?.(t.id)}
-                  onContextMenu={
-                    inlineButton
-                      ? (e) => {
-                          e.preventDefault();
-                          setMenuId(t.id);
-                        }
-                      : undefined
-                  }
+                  className={cx(
+                    "h-thread-sidebar__pad",
+                    mac && "h-thread-sidebar__nav--mac",
+                  )}
                 >
-                  {t.pinned ? (
-                    <Icon
-                      name="push_pin"
-                      filled
-                      size={12}
-                      className="h-thread-row__pin"
-                    />
-                  ) : null}
-                  <span className="h-thread-row__title">{t.title}</span>
-                  {inlineButton ? (
-                    <button
-                      type="button"
-                      className="h-thread-row__more"
-                      aria-label="Chat actions"
-                      title="Chat actions"
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuId((id) => (id === t.id ? undefined : t.id));
-                      }}
-                    >
-                      <Icon name="more_horiz" size={16} />
-                    </button>
-                  ) : null}
+                  <ShellChromeContext.Provider value={navigationChrome}>
+                    {navigation}
+                  </ShellChromeContext.Provider>
                 </div>
-              );
-              if (!actionable || !touch) return row;
-              const pin = t.pinned ? "Unpin" : "Pin";
-              return (
-                <SwipeActions
-                  key={t.id}
-                  className={rowRadiusClass}
-                  actions={[
-                    {
-                      label: "Delete",
-                      icon: "delete",
-                      onPress: () => onThreadAction?.(t.id, "delete"),
-                    },
-                  ]}
-                  leadingActions={[
-                    {
-                      label: pin,
-                      icon: "push_pin",
-                      filled: !t.pinned,
-                      color: "orange",
-                      onPress: () => onThreadAction?.(t.id, "pin"),
-                    },
-                  ]}
-                  revealed={t.id === swipedThreadId ? swipeSide : false}
-                  device="touch"
-                >
-                  {row}
-                </SwipeActions>
-              );
-            })
-          )}
-          {hasMore ? (
-            <div className="h-thread-sidebar__show-more">
-              {loadingMore ? (
-                <Spinner size={16} color="var(--h-fg)" />
+                {mac ? null : <hr className="h-thread-sidebar__nav-divider" />}
+              </>
+            ) : null}
+            {/* A Mac window's New Chat and search are in the toolbar. */}
+            {mac ? null : (
+              <div className="h-thread-sidebar__pad">
+                <SidebarAction
+                  icon="add"
+                  label="New chat"
+                  onClick={onNewThread}
+                />
+              </div>
+            )}
+            {!mac && search ? (
+              <div className="h-thread-sidebar__pad h-thread-sidebar__search">
+                <ThreadSearchField
+                  query={search.query}
+                  onChange={onSearchChange}
+                />
+              </div>
+            ) : null}
+            <div
+              ref={listRef}
+              className={cx(
+                "h-thread-sidebar__list",
+                mac && "h-thread-sidebar__list--mac",
+              )}
+              onScroll={() => menuId && setMenuId(undefined)}
+            >
+              {searching ? (
+                <ThreadSearchResults
+                  search={search}
+                  selectedId={selectedId}
+                  now={today}
+                  onOpen={openHit}
+                />
               ) : (
-                <button
-                  type="button"
-                  className="h-thread-sidebar__show-more-button"
-                  onClick={onLoadMore}
-                >
-                  Show more
-                </button>
+                <>
+                  {threadList}
+                  {showMore}
+                </>
               )}
             </div>
-          ) : null}
-        </div>
+          </>
+        )}
         {menuThread && menuTop !== null && !touch ? (
           <Menu
             className="h-thread-sidebar__menu"
@@ -729,8 +935,8 @@ export function ThreadSidebar({
             }}
           />
         ) : null}
-        <div className="h-thread-sidebar__divider" />
-        {moreEntries.length ? (
+        {mac ? null : <div className="h-thread-sidebar__divider" />}
+        {!mac && moreEntries.length ? (
           <div className="h-thread-sidebar__pad">
             <div className="h-thread-sidebar__divider" />
             <SidebarAction

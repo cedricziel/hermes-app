@@ -109,9 +109,19 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   profiles"), `ThreadSidebar` sorts chats into Pinned / Today / Previous 7 days / Previous 30 days / Older from
   `ThreadItem.updatedAt` counted back from `now`, with folding headers (`defaultFoldedSections`), hover Archive and
   More (`hoveredThreadId`) and "Open in New Window" in the menu (`canOpenInNewWindow`). As in #399, New Chat and
-  search are in the chat's `MacToolbar` (`ChatHeader` on a Mac), not the sidebar. Not recreated: the search
-  results the Mac sidebar shows while a search is open (scope switch, recent searches, Chats and Messages), and
-  the touch and Material sidebar's search field.
+  search are in the chat's `MacToolbar` (`ChatHeader` on a Mac), not the sidebar.
+- The Mac main window (#399, #402, #434), as preview state: `ThreadSidebar search` (`ThreadSidebarSearch`: query,
+  scope, status, hits with `>>>`/`<<<` marked snippets, recent) shows the Mac search results (internal
+  `SidebarSearch.tsx`) or, on touch and Material, the "Search chats" field and its hits; `grouping="folder"`
+  sorts by `ThreadItem.folderPath` on every platform, and since #434 Apple touch lists recency sections too while
+  Material puts a "Chats" heading over its flat list, each with the "Group by" menu on the first header
+  (`SectionedThreadList` in `MacSourceList.tsx`). `ShellNavigation profiles` draws the profile switcher and
+  `AccountFooter` becomes the Mac account footer (internal `MacAccount.tsx`, which also holds the Settings list
+  `AppShell settingsOpen` shows); the Mac sidebar has no "More". `AppShell compact` + `sidebarOverlayOpen` is the
+  compact window (sidebar over the page, `ShellChrome.closeOverlay`), and `ChatHeader` reads `compact` from it.
+  `ShellDestination` gained `bots` and `profiles` (`MacProfilesPage` in the shell). `Menu` items gained `heading`
+  and `detail`. Not recreated: the in-flight Mac follow-ups (menu bar Connection Details and Sign Out, deselecting
+  a chat opened in its own window), which were not on main.
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
   `useDismiss` is private); export it next to `Menu` if a screen needs it.
 - Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a
@@ -177,7 +187,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - The screens filter and validate their plain props themselves (catalog query and filter chips, the Add form's
   URL check and Add button), so a preview shows the real empty and disabled states.
 - Gaps: no Mac window chrome (the cards are Material desktop or iPhone; `MacToolbar` and `ListDetailLayout
-  device` are not wired in yet), the remove and discard confirmations and snack bars are not drawn, the catalog's
+device` are not wired in yet), the remove and discard confirmations and snack bars are not drawn, the catalog's
   pull-to-refresh is not shown, and the SegmentedButton label "Bearer token" ellipsises at phone width.
 
 ## Re-sync risks
@@ -222,5 +232,5 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   `TextField`'s classes for its borderless, full-height area (a `plain` variant would be cleaner).
 - Gaps: pushed screens on a Mac don't leave room for the traffic lights (neither does the app); the Skills profile
   chip draws its dropdown arrow before the name; messaging platform subtitles join their lines with " · " (Flutter stacks them);
-  the iOS long-press sheet of a profile row is not drawn (the tune button stays); `AppShell` has no Profiles
-  destination for `MacProfilesPage`, so its card shows the page alone.
+  the iOS long-press sheet of a profile row is not drawn (the tune button stays). `AppShell current="profiles"`
+  shows `MacProfilesPage` in the Mac shell (`AppShell`'s `AppleMacProfiles` cell).

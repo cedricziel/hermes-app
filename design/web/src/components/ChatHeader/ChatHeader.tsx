@@ -9,10 +9,11 @@ import {
   ThreadActionsButton,
   type ThreadAction,
 } from "../ThreadSidebar/ThreadSidebar";
-import { useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   cx,
   PlatformScope,
+  ShellChromeContext,
   useAppleDevice,
   usePlatform,
   type AppleDevice,
@@ -55,7 +56,7 @@ export interface ChatHeaderProps {
    * `touch` for a full-screen iPad outside an `AppShell`.
    */
   device?: AppleDevice;
-  /** Open the "…" menu initially, for previews. */
+  /** Open the "…" menu initially, for previews: the chat's actions on touch and Material, the compact Mac toolbar's Copy Transcript and Connection Details. */
   defaultMenuOpen?: boolean;
   /** The phone menu button was pressed (opens the thread drawer). */
   onOpenMenu?: () => void;
@@ -69,7 +70,8 @@ export interface ChatHeaderProps {
    * Mac: how much room the window gives the toolbar. `wide` (1000px and up)
    * shows the search field; `medium` a search button until a search is
    * open; `compact` (under 760px) also folds Copy Transcript and Connection
-   * Details into a "…" menu.
+   * Details into a "…" menu. Defaults to `compact` inside a compact
+   * `AppShell`, else `wide`.
    */
   windowSize?: "wide" | "medium" | "compact";
   /** Mac: the search query, shown in the toolbar field. */
@@ -104,7 +106,7 @@ export function ChatHeader({
   onShowConnection,
   onThreadAction,
   subtitle,
-  windowSize = "wide",
+  windowSize,
   searchQuery = "",
   searchActive = false,
   onNewChat,
@@ -117,12 +119,14 @@ export function ChatHeader({
   const apple = resolvedPlatform === "apple";
   const device = useAppleDevice(layout, deviceProp);
   const hasMenu = title != null && remote;
+  const shell = useContext(ShellChromeContext);
   if (apple && device === "mac") {
     return (
       <MacChatToolbar
         title={title ?? "Hermes"}
         subtitle={subtitle}
-        windowSize={windowSize}
+        windowSize={windowSize ?? (shell.compact ? "compact" : "wide")}
+        defaultMoreOpen={defaultMenuOpen}
         searchQuery={searchQuery}
         searchActive={searchActive}
         onNewChat={onNewChat}
@@ -178,6 +182,7 @@ export function ChatHeader({
 /** The chat's Mac toolbar (the app's `MacChatToolbar`). */
 function MacChatToolbar({
   title,
+  defaultMoreOpen,
   subtitle,
   windowSize,
   searchQuery,
@@ -199,9 +204,28 @@ function MacChatToolbar({
   | "onSearchBegin"
   | "onSearchChange"
   | "onSearchEnd"
-> & { title: string; windowSize: "wide" | "medium" | "compact" }) {
-  const [moreOpen, setMoreOpen] = useState(false);
+> & {
+  title: string;
+  windowSize: "wide" | "medium" | "compact";
+  defaultMoreOpen: boolean;
+}) {
+  const [moreOpen, setMoreOpen] = useState(defaultMoreOpen);
   const showField = searchActive || windowSize === "wide";
+  const field = useRef<HTMLInputElement>(null);
+  const begin = useRef(onSearchBegin);
+  begin.current = onSearchBegin;
+  // Command-F opens the search: it focuses the field, or asks for it where
+  // the window only has room for the button.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey && e.key.toLowerCase() === "f")) return;
+      e.preventDefault();
+      if (field.current) field.current.focus();
+      else begin.current?.();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   return (
     <MacToolbar
       title={title}
@@ -263,6 +287,7 @@ function MacChatToolbar({
               onChange={onSearchChange}
               onBegin={onSearchBegin}
               onEnd={onSearchEnd}
+              inputRef={field}
             />
           ) : (
             <MacToolbarButton
