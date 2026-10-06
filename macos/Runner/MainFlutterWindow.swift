@@ -22,8 +22,8 @@ class MainFlutterWindow: NSWindow {
 
     Self.registerClipboard(messenger: flutterViewController.engine.binaryMessenger)
 
-    // Closing the main window hides it: its engine owns the session that
-    // conversation windows borrow, and ⌘0 brings it back.
+    // Its engine owns the session that conversation windows borrow, so it
+    // must outlive a close; see close().
     isReleasedWhenClosed = false
 
     let channel = FlutterMethodChannel(
@@ -41,6 +41,12 @@ class MainFlutterWindow: NSWindow {
         self?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         result(nil)
+      case "closeConversation":
+        ConversationWindow.close(id: call.arguments as? String)
+        result(nil)
+      case "closeConversations":
+        ConversationWindow.closeAll()
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -52,6 +58,25 @@ class MainFlutterWindow: NSWindow {
     }
 
     super.awakeFromNib()
+  }
+
+  /// With conversation windows open, closing the main window only hides it,
+  /// so it never posts willClose: desktop_multi_window would drop the main
+  /// engine on that and stop telling it when windows open or close. ⌘0 and
+  /// the Dock icon bring it back. Without them it closes, and the app quits
+  /// as before.
+  override func close() {
+    if ConversationWindow.isEmpty {
+      super.close()
+    } else {
+      orderOut(nil)
+    }
+  }
+
+  /// Closes the hidden main window once its last conversation window is
+  /// gone, so the app quits as it would have.
+  func closeIfHidden() {
+    if !isVisible && !isMiniaturized { super.close() }
   }
 
   /// Answers the composer's question for the files on the clipboard, in
@@ -106,6 +131,20 @@ final class ConversationWindow: NSObject {
 
   private weak var window: NSWindow?
   private weak var controller: FlutterViewController?
+
+  /// The plugin's id for the window, which its engine reports when it shows
+  /// the window.
+  private var windowId: String?
+
+  static var isEmpty: Bool { open.isEmpty }
+
+  static func close(id: String?) {
+    open.values.first { $0.windowId == id }?.window?.close()
+  }
+
+  static func closeAll() {
+    for conversation in open.values { conversation.window?.close() }
+  }
   private let channel: FlutterMethodChannel
   private var keyObserver: WindowKeyObserver?
   private var closeObserver: NSObjectProtocol?
@@ -146,6 +185,12 @@ final class ConversationWindow: NSObject {
       forName: NSWindow.willCloseNotification, object: window, queue: .main
     ) { _ in
       ConversationWindow.open.removeValue(forKey: ObjectIdentifier(window))
+      guard ConversationWindow.open.isEmpty else { return }
+      // After this window has finished closing.
+      DispatchQueue.main.async {
+        (NSApp.windows.first { $0 is MainFlutterWindow } as? MainFlutterWindow)?
+          .closeIfHidden()
+      }
     }
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result) ?? result(nil)
@@ -176,6 +221,7 @@ final class ConversationWindow: NSObject {
     case "titlebarHeight":
       result(window.frame.height - window.contentLayoutRect.height)
     case "present":
+      windowId = args["window_id"] as? String
       window.title = args["title"] as? String ?? ""
       let name = args["frame_name"] as? String ?? ""
       if name.isEmpty || !window.setFrameUsingName(name) {
