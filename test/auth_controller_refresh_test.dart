@@ -313,11 +313,16 @@ void main() {
 
   group('signedOut', () {
     late int signedOut;
+    final expired = <bool>[];
+    setUp(expired.clear);
 
     Future<void> listen(HermesSession session) async {
       await bootstrapWith(session);
       signedOut = 0;
-      controller.signedOut.listen((_) => signedOut++);
+      controller.signedOut.listen((_) {
+        signedOut++;
+        expired.add(controller.sessionExpired);
+      });
     }
 
     test('fires when the user signs out', () async {
@@ -326,6 +331,7 @@ void main() {
       await controller.signOut();
 
       expect(signedOut, 1);
+      expect(expired, [false]);
     });
 
     test('fires when the user removes the server', () async {
@@ -334,6 +340,7 @@ void main() {
       await controller.changeServer();
 
       expect(signedOut, 1);
+      expect(expired, [false]);
     });
 
     test('fires when the server rejects the refresh token', () async {
@@ -348,6 +355,7 @@ void main() {
       );
 
       expect(signedOut, 1);
+      expect(expired, [true]);
     });
 
     test('stays quiet while requests race to refresh the session', () async {
@@ -378,5 +386,59 @@ void main() {
 
       expect(signedOut, 0);
     });
+  });
+  group('windowAuthHeaders', () {
+    test('hands out the current token without refreshing', () async {
+      await bootstrapWith(_session());
+
+      final headers = await controller.windowAuthHeaders();
+
+      expect(headers, {'Authorization': 'Bearer access-1'});
+      expect(dashboard.rotations, 0);
+    });
+
+    test(
+      'refreshes once for windows that report the current token rejected',
+      () async {
+        await bootstrapWith(_session());
+        dashboard.refreshDelay = const Duration(milliseconds: 50);
+        const rejected = {'Authorization': 'Bearer access-1'};
+
+        final answers = await Future.wait([
+          controller.windowAuthHeaders(rejected: rejected),
+          controller.windowAuthHeaders(rejected: rejected),
+        ]);
+
+        expect(dashboard.rotations, 1);
+        expect(answers, everyElement({'Authorization': 'Bearer access-2'}));
+        expect(store.session?.refreshToken, 'refresh-2');
+      },
+    );
+
+    test('a rejected token that was already rotated away is not refreshed '
+        'again', () async {
+      await bootstrapWith(_session());
+
+      final headers = await controller.windowAuthHeaders(
+        rejected: {'Authorization': 'Bearer access-0'},
+      );
+
+      expect(headers, {'Authorization': 'Bearer access-1'});
+      expect(dashboard.rotations, 0);
+    });
+
+    test(
+      'a refresh the server rejects signs out and hands out nothing',
+      () async {
+        await bootstrapWith(_session(refresh: 'spent'));
+
+        final headers = await controller.windowAuthHeaders(
+          rejected: {'Authorization': 'Bearer access-1'},
+        );
+
+        expect(headers, isEmpty);
+        expect(controller.state, HermesConnectionState.needsLogin);
+      },
+    );
   });
 }

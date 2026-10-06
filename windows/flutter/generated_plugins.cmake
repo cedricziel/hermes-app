@@ -5,6 +5,7 @@
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   desktop_drop
+  desktop_multi_window
   file_selector_windows
   flutter_secure_storage_windows
   local_auth_windows

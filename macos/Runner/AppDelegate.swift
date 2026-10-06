@@ -5,8 +5,12 @@ import FlutterMacOS
 class AppDelegate: FlutterAppDelegate {
     private var shareChannel: FlutterMethodChannel?
     private var webAuth: WebAuthSession?
+    /// Holds the main window while it is closed (hidden), since the outlet is
+    /// weak and conversation windows depend on its engine.
+    private var mainWindow: NSWindow?
 
     override func applicationDidFinishLaunching(_ notification: Notification) {
+        mainWindow = mainFlutterWindow
         if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
             let channel = FlutterMethodChannel(
                 name: "hermes_app/share", binaryMessenger: controller.engine.binaryMessenger
@@ -42,6 +46,15 @@ class AppDelegate: FlutterAppDelegate {
     override func application(_ application: NSApplication, didFailToContinueUserActivityWithType type: String, error: Error) {
         ChatHandoff.shared.failed(type)
         super.application(application, didFailToContinueUserActivityWithType: type, error: error)
+    }
+
+    /// A click on the Dock icon brings back the main window when it is hidden,
+    /// also while conversation windows are open.
+    override func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
+        if let main = mainWindow, !main.isVisible {
+            main.makeKeyAndOrderFront(nil)
+        }
+        return true
     }
 
     override func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {

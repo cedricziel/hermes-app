@@ -24,6 +24,10 @@ abstract final class MacWindow {
   /// The native title bar's height, which the content view extends under.
   static double titlebarHeight = 28;
 
+  /// Whether this engine runs a conversation window, whose chrome its runner
+  /// sets up natively. macos_window_utils works on the main window only.
+  static bool _conversation = false;
+
   static Future<void> initialize() async {
     if (kIsWeb || !Platform.isMacOS) return;
     try {
@@ -46,16 +50,40 @@ abstract final class MacWindow {
     }
   }
 
+  /// Sets up a conversation window's engine, whose window the runner has
+  /// already given its transparent title bar and toolbar.
+  static Future<void> initializeConversationWindow() async {
+    if (kIsWeb || !Platform.isMacOS) return;
+    try {
+      final height = await _channel.invokeMethod<double>('titlebarHeight');
+      if (height != null && height > 0) titlebarHeight = height;
+      _conversation = true;
+      enabled = true;
+    } on Object catch (error) {
+      debugPrint('Conversation window setup failed: $error');
+    }
+  }
+
   /// Makes the system materials follow the app's theme, not the system's.
   static Future<void> follow(Brightness brightness) => _run(
     'brightness',
-    () => WindowManipulator.overrideMacOSBrightness(
-      dark: brightness == Brightness.dark,
-    ),
+    () => _conversation
+        ? _channel.invokeMethod<void>(
+            'setAppearance',
+            brightness == Brightness.dark,
+          )
+        : WindowManipulator.overrideMacOSBrightness(
+            dark: brightness == Brightness.dark,
+          ),
   );
 
   /// Closes the window as its close button does.
-  static Future<void> close() => _run('close', WindowManipulator.performClose);
+  static Future<void> close() => _run(
+    'close',
+    () => _conversation
+        ? _channel.invokeMethod<void>('close')
+        : WindowManipulator.performClose(),
+  );
 
   static Future<void> orderFront() =>
       _run('order front', WindowManipulator.orderFront);

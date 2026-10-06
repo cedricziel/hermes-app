@@ -100,6 +100,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   ThreadHousekeeping? housekeeping;
 
+  /// Whether the last chat asked for from outside could not be opened.
+  bool get openFailed => _openFailed;
+  bool _openFailed = false;
+
+  void _failOpen() {
+    _openFailed = true;
+    report(_couldNotOpenChat);
+    notifyListeners();
+  }
+
   /// The sidebar's session search; null without a repository.
   ThreadSearch? search;
 
@@ -243,7 +253,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           if (fetchHeld) {
             unawaited(_openMissing(launch));
           } else {
-            report(_couldNotOpenChat);
+            _failOpen();
           }
         }
       }
@@ -389,6 +399,50 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// Reads [id] again from the dashboard after it changed elsewhere (another
+  /// window): its title and pin, and its messages once they were loaded. A
+  /// chat that is gone leaves the list. Nothing is read while a reply streams
+  /// into it, which would replace the reply in progress.
+  Future<void> refreshThread(String id) async {
+    final repository = this.repository;
+    final thread = _threads.where((t) => t.id == id).firstOrNull;
+    if (repository == null ||
+        thread == null ||
+        !thread.remote ||
+        thread.isReplying) {
+      return;
+    }
+    final generation = _loadGeneration;
+    bool stale() =>
+        disposed || generation != _loadGeneration || thread.isReplying;
+    try {
+      final fresh = await repository.loadThread(id, profile: _profile);
+      if (stale()) return;
+      if (fresh == null) {
+        housekeeping?.forget(thread);
+        return notifyListeners();
+      }
+      final unchanged = fresh.updatedAt == thread.updatedAt;
+      housekeeping?.adopt(thread, fresh);
+      notifyListeners();
+      if (unchanged || _unloaded.contains(id)) return;
+      final page = await repository.loadMessagePage(id, profile: _profile);
+      if (stale()) return;
+      thread.messages
+        ..clear()
+        ..addAll(page.messages);
+      if (page.hasMore) {
+        _olderRows[id] = page.rows;
+      } else {
+        _olderRows.remove(id);
+      }
+      notifyListeners();
+      await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    } on Object {
+      // Keeps what it shows; the next refresh or open reads it again.
+    }
+  }
+
   /// Whether [target] names a chat on [profile]. A thread id is only unique
   /// within a profile, so one posted under another profile is not ours. A
   /// notification from an earlier build carries no profile; it still matches
@@ -411,7 +465,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } else if (fetchMissing) {
       unawaited(_openMissing(target, generation: generation));
     } else {
-      report(_couldNotOpenChat);
+      _failOpen();
     }
   }
 
@@ -424,19 +478,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     generation ??= _openGeneration;
     final repository = this.repository;
     final profile = target.profile ?? _profile;
-    if (repository == null) return report(_couldNotOpenChat);
+    if (repository == null) return _failOpen();
     try {
       if (profile != _profile) await loadThreads(profile);
       if (disposed || generation != _openGeneration) return;
       // A failed switch leaves the old profile's threads on screen.
-      if (profile != _profile) return report(_couldNotOpenChat);
+      if (profile != _profile) return _failOpen();
       if (!_threads.any((t) => t.id == target.threadId)) {
         final thread = await repository.loadThread(
           target.threadId,
           profile: profile,
         );
         if (disposed || generation != _openGeneration) return;
-        if (thread == null) return report(_couldNotOpenChat);
+        if (thread == null) return _failOpen();
         _threads.insert(0, thread);
         _bound.add(thread);
         _unloaded.add(thread.id);
@@ -445,7 +499,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       select(target.threadId);
       onOpened?.call();
     } on Object {
-      if (!disposed) report(_couldNotOpenChat);
+      if (!disposed) _failOpen();
     }
   }
 
@@ -514,12 +568,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final generation = ++_openGeneration;
     onShowChat?.call();
     final repository = this.repository;
-    if (repository == null) return report(_couldNotOpenChat);
+    if (repository == null) return _failOpen();
     final profile = context.bot.name;
     try {
       if (_loadingThreads || _profile != profile) await loadThreads(profile);
       if (disposed || generation != _openGeneration) return;
-      if (_profile != profile) return report(_couldNotOpenChat);
+      if (_profile != profile) return _failOpen();
       var thread = _threads.where((t) => t.id == context.storedId).firstOrNull;
       if (thread == null) {
         thread = await repository.loadThread(
@@ -527,7 +581,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           profile: profile,
         );
         if (disposed || generation != _openGeneration) return;
-        if (thread == null) return report(_couldNotOpenChat);
+        if (thread == null) return _failOpen();
         _threads.insert(0, thread);
         _bound.add(thread);
         _unloaded.add(thread.id);
@@ -537,7 +591,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       select(thread.id);
       onOpened?.call();
     } on Object {
-      if (!disposed && generation == _openGeneration) report(_couldNotOpenChat);
+      if (!disposed && generation == _openGeneration) _failOpen();
     }
   }
 
@@ -624,6 +678,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void select(String id) {
     _openGeneration++;
+    _openFailed = false;
     _selectedId = id;
     notifyListeners();
     final load = repository != null ? _loadMessages(id) : Future<void>.value();

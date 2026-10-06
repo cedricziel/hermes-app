@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app.dart';
 import 'src/handoff/handoff_controller.dart';
@@ -24,9 +25,15 @@ import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';
 import 'src/watch/watch_bridge.dart';
+import 'src/windows/conversation_window_app.dart';
+import 'src/windows/conversation_windows.dart';
+import 'src/windows/desktop_conversation_windows.dart';
 
-Future<void> main() async {
+Future<void> main([List<String> args = const []]) async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (conversationWindowLaunch(args) case final window?) {
+    return runConversationWindow(window.windowId, window.arguments);
+  }
   await MacWindow.initialize();
   final telemetry = await Telemetry.initialize(
     TelemetryConfig.fromEnvironment(),
@@ -68,6 +75,34 @@ Future<void> main() async {
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
         Provider<KanbanEventsTracer?>.value(value: telemetry.kanbanEvents()),
         Provider<AppEventLogger>.value(value: telemetry.events()),
+        ChangeNotifierProvider<ConversationWindows?>(
+          lazy: false,
+          create: (context) {
+            if (!MacWindow.enabled) return null;
+            final auth = context.read<AuthController>();
+            final windows = ConversationWindows(
+              host: DesktopConversationWindowHost(),
+              store: ConversationWindowStore(SharedPreferencesAsync()),
+              connection: () {
+                final baseUrl = auth.baseUrl;
+                if (auth.state != HermesConnectionState.ready ||
+                    baseUrl == null) {
+                  return null;
+                }
+                return (
+                  baseUrl: baseUrl,
+                  authRequired: auth.status?.authRequired ?? true,
+                );
+              },
+              headers: auth.windowAuthHeaders,
+            );
+            // An expired session keeps the windows for after the sign-in.
+            auth.signedOut.listen(
+              (_) => windows.closeAll(forget: !auth.sessionExpired),
+            );
+            return windows;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         ChangeNotifierProvider(
