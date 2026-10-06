@@ -238,8 +238,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _handoff?.bind((activity, valid) async {
       // A chat open in a conversation window continues there.
       final window = _windows?.windowFor(activity.threadId, activity.profile);
-      if (window != null) {
-        await _windows!.focus(window.windowId);
+      if (window != null && await _windows!.focus(window.windowId)) {
         return true;
       }
       final opened = await _chat.restoreHandoff(
@@ -587,9 +586,20 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _selectThread(String id) {
+    if (_focusWindowOf(id)) return;
     _handoff?.cancel();
     _chat.select(id);
     _closeDrawerIfNarrow();
+  }
+
+  /// Brings up the conversation window that shows [id], if one does. A chat
+  /// is followed by one engine at a time, so the main window leaves it to
+  /// its window.
+  bool _focusWindowOf(String? id) {
+    final window = id == null ? null : _windows?.windowFor(id, _chat.profile);
+    if (window == null) return false;
+    unawaited(_windows!.focus(window.windowId));
+    return true;
   }
 
   /// A click on a sidebar row; a second one on the same row within the
@@ -746,6 +756,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The package composer reports attachments-only sends as an empty [text].
   void _send(String text) {
     if (_slashSending) return;
+    if (_focusWindowOf(_chat.selectedThread?.id)) return;
     final typed = text.trim();
     final files = List.of(_attachments);
     if (typed.isEmpty && files.isEmpty) return;

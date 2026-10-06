@@ -3,14 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/fake_chat_transport.dart';
 import 'support/fake_conversation_window_host.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/find_app_icon.dart';
 import 'support/pump_chat.dart';
 
 /// The main window's side of conversation windows on macOS.
@@ -19,6 +22,7 @@ void main() {
   late FakeConversationWindowHost host;
   late ConversationWindows windows;
   late MacCommandRegistry commands;
+  late FakeChatTransport transport;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -55,8 +59,10 @@ void main() {
     });
     commands = MacCommandRegistry();
     addTearDown(commands.dispose);
+    transport = FakeChatTransport();
     return pumpChatScreen(
       tester,
+      transport: transport,
       commands: commands,
       server: server,
       platform: TargetPlatform.macOS,
@@ -143,5 +149,38 @@ void main() {
 
     expect(row('Porto'), findsOneWidget);
     expect(find.textContaining('Sent from a window'), findsOneWidget);
+  });
+
+  testWidgets('a chat that has a window comes up there, not in the main '
+      'window', (tester) async {
+    await pump(tester);
+    await windows.open('s1', profile: null, title: 'Trip plan');
+    final read = server.requestsTo('GET', '/api/sessions/s1/messages').length;
+
+    await tester.tap(row('Trip plan'));
+    await tester.pumpAndSettle();
+
+    expect(host.focused, ['w0']);
+    expect(
+      server.requestsTo('GET', '/api/sessions/s1/messages'),
+      hasLength(read),
+    );
+  });
+
+  testWidgets('the main window does not send in a chat open in a window', (
+    tester,
+  ) async {
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await windows.open('s1', profile: null, title: 'Trip plan');
+
+    await tester.enterText(composerField, 'Hello');
+    await tester.pump();
+    await tester.tap(findAppIcon(AppIcons.sendArrow));
+    await tester.pumpAndSettle();
+
+    expect(transport.sends, isEmpty);
+    expect(host.focused, ['w0']);
+    expect(find.text('Hello'), findsOneWidget);
   });
 }
