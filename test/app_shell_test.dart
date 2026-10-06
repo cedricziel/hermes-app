@@ -591,6 +591,7 @@ void main() {
     await pumpShell(
       tester,
       size: const Size(1400, 900),
+      platform: TargetPlatform.macOS,
       commands: commands,
       kanbanBuilder: (_) => KanbanScreen(
         repository: KanbanRepository(server.client()),
