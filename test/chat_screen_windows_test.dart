@@ -23,6 +23,7 @@ void main() {
   late ConversationWindows windows;
   late MacCommandRegistry commands;
   late FakeChatTransport transport;
+  var connected = true;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -50,7 +51,9 @@ void main() {
     windows = ConversationWindows(
       host: host,
       store: ConversationWindowStore(SharedPreferencesAsync()),
-      connection: () => (baseUrl: 'https://hermes.test', authRequired: true),
+      connection: () => connected
+          ? (baseUrl: 'https://hermes.test', authRequired: true)
+          : null,
       headers: ({rejected}) async => const {},
     );
     addTearDown(() {
@@ -130,6 +133,24 @@ void main() {
     expect(host.drafts['w0'], isNull);
     expect(find.text('Half a thought'), findsOneWidget);
     expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
+  });
+
+  testWidgets('a window that cannot open leaves the chat and its draft', (
+    tester,
+  ) async {
+    connected = false;
+    addTearDown(() => connected = true);
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.created, isEmpty);
+    expect(find.text('Half a thought'), findsOneWidget);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isTrue);
   });
 
   testWidgets('a chat not open in the main window goes without a draft', (

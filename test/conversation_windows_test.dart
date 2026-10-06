@@ -302,8 +302,15 @@ void main() {
   test('without a connection nothing opens', () async {
     connection = null;
 
-    await windows.open('s1', profile: null, title: 'A');
+    expect(await windows.open('s1', profile: null, title: 'A'), isFalse);
 
     expect(host.created, isEmpty);
+  });
+
+  test('says whether the window opened', () async {
+    expect(await windows.open('s1', profile: null, title: 'A'), isTrue);
+    expect(await windows.open('s1', profile: null, title: 'A'), isTrue);
+    host.onCreate = (_) async => throw StateError('no window');
+    expect(await windows.open('s2', profile: null, title: 'B'), isFalse);
   });
 }
