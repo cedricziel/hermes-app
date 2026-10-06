@@ -127,6 +127,12 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   drop the sidebar as the app does. `ChatThread` (Chat group) draws a chat's turns from plain `ChatTurn` data,
   anchored to the latest turn. Gaps: the loading phone bar shows the "Hermes" title and info button (the app's
   has only the menu button); no clarify answer, attachment drop or queued-prompt cells.
+- `ConversationWindowScreen`: the Mac conversation window of #398 (`lib/src/windows/`), one chat with no sidebar.
+  Its toolbar is a `MacToolbar` with `leadingInset` 86 before the title (the window's own `ConversationWindowToolbar` leaves the
+  traffic lights' 78px plus 8px and has no sidebar button): Show in Main Window, Pin (`MacToolbarButton apple="pin"`,
+  `pin_fill` and selected while pinned), Share, and "…" with `macThreadMenuItems` minus Pin. States: loaded, the
+  menu open, streaming, loading (only Show in Main Window enabled) and failed ("Could not open this chat", Close
+  Window). Not drawn: the share picker and the window closing once its chat is archived or deleted.
 - `ConnectScreen` stays the setup and sign-in card (the app's ServerSetupScreen and LoginScreen); its preview has
   every Widgetbook state. The splash is a bare spinner, so it has no card.
 - `AppLockScreen` (the AppLockGate cover) and `ImageViewerScreen` (black in both themes). The app's image viewer

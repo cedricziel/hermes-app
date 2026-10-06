@@ -96,3 +96,4 @@ export * from "./components/McpAddServerScreen/McpAddServerScreen";
 export * from "./components/McpSignInScreen/McpSignInScreen";
 export * from "./components/McpJsonEditorScreen/McpJsonEditorScreen";
 export * from "./components/PluginsScreen/PluginsScreen";
+export * from "./components/ConversationWindowScreen/ConversationWindowScreen";

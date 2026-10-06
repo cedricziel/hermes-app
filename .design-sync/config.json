@@ -264,6 +264,9 @@
     "KanbanScreen": {
       "cardMode": "column"
     },
+    "ConversationWindowScreen": {
+      "cardMode": "column"
+    },
     "KanbanBoardsScreen": {
       "cardMode": "column"
     },
