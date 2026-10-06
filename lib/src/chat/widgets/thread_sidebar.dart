@@ -8,9 +8,9 @@ import '../../macos/mac_sidebar.dart';
 import '../../notifications/notifications_dialog.dart';
 import '../../settings/about_dialog.dart';
 import '../../settings/appearance_dialog.dart';
+import '../../settings/account_actions.dart';
 import '../../settings/settings_dialog.dart';
 import '../../settings/widgets/mac_account_footer.dart';
-import '../../screens/home_screen.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
@@ -700,9 +700,10 @@ class AccountFooter extends StatelessWidget {
         name: user,
         host: host,
         onSettings: () => showSettingsDialog(context),
-        onConnection: () => Navigator.of(context)
-            .push(MaterialPageRoute<void>(builder: (_) => const HomeScreen())),
-        onSignOut: (auth.status?.authRequired ?? false) ? auth.signOut : null,
+        onConnection: () => showConnectionDetails(context),
+        onSignOut: (auth.status?.authRequired ?? false)
+            ? () => confirmSignOut(context, auth)
+            : null,
       );
     }
     final label = user ?? auth.baseUrl ?? 'Not connected';

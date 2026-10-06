@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
+import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/profiles/widgets/mac_profiles_view.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -15,8 +16,10 @@ import 'support/fake_hermes_server.dart';
 /// Profiles page, and the account footer.
 void main() {
   late FakeHermesServer server;
+  var signOuts = 0;
 
   setUp(() {
+    signOuts = 0;
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     server = FakeHermesServer()
@@ -59,6 +62,15 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/messaging/platforms',
+        platformListBody([
+          platformRow(id: 'telegram', name: 'Telegram', enabled: true),
+          platformRow(id: 'slack', name: 'Slack', enabled: true),
+        ]),
+        query: {'profile': 'work'},
+      )
+      ..on(
+        'GET',
         '/api/model/auxiliary',
         {'detail': 'down'},
         status: 500,
@@ -75,7 +87,7 @@ void main() {
       ..physicalSize = const Size(1200, 800)
       ..devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final auth = CatalogAuth(server: server, gated: true);
+    final auth = _CountingAuth(server, () => signOuts++);
     addTearDown(auth.dispose);
     await tester.pumpWidget(
       withAppProviders(
@@ -163,18 +175,23 @@ void main() {
     expect(countIn(ProfileSection.skills), '12');
     expect(countIn(ProfileSection.mcp), '1');
     expect(countIn(ProfileSection.helperModels), isNull);
-    expect(countIn(ProfileSection.messaging), isNull);
+    // Messaging is read for the profile itself; plugins only for the
+    // chat's profile, as the dashboard's plugin hub has no profile.
+    expect(countIn(ProfileSection.messaging), '2');
+    expect(countIn(ProfileSection.plugins), isNull);
 
     await tester.tap(find.byKey(const ValueKey('profile-row-default')));
     await tester.pumpAndSettle();
     expect(countIn(ProfileSection.messaging), '1');
 
-    // After the chat moves to "work", the cached count of "default" goes.
+    // After the chat moves to "work", the cached plugin count of "default"
+    // goes; its messaging count stays.
     await tester.tap(find.byKey(const Key('mac-profile-switcher')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('work').last);
     await tester.pumpAndSettle();
-    expect(countIn(ProfileSection.messaging), isNull);
+    expect(countIn(ProfileSection.messaging), '1');
+    expect(countIn(ProfileSection.plugins), isNull);
   });
 
   testWidgets('the account footer opens Settings', (tester) async {
@@ -200,4 +217,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Appearance…'), findsOneWidget);
   });
+
+  group('account commands in the menu bar', () {
+    testWidgets('Connection Details opens the connection page', (tester) async {
+      final registry = MacCommandRegistry();
+      addTearDown(registry.dispose);
+      await pump(tester, registry: registry);
+
+      expect(registry.invoke(MacCommand.connectionDetails), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+    });
+
+    testWidgets('Sign Out asks first, and Cancel keeps the user signed in', (
+      tester,
+    ) async {
+      final registry = MacCommandRegistry();
+      addTearDown(registry.dispose);
+      await pump(tester, registry: registry);
+
+      expect(registry.invoke(MacCommand.signOut), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out of the dashboard?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(signOuts, 0);
+
+      registry.invoke(MacCommand.signOut);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sign Out'));
+      await tester.pumpAndSettle();
+      expect(signOuts, 1);
+    });
+
+    testWidgets('the footer asks the same before signing out', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const Key('mac-account-footer')).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sign Out'));
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out of the dashboard?'), findsOneWidget);
+      await tester.tap(find.text('Sign Out').last);
+      await tester.pumpAndSettle();
+      expect(signOuts, 1);
+    });
+  });
+}
+
+class _CountingAuth extends CatalogAuth {
+  _CountingAuth(FakeHermesServer server, this.onSignOut)
+    : super(server: server, gated: true);
+
+  final VoidCallback onSignOut;
+
+  @override
+  Future<void> signOut() async => onSignOut();
 }

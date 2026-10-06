@@ -331,4 +331,38 @@ void main() {
       );
     });
   });
+
+  group('a repository for one profile', () {
+    late HermesMessagingRepository work;
+
+    setUp(() => work = repository.forProfile('work'));
+
+    test('lists and changes that profile\'s platforms', () async {
+      server
+        ..on('GET', '/api/messaging/platforms', platformListBody([]))
+        ..on('PUT', '/api/messaging/platforms/telegram', {'ok': true})
+        ..on('POST', '/api/messaging/telegram/onboarding/p1/apply', {
+          'ok': true,
+        });
+
+      await work.load();
+      await work.setEnabled('telegram', true);
+      await work.saveSetup('telegram', env: const {'A': 'b'});
+      await work.applyTelegramPairing('p1', const ['42']);
+
+      expect(
+        [for (final r in server.requests) r.queryParameters['profile']],
+        ['work', 'work', 'work', 'work'],
+      );
+    });
+
+    test('the default repository names no profile', () async {
+      server.on('GET', '/api/messaging/platforms', platformListBody([]));
+      await repository.load();
+      expect(
+        server.requests.single.queryParameters.containsKey('profile'),
+        isFalse,
+      );
+    });
+  });
 }

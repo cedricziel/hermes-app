@@ -102,6 +102,22 @@ void main() {
       'Window',
       'Help',
     ]);
+    expect(channel.labels('Hermes'), [
+      'About Hermes',
+      '-',
+      'Settings…',
+      '-',
+      'Connection Details',
+      'Sign Out…',
+      '-',
+      '#${PlatformProvidedMenuItemType.servicesSubmenu.index}',
+      '-',
+      '#${PlatformProvidedMenuItemType.hide.index}',
+      '#${PlatformProvidedMenuItemType.hideOtherApplications.index}',
+      '#${PlatformProvidedMenuItemType.showAllApplications.index}',
+      '-',
+      '#${PlatformProvidedMenuItemType.quit.index}',
+    ]);
     expect(channel.labels('File'), [
       'New Chat',
       'Open in New Window',

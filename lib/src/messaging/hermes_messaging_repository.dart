@@ -95,12 +95,22 @@ class TelegramPairingStatus {
 /// `{"platforms": [...]}` envelope is parsed by hand, skipping rows that
 /// don't fit.
 class HermesMessagingRepository {
-  HermesMessagingRepository(this._api);
+  HermesMessagingRepository(this._api, {this.profile});
 
   final DefaultApi _api;
 
+  /// The profile whose platforms are read and changed; the one the dashboard
+  /// is scoped to when null.
+  final String? profile;
+
+  /// This repository for the platforms of [profile].
+  HermesMessagingRepository forProfile(String? profile) =>
+      HermesMessagingRepository(_api, profile: profile);
+
   Future<List<HermesMessagingPlatform>> load() async {
-    final response = await _api.getMessagingPlatformsApiMessagingPlatformsGet();
+    final response = await _api.getMessagingPlatformsApiMessagingPlatformsGet(
+      profile: profile,
+    );
     final rows = switch (response.data) {
       {'platforms': final List<dynamic> rows} => rows,
       _ => const <dynamic>[],
@@ -146,6 +156,7 @@ class HermesMessagingRepository {
   }) => _explaining(
     () => _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
       platformId: id,
+      profile: profile,
       messagingPlatformUpdate: MessagingPlatformUpdate(
         env: env,
         clearEnv: clear,
@@ -193,6 +204,7 @@ class HermesMessagingRepository {
     () => _api
         .applyTelegramOnboardingApiMessagingTelegramOnboardingPairingIdApplyPost(
           pairingId: id,
+          profile: profile,
           telegramOnboardingApply: TelegramOnboardingApply(
             allowedUserIds: allowedUserIds,
           ),
@@ -225,6 +237,7 @@ class HermesMessagingRepository {
   Future<void> setEnabled(String id, bool enabled) async {
     await _api.updateMessagingPlatformApiMessagingPlatformsPlatformIdPut(
       platformId: id,
+      profile: profile,
       messagingPlatformUpdate: MessagingPlatformUpdate(enabled: enabled),
     );
   }

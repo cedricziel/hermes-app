@@ -6,6 +6,8 @@ import 'package:flutter/widgets.dart';
 enum MacCommand {
   about,
   settings,
+  connectionDetails,
+  signOut,
   newChat,
   openInNewWindow,
   closeWindow,
