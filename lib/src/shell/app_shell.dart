@@ -405,7 +405,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _sidebar.load();
       _chatProfiles?.load();
     }
-    final auth = context.watch<AuthController?>();
+    final signIn = context.select<AuthController?, bool>(
+      (auth) => auth?.status?.authRequired ?? false,
+    );
     return MacCommandScope(
       commands: {
         MacCommand.settings: MacCommandHandler(
@@ -415,8 +417,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           () => showConnectionDetails(context),
         ),
         MacCommand.signOut: MacCommandHandler(
-          auth != null && (auth.status?.authRequired ?? false)
-              ? () => confirmSignOut(context, auth)
+          signIn
+              ? () => confirmSignOut(context, context.read<AuthController>())
               : null,
         ),
       },
