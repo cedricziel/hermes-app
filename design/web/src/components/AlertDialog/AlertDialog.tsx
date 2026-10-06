@@ -90,7 +90,9 @@ export function AlertDialog({
           ))}
         >
           {message ? (
-            <p className="h-body-md h-alert-dialog__message">{message}</p>
+            <p className="h-body-md h-muted h-alert-dialog__message">
+              {message}
+            </p>
           ) : null}
         </Sheet>
       )}
