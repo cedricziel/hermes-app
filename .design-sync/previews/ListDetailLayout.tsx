@@ -1,4 +1,5 @@
 import {
+  AppShell,
   Badge,
   Button,
   Card,
@@ -337,6 +338,30 @@ export const AppleMacPushed = () => (
         onAdd={() => {}}
         addLabel="Add server"
       />
+    </div>
+  </HermesProvider>
+);
+
+/** A Mac page in the shell (no back button): the bar is a `MacToolbar`, the "+" a 28px toolbar button. */
+export const AppleMacShellPage = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...frame, height: 320 }}>
+      <AppShell
+        layout="desktop"
+        current="chat"
+        showTrafficLights
+        sidebarWidth={220}
+      >
+        <ListDetailLayout
+          title="MCP servers"
+          subtitle="Profile: work"
+          listWidth={300}
+          list={appleRows}
+          placeholder="Select a server"
+          onAdd={() => {}}
+          addLabel="Add server"
+        />
+      </AppShell>
     </div>
   </HermesProvider>
 );
