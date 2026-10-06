@@ -157,7 +157,7 @@ function threadMenuItems(
  * alike. A chat the dashboard does not hold only offers the copy; one it
  * holds leads with "Open in New Window" when the window can open one.
  */
-function macThreadMenuItems(
+export function macThreadMenuItems(
   pinned: boolean,
   actionable: boolean,
   canOpenInNewWindow: boolean,

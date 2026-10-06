@@ -112,3 +112,18 @@ export const AppleMacToolbar = () => (
     </div>
   </HermesProvider>
 );
+
+/** Mac, compact window: Copy Transcript and Connection Details folded into the "…" menu, open. */
+export const AppleMacCompactMenu = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...wide, height: 140, border: "1px solid var(--h-border)" }}>
+      <ChatHeader
+        title="Backup failure"
+        subtitle="work · claude-opus-4"
+        windowSize="compact"
+        defaultMenuOpen
+        onCopyTranscript={() => {}}
+      />
+    </div>
+  </HermesProvider>
+);

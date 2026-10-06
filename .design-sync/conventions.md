@@ -56,6 +56,8 @@ Whole screens to start from (group Screens, each with `layout="phone" | "desktop
 
 Forms and plain lists: a form screen is a column of `FormSection`s (heading, fields, helper or error; `collapsible` for "Advanced") holding `TextField`, `SelectField` (any dropdown or picker field), `Chip` rows and a `ModelPill`; any plain list (boards, workers, settings rows) is `ListRow`s, which form an inset grouped list by themselves under `platform="apple"`.
 
+A Mac window's sidebar (`ThreadSidebar` with a `ShellNavigation` whose `profiles` draws the profile switcher) has no New chat row, search field or "More": search is the toolbar's field, and while one is open the sidebar shows its results (`search`); the footer is the Mac account menu. `AppShell compact` is a window under 760px, whose sidebar opens over the page. Folder grouping is `grouping="folder"` with `ThreadItem.folderPath`.
+
 On a Mac (`platform="apple"`, `layout="desktop"`) a page's top bar is a `MacToolbar`: title over subtitle, `MacToolbarButton`s, a `MacToolbarSeparator` between groups, and a `MacToolbarSearchField` where the page searches.
 
 Screen cards show whole app screens from plain data; start a mock of one of them from its card: `ChatScreen` (a chat's messages alone: `ChatThread`), `ConversationWindowScreen` (a Mac conversation window: one chat, no sidebar), `ConnectScreen`, `AppLockScreen`, `ImageViewerScreen`, `KanbanScreen` (board, selection, task sheet, Mac inspector), `KanbanBoardsScreen`, `KanbanWorkersScreen`, `KanbanCreateScreen`, `SchedulesScreen` (with `ScheduleJobDetail`), `JobFormScreen` (with `SchedulePicker`), `BlueprintGalleryScreen`, `BlueprintFormScreen`.

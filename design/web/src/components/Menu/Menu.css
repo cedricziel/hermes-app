@@ -120,7 +120,7 @@
   opacity: 0.65;
 }
 
-.h-menu--mac .h-menu__item--detail {
+.h-menu--mac .h-menu__item.h-menu__item--detail {
   height: 36px;
 }
 
