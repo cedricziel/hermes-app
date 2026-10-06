@@ -1179,6 +1179,16 @@ The system SHALL rely on the same routes as the main window: `GET /api/sessions`
 - **WHEN** the user signs out in the main window
 - **THEN** every conversation window closes and none is opened again on the next launch
 
+#### Scenario: Handoff follows the key window
+
+- **WHEN** a conversation window is the key window
+- **THEN** Handoff offers that window's chat, and once the main window is key again it offers the main window's chat
+
+#### Scenario: A handed-over chat that has a window
+
+- **WHEN** another device hands over a chat that is open in a conversation window
+- **THEN** that window comes to the front and the main window does not open the chat
+
 #### Scenario: A conversation window never refreshes the session
 
 - **WHEN** a request from a conversation window gets a 401

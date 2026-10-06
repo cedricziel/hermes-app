@@ -236,6 +236,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     )..addListener(_changed);
     _handoff = _maybeRead<HandoffController>();
     _handoff?.bind((activity, valid) async {
+      // A chat open in a conversation window continues there.
+      final window = _windows?.windowFor(activity.threadId, activity.profile);
+      if (window != null) {
+        await _windows!.focus(window.windowId);
+        return true;
+      }
       final opened = await _chat.restoreHandoff(
         NotificationTarget(
           threadId: activity.threadId,
@@ -260,8 +266,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared();
-    _windows = _maybeRead<ConversationWindows?>();
-
+    _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
   }
 
@@ -281,8 +286,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     windows.open(thread.id, profile: _chat.profile, title: thread.title);
   }
 
+  /// Offers the chat in front for Handoff: a key conversation window's, or
+  /// else the one selected here.
   void _advertise() {
     if (!mounted) return;
+    if (_windows?.keyWindow?.args case final args?) {
+      return _handoff?.advertise(
+        args.profile == null
+            ? null
+            : HandoffActivity.parse({
+                'version': 1,
+                'serverUrl': args.baseUrl,
+                'profile': args.profile,
+                'threadId': args.threadId,
+              }),
+      );
+    }
     final thread = _chat.selectedThread;
     final server = _maybeRead<AuthController>()?.baseUrl;
     final profile = _chat.profile;
@@ -462,6 +481,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     widget.openRequests?.removeListener(_onOpenRequest);
     _share.removeListener(_onShared);
     _mainFocused?.cancel();
+    _windows?.removeListener(_advertise);
     _attention.dispose();
     _chat
       ..removeListener(_changed)
