@@ -506,9 +506,15 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           );
         }
 
+        // Pages kept alive behind the one in front keep their floating
+        // buttons, whose heroes would clash with the front page's when a
+        // route is pushed.
         final pages = IndexedStack(
           index: index,
-          children: [for (final d in destinations) page(d)],
+          children: [
+            for (final (i, d) in destinations.indexed)
+              HeroMode(enabled: i == index, child: page(d)),
+          ],
         );
         if (wide) return Scaffold(body: pages);
         // A narrow layout keeps the destinations in a drawer, as Chat keeps
