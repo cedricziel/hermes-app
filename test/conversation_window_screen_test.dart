@@ -7,6 +7,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/windows/conversation_window_args.dart';
@@ -105,7 +106,7 @@ void main() {
       );
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {ConversationDraft? draft}) async {
     tester.view.physicalSize = const Size(900, 700);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -114,6 +115,7 @@ void main() {
         theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
         home: ConversationWindowScreen(
           args: _args,
+          draft: draft,
           link: link,
           chat: HermesChatRepository(server.client().raw),
           transport: transport,
@@ -133,6 +135,19 @@ void main() {
     final sessions = server.requestsTo('GET', '/api/sessions').single;
     expect(sessions.queryParameters['profile'], 'work');
     expect(link.calls, contains('present:Trip plan'));
+  });
+
+  testWidgets('takes over the draft the main window handed it', (tester) async {
+    await pump(
+      tester,
+      draft: const ConversationDraft(
+        text: 'Half a thought',
+        files: [SharedFile(path: '/tmp/a.txt', name: 'a.txt')],
+      ),
+    );
+
+    expect(find.text('Half a thought'), findsOneWidget);
+    expect(find.text('a.txt'), findsOneWidget);
   });
 
   testWidgets('sends on the profile it was opened from', (tester) async {

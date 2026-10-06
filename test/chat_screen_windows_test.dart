@@ -23,6 +23,7 @@ void main() {
   late ConversationWindows windows;
   late MacCommandRegistry commands;
   late FakeChatTransport transport;
+  var connected = true;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -50,7 +51,9 @@ void main() {
     windows = ConversationWindows(
       host: host,
       store: ConversationWindowStore(SharedPreferencesAsync()),
-      connection: () => (baseUrl: 'https://hermes.test', authRequired: true),
+      connection: () => connected
+          ? (baseUrl: 'https://hermes.test', authRequired: true)
+          : null,
       headers: ({rejected}) async => const {},
     );
     addTearDown(() {
@@ -98,6 +101,72 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(host.created.values.single.threadId, 's1');
+  });
+
+  testWidgets('a chat opened in a window leaves the main window with its '
+      'draft', (tester) async {
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.drafts.values.single?.text, 'Half a thought');
+    expect(find.text('Half a thought'), findsNothing);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
+  });
+
+  testWidgets('a draft stays in the main window when the chat already has a '
+      'window', (tester) async {
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await windows.open('s1', profile: null, title: 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.focused, ['w0']);
+    expect(host.drafts['w0'], isNull);
+    expect(find.text('Half a thought'), findsOneWidget);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isFalse);
+  });
+
+  testWidgets('a window that cannot open leaves the chat and its draft', (
+    tester,
+  ) async {
+    connected = false;
+    addTearDown(() => connected = true);
+    await pump(tester);
+    await openThread(tester, 'Trip plan');
+    await tester.enterText(composerField, 'Half a thought');
+    await tester.pump();
+
+    expect(commands.invoke(MacCommand.openInNewWindow), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(host.created, isEmpty);
+    expect(find.text('Half a thought'), findsOneWidget);
+    expect(commands.handlerFor(MacCommand.pinThread)?.enabled, isTrue);
+  });
+
+  testWidgets('a chat not open in the main window goes without a draft', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.enterText(composerField, 'A new chat');
+    await tester.pump();
+
+    await tester.tap(row('Trip plan'), buttons: kSecondaryButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open in New Window'));
+    await tester.pumpAndSettle();
+
+    expect(host.drafts.values.single, isNull);
+    expect(find.text('A new chat'), findsOneWidget);
   });
 
   testWidgets('a single click only selects the thread', (tester) async {

@@ -37,6 +37,7 @@ import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
 import '../theme/platform_chrome.dart';
+import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
 import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
@@ -278,11 +279,36 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// Opens [thread] in a conversation window of its own (macOS).
-  void _openInWindow(ChatThread? thread) {
+  /// Opens [thread] in a conversation window of its own (macOS). Once the
+  /// window is up, the selected chat leaves the main window, so only its
+  /// window answers, retries, stops or sends in it; a new window takes over
+  /// what the composer held.
+  Future<void> _openInWindow(ChatThread? thread) async {
     final windows = _windows;
     if (windows == null || thread == null || !thread.remote) return;
-    windows.open(thread.id, profile: _chat.profile, title: thread.title);
+    final selected = thread.id == _chat.selectedId;
+    final hasWindow = windows.windowFor(thread.id, _chat.profile) != null;
+    final draft = selected && !hasWindow
+        ? ConversationDraft(
+            text: _composerController.text,
+            files: List.of(_attachments),
+          )
+        : null;
+    final shown = await windows.open(
+      thread.id,
+      profile: _chat.profile,
+      title: thread.title,
+      draft: draft == null || draft.isEmpty ? null : draft,
+    );
+    if (!shown || !mounted || _chat.selectedId != thread.id) return;
+    // Only what went to the window; anything typed meanwhile stays.
+    if (draft != null && _composerController.text == draft.text) {
+      setState(() {
+        _composerController.clear();
+        _attachments.removeWhere(draft.files.contains);
+      });
+    }
+    _chat.clearSelection();
   }
 
   /// Offers the chat in front for Handoff: a key conversation window's, or
@@ -543,7 +569,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       MacCommand.newChat: MacCommandHandler(_newThread),
       MacCommand.openInNewWindow: MacCommandHandler(
         _windows != null && thread != null && thread.remote
-            ? () => _openInWindow(thread)
+            ? () => unawaited(_openInWindow(thread))
             : null,
       ),
       MacCommand.find: MacCommandHandler(
@@ -617,7 +643,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         last.id == id &&
         now.difference(last.at) <= kDoubleTapTimeout) {
       _lastPick = null;
-      return _openInWindow(_chat.threads.where((t) => t.id == id).firstOrNull);
+      final thread = _chat.threads.where((t) => t.id == id).firstOrNull;
+      return unawaited(_openInWindow(thread));
     }
     _selectThread(id);
   }
@@ -851,7 +878,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         _followLatestReply(selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
-          onOpenInNewWindow: _windows == null ? null : _openInWindow,
+          onOpenInNewWindow: _windows == null
+              ? null
+              : (thread) => unawaited(_openInWindow(thread)),
           threads: chat.threads
               .where((thread) => !thread.isCanonicalBotChat)
               .toList(),

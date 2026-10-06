@@ -7,6 +7,9 @@ import 'package:hermes_app/src/windows/conversation_windows.dart';
 /// a test close them, focus the main window and make calls as a window.
 class FakeConversationWindowHost implements ConversationWindowHost {
   final created = <String, ConversationWindowArgs>{};
+
+  /// The draft each window was started with, by id.
+  final drafts = <String, ConversationDraft?>{};
   final focused = <String>[];
   final commands = <(String, String)>[];
 
@@ -22,10 +25,14 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   Future<void> Function(ConversationWindowArgs args)? onCreate;
 
   @override
-  Future<String> create(ConversationWindowArgs args) async {
+  Future<String> create(
+    ConversationWindowArgs args, {
+    ConversationDraft? draft,
+  }) async {
     await onCreate?.call(args);
     final id = 'w${_next++}';
     created[id] = args;
+    drafts[id] = draft;
     return id;
   }
 

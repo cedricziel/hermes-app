@@ -26,6 +26,7 @@ class ConversationWindowScreen extends StatefulWidget {
   const ConversationWindowScreen({
     super.key,
     required this.args,
+    this.draft,
     required this.link,
     required this.chat,
     this.models,
@@ -34,6 +35,10 @@ class ConversationWindowScreen extends StatefulWidget {
   });
 
   final ConversationWindowArgs args;
+
+  /// What the main window's composer held for this chat when it handed the
+  /// chat over.
+  final ConversationDraft? draft;
   final ConversationWindowLink link;
   final HermesChatRepository chat;
   final HermesModelsRepository? models;
@@ -51,9 +56,11 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   late final AttentionNotifier _attention;
   late final ChatController _chat;
   late final AttachmentSource _attachmentSource;
-  final _composerController = TextEditingController();
+  late final _composerController = TextEditingController(
+    text: widget.draft?.text,
+  );
   final _composerFocus = FocusNode();
-  final _attachments = <SharedFile>[];
+  late final _attachments = <SharedFile>[...?widget.draft?.files];
   final _latestReplyId = ValueNotifier<String?>(null);
   final _subscriptions = <StreamSubscription<Object?>>[];
 

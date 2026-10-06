@@ -142,6 +142,18 @@ final class WindowKeyObserver {
   }
 }
 
+/// The ids of conversation windows the main engine closed before they
+/// reported in: an engine reports its window's id when it first shows it,
+/// so a window closed earlier closes then instead of showing.
+struct PendingCloses {
+  private var ids: Set<String> = []
+
+  mutating func remember(_ id: String) { ids.insert(id) }
+
+  /// Whether [id] was closed early; forgets it.
+  mutating func take(_ id: String) -> Bool { ids.remove(id) != nil }
+}
+
 /// A window desktop_multi_window opened for one chat, with its own engine.
 final class ConversationWindow: NSObject {
   private static var open: [ObjectIdentifier: ConversationWindow] = [:]
@@ -155,8 +167,15 @@ final class ConversationWindow: NSObject {
 
   static var isEmpty: Bool { open.isEmpty }
 
+  private static var closeOnPresent = PendingCloses()
+
   static func close(id: String?) {
-    open.values.first { $0.windowId == id }?.window?.close()
+    guard let id else { return }
+    if let conversation = open.values.first(where: { $0.windowId == id }) {
+      conversation.window?.close()
+    } else {
+      closeOnPresent.remember(id)
+    }
   }
 
   static func closeAll() {
@@ -238,6 +257,10 @@ final class ConversationWindow: NSObject {
       result(window.frame.height - window.contentLayoutRect.height)
     case "present":
       windowId = args["window_id"] as? String
+      if let windowId, Self.closeOnPresent.take(windowId) {
+        window.close()
+        return result(nil)
+      }
       window.title = args["title"] as? String ?? ""
       let name = args["frame_name"] as? String ?? ""
       if name.isEmpty || !window.setFrameUsingName(name) {

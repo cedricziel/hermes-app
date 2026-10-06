@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../share/shared_item.dart';
+
 /// What a conversation window is opened with: the chat, the profile it
 /// stays on, and the server it belongs to. Holds no secret, since it is
 /// passed to the window's engine and kept in preferences for the next launch.
@@ -43,8 +45,6 @@ class ConversationWindowArgs {
     'auth_required': authRequired,
   };
 
-  String encode() => jsonEncode(toJson());
-
   /// Null for anything that is not a window's arguments.
   static ConversationWindowArgs? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -63,10 +63,74 @@ class ConversationWindowArgs {
       authRequired: json['auth_required'] != false,
     );
   }
+}
 
-  static ConversationWindowArgs? decode(String source) {
+/// What the main window's composer held for a chat it hands to a window, so
+/// the text and files move with the chat instead of staying behind.
+class ConversationDraft {
+  const ConversationDraft({this.text = '', this.files = const []});
+
+  final String text;
+  final List<SharedFile> files;
+
+  bool get isEmpty => text.isEmpty && files.isEmpty;
+
+  Map<String, Object?> toJson() => {
+    'text': text,
+    'files': [
+      for (final f in files)
+        {
+          'path': f.path,
+          'name': f.name,
+          'mime_type': f.mimeType,
+          'is_image': f.isImage,
+        },
+    ],
+  };
+
+  static ConversationDraft? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final text = json['text'];
+    final files = json['files'];
+    return ConversationDraft(
+      text: text is String ? text : '',
+      files: [
+        if (files is List)
+          for (final f in files.whereType<Map<Object?, Object?>>())
+            if (f['path'] case final String path)
+              SharedFile(
+                path: path,
+                name: f['name'] is String ? f['name']! as String : path,
+                mimeType: f['mime_type'] is String
+                    ? f['mime_type']! as String
+                    : null,
+                isImage: f['is_image'] == true,
+              ),
+      ],
+    );
+  }
+}
+
+/// What a conversation window's engine is started with: its [args], and the
+/// [draft] it takes over, which is never saved for the next launch.
+class ConversationWindowLaunch {
+  const ConversationWindowLaunch(this.args, {this.draft});
+
+  final ConversationWindowArgs args;
+  final ConversationDraft? draft;
+
+  String encode() => jsonEncode({...args.toJson(), 'draft': ?draft?.toJson()});
+
+  /// Null for anything that is not a window's arguments.
+  static ConversationWindowLaunch? decode(String source) {
     try {
-      return fromJson(jsonDecode(source));
+      final json = jsonDecode(source);
+      final args = ConversationWindowArgs.fromJson(json);
+      if (args == null) return null;
+      return ConversationWindowLaunch(
+        args,
+        draft: ConversationDraft.fromJson((json as Map)['draft']),
+      );
     } on FormatException {
       return null;
     }
