@@ -308,6 +308,20 @@ export const AppleMacSettings = () => (
   </HermesProvider>
 );
 
+/** Mac, Sign Out from the account menu or the Hermes menu asks first (#445): an Apple alert over the window. */
+export const AppleMacSignOut = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={macWindow}>
+      <ChatScreen
+        {...mac}
+        destinations={[...mac.destinations]}
+        windowSize="medium"
+        signOutConfirmOpen
+      />
+    </div>
+  </HermesProvider>
+);
+
 /** Mac with folder grouping (#434): folders with their counts replace the recency sections, "No folder" last; the first header carries the grouping "…". */
 export const AppleMacFolders = () => (
   <HermesProvider platform="apple" typeRamp="default">

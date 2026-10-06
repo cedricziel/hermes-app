@@ -49,7 +49,7 @@ export interface ChatScreenProps {
   state?: "loaded" | "loading" | "failed";
   /** The chats in the sidebar; see `ThreadSidebar`. On a Mac they sit in recency sections by `updatedAt`. */
   threads?: ThreadItem[];
-  /** The open chat, whose title the header shows. None (or no turns) shows the welcome view. */
+  /** The open chat, whose title the header shows. None (or no turns) shows the welcome view, as after a Mac chat moved to its own window. */
   selectedId?: string | null;
   /** The open chat's messages; empty shows the welcome view with `prompts`. */
   turns?: ChatTurn[];
@@ -109,6 +109,8 @@ export interface ChatScreenProps {
   accountMenuOpen?: boolean;
   /** Mac: the Settings list (Settings… ⌘,) is open over the window. */
   settingsOpen?: boolean;
+  /** Mac, `authRequired`: Sign Out's question "Sign out of the dashboard?" is open over the window; see `AppShell`. */
+  signOutConfirmOpen?: boolean;
   /** Mac: the day the sidebar's recency sections count back from (ISO date); see `ThreadSidebar`. */
   now?: string;
   /**
@@ -137,6 +139,8 @@ export interface ChatScreenProps {
   onThreadAction?: (id: string, action: ThreadAction) => void;
   onAccountAction?: (action: AccountAction) => void;
   onSettingsPick?: (entry: SettingsEntry) => void;
+  onConfirmSignOut?: () => void;
+  onCancelSignOut?: () => void;
   onGroupingChange?: (grouping: ThreadGrouping) => void;
   /** Mac: the toolbar's search began, changed or ended. */
   onSearchBegin?: () => void;
@@ -169,6 +173,12 @@ export interface ChatScreenProps {
  * reference for any screen inside the chat, or as the starting frame of a
  * chat mock; give it a size (it fills its parent). The loading and failed
  * states replace the page as the app does, without the sidebar.
+ *
+ * On a Mac, opening the selected chat in its own window takes it out of the
+ * main window: the main window drops back to its welcome view with no chat
+ * selected, and what its composer held (text and files) moves into the new
+ * window's composer. If the chat already has a window, that window comes to
+ * the front and the draft stays here.
  */
 export function ChatScreen({
   state = "loaded",
@@ -198,6 +208,7 @@ export function ChatScreen({
   authRequired,
   accountMenuOpen,
   settingsOpen,
+  signOutConfirmOpen,
   now,
   layout = "desktop",
   platform,
@@ -210,6 +221,8 @@ export function ChatScreen({
   onThreadAction,
   onAccountAction,
   onSettingsPick,
+  onConfirmSignOut,
+  onCancelSignOut,
   onGroupingChange,
   onSearchBegin,
   onSearchChange,
@@ -321,6 +334,9 @@ export function ChatScreen({
       sidebarOverlayOpen={sidebarOverlayOpen}
       settingsOpen={settingsOpen}
       onSettingsPick={onSettingsPick}
+      signOutConfirmOpen={signOutConfirmOpen}
+      onConfirmSignOut={onConfirmSignOut}
+      onCancelSignOut={onCancelSignOut}
       onSelect={onSelectDestination}
       onCloseDrawer={onCloseDrawer}
     >
