@@ -1,0 +1,40 @@
+.h-mcp-json {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 16px;
+}
+
+/* An outlined, expanding TextField with the code in 13px monospace. */
+.h-mcp-json__text {
+  flex: 1;
+  min-height: 160px;
+  margin-top: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-sm);
+  background: transparent;
+  color: var(--h-fg);
+  font-family: var(--h-font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  resize: none;
+}
+
+.h-mcp-json__text:focus {
+  outline: none;
+  border: 2px solid var(--h-fg);
+  padding: 11px;
+}
+
+.h-mcp-json__error {
+  color: var(--h-error);
+  font-size: var(--h-ramp-body-md-size, 14px);
+  line-height: 20px;
+}
+
+.h-mcp-json__save {
+  margin-right: 8px;
+}

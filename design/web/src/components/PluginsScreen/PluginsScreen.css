@@ -1,0 +1,110 @@
+.h-plugins__divider {
+  height: 1px;
+  background: var(--h-border);
+}
+
+.h-plugins__empty {
+  padding: 48px;
+  text-align: center;
+}
+
+.h-plugins__pane {
+  padding-top: 16px;
+}
+
+.h-plugins__catalog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.h-plugins__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 8px;
+}
+
+.h-plugins__search-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.h-plugins__catalog-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.h-plugins__providers {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.h-plugins__providers-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
+.h-plugins__needs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.h-plugins__command {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.h-plugins__command > .h-mono {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.h-plugins__single-engine {
+  padding: 8px 16px;
+}
+
+.h-plugins__save-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--h-border);
+}
+
+.h-plugins__save-bar > span {
+  flex: 1;
+}
+
+.h-plugins__git {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* CheckboxListTile with contentPadding zero: the box lines up with the field. */
+.h-plugins__trust {
+  margin-inline: -16px;
+}
+
+.h-plugins__git-url {
+  margin-bottom: 8px;
+}
+
+/* The dialog's warning: a box outlined in the text color, not a tinted banner. */
+.h-plugins__unreviewed {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--h-fg);
+  border-radius: var(--h-radius);
+}
