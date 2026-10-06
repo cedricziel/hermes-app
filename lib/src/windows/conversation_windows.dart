@@ -24,11 +24,17 @@ abstract interface class ConversationWindowHost {
   /// once it has set up its frame.
   Future<String> create(ConversationWindowArgs args);
 
+  /// Brings the window to the front; throws for a window that is gone.
   Future<void> focus(String windowId);
 
-  /// Sends [command] (`close`, or a thread action's name) to the window's
-  /// own engine.
+  /// Sends a thread action, by name, to the window's own engine.
   Future<void> command(String windowId, String command);
+
+  /// Closes the window natively, whether or not its engine is listening.
+  Future<void> close(String windowId);
+
+  /// Closes every conversation window natively.
+  Future<void> closeAll();
 
   /// Brings the main window back, also after it was closed.
   Future<void> showMain();
@@ -155,6 +161,14 @@ class ConversationWindows extends ChangeNotifier {
 
   bool _restored = false;
 
+  /// Windows being created, whose ids are not known yet. A new window can ask
+  /// for headers before its creation has returned.
+  final _creating = <Future<void>>{};
+
+  /// Bumped by [closeAll], so windows a restore is still opening for the old
+  /// session are closed again.
+  int _generation = 0;
+
   /// Opens [threadId] of [profile] in a window of its own, or brings its
   /// window to the front when it already has one.
   Future<void> open(
@@ -163,7 +177,7 @@ class ConversationWindows extends ChangeNotifier {
     required String title,
   }) async {
     if (windowFor(threadId, profile) case final window?) {
-      return _host.focus(window.windowId);
+      if (await focus(window.windowId)) return;
     }
     final connection = _connection();
     if (connection == null) return;
@@ -182,18 +196,34 @@ class ConversationWindows extends ChangeNotifier {
   Future<void> restore() async {
     if (_restored) return;
     _restored = true;
-    final connection = _connection();
-    if (connection == null) return;
+    final generation = _generation;
+    final baseUrl = _connection()?.baseUrl;
+    if (baseUrl == null) return;
     for (final args in await _store.load()) {
-      if (args.baseUrl != connection.baseUrl) continue;
-      if (_windows.any((w) => w.args.shows(args.threadId, args.profile))) {
-        continue;
-      }
+      if (args.baseUrl != baseUrl) continue;
+      if (generation != _generation || !_isCurrent(args)) return;
+      if (windowFor(args.threadId, args.profile) != null) continue;
       await _create(args);
     }
   }
 
+  /// Whether [args] belong to the server the main window is signed in to.
+  bool _isCurrent(ConversationWindowArgs args) =>
+      _connection()?.baseUrl == args.baseUrl;
+
   Future<void> _create(ConversationWindowArgs args) async {
+    final done = Completer<void>();
+    _creating.add(done.future);
+    try {
+      await _createWindow(args);
+    } finally {
+      _creating.remove(done.future);
+      done.complete();
+    }
+  }
+
+  Future<void> _createWindow(ConversationWindowArgs args) async {
+    final generation = _generation;
     final String windowId;
     try {
       windowId = await _host.create(args);
@@ -201,17 +231,43 @@ class ConversationWindows extends ChangeNotifier {
       debugPrint('Could not open a conversation window: $error');
       return;
     }
+    if (generation != _generation || !_isCurrent(args)) {
+      return _host.close(windowId);
+    }
     _windows.add(ConversationWindowEntry(windowId, args));
     _touched.add((threadId: args.threadId, profile: args.profile));
     _changed();
   }
 
-  Future<void> focus(String windowId) => _host.focus(windowId);
+  /// Brings [windowId] to the front. A window that went away without the
+  /// main window hearing of it is dropped, and false is returned.
+  Future<bool> focus(String windowId) async {
+    try {
+      await _host.focus(windowId);
+      return true;
+    } on Object catch (error) {
+      debugPrint('Conversation window $windowId is gone: $error');
+      _drop(windowId);
+      return false;
+    }
+  }
+
+  void _drop(String windowId) {
+    final before = _windows.length;
+    _windows.removeWhere((w) => w.windowId == windowId);
+    if (_keyWindowId == windowId) _setKey(null);
+    if (_windows.length != before) _changed();
+  }
 
   Future<void> showMainWindow() => _host.showMain();
 
   /// Closes the key conversation window; false when the main window is key.
-  Future<bool> closeKeyWindow() => _commandKeyWindow('close');
+  Future<bool> closeKeyWindow() async {
+    final key = _keyWindowId;
+    if (key == null) return false;
+    await _host.close(key);
+    return true;
+  }
 
   /// Runs [action] (pin, rename, copy, archive, delete) on the chat of the
   /// key conversation window; false when the main window is key.
@@ -225,15 +281,20 @@ class ConversationWindows extends ChangeNotifier {
     return true;
   }
 
-  /// Closes every window and forgets them, for a sign-out or another server.
-  Future<void> closeAll() async {
-    final open = [..._windows];
+  /// Closes every window. A sign-out or another server also forgets them;
+  /// with [forget] off (the session expired) they open again once the user
+  /// is signed in.
+  Future<void> closeAll({bool forget = true}) async {
+    _generation++;
     _windows.clear();
     _setKey(null);
-    _changed();
-    await Future.wait([
-      for (final window in open) _host.command(window.windowId, 'close'),
-    ]);
+    if (forget) {
+      _changed();
+    } else {
+      _restored = false;
+      notifyListeners();
+    }
+    await _host.closeAll();
   }
 
   void _retain(Set<String> live) {
@@ -247,6 +308,18 @@ class ConversationWindows extends ChangeNotifier {
     final windowId = args['window_id'];
     switch (method) {
       case 'auth.headers':
+        // Only a window of the server signed in to gets its credentials.
+        ConversationWindowEntry? known() =>
+            _windows.where((w) => w.windowId == windowId).firstOrNull;
+        if (known() == null) await Future.wait([..._creating]);
+        final window = known();
+        if (window == null || !_isCurrent(window.args)) {
+          if (windowId is String) {
+            _drop(windowId);
+            unawaited(_host.close(windowId));
+          }
+          return const <String, String>{};
+        }
         final rejected = args['rejected'];
         return _headers(
           rejected: rejected is Map ? rejected.cast<String, String>() : null,

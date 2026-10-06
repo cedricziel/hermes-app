@@ -94,7 +94,8 @@ void main() {
     expect(await windows.closeKeyWindow(), isTrue);
     expect(await windows.runInKeyWindow(ThreadAction.archive), isTrue);
 
-    expect(host.commands, [('w0', 'close'), ('w0', 'archive')]);
+    expect(host.closedNatively, ['w0']);
+    expect(host.commands, [('w0', 'archive')]);
   });
 
   test('a renamed chat updates its window entry', () async {
@@ -106,11 +107,82 @@ void main() {
   });
 
   test('answers a window asking for request headers', () async {
+    await windows.open('s1', profile: null, title: 'A');
+
     final headers = await host.call('auth.headers', {
+      'window_id': 'w0',
       'rejected': {'Authorization': 'Bearer old'},
     });
 
     expect(headers, {'Authorization': 'Bearer t'});
+  });
+
+  test(
+    'a new window asking before its creation returned gets headers',
+    () async {
+      Future<Object?>? asked;
+      host.onCreate = (_) async {
+        asked = host.call('auth.headers', {'window_id': 'w0'});
+      };
+
+      await windows.open('s1', profile: null, title: 'A');
+
+      expect(await asked, {'Authorization': 'Bearer t'});
+      expect(host.closedNatively, isEmpty);
+    },
+  );
+
+  test('a window it does not know gets no headers and is closed', () async {
+    final headers = await host.call('auth.headers', {'window_id': 'w9'});
+
+    expect(headers, isEmpty);
+    expect(host.closedNatively, ['w9']);
+  });
+
+  test('a window of another server gets no headers and is closed', () async {
+    await windows.open('s1', profile: null, title: 'A');
+    connection = (baseUrl: 'https://other.test', authRequired: true);
+
+    final headers = await host.call('auth.headers', {'window_id': 'w0'});
+
+    expect(headers, isEmpty);
+    expect(host.closedNatively, ['w0']);
+    expect(windows.windows, isEmpty);
+  });
+
+  test('a window that went away without notice is opened again', () async {
+    await windows.open('s1', profile: null, title: 'A');
+    host.vanished('w0');
+
+    await windows.open('s1', profile: null, title: 'A');
+
+    expect(host.created.keys, ['w1']);
+    expect(windows.windows.map((w) => w.windowId), ['w1']);
+  });
+
+  test('focusing a window that went away drops it', () async {
+    await windows.open('s1', profile: null, title: 'A');
+    host.vanished('w0');
+
+    expect(await windows.focus('w0'), isFalse);
+    expect(windows.windows, isEmpty);
+  });
+
+  test('a server change while restoring opens nothing more', () async {
+    await windows.open('s1', profile: null, title: 'A');
+    await windows.open('s2', profile: null, title: 'B');
+    windows.dispose();
+    host = FakeConversationWindowHost();
+    windows = build();
+    host.onCreate = (_) async {
+      connection = null;
+      await windows.closeAll();
+    };
+
+    await windows.restore();
+
+    expect(host.created, isEmpty);
+    expect(windows.windows, isEmpty);
   });
 
   test(
@@ -174,12 +246,27 @@ void main() {
     await pumpEventQueue();
     windows.dispose();
 
-    expect(host.commands, [('w0', 'close')]);
+    expect(host.closedNatively, ['*']);
     host = FakeConversationWindowHost();
     windows = build();
     await windows.restore();
     expect(host.created, isEmpty);
   });
+
+  test(
+    'closing all windows when the session expires keeps them for later',
+    () async {
+      await windows.open('s1', profile: 'work', title: 'A');
+
+      await windows.closeAll(forget: false);
+      await pumpEventQueue();
+      expect(host.closedNatively, ['*']);
+      expect(windows.windows, isEmpty);
+
+      await windows.restore();
+      expect(host.created.values.single.threadId, 's1');
+    },
+  );
 
   test('remembers the chats that were open in a window this session', () async {
     await windows.open('s1', profile: 'work', title: 'A');

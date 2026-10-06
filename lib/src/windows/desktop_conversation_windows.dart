@@ -59,6 +59,24 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
   }
 
   @override
+  Future<void> close(String windowId) async {
+    try {
+      await _nativeWindow.invokeMethod<void>('closeConversation', windowId);
+    } on Object catch (error) {
+      debugPrint('Could not close conversation window $windowId: $error');
+    }
+  }
+
+  @override
+  Future<void> closeAll() async {
+    try {
+      await _nativeWindow.invokeMethod<void>('closeConversations');
+    } on Object catch (error) {
+      debugPrint('Could not close the conversation windows: $error');
+    }
+  }
+
+  @override
   Future<void> showMain() => _nativeWindow.invokeMethod<void>('show');
 
   @override
@@ -91,7 +109,8 @@ abstract interface class ConversationWindowLink {
   /// The auth headers for a request; see `WindowAuthInterceptor`.
   Future<Map<String, String>> headers({Map<String, String>? rejected});
 
-  /// Commands the main window sends: `close`, or a thread action's name.
+  /// Thread actions, by name, the main window's menu bar sends; held until
+  /// the screen listens.
   Stream<String> get commands;
 
   /// Whether this window became (true) or stopped being (false) key.
@@ -128,7 +147,7 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
   }
 
   final String windowId;
-  final _commands = StreamController<String>.broadcast();
+  final _commands = StreamController<String>();
 
   Future<T?> _main<T>(String method, [Map<String, Object?> args = const {}]) =>
       _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});
@@ -176,6 +195,7 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
   Future<void> present({required String frameName, required String title}) =>
       _quietly(
         _nativeWindow.invokeMethod<void>('present', {
+          'window_id': windowId,
           'frame_name': frameName,
           'title': title,
         }),

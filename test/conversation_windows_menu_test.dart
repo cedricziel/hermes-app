@@ -116,8 +116,8 @@ void main() {
       'copyTranscript',
       'archive',
       'delete',
-      'close',
     ]);
+    expect(host.closedNatively, ['w0']);
     expect(host.mainShown, 1);
     expect(mainCommands, isEmpty);
   });
