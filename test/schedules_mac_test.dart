@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
+import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_form_screen.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
@@ -17,6 +19,7 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 
 import 'support/cron_fixtures.dart';
 import 'support/fake_hermes_server.dart';
+import 'support/mac_commands_builder.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -72,6 +75,7 @@ void main() {
     WidgetTester tester, {
     TargetPlatform platform = TargetPlatform.macOS,
     Size size = const Size(1000, 800),
+    MacCommandRegistry? commands,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -79,6 +83,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildHermesLightTheme().copyWith(platform: platform),
+        builder: macCommandsBuilder(commands),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
     );
@@ -89,6 +94,21 @@ void main() {
       find.descendant(of: find.byType(InfoChip), matching: find.text(name));
 
   group('toolbar', () {
+    testWidgets('File > New Schedule (command-N) opens the gallery', (
+      tester,
+    ) async {
+      server.on('GET', '/api/profiles', {'profiles': <Object>[]});
+      final commands = MacCommandRegistry();
+      addTearDown(commands.dispose);
+      await pumpScreen(tester, commands: commands);
+      expect(commands.handlerFor(MacCommand.newChat)?.title, 'New Schedule');
+
+      expect(commands.invoke(MacCommand.newChat), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BlueprintGalleryScreen), findsOneWidget);
+    });
+
     testWidgets('names the page and counts the jobs listed', (tester) async {
       await pumpScreen(tester);
 

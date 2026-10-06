@@ -11,6 +11,7 @@ import 'blueprint_screens.dart';
 import 'schedule_detail.dart';
 import 'schedule_models.dart';
 import 'schedules_controller.dart';
+import '../macos/mac_commands.dart';
 import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
@@ -114,7 +115,17 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => MacCommandScope(
+    commands: {
+      MacCommand.newChat: MacCommandHandler(
+        () => _new(wide: _split),
+        title: 'New Schedule',
+      ),
+    },
+    child: _page(context),
+  );
+
+  Widget _page(BuildContext context) {
     return LayoutBuilder(
       builder: (context, box) {
         final mac = platformChromeOf(context) == PlatformChrome.macos;
