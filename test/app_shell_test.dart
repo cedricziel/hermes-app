@@ -532,6 +532,48 @@ void main() {
       ],
     });
 
+  /// Opens [page] from the sidebar of a wide layout.
+  Future<void> openInSidebar(WidgetTester tester, String page) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byType(ShellNavigation),
+        matching: find.text(page),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a route pushed over the shell after Kanban and Schedules '
+      'were both opened animates without a hero clash', (tester) async {
+    kanbanPlugin(on: true);
+    cronRoutes(on: true);
+    jobRoutes();
+    server
+      ..on('GET', '/api/plugins/kanban/boards', kanbanBoardsBody([]))
+      ..on('GET', '/api/plugins/kanban/board', kanbanBoardBody([]))
+      ..on('GET', '/api/profiles', {'profiles': <Object>[]});
+    await pumpShell(
+      tester,
+      size: const Size(1400, 900),
+      platform: TargetPlatform.android,
+      kanbanBuilder: (_) => KanbanScreen(
+        repository: KanbanRepository(server.client()),
+        connect: ({required since, board}) async =>
+            StreamChannelController<String>().foreign,
+      ),
+    );
+
+    await openInSidebar(tester, 'Kanban');
+    await openInSidebar(tester, 'Schedules');
+    expect(find.byType(FloatingActionButton), findsWidgets);
+
+    await tester.tap(find.byType(FloatingActionButton).hitTestable());
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(BlueprintGalleryScreen), findsOneWidget);
+  });
+
   testWidgets('File > New (Command-N) adds what the page in front holds', (
     tester,
   ) async {
@@ -549,7 +591,6 @@ void main() {
     await pumpShell(
       tester,
       size: const Size(1400, 900),
-      platform: TargetPlatform.macOS,
       commands: commands,
       kanbanBuilder: (_) => KanbanScreen(
         repository: KanbanRepository(server.client()),
@@ -558,19 +599,10 @@ void main() {
       ),
     );
     String? newTitle() => commands.handlerFor(MacCommand.newChat)?.title;
-    Future<void> open(String page) async {
-      await tester.tap(
-        find.descendant(
-          of: find.byType(ShellNavigation),
-          matching: find.text(page),
-        ),
-      );
-      await tester.pumpAndSettle();
-    }
 
     expect(newTitle(), isNull, reason: 'Chat keeps the New Chat label');
 
-    await open('Kanban');
+    await openInSidebar(tester, 'Kanban');
     expect(newTitle(), 'New Task');
     expect(commands.invoke(MacCommand.newChat), isTrue);
     await tester.pumpAndSettle();
@@ -578,7 +610,7 @@ void main() {
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
 
-    await open('Schedules');
+    await openInSidebar(tester, 'Schedules');
     expect(newTitle(), 'New Schedule');
     expect(commands.invoke(MacCommand.newChat), isTrue);
     await tester.pumpAndSettle();
@@ -586,7 +618,7 @@ void main() {
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await tester.pumpAndSettle();
 
-    await open('Chat');
+    await openInSidebar(tester, 'Chat');
     expect(newTitle(), isNull);
   });
 
