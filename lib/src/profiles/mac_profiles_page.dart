@@ -22,9 +22,9 @@ import 'widgets/new_profile_dialog.dart';
 /// it for that profile.
 ///
 /// Counts are read when a profile is selected and left out when a read
-/// fails. Messaging platforms and plugins count the ones switched on, and only for the
-/// chat's profile: they are managed for the profile the dashboard is scoped
-/// to.
+/// fails. Messaging platforms and plugins count the ones switched on.
+/// Plugins only count for the chat's profile: the dashboard's plugin hub
+/// takes no profile and answers for the one it is scoped to.
 class MacProfilesPage extends StatefulWidget {
   const MacProfilesPage({super.key, required this.profiles});
 
@@ -107,32 +107,30 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 .slots
                 .length,
       ),
-      if (current) ...[
-        count(
-          ProfileSection.messaging,
-          () async => (await repositories.messaging.load())
-              .where((p) => p.enabled)
-              .length,
-        ),
+      count(
+        ProfileSection.messaging,
+        () async => (await repositories.messaging.forProfile(name).load())
+            .where((p) => p.enabled)
+            .length,
+      ),
+      if (current)
         count(
           ProfileSection.plugins,
           () async => (await repositories.pluginManager.load())
               .where((p) => p.status == PluginStatus.enabled)
               .length,
         ),
-      ],
     ]);
   }
 
-  /// The selected profile's counts, without messaging and plugins when it is not
-  /// the chat's profile any more: they were read for the dashboard's scope.
+  /// The selected profile's counts, without plugins when it is not the chat's
+  /// profile any more: they were read for the dashboard's scope.
   Map<ProfileSection, int> _shownCounts() {
     final counts = _counts[_selected] ?? const {};
     if (_selected == _profiles.current) return counts;
     return {
       for (final MapEntry(:key, :value) in counts.entries)
-        if (key != ProfileSection.messaging && key != ProfileSection.plugins)
-          key: value,
+        if (key != ProfileSection.plugins) key: value,
     };
   }
 
@@ -146,7 +144,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         chatProfile: name,
       ),
       ProfileSection.messaging => MessagingScreen(
-        repository: repositories.messaging,
+        repository: repositories.messaging.forProfile(name),
       ),
       ProfileSection.plugins => PluginsScreen(
         repository: repositories.pluginManager,

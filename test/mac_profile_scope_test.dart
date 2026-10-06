@@ -59,6 +59,15 @@ void main() {
       )
       ..on(
         'GET',
+        '/api/messaging/platforms',
+        platformListBody([
+          platformRow(id: 'telegram', name: 'Telegram', enabled: true),
+          platformRow(id: 'slack', name: 'Slack', enabled: true),
+        ]),
+        query: {'profile': 'work'},
+      )
+      ..on(
+        'GET',
         '/api/model/auxiliary',
         {'detail': 'down'},
         status: 500,
@@ -163,18 +172,23 @@ void main() {
     expect(countIn(ProfileSection.skills), '12');
     expect(countIn(ProfileSection.mcp), '1');
     expect(countIn(ProfileSection.helperModels), isNull);
-    expect(countIn(ProfileSection.messaging), isNull);
+    // Messaging is read for the profile itself; plugins only for the
+    // chat's profile, as the dashboard's plugin hub has no profile.
+    expect(countIn(ProfileSection.messaging), '2');
+    expect(countIn(ProfileSection.plugins), isNull);
 
     await tester.tap(find.byKey(const ValueKey('profile-row-default')));
     await tester.pumpAndSettle();
     expect(countIn(ProfileSection.messaging), '1');
 
-    // After the chat moves to "work", the cached count of "default" goes.
+    // After the chat moves to "work", the cached plugin count of "default"
+    // goes; its messaging count stays.
     await tester.tap(find.byKey(const Key('mac-profile-switcher')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('work').last);
     await tester.pumpAndSettle();
-    expect(countIn(ProfileSection.messaging), isNull);
+    expect(countIn(ProfileSection.messaging), '1');
+    expect(countIn(ProfileSection.plugins), isNull);
   });
 
   testWidgets('the account footer opens Settings', (tester) async {
