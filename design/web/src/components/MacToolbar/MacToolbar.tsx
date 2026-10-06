@@ -130,6 +130,8 @@ export interface MacToolbarProps {
   sidebarHidden?: boolean;
   /** The show-sidebar button was pressed; defaults to the enclosing `AppShell`'s toggle. */
   onShowSidebar?: () => void;
+  /** Space in px before the title in a window with no sidebar at all: 86 (the traffic lights' 78 and 8) in a conversation window. Overrides the 20px default and the hidden sidebar's 78px. */
+  leadingInset?: number;
 }
 
 /**
@@ -150,6 +152,7 @@ export function MacToolbar({
   border = false,
   sidebarHidden,
   onShowSidebar,
+  leadingInset,
 }: MacToolbarProps) {
   const shell = useContext(ShellChromeContext);
   const hidden = sidebarHidden ?? shell.sidebarCollapsed;
@@ -166,6 +169,9 @@ export function MacToolbar({
           border && "h-mac-toolbar--border",
           hidden && "h-mac-toolbar--sidebar-hidden",
         )}
+        style={
+          leadingInset === undefined ? undefined : { paddingLeft: leadingInset }
+        }
       >
         {hidden && showSidebar ? (
           <MacToolbarButton
