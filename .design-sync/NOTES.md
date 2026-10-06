@@ -85,7 +85,10 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   the Material glyph, as the app does. `apple="back"` (iOS back chevron) and `apple="checkmark"` (menu check) name
   glyphs outside AppIcons; `apple={false}` marks spots the app draws in Material everywhere (code block header,
   ExpansionTile chevrons in ToolCallCard and the task panel's Runs/History, the Mac back button).
-- Not recreated: the Apple alert dialog and date pickers (`Sheet` draws the Material bottom sheet and dialog only), the swipe and long-press
+- `AlertDialog` (Surfaces) is the app's `AppAlertDialog`/`showConfirmDialog`: the Cupertino alert on Apple (270px, 14px
+  corners, `--h-apple-scrim` barrier, `--h-apple-separator` hairlines, default bold, destructive red) and an M3 alert
+  on Material (a `Sheet` dialog with `fitContent`). `Sheet` and `AlertDialog` share focus handling (`src/modalFocus.ts`).
+- Not recreated: the date pickers (`Sheet` draws the Material bottom sheet and dialog only), the swipe and long-press
   gestures themselves (only their static states; the profile row keeps its tune button), the Mac right-click
   menu of schedule, MCP and plugin rows, the sheet's detent gestures, status bar and home
   indicator safe areas, `Button` 44px (iOS) and 28px (Mac) heights, translucent bar blur (the Mac sidebar uses a
@@ -120,8 +123,12 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   `AppShell settingsOpen` shows); the Mac sidebar has no "More". `AppShell compact` + `sidebarOverlayOpen` is the
   compact window (sidebar over the page, `ShellChrome.closeOverlay`), and `ChatHeader` reads `compact` from it.
   `ShellDestination` gained `bots` and `profiles` (`MacProfilesPage` in the shell). `Menu` items gained `heading`
-  and `detail`. Not recreated: the in-flight Mac follow-ups (menu bar Connection Details and Sign Out, deselecting
-  a chat opened in its own window), which were not on main.
+  and `detail`.
+- Mac follow-ups #444 and #445: Sign Out asks first (`AppShell`/`ChatScreen` `signOutConfirmOpen`, the internal
+  `SignOutAlert` in `MacAccount.tsx`, an Apple `AlertDialog`); `MacProfilesPage` documents that Messaging counts per
+  profile while Plugins is counted only for the chat's profile (left out of `counts` otherwise, `OtherProfile` cell); a chat opened in its own window leaves the main window
+  (welcome view, empty composer) and its draft moves to `ConversationWindowScreen`'s composer (`CarriedOverDraft`
+  cell). The Hermes menu's Connection Details and Sign Out… are native menu bar items with no card.
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
   `useDismiss` is private); export it next to `Menu` if a screen needs it.
 - Every app screen should have a story in both catalogs: a Widgetbook use case per Flutter screen, then a
