@@ -30,6 +30,9 @@ for (const m of sdk.matchAll(
 const app = readFileSync(join(repo, "lib/src/theme/app_icons.dart"), "utf8");
 const sets = [...app.matchAll(/static const (\w+) = AppIconSet\(([^;]*)\);/g)];
 const materialToApple = new Map();
+// Every set's glyph, also one whose Material name an earlier set took
+// (pinOutline's pin), so `Icon apple="pin"` can draw it.
+const pairedGlyphs = new Set();
 const skipped = [];
 for (const [, field, args] of sets) {
   const m = args.match(/^\s*Icons\.(\w+),\s*CupertinoIcons\.(\w+),?\s*$/);
@@ -37,6 +40,7 @@ for (const [, field, args] of sets) {
     skipped.push(`${field}(${args.replace(/\s+/g, " ").trim()})`);
     continue;
   }
+  pairedGlyphs.add(m[2]);
   // The first set wins when two share a Material glyph (sidebar, inspector).
   if (!materialToApple.has(m[1])) materialToApple.set(m[1], m[2]);
 }
@@ -45,7 +49,7 @@ for (const [, field, args] of sets) {
 // the navigation bar's back chevron and the pull-down menu's checkmark.
 const extras = ["back", "checkmark"];
 
-const appleNames = new Set([...materialToApple.values(), ...extras]);
+const appleNames = new Set([...pairedGlyphs, ...extras]);
 const missing = [...appleNames].filter((n) => !codepoints.has(n));
 if (missing.length) throw new Error(`no codepoint for ${missing.join(", ")}`);
 
