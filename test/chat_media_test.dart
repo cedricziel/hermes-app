@@ -39,24 +39,36 @@ void main() {
   final pdf = Uint8List.fromList('%PDF-1.7 fake'.codeUnits);
   final anyImage = find.byType(Image, skipOffstage: false);
 
-  // Fetches and file writes are real I/O, which the test clock does not run.
+  // Fetches, file writes and image decoding are real work, which the test
+  // clock does not run. Lets real time pass until no spinner is left and every
+  // image is decoded (an undecoded one has no size to tap), however long that
+  // takes on a busy machine.
   Future<void> settle(WidgetTester tester) async {
-    for (var i = 0; i < 6; i++) {
+    bool busy() =>
+        find.byType(CircularProgressIndicator).evaluate().isNotEmpty ||
+        tester
+            .widgetList<RawImage>(find.byType(RawImage, skipOffstage: false))
+            .any((image) => image.image == null);
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    do {
       await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 25)),
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
       );
       await tester.pump(const Duration(milliseconds: 50));
-    }
+    } while (busy() && DateTime.now().isBefore(deadline));
   }
 
-  // Taps, then lets what the tap started run to its end. The tap has to be
-  // inside runAsync too, or the file I/O it starts never finishes.
-  Future<void> tap(WidgetTester tester, Finder finder, {int wait = 250}) async {
-    await tester.runAsync(() async {
-      await tester.tap(finder);
-      await Future<void>.delayed(Duration(milliseconds: wait));
-    });
-    await tester.pump(const Duration(milliseconds: 50));
+  // The tap has to be inside runAsync, or the file I/O it starts never
+  // finishes.
+  Future<void> tapOnly(WidgetTester tester, Finder finder) async {
+    await tester.runAsync(() => tester.tap(finder));
+    await tester.pump();
+  }
+
+  // Taps, then lets what the tap started run to its end.
+  Future<void> tap(WidgetTester tester, Finder finder) async {
+    await tapOnly(tester, finder);
+    await settle(tester);
   }
 
   Future<void> pumpTranscript(
@@ -257,17 +269,14 @@ void main() {
       expect(find.text('report.pdf'), findsOneWidget);
       expect(server.requests, isEmpty);
 
-      await tap(tester, find.text('report.pdf'), wait: 50);
+      await tapOnly(tester, find.text('report.pdf'));
 
       expect(find.text('Downloading…'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(actions.opened, isEmpty);
 
       gate.complete();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 200)),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
+      await settle(tester);
 
       expect(find.text('Downloading…'), findsNothing);
       expect(actions.opened, hasLength(1));
