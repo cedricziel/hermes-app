@@ -142,7 +142,8 @@ void main() {
     reply
       ..emit(const ReplyCompleted(''))
       ..finish();
-    await tester.pump(const Duration(seconds: 1));
+    // The queue waits for the session to settle, or for 2 s with no report.
+    await tester.pump(const Duration(seconds: 2));
 
     final next = transport.sends.last;
     expect(next.text, 'And then?');

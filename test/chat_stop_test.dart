@@ -141,7 +141,8 @@ void main() {
 
     first.emit(const ReplyCompleted('One done.'));
     first.finish();
-    await tester.pump();
+    // The queue waits for the session to settle, or for 2 s with no report.
+    await tester.pump(const Duration(seconds: 2));
     expect(transport.sends, hasLength(2));
 
     gate.complete();

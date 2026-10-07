@@ -166,6 +166,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// The prompts sent while a thread was replying, oldest first.
   final _queues = <ChatThread, List<QueuedPrompt>>{};
+
+  /// The threads whose queue waits for the session to settle, each with the
+  /// fallback timer that sends it when no settle report comes.
+  final _settleTimers = <ChatThread, Timer>{};
+
+  /// The threads that changed on the server in a way the stream cannot carry,
+  /// to read again once their reply is over.
+  final _refetch = <ChatThread>{};
   String? _selectedId;
   String? get selectedId => _selectedId;
   final _emptyController = InMemoryChatController();
@@ -236,6 +244,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..addAll(threads.map((t) => t.id));
       _olderRows.clear();
       _queues.clear();
+      _cancelSettleWaits();
       _bound
         ..clear()
         ..addAll(threads);
@@ -629,6 +638,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// deleted.
   void _threadRemoved(ChatThread thread) {
     _queues.remove(thread);
+    _settleTimers.remove(thread)?.cancel();
+    _refetch.remove(thread);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -647,6 +658,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       reply.cancel();
     }
     _stopFollowing();
+    _cancelSettleWaits();
     search?.dispose();
     _emptyController.dispose();
     for (final controller in _chatControllers.values) {
@@ -950,14 +962,51 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Sends the first queued prompt of [thread] when no reply is pending
   /// there. One that cannot be sent stays first in the queue.
   void sendQueued(ChatThread thread) {
+    _settleTimers.remove(thread)?.cancel();
     final queue = _queues[thread];
     if (thread.isReplying || queue == null || queue.isEmpty) return;
     final next = queue.removeAt(0);
     if (queue.isEmpty) _queues.remove(thread);
-    if (!_send(thread, next.text, next.files, displayText: next.displayText)) {
+    if (!_send(
+      thread,
+      next.text,
+      next.files,
+      displayText: next.displayText,
+      queued: true,
+    )) {
       (_queues[thread] ??= []).insert(0, next);
     }
     notifyListeners();
+  }
+
+  /// After a reply ended normally, holds the queued prompts of [thread] until
+  /// the session reports it settled. Two seconds without that report (an older
+  /// Hermes, or a missed frame) send them anyway.
+  void _awaitSettle(ChatThread thread) {
+    if (thread.isReplying || (_queues[thread]?.isEmpty ?? true)) return;
+    if (_settleTimers.containsKey(thread)) return;
+    _settleTimers[thread] = Timer(
+      const Duration(seconds: 2),
+      () => _settle(thread),
+    );
+  }
+
+  /// Ends the settle wait of [thread], if one is running, and sends its
+  /// queue. A thread whose queue is paused by a stop or a failure has no wait,
+  /// so a late report does not send it.
+  void _settle(ChatThread thread) {
+    final timer = _settleTimers.remove(thread);
+    if (timer == null) return;
+    timer.cancel();
+    sendQueued(thread);
+  }
+
+  void _cancelSettleWaits() {
+    for (final timer in _settleTimers.values) {
+      timer.cancel();
+    }
+    _settleTimers.clear();
+    _refetch.clear();
   }
 
   /// Sends [typed] and [files] in the selected thread, or in a new one, and
@@ -982,7 +1031,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     (_queues[selected] ??= []).add(
       QueuedPrompt(typed, files, displayText: displayText),
     );
-    selected.isReplying ? notifyListeners() : sendQueued(selected);
+    (selected.isReplying || _settleTimers.containsKey(selected))
+        ? notifyListeners()
+        : sendQueued(selected);
     return true;
   }
 
@@ -991,6 +1042,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String typed,
     List<SharedFile> files, {
     String? displayText,
+    bool queued = false,
   }) {
     final sizes = _sizesOrExplain(files);
     if (sizes == null) return false;
@@ -1060,7 +1112,15 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         sendQueued(thread);
       });
     } else {
-      _streamReply(transport, thread, placeholder, typed, outgoing, threadId);
+      _streamReply(
+        transport,
+        thread,
+        placeholder,
+        typed,
+        outgoing,
+        threadId,
+        queued: queued,
+      );
       unawaited(_attention.askForPermission());
     }
     return true;
@@ -1109,20 +1169,39 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatMessage reply,
     String text,
     List<OutgoingAttachment> attachments,
-    String? threadId,
-  ) {
+    String? threadId, {
+    bool queued = false,
+  }) {
     late final StreamSubscription<ChatEvent> subscription;
     final profile = _profile;
     var failed = false;
     var stopped = false;
+    var folded = false;
+    var settled = false;
     void end([Object? error]) {
       _replies.remove(subscription);
-      if (reply.isPending) {
+      if (folded) {
+        // The prompt went into the turn already running, whose events follow
+        // on the thread's follow-ups.
+        if (error == null) {
+          _followUps(transport, thread, profile);
+          unawaited(refreshActive());
+        } else {
+          notifyListeners();
+        }
+      } else if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       } else if (error == null && !failed) {
         _followUps(transport, thread, profile);
-        if (!stopped) sendQueued(thread);
+        if (!stopped) {
+          if (settled) {
+            sendQueued(thread);
+          } else {
+            _awaitSettle(thread);
+          }
+        }
+        _refetchIfIdle(thread);
         unawaited(refreshActive());
       } else {
         // The queue is left paused; the screen shows it.
@@ -1137,6 +1216,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           text: text,
           attachments: attachments,
           model: thread.modelChoice,
+          queued: queued,
         )
         .listen(
           (event) {
@@ -1144,6 +1224,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               failed = event.failed;
               stopped = event.stopped;
             }
+            if (event is PromptFolded) folded = true;
+            if (event is SessionInfo && event.running == false) settled = true;
             _onReplyEvent(thread, reply, event, profile);
           },
           onError: end,
@@ -1165,12 +1247,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// on, a queued prompt); each one gets a reply of its own.
   void _followUps(ChatTransport transport, ChatThread thread, String? profile) {
     if (_profile != profile || !_threads.contains(thread)) return;
-    if (!_followingIds.add(thread.id)) return;
+    final threadId = thread.id;
+    if (!_followingIds.add(threadId)) return;
     ChatMessage? reply;
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       _following.remove(subscription);
-      _followingIds.remove(thread.id);
+      _followingIds.remove(threadId);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -1179,24 +1262,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     subscription = transport
-        .followUps(thread.id, profile: profile)
+        .followUps(threadId, profile: profile)
         .listen(
           (event) {
-            if (event is ReplyStarted && reply == null) {
+            if (reply == null && _opensTurn(event)) {
               reply = _addPlaceholder(thread);
             }
             final current = reply;
             if (current == null) {
-              if (event is ThreadTitled) {
-                if (!thread.isCanonicalBotChat) thread.title = event.title;
-                notifyListeners();
-              }
+              _onIdleEvent(thread, event, profile);
               return;
             }
             _onReplyEvent(thread, current, event, profile);
             if (event is ReplyCompleted) {
               reply = null;
-              if (!event.failed && !event.stopped) sendQueued(thread);
+              if (!event.failed && !event.stopped) _awaitSettle(thread);
               unawaited(refreshActive());
             }
           },
@@ -1205,6 +1285,77 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           cancelOnError: true,
         );
     _following.add(subscription);
+  }
+
+  /// Whether [event] starts a turn Hermes runs on its own, so a reply opens
+  /// for it when none is open.
+  bool _opensTurn(ChatEvent event) => switch (event) {
+    ReplyStarted() ||
+    ReplyDelta() ||
+    ReasoningUpdated() ||
+    ToolPreparing() ||
+    ToolStarted() => true,
+    _ => false,
+  };
+
+  /// An event on the follow-ups while no reply is open. It is about the
+  /// thread, or a completion for the reply a turn ended without.
+  void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
+    switch (event) {
+      case SessionInfo():
+        _onSessionInfo(thread, event);
+      case ThreadTitled(:final title):
+        if (!thread.isCanonicalBotChat) thread.title = title;
+        notifyListeners();
+      case ThreadNeedsRefetch():
+        _refetch.add(thread);
+        _refetchIfIdle(thread);
+      case ReplyCompleted():
+        final settled = _settledReply(thread);
+        if (settled == null) return;
+        _onReplyEvent(thread, settled, event, profile);
+        settled.settledWithoutCompletion = false;
+      default:
+        break;
+    }
+  }
+
+  /// The last reply a turn ended without its completion, which a completion
+  /// arriving later belongs to.
+  ChatMessage? _settledReply(ChatThread thread) {
+    for (final message in thread.messages.reversed) {
+      if (message.settledWithoutCompletion) return message;
+    }
+    return null;
+  }
+
+  /// Follows the session's stored id when compression rotates it, and
+  /// settles the queue when the session reports it is no longer running.
+  void _onSessionInfo(ChatThread thread, SessionInfo info) {
+    final stored = info.storedSessionId;
+    if (stored != null && stored.isNotEmpty && stored != thread.id) {
+      if (_bound.contains(thread)) {
+        _retargetBoundThread(thread, stored);
+      } else {
+        _bindThread(thread, stored);
+      }
+    }
+    if (info.running == false) _settle(thread);
+  }
+
+  /// Takes [reply] out of the transcript, for a prompt the server folded into
+  /// the turn already running: no reply of its own was shown for it.
+  void _removeReply(ChatThread thread, ChatMessage reply) {
+    final before = chatMessageToFlyer(reply);
+    thread.messages.remove(reply);
+    notifyListeners();
+    syncMessage(controllerFor(thread), before, const []);
+  }
+
+  /// Reads the thread again once it asked for that and no reply is pending.
+  void _refetchIfIdle(ChatThread thread) {
+    if (thread.isReplying || !_refetch.remove(thread)) return;
+    unawaited(refreshThread(thread.id));
   }
 
   void _onReplyEvent(
@@ -1221,14 +1372,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         notifyListeners();
       case ReplyStarted():
         break;
+      case PromptFolded():
+        _removeReply(thread, reply);
+      case SessionInfo():
+        _updateReply(thread, reply, () => applyReplyEvent(reply, event));
+        _onSessionInfo(thread, event);
+      case ThreadNeedsRefetch():
+        _refetch.add(thread);
       case ReplyErrored() ||
-          SessionInfo() ||
           ReplyStatus() ||
           InputRequestsCancelled() ||
-          PromptFolded() ||
-          ReplyRebuilt() ||
-          ThreadNeedsRefetch():
-        break;
+          ReplyRebuilt():
+        _updateReply(thread, reply, () => applyReplyEvent(reply, event));
       case ReplyDelta() ||
           ReplyCheckpoint() ||
           ReasoningUpdated() ||
@@ -1244,6 +1399,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           InputRequestExpired():
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
+    _refetchIfIdle(thread);
     _announce(thread, event, profile);
   }
 
