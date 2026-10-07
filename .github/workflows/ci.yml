@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  analyze-and-test:
-    name: Analyze & test
+  analyze:
+    name: Analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,19 +31,48 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Test scripts
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+  test:
+    name: Test (shard ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
       - name: Test
-        run: flutter test
+        run: scripts/test-shard.sh ${{ matrix.shard }} 4
 
       - name: Upload workflow screenshots
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: workflow-screenshots
+          name: workflow-screenshots-${{ matrix.shard }}
           path: build/workflow_screenshots
           if-no-files-found: ignore
 
-      - name: Test scripts
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+  # The required check. It passes only when analysis and every test shard did.
+  analyze-and-test:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    needs: [analyze, test]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ]
 
   build-android:
     name: Build Android (debug)
