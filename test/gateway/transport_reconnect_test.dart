@@ -1038,6 +1038,42 @@ void main() {
       });
     });
 
+    test('a thread picked up from a snapshot that drops before any live '
+        'event rebuilds again instead of replaying the ring', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'x'},
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.drop();
+        _deltaSeqs(gateway, 'rt-1', 1, 3);
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'x123'},
+        };
+        async.elapse(const Duration(seconds: 1));
+        gateway.event('message.delta', 'rt-1', {'text': '4'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'x1234',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(gateway.methods, isNot(contains('session.events.since')));
+        expect(follow.events.whereType<ReplyRebuilt>().map((e) => e.text), [
+          'x',
+          'x123',
+        ]);
+        expect(_deltas(follow), ['4']);
+      });
+    });
+
     test('opening a thread offline makes one attempt and does not wait', () {
       fake((async) {
         final waits = <Duration>[];
