@@ -9,8 +9,9 @@ import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// The small row of actions under a finished reply — assistant-ui's action
-/// bar. Copy takes the reply's text; retry, when given, asks again. A reply
-/// the user [stopped] says so first, so it does not read as finished.
+/// bar. Copy takes the reply's text; retry, when given, asks again, and edit
+/// takes the prompt back to change it. A reply the user [stopped] says so
+/// first, so it does not read as finished.
 class MessageActions extends StatefulWidget {
   const MessageActions({
     super.key,
@@ -18,6 +19,7 @@ class MessageActions extends StatefulWidget {
     this.showCopy = true,
     this.stopped = false,
     this.onRetry,
+    this.onEdit,
   });
 
   final String text;
@@ -26,6 +28,7 @@ class MessageActions extends StatefulWidget {
   final bool showCopy;
   final bool stopped;
   final VoidCallback? onRetry;
+  final VoidCallback? onEdit;
 
   @override
   State<MessageActions> createState() => _MessageActionsState();
@@ -53,7 +56,10 @@ class _MessageActionsState extends State<MessageActions> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.showCopy && widget.onRetry == null && !widget.stopped) {
+    if (!widget.showCopy &&
+        widget.onRetry == null &&
+        widget.onEdit == null &&
+        !widget.stopped) {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
@@ -89,6 +95,8 @@ class _MessageActionsState extends State<MessageActions> {
             ),
           if (widget.onRetry case final retry?)
             action('Try again', AppIcons.refresh, retry),
+          if (widget.onEdit case final edit?)
+            action('Edit prompt', AppIcons.edit, edit),
         ],
       ),
     );
