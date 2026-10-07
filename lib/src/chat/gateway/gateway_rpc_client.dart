@@ -108,6 +108,10 @@ class GatewayRpcClient {
   final _pending = <int, _Pending>{};
   var _nextId = 1;
   var _closed = false;
+
+  /// How many frames have arrived, to tell a socket that went quiet from one
+  /// whose frames are still waiting to be handled.
+  var _framesSeen = 0;
   Timer? _pingTimer;
   Timer? _deadline;
   Duration? _deadAfter;
@@ -198,13 +202,25 @@ class GatewayRpcClient {
     _deadline = Timer(after, _onSilent);
   }
 
+  /// The deadline passed. After the app was suspended it can fire before the
+  /// frames that arrived meanwhile are handled, so the socket is closed only
+  /// if still no frame came once those have been.
   void _onSilent() {
+    final seen = _framesSeen;
+    Timer.run(() {
+      if (_closed || _framesSeen != seen) return;
+      _close();
+    });
+  }
+
+  void _close() {
     _onClosed();
     unawaited(_subscription.cancel());
     unawaited(_channel.sink.close());
   }
 
   void _onFrame(String frame) {
+    _framesSeen++;
     if (_deadAfter != null && !_closed) _armDeadline(_deadAfter!);
     final Object? message;
     try {
