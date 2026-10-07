@@ -813,6 +813,26 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   @override
+  Future<int?> undoLastTurn(
+    String threadId, {
+    String? profile,
+    bool retry = false,
+  }) async {
+    final client = await _client();
+    final runtimeId = await _commandRuntime(client, threadId, profile);
+    try {
+      final result = await _call(client, 'session.undo', {
+        'session_id': runtimeId,
+        'intent': retry ? 'retry' : 'undo',
+      });
+      return (result['removed'] as num?)?.toInt() ?? 0;
+    } on GatewayRpcException catch (error) {
+      if (error.code == kGatewayMethodNotFound) return null;
+      rethrow;
+    }
+  }
+
+  @override
   Future<bool> skipUnsupported(String requestId, UnsupportedKind kind) async {
     final open = _awaiting[requestId];
     if (open == null) return false;

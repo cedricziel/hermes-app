@@ -114,6 +114,7 @@ class _ChatThreadViewState extends State<_ChatThreadView> {
                   onPickPrompt: (_) {},
                   latestReplyId: _latest,
                   onRetry: widget.canRetry ? () {} : null,
+                  onEdit: widget.canRetry ? () {} : null,
                   onAnswerApproval: _answered,
                   onAnswerClarify: _answered,
                   onSkipUnsupported: _answered,

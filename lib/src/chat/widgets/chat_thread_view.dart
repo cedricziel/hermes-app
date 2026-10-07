@@ -52,6 +52,7 @@ class ChatThreadView extends StatelessWidget {
     this.modelPill,
     this.header,
     this.onRetry,
+    this.onEdit,
     this.onLoadOlder,
     this.onAnswerApproval,
     this.onAnswerClarify,
@@ -80,6 +81,7 @@ class ChatThreadView extends StatelessWidget {
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
   final VoidCallback? onRetry;
+  final VoidCallback? onEdit;
   final Widget? modelPill;
 
   /// Shown above the thread in a wide layout.
@@ -120,6 +122,7 @@ class ChatThreadView extends StatelessWidget {
           assistantName: botContext?.title,
           latestReplyId: latestReplyId,
           onRetry: onRetry,
+          onEdit: onEdit,
           onLoadOlder: onLoadOlder,
           onAnswerApproval: onAnswerApproval,
           onAnswerClarify: onAnswerClarify,

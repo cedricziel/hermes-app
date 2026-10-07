@@ -412,6 +412,14 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           MessageActions(text: 'The build finished.', onRetry: () {}),
         ),
         _tool(
+          'Copy, retry and edit',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+          ),
+        ),
+        _tool(
           'Retry only (failed reply)',
           MessageActions(text: 'Timed out', showCopy: false, onRetry: () {}),
         ),

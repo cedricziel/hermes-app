@@ -61,8 +61,9 @@ const double kChatItemGap = 8;
 ///
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
-/// can. The welcome view offers [starterPrompts], the generic ones when null,
-/// and hands a tapped one to [onPickPrompt].
+/// can. [onEdit] takes that reply's prompt back to change it. The welcome
+/// view offers [starterPrompts], the generic ones when null, and hands a
+/// tapped one to [onPickPrompt].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
 /// A tapped link goes to [openLink], the system browser when null.
 Builders buildChatBuilders({
@@ -72,6 +73,7 @@ Builders buildChatBuilders({
   String? assistantName,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
+  VoidCallback? onEdit,
   Future<void> Function()? onLoadOlder,
   Future<void> Function(String requestId, String choice)? onAnswerApproval,
   Future<void> Function(String requestId, Map<String, List<String>> answers)?
@@ -102,6 +104,7 @@ Builders buildChatBuilders({
               groupStatus: groupStatus,
               latestReplyId: latestReplyId,
               onRetry: onRetry,
+              onEdit: onEdit,
               onLinkTap: onLinkTap,
             ),
     imageMessageBuilder: (
@@ -174,6 +177,7 @@ Widget _buildText(
   MessageGroupStatus? groupStatus,
   ValueListenable<String?>? latestReplyId,
   VoidCallback? onRetry,
+  VoidCallback? onEdit,
   void Function(String url, String title)? onLinkTap,
 }) {
   final scheme = Theme.of(context).colorScheme;
@@ -210,6 +214,7 @@ Widget _buildText(
     showCopy: message.text.isNotEmpty,
     stopped: message.metadata?[kMetaStopped] == true,
     onRetry: latest ? onRetry : null,
+    onEdit: latest ? onEdit : null,
   );
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,

@@ -2206,6 +2206,45 @@ void main() {
     });
   });
 
+  group('undoing the last turn', () {
+    test('resumes a stored thread and drops its last turn', () async {
+      final removed = await transport.undoLastTurn(
+        'stored-2',
+        profile: 'work',
+        retry: true,
+      );
+
+      expect(removed, 2);
+      expect(gateway.requestOf('session.resume')['params'], {
+        'session_id': 'stored-2',
+        'profile': 'work',
+      });
+      expect(gateway.requestOf('session.undo')['params'], {
+        'session_id': 'rt-2',
+        'intent': 'retry',
+      });
+    });
+
+    test('undoes in the session a finished reply left open', () async {
+      gateway.turn = plainReply;
+      await reply();
+
+      await transport.undoLastTurn('stored-1');
+
+      expect(gateway.methods, isNot(contains('session.resume')));
+      expect(gateway.requestOf('session.undo')['params'], {
+        'session_id': 'rt-1',
+        'intent': 'undo',
+      });
+    });
+
+    test('a gateway without session.undo reports null', () async {
+      gateway.unknownMethods.add('session.undo');
+
+      expect(await transport.undoLastTurn('stored-2'), isNull);
+    });
+  });
+
   group('stopping a reply', () {
     /// Starts a turn that never completes on its own, calls [stop] while it
     /// runs, then completes it.

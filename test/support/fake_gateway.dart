@@ -127,6 +127,9 @@ class FakeGateway {
   /// The `status` `session.interrupt` reports.
   String interruptStatus = 'interrupted';
 
+  /// How many messages `session.undo` reports it removed.
+  int undoRemoved = 2;
+
   /// Whether `client.capabilities` fails, as it does on a gateway that
   /// predates server-to-client requests.
   bool capabilitiesUnknown = false;
@@ -298,6 +301,16 @@ class FakeGateway {
         _send({
           'id': id,
           'result': {'status': interruptStatus},
+        });
+      case 'session.undo' when unknownMethods.contains('session.undo'):
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'session.undo':
+        _send({
+          'id': id,
+          'result': {'removed': undoRemoved},
         });
       case 'sudo.respond' || 'secret.respond':
         _send({

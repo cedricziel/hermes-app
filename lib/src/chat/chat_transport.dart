@@ -414,6 +414,16 @@ abstract interface class ChatTransport {
   /// running there, and throws when the call itself fails.
   Future<bool> stopReply(String threadId, {String? profile});
 
+  /// Drops the last prompt of the idle thread [threadId] and everything after
+  /// it, so the prompt can be sent again or edited; [retry] says it will be
+  /// sent again. Returns how many messages went, or null when the server
+  /// cannot undo. Throws when the call itself fails, as while a reply runs.
+  Future<int?> undoLastTurn(
+    String threadId, {
+    String? profile,
+    bool retry = false,
+  });
+
   /// Skips a request the app cannot answer, a secret or a sudo password, by
   /// answering it with an empty value: Hermes carries on without it. Returns
   /// false when the request is no longer pending, and throws when the call

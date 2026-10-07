@@ -161,6 +161,30 @@ class FakeChatTransport implements ChatTransport {
     return stopsRunning;
   }
 
+  /// Every [undoLastTurn], as the thread and whether it was a retry.
+  final undos = <(String, bool)>[];
+
+  /// What [undoLastTurn] reports; null is a server that cannot undo.
+  int? undoRemoved = 2;
+
+  /// Thrown by [undoLastTurn] when set.
+  Object? undoError;
+
+  /// Holds [undoLastTurn]'s answer until completed.
+  Completer<void>? undoGate;
+
+  @override
+  Future<int?> undoLastTurn(
+    String threadId, {
+    String? profile,
+    bool retry = false,
+  }) async {
+    undos.add((threadId, retry));
+    await undoGate?.future;
+    if (undoError case final error?) throw error; // ignore: only_throw_errors
+    return undoRemoved;
+  }
+
   final skips = <(String, UnsupportedKind)>[];
 
   @override

@@ -908,27 +908,106 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// The last prompt of [thread], with or without text.
+  ChatMessage? _lastPrompt(ChatThread thread) => thread.messages.reversed
+      .where((m) => m.role == ChatRole.user)
+      .firstOrNull;
+
   /// The text of the last prompt of [thread], or null when it had none (it
   /// was only files) or there is no prompt.
   String? lastPromptText(ChatThread thread) {
-    for (final message in thread.messages.reversed) {
-      if (message.role != ChatRole.user) continue;
-      final text = message.submittedText ?? message.content;
-      return text.isEmpty ? null : text;
-    }
-    return null;
+    final message = _lastPrompt(thread);
+    if (message == null) return null;
+    final text = message.submittedText ?? message.content;
+    return text.isEmpty ? null : text;
   }
 
-  /// Sends the text of the last prompt again as a new turn. Its files are not
-  /// sent again.
-  void retry(ChatThread thread) {
+  /// Whether the last prompt of [thread] can be taken back on the server:
+  /// edited, or sent again in place of its turn.
+  bool canEditLastPrompt(ChatThread thread) {
     final prompt = lastPromptText(thread);
-    if (prompt == null) return;
+    return transport != null &&
+        _bound.contains(thread) &&
+        !_undoing.contains(thread) &&
+        !thread.isReplying &&
+        !_queues.containsKey(thread) &&
+        prompt != null &&
+        !prompt.startsWith('/');
+  }
+
+  /// Sends the text of the last prompt again. The server drops the turn it
+  /// replaces first, so the model does not see that reply again. A command, a
+  /// prompt that had files (they are not sent again) and a server that cannot
+  /// undo get a new turn instead.
+  Future<void> retry(ChatThread thread) async {
+    final prompt = lastPromptText(thread);
+    if (prompt == null || _undoing.contains(thread)) return;
     if (prompt.startsWith('/')) {
       unawaited(runSlashCommand(prompt));
-    } else {
-      submit(prompt, const []);
+      return;
     }
+    if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
+      try {
+        await _undoLastTurn(thread, retry: true);
+      } on Object catch (error) {
+        if (!disposed) report('Could not try again: $error');
+        return;
+      }
+      if (disposed) return;
+    }
+    _submitTo(thread, prompt, const []);
+  }
+
+  /// Takes the last prompt of [thread] back on the server and puts its text
+  /// in the composer. Its files are not put back.
+  Future<void> editLastPrompt(ChatThread thread) async {
+    final prompt = lastPromptText(thread);
+    if (prompt == null || !canEditLastPrompt(thread)) return;
+    final bool undone;
+    try {
+      undone = await _undoLastTurn(thread);
+    } on Object catch (error) {
+      if (!disposed) report('Could not edit the prompt: $error');
+      return;
+    }
+    if (disposed) return;
+    if (!undone) {
+      report("This Hermes server can't edit prompts. Update Hermes to edit.");
+      return;
+    }
+    onPrefill?.call(prompt);
+  }
+
+  /// The threads whose last turn is being dropped, so a second tap does not
+  /// drop the turn before it too.
+  final _undoing = <ChatThread>{};
+
+  /// Drops the last turn of [thread] on the server and then here. False when
+  /// the server cannot undo.
+  Future<bool> _undoLastTurn(ChatThread thread, {bool retry = false}) async {
+    _undoing.add(thread);
+    notifyListeners();
+    final int? removed;
+    try {
+      removed = await transport!.undoLastTurn(
+        thread.id,
+        profile: _profile,
+        retry: retry,
+      );
+    } finally {
+      _undoing.remove(thread);
+      if (!disposed) notifyListeners();
+    }
+    if (removed == null) return false;
+    if (disposed) return true;
+    final start = thread.messages.lastIndexWhere(
+      (m) => m.role == ChatRole.user,
+    );
+    if (start < 0) return true;
+    thread.messages.removeRange(start, thread.messages.length);
+    await controllerFor(thread).setMessages(chatThreadToFlyer(thread));
+    notifyListeners();
+    return true;
   }
 
   /// The prompts waiting in [thread] for its reply to end.

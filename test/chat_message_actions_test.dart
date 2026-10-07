@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
@@ -112,6 +115,11 @@ void main() {
 
   final copy = find.byTooltip('Copy');
   final tryAgain = find.byTooltip('Try again');
+  final editPrompt = find.byTooltip('Edit prompt');
+  Finder inTranscript(String text) => find.descendant(
+    of: find.byType(Chat),
+    matching: find.textContaining(text, findRichText: true),
+  );
 
   chatTest('a loaded reply can be copied and asked again', (tester) async {
     expect(copy, findsOneWidget);
@@ -134,13 +142,75 @@ void main() {
     expect(copy, findsOneWidget);
   });
 
-  chatTest('trying again sends the last prompt as a new turn', (tester) async {
+  chatTest('trying again replaces the last turn', (tester) async {
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(transport.undos, [('s1', true)]);
+    expect(transport.sends.single.text, 'Why did the run fail?');
+    expect(transport.sends.single.threadId, 's1');
+    expect(inTranscript('A connection reset.'), findsNothing);
+    expect(inTranscript('Why did the run fail?'), findsOneWidget);
+  });
+
+  chatTest('no second undo while one is in flight', (tester) async {
+    final gate = transport.undoGate = Completer<void>();
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    expect(editPrompt, findsNothing);
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(transport.undos, [('s1', true)]);
+    expect(transport.sends, hasLength(1));
+  });
+
+  chatTest('a server that cannot undo still tries again as a new turn', (
+    tester,
+  ) async {
     await tester.tap(tryAgain);
     await tester.pump();
 
     expect(transport.sends.single.text, 'Why did the run fail?');
-    expect(transport.sends.single.threadId, 's1');
+    expect(inTranscript('A connection reset.'), findsOneWidget);
+  }, arrange: () => transport.undoRemoved = null);
+
+  chatTest('a failed undo sends nothing and says so', (tester) async {
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    expect(transport.sends, isEmpty);
+    expect(inTranscript('A connection reset.'), findsOneWidget);
+    expect(find.textContaining('Could not try again'), findsOneWidget);
+  }, arrange: () => transport.undoError = StateError('busy'));
+
+  chatTest('editing puts the last prompt back in the composer', (tester) async {
+    await tester.tap(editPrompt);
+    await tester.pump();
+
+    expect(transport.undos, [('s1', false)]);
+    expect(transport.sends, isEmpty);
+    expect(inTranscript('A connection reset.'), findsNothing);
+    expect(
+      tester.widget<EditableText>(composerField).controller.text,
+      'Why did the run fail?',
+    );
   });
+
+  chatTest('editing on a server that cannot undo says so', (tester) async {
+    await tester.tap(editPrompt);
+    await tester.pump();
+
+    expect(inTranscript('A connection reset.'), findsOneWidget);
+    expect(find.textContaining("can't edit"), findsOneWidget);
+  }, arrange: () => transport.undoRemoved = null);
 
   chatTest('no action bar while the reply is being written', (tester) async {
     await send(tester, 'Any news?');

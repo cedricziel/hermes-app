@@ -932,6 +932,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           onRetry: selected == null || chat.lastPromptText(selected) == null
               ? null
               : () => chat.retry(selected),
+          onEdit: selected == null || !chat.canEditLastPrompt(selected)
+              ? null
+              : () => chat.editLastPrompt(selected),
           header: !isWide
               ? null
               : _mac
