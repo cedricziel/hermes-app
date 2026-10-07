@@ -8,7 +8,7 @@ description: Use when adding or changing a workflow test (test/workflows/), when
 `test/workflows/*_workflow_test.dart` walk a user flow through the real widgets
 (onboarding, chat, kanban, skills/messaging/settings) and write a numbered PNG at
 each step to `build/workflow_screenshots/<flow>/NN-name.png` (`WORKFLOW_SHOTS_DIR`
-overrides it; CI uploads it as the `workflow-screenshots` artifact). They run
+overrides it; CI uploads one `workflow-screenshots-<shard>` artifact per test shard that wrote any). They run
 with plain `flutter test`, on phone (`phoneSize`) and desktop (`desktopSize`),
 light and dark. Read the PNGs to look for overflow, clipping, contrast and
 alignment problems; the tests themselves only assert that the flow still runs.
