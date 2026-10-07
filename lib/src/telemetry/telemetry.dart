@@ -124,6 +124,7 @@ class Telemetry {
           attributes: {
             'service.namespace': 'hermes-app',
             ...await detectDeviceAttributes(),
+            ...await detectAppInstallationId(),
           },
         ),
         otlpEndpoint: endpoint,
