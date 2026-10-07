@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -10,6 +11,7 @@ import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../slash_command.dart';
 import 'gateway_event_mapper.dart';
+import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
@@ -36,6 +38,9 @@ const _unsupportedImage = 4016;
 /// forever.
 const _maxReattempts = 5;
 
+/// The `session.active_list` statuses of a session that still runs a turn.
+const _liveStatuses = {'working', 'waiting', 'starting'};
+
 /// An approval or clarify request the user still has to answer.
 class _OpenRequest {
   const _OpenRequest({
@@ -59,21 +64,58 @@ typedef _ThreadOwner = (String?, String);
 /// A chat event, and whether it came from a server-to-client request.
 typedef _Incoming = (ChatEvent event, bool serverRequest);
 
-/// What one runtime session sends, buffered until the transport reads it.
+/// What one runtime session sends, buffered until the transport reads it. A
+/// null entry is a frame of the session that shows nothing. It still resets
+/// the silence probe, since the session is alive.
 class _Watch {
-  _Watch(this.runtimeId, this._inbox, this._sources)
-    : events = StreamIterator(_inbox.stream);
+  _Watch(this.runtimeId, this._inbox) : events = StreamIterator(_inbox.stream);
 
   final String runtimeId;
-  final StreamController<_Incoming> _inbox;
-  final List<StreamSubscription<Object?>> _sources;
-  final StreamIterator<_Incoming> events;
+  final StreamController<_Incoming?> _inbox;
+  late List<StreamSubscription<Object?>> _sources;
+  final StreamIterator<_Incoming?> events;
 
+  /// Cancels the sources without awaiting them: a subscription to a broadcast
+  /// stream answers its cancel future only once its own cancel callback does,
+  /// so awaiting it can hang the reply that is closing its watch.
   Future<void> close() async {
     for (final source in _sources) {
-      await source.cancel();
+      unawaited(source.cancel());
     }
     unawaited(_inbox.close());
+  }
+}
+
+/// Listens to a connection from before its runtime session is known, so the
+/// frames the gateway pushes ahead of the resume answer are kept rather than
+/// dropped by a broadcast stream that has no listener yet.
+class _Tap {
+  _Tap(this._client) {
+    _sources = [
+      _client.events.listen(_frames.add),
+      _client.serverRequests.listen(_frames.add),
+    ];
+  }
+
+  final GatewayRpcClient _client;
+  final _frames = <Object>[];
+  late final List<StreamSubscription<Object?>> _sources;
+
+  /// Stops listening and hands over the frames that arrived so far, for the
+  /// watch of their session. Nothing is dropped in between: both steps are
+  /// synchronous.
+  List<Object> release() {
+    final buffered = List.of(_frames);
+    close();
+    return buffered;
+  }
+
+  /// Stops listening. Frames not yet released are dropped.
+  void close() {
+    for (final source in _sources) {
+      unawaited(source.cancel());
+    }
+    _frames.clear();
   }
 }
 
@@ -86,6 +128,7 @@ class HermesGatewayTransport implements ChatTransport {
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
+    this.silenceProbe = const Duration(seconds: 45),
   });
 
   /// How long opening a session or submitting a prompt may go unanswered
@@ -99,6 +142,10 @@ class HermesGatewayTransport implements ChatTransport {
   /// server that never answers the upgrade does not outlast the OS connect
   /// timeout for every send waiting on it.
   final Duration connectTimeout;
+
+  /// How long a reply in flight may go without a frame of its session before
+  /// `session.active_list` is asked whether the turn still runs.
+  final Duration silenceProbe;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;
@@ -238,6 +285,9 @@ class HermesGatewayTransport implements ChatTransport {
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
+    // Listening starts before the resume is sent, so a frame the gateway pushes
+    // ahead of its answer is kept for this session.
+    final tap = _Tap(client);
     final Map<String, Object?> session;
     try {
       session = threadId == null
@@ -254,27 +304,38 @@ class HermesGatewayTransport implements ChatTransport {
               ...scope,
             });
     } on GatewayRpcException catch (error) {
+      tap.close();
       if (error.code == kGatewayProfileUnavailable) {
         throw const ProfileUnavailableException();
       }
+      rethrow;
+    } on Object {
+      tap.close();
       rethrow;
     }
     var runtimeId = session['session_id'] as String;
     final storedId = threadId ?? session['stored_session_id'] as String;
     final owner = (profile, storedId);
-    await _idle.remove(owner)?.close();
-    if (model != null) {
-      if (threadId != null) {
-        await _switchModel(client, runtimeId, _modelOf[owner], model);
+    try {
+      await _idle.remove(owner)?.close();
+      if (model != null) {
+        if (threadId != null) {
+          await _switchModel(client, runtimeId, _modelOf[owner], model);
+        }
+        _modelOf[owner] = model;
       }
-      _modelOf[owner] = model;
+    } on Object {
+      tap.close();
+      rethrow;
     }
     _beginReply(runtimeId, owner);
-    // Buffered from here on: events can arrive before the consumer asks for
-    // the next one, and the broadcast stream would drop them.
-    var watch = _watch(client, runtimeId);
+    var watch = _watch(client, runtimeId, tap.release());
     final mine = <String>{};
     var parked = false;
+    // Whether the turn has begun. A report that the session is idle only ends
+    // the reply once it has, or once the grace has passed (see [settles]).
+    var started = false;
+    var submittedAt = clock.now();
     try {
       if (threadId == null) {
         yield ThreadBound(session['stored_session_id'] as String);
@@ -282,6 +343,7 @@ class HermesGatewayTransport implements ChatTransport {
       // Images queue on the session and the next prompt takes them, so a send
       // that fails after queuing one must take them off again.
       final queuedImages = <String>[];
+      final Map<String, Object?> submit;
       try {
         final references = await _attach(
           client,
@@ -289,7 +351,8 @@ class HermesGatewayTransport implements ChatTransport {
           attachments,
           queuedImages,
         );
-        await _call(client, 'prompt.submit', {
+        submittedAt = clock.now();
+        submit = await _call(client, 'prompt.submit', {
           'session_id': runtimeId,
           'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
           if (queued) 'queued': true,
@@ -298,19 +361,54 @@ class HermesGatewayTransport implements ChatTransport {
         await _detach(client, runtimeId, queuedImages);
         rethrow;
       }
+      if (const {'redirected', 'steered'}.contains(submit['status'])) {
+        // The server folded the prompt into the turn already running, whose
+        // reply streams on in its own send. This one has nothing to wait for.
+        yield const PromptFolded();
+        return;
+      }
       for (var attempt = 0; ; attempt++) {
-        while (await watch.events.moveNext()) {
-          final (event, serverRequest) = watch.events.current;
-          _track(event, runtimeId, mine, serverRequest: serverRequest);
-          yield event;
-          if (event is ReplyCompleted) {
-            // The session goes on listening: Hermes may chain another turn.
-            final displaced = _idle.remove(owner);
-            _idle[owner] = watch;
-            parked = true;
-            await displaced?.close();
-            return;
+        var pending = watch.events.moveNext();
+        var window = silenceProbe;
+        while (true) {
+          final bool more;
+          try {
+            more = await pending.timeout(window);
+          } on TimeoutException {
+            // Silent for a whole probe. Only the server can say whether the
+            // turn still runs, so the reply ends only when it no longer does.
+            if (await _stillRunning(client, storedId)) {
+              window = silenceProbe;
+              continue;
+            }
+            throw const GatewayConnectionClosed();
           }
+          if (!more) break;
+          final incoming = watch.events.current;
+          if (incoming != null) {
+            final (event, serverRequest) = incoming;
+            _track(event, runtimeId, mine, serverRequest: serverRequest);
+            started = started || _beginsTurn(event);
+            yield event;
+            final settled =
+                event is SessionInfo &&
+                event.running == false &&
+                settles(
+                  started: started,
+                  submittedAt: submittedAt,
+                  now: clock.now(),
+                );
+            if (event is ReplyCompleted || settled) {
+              // The session goes on listening: Hermes may chain another turn.
+              final displaced = _idle.remove(owner);
+              _idle[owner] = watch;
+              parked = true;
+              await displaced?.close();
+              return;
+            }
+          }
+          pending = watch.events.moveNext();
+          window = silenceProbe;
         }
         // The connection died before the turn finished. Hermes keeps running
         // it, so pick it back up on a fresh connection rather than failing a
@@ -328,6 +426,8 @@ class HermesGatewayTransport implements ChatTransport {
         runtimeId = next.runtimeId;
         _beginReply(runtimeId, owner);
         watch = next;
+        // The server reported the resumed session running, so its turn began.
+        started = true;
       }
     } finally {
       _forgetRequests(mine);
@@ -363,6 +463,35 @@ class HermesGatewayTransport implements ChatTransport {
         'key': 'reasoning',
         'value': effort,
       });
+    }
+  }
+
+  /// Whether [event] shows that a turn has begun, as opposed to a report about
+  /// the session.
+  bool _beginsTurn(ChatEvent event) => switch (event) {
+    ReplyStarted() ||
+    ReplyDelta() ||
+    ToolPreparing() ||
+    ToolStarted() ||
+    ToolFinished() => true,
+    _ => false,
+  };
+
+  /// Whether the server still lists [storedId] as running. An answer that
+  /// cannot be read counts as running: a refused `session.active_list` says
+  /// nothing about the turn, and a dead socket ends its watch on its own, which
+  /// sends the reply down the reconnect path.
+  Future<bool> _stillRunning(GatewayRpcClient client, String storedId) async {
+    try {
+      final statuses = _statusesOf(
+        await _call(client, 'session.active_list', {}),
+      );
+      final status = statuses[storedId];
+      return status != null && _liveStatuses.contains(status);
+    } on GatewayRpcException {
+      return true;
+    } on GatewayConnectionClosed {
+      return true;
     }
   }
 
@@ -484,6 +613,11 @@ class HermesGatewayTransport implements ChatTransport {
     } on Object {
       return const {};
     }
+    return _statusesOf(result);
+  }
+
+  /// The status of each session in a `session.active_list` answer, by key.
+  static Map<String, String> _statusesOf(Map<String, Object?> result) {
     final statuses = <String, String>{};
     if (result['sessions'] case final List<Object?> rows) {
       for (final row in rows) {
@@ -514,7 +648,9 @@ class HermesGatewayTransport implements ChatTransport {
     try {
       for (var attempt = 0; ; attempt++) {
         while (await watch.events.moveNext()) {
-          final (event, serverRequest) = watch.events.current;
+          final incoming = watch.events.current;
+          if (incoming == null) continue;
+          final (event, serverRequest) = incoming;
           if (event is ReplyStarted) {
             // A resumed running turn can replay its start. Forwarding that
             // would create a second pending bubble with no completion.
@@ -559,28 +695,38 @@ class HermesGatewayTransport implements ChatTransport {
     }
   }
 
-  /// Starts listening to the events and requests of [runtimeId].
-  _Watch _watch(GatewayRpcClient client, String runtimeId) {
-    final inbox = StreamController<_Incoming>();
-    final sources = [
-      client.events
-          .where((event) => event.sessionId == runtimeId)
-          .map(mapGatewayEvent)
-          .listen((event) {
-            if (event != null) inbox.add((event, false));
-          }, onDone: inbox.close),
-      client.serverRequests
-          .where(
-            (request) =>
-                request.sessionId == runtimeId &&
-                _handledRequests.contains(request.method),
-          )
-          .map(_fromServerRequest)
-          .listen((event) {
-            if (event != null) inbox.add((event, true));
-          }),
+  /// Starts listening to the events and requests of [runtimeId]. The
+  /// [buffered] frames of any session come first, filtered to it.
+  _Watch _watch(
+    GatewayRpcClient client,
+    String runtimeId, [
+    List<Object> buffered = const [],
+  ]) {
+    final inbox = StreamController<_Incoming?>();
+    final watch = _Watch(runtimeId, inbox);
+    void deliver(Object frame) {
+      final _Incoming? incoming;
+      switch (frame) {
+        case GatewayEvent event when event.sessionId == runtimeId:
+          final shown = mapGatewayEvent(event);
+          incoming = shown == null ? null : (shown, false);
+        case GatewayServerRequest request when request.sessionId == runtimeId:
+          final shown = _handledRequests.contains(request.method)
+              ? _fromServerRequest(request)
+              : null;
+          incoming = shown == null ? null : (shown, true);
+        default:
+          return;
+      }
+      inbox.add(incoming);
+    }
+
+    buffered.forEach(deliver);
+    watch._sources = [
+      client.events.listen(deliver, onDone: inbox.close),
+      client.serverRequests.listen(deliver),
     ];
-    return _Watch(runtimeId, inbox, sources);
+    return watch;
   }
 
   void _beginReply(String runtimeId, _ThreadOwner owner) {
@@ -883,9 +1029,12 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<GatewayRpcClient> _openNew() async {
+    // With the heartbeat, a socket the OS dropped while the app slept closes
+    // itself once it goes quiet, and the reply in flight reconnects.
     final client = GatewayRpcClient(
       await _connectBounded(),
       telemetry: _telemetry,
+      heartbeat: true,
     );
     // Not awaited: a gateway that predates the call answers with an error and
     // carries on with events, and none of them may hold up the first send.

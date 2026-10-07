@@ -77,6 +77,14 @@ class FakeGateway {
   /// to send events that reach the app ahead of the answer.
   void Function(FakeGateway gateway)? beforeResumeAnswer;
 
+  /// Runs after a `prompt.submit` request arrives and before it is answered,
+  /// to send events that reach the app ahead of the submit answer.
+  void Function(FakeGateway gateway)? beforeSubmitAnswer;
+
+  /// The sessions `session.active_list` reports, as stored id to status. Null
+  /// leaves the request unanswered, as before this knob existed.
+  Map<String, String>? activeSessions;
+
   final _seqs = <String, int>{};
   final _ring = <String, List<Map<String, Object?>>>{};
 
@@ -373,7 +381,18 @@ class FakeGateway {
           'id': id,
           'error': {'code': 4009, 'message': 'session busy'},
         });
+      case 'session.active_list' when activeSessions != null:
+        _send({
+          'id': id,
+          'result': {
+            'sessions': [
+              for (final entry in activeSessions!.entries)
+                {'session_key': entry.key, 'status': entry.value},
+            ],
+          },
+        });
       case 'prompt.submit':
+        beforeSubmitAnswer?.call(this);
         _send({
           'id': id,
           'result': {'status': submitStatus},
