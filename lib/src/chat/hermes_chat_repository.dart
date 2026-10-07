@@ -366,7 +366,11 @@ class HermesChatRepository {
     final calls = <ToolCall>[];
     for (final call in raw.whereType<Map<String, dynamic>>()) {
       if (call['function'] case {'name': final String name} && final Map fn) {
-        final arguments = fn['arguments'] as String? ?? '';
+        final arguments = switch (fn['arguments']) {
+          final String text => text,
+          final Map map => jsonEncode(map),
+          _ => '',
+        };
         final args = switch (_decode(arguments)) {
           final Map<String, Object?> map when map.isNotEmpty => map,
           _ => null,

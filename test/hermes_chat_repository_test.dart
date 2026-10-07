@@ -567,6 +567,51 @@ void main() {
       expect(call.args, isNull);
     });
 
+    test('reads arguments stored as a JSON object', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          content: 'a',
+          toolCalls: [
+            {
+              'id': 'call_1',
+              'type': 'function',
+              'function': {
+                'name': 'search_logs',
+                'arguments': {'query': '02:14'},
+              },
+            },
+          ],
+        ),
+      ]);
+
+      final call = messages.single.toolCalls.single;
+      expect(call.name, 'search_logs');
+      expect(call.args, {'query': '02:14'});
+    });
+
+    test('loads a call whose arguments are neither text nor object', () async {
+      final messages = await load([
+        messageRow(
+          id: 1,
+          role: 'assistant',
+          content: 'a',
+          toolCalls: [
+            {
+              'id': 'call_1',
+              'type': 'function',
+              'function': {'name': 'shell', 'arguments': 42},
+            },
+          ],
+        ),
+      ]);
+
+      final call = messages.single.toolCalls.single;
+      expect(call.name, 'shell');
+      expect(call.args, isNull);
+    });
+
     test('reads how a call ended from its result', () async {
       final messages = await load([
         messageRow(
