@@ -763,4 +763,307 @@ void main() {
       },
     );
   });
+
+  group('Queued gate: sequences of the second review', () {
+    late FakeGateway gateway;
+    late HermesGatewayTransport transport;
+
+    setUp(() {
+      gateway = FakeGateway()..submitStatus = 'queued';
+      transport = HermesGatewayTransport(connect: () async => gateway.channel);
+    });
+    tearDown(() => transport.close());
+
+    Future<List<ChatEvent>> reply() => transport
+        .send(text: 'next', queued: true)
+        .toList()
+        .timeout(const Duration(seconds: 5));
+
+    test('Queued by the server: a queued turn that is only a failed completion '
+        'after the running turn ended reaches the reply', () async {
+      gateway.turn = (g, sid) {
+        g.event('message.delta', sid, {'text': 'old'});
+        g.event('message.complete', sid, {'text': 'old', 'status': 'complete'});
+        g.event('session.info', sid, {'running': false});
+        g.event('message.complete', sid, {'text': 'boom', 'status': 'error'});
+        g.event('session.info', sid, {'running': false});
+      };
+
+      final events = await reply();
+
+      expect(events.map((e) => e.runtimeType), [
+        ThreadBound,
+        ThreadNeedsRefetch,
+        ReplyCompleted,
+      ]);
+      expect((events.last as ReplyCompleted).failed, isTrue);
+    });
+
+    test(
+      'Queued by the server: a queued turn that is only an error event and a '
+      'settle ends as an error',
+      () async {
+        gateway.turn = (g, sid) {
+          g.event('message.delta', sid, {'text': 'old'});
+          g.event('message.complete', sid, {
+            'text': 'old',
+            'status': 'complete',
+          });
+          g.event('error', sid, {'message': 'boom'});
+          g.event('session.info', sid, {'running': false});
+        };
+
+        final events = await reply();
+
+        expect(events.map((e) => e.runtimeType), [
+          ThreadBound,
+          ThreadNeedsRefetch,
+          ReplyErrored,
+          SessionInfo,
+        ]);
+      },
+    );
+
+    test(
+      'Queued by the server: the previous turn already completed, so its '
+      'idle report is followed by the queued turn opening with a delta',
+      () async {
+        gateway.turn = (g, sid) {
+          g.event('session.info', sid, {'running': false});
+          g.event('message.delta', sid, {'text': 'q'});
+          g.event('message.complete', sid, {'text': 'q', 'status': 'complete'});
+        };
+
+        final events = await reply();
+
+        expect(events.map((e) => e.runtimeType), [
+          ThreadBound,
+          ReplyDelta,
+          ReplyCompleted,
+        ]);
+      },
+    );
+
+    test('Queued by the server: a goal continuation that starts twice does not '
+        'begin the queued reply', () async {
+      gateway.turn = (g, sid) {
+        g.event('message.delta', sid, {'text': 'goal'});
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'goal again'});
+        g.event('message.complete', sid, {
+          'text': 'goal again',
+          'status': 'complete',
+        });
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'q'});
+        g.event('message.complete', sid, {'text': 'q', 'status': 'complete'});
+      };
+
+      final events = await reply();
+
+      expect(events.map((e) => e.runtimeType), [
+        ThreadBound,
+        ThreadNeedsRefetch,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect((events[3] as ReplyDelta).text, 'q');
+    });
+  });
+
+  group('Second review: controller and transport', () {
+    test('Settled without a completion: a late completion is applied without a '
+        'second notification', () async {
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      final live = _Live();
+      final thread = await live.start('One');
+      live.gateway
+        ..event('message.start', 'rt-1')
+        ..event('message.delta', 'rt-1', {'text': 'Partial'})
+        ..event('session.info', 'rt-1', {'running': false});
+      await live.settle();
+      expect(live.service.shown, hasLength(1));
+
+      live.gateway.event('message.complete', 'rt-1', {
+        'text': 'Final',
+        'status': 'complete',
+      });
+      await live.settle();
+
+      expect(_replies(thread).single.content, 'Final');
+      expect(live.service.shown, hasLength(1));
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
+      await live.dispose();
+    });
+
+    test('Error event without a completion: a chained turn that errors and '
+        'settles while the queue waits does not send the queue', () async {
+      final rig = _Rig();
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      first
+        ..emit(const ReplyCompleted('Done.'))
+        ..finish();
+      await pumpEventQueue();
+
+      rig.followUp()
+        ..emit(const ReplyDelta('chained'))
+        ..emit(const ReplyErrored('boom'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One']);
+      expect(rig.chat.queuePaused(thread), isTrue);
+      expect(_replies(thread).last.status, MessageStatus.error);
+      rig.dispose();
+    });
+
+    test('Paused by a failure: after error-then-settle on the send, a chained '
+        'turn is still shown and the queue stays paused', () async {
+      final live = _Live();
+      final thread = await live.start('One');
+      live.chat.submit('Two', const []);
+      await live.settle();
+
+      live.gateway
+        ..event('error', 'rt-1', {'message': 'boom'})
+        ..event('session.info', 'rt-1', {'running': false});
+      await live.settle();
+      live.gateway
+        ..event('message.start', 'rt-1')
+        ..event('message.delta', 'rt-1', {'text': 'chained'})
+        ..event('message.complete', 'rt-1', {
+          'text': 'chained',
+          'status': 'complete',
+        });
+      await live.settle();
+
+      expect(_replies(thread).map((r) => r.status), [
+        MessageStatus.error,
+        MessageStatus.sent,
+      ]);
+      expect(_replies(thread).last.content, 'chained');
+      expect(live.chat.queuePaused(thread), isTrue);
+      expect(live.submits, 1);
+      await live.dispose();
+    });
+
+    test(
+      'Paused by stop: a stop answered with only an idle report does not send '
+      'the queue',
+      () async {
+        final rig = _Rig();
+        final (thread, send) = rig.start('One');
+        await pumpEventQueue();
+        rig.chat.submit('Two', const []);
+
+        await rig.chat.stopReply(thread);
+        send
+          ..emit(const ReplyDelta('part'))
+          ..emit(const SessionInfo(running: false))
+          ..finish();
+        await pumpEventQueue();
+
+        expect(rig.sentTexts, ['One']);
+        expect(rig.chat.queuePaused(thread), isTrue);
+        rig.dispose();
+      },
+    );
+
+    test('Missed start of a chained turn: a stray error or a late tool result '
+        'on the follow-ups opens no reply', () async {
+      final rig = _Rig();
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      first
+        ..emit(const ReplyCompleted('Done.'))
+        ..finish();
+      await pumpEventQueue();
+
+      rig.followUp()
+        ..emit(const ReplyErrored('late'))
+        ..emit(const ToolFinished(name: 'terminal'));
+      await pumpEventQueue();
+
+      expect(thread.messages, hasLength(2));
+      expect(thread.isReplying, isFalse);
+      rig.dispose();
+    });
+
+    test('Compression rotates the stored id: a pick-up that is cancelled after '
+        'a re-key leaves no closed watch parked', () async {
+      final gateway = FakeGateway()
+        ..resumeResult = {'session_id': 'rt-9', 'running': true};
+      final transport = HermesGatewayTransport(
+        connect: () async => gateway.channel,
+      );
+      final subscription = transport.followUps('stored-1').listen((_) {});
+      await pumpEventQueue();
+      gateway.event('session.info', 'rt-9', {
+        'running': true,
+        'stored_session_id': 'stored-2',
+      });
+      await pumpEventQueue();
+      await subscription.cancel();
+      await pumpEventQueue();
+
+      int resumes() =>
+          gateway.methods.where((m) => m == 'session.resume').length;
+      final before = resumes();
+      final seen = _listen(transport.followUps('stored-2'));
+      await pumpEventQueue();
+
+      // A closed watch left parked would be served instead of asking again.
+      expect(resumes(), greaterThan(before));
+      expect(seen.done, isFalse);
+      await transport.close();
+    });
+
+    test(
+      'Compression rotates the stored id: a send under the old id before the '
+      'caller re-keyed does not show the turn twice',
+      () async {
+        final gateway = FakeGateway();
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        gateway.turn = (g, sid) => g.event('message.complete', sid, {
+          'text': 'Hi',
+          'status': 'complete',
+        });
+        await transport.send(text: 'hi').toList();
+        final follow = _listen(transport.followUps('stored-1'));
+        await pumpEventQueue();
+        gateway.event('session.info', 'rt-1', {
+          'running': true,
+          'stored_session_id': 'stored-2',
+        });
+        await pumpEventQueue();
+
+        gateway.resumeResult = {'session_id': 'rt-1'};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'again'});
+          g.event('message.complete', sid, {
+            'text': 'again',
+            'status': 'complete',
+          });
+        };
+        final events = await transport
+            .send(threadId: 'stored-1', text: 'more')
+            .toList();
+        await pumpEventQueue();
+
+        expect(events.whereType<ReplyDelta>(), hasLength(1));
+        expect(follow.events.whereType<ReplyDelta>(), isEmpty);
+        await transport.close();
+      },
+    );
+  });
 }

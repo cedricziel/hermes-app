@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -380,5 +381,31 @@ void main() {
         });
       },
     );
+
+    test('Dead socket: a deadline that fired long past due waits for the reads '
+        'the OS had not delivered yet', () {
+      fakeAsync((async) {
+        final start = clock.now();
+        var jump = Duration.zero;
+        // The wall clock jumps while the app is suspended; timers do not.
+        withClock(Clock(() => start.add(async.elapsed + jump)), () {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          jump = const Duration(minutes: 10);
+          Timer(const Duration(seconds: 45, milliseconds: 100), () {
+            server.send(_eventFrame('message.delta'));
+          });
+
+          async.elapse(const Duration(seconds: 46));
+          async.flushMicrotasks();
+
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      });
+    });
   });
 }

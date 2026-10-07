@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:stream_channel/stream_channel.dart';
@@ -87,6 +88,7 @@ class GatewayRpcClient {
     bool heartbeat = false,
     Duration pingEvery = const Duration(seconds: 15),
     Duration deadAfter = const Duration(seconds: 45),
+    this.resumeGrace = const Duration(milliseconds: 250),
   }) : _channel = channel {
     _subscription = channel.stream.listen(
       _onFrame,
@@ -99,6 +101,10 @@ class GatewayRpcClient {
       _deadAfter = deadAfter;
     }
   }
+
+  /// How long a deadline that fired far later than due (the app was
+  /// suspended) waits for the socket reads the OS had not delivered yet.
+  final Duration resumeGrace;
 
   final StreamChannel<String> _channel;
   final MessagingConnectionTracer? _telemetry;
@@ -115,6 +121,7 @@ class GatewayRpcClient {
   Timer? _pingTimer;
   Timer? _deadline;
   Duration? _deadAfter;
+  DateTime? _armedFor;
   String? _epoch;
 
   bool get isClosed => _closed;
@@ -199,18 +206,28 @@ class GatewayRpcClient {
   /// inbound frame, so the deadline is measured from the last frame of any kind.
   void _armDeadline(Duration after) {
     _deadline?.cancel();
+    _armedFor = clock.now().add(after);
     _deadline = Timer(after, _onSilent);
   }
 
-  /// The deadline passed. After the app was suspended it can fire before the
-  /// frames that arrived meanwhile are handled, so the socket is closed only
-  /// if still no frame came once those have been.
+  /// The deadline passed. After the app was suspended it fires long past due,
+  /// before the frames that arrived meanwhile are read from the socket, so
+  /// the socket is closed only if still no frame came after a wait: one turn
+  /// of the event loop, or [resumeGrace] when the deadline ran late.
   void _onSilent() {
     final seen = _framesSeen;
-    Timer.run(() {
+    final due = _armedFor;
+    final late = due != null && clock.now().difference(due) > resumeGrace;
+    void check() {
       if (_closed || _framesSeen != seen) return;
       _close();
-    });
+    }
+
+    if (late) {
+      Timer(resumeGrace, check);
+    } else {
+      Timer.run(check);
+    }
   }
 
   void _close() {

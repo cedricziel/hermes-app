@@ -274,6 +274,13 @@ bool beginsTurn(ChatEvent event) => switch (event) {
   _ => false,
 };
 
+/// Whether [event] opens a turn nobody asked for, as on the follow-ups. A
+/// failure or a finished tool call alone is a stray tail of a turn that already
+/// ended, so they do not open one; [beginsTurn] counts them for a prompt the
+/// app sent itself.
+bool opensTurn(ChatEvent event) =>
+    beginsTurn(event) && event is! ReplyErrored && event is! ToolFinished;
+
 /// The profile a message was sent under no longer exists on the dashboard, so
 /// no session could be created or resumed in it. Sending again fails the same
 /// way until another profile is picked.
