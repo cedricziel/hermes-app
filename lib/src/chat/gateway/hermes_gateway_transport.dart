@@ -85,6 +85,7 @@ class HermesGatewayTransport implements ChatTransport {
     this._telemetry,
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
+    this.connectTimeout = const Duration(seconds: 15),
   });
 
   /// How long opening a session or submitting a prompt may go unanswered
@@ -93,6 +94,11 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// How long a connection may take to answer [checkConnection].
   final Duration probeTimeout;
+
+  /// How long opening the socket may take before it is given up on, so a
+  /// server that never answers the upgrade does not outlast the OS connect
+  /// timeout for every send waiting on it.
+  final Duration connectTimeout;
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;
@@ -859,8 +865,28 @@ class HermesGatewayTransport implements ChatTransport {
     return _opening ??= _openNew().whenComplete(() => _opening = null);
   }
 
+  Future<StreamChannel<String>> _connectBounded() {
+    final pending = _connect();
+    return pending.timeout(
+      connectTimeout,
+      onTimeout: () {
+        // A channel that opens after the deadline would otherwise leak.
+        unawaited(
+          pending.then(
+            (channel) => channel.sink.close(),
+            onError: (Object _) {},
+          ),
+        );
+        throw const GatewayConnectionClosed();
+      },
+    );
+  }
+
   Future<GatewayRpcClient> _openNew() async {
-    final client = GatewayRpcClient(await _connect(), telemetry: _telemetry);
+    final client = GatewayRpcClient(
+      await _connectBounded(),
+      telemetry: _telemetry,
+    );
     // Not awaited: a gateway that predates the call answers with an error and
     // carries on with events, and none of them may hold up the first send.
     unawaited(
