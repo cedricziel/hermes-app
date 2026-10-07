@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -101,6 +102,22 @@ class _GatedDashboard {
       ..headers.contentType = ContentType.json
       ..write(jsonEncode(body))
       ..close();
+  }
+}
+
+/// A store whose [clear] empties it at once but reports back only after
+/// [releaseClear], like a keychain that is slow to answer.
+class _SlowClearTokenStore extends MemoryTokenStore {
+  _SlowClearTokenStore(super.session);
+
+  final _released = Completer<void>();
+
+  void releaseClear() => _released.complete();
+
+  @override
+  Future<void> clear() async {
+    session = null;
+    await _released.future;
   }
 }
 
@@ -309,6 +326,55 @@ void main() {
 
     await expectLater(request, throwsA(isA<DioException>()));
     expect(store.session, isNull);
+  });
+
+  group('a refresh that lands while the token store is still clearing', () {
+    late _SlowClearTokenStore slowStore;
+
+    Future<Future<void> Function()> startSlowClear(
+      Future<void> Function() leave,
+    ) async {
+      slowStore = _SlowClearTokenStore(_session());
+      store = slowStore;
+      controller = AuthController(
+        tokenStore: slowStore,
+        devServerUrl: dashboard.url,
+        events: events.call,
+      );
+      await controller.bootstrap();
+      dashboard
+        ..validAccess = 'revoked'
+        ..refreshDelay = const Duration(milliseconds: 200);
+
+      final request = controller.api!.fetchMe().then<void>(
+        (_) {},
+        onError: (_) {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final leaving = leave();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      return () async {
+        slowStore.releaseClear();
+        await leaving;
+        await request;
+      };
+    }
+
+    test('does not write the tokens back after sign-out', () async {
+      final finish = await startSlowClear(() => controller.signOut());
+      await finish();
+
+      expect(slowStore.session, isNull);
+      expect(controller.state, HermesConnectionState.needsLogin);
+    });
+
+    test('does not write the tokens back after changing the server', () async {
+      final finish = await startSlowClear(() => controller.changeServer());
+      await finish();
+
+      expect(slowStore.session, isNull);
+      expect(controller.state, HermesConnectionState.needsServerUrl);
+    });
   });
 
   group('signedOut', () {

@@ -425,8 +425,8 @@ class AuthController extends ChangeNotifier {
   Future<void> signOut() async {
     _userGeneration++;
     notifyListeners();
-    await _tokenStore.clear();
     _session = null;
+    await _tokenStore.clear();
     _identity = null;
     _announceSignedOut();
     _setState(
@@ -452,12 +452,12 @@ class AuthController extends ChangeNotifier {
     ++_connectGeneration;
     cancelSignIn();
     _savedServerUrl = null;
+    _session = null;
     await _tokenStore.clear();
     await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
     _baseUrl = null;
     _status = null;
     _providers = const [];
-    _session = null;
     _identity = null;
     _dio = null;
     _tokenDio = null;
@@ -670,8 +670,8 @@ class AuthController extends ChangeNotifier {
   Future<void> _handleSessionExpired(String cause) async {
     if (_session == null) return;
     _events('auth.session.expired', {'cause': cause});
-    await _tokenStore.clear();
     _session = null;
+    await _tokenStore.clear();
     _identity = null;
     _errorMessage = 'Your session expired. Please sign in again.';
     _announceSignedOut(expired: true);
