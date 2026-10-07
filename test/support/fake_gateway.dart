@@ -19,6 +19,10 @@ class FakeGateway {
 
   var _handedOut = false;
 
+  /// Whether the current socket is open. Events recorded while it is down
+  /// only reach the replay ring.
+  var _socketOpen = false;
+
   /// Every request received, in order.
   final requests = <Map<String, Object?>>[];
 
@@ -28,9 +32,16 @@ class FakeGateway {
   StreamChannel<String> get channel => _wire.local;
 
   void _open() {
-    _wire = StreamChannelController<String>();
-    _closedByClient = Completer<void>();
-    _wire.foreign.stream.listen(_onFrame, onDone: _closedByClient.complete);
+    final wire = _wire = StreamChannelController<String>();
+    final closed = _closedByClient = Completer<void>();
+    _socketOpen = true;
+    wire.foreign.stream.listen(
+      _onFrame,
+      onDone: () {
+        if (identical(_wire, wire)) _socketOpen = false;
+        closed.complete();
+      },
+    );
   }
 
   /// Opens a socket for the app. The first call gives the socket the
@@ -76,6 +87,10 @@ class FakeGateway {
   /// Runs after a `session.resume` request arrives and before it is answered,
   /// to send events that reach the app ahead of the answer.
   void Function(FakeGateway gateway)? beforeResumeAnswer;
+
+  /// Runs after a `session.events.since` request arrives and before it is
+  /// answered, so the events it sends are in the answer's replay.
+  void Function(FakeGateway gateway)? beforeEventsAnswer;
 
   /// Runs after a `prompt.submit` request arrives and before it is answered,
   /// to send events that reach the app ahead of the submit answer.
@@ -196,10 +211,17 @@ class FakeGateway {
     'params': {'session_id': sessionId, ...params},
   });
 
-  void drop() => _wire.foreign.sink.close();
+  /// Closes the current socket, as the network does. Frames sent while it is
+  /// down are dropped, and the ring still keeps the events.
+  void drop() {
+    _socketOpen = false;
+    _wire.foreign.sink.close();
+  }
 
-  void _send(Map<String, Object?> message) =>
-      _wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));
+  void _send(Map<String, Object?> message) {
+    if (!_socketOpen) return;
+    _wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));
+  }
 
   void _onFrame(String frame) {
     final request = jsonDecode(frame) as Map<String, Object?>;
@@ -234,6 +256,7 @@ class FakeGateway {
                 },
         );
       case 'session.events.since':
+        beforeEventsAnswer?.call(this);
         final replaySid = params['session_id'] as String;
         final lastSeen = (params['last_seen'] as num?)?.toInt() ?? 0;
         final replayRing = _ring[replaySid] ?? const <Map<String, Object?>>[];
