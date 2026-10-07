@@ -171,13 +171,14 @@ class AuthController extends ChangeNotifier {
   }) async {
     final generation = ++_connectGeneration;
     bool stale() => generation != _connectGeneration;
-    final normalized = _normalizeUrl(rawUrl);
-    if (normalized == null) {
+    final typed = _normalizeUrl(rawUrl);
+    if (typed == null) {
       _errorMessage =
           'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
       _setState(HermesConnectionState.connectionError);
       return;
     }
+    var normalized = typed;
 
     _errorMessage = null;
     _lastFailure = null;
@@ -192,7 +193,9 @@ class AuthController extends ChangeNotifier {
 
     final HermesStatus status;
     try {
-      status = await HermesApiClient(probeDio).fetchStatus();
+      final probe = await HermesApiClient(probeDio).probeStatus();
+      status = probe.status;
+      normalized = probe.redirectedTo ?? normalized;
     } on DioException catch (e) {
       if (stale()) return;
       _failConnect(

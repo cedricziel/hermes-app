@@ -380,4 +380,39 @@ void main() {
       },
     );
   });
+
+  test(
+    'signs in at the address the server redirected to, not the one typed',
+    () async {
+      dashboard = await _startDashboard();
+      final dashboardUrl = 'http://127.0.0.1:${dashboard.port}';
+      final redirector = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => redirector.close(force: true));
+      redirector.listen((request) {
+        request.response
+          ..statusCode = HttpStatus.temporaryRedirect
+          ..headers.set(
+            HttpHeaders.locationHeader,
+            '$dashboardUrl${request.uri}',
+          );
+        unawaited(request.response.close());
+      });
+      String? signedInAt;
+      final controller = AuthController(
+        tokenStore: MemoryTokenStore(),
+        login: (url, {provider, httpClient, cancelled}) async {
+          signedInAt = url;
+          throw const NativeLoginCancelled();
+        },
+        events: events.call,
+      );
+
+      await controller.connect('127.0.0.1:${redirector.port}');
+      await controller.signInWithProvider(controller.providers.single);
+
+      expect(controller.baseUrl, dashboardUrl);
+      expect(controller.savedServerUrl, dashboardUrl);
+      expect(signedInAt, dashboardUrl);
+    },
+  );
 }
