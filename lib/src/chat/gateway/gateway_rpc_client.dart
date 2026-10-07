@@ -77,13 +77,27 @@ class GatewayConnectionClosed implements Exception {
 /// answered by id, the server's own requests are reported as
 /// [serverRequests], and everything else the server sends is an event.
 class GatewayRpcClient {
-  GatewayRpcClient(StreamChannel<String> channel, {this._telemetry})
-    : _channel = channel {
+  /// With [heartbeat], the client pings the gateway every [pingEvery] and
+  /// closes itself once no frame of any kind has arrived for [deadAfter]. A
+  /// socket the OS dropped while the app slept can look open and never
+  /// answer; without the heartbeat nothing notices until the next request.
+  GatewayRpcClient(
+    StreamChannel<String> channel, {
+    this._telemetry,
+    bool heartbeat = false,
+    Duration pingEvery = const Duration(seconds: 15),
+    Duration deadAfter = const Duration(seconds: 45),
+  }) : _channel = channel {
     _subscription = channel.stream.listen(
       _onFrame,
       onError: (Object _) {},
       onDone: _onClosed,
     );
+    if (heartbeat) {
+      _armDeadline(deadAfter);
+      _pingTimer = Timer.periodic(pingEvery, (_) => _ping());
+      _deadAfter = deadAfter;
+    }
   }
 
   final StreamChannel<String> _channel;
@@ -94,8 +108,17 @@ class GatewayRpcClient {
   final _pending = <int, _Pending>{};
   var _nextId = 1;
   var _closed = false;
+  Timer? _pingTimer;
+  Timer? _deadline;
+  Duration? _deadAfter;
+  String? _epoch;
 
   bool get isClosed => _closed;
+
+  /// The replay epoch the gateway announced in `gateway.ready`, or null
+  /// until one arrives. A changed epoch means the gateway lost its replay
+  /// ring, so the caller must refetch rather than replay.
+  String? get epoch => _epoch;
 
   /// Ends when the socket closes.
   Stream<GatewayEvent> get events => _events.stream;
@@ -160,7 +183,29 @@ class GatewayRpcClient {
     await _channel.sink.close();
   }
 
+  /// Sends a heartbeat ping. A refused ping still means the gateway answered,
+  /// so only the answer's arrival matters; the answer itself is a frame and
+  /// resets the deadline.
+  void _ping() {
+    if (_closed) return;
+    request('gateway.ping').then<void>((_) {}, onError: (Object _) {});
+  }
+
+  /// Restarts the countdown that closes a silent socket. Called on every
+  /// inbound frame, so the deadline is measured from the last frame of any kind.
+  void _armDeadline(Duration after) {
+    _deadline?.cancel();
+    _deadline = Timer(after, _onSilent);
+  }
+
+  void _onSilent() {
+    _onClosed();
+    unawaited(_subscription.cancel());
+    unawaited(_channel.sink.close());
+  }
+
   void _onFrame(String frame) {
+    if (_deadAfter != null && !_closed) _armDeadline(_deadAfter!);
     final Object? message;
     try {
       message = jsonDecode(frame);
@@ -215,12 +260,25 @@ class GatewayRpcClient {
   void _emit(Object? params) {
     if (params is! Map) return;
     _telemetry?.event(params['type']?.toString() ?? '');
+    final type = params['type']?.toString() ?? '';
+    final payload = params['payload'] as Map<String, Object?>? ?? const {};
     final seq = params['seq'];
+    var sessionId = params['session_id']?.toString() ?? '';
+    // Session-less broadcasts such as approval.cancelled carry their session
+    // in the payload; lift it so per-session filtering routes them.
+    final payloadSession = payload['session_id'];
+    if (sessionId.isEmpty && payloadSession is String) {
+      sessionId = payloadSession;
+    }
+    if (type == 'gateway.ready') {
+      final epoch = payload['replay_epoch'];
+      if (epoch is String) _epoch = epoch;
+    }
     _events.add(
       GatewayEvent(
-        type: params['type']?.toString() ?? '',
-        sessionId: params['session_id']?.toString() ?? '',
-        payload: params['payload'] as Map<String, Object?>? ?? const {},
+        type: type,
+        sessionId: sessionId,
+        payload: payload,
         seq: seq is int ? seq : null,
       ),
     );
@@ -229,6 +287,8 @@ class GatewayRpcClient {
   void _onClosed() {
     if (_closed) return;
     _closed = true;
+    _pingTimer?.cancel();
+    _deadline?.cancel();
     final pending = _pending.values.toList();
     _pending.clear();
     for (final call in pending) {
