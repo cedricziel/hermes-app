@@ -1,6 +1,6 @@
 # Audience and MAU
 
-MAU means distinct people active in a calendar month or rolling 30 days; name which window is used. The app has no account or stable cross-launch user identifier. Its diagnostic ID changes on every launch, and `user.id` is absent in the Hermes `apps` dataset. Do not call distinct sessions, traces, requests, or SignalDB's `USERS 0` card MAU or a count of people. `USERS 0` means no user IDs were recorded.
+MAU means distinct people active in a calendar month or rolling 30 days; name which window is used. The app has no account or user identifier, and `user.id` is absent in the Hermes `apps` dataset. Its `session.id` changes on every launch. From the release that adds it (flutter_otel_device_info 0.1.1), the resource carries `app.installation.id` (the iOS vendor ID, Android's `ANDROID_ID`, a stored UUID on desktop): count distinct values as active *installations*, not people, and only over windows after that release shipped. Do not call distinct sessions, traces, requests, or SignalDB's `USERS 0` card MAU or a count of people. `USERS 0` means no user IDs were recorded.
 
 In App Store Connect, open **Companion for Hermes Agent → Analytics → Metrics → Usage → Active in Last 30 Days** (and Active Devices if useful). Report Apple's metric as active *devices*, with its opt-in and availability qualifiers, not people. A dash or “insufficient data” is unavailable, not zero. Apple may delay recent dates. If neither source supports a people count, say so and report a clearly labeled activity proxy such as distinct sessions.
 

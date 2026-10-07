@@ -20,7 +20,7 @@ The system SHALL register Hermes in the share sheet of iOS (a share extension), 
 
 ### Requirement: iOS and Android hand-off
 
-On iOS and Android the system SHALL receive shared content through the `receive_sharing_intent` plugin. The iOS share extension SHALL store the shared content in the shared App Group container and open Hermes. Content that launched the app SHALL be read once at startup and the platform SHALL then be told it has been handled so that it is not delivered again on the next start. Content shared while the app is running SHALL arrive as a stream.
+On iOS and Android the system SHALL receive shared content through the `receive_sharing_intent` plugin. The iOS share extension SHALL store the shared content in the shared App Group container and open Hermes. It SHALL close the share sheet once every attachment has been read or has failed, whether the sending app hands over a file, an in-memory image or raw data, and SHALL remove its copied files older than seven days. Content that launched the app SHALL be read once at startup and the platform SHALL then be told it has been handled so that it is not delivered again on the next start. Content shared while the app is running SHALL arrive as a stream.
 
 #### Scenario: Content launches the app
 

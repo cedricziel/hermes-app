@@ -41,6 +41,19 @@ void main() {
     expect(reply.status, MessageStatus.thinking);
   });
 
+  test('a reply that only repeats its reasoning keeps it as reasoning', () {
+    // Hermes returns the reasoning as the answer when a model stops without
+    // writing any text, and keeps it out of the stored reply.
+    final reply = _placeholder();
+
+    applyReplyEvent(reply, const ReasoningUpdated('I need to load the skill.'));
+    applyReplyEvent(reply, const ReplyCompleted('I need to load the skill.\n'));
+
+    expect(reply.content, isEmpty);
+    expect(reply.reasoning, 'I need to load the skill.');
+    expect(reply.status, MessageStatus.sent);
+  });
+
   test('a fallback does not replace reasoning that streamed', () {
     final reply = _placeholder();
 

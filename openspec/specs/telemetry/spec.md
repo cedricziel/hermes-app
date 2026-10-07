@@ -91,7 +91,9 @@ When telemetry is enabled the system SHALL attach a resource to every exported s
 - `device.simulator` on iOS and Android: whether the device is a simulator or emulator.
 - `app.ios_app_on_mac` on iOS only: whether the app is an iOS app running on a Mac.
 
-The system SHALL NOT include the device name, vendor or hardware identifiers, locale, memory or disk sizes, or a build fingerprint. If reading the hardware facts fails, the system SHALL export the resource with the remaining attributes; if reading the basic attributes fails, it SHALL export the resource without any device attribute.
+The resource SHALL also carry `app.installation.id`: the vendor identifier (`identifierForVendor`) on iOS, `ANDROID_ID` on Android, and on other systems a random UUID created on first use and kept in the app support directory. It SHALL be omitted when it cannot be read or stored.
+
+The system SHALL NOT include the device name, hardware identifiers, locale, memory or disk sizes, or a build fingerprint. If reading the hardware facts fails, the system SHALL export the resource with the remaining attributes; if reading the basic attributes fails, it SHALL export the resource without any device attribute.
 
 #### Scenario: iPhone
 
@@ -126,10 +128,16 @@ The system SHALL NOT include the device name, vendor or hardware identifiers, lo
 - **THEN** the resource still has `os.type`, `app.build_mode` and the other basic attributes
 - **AND** no error reaches the user
 
-#### Scenario: Nothing that identifies a person or one device
+#### Scenario: Installation ID is vendor-scoped
+
+- **WHEN** the resource is exported on iOS
+- **THEN** `app.installation.id` is the vendor identifier, which changes once every app of the vendor is removed
+- **AND** on macOS it is the same UUID on every launch until the app's support data is removed
+
+#### Scenario: Nothing that identifies a person or the hardware
 
 - **WHEN** the resource is exported on any platform
-- **THEN** it has no device name, vendor identifier, hardware identifier, locale, memory size or disk size
+- **THEN** it has no device name, hardware identifier, locale, memory size or disk size
 
 ### Requirement: Every HTTP request through the app's clients is traced and logged
 

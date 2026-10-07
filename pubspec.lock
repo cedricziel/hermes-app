@@ -33,6 +33,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  android_id:
+    dependency: transitive
+    description:
+      name: android_id
+      sha256: "5ccd396fb5130e982b0d4976b1dd09ee4445496997f3b8d0df86670409c05550"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   args:
     dependency: transitive
     description:
@@ -524,10 +532,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_otel_device_info
-      sha256: "02b69732a037ade9d6438aaabb02640f347e4c141e90453980c95e49fcaf7dd8"
+      sha256: "87793f85012aadb5d76192f6cbec3ac43ebaab4cee127c2abae438d09ace8ded"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   flutter_plugin_android_lifecycle:
     dependency: transitive
     description:
