@@ -109,8 +109,8 @@ void main() {
     first
       ..emit(const ReplyCompleted('Done.'))
       ..finish();
-    await tester.pump();
-    await tester.pump();
+    // The queue waits for the session to settle, or for 2 s with no report.
+    await tester.pump(const Duration(seconds: 2));
 
     expect(transport.sends.map((s) => s.text), ['One', 'Two']);
     expect(find.text('Queued, sent when Hermes is done'), findsNothing);
@@ -170,8 +170,7 @@ void main() {
     first
       ..emit(const ReplyCompleted('Done.'))
       ..finish();
-    await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
     expect(transport.sends.last.attachments.single.name, 'report.pdf');
     await tester.pump(const Duration(seconds: 5));
   });

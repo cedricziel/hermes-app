@@ -74,6 +74,9 @@ void main() {
       ..submit('Three', const []);
 
     await complete(first);
+    // The queue waits for the session to settle before it sends.
+    transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
+    await pumpEventQueue();
 
     expect(transport.sends.map((s) => s.text), ['One', 'Two']);
     expect(transport.sends.last.threadId, 's1');
@@ -81,6 +84,8 @@ void main() {
     expect(thread.isReplying, isTrue);
 
     await complete(transport.sends.last);
+    transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
+    await pumpEventQueue();
 
     expect(transport.sends.map((s) => s.text), ['One', 'Two', 'Three']);
     expect(chat.queuedIn(thread), isEmpty);
@@ -99,6 +104,8 @@ void main() {
       expect(transport.sends, hasLength(1));
 
       follow.emit(const ReplyCompleted('Carried on.'));
+      await pumpEventQueue();
+      follow.emit(const SessionInfo(running: false));
       await pumpEventQueue();
 
       expect(transport.sends.map((s) => s.text), ['One', 'Two']);
@@ -167,6 +174,8 @@ void main() {
     chat.submit('Read this', [report]);
 
     await complete(first);
+    transport.followUpStreams['s1']!.emit(const SessionInfo(running: false));
+    await pumpEventQueue();
 
     expect(transport.sends.last.attachments.single.name, 'report.pdf');
   });
