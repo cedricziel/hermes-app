@@ -9,7 +9,7 @@ import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../slash_command.dart';
-import '../tool_result.dart';
+import 'gateway_event_mapper.dart';
 import 'gateway_rpc_client.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
@@ -228,6 +228,7 @@ class HermesGatewayTransport implements ChatTransport {
     required String text,
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
+    bool queued = false,
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
@@ -274,20 +275,21 @@ class HermesGatewayTransport implements ChatTransport {
       }
       // Images queue on the session and the next prompt takes them, so a send
       // that fails after queuing one must take them off again.
-      final queued = <String>[];
+      final queuedImages = <String>[];
       try {
         final references = await _attach(
           client,
           runtimeId,
           attachments,
-          queued,
+          queuedImages,
         );
         await _call(client, 'prompt.submit', {
           'session_id': runtimeId,
           'text': [text, ...references].where((s) => s.isNotEmpty).join('\n'),
+          if (queued) 'queued': true,
         });
       } on Object {
-        await _detach(client, runtimeId, queued);
+        await _detach(client, runtimeId, queuedImages);
         rethrow;
       }
       for (var attempt = 0; ; attempt++) {
@@ -557,7 +559,7 @@ class HermesGatewayTransport implements ChatTransport {
     final sources = [
       client.events
           .where((event) => event.sessionId == runtimeId)
-          .map(_toChatEvent)
+          .map(mapGatewayEvent)
           .listen((event) {
             if (event != null) inbox.add((event, false));
           }, onDone: inbox.close),
@@ -882,139 +884,10 @@ class HermesGatewayTransport implements ChatTransport {
     return _open = client;
   }
 
-  ChatEvent? _toChatEvent(GatewayEvent event) {
-    final payload = event.payload;
-    String text(String key) => _plainText(payload[key]);
-    return switch (event.type) {
-      'message.start' => const ReplyStarted(),
-      'message.delta' => ReplyDelta(text('text')),
-      'message.interim' => ReplyCheckpoint(text('text')),
-      'reasoning.delta' => ReasoningUpdated(text('text')),
-      'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
-      'tool.generating' => ToolPreparing(text('name')),
-      'tool.start' => ToolStarted(
-        id: text('tool_id'),
-        name: text('name'),
-        summary: text('context'),
-        args: _args(payload['args']),
-      ),
-      'tool.complete' => ToolFinished(
-        id: text('tool_id'),
-        name: text('name'),
-        failed: toolResultStatus(payload['result']) == ToolCallStatus.error,
-        interrupted:
-            toolResultStatus(payload['result']) == ToolCallStatus.cancelled,
-        result: _toolResult(payload['result']),
-        resultData: payload['result'],
-        diff: text('inline_diff'),
-        duration: _seconds(payload['duration_s']),
-      ),
-      'session.title' => ThreadTitled(text('title')),
-      'message.complete' => ReplyCompleted(
-        text('text'),
-        failed: payload['status'] == 'error',
-        stopped: payload['status'] == 'interrupted',
-      ),
-      'approval.request' => ApprovalRequested(
-        _toApproval(text('request_id'), payload),
-      ),
-      'clarify.request' => ClarifyRequested(
-        _toClarify(text('request_id'), payload),
-      ),
-      'secret.request' => _unsupported(
-        text('request_id'),
-        UnsupportedKind.secret,
-      ),
-      'sudo.request' => _unsupported(text('request_id'), UnsupportedKind.sudo),
-      'approval.expire' ||
-      'clarify.expire' ||
-      'secret.expire' ||
-      'sudo.expire' => InputRequestExpired(text('request_id')),
-      'request.cancel' => InputRequestExpired(text('id')),
-      'subagent.spawn_requested' ||
-      'subagent.start' ||
-      'subagent.progress' ||
-      'subagent.tool' ||
-      'subagent.thinking' ||
-      'subagent.complete' => _subagentEvent(event.type, payload),
-      _ => null,
-    };
-  }
-
-  /// One `subagent.*` frame as a [SubagentUpdated], or null when the frame
-  /// names no child. Identity fields arrived later in the protocol's life and
-  /// remain optional, so a frame without an id cannot be shown.
-  ChatEvent? _subagentEvent(String type, Map<String, Object?> payload) {
-    String? field(String camel, String snake) {
-      final value = payload[camel] ?? payload[snake];
-      return value == null ? null : '$value';
-    }
-
-    final id = field('subagentId', 'subagent_id');
-    final goal = _plainText(payload['goal']);
-    if (id == null || id.isEmpty || goal.isEmpty) return null;
-    final parentId = field('parentId', 'parent_id');
-    final running = switch (type) {
-      'subagent.complete' => false,
-      _ => true,
-    };
-    return SubagentUpdated(
-      Subagent(
-        id: id,
-        goal: goal,
-        parentId: parentId == null || parentId.isEmpty ? null : parentId,
-        depth: int.tryParse(field('depth', 'depth') ?? '') ?? 0,
-        index: int.tryParse(field('taskIndex', 'task_index') ?? '') ?? 0,
-        count: int.tryParse(field('taskCount', 'task_count') ?? '') ?? 1,
-        status: switch (type) {
-          'subagent.complete' => switch (field('status', 'status')) {
-            'interrupted' => SubagentStatus.interrupted,
-            'queued' || 'running' || null => SubagentStatus.running,
-            'completed' => SubagentStatus.completed,
-            _ => SubagentStatus.failed,
-          },
-          _ => SubagentStatus.running,
-        },
-        toolCount: int.tryParse(field('toolCount', 'tool_count') ?? ''),
-        lastTool: running ? field('toolName', 'tool_name') : null,
-        lastToolPreview: running
-            ? _plainText(
-                payload['toolPreview'] ??
-                    payload['tool_preview'] ??
-                    payload['preview'],
-              ).trim()
-            : null,
-        summary: _plainText(payload['summary']),
-        duration: _seconds(
-          payload['durationSeconds'] ?? payload['duration_seconds'],
-        ),
-        model: field('model', 'model'),
-        childSessionId: field('childSessionId', 'child_session_id'),
-        startedAt: type == 'subagent.start' ? DateTime.now() : null,
-      ),
-    );
-  }
-
-  /// Hermes may send text as content parts rather than a string.
-  static String _plainText(Object? value) => switch (value) {
-    null => '',
-    String() => value,
-    List() => value.map(_partText).join(),
-    Map() => _partText(value),
-    _ => '$value',
-  };
-
-  static String _partText(Object? part) => switch (part) {
-    String() => part,
-    {'text': final String text} => text,
-    {'output_text': final String text} => text,
-    _ => '',
-  };
-
   ChatEvent? _fromServerRequest(GatewayServerRequest request) {
     return switch (request.method) {
-      'approval' => ApprovalRequested(_toApproval(request.id, request.params)),
-      'clarify' => ClarifyRequested(_toClarify(request.id, request.params)),
+      'approval' => ApprovalRequested(toApproval(request.id, request.params)),
+      'clarify' => ClarifyRequested(toClarify(request.id, request.params)),
       'vault.save_login' => _vault(
         request.id,
         VaultKind.saveLogin,
@@ -1026,8 +899,8 @@ class HermesGatewayTransport implements ChatTransport {
         request.params,
       ),
       'vault.code' => _vault(request.id, VaultKind.code, request.params),
-      'sudo' => _unsupported(request.id, UnsupportedKind.sudo),
-      'secret' => _unsupported(request.id, UnsupportedKind.secret),
+      'sudo' => unsupportedRequest(request.id, UnsupportedKind.sudo),
+      'secret' => unsupportedRequest(request.id, UnsupportedKind.secret),
       _ => null,
     };
   }
@@ -1049,72 +922,4 @@ class HermesGatewayTransport implements ChatTransport {
       hint: fields['hint'] as String? ?? '',
     ),
   );
-
-  ApprovalRequest _toApproval(String requestId, Map<String, Object?> fields) =>
-      ApprovalRequest(
-        requestId: requestId,
-        command: fields['command'] as String? ?? '',
-        description: fields['description'] as String? ?? '',
-        choices: _strings(fields['choices']),
-        toolName: fields['tool_name'] as String? ?? '',
-      );
-
-  static Map<String, Object?>? _args(Object? value) =>
-      value is Map && value.isNotEmpty ? value.cast<String, Object?>() : null;
-
-  static Duration? _seconds(Object? value) => value is num && value >= 0
-      ? Duration(microseconds: (value * 1e6).round())
-      : null;
-
-  UnsupportedRequested _unsupported(String requestId, UnsupportedKind kind) =>
-      UnsupportedRequested(
-        UnsupportedRequest(requestId: requestId, kind: kind),
-      );
-
-  /// A result is a string or a JSON object; an object with an `output` shows
-  /// that, since the rest is bookkeeping such as the exit code.
-  String _toolResult(Object? result) {
-    if (result == null) return '';
-    if (result is String) return result;
-    if (result is Map && result['output'] is String) {
-      return result['output'] as String;
-    }
-    try {
-      return const JsonEncoder.withIndent('  ').convert(result);
-    } on Object {
-      return result.toString();
-    }
-  }
-
-  ClarifyRequest _toClarify(String requestId, Map<String, Object?> payload) {
-    final batch = payload['questions'];
-    if (batch is List) {
-      return ClarifyRequest(
-        requestId: requestId,
-        batch: true,
-        questions: [
-          for (final q in batch.whereType<Map<String, Object?>>())
-            _toQuestion(q),
-        ],
-      );
-    }
-    return ClarifyRequest(
-      requestId: requestId,
-      questions: [_toQuestion(payload)],
-    );
-  }
-
-  ClarifyQuestion _toQuestion(Map<String, Object?> q) => ClarifyQuestion(
-    qid: q['qid'] as String? ?? '',
-    question: q['question'] as String? ?? '',
-    choices: _strings(q['choices']),
-    multiSelect: q['multi_select'] == true,
-  );
-
-  List<String> _strings(Object? value) => value is List
-      ? [
-          for (final item in value)
-            if (item is String) item,
-        ]
-      : const [];
 }

@@ -48,9 +48,70 @@ final class ReasoningUpdated extends ChatEvent {
 /// that segment and replaces whatever streamed for it, which may be only a
 /// prefix of it or hold markup Hermes strips.
 final class ReplyCheckpoint extends ChatEvent {
-  const ReplyCheckpoint(this.text);
+  const ReplyCheckpoint(this.text, {this.alreadyStreamed = true});
 
   final String text;
+
+  /// False when [text] was never streamed, so it must be added to the reply
+  /// rather than taken as the final form of text already on screen.
+  final bool alreadyStreamed;
+}
+
+/// The reply failed with [message] but the server has not sent its final
+/// completion yet. Held until the turn settles, so a failure that a later
+/// completion explains is not shown twice.
+final class ReplyErrored extends ChatEvent {
+  const ReplyErrored(this.message);
+
+  final String message;
+}
+
+/// The session's state as the server reports it. [running] false is the
+/// settle signal: the turn is over even if no completion arrived. A changed
+/// [storedSessionId] re-keys the thread whatever [running] says, since
+/// compressing the conversation can rotate the id mid-turn.
+final class SessionInfo extends ChatEvent {
+  const SessionInfo({this.running, this.storedSessionId});
+
+  /// Null when the server did not say.
+  final bool? running;
+  final String? storedSessionId;
+}
+
+/// What the agent is doing while it writes, shown in place of the generic
+/// "Thinking…" label. Empty [text] clears it.
+final class ReplyStatus extends ChatEvent {
+  const ReplyStatus(this.text);
+
+  final String text;
+}
+
+/// The server withdrew input requests before they were answered, e.g. an
+/// interrupt. An empty [requestIds] means every request of the reply.
+final class InputRequestsCancelled extends ChatEvent {
+  const InputRequestsCancelled(this.requestIds);
+
+  final List<String> requestIds;
+}
+
+/// The server folded the prompt into the turn already running, so no reply of
+/// its own will come. The placeholder for it is removed, not shown as failed.
+final class PromptFolded extends ChatEvent {
+  const PromptFolded();
+}
+
+/// The reply text as the server now holds it. It replaces what streamed since
+/// the last seal, because the streamed deltas were lost or are out of date.
+final class ReplyRebuilt extends ChatEvent {
+  const ReplyRebuilt(this.text);
+
+  final String text;
+}
+
+/// The thread's history changed in a way the stream cannot carry, so the
+/// controller should read it again over REST once no reply is pending.
+final class ThreadNeedsRefetch extends ChatEvent {
+  const ThreadNeedsRefetch();
 }
 
 /// The model began writing a call to [name]; its arguments are still coming.
@@ -165,13 +226,38 @@ final class SubagentUpdated extends ChatEvent {
 /// Last event of a reply. [text] is the full final text; [failed] is true when
 /// the turn ended in an error and [text] carries the message.
 final class ReplyCompleted extends ChatEvent {
-  const ReplyCompleted(this.text, {this.failed = false, this.stopped = false});
+  const ReplyCompleted(
+    this.text, {
+    this.failed = false,
+    this.stopped = false,
+    this.previewed = false,
+    this.reused = false,
+    this.transformed = false,
+    this.partial = false,
+    this.error,
+  });
 
   final String text;
   final bool failed;
 
   /// The user stopped the reply, so [text] may be short or empty.
   final bool stopped;
+
+  /// [text] is what the server already previewed to the user, so it is not
+  /// new text to show again.
+  final bool previewed;
+
+  /// [text] is what streamed, sent again as the final answer.
+  final bool reused;
+
+  /// [text] is the final form of what streamed, which may differ from it.
+  final bool transformed;
+
+  /// The reply failed after some of its text was written; [text] keeps it.
+  final bool partial;
+
+  /// Why the reply failed, when it did.
+  final String? error;
 }
 
 /// The profile a message was sent under no longer exists on the dashboard, so
@@ -257,12 +343,16 @@ abstract interface class ChatTransport {
   ///
   /// [model] runs the thread on that model and effort from this message on;
   /// null leaves the thread on whatever it runs.
+  ///
+  /// [queued] asks Hermes to queue this message behind a turn still running
+  /// in the thread, rather than let it redirect that turn.
   Stream<ChatEvent> send({
     String? threadId,
     String? profile,
     required String text,
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
+    bool queued = false,
   });
 
   /// The turns Hermes starts on its own in [threadId] after the reply of the

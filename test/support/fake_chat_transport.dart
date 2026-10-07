@@ -51,6 +51,7 @@ class FakeChatTransport implements ChatTransport {
     required String text,
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
+    bool queued = false,
   }) {
     final send = FakeSend(
       threadId: threadId,
@@ -58,6 +59,7 @@ class FakeChatTransport implements ChatTransport {
       text: text,
       attachments: attachments,
       model: model,
+      queued: queued,
     );
     sends.add(send);
     return send._events.stream;
@@ -209,6 +211,7 @@ class FakeSend {
     required this.text,
     this.attachments = const [],
     this.model,
+    this.queued = false,
   });
 
   final String? threadId;
@@ -216,6 +219,9 @@ class FakeSend {
   final String text;
   final List<OutgoingAttachment> attachments;
   final ModelChoice? model;
+
+  /// Whether the send asked to queue behind a running turn.
+  final bool queued;
   final _events = StreamController<ChatEvent>();
 
   void emit(ChatEvent event) => _events.add(event);

@@ -11,6 +11,7 @@ class GatewayEvent {
     required this.type,
     required this.sessionId,
     required this.payload,
+    this.seq,
   });
 
   final String type;
@@ -20,6 +21,10 @@ class GatewayEvent {
   final String sessionId;
 
   final Map<String, Object?> payload;
+
+  /// The event's position in its session, from 1, when the server numbers its
+  /// events. A replay after a reconnect asks for the events past a seq.
+  final int? seq;
 }
 
 /// A request the gateway sends to the client and waits on, e.g. `approval`.
@@ -210,11 +215,13 @@ class GatewayRpcClient {
   void _emit(Object? params) {
     if (params is! Map) return;
     _telemetry?.event(params['type']?.toString() ?? '');
+    final seq = params['seq'];
     _events.add(
       GatewayEvent(
         type: params['type']?.toString() ?? '',
         sessionId: params['session_id']?.toString() ?? '',
         payload: params['payload'] as Map<String, Object?>? ?? const {},
+        seq: seq is int ? seq : null,
       ),
     );
   }

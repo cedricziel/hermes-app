@@ -168,7 +168,7 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
         metadata: {
           kMetaKind: kKindThinking,
           kMetaThinkingStartedAt: m.createdAt,
-          kMetaThinkingActivity: 'Thinking…',
+          kMetaThinkingActivity: m.activity ?? 'Thinking…',
         },
       ),
   ];

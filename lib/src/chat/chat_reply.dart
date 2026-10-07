@@ -133,7 +133,16 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         stopped ? ToolCallStatus.cancelled : ToolCallStatus.completed,
       );
       expireInputRequests(reply);
-    case ReplyStarted() || ThreadBound() || ThreadTitled():
+    case ReplyStarted() ||
+        ThreadBound() ||
+        ThreadTitled() ||
+        ReplyErrored() ||
+        SessionInfo() ||
+        ReplyStatus() ||
+        InputRequestsCancelled() ||
+        PromptFolded() ||
+        ReplyRebuilt() ||
+        ThreadNeedsRefetch():
       break;
   }
 }
