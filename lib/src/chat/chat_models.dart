@@ -550,6 +550,21 @@ class ChatMessage {
   /// Why the reply failed, shown under whatever text it kept.
   String? error;
 
+  /// What the agent is doing now, shown in the thinking row. Null keeps the
+  /// generic label.
+  String? activity;
+
+  /// The turn ended without its completion, so [content] is what streamed,
+  /// taken as final. A completion that arrives later still applies.
+  bool settledWithoutCompletion = false;
+
+  /// An error event arrived for this reply and no completion has come yet.
+  bool errorEventSeen = false;
+
+  /// The message of a held error event. It is shown only if the turn settles
+  /// without a completion that would carry its own error.
+  String? pendingError;
+
   bool get isPending =>
       status == MessageStatus.thinking || status == MessageStatus.streaming;
 

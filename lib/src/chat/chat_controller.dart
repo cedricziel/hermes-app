@@ -1221,6 +1221,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         notifyListeners();
       case ReplyStarted():
         break;
+      case ReplyErrored() ||
+          SessionInfo() ||
+          ReplyStatus() ||
+          InputRequestsCancelled() ||
+          PromptFolded() ||
+          ReplyRebuilt() ||
+          ThreadNeedsRefetch():
+        break;
       case ReplyDelta() ||
           ReplyCheckpoint() ||
           ReasoningUpdated() ||
