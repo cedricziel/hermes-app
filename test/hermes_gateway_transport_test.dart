@@ -17,6 +17,7 @@ import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
 import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:stream_channel/stream_channel.dart';
 
 import 'support/fake_gateway.dart';
 
@@ -37,6 +38,19 @@ void main() {
   });
 
   tearDown(() => transport.close());
+
+  test('a socket that never finishes opening fails the send', () async {
+    final stuck = HermesGatewayTransport(
+      connect: () => Completer<StreamChannel<String>>().future,
+      connectTimeout: const Duration(milliseconds: 50),
+    );
+    addTearDown(stuck.close);
+
+    await expectLater(
+      stuck.send(text: 'hi').toList().timeout(const Duration(seconds: 5)),
+      throwsA(isA<GatewayConnectionClosed>()),
+    );
+  });
 
   test(
     'slash catalog uses the active profile and commands bypass prompts',
