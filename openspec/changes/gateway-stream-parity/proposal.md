@@ -52,6 +52,7 @@ None.
 - **Backend:** no new REST routes. New RPC methods are `session.events.since`, `gateway.ping` and `session.active_list` (already used for statuses), and `prompt.submit` gains the `queued` param. The minimum Hermes stays the pinned `7b3c7aef`.
 - **Delivery:** five PRs (see tasks.md). The project rule asks for one PR per change, but the slices share one contract and one test fake, so splitting them into separate changes would duplicate the design. The PR boundaries are what keep each review under about 500 lines.
 - **Security and privacy:** none. No new storage, and no tokens or prompt text in logs. Replayed events stay in memory only.
-- **Telemetry:** through `flutter_otel`, two log events with no message content:
+- **Telemetry:** through `flutter_otel`, three log events with no message content:
   - `gateway.reconnect` (`attempt`, `outcome`: `replayed` | `rest_refetch` | `ended` | `failed`, `replayed_count`, `truncated`, `epoch_changed`);
-  - `gateway.turn_settled` (`via`: `complete` | `error_event` | `session_info` | `silence_probe`).
+  - `gateway.turn_settled` (`via`: `complete` | `error_event` | `session_info` | `silence_probe`);
+  - `gateway.event_unmapped` (`event.type`, plus `server_request: true` for an unhandled server→client request method). It is sent once per type per connection, so we learn which protocol frames Hermes sends that the app ignores. The type is cut to 64 characters, and after 20 distinct types on one connection the rest are counted as `other`, so a misbehaving server cannot flood telemetry. Payloads are never recorded.
