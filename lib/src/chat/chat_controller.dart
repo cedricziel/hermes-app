@@ -928,6 +928,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final prompt = lastPromptText(thread);
     return transport != null &&
         _bound.contains(thread) &&
+        !_undoing.contains(thread) &&
         !thread.isReplying &&
         !_queues.containsKey(thread) &&
         prompt != null &&
@@ -940,7 +941,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// undo get a new turn instead.
   Future<void> retry(ChatThread thread) async {
     final prompt = lastPromptText(thread);
-    if (prompt == null) return;
+    if (prompt == null || _undoing.contains(thread)) return;
     if (prompt.startsWith('/')) {
       unawaited(runSlashCommand(prompt));
       return;
@@ -977,14 +978,26 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     onPrefill?.call(prompt);
   }
 
+  /// The threads whose last turn is being dropped, so a second tap does not
+  /// drop the turn before it too.
+  final _undoing = <ChatThread>{};
+
   /// Drops the last turn of [thread] on the server and then here. False when
   /// the server cannot undo.
   Future<bool> _undoLastTurn(ChatThread thread, {bool retry = false}) async {
-    final removed = await transport!.undoLastTurn(
-      thread.id,
-      profile: _profile,
-      retry: retry,
-    );
+    _undoing.add(thread);
+    notifyListeners();
+    final int? removed;
+    try {
+      removed = await transport!.undoLastTurn(
+        thread.id,
+        profile: _profile,
+        retry: retry,
+      );
+    } finally {
+      _undoing.remove(thread);
+      if (!disposed) notifyListeners();
+    }
     if (removed == null) return false;
     if (disposed) return true;
     final start = thread.messages.lastIndexWhere(

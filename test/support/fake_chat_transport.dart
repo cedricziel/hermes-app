@@ -170,6 +170,9 @@ class FakeChatTransport implements ChatTransport {
   /// Thrown by [undoLastTurn] when set.
   Object? undoError;
 
+  /// Holds [undoLastTurn]'s answer until completed.
+  Completer<void>? undoGate;
+
   @override
   Future<int?> undoLastTurn(
     String threadId, {
@@ -177,6 +180,7 @@ class FakeChatTransport implements ChatTransport {
     bool retry = false,
   }) async {
     undos.add((threadId, retry));
+    await undoGate?.future;
     if (undoError case final error?) throw error; // ignore: only_throw_errors
     return undoRemoved;
   }

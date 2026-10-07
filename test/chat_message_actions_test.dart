@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
@@ -151,6 +153,23 @@ void main() {
     expect(transport.sends.single.threadId, 's1');
     expect(inTranscript('A connection reset.'), findsNothing);
     expect(inTranscript('Why did the run fail?'), findsOneWidget);
+  });
+
+  chatTest('no second undo while one is in flight', (tester) async {
+    final gate = transport.undoGate = Completer<void>();
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    expect(editPrompt, findsNothing);
+    await tester.tap(tryAgain);
+    await tester.pump();
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(transport.undos, [('s1', true)]);
+    expect(transport.sends, hasLength(1));
   });
 
   chatTest('a server that cannot undo still tries again as a new turn', (
