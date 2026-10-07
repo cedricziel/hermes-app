@@ -257,37 +257,219 @@ void main() {
       });
     });
 
-    test(
-      'A new epoch on the new socket rebuilds the reply from the snapshot',
-      () {
-        fake((async) {
-          gateway.resumeResult = {
-            'session_id': 'rt-1',
-            'running': true,
-            'inflight': {'assistant': 'abc'},
-          };
-          gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
-          gateway.beforeResumeAnswer = (g) => g.epoch = 'epoch-2';
-
-          final seen = _listen(transport.send(text: 'hi'));
-          async.flushMicrotasks();
-          gateway.event('message.delta', 'rt-1', {'text': 'd'});
-          gateway.event('message.complete', 'rt-1', {
-            'text': 'abcd',
-            'status': 'complete',
-          });
-          async.flushMicrotasks();
-
-          expect(seen.error, isNull);
-          expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abc');
-          expect(_fromRebuild(seen), [
-            ReplyRebuilt,
-            ReplyDelta,
-            ReplyCompleted,
-          ]);
+    test('A restart that changes the epoch before the new socket is ready rebuilds '
+        'the reply from the snapshot and drops the stale ring', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'abc'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.epoch = 'epoch-2';
+          _deltaSeqs(g, sid, 8, 9);
         });
-      },
-    );
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': 'd'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'abcd',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abc');
+        expect(_fromRebuild(seen), [ReplyRebuilt, ReplyDelta, ReplyCompleted]);
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['d'],
+        );
+      });
+    });
+
+    test('An older gateway without session.events.since: a running turn '
+        'carries on from the snapshot', () {
+      fake((async) {
+        gateway.unknownMethods.add('session.events.since');
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'abc'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': 'd'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'abcd',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(_fromRebuild(seen), [ReplyRebuilt, ReplyDelta, ReplyCompleted]);
+      });
+    });
+
+    test('An older gateway without session.events.since: an ended turn ends '
+        'with the stored reply', () {
+      fake((async) {
+        gateway.unknownMethods.add('session.events.since');
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'user', 'text': 'hi'},
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(
+          seen.events.sublist(seen.events.length - 2).map((e) => e.runtimeType),
+          [ThreadNeedsRefetch, ReplyCompleted],
+        );
+      });
+    });
+
+    test('No watermark: a ring this app never saw is not replayed over the '
+        'snapshot', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': '123'},
+        };
+        // Everything the turn said went out while the socket was down, so
+        // this app holds no seq for the session.
+        gateway.turn = (g, sid) {
+          g.drop();
+          _deltaSeqs(g, sid, 1, 3);
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': '4'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': '1234',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(gateway.methods, isNot(contains('session.events.since')));
+        expect(seen.events.whereType<ReplyRebuilt>().single.text, '123');
+        expect(_deltas(seen), ['4']);
+      });
+    });
+
+    test('Frames without a seq: the reconnect rebuilds from the snapshot and '
+        'shows each live delta once', () {
+      fake((async) {
+        gateway.stampSeq = false;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'abc'},
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'a'});
+          g.drop();
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': 'd'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'abcd',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(gateway.methods, isNot(contains('session.events.since')));
+        expect(_fromRebuild(seen), [ReplyRebuilt, ReplyDelta, ReplyCompleted]);
+        expect(_deltas(seen), ['a', 'd']);
+      });
+    });
+
+    test('A delta that is only whitespace is delivered even when the snapshot '
+        'ends with whitespace', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'ab '},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) =>
+            g.event('message.delta', 'rt-1', {'text': ' '});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'ab  ',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          [' '],
+        );
+      });
+    });
+
+    test('Of two identical short deltas parked ahead of the snapshot only the '
+        'first can be dropped', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'abb'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) {
+          g.event('message.delta', 'rt-1', {'text': 'b'});
+          g.event('message.delta', 'rt-1', {'text': 'b'});
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'abbb',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['b'],
+        );
+      });
+    });
 
     test('Turn ended while disconnected: the replayed events up to the completion are delivered', () {
       fake((async) {
@@ -341,6 +523,25 @@ void main() {
           seen.events.last,
           isA<ReplyCompleted>().having((e) => e.text, 'text', 'Done'),
         );
+      });
+    });
+  });
+
+  group('Two watches on one runtime session', () {
+    test('each gets every live event, not half of them', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => g.event('message.start', sid);
+
+        final replying = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        final following = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        _deltaSeqs(gateway, 'rt-1', 2, 4);
+        async.flushMicrotasks();
+
+        expect(_deltas(replying), ['2', '3', '4']);
+        expect(_deltas(following), ['2', '3', '4']);
       });
     });
   });

@@ -255,6 +255,12 @@ class FakeGateway {
                   'error': {'code': 4007, 'message': 'session not found'},
                 },
         );
+      case 'session.events.since'
+          when unknownMethods.contains('session.events.since'):
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
       case 'session.events.since':
         beforeEventsAnswer?.call(this);
         final replaySid = params['session_id'] as String;

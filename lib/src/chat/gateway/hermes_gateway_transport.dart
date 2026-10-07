@@ -626,8 +626,12 @@ class HermesGatewayTransport implements ChatTransport {
     final id = resumed['session_id'];
     final runtimeId = id is String && id.isNotEmpty ? id : previous ?? owner.$2;
     // The ring only replays what this app saw of this session when the
-    // session is the one the reply was on.
-    final replay = previous != null && runtimeId == previous;
+    // session is the one the reply was on, and only from a seq this app
+    // holds: from none, `last_seen: 0` would hand over the whole ring.
+    final replay =
+        previous != null &&
+        runtimeId == previous &&
+        _ledger.hasWatermark(runtimeId);
     Map<String, Object?>? since;
     if (replay) {
       try {
@@ -635,6 +639,13 @@ class HermesGatewayTransport implements ChatTransport {
           'session_id': runtimeId,
           'last_seen': _ledger.lastSeen(runtimeId),
         });
+      } on GatewayRpcException catch (error) {
+        // A gateway that predates the replay cannot fill the gap, so the
+        // reply is rebuilt from the resume answer instead.
+        if (error.code != kGatewayMethodNotFound) {
+          tap.close();
+          return null;
+        }
       } on Object {
         tap.close();
         return null;
@@ -656,7 +667,6 @@ class HermesGatewayTransport implements ChatTransport {
           sid: runtimeId,
           result: since,
           parked: _eventsOf(frames, runtimeId),
-          connectionEpoch: client.epoch,
         );
         if (decision case Deliver(:final events)) {
           for (final event in events) {
@@ -691,7 +701,6 @@ class HermesGatewayTransport implements ChatTransport {
             sid: runtimeId,
             result: since,
             parked: _eventsOf(frames, runtimeId),
-            connectionEpoch: client.epoch,
           );
     if (decision case Deliver(:final events)) {
       _openRequests(injected, openRows, runtimeId, shown);
@@ -710,8 +719,11 @@ class HermesGatewayTransport implements ChatTransport {
       if (snapshot != null) injected.add((ReplyRebuilt(snapshot), false));
       _openRequests(injected, openRows, runtimeId, shown);
       final dropped = snapshot == null ? 0 : _heldBySnapshot(before, snapshot);
-      injected.addAll(_parked(before, runtimeId, shown, dropped: dropped));
-      injected.addAll(_parked(after, runtimeId, shown));
+      final epoch = client.epoch;
+      injected.addAll(
+        _parked(before, runtimeId, shown, epoch: epoch, dropped: dropped),
+      );
+      injected.addAll(_parked(after, runtimeId, shown, epoch: epoch));
     }
     return _Resumed(
       runtimeId: runtimeId,
@@ -782,20 +794,23 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   /// How many leading deltas of [before] the snapshot already holds: the
-  /// longest run from the start whose joined text ends [snapshot]. The run
-  /// stops at the first frame that is not a delta.
+  /// shortest run from the start whose joined text ends [snapshot]. The run
+  /// stops at the first frame that is not a delta, and a run of whitespace
+  /// alone proves nothing, since a snapshot often ends in a space or a
+  /// newline. Fewer is the safe error: a delta shown twice is a blemish, one
+  /// dropped is a hole in the reply.
   static int _heldBySnapshot(List<Object> before, String snapshot) {
     final joined = StringBuffer();
-    var longest = 0;
     var count = 0;
     for (final frame in before) {
       if (frame is! GatewayEvent || frame.type != 'message.delta') break;
       count++;
       final text = frame.payload['text'];
       joined.write(text is String ? text : '');
-      if (snapshot.endsWith(joined.toString())) longest = count;
+      final run = joined.toString();
+      if (run.trim().isNotEmpty && snapshot.endsWith(run)) return count;
     }
-    return longest;
+    return 0;
   }
 
   /// The frames [parked] while a reconnect was in flight, as events to show.
@@ -805,13 +820,14 @@ class HermesGatewayTransport implements ChatTransport {
     List<Object> parked,
     String sid,
     Set<String> shown, {
+    required String? epoch,
     int dropped = 0,
   }) {
     final out = <_Incoming>[];
     for (var i = 0; i < parked.length; i++) {
       final frame = parked[i];
       if (frame is GatewayEvent) {
-        final fresh = _ledger.observe(sid, frame.seq);
+        final fresh = _ledger.observe(sid, frame.seq, epoch: epoch);
         if (!fresh || i < dropped) continue;
         final incoming = _incomingOf(frame, sid);
         if (incoming != null) out.add(incoming);
@@ -1074,8 +1090,9 @@ class HermesGatewayTransport implements ChatTransport {
   /// Starts listening to the events and requests of [runtimeId]. The
   /// [injected] events, already decided by a reconnect, come first; then the
   /// [buffered] frames of any session, filtered to it, and the live frames.
-  /// A live event is observed on the ledger, so one the replay already handed
-  /// over is dropped.
+  /// A live event at or below what the ledger held when the watch began, or
+  /// what the watch already showed, is dropped, so one the replay already
+  /// handed over is not shown twice.
   _Watch _watch(
     GatewayRpcClient client,
     String runtimeId, {
@@ -1087,6 +1104,10 @@ class HermesGatewayTransport implements ChatTransport {
     for (final incoming in injected) {
       inbox.add(incoming);
     }
+    // The ledger is the transport's: it feeds the next replay. Whether this
+    // watch has shown a live event is its own matter, so two watches on one
+    // runtime session each get every frame.
+    var seen = _ledger.lastSeen(runtimeId);
     void deliver(Object frame) {
       final String sid;
       switch (frame) {
@@ -1100,9 +1121,16 @@ class HermesGatewayTransport implements ChatTransport {
       if (sid != runtimeId) return;
       // A frame that shows nothing, or a replayed duplicate, still counts as
       // a sign of life for the silence probe, so it is sent as a null.
-      if (frame is GatewayEvent && !_ledger.observe(runtimeId, frame.seq)) {
-        inbox.add(null);
-        return;
+      if (frame is GatewayEvent) {
+        final seq = frame.seq;
+        if (seq != null) {
+          _ledger.observe(runtimeId, seq, epoch: client.epoch);
+          if (seq <= seen) {
+            inbox.add(null);
+            return;
+          }
+          seen = seq;
+        }
       }
       inbox.add(_incomingOf(frame, runtimeId));
     }

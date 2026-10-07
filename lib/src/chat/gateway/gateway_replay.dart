@@ -5,42 +5,56 @@ import 'gateway_rpc_client.dart';
 /// Tracks, per runtime session, the highest event `seq` already delivered, so
 /// a replay after a reconnect and the live frames that overlap it never hand
 /// the same event to the reply twice.
+///
+/// A seq only means something within the server process that numbered it, so
+/// each watermark remembers the replay epoch it was recorded at.
 class ReplayLedger {
   final Map<String, int> _watermarks = {};
+  final Map<String, String> _epochs = {};
 
   /// Whether an event with [seq] in session [sid] is new. A new event raises
-  /// the session's watermark. An event without a seq cannot be ordered, so it
-  /// is always delivered and leaves the watermark alone.
-  bool observe(String sid, int? seq) {
+  /// the session's watermark and records the [epoch] it arrived in, when known.
+  /// An event without a seq cannot be ordered, so it is always delivered and
+  /// leaves the watermark alone.
+  bool observe(String sid, int? seq, {String? epoch}) {
     if (seq == null) return true;
     final watermark = _watermarks[sid];
     if (watermark != null && seq <= watermark) return false;
     _watermarks[sid] = seq;
+    if (epoch != null) _epochs[sid] = epoch;
     return true;
   }
 
   /// The highest seq delivered for [sid], or 0 when none was.
   int lastSeen(String sid) => _watermarks[sid] ?? 0;
 
+  /// Whether any event of [sid] was delivered with a seq. Without one there is
+  /// nothing to replay from: `last_seen: 0` would hand over the whole ring.
+  bool hasWatermark(String sid) => _watermarks.containsKey(sid);
+
+  /// The replay epoch [sid]'s watermark was recorded at, or null when none was
+  /// known.
+  String? epochOf(String sid) => _epochs[sid];
+
   /// Reconciles a `session.events.since` answer with the live frames parked
   /// while it was in flight.
   ///
-  /// A new server epoch means the seqs were numbered by a different process,
-  /// so every watermark is dropped and the caller must refetch. A truncated
-  /// answer is refetched too, and the watermark stays where it was: parked
-  /// events are still checked against it, and jumping to `latest_seq` would
-  /// lose the deltas the server sent after the snapshot.
+  /// An answer from another epoch than the one the watermark was recorded at
+  /// means a different process numbered the seqs, so every watermark is
+  /// dropped and the caller must refetch. A truncated answer is refetched too,
+  /// and the watermark stays where it was: parked events are still checked
+  /// against it, and jumping to `latest_seq` would lose the deltas the server
+  /// sent after the snapshot.
   ReplayDecision merge({
     required String sid,
     required Map<String, Object?> result,
     required List<GatewayEvent> parked,
-    required String? connectionEpoch,
   }) {
     final epoch = result['epoch'];
-    if (connectionEpoch != null &&
-        epoch is String &&
-        epoch != connectionEpoch) {
+    final recorded = _epochs[sid];
+    if (recorded != null && epoch is String && epoch != recorded) {
       _watermarks.clear();
+      _epochs.clear();
       return const Refetch();
     }
     if (result['truncated'] == true) return const Refetch();
@@ -48,7 +62,9 @@ class ReplayLedger {
     final delivered = <GatewayEvent>[];
     for (final event in [..._replayed(sid, result['events']), ...parked]) {
       if (event.sessionId != sid) continue;
-      if (observe(sid, event.seq)) delivered.add(event);
+      if (observe(sid, event.seq, epoch: epoch is String ? epoch : null)) {
+        delivered.add(event);
+      }
     }
     return Deliver(delivered);
   }
