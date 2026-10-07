@@ -284,7 +284,14 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
 ## 10. Contract, telemetry, docs and verification, PR5 (Wave 3, orchestrator or one Sonnet agent)
 
 - [ ] 10.1 Add the telemetry from the proposal, through `safely`: `gateway.reconnect` (`attempt`, `outcome`, `replayed_count`, `truncated`, `epoch_changed`) and `gateway.turn_settled` (`via`). Test with `test/support/recording_tracer.dart` that both are emitted and carry no message text.
-- [ ] 10.2 Extend `test/real_backend_contract_test.dart` (runs only with `HERMES_DEV_URL` and `HERMES_DEV_MODEL_CALLS=1`):
+- [ ] 10.2 Tests first, then add `gateway.event_unmapped` (`event.type`, optional `server_request: true`).
+  - It is emitted once per type per connection, for an event `mapGatewayEvent` returns null for, and for a server request the transport answers with -32601 or leaves alone.
+  - Types are cut to 64 characters, and after 20 distinct types per connection the rest are reported as `other`.
+  - The payload is never recorded.
+  - Expected noise is excluded: `gateway.ready`, `session.usage`, `*.changed` broadcasts, `notification.*`, and events of another session.
+
+  Test with `recording_tracer.dart`: a second `foo.bar` on the same connection emits nothing, a new connection emits it again, and no payload key appears in the attributes.
+- [ ] 10.3 Extend `test/real_backend_contract_test.dart` (runs only with `HERMES_DEV_URL` and `HERMES_DEV_MODEL_CALLS=1`):
   - a turn sends `session.info {running:false}` after `message.complete`;
   - event frames carry `seq`;
   - `session.events.since` after a forced socket close returns the missed seqs;
@@ -292,8 +299,8 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
 
   Verify it skips without `HERMES_DEV_URL`, and run it once with `scripts/dev-backend.sh start`.
 
-- [ ] 10.3 Update `CLAUDE.md`'s Chat paragraph: settling signals, `seq` replay with `inflight` and REST fallback, the heartbeat, `queued: true` drains. Update the `verify-in-app` skill with a step that kills the dev backend's socket mid-reply (drop the connection, not the server) and checks the reply finishes. Verify the docs name only files that exist.
-- [ ] 10.4 Final verification:
+- [ ] 10.4 Update `CLAUDE.md`'s Chat paragraph: settling signals, `seq` replay with `inflight` and REST fallback, the heartbeat, `queued: true` drains. Update the `verify-in-app` skill with a step that kills the dev backend's socket mid-reply (drop the connection, not the server) and checks the reply finishes. Verify the docs name only files that exist.
+- [ ] 10.5 Final verification:
   - `dart format --output=none --set-exit-if-changed .`
   - `flutter analyze`
   - `flutter test`
