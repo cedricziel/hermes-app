@@ -14,11 +14,13 @@ class _Seen {
   final events = <ChatEvent>[];
   Object? error;
   var done = false;
+  // ignore: cancel_subscriptions
+  late final StreamSubscription<ChatEvent> subscription;
 }
 
 _Seen _listen(Stream<ChatEvent> stream) {
   final seen = _Seen();
-  stream.listen(
+  seen.subscription = stream.listen(
     seen.events.add,
     onError: (Object error) => seen.error = error,
     onDone: () => seen.done = true,
@@ -684,6 +686,279 @@ void main() {
         async.elapse(const Duration(seconds: 1));
 
         expect(seen.error, isA<GatewayConnectionClosed>());
+      });
+    });
+  });
+
+  group('A reply reconnecting more than once', () {
+    test('the silence probe asks the connection the reply is on now', () {
+      fake((async) {
+        final first = FakeGateway()
+          ..turn = (g, sid) {
+            g.event('message.start', sid);
+            g.drop();
+          };
+        final second = FakeGateway()
+          ..resumeResult = {'session_id': 'rt-1', 'running': true}
+          ..activeSessions = {};
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          connect: () async => (opened++ == 0 ? first : second).channel,
+          random: _FixedRandom(0.5),
+        );
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.error, isNull);
+
+        async.elapse(const Duration(seconds: 46));
+
+        expect(second.methods, contains('session.active_list'));
+        expect(seen.error, isA<GatewayConnectionClosed>());
+      });
+    });
+
+    test('a socket that keeps dropping gives up after 5 reconnects', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        for (var again = 2; again <= 5; again++) {
+          expect(resumes(), again - 1);
+          gateway.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+
+        expect(seen.error, isNull);
+        expect(resumes(), 5);
+
+        gateway.drop();
+        async.elapse(const Duration(seconds: 10));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(resumes(), 5);
+      });
+    });
+
+    test('a reconnect abandoned at the budget does not move the watermark', () {
+      fake((async) {
+        transport = HermesGatewayTransport(
+          connect: gateway.connect,
+          random: _FixedRandom(0.5),
+          requestTimeout: const Duration(minutes: 10),
+        );
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        final hold = gateway.holdEventsAnswer = Completer<void>();
+
+        final first = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 61));
+        expect(first.error, isA<GatewayConnectionClosed>());
+
+        // The abandoned attempt gets its answer late, with events 8 and 9.
+        _deltaSeqs(gateway, 'rt-1', 8, 9);
+        hold.complete();
+        async.flushMicrotasks();
+
+        gateway.holdEventsAnswer = null;
+        gateway.turn = (g, sid) => g.drop();
+        final again = _listen(
+          transport.send(threadId: 'stored-1', text: 'again'),
+        );
+        async.elapse(const Duration(seconds: 10));
+
+        final since = gateway.requests.where(
+          (r) => r['method'] == 'session.events.since',
+        );
+        expect((since.last['params'] as Map)['last_seen'], 7);
+        expect(_deltas(again), ['8', '9']);
+      });
+    });
+  });
+
+  group('Following a thread across a reconnect', () {
+    /// A reply that completed, so its session stays listened to.
+    void finishedReply(FakeGateway g, String sid) {
+      g.event('message.start', sid);
+      g.event('message.delta', sid, {'text': 'a'});
+      g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+    }
+
+    test('a chained turn that drops mid-way is replayed and carried on', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = finishedReply;
+        final reply = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(reply.done, isTrue);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'b'});
+        async.flushMicrotasks();
+        gateway.drop();
+        _deltaSeqs(gateway, 'rt-1', 6, 7);
+        async.elapse(const Duration(seconds: 1));
+        gateway.event('message.delta', 'rt-1', {'text': 'e'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'b67e',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(_deltas(follow), ['b', '6', '7', 'e']);
+        expect(
+          (gateway.requestOf('session.events.since')['params']
+              as Map)['last_seen'],
+          5,
+        );
+      });
+    });
+
+    test('cancelling after a reconnect closes the new watch, so the thread is '
+        'picked up afresh', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = finishedReply;
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+        gateway.drop();
+        async.elapse(const Duration(seconds: 1));
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        final before = resumes();
+
+        unawaited(follow.subscription.cancel());
+        async.flushMicrotasks();
+        final next = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        // A parked watch left behind would be read instead, and nothing asked.
+        expect(resumes(), before + 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+
+    test('a thread picked up from a snapshot replays what a drop missed', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'x'},
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        _deltaSeqs(gateway, 'rt-1', 1, 2);
+        async.flushMicrotasks();
+        gateway.drop();
+        _deltaSeqs(gateway, 'rt-1', 3, 4);
+        async.elapse(const Duration(seconds: 1));
+        gateway.event('message.delta', 'rt-1', {'text': '5'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'x12345',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(follow.error, isNull);
+        expect(follow.events.first, isA<ReplyStarted>());
+        expect(_deltas(follow), ['1', '2', '3', '4', '5']);
+      });
+    });
+
+    test('opening a thread offline makes one attempt and does not wait', () {
+      fake((async) {
+        final waits = <Duration>[];
+        var attempts = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          sleep: (delay) async => waits.add(delay),
+          connect: () async {
+            attempts++;
+            throw StateError('gateway unreachable');
+          },
+        );
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(attempts, 1);
+        expect(waits, isEmpty);
+        expect(follow.done, isTrue);
+        expect(follow.error, isNull);
+      });
+    });
+  });
+
+  group('Cancelling during a reconnect', () {
+    test('a reply whose consumer cancelled makes no further attempt', () {
+      fake((async) {
+        var attempts = 0;
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          connect: () async {
+            if (opened++ == 0) return gateway.connect();
+            attempts++;
+            throw StateError('gateway unreachable');
+          },
+        );
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(attempts, 1);
+
+        unawaited(seen.subscription.cancel());
+        async.elapse(const Duration(seconds: 30));
+
+        expect(attempts, 1);
+        expect(seen.error, isNull);
+      });
+    });
+
+    test('a follow-up stream that was cancelled makes no further attempt', () {
+      fake((async) {
+        var attempts = 0;
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          connect: () async {
+            if (opened++ == 0) return gateway.connect();
+            attempts++;
+            throw StateError('gateway unreachable');
+          },
+        );
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+        gateway.drop();
+        async.flushMicrotasks();
+        expect(attempts, 1);
+
+        unawaited(follow.subscription.cancel());
+        async.elapse(const Duration(seconds: 30));
+
+        expect(attempts, 1);
       });
     });
   });

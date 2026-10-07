@@ -66,6 +66,10 @@ class FakeGateway {
   /// Whether `session.events.since` reports that the replay was truncated.
   bool truncateReplay = false;
 
+  /// When set, `session.events.since` is answered only once this completes,
+  /// with the ring as it is then.
+  Completer<void>? holdEventsAnswer;
+
   /// The `open_requests` `session.events.since` reports.
   List<Object?> openRequests = const [];
 
@@ -263,24 +267,33 @@ class FakeGateway {
         });
       case 'session.events.since':
         beforeEventsAnswer?.call(this);
-        final replaySid = params['session_id'] as String;
-        final lastSeen = (params['last_seen'] as num?)?.toInt() ?? 0;
-        final replayRing = _ring[replaySid] ?? const <Map<String, Object?>>[];
-        final missed = [
-          for (final sent in replayRing)
-            if ((sent['seq'] as int) > lastSeen) sent,
-        ];
-        _send({
-          'id': id,
-          'result': {
-            'events': missed,
-            'latest_seq': _seqs[replaySid] ?? 0,
-            'truncated': truncateReplay,
-            'count': missed.length,
-            'epoch': epoch,
-            'open_requests': openRequests,
-          },
-        });
+        void answerSince() {
+          final replaySid = params['session_id'] as String;
+          final lastSeen = (params['last_seen'] as num?)?.toInt() ?? 0;
+          final replayRing = _ring[replaySid] ?? const <Map<String, Object?>>[];
+          final missed = [
+            for (final sent in replayRing)
+              if ((sent['seq'] as int) > lastSeen) sent,
+          ];
+          _send({
+            'id': id,
+            'result': {
+              'events': missed,
+              'latest_seq': _seqs[replaySid] ?? 0,
+              'truncated': truncateReplay,
+              'count': missed.length,
+              'epoch': epoch,
+              'open_requests': openRequests,
+            },
+          });
+        }
+
+        final hold = holdEventsAnswer;
+        if (hold == null) {
+          answerSince();
+        } else {
+          unawaited(hold.future.then((_) => answerSince()));
+        }
       case 'gateway.ping' when pingUnknown:
         _send({
           'id': id,

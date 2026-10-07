@@ -11,6 +11,7 @@ import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../slash_command.dart';
+import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
@@ -39,6 +40,11 @@ const _maxReconnectAttempts = 5;
 
 /// How long one reconnect may take, from the drop, before the reply gives up.
 const _reconnectBudget = Duration(seconds: 60);
+
+/// How many times one reply may reconnect in all. Each drop gets its own
+/// attempts and budget, so a socket that keeps dropping right after it
+/// resumes would otherwise never run out.
+const _maxReplyReconnects = 5;
 
 Future<void> _delay(Duration delay) => Future<void>.delayed(delay);
 
@@ -98,9 +104,13 @@ final class _Resumed {
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
 class _Watch {
-  _Watch(this.runtimeId, this._inbox) : events = StreamIterator(_inbox.stream);
+  _Watch(this.runtimeId, this.client, this._inbox)
+    : events = StreamIterator(_inbox.stream);
 
   final String runtimeId;
+
+  /// The connection this watch listens on.
+  final GatewayRpcClient client;
   final StreamController<_Incoming?> _inbox;
   late List<StreamSubscription<Object?>> _sources;
   final StreamIterator<_Incoming?> events;
@@ -151,6 +161,16 @@ class _Tap {
     }
     _frames.clear();
   }
+}
+
+/// The watch a follow-up stream reads, which a reconnect replaces. Keeping it
+/// in one place lets the stream's cancel close the watch that is current then,
+/// not the one it started with.
+class _Follow {
+  _Follow(this.watch);
+
+  _Watch watch;
+  bool cancelled = false;
 }
 
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
@@ -327,6 +347,30 @@ class HermesGatewayTransport implements ChatTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+  }) {
+    final stopped = CancelFlag();
+    return CancelAwareStream(
+      _sendReply(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+        model: model,
+        queued: queued,
+        stopped: stopped,
+      ),
+      stopped,
+    );
+  }
+
+  Stream<ChatEvent> _sendReply({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    bool queued = false,
+    required CancelFlag stopped,
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
@@ -423,7 +467,7 @@ class HermesGatewayTransport implements ChatTransport {
           } on TimeoutException {
             // Silent for a whole probe. Only the server can say whether the
             // turn still runs, so the reply ends only when it no longer does.
-            if (await _stillRunning(client, storedId)) {
+            if (await _stillRunning(watch.client, storedId)) {
               window = silenceProbe;
               continue;
             }
@@ -459,13 +503,17 @@ class HermesGatewayTransport implements ChatTransport {
         // The connection died before the turn finished. Hermes keeps running
         // it, so pick it back up on a fresh connection rather than failing a
         // reply that is still on its way.
+        if (stopped.value) return;
+        if (drops >= _maxReplyReconnects) throw const GatewayConnectionClosed();
         final resumed = await _reattach(
           owner,
           runtimeId: runtimeId,
           shown: mine,
           drops: drops++,
+          cancelled: () => stopped.value,
         );
         await watch.close();
+        if (stopped.value) return;
         _endReply(runtimeId, owner);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
@@ -559,20 +607,30 @@ class HermesGatewayTransport implements ChatTransport {
   /// counts the reconnects this reply already made, so the backoff keeps
   /// growing when a resumed turn drops again at once.
   ///
-  /// Each attempt after the very first waits [reconnectDelay] before it. Five
-  /// failed attempts, or 60 s from the drop, give up (see [_Resumed.giveUp]).
+  /// Each attempt after the very first waits [reconnectDelay] before it. Up to
+  /// [maxAttempts] failed attempts, or 60 s from the drop, give up (see
+  /// [_Resumed.giveUp]). [cancelled] is asked between attempts and after each
+  /// step of one: once it holds, nothing more is tried and nothing is merged.
   Future<_Resumed> _reattach(
     _ThreadOwner owner, {
     required String? runtimeId,
     required Set<String> shown,
     required int drops,
+    required bool Function() cancelled,
+    int maxAttempts = _maxReconnectAttempts,
   }) async {
     final budget = Completer<void>();
     final timer = Timer(_reconnectBudget, () {
       if (!budget.isCompleted) budget.complete();
     });
+    bool stop() => budget.isCompleted || cancelled();
+    void discard(_Resumed? resumed) {
+      unawaited(resumed?.watch?.close());
+    }
+
     try {
-      for (var attempt = 0; attempt < _maxReconnectAttempts; attempt++) {
+      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+        if (stop()) break;
         final index = attempt + drops;
         if (index > 0) {
           await _within(
@@ -581,14 +639,17 @@ class HermesGatewayTransport implements ChatTransport {
             (_) {},
           );
         }
-        if (budget.isCompleted) break;
+        if (stop()) break;
         final resumed = await _within(
-          _resumeOnce(owner, runtimeId, shown),
+          _resumeOnce(owner, runtimeId, shown, stop),
           budget.future,
-          (resumed) => unawaited(resumed?.watch?.close()),
+          discard,
         );
-        if (resumed != null) return resumed;
-        if (budget.isCompleted) break;
+        if (resumed != null) {
+          if (!cancelled()) return resumed;
+          discard(resumed);
+          break;
+        }
       }
       return _Resumed(runtimeId: runtimeId ?? owner.$2, giveUp: true);
     } finally {
@@ -602,6 +663,7 @@ class HermesGatewayTransport implements ChatTransport {
     _ThreadOwner owner,
     String? previous,
     Set<String> shown,
+    bool Function() stop,
   ) async {
     final GatewayRpcClient client;
     try {
@@ -609,6 +671,7 @@ class HermesGatewayTransport implements ChatTransport {
     } on Object {
       return null;
     }
+    if (stop()) return null;
     // Listening starts before the resume is sent, so the frames the gateway
     // pushes ahead of its answer are kept rather than dropped.
     final tap = _Tap(client);
@@ -619,6 +682,10 @@ class HermesGatewayTransport implements ChatTransport {
         'profile': ?owner.$1,
       });
     } on Object {
+      tap.close();
+      return null;
+    }
+    if (stop()) {
       tap.close();
       return null;
     }
@@ -650,6 +717,12 @@ class HermesGatewayTransport implements ChatTransport {
         tap.close();
         return null;
       }
+    }
+    // An attempt the budget or the consumer gave up on must not move the
+    // watermark or park a watch.
+    if (stop()) {
+      tap.close();
+      return null;
     }
     // Nothing below awaits before the watch, so no frame is lost between the
     // release and the subscription.
@@ -932,18 +1005,24 @@ class HermesGatewayTransport implements ChatTransport {
     final owner = (profile, threadId);
     final watch = _idle[owner];
     if (watch != null) {
+      final follow = _Follow(watch);
       final out = StreamController<ChatEvent>();
-      out.onListen = () => unawaited(_relay(watch, owner, out));
-      out.onCancel = () {
-        if (_idle[owner] == watch) _idle.remove(owner);
-        return watch.close();
-      };
+      out.onListen = () => unawaited(_relay(follow, owner, out));
+      out.onCancel = () => _stopFollowing(follow, owner);
       return out.stream;
     }
     // A turn may have started in another client without a local watcher.
     final out = StreamController<ChatEvent>();
     out.onListen = () => unawaited(_pickUp(owner, out));
     return out.stream;
+  }
+
+  /// Ends [follow]: a reconnect under way stops, and the watch that is current
+  /// now, which may not be the one the stream began with, is closed.
+  Future<void> _stopFollowing(_Follow follow, _ThreadOwner owner) {
+    follow.cancelled = true;
+    if (_idle[owner] == follow.watch) _idle.remove(owner);
+    return follow.watch.close();
   }
 
   Future<void> _pickUp(
@@ -953,13 +1032,16 @@ class HermesGatewayTransport implements ChatTransport {
     var canceled = false;
     out.onCancel = () => canceled = true;
     // Nothing is replayed for a turn this app never followed, so the reply
-    // starts from the snapshot the resume answer carries.
+    // starts from the snapshot the resume answer carries. One attempt: this
+    // runs when a thread opens, which must not wait on a server that is down.
     final mine = <String>{};
     final resumed = await _reattach(
       owner,
       runtimeId: null,
       shown: mine,
       drops: 0,
+      maxAttempts: 1,
+      cancelled: () => canceled || out.isClosed,
     );
     final watch = resumed.watch;
     if (canceled || out.isClosed) {
@@ -979,12 +1061,10 @@ class HermesGatewayTransport implements ChatTransport {
       await previous.close();
     }
     _idle[owner] = watch;
-    out.onCancel = () {
-      if (_idle[owner] == watch) _idle.remove(owner);
-      return watch.close();
-    };
+    final follow = _Follow(watch);
+    out.onCancel = () => _stopFollowing(follow, owner);
     out.add(const ReplyStarted());
-    await _relay(watch, owner, out, initiallyReplying: true);
+    await _relay(follow, owner, out, initiallyReplying: true);
   }
 
   @override
@@ -1019,21 +1099,20 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<void> _relay(
-    _Watch initial,
+    _Follow follow,
     _ThreadOwner owner,
     StreamController<ChatEvent> out, {
     bool initiallyReplying = false,
   }) async {
-    var watch = initial;
-    var runtimeId = watch.runtimeId;
+    var runtimeId = follow.watch.runtimeId;
     var replying = initiallyReplying;
     if (replying) _beginReply(runtimeId, owner);
     final mine = <String>{};
     var drops = 0;
     try {
       while (true) {
-        while (await watch.events.moveNext()) {
-          final incoming = watch.events.current;
+        while (await follow.watch.events.moveNext()) {
+          final incoming = follow.watch.events.current;
           if (incoming == null) continue;
           final (event, serverRequest) = incoming;
           if (event is ReplyStarted) {
@@ -1048,20 +1127,28 @@ class HermesGatewayTransport implements ChatTransport {
           out.add(event);
           if (event is ReplyCompleted && replying) {
             replying = false;
+            drops = 0;
             _forgetRequests(mine);
             _endReply(runtimeId, owner);
           }
         }
         // Idle between turns: nothing is running to pick back up, so the
         // connection dropping just ends the stream quietly.
-        if (!replying) return;
+        if (!replying || follow.cancelled || out.isClosed) return;
+        if (drops >= _maxReplyReconnects) {
+          out.addError(const GatewayConnectionClosed());
+          return;
+        }
         final resumed = await _reattach(
           owner,
           runtimeId: runtimeId,
           shown: mine,
           drops: drops++,
+          cancelled: () => follow.cancelled || out.isClosed,
         );
-        await watch.close();
+        final previous = follow.watch;
+        await previous.close();
+        if (follow.cancelled || out.isClosed) return;
         _endReply(runtimeId, owner);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
@@ -1077,13 +1164,14 @@ class HermesGatewayTransport implements ChatTransport {
           }
           return;
         }
-        watch = live;
+        if (_idle[owner] == previous) _idle[owner] = live;
+        follow.watch = live;
       }
     } finally {
       _forgetRequests(mine);
       if (replying) _endReply(runtimeId, owner);
       if (!out.isClosed) unawaited(out.close());
-      await watch.close();
+      await follow.watch.close();
     }
   }
 
@@ -1100,7 +1188,7 @@ class HermesGatewayTransport implements ChatTransport {
     List<_Incoming> injected = const [],
   }) {
     final inbox = StreamController<_Incoming?>();
-    final watch = _Watch(runtimeId, inbox);
+    final watch = _Watch(runtimeId, client, inbox);
     for (final incoming in injected) {
       inbox.add(incoming);
     }
