@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.1.51](https://github.com/cedricziel/hermes-app/compare/v0.1.50...v0.1.51) (2026-10-07)
+
+
+### Features
+
+* **telemetry:** report a vendor-scoped installation ID ([#453](https://github.com/cedricziel/hermes-app/issues/453)) ([b921720](https://github.com/cedricziel/hermes-app/commit/b9217201ec430f7594f7f9c690d51a9f26faaddb))
+
+
+### Bug Fixes
+
+* **auth:** connect at the address the server redirects to ([#456](https://github.com/cedricziel/hermes-app/issues/456)) ([d9bc6e9](https://github.com/cedricziel/hermes-app/commit/d9bc6e935d8e05ada7a5ac00de1017e30e2e1c29))
+* **chat:** show a reasoning-only reply once, as reasoning ([#451](https://github.com/cedricziel/hermes-app/issues/451)) ([d1a3bcd](https://github.com/cedricziel/hermes-app/commit/d1a3bcd91834b26c5bd2da4608dee329568c7c6a))
+* **ios:** stop the share extension stalling on shared images ([#450](https://github.com/cedricziel/hermes-app/issues/450)) ([3229805](https://github.com/cedricziel/hermes-app/commit/32298059f67cfbce2008b2ef63f6c88d4e8af642))
+
+
+### Documentation
+
+* **openspec:** propose gateway-stream-parity ([#454](https://github.com/cedricziel/hermes-app/issues/454)) ([81bca1d](https://github.com/cedricziel/hermes-app/commit/81bca1d048c5fb5ef63687bc3b851ac586618670))
+
 ## [0.1.50](https://github.com/cedricziel/hermes-app/compare/v0.1.49...v0.1.50) (2026-10-06)
 
 
