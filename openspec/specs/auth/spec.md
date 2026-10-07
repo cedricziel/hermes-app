@@ -99,7 +99,7 @@ The server setup screen SHALL require a non-empty URL before it submits. The sys
 
 ### Requirement: Server discovery through the status route
 
-The system SHALL discover a server by requesting `GET /api/status` without credentials, using an 8 second connect timeout and an 8 second receive timeout. It SHALL read from the response whether auth is required (`auth_required`, defaulting to false when absent), the registered provider names (`auth_providers`), the supported flows (`auth_flows`) and the version. The state SHALL be connecting while the request is in flight. The address SHALL be saved only after the status request succeeds, and only when the connect was not a dev override.
+The system SHALL discover a server by requesting `GET /api/status` without credentials, using an 8 second connect timeout and an 8 second receive timeout. It SHALL read from the response whether auth is required (`auth_required`, defaulting to false when absent), the registered provider names (`auth_providers`), the supported flows (`auth_flows`) and the version. The state SHALL be connecting while the request is in flight. When the status request was redirected, as a proxy does from `http://` to `https://`, the system SHALL use the address it was redirected to (the final URL without `/api/status`) for every later request and for saving, because a redirected `POST` such as the token exchange is not followed. The address SHALL be saved only after the status request succeeds, and only when the connect was not a dev override.
 
 #### Scenario: Unreachable server
 
@@ -114,6 +114,12 @@ The system SHALL discover a server by requesting `GET /api/status` without crede
 - **THEN** the state is connection error, also when the connect is restoring the saved address on launch
 - **AND** the message is "Unexpected response from the server"
 - **AND** the address is not saved
+
+#### Scenario: A redirected status request moves the app to the new address
+
+- **WHEN** the user submits `hermes.example` and the server redirects `http://hermes.example/api/status` to `https://hermes.example/api/status`
+- **THEN** the app uses and saves `https://hermes.example`
+- **AND** sign-in, including `POST /auth/native/token`, goes to `https://hermes.example`
 
 #### Scenario: Successful discovery saves the address
 

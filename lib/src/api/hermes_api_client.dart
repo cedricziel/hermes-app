@@ -35,9 +35,27 @@ class HermesApiClient {
   /// `GET /api/status` — public, unauthenticated. Used to discover whether
   /// the auth gate is engaged and which flows are supported before any
   /// sign-in attempt.
-  Future<HermesStatus> fetchStatus() async {
+  Future<HermesStatus> fetchStatus() async => (await probeStatus()).status;
+
+  /// [fetchStatus], plus the base URL the server answered from when it
+  /// redirected there, as a proxy does from `http://` to `https://`. Later
+  /// POSTs must go there directly: Dio does not follow their redirects.
+  Future<({HermesStatus status, String? redirectedTo})> probeStatus() async {
     final response = await _dio.get<dynamic>('/api/status');
-    return _parseObject(response.data, HermesStatus.fromJson, 'status');
+    final status = _parseObject(response.data, HermesStatus.fromJson, 'status');
+    final asked = response.requestOptions.uri;
+    final real = asked.resolveUri(response.realUri);
+    if (real == asked || !real.path.endsWith('/api/status')) {
+      return (status: status, redirectedTo: null);
+    }
+    final base = Uri(
+      scheme: real.scheme,
+      userInfo: real.userInfo,
+      host: real.host,
+      port: real.port,
+      path: real.path.substring(0, real.path.length - '/api/status'.length),
+    );
+    return (status: status, redirectedTo: base.toString());
   }
 
   /// `GET /api/auth/providers` — public. Lists the registered sign-in
