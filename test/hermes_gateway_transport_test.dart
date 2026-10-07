@@ -736,8 +736,10 @@ void main() {
     gateway.turn = (g, sid) {
       g.event('sessions.changed', '');
       g.event('message.delta', 'someone-else', {'text': 'not mine'});
-      g.event('session.info', sid, {'model': 'm'});
-      g.event('thinking.delta', sid, {'text': '( •_•) analyzing...'});
+      g.event('session.usage', sid, {
+        'usage': {'input': 1},
+      });
+      g.event('notification.show', sid, {'text': 'credits low'});
       g.event('message.delta', sid, {'text': 'mine'});
       g.event('message.complete', 'someone-else', {'text': 'not mine'});
       g.event('message.complete', sid, {'text': 'mine', 'status': 'complete'});
@@ -751,6 +753,25 @@ void main() {
       ReplyCompleted,
     ]);
     expect((events[1] as ReplyDelta).text, 'mine');
+  });
+
+  test('session state and thinking notices reach the reply', () async {
+    gateway.turn = (g, sid) {
+      g.event('session.info', sid, {'model': 'm'});
+      g.event('thinking.delta', sid, {'text': '( •_•) analyzing...'});
+      g.event('message.complete', sid, {'text': 'mine', 'status': 'complete'});
+    };
+
+    final events = await reply();
+
+    expect(events.map((e) => e.runtimeType), [
+      ThreadBound,
+      SessionInfo,
+      ReplyStatus,
+      ReplyCompleted,
+    ]);
+    expect((events[1] as SessionInfo).running, isNull);
+    expect((events[2] as ReplyStatus).text, isEmpty);
   });
 
   test('nothing connects until the reply is listened to', () async {
