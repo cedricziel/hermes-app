@@ -297,6 +297,48 @@ void main() {
       },
     );
 
+    test('a rebuild holding text already sealed before a tool call keeps it '
+        'once', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('Let me look. '));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
+      applyReplyEvent(reply, const ReplyDelta('Found '));
+      applyReplyEvent(
+        reply,
+        const ReplyRebuilt('Let me look. Found it, and more'),
+      );
+
+      expect(_sealedTexts(reply), ['Let me look. ']);
+      expect(reply.content, 'Found it, and more');
+    });
+
+    test('a rebuild holding several sealed segments strips all of them', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('One. '));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'a'));
+      applyReplyEvent(reply, const ReplyDelta('Two. '));
+      applyReplyEvent(reply, const ToolStarted(id: 't2', name: 'b'));
+      applyReplyEvent(reply, const ReplyRebuilt('One. Two. Three'));
+
+      expect(_sealedTexts(reply), ['One. ', 'Two. ']);
+      expect(reply.content, 'Three');
+    });
+
+    test('a rebuild leaves out a sealed checkpoint that never streamed and '
+        'keeps the text after the last sealed segment it holds', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyCheckpoint('Plan'));
+      applyReplyEvent(reply, const ReplyDelta('Step one. '));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'a'));
+      applyReplyEvent(reply, const ReplyRebuilt('Step one. Step two'));
+
+      expect(_sealedTexts(reply), ['Plan', 'Step one. ']);
+      expect(reply.content, 'Step two');
+    });
+
     test('an interrupt cancelling one request expires only that request', () {
       final reply = _placeholder();
 
