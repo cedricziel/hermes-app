@@ -365,6 +365,7 @@ The system SHALL record the highest `seq` seen for each runtime session. When th
 
 - **WHEN** `session.events.since` reports `truncated`, or its `epoch` differs from the one the connection first saw in `gateway.ready`
 - **THEN** no replayed event is delivered, the reply's text is replaced by the resume result's `inflight.assistant` while the turn runs, or by the thread's stored messages read over REST once it ended
+- **AND** live events the server sent after its `inflight` snapshot are still delivered on top of it, so no text streamed during the reconnect is lost; text the snapshot may already hold is delivered at most twice, never dropped
 
 #### Scenario: Turn ended while disconnected
 
@@ -425,8 +426,9 @@ The system SHALL follow a thread to its new stored session when `session.info` r
 
 #### Scenario: Compression rotates the stored id
 
-- **WHEN** `session.info` reports `stored_session_id` "stored-2" for a thread known as "stored-1"
+- **WHEN** `session.info` reports `stored_session_id` "stored-2" for a thread known as "stored-1", whether `running` is true or false
 - **THEN** the thread keeps its place, title and transcript, and the next send resumes "stored-2"
+- **AND** a reply still streaming is not ended by that report
 
 ### Requirement: Withdrawn approvals
 

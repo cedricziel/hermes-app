@@ -41,7 +41,7 @@ Parallel agents conflict on shared types and on the 3030-line test file. A first
 - **New `ChatEvent` fields and types** (`chat_transport.dart`), with no behaviour behind them yet:
   - `ReplyCompleted` gains `previewed`, `reused`, `transformed`, `partial` and `error` (string).
   - `ReplyCheckpoint` gains `alreadyStreamed` (default `true`, today's behaviour).
-  - New: `ReplyErrored(message)`, `SessionSettled(storedSessionId)`, `ReplyStatus(text)` (empty text clears), `InputRequestsCancelled(requestIds)` (empty means all of the session), `PromptFolded()` for `redirected`/`steered`, and `ReplyRebuilt(text)` (inflight text that replaces the streamed text since the last seal).
+  - New: `ReplyErrored(message)`, `SessionInfo({bool? running, String? storedSessionId})` (`running: false` is the settle signal; a changed `storedSessionId` re-keys the thread whatever `running` says, since compression can report it mid-turn), `ReplyStatus(text)` (empty text clears), `InputRequestsCancelled(requestIds)` (empty means all of the session), `PromptFolded()` for `redirected`/`steered`, and `ReplyRebuilt(text)` (inflight text that replaces the streamed text since the last seal).
   - New: `ThreadNeedsRefetch()`, asking the controller to re-read history over REST.
   - Every exhaustive `switch` gets a no-op branch, so `flutter analyze` stays clean.
 - **`ChatMessage.activity`** (`String?`): the mapper uses it in place of the hard-coded "Thinking…", which is still the default.
@@ -70,9 +70,9 @@ Stateful async code inside the transport is where a small model goes wrong. The 
 
 - **`gateway_event_mapper.dart`:** frame to `ChatEvent`, including the provider-wait regex and the `already_streamed` and completion flags.
 - **`gateway_replay.dart`** (new), with three parts:
-  - `ReplayLedger`: watermark per runtime session, `shouldDeliver(sid, seq)`, epoch tracking, and `merge(replayResult, parked)` returning `Deliver(events) | Refetch(latestSeq)`.
+  - `ReplayLedger`: watermark per runtime session, `shouldDeliver(sid, seq)`, epoch tracking, and `merge(replayResult, parked)` returning `Deliver(events) | Refetch()`. `Refetch` leaves the watermark where it was, so events parked during the reconnect are still delivered (D4).
   - `reconnectDelay(attempt, Random)`: 300 ms base, ×2 each attempt, 15 s cap, full jitter.
-  - `SettleGate`: decides whether a `SessionSettled` ends a reply, given `started`, `submittedAt` and `now`; the 15 s grace before start lives here.
+  - `SettleGate`: decides whether a `SessionInfo(running: false)` ends a reply, given `started`, `submittedAt` and `now`; the 15 s grace before start lives here.
 - **`chat_reply.dart`:** how each new event changes a reply.
 - **`gateway_rpc_client.dart`:** the heartbeat, the last-frame clock, `gateway.ready` epoch capture, and lifting `payload.session_id` onto session-less broadcasts (`approval.cancelled`), so the existing per-session filtering routes them.
 
@@ -81,8 +81,8 @@ Stateful async code inside the transport is where a small model goes wrong. The 
 The transport keeps per-reply state `ended`:
 
 - `ReplyCompleted` ends the reply as today.
-- `ReplyErrored` is held. If `SessionSettled` arrives with no completion, a failed completion carrying the error's message is synthesized. If a failed completion arrives instead, its message wins and the held error is dropped, so one card is shown.
-- `SessionSettled`, when `SettleGate` allows it, ends the reply with the streamed text kept.
+- `ReplyErrored` is held. If `SessionInfo(running: false)` arrives with no completion, a failed completion carrying the error's message is synthesized. If a failed completion arrives instead, its message wins and the held error is dropped, so one card is shown.
+- `SessionInfo(running: false)`, when `SettleGate` allows it, ends the reply with the streamed text kept.
 
 After the stream ends, the session's watch stays parked as today, so a late `ReplyCompleted` reaches `followUps`. The controller applies it to the last reply when that reply was settled without a completion (spec "Settled without a completion"). The 45 s silence probe uses `session.active_list`, which the transport already calls for statuses.
 
@@ -94,15 +94,15 @@ On a drop while replying:
 2. Open a socket, record its `gateway.ready` epoch, then call `session.resume` while buffering every event of the connection.
 3. The resume result gives the runtime id:
    - **Same runtime id and the same epoch:** call `session.events.since(last_seen)` and deliver through `ReplayLedger.merge`, with the live frames buffered so far as `parked`.
-   - **Truncated replay or a new epoch, while running:** deliver `ReplyRebuilt(inflight.assistant)` and continue live, gating on the ledger.
+   - **Truncated replay or a new epoch, while running:** deliver `ReplyRebuilt(inflight.assistant)`, then the parked events, then continue live, gating on the ledger. The watermark is not jumped to `latest_seq`: deltas the server sent after it took the `inflight` snapshot would be lost. Parked events that arrived before the resume answer may or may not be in the snapshot. Of those, the longest leading run of deltas whose joined text is a suffix of `inflight.assistant` is dropped as already included, and the rest are delivered. Events after the resume answer are always delivered. This matches upstream's rule of preferring a duplicate over losing the tail.
    - **Not running:** deliver the replayed tail. If no completion was in it, send `ReplyCompleted` from the stored reply as today and also `ThreadNeedsRefetch`.
 4. `open_requests` from either result are mapped like live server requests. The controller drops one whose request id already has a card.
 
 _Alternative:_ always refetch over REST on reconnect, as upstream's desktop does. Rejected for now: our transcript model does not yet graft REST rows onto a streaming reply, and `inflight` covers the running case. REST is used only once the turn has ended.
 
-### D5. The queue drains on `SessionSettled`, with a 2 s fallback
+### D5. The queue drains on `SessionInfo(running: false)`, with a 2 s fallback
 
-`ChatController` waits for `SessionSettled` on the thread's follow-up stream before sending the next queued prompt, or 2 s after `ReplyCompleted` (an older Hermes, or a missed frame), and sends it with `queued: true`. `PromptFolded` removes the new reply's placeholder.
+`ChatController` waits for `SessionInfo(running: false)` on the thread's follow-up stream before sending the next queued prompt, or 2 s after `ReplyCompleted` (an older Hermes, or a missed frame), and sends it with `queued: true`. `PromptFolded` removes the new reply's placeholder.
 
 ### D6. Work split for parallel agents
 

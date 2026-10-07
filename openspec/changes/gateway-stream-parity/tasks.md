@@ -49,7 +49,7 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - `ReplyCompleted({previewed=false, reused=false, transformed=false, partial=false, String? error})`
   - `ReplyCheckpoint(text, {alreadyStreamed=true})`
   - `ReplyErrored(String message)`
-  - `SessionSettled({String? storedSessionId})`
+  - `SessionInfo({bool? running, String? storedSessionId})`
   - `ReplyStatus(String text)` (empty text clears)
   - `InputRequestsCancelled(List<String> requestIds)` (empty means every request of the reply)
   - `PromptFolded()`
@@ -104,10 +104,11 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - `alreadyStreamed: true` after content "A" → sealed `["X"]` (today's behaviour).
 - [ ] 2.3 Tests first, then implement:
   - `ReplyErrored("bad")` → sets `pendingError = "bad"` and `errorEventSeen`; status unchanged.
-  - Then `SessionSettled()` on a pending reply → status `error`, `error == "bad"`, content kept.
+  - Then `SessionInfo(running: false)` on a pending reply → status `error`, `error == "bad"`, content kept.
   - Then a failed `ReplyCompleted` with text "real" → one error, `"real"`.
-  - `SessionSettled()` on a pending reply with no held error → status `sent`, content kept, running tools settled as completed, open input requests expired, `settledWithoutCompletion = true`.
-  - `SessionSettled()` on a finished reply → no change.
+  - `SessionInfo(running: false)` on a pending reply with no held error → status `sent`, content kept, running tools settled as completed, open input requests expired, `settledWithoutCompletion = true`.
+  - `SessionInfo(running: false)` on a finished reply → no change.
+  - `SessionInfo(running: true)` or `SessionInfo(storedSessionId: 'x')` on any reply → no change (the controller handles re-keying).
   - `ReplyCompleted` on a reply with `settledWithoutCompletion` → its text is applied by the same rules as 2.1, and the flag is cleared.
 - [ ] 2.4 Tests first, then implement:
   - `ReplyStatus("Compacting the conversation…")` → `activity` set.
@@ -132,9 +133,10 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - The flag missing → `alreadyStreamed: true`.
 - [ ] 3.3 Tests first, then implement:
   - `error {message: 'm'}` → `ReplyErrored('m')`.
-  - `session.info {running: false, stored_session_id: 'st2'}` → `SessionSettled(storedSessionId: 'st2')`.
-  - `session.info {running: true}` → null.
-  - `session.info` without `running` → null.
+  - `session.info {running: false, stored_session_id: 'st2'}` → `SessionInfo(running: false, storedSessionId: 'st2')`.
+  - `session.info {running: true, stored_session_id: 'st2'}` → `SessionInfo(running: true, storedSessionId: 'st2')`. A rotated id must reach the controller mid-turn too.
+  - `session.info {running: true}` → `SessionInfo(running: true)`.
+  - `session.info {}` or a non-bool `running` → `SessionInfo(running: null)`, with the stored id if present.
 - [ ] 3.4 Tests first, then implement:
   - `status.update {kind: 'compacting', text: 'x'}` → `ReplyStatus('Compacting the conversation…')`.
   - Other kinds → null.
@@ -182,7 +184,7 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
 - [ ] 5.2 Tests first, then implement `ReplayDecision merge({required String sid, required Map<String, Object?> result, required List<GatewayEvent> parked, required String? connectionEpoch})`:
   - Normal case → `Deliver(events)`: the replay `events` (as `GatewayEvent`s), then `parked`, each passed through `observe`, in order, without duplicates.
   - Example: watermark 7, replay seqs 8–12, parked 11–13 → delivers 8, 9, 10, 11, 12, 13.
-  - `truncated == true` → `Refetch` and the watermark jumps to `latest_seq`.
+  - `truncated == true` → `Refetch`, with the watermark left unchanged, so parked events still pass `observe` afterwards. Do not jump it to `latest_seq`.
   - `epoch` differs from `connectionEpoch` (both non-null) → `Refetch`, and every watermark is cleared.
   - Malformed elements (not a map, no `type`) are skipped.
 - [ ] 5.3 Tests first, then implement `Duration reconnectDelay(int attempt, Random random, {Duration base = 300ms, Duration cap = 15s})`: full jitter, so `random.nextDouble() * min(cap, base * 2^attempt)`. Test with a seeded fake `Random` that returns 1.0 (just under): attempt 0 → ≤300 ms, attempt 6 → ≤15 s cap, attempt 20 → ≤15 s.
@@ -199,18 +201,21 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
 **Facts:**
 
 - The send stream closes right after `ReplyCompleted`.
-- `SessionSettled` arrives later, on `followUps`.
+- `SessionInfo(running: false)` arrives later, on `followUps`.
 - Today `_streamReply.end()` calls `sendQueued` at once (`chat_controller.dart:1125`), and `_followUps` drops every event while no reply is open except `ThreadTitled` (`:1186-1193`).
 
 - [ ] 6.1 Tests first ("Sent only once the session settled"), then implement:
   - A queued message is not sent on `ReplyCompleted`.
-  - It is sent when `SessionSettled` arrives on follow-ups, or after 2 s with `fake_async`, whichever is first, and only once.
+  - It is sent when `SessionInfo(running: false)` arrives on follow-ups (`running: true` or null does not count), or after 2 s with `fake_async`, whichever is first, and only once.
   - The `FakeSend` for it has `queued == true`.
   - A direct send (not from the queue) has `queued == false`.
 - [ ] 6.2 Tests first ("Folded into the running turn"), then implement: `PromptFolded` on a send stream → the placeholder for that send is removed from the transcript (not marked failed), the user's message stays, and nothing is announced as failed.
-- [ ] 6.3 Tests first ("Settled without a completion", the controller half): after a reply ended through `SessionSettled` on its send stream, a `ReplyCompleted("final")` arriving on follow-ups with no reply open is applied to that last reply; no second bubble appears.
+- [ ] 6.3 Tests first ("Settled without a completion", the controller half): after a reply ended through `SessionInfo(running: false)` on its send stream, a `ReplyCompleted("final")` arriving on follow-ups with no reply open is applied to that last reply; no second bubble appears.
 - [ ] 6.4 Tests first ("Missed start of a chained turn"): on follow-ups with no reply open, a `ReplyDelta`, `ToolPreparing`, `ToolStarted` or `ReasoningUpdated` opens a placeholder and is applied to it, as `ReplyStarted` would.
-- [ ] 6.5 Tests first ("Compression rotates the stored id"): `SessionSettled(storedSessionId: 'stored-2')` on a thread with id `stored-1` → the thread's id becomes `stored-2` (use the existing `_bindThread` path), its place, title and messages are kept, and the next `FakeSend.threadId == 'stored-2'`.
+- [ ] 6.5 Tests first ("Compression rotates the stored id"): `SessionInfo(storedSessionId: 'stored-2')` on a thread with id `stored-1` → the thread's id becomes `stored-2` (use the existing `_bindThread` path), its place, title and messages are kept, and the next `FakeSend.threadId == 'stored-2'`. Cover three cases:
+  - on the send stream while the reply still streams (`running: true`), where the reply keeps streaming and is not ended;
+  - on follow-ups after the reply (`running: false`);
+  - the same id as the thread's, where nothing changes.
 - [ ] 6.6 Tests first: `ThreadNeedsRefetch` on either stream → `refreshThread(thread)` runs once the reply is no longer pending. Use the existing refresh path; assert through the fake repository's history calls.
 
 ## 7. Transport: submit outcome, early events, settling, PR4 (Wave 2, package T1)
@@ -224,8 +229,8 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - Events pushed by `turn` before the submit answer are yielded in order (keep this green).
 - [ ] 7.2 Tests first ("Events that arrive before the resume answer"): with `beforeResumeAnswer` pushing `message.delta` for the resumed runtime id, that delta is yielded after the resume completes. Implement by subscribing to the connection's events before sending `session.resume`, buffering them all, then keeping those whose `sessionId` equals the returned runtime id.
 - [ ] 7.3 Tests first ("Settled without a completion", "Stale report before the turn began", "Error event without a completion"):
-  - Forward `ReplyErrored` and `SessionSettled` from the watch.
-  - The send stream ends after a `SessionSettled` when `settles(...)` from `gateway_replay.dart` is true. When it is false, ignore that `SessionSettled`.
+  - Forward `ReplyErrored` and every `SessionInfo` from the watch. Only `running: false` can end a reply; a `SessionInfo` with `running: true` or null is forwarded and the stream goes on.
+  - The send stream ends after a `SessionInfo(running: false)` when `settles(...)` from `gateway_replay.dart` is true. When it is false, that frame does not end the reply.
   - The watch is parked for follow-ups exactly as after `ReplyCompleted`.
 - [ ] 7.4 Tests first ("A silent live turn"): the transport takes `silenceProbe: 45s`. While a reply is in flight with no frame for that long, it requests `session.active_list`:
   - The thread's stored id missing, or not `working`/`waiting`/`starting` → end the stream as broken (`GatewayConnectionClosed`).
@@ -250,6 +255,9 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
 - [ ] 8.2 Tests first ("Live events overlap the replay"): the fake sends live seqs 11–13 before answering `events.since` with 8–12 → yielded order 8, 9, 10, 11, 12, 13, no duplicates.
 - [ ] 8.3 Tests first ("Replay truncated or server restarted"):
   - `truncateReplay: true` with resume `running: true, inflight: {assistant: 'abc'}` → yields `ReplyRebuilt('abc')` and continues live.
+  - A delta between the resume and the truncated answer (seen in the inflight review): `beforeResumeAnswer` sends delta `'c'` (seq 9), the resume answers `inflight: {assistant: 'abc'}`, then delta `'d'` (seq 10) arrives before the truncated `events.since` answer → yields `ReplyRebuilt('abc')`, then `ReplyDelta('d')`, and `'c'` is not repeated.
+  - The same, but `inflight: {assistant: 'ab'}` (the snapshot was taken before `'c'`) → yields `ReplyRebuilt('ab')`, then `'c'`, then `'d'`.
+  - Rule: of the deltas parked before the resume answer, drop the longest leading run whose joined text is a suffix of `inflight.assistant`. Deliver the rest, and everything after the answer, through `observe`.
   - A new epoch on the new socket → the same.
   - `running: false` and no completion in the replay → yields the stored-reply `ReplyCompleted` (today's `_storedReply`), then `ThreadNeedsRefetch()`.
 - [ ] 8.4 Tests first ("Requests open across the drop"): the resume result's `open_requests: [{id: 'srq-1', method: 'approval', params: {...}}]` → yields one `ApprovalRequested` keyed `srq-1`. The same id again from `events.since` → not yielded again.
