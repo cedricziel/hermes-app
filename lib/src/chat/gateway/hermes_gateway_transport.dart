@@ -82,6 +82,7 @@ final class _Resumed {
   const _Resumed({
     required this.runtimeId,
     this.watch,
+    this.idle,
     this.ended = const [],
     this.giveUp = false,
   });
@@ -92,12 +93,22 @@ final class _Resumed {
   /// Null when the turn ended while disconnected.
   final _Watch? watch;
 
+  /// For a turn that ended while disconnected: the watch that goes on
+  /// listening to its session, in case Hermes chains another turn.
+  final _Watch? idle;
+
   /// The events of a turn that ended while disconnected, in order.
   final List<_Incoming> ended;
 
   /// Set when the reply cannot end cleanly: no connection could be made, or the
   /// turn ended without a reply to show, so the reply fails after [ended].
   final bool giveUp;
+
+  /// Closes the watches, for a reconnect nobody is waiting for any more.
+  void discard() {
+    unawaited(watch?.close());
+    unawaited(idle?.close());
+  }
 }
 
 /// What one runtime session sends, buffered until the transport reads it. A
@@ -513,12 +524,16 @@ class HermesGatewayTransport implements ChatTransport {
           cancelled: () => stopped.value,
         );
         await watch.close();
-        if (stopped.value) return;
+        if (stopped.value) {
+          resumed.discard();
+          return;
+        }
         _endReply(runtimeId, owner);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
         final live = resumed.watch;
         if (live == null) {
+          if (resumed.idle case final idle?) await _park(owner, idle);
           for (final (event, serverRequest) in resumed.ended) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
             yield event;
@@ -624,10 +639,6 @@ class HermesGatewayTransport implements ChatTransport {
       if (!budget.isCompleted) budget.complete();
     });
     bool stop() => budget.isCompleted || cancelled();
-    void discard(_Resumed? resumed) {
-      unawaited(resumed?.watch?.close());
-    }
-
     try {
       for (var attempt = 0; attempt < maxAttempts; attempt++) {
         if (stop()) break;
@@ -643,11 +654,11 @@ class HermesGatewayTransport implements ChatTransport {
         final resumed = await _within(
           _resumeOnce(owner, runtimeId, shown, stop),
           budget.future,
-          discard,
+          (resumed) => resumed?.discard(),
         );
         if (resumed != null) {
           if (!cancelled()) return resumed;
-          discard(resumed);
+          resumed.discard();
           break;
         }
       }
@@ -732,8 +743,13 @@ class HermesGatewayTransport implements ChatTransport {
     final openRows = [resumed['open_requests'], since?['open_requests']];
     final snapshot = _inflightText(resumed['inflight']);
 
+    final epoch = client.epoch;
     if (resumed['running'] != true) {
       final ended = <_Incoming>[];
+      // What the session said after the completion: a turn Hermes chained.
+      final next = <_Incoming>[];
+      var completed = false;
+      var merged = false;
       _openRequests(ended, openRows, runtimeId, shown);
       if (since != null) {
         final decision = _ledger.merge(
@@ -742,28 +758,44 @@ class HermesGatewayTransport implements ChatTransport {
           parked: _eventsOf(frames, runtimeId),
         );
         if (decision case Deliver(:final events)) {
+          merged = true;
           for (final event in events) {
             final incoming = _incomingOf(event, runtimeId);
             if (incoming == null) continue;
-            ended.add(incoming);
-            if (incoming.$1 is ReplyCompleted) {
-              return _Resumed(runtimeId: runtimeId, ended: ended);
-            }
+            (completed ? next : ended).add(incoming);
+            completed = completed || incoming.$1 is ReplyCompleted;
           }
         }
       }
-      // No completion was replayed, so the stored reply ends the turn. A reply
-      // on screen is refetched; a turn picked up with none has nothing to
-      // refetch, and ends quietly when it has no stored reply either. The
-      // refetch comes first: the completion must stay the reply's last event.
-      final stored = _storedReply(resumed);
-      final onScreen = previous != null;
-      if (onScreen) ended.add((const ThreadNeedsRefetch(), false));
-      if (stored != null) ended.add((stored, false));
+      if (!completed) {
+        // No completion was replayed, so the stored reply ends the turn. A
+        // reply on screen is refetched; a turn picked up with none has nothing
+        // to refetch, and ends quietly when it has no stored reply either. The
+        // refetch comes first: the completion must stay the reply's last
+        // event. A replayed error is the reason the turn failed, so it is
+        // shown, and the settle that follows lets the reply fail with it.
+        final stored = _storedReply(resumed);
+        final onScreen = previous != null;
+        final errored = ended.any((incoming) => incoming.$1 is ReplyErrored);
+        if (onScreen) ended.add((const ThreadNeedsRefetch(), false));
+        if (stored != null) {
+          ended.add((stored, false));
+        } else if (errored) {
+          ended.add((const SessionInfo(running: false), false));
+        }
+        if (stored == null && !errored && onScreen) {
+          return _Resumed(runtimeId: runtimeId, ended: ended, giveUp: true);
+        }
+        // Frames the replay did not cover (the merge counts them itself).
+        if (!merged) {
+          next.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+        }
+      }
+      // The session goes on being listened to: Hermes may chain another turn.
       return _Resumed(
         runtimeId: runtimeId,
         ended: ended,
-        giveUp: onScreen && stored == null,
+        idle: _watch(client, runtimeId, injected: next, shown: shown),
       );
     }
 
@@ -777,22 +809,19 @@ class HermesGatewayTransport implements ChatTransport {
           );
     if (decision case Deliver(:final events)) {
       _openRequests(injected, openRows, runtimeId, shown);
-      for (final event in events) {
-        final incoming = _incomingOf(event, runtimeId);
-        if (incoming != null) injected.add(incoming);
-      }
-      for (final frame in before.followedBy(after)) {
-        if (frame is GatewayServerRequest) {
-          _addRequest(injected, frame, shown);
-        }
-      }
+      injected.addAll(_inArrivalOrder(events, frames, runtimeId, shown));
     } else {
       // The replay cannot be trusted, so the snapshot replaces the text. Its
-      // leading deltas that it already holds are not shown again.
-      if (snapshot != null) injected.add((ReplyRebuilt(snapshot), false));
+      // leading deltas that it already holds are not shown again. A replay
+      // that was refused as truncated or from another epoch, with no snapshot
+      // to rebuild from, leaves a gap that only the stored thread can fill.
+      if (snapshot != null) {
+        injected.add((ReplyRebuilt(snapshot), false));
+      } else if (since != null) {
+        injected.add((const ThreadNeedsRefetch(), false));
+      }
       _openRequests(injected, openRows, runtimeId, shown);
       final dropped = snapshot == null ? 0 : _heldBySnapshot(before, snapshot);
-      final epoch = client.epoch;
       injected.addAll(
         _parked(before, runtimeId, shown, epoch: epoch, dropped: dropped),
       );
@@ -800,8 +829,52 @@ class HermesGatewayTransport implements ChatTransport {
     }
     return _Resumed(
       runtimeId: runtimeId,
-      watch: _watch(client, runtimeId, injected: injected),
+      watch: _watch(client, runtimeId, injected: injected, shown: shown),
     );
+  }
+
+  /// The [delivered] events of a replay as chat events, in the order the
+  /// session sent them: the replayed ones first, then each live event and
+  /// server request where its frame sits among the [frames] parked during the
+  /// reconnect. A replayed event the parked frames also hold, by seq, takes
+  /// that frame's place. A request already in [shown] is not shown again.
+  List<_Incoming> _inArrivalOrder(
+    List<GatewayEvent> delivered,
+    List<Object> frames,
+    String sid,
+    Set<String> shown,
+  ) {
+    final parked = Set<Object>.identity()..addAll(frames);
+    final frameSeqs = {
+      for (final frame in frames)
+        if (frame is GatewayEvent &&
+            frame.sessionId == sid &&
+            frame.seq != null)
+          frame.seq!,
+    };
+    final live = Set<Object>.identity();
+    final replacing = <int, GatewayEvent>{};
+    final out = <_Incoming>[];
+    for (final event in delivered) {
+      final seq = event.seq;
+      if (parked.contains(event)) {
+        live.add(event);
+      } else if (seq != null && frameSeqs.contains(seq)) {
+        replacing[seq] = event;
+      } else if (_incomingOf(event, sid) case final incoming?) {
+        out.add(incoming);
+      }
+    }
+    for (final frame in frames) {
+      if (frame is GatewayEvent) {
+        final event = live.contains(frame) ? frame : replacing[frame.seq];
+        final incoming = event == null ? null : _incomingOf(event, sid);
+        if (incoming != null) out.add(incoming);
+      } else if (frame is GatewayServerRequest && frame.sessionId == sid) {
+        _addRequest(out, frame, shown);
+      }
+    }
+    return out;
   }
 
   /// Completes with [work]'s value, or with null once [budget] completes
@@ -1017,6 +1090,13 @@ class HermesGatewayTransport implements ChatTransport {
     return out.stream;
   }
 
+  /// Keeps [watch] as the listener of [owner]'s session between turns.
+  Future<void> _park(_ThreadOwner owner, _Watch watch) async {
+    final displaced = _idle.remove(owner);
+    _idle[owner] = watch;
+    await displaced?.close();
+  }
+
   /// Ends [follow]: a reconnect under way stops, and the watch that is current
   /// now, which may not be the one the stream began with, is closed.
   Future<void> _stopFollowing(_Follow follow, _ThreadOwner owner) {
@@ -1045,10 +1125,11 @@ class HermesGatewayTransport implements ChatTransport {
     );
     final watch = resumed.watch;
     if (canceled || out.isClosed) {
-      await watch?.close();
+      resumed.discard();
       return;
     }
     if (watch == null) {
+      if (resumed.idle case final idle?) await _park(owner, idle);
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
@@ -1148,12 +1229,16 @@ class HermesGatewayTransport implements ChatTransport {
         );
         final previous = follow.watch;
         await previous.close();
-        if (follow.cancelled || out.isClosed) return;
+        if (follow.cancelled || out.isClosed) {
+          resumed.discard();
+          return;
+        }
         _endReply(runtimeId, owner);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
         final live = resumed.watch;
         if (live == null) {
+          if (resumed.idle case final idle?) await _park(owner, idle);
           for (final (event, serverRequest) in resumed.ended) {
             if (out.isClosed) return;
             _track(event, runtimeId, mine, serverRequest: serverRequest);
@@ -1186,6 +1271,7 @@ class HermesGatewayTransport implements ChatTransport {
     String runtimeId, {
     List<Object> buffered = const [],
     List<_Incoming> injected = const [],
+    Set<String> shown = const {},
   }) {
     final inbox = StreamController<_Incoming?>();
     final watch = _Watch(runtimeId, client, inbox);
@@ -1196,6 +1282,9 @@ class HermesGatewayTransport implements ChatTransport {
     // watch has shown a live event is its own matter, so two watches on one
     // runtime session each get every frame.
     var seen = _ledger.lastSeen(runtimeId);
+    // A request the reply showed before the drop may come again from the new
+    // socket; a copy, so the reply's own set stays the reply's.
+    final requests = {...shown};
     void deliver(Object frame) {
       final String sid;
       switch (frame) {
@@ -1209,6 +1298,10 @@ class HermesGatewayTransport implements ChatTransport {
       if (sid != runtimeId) return;
       // A frame that shows nothing, or a replayed duplicate, still counts as
       // a sign of life for the silence probe, so it is sent as a null.
+      if (frame is GatewayServerRequest && !requests.add(frame.id)) {
+        inbox.add(null);
+        return;
+      }
       if (frame is GatewayEvent) {
         final seq = frame.seq;
         if (seq != null) {

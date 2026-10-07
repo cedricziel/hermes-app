@@ -259,7 +259,7 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - The same, but `inflight: {assistant: 'ab'}` (the snapshot was taken before `'c'`) → yields `ReplyRebuilt('ab')`, then `'c'`, then `'d'`.
   - Rule: of the deltas parked before the resume answer, drop the longest leading run whose joined text is a suffix of `inflight.assistant`. Deliver the rest, and everything after the answer, through `observe`.
   - A new epoch on the new socket → the same.
-  - `running: false` and no completion in the replay → yields the stored-reply `ReplyCompleted` (today's `_storedReply`), then `ThreadNeedsRefetch()`.
+  - `running: false` and no completion in the replay → yields `ThreadNeedsRefetch()`, then the stored-reply `ReplyCompleted` (today's `_storedReply`), so the completion stays the reply's last event.
 - [ ] 8.4 Tests first ("Requests open across the drop"): the resume result's `open_requests: [{id: 'srq-1', method: 'approval', params: {...}}]` → yields one `ApprovalRequested` keyed `srq-1`. The same id again from `events.since` → not yielded again.
 - [ ] 8.5 Tests first ("Backoff"):
   - Reconnect attempts wait `reconnectDelay(attempt)`. Inject `Random` and a `sleep` function for tests.

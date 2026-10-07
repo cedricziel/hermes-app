@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/chat_reply.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -548,6 +550,112 @@ void main() {
     });
   });
 
+  group('Gaps the replay cannot fill', () {
+    test('a truncated replay with no snapshot reads the thread again and '
+        'carries on live', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': 'z'});
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'z',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ThreadNeedsRefetch)
+              .map((e) => e.runtimeType),
+          [ThreadNeedsRefetch, ReplyDelta, ReplyCompleted],
+        );
+      });
+    });
+
+    test('a changed epoch with no snapshot reads the thread again', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) =>
+            _streamSevenThenDrop(g, sid, (g) => g.epoch = 'epoch-2');
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), hasLength(1));
+      });
+    });
+
+    test('an error in the replay of an ended turn with no stored reply is '
+        'what the reply fails with', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.event('error', sid, {'message': 'The model is overloaded.'});
+        });
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(
+          seen.events.whereType<ReplyErrored>().single.message,
+          'The model is overloaded.',
+        );
+        final reply = ChatMessage(
+          id: 'r',
+          role: ChatRole.assistant,
+          content: '',
+          createdAt: DateTime(2026),
+          status: MessageStatus.thinking,
+        );
+        for (final event in seen.events) {
+          applyReplyEvent(reply, event);
+        }
+        expect(reply.status, MessageStatus.error);
+        expect(reply.error, 'The model is overloaded.');
+      });
+    });
+
+    test('a turn that ended while disconnected leaves the session listened '
+        'to, so the next turn Hermes chains is followed', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.event('message.complete', sid, {
+            'text': 'Done',
+            'status': 'complete',
+          });
+        });
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.done, isTrue);
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'again'});
+        async.flushMicrotasks();
+
+        expect(follow.events.map((e) => e.runtimeType), [
+          ReplyStarted,
+          ReplyDelta,
+        ]);
+        // Only the reconnect resumed: the follow-up read the parked watch.
+        expect(
+          gateway.methods.where((m) => m == 'session.resume'),
+          hasLength(1),
+        );
+      });
+    });
+  });
+
   group('Requests open across the drop', () {
     const approval = {
       'id': 'srq-1',
@@ -615,6 +723,58 @@ void main() {
         });
       },
     );
+  });
+
+  group('Server requests across the drop', () {
+    final request = {
+      'command': 'ls -la',
+      'choices': ['once', 'deny'],
+    };
+
+    test('a request parked on the new socket keeps its place among the '
+        'replayed events', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) =>
+            _streamSevenThenDrop(g, sid, (g) => _deltaSeqs(g, sid, 8, 9));
+        gateway.beforeEventsAnswer = (g) {
+          _deltaSeqs(g, 'rt-1', 10, 10);
+          g.serverRequest('srq-1', 'approval', 'rt-1', request);
+          _deltaSeqs(g, 'rt-1', 11, 11);
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => !(e is ReplyDelta && e.text == '8'))
+              .map((e) => e is ReplyDelta ? e.text : e.runtimeType.toString()),
+          ['8', '9', '10', 'ApprovalRequested', '11'],
+        );
+      });
+    });
+
+    test('a request shown before the reconnect and sent again by the new '
+        'socket is shown once', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'open_requests': [
+            {'id': 'srq-1', 'method': 'approval', 'params': request},
+          ],
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.serverRequest('srq-1', 'approval', 'rt-1', request);
+        async.flushMicrotasks();
+
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+      });
+    });
   });
 
   group('Backoff', () {
