@@ -14,7 +14,10 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
   return switch (event.type) {
     'message.start' => const ReplyStarted(),
     'message.delta' => ReplyDelta(text('text')),
-    'message.interim' => ReplyCheckpoint(text('text')),
+    'message.interim' => ReplyCheckpoint(
+      text('text'),
+      alreadyStreamed: payload['already_streamed'] != false,
+    ),
     'reasoning.delta' => ReasoningUpdated(text('text')),
     'reasoning.available' => ReasoningUpdated(text('text'), fallback: true),
     'tool.generating' => ToolPreparing(text('name')),
@@ -40,6 +43,27 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
       text('text'),
       failed: payload['status'] == 'error',
       stopped: payload['status'] == 'interrupted',
+      previewed: payload['response_previewed'] == true,
+      reused: payload['response_reused'] == true,
+      transformed: payload['response_transformed'] == true,
+      partial: payload['partial'] == true,
+      error: _nonEmpty(text('error')),
+    ),
+    'error' => ReplyErrored(text('message')),
+    'session.info' => SessionInfo(
+      running: switch (payload['running']) {
+        final bool running => running,
+        _ => null,
+      },
+      storedSessionId: _nonEmpty(text('stored_session_id')),
+    ),
+    'status.update' =>
+      payload['kind'] == 'compacting'
+          ? const ReplyStatus('Compacting the conversation…')
+          : null,
+    'thinking.delta' => ReplyStatus(_providerWait(text('text'))),
+    'approval.cancelled' => InputRequestsCancelled(
+      _strings(payload['request_ids']),
     ),
     'approval.request' => ApprovalRequested(
       toApproval(text('request_id'), payload),
@@ -123,6 +147,21 @@ ChatEvent? _subagentEvent(String type, Map<String, Object?> payload) {
     ),
   );
 }
+
+/// Hermes writes a provider wait as a status line in its thinking text, such
+/// as "⏳ waiting on local-model". Anything else is spinner noise and yields
+/// the empty string, which clears the status.
+final _providerWaitPattern = RegExp(
+  r'^(?:⏳|⚠|↻|⚙)\s*(?:(?:still\s+)?waiting on|loading|processing prompt|no (?:output|response)|model returned|rate limited|provider (?:overloaded|temporarily unavailable))',
+  caseSensitive: false,
+);
+
+String _providerWait(String text) {
+  final trimmed = text.trim();
+  return _providerWaitPattern.hasMatch(trimmed) ? trimmed : '';
+}
+
+String? _nonEmpty(String value) => value.isEmpty ? null : value;
 
 /// Hermes may send text as content parts rather than a string.
 String _plainText(Object? value) => switch (value) {
