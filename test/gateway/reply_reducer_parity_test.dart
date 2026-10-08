@@ -357,6 +357,18 @@ void main() {
       expect(reply.content, 'Found it, and more');
     });
 
+    test('a checkpoint over no streamed text, or the same text, records no '
+        'streamed form', () {
+      final fresh = _placeholder();
+      applyReplyEvent(fresh, const ReplyCheckpoint('X'));
+      final same = _placeholder();
+      applyReplyEvent(same, const ReplyDelta('X'));
+      applyReplyEvent(same, const ReplyCheckpoint('X'));
+
+      expect(fresh.sealedProse.single.streamed, isNull);
+      expect(same.sealedProse.single.streamed, isNull);
+    });
+
     test(
       'a rebuild strips a checkpoint that rewrote unsealed streamed text',
       () {
@@ -384,18 +396,24 @@ void main() {
       expect(reply.content, ' There');
     });
 
-    test('a rebuild matches the sealed text where it comes first, not a later '
-        'repeat of the streamed form', () {
-      final reply = _placeholder();
+    test(
+      'a rebuild holding the rewritten text matches it where it comes first, '
+      'not a later repeat of the streamed form',
+      () {
+        final reply = _placeholder();
 
-      applyReplyEvent(reply, const ReplyDelta('Look into it'));
-      applyReplyEvent(reply, const ToolPreparing('terminal'));
-      applyReplyEvent(reply, const ReplyCheckpoint('Look'));
-      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
-      applyReplyEvent(reply, const ReplyRebuilt('Look at this. Look into it'));
+        applyReplyEvent(reply, const ReplyDelta('Look into it'));
+        applyReplyEvent(reply, const ToolPreparing('terminal'));
+        applyReplyEvent(reply, const ReplyCheckpoint('Look'));
+        applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
+        applyReplyEvent(
+          reply,
+          const ReplyRebuilt('Look at this. Look into it'),
+        );
 
-      expect(reply.content, ' at this. Look into it');
-    });
+        expect(reply.content, ' at this. Look into it');
+      },
+    );
 
     test('an interrupt cancelling one request expires only that request', () {
       final reply = _placeholder();

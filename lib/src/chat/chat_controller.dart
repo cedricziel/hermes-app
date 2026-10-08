@@ -1177,6 +1177,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final flyer in chatMessageToFlyer(userMessage)) {
       controllerFor(thread).insertMessage(flyer);
     }
+    // A reply of its own: no stop asked before it is about it, and the answer
+    // to one is no longer about this thread's current reply.
+    _holds.remove(thread);
+    _interrupts.remove(thread);
+    _generations.update(thread, (n) => n + 1, ifAbsent: () => 1);
     final placeholder = _addPlaceholder(thread);
     thread.updatedAt = DateTime.now();
     notifyListeners();
@@ -1213,8 +1218,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // The queue waited for the session to settle after the turn before. This
     // one decides when it may go on.
     _settleTimers.remove(thread)?.cancel();
-    _stopRequested.remove(thread);
-    _stopPending.remove(thread);
     final placeholder = ChatMessage(
       id: _newMessageId(thread),
       role: ChatRole.assistant,
@@ -1267,34 +1270,35 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     var settled = false;
     void end([Object? error]) {
       _replies.remove(subscription);
-      // The reply a stop in flight aimed at is over.
-      final stopping = _stopPending.remove(thread) != null;
       if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
         if (error == null) {
           _followUps(transport, thread, profile);
-          _awaitSettle(thread);
+          // A stop of the running turn in flight decides when the queue goes
+          // on: its answer, or the end of that turn.
+          if (_holdOf(thread) == _Hold.none) _awaitSettle(thread);
           unawaited(refreshActive());
         } else {
+          _turnEnded(thread, halted: true);
           notifyListeners();
         }
       } else if (reply.isPending) {
+        _turnEnded(thread, halted: true);
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       } else if (error == null) {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a
         // failure or a stop it stays paused for the user.
-        final stopRequested =
-            _stopRequested.remove(thread) || (settled && stopping);
-        final halted =
-            failed ||
-            stopped ||
-            stopRequested ||
-            reply.status == MessageStatus.error;
+        final halted = failed || stopped || reply.status == MessageStatus.error;
+        final drain = _turnEnded(
+          thread,
+          halted: halted,
+          idleOnly: reply.settledWithoutCompletion,
+        );
         _followUps(transport, thread, profile);
-        if (!halted) {
+        if (drain) {
           if (settled) {
             sendQueued(thread);
           } else {
@@ -1303,9 +1307,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
         _refetchIfIdle(thread);
         unawaited(refreshActive());
-        if (halted) notifyListeners();
+        if (!drain) notifyListeners();
       } else {
         // The queue is left paused; the screen shows it.
+        _turnEnded(thread, halted: true);
         notifyListeners();
       }
     }
@@ -1357,6 +1362,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
+        _turnEnded(thread, halted: true);
         _updateReply(thread, pending, () => failReply(pending, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       }
@@ -1367,6 +1373,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         .listen(
           (event) {
             if (reply == null && opensTurn(event)) {
+              // A stop in flight may be aimed at the turn this opens a reply
+              // for (a folded prompt's), so the hold stays.
               reply = _addPlaceholder(thread);
             }
             final current = reply;
@@ -1377,22 +1385,23 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             _onReplyEvent(thread, current, event, profile);
             if (event is ReplyCompleted) {
               reply = null;
-              _stopPending.remove(thread);
-              if (!event.failed && !event.stopped) _awaitSettle(thread);
+              final drain = _turnEnded(
+                thread,
+                halted: event.failed || event.stopped,
+              );
+              if (drain) _awaitSettle(thread);
               unawaited(refreshActive());
             } else if (event is SessionInfo && event.running == false) {
               // The session reports the turn over without a completion. It is
               // closed all the same, so the next chained turn gets a reply of
               // its own, and the queue goes on now that the session settled.
               reply = null;
-              // A stop in flight owns this settle: the queue stays paused.
-              final stopRequested = _stopRequested.remove(thread);
-              final stopping = _stopPending.remove(thread) != null;
-              if (!stopRequested &&
-                  !stopping &&
-                  current.status != MessageStatus.error) {
-                sendQueued(thread);
-              }
+              final drain = _turnEnded(
+                thread,
+                halted: current.status == MessageStatus.error,
+                idleOnly: true,
+              );
+              if (drain) sendQueued(thread);
               unawaited(refreshActive());
             }
           },
@@ -1407,7 +1416,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// thread, or a completion for the reply a turn ended without.
   void _onIdleEvent(ChatThread thread, ChatEvent event, String? profile) {
     switch (event) {
-      case SessionInfo():
+      case SessionInfo(:final running):
+        // The turn a stop in flight was aimed at ended with no reply open.
+        if (running == false) _turnEnded(thread, idleOnly: true);
         _onSessionInfo(thread, event);
       case ThreadTitled(:final title):
         if (!thread.isCanonicalBotChat) thread.title = title;
@@ -1419,6 +1430,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // A failure with no reply open to show it, from a turn that never
         // began. It pauses the queue like any failure, and says so.
         _settleTimers.remove(thread)?.cancel();
+        _turnEnded(thread, halted: true);
         if (message.isNotEmpty) report(message);
       case ReplyCompleted():
         final settled = _settledReply(thread);
@@ -1499,9 +1511,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           announced = ReplyCompleted(
             reply.content,
             failed: reply.status == MessageStatus.error,
-            stopped:
-                _stopRequested.contains(thread) ||
-                _stopPending.containsKey(thread),
+            stopped: switch (_holdOf(thread)) {
+              _Hold.stopping || _Hold.paused => true,
+              _ => false,
+            },
           );
         }
       case ThreadNeedsRefetch():
@@ -1606,25 +1619,74 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
-  /// The threads the user asked to stop. A stop the server answers with only
-  /// an idle report, no interrupted completion, still pauses the queue.
-  final _stopRequested = <ChatThread>{};
+  /// Why the queue of a thread is held while a stop is in flight. A queue is
+  /// otherwise paused by nothing but its absent settle wait, so the record
+  /// only matters until the interrupts asked for are answered.
+  final _holds = <ChatThread, _Hold>{};
 
-  /// The threads whose interrupt is in flight. An idle report that arrives
-  /// before the answer is the stop's settle, so it takes the mark itself.
-  final _stopPending = <ChatThread, int>{};
+  /// The interrupts sent for the current reply of a thread that have not been
+  /// answered. A send of its own forgets the ones before it.
+  final _interrupts = <ChatThread, int>{};
 
-  /// Ends one stop call's hold on [thread]'s mark. False when a settle took
-  /// the mark already.
-  bool _releaseStop(ChatThread thread) {
-    final count = _stopPending[thread];
-    if (count == null) return false;
-    if (count > 1) {
-      _stopPending[thread] = count - 1;
+  /// Bumped when the user sends in a thread. An interrupt's answer is about
+  /// the generation it was sent in, and changes no hold of a later one.
+  final _generations = <ChatThread, int>{};
+
+  _Hold _holdOf(ChatThread thread) => _holds[thread] ?? _Hold.none;
+
+  void _setHold(ChatThread thread, _Hold hold) {
+    if (hold == _Hold.none) {
+      _holds.remove(thread);
     } else {
-      _stopPending.remove(thread);
+      _holds[thread] = hold;
     }
-    return true;
+  }
+
+  bool _interruptInFlight(ChatThread thread) => (_interrupts[thread] ?? 0) > 0;
+
+  /// Settles the hold of [thread] when its turn ends, and tells whether the
+  /// queue may go on. A stopped or failed turn ([halted]) pauses it, and while
+  /// an interrupt is still in flight the pause outlasts the turn, so that
+  /// interrupt's answer cannot release it. [idleOnly]: the turn ended on an
+  /// idle report, not a completion, so a stop asked for may still be what ended
+  /// it and its answer decides.
+  bool _turnEnded(
+    ChatThread thread, {
+    bool halted = false,
+    bool idleOnly = false,
+  }) {
+    final afterwards = _interruptInFlight(thread) ? _Hold.paused : _Hold.none;
+    if (halted) {
+      _setHold(thread, afterwards);
+      return false;
+    }
+    switch (_holdOf(thread)) {
+      case _Hold.none:
+        return true;
+      case _Hold.paused || _Hold.stopping:
+        _setHold(thread, afterwards);
+        return false;
+      case _Hold.asked || _Hold.askedEnded:
+        if (idleOnly) {
+          _setHold(thread, _Hold.askedEnded);
+          return false;
+        }
+        // A completion that is not a stop answers the question: the turn
+        // finished by itself.
+        _setHold(thread, _Hold.none);
+        return true;
+    }
+  }
+
+  /// Ends one interrupt of [thread]. True while others are still in flight.
+  bool _endInterrupt(ChatThread thread) {
+    final left = (_interrupts[thread] ?? 1) - 1;
+    if (left > 0) {
+      _interrupts[thread] = left;
+    } else {
+      _interrupts.remove(thread);
+    }
+    return left > 0;
   }
 
   Future<void> stopReply(ChatThread thread) async {
@@ -1632,28 +1694,87 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       for (final reply in thread.messages)
         if (reply.isPending) reply,
     ];
-    if (thread.isReplying) {
-      _stopPending.update(thread, (n) => n + 1, ifAbsent: () => 1);
+    final generation = _generations[thread] ?? 0;
+    _interrupts.update(thread, (n) => n + 1, ifAbsent: () => 1);
+    if (thread.isReplying && _holdOf(thread) == _Hold.none) {
+      _setHold(thread, _Hold.asked);
     }
     try {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
       if (disposed) return;
-      // A settle during the interrupt took the mark already.
-      if (_releaseStop(thread) && stopped == true && thread.isReplying) {
-        _stopRequested.add(thread);
+      if ((_generations[thread] ?? 0) != generation) return;
+      final others = _endInterrupt(thread);
+      final hold = _holdOf(thread);
+      if (stopped == true) {
+        // The turn is going to end stopped. If it ended already, this answer
+        // only releases what its end left.
+        _setHold(thread, switch (hold) {
+          _Hold.asked => _Hold.stopping,
+          _Hold.askedEnded ||
+          _Hold.paused => others ? _Hold.paused : _Hold.none,
+          _ => hold,
+        });
+        return;
       }
-      if (stopped != false) return;
-      // The server has no turn left to interrupt. A completion was missed by
-      // this listener, so release the stale pending reply and composer.
-      for (final reply in pending.where((reply) => reply.isPending)) {
-        _updateReply(
+      if (stopped != false) {
+        _setHold(thread, others ? hold : _Hold.none);
+        return;
+      }
+      final stale = [
+        for (final reply in pending)
+          if (reply.isPending && thread.messages.contains(reply)) reply,
+      ];
+      if (stale.isNotEmpty) {
+        // The server has no turn left to interrupt. A completion was missed by
+        // this listener, so release the stale pending reply and composer.
+        _setHold(
           thread,
-          reply,
-          () => applyReplyEvent(reply, const ReplyCompleted('', stopped: true)),
+          others || hold == _Hold.stopping || hold == _Hold.paused
+              ? _Hold.paused
+              : _Hold.none,
         );
+        for (final reply in stale) {
+          _updateReply(
+            thread,
+            reply,
+            () =>
+                applyReplyEvent(reply, const ReplyCompleted('', stopped: true)),
+          );
+        }
+        return;
+      }
+      // Nothing was running: the turn ended on its own. Only the stop that
+      // held the queue lets it go on, and only when no other is in flight.
+      if (others) return;
+      switch (hold) {
+        case _Hold.asked || _Hold.askedEnded:
+          _setHold(thread, _Hold.none);
+          sendQueued(thread);
+        case _Hold.paused:
+          _setHold(thread, _Hold.none);
+        default:
+          break;
       }
     } on Object {
-      _releaseStop(thread);
+      // The stop of an earlier reply failing is of no use to say.
+      if ((_generations[thread] ?? 0) != generation) return;
+      final others = _endInterrupt(thread);
+      if (!others) {
+        // The interrupt did not get through, so it decides nothing: the queue
+        // goes on with the turn's own end.
+        switch (_holdOf(thread)) {
+          case _Hold.asked:
+            _setHold(thread, _Hold.none);
+            _awaitSettle(thread);
+          case _Hold.askedEnded:
+            _setHold(thread, _Hold.none);
+            sendQueued(thread);
+          case _Hold.paused:
+            _setHold(thread, _Hold.none);
+          default:
+            break;
+        }
+      }
       report(_couldNotStop);
     }
   }
@@ -1744,4 +1865,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           : expireInputRequests(reply, requestId: requestId),
     );
   }
+}
+
+/// Why a thread's queue is held while an interrupt is in flight.
+enum _Hold {
+  none,
+
+  /// The user asked to stop; the answer or the turn's end decides.
+  asked,
+
+  /// The turn ended on an idle report while a stop was still unanswered.
+  askedEnded,
+
+  /// The server confirmed the interrupt: the turn's end pauses the queue.
+  stopping,
+
+  /// The turn ended stopped or failed while an interrupt was in flight.
+  paused,
 }
