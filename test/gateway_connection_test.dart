@@ -104,4 +104,51 @@ void main() {
       expect(opened, isEmpty);
     });
   });
+
+  group('hermesMixedSocketConnect', () {
+    late FakeHermesServer server;
+    late List<Uri> opened;
+    late StreamChannel<Object?> channel;
+
+    setUp(() {
+      server = FakeHermesServer();
+      opened = [];
+      channel = StreamChannelController<Object?>().local;
+    });
+
+    MixedSocketConnect connect({required bool authRequired}) =>
+        hermesMixedSocketConnect(
+          baseUrl: 'http://hermes.test',
+          authRequired: authRequired,
+          api: server.client(),
+          path: '/api/audio/transcribe-stream',
+          open: (uri) async {
+            opened.add(uri);
+            return channel;
+          },
+        );
+
+    test('joins an ungated dashboard with the session token', () async {
+      server.on('GET', '/', _page);
+
+      final result = await connect(authRequired: false)({'profile': 'work'});
+
+      expect(
+        opened.single.toString(),
+        'ws://hermes.test/api/audio/transcribe-stream?profile=work&token=tok-123',
+      );
+      expect(result, same(channel));
+    });
+
+    test('joins a gated dashboard with a fresh ticket', () async {
+      server.on('POST', '/api/auth/ws-ticket', {'ticket': 'tkt-1'});
+
+      await connect(authRequired: true)();
+
+      expect(
+        opened.single.toString(),
+        'ws://hermes.test/api/audio/transcribe-stream?ticket=tkt-1',
+      );
+    });
+  });
 }
