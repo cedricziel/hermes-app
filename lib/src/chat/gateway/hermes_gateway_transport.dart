@@ -5,6 +5,8 @@ import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:stream_channel/stream_channel.dart';
 
 import '../../models/model_provider_option.dart';
@@ -15,6 +17,7 @@ import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
+import 'unmapped_events.dart';
 
 /// Opens the dashboard's `/api/ws` socket, credentials included.
 typedef GatewayConnect = Future<StreamChannel<String>> Function();
@@ -85,6 +88,10 @@ final class _Resumed {
     this.idle,
     this.ended = const [],
     this.giveUp = false,
+    this.outcome = 'replayed',
+    this.replayedCount = 0,
+    this.truncated = false,
+    this.epochChanged = false,
   });
 
   /// The runtime session the reply is on now.
@@ -103,6 +110,21 @@ final class _Resumed {
   /// Set when the reply cannot end cleanly: no connection could be made, or the
   /// turn ended without a reply to show, so the reply fails after [ended].
   final bool giveUp;
+
+  /// How the reconnect went, for telemetry: `replayed` when the gap was filled
+  /// from the server's ring, `rest_refetch` when the reply had to be rebuilt
+  /// from the resume snapshot or the stored thread, `ended` when the turn was
+  /// over by the time the app was back, `failed` when [giveUp].
+  final String outcome;
+
+  /// How many events the replay handed over.
+  final int replayedCount;
+
+  /// The server reported its ring did not reach back far enough.
+  final bool truncated;
+
+  /// The server restarted since the app last heard from it.
+  final bool epochChanged;
 
   /// Closes the watches, for a reconnect nobody is waiting for any more.
   void discard() {
@@ -316,6 +338,7 @@ class HermesGatewayTransport implements ChatTransport {
   HermesGatewayTransport({
     required this._connect,
     this._telemetry,
+    this._events = noopAppEventLogger,
     this.requestTimeout = const Duration(seconds: 30),
     this.probeTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
@@ -351,6 +374,14 @@ class HermesGatewayTransport implements ChatTransport {
 
   final GatewayConnect _connect;
   final MessagingConnectionTracer? _telemetry;
+
+  /// Where the `gateway.*` log events go. They carry fixed names and coarse
+  /// values, never the text of a message.
+  final AppEventLogger _events;
+
+  /// The frame types this connection showed nothing for, as far as they were
+  /// reported.
+  var _unmapped = UnmappedEvents();
   GatewayRpcClient? _open;
   Future<GatewayRpcClient>? _opening;
   final _awaiting = <String, _OpenRequest>{};
@@ -588,6 +619,7 @@ class HermesGatewayTransport implements ChatTransport {
     // Whether the turn has begun. A report that the session is idle only ends
     // the reply once it has, or once the grace has passed (see [settles]).
     var started = false;
+    var errored = false;
     var submittedAt = clock.now();
     // Set when the server queued the prompt behind a turn that was running.
     _QueuedGate? gate;
@@ -681,6 +713,7 @@ class HermesGatewayTransport implements ChatTransport {
           if (!wasEnded && gate!.ended) submittedAt = clock.now();
           for (final admitted in admittedNow) {
             started = started || beginsTurn(admitted);
+            errored = errored || admitted is ReplyErrored;
             final idle = admitted is SessionInfo && admitted.running == false;
             final settled =
                 idle &&
@@ -702,6 +735,7 @@ class HermesGatewayTransport implements ChatTransport {
             }
             if (shown != null) yield shown;
             if (shown is ReplyCompleted || settled) {
+              _turnSettled(admitted, errored: errored);
               // The session goes on listening: Hermes may chain another turn.
               final displaced = _idle.remove(owner);
               watch.leaveBacklog(setAside);
@@ -781,6 +815,43 @@ class HermesGatewayTransport implements ChatTransport {
     }
   }
 
+  /// Logs the event [name], and never lets the logger break the transport.
+  void _record(String name, Map<String, Object> attributes) {
+    try {
+      _events(name, attributes);
+    } on Object {
+      // Telemetry must not take a reply down with it.
+    }
+  }
+
+  /// Logs that a reply ended: [via] is what ended it. A completion is the
+  /// normal end; an idle report is one the reply settled on without a
+  /// completion, and [errored] says an `error` event came before it.
+  void _turnSettled(ChatEvent ended, {required bool errored}) =>
+      _record('gateway.turn_settled', {
+        'via': ended is ReplyCompleted
+            ? 'complete'
+            : errored
+            ? 'error_event'
+            : 'session_info',
+      });
+
+  /// Logs that Hermes sent a frame of type [type] that the app shows nothing
+  /// for, once per type on the connection. Only the type is logged. [on] is
+  /// the connection's record, when the caller holds it.
+  void _reportUnmapped(
+    String type, {
+    bool serverRequest = false,
+    UnmappedEvents? on,
+  }) {
+    final reported = (on ?? _unmapped).admit(type);
+    if (reported == null) return;
+    _record('gateway.event_unmapped', {
+      'event.type': reported,
+      if (serverRequest) 'server_request': true,
+    });
+  }
+
   /// Moves the session [runtimeId] from [previous] to [next], sending only
   /// what changed. Both are scoped to the session, never written to the
   /// profile's config: `--session` says so for the model, and without it
@@ -857,6 +928,7 @@ class HermesGatewayTransport implements ChatTransport {
         return await pending.timeout(silenceProbe);
       } on TimeoutException {
         if (await _stillRunning(watch.client, storedId)) continue;
+        _record('gateway.turn_settled', {'via': 'silence_probe'});
         throw const GatewayConnectionClosed();
       }
     }
@@ -890,6 +962,8 @@ class HermesGatewayTransport implements ChatTransport {
       if (!budget.isCompleted) budget.complete();
     });
     bool stop() => budget.isCompleted || cancelled();
+    // Attempts that got as far as opening a socket, for telemetry.
+    var tried = 0;
     try {
       for (var attempt = 0; attempt < maxAttempts; attempt++) {
         if (stop()) break;
@@ -902,22 +976,42 @@ class HermesGatewayTransport implements ChatTransport {
           );
         }
         if (stop()) break;
+        tried = attempt + 1;
         final resumed = await _within(
           _resumeOnce(owner, runtimeId, shown, stop),
           budget.future,
           (resumed) => resumed?.discard(),
         );
         if (resumed != null) {
-          if (!cancelled()) return resumed;
+          if (!cancelled()) {
+            if (runtimeId != null) _reportReconnect(tried, resumed);
+            return resumed;
+          }
           resumed.discard();
           break;
         }
       }
-      return _Resumed(runtimeId: runtimeId ?? owner.$2, giveUp: true);
+      final failed = _Resumed(
+        runtimeId: runtimeId ?? owner.$2,
+        giveUp: true,
+        outcome: 'failed',
+      );
+      if (runtimeId != null && !cancelled()) _reportReconnect(tried, failed);
+      return failed;
     } finally {
       timer.cancel();
     }
   }
+
+  /// Logs how a reconnect of a reply on screen went, after [attempt] tries.
+  void _reportReconnect(int attempt, _Resumed resumed) =>
+      _record('gateway.reconnect', {
+        'attempt': attempt,
+        'outcome': resumed.outcome,
+        'replayed_count': resumed.replayedCount,
+        'truncated': resumed.truncated,
+        'epoch_changed': resumed.epochChanged,
+      });
 
   /// One reconnect attempt: opens a socket, resumes the session, and works out
   /// what the reply missed. Null when the attempt failed and may be retried.
@@ -986,6 +1080,14 @@ class HermesGatewayTransport implements ChatTransport {
       tap.close();
       return null;
     }
+    // Read before the merge below, which forgets the epoch it finds stale.
+    final truncated = since?['truncated'] == true;
+    final replayEpoch = since?['epoch'];
+    final recordedEpoch = _ledger.epochOf(runtimeId);
+    final epochChanged =
+        recordedEpoch != null &&
+        replayEpoch is String &&
+        replayEpoch != recordedEpoch;
     // Nothing below awaits before the watch, so no frame is lost between the
     // release and the subscription.
     final frames = tap.release();
@@ -1001,6 +1103,8 @@ class HermesGatewayTransport implements ChatTransport {
       final next = <_Incoming>[];
       var completed = false;
       var merged = false;
+      var outcome = 'ended';
+      var replayedCount = 0;
       if (since != null) {
         final decision = _ledger.merge(
           sid: runtimeId,
@@ -1009,6 +1113,7 @@ class HermesGatewayTransport implements ChatTransport {
         );
         if (decision case Deliver(:final events)) {
           merged = true;
+          replayedCount = events.length;
           for (final event in events) {
             final incoming = _incomingOf(event, runtimeId);
             if (incoming == null) continue;
@@ -1030,14 +1135,25 @@ class HermesGatewayTransport implements ChatTransport {
         // After the events: a request binds to the tool call it was raised
         // in, which the replay has to have started first.
         _openRequests(ended, openRows, runtimeId, shown);
-        if (onScreen) ended.add((const ThreadNeedsRefetch(), false));
+        if (onScreen) {
+          ended.add((const ThreadNeedsRefetch(), false));
+          outcome = 'rest_refetch';
+        }
         if (stored != null) {
           ended.add((stored, false));
         } else if (errored) {
           ended.add((const SessionInfo(running: false), false));
         }
         if (stored == null && !errored && onScreen) {
-          return _Resumed(runtimeId: runtimeId, ended: ended, giveUp: true);
+          return _Resumed(
+            runtimeId: runtimeId,
+            ended: ended,
+            giveUp: true,
+            outcome: 'failed',
+            replayedCount: replayedCount,
+            truncated: truncated,
+            epochChanged: epochChanged,
+          );
         }
         // Frames the replay did not cover (the merge counts them itself).
         if (!merged) {
@@ -1049,10 +1165,15 @@ class HermesGatewayTransport implements ChatTransport {
         runtimeId: runtimeId,
         ended: ended,
         idle: _watch(client, runtimeId, injected: next, shown: shown),
+        outcome: outcome,
+        replayedCount: replayedCount,
+        truncated: truncated,
+        epochChanged: epochChanged,
       );
     }
 
     final injected = <_Incoming>[];
+    var replayedCount = 0;
     final decision = since == null
         ? const Refetch()
         : _ledger.merge(
@@ -1061,6 +1182,7 @@ class HermesGatewayTransport implements ChatTransport {
             parked: _eventsOf(frames, runtimeId),
           );
     if (decision case Deliver(:final events)) {
+      replayedCount = events.length;
       injected.addAll(_inArrivalOrder(events, frames, runtimeId, shown));
       _openRequests(injected, openRows, runtimeId, shown);
     } else {
@@ -1085,6 +1207,10 @@ class HermesGatewayTransport implements ChatTransport {
     return _Resumed(
       runtimeId: runtimeId,
       watch: _watch(client, runtimeId, injected: injected, shown: shown),
+      outcome: decision is Deliver ? 'replayed' : 'rest_refetch',
+      replayedCount: replayedCount,
+      truncated: truncated,
+      epochChanged: epochChanged,
     );
   }
 
@@ -1245,6 +1371,7 @@ class HermesGatewayTransport implements ChatTransport {
     switch (frame) {
       case GatewayEvent event when event.sessionId == runtimeId:
         final shown = mapGatewayEvent(event);
+        if (shown == null) _reportUnmapped(event.type);
         return shown == null ? null : (shown, false);
       case GatewayServerRequest request when request.sessionId == runtimeId:
         final shown = _handledRequests.contains(request.method)
@@ -1461,6 +1588,7 @@ class HermesGatewayTransport implements ChatTransport {
     if (replying) _beginReply(runtimeId, key);
     final mine = <String>{};
     var drops = 0;
+    var errored = false;
     void forward(_Incoming incoming) {
       final (event, serverRequest) = incoming;
       if (event is SessionInfo) {
@@ -1483,11 +1611,14 @@ class HermesGatewayTransport implements ChatTransport {
       _track(event, runtimeId, mine, serverRequest: serverRequest);
       if (out.isClosed) return;
       out.add(event);
+      errored = errored || event is ReplyErrored;
       // A turn that settles without a completion is over all the same: the
       // next turn's start must not be taken for a replay of this one.
       if (replying &&
           (event is ReplyCompleted ||
               event is SessionInfo && event.running == false)) {
+        _turnSettled(event, errored: errored);
+        errored = false;
         replying = false;
         drops = 0;
         _forgetRequests(mine);
@@ -1996,16 +2127,15 @@ class HermesGatewayTransport implements ChatTransport {
     // Another client attached to a session may answer its requests, and the
     // first response settles one for all of them: only refuse those of a
     // session this app is replying in.
+    final unmapped = _unmapped = UnmappedEvents();
     client.serverRequests
-        .where(
-          (request) =>
-              !_handledRequests.contains(request.method) &&
-              _replying.containsKey(request.sessionId),
-        )
-        .listen(
-          (request) =>
-              client.respondError(request.id, -32601, 'Method not found'),
-        );
+        .where((request) => !_handledRequests.contains(request.method))
+        .listen((request) {
+          _reportUnmapped(request.method, serverRequest: true, on: unmapped);
+          if (_replying.containsKey(request.sessionId)) {
+            client.respondError(request.id, -32601, 'Method not found');
+          }
+        });
     return _open = client;
   }
 

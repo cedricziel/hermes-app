@@ -49,7 +49,11 @@ class WatchBridge {
     return WatchBridge(
       events: events,
       authState: () => auth.state.name,
-      handler: handlerFor(auth, announce: announcer(notifications, settings)),
+      handler: handlerFor(
+        auth,
+        announce: announcer(notifications, settings),
+        events: events,
+      ),
     );
   }
 
@@ -73,6 +77,7 @@ class WatchBridge {
   static WatchRequestHandler handlerFor(
     AuthController auth, {
     void Function(AttentionNotification) announce = _ignore,
+    AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
   }) {
     // The client exists from the first connect, before anyone has signed in.
@@ -118,6 +123,7 @@ class WatchBridge {
             authRequired: auth.status?.authRequired ?? true,
             api: api,
           ),
+          events: events,
         );
       },
       activeProfile: () async {

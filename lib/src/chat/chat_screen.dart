@@ -6,6 +6,8 @@ import 'package:clock/clock.dart';
 import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -215,6 +217,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           telemetry: telemetry,
         ),
         telemetry: telemetry,
+        events: _maybeRead<AppEventLogger>() ?? noopAppEventLogger,
       );
     }
     _chat = ChatController(
