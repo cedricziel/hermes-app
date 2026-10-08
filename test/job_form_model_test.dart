@@ -219,4 +219,22 @@ void main() {
       ['work', 'home'],
     );
   });
+
+  testWidgets('a new job lists the delivery targets of the profile chosen', (
+    tester,
+  ) async {
+    await pumpForm(tester, profileNames: const ['work', 'home']);
+
+    await tester.tap(find.byKey(const Key('job-profile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('home').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      server
+          .requestsTo('GET', '/api/cron/delivery-targets')
+          .map((r) => r.queryParameters['profile']),
+      ['work', 'home'],
+    );
+  });
 }

@@ -222,6 +222,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     onChanged: (p) {
                       _draft.profile = p;
                       _form.changed();
+                      _form.loadTargets();
                       _loadModels();
                     },
                   ),

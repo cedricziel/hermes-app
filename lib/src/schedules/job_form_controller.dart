@@ -47,6 +47,7 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
     DeliveryTarget(id: 'local', name: 'Local (save only)'),
   ];
   bool _targetsFailed = false;
+  int _targetsLoad = 0;
   ModelOptions? _modelOptions;
   int _modelsLoad = 0;
 
@@ -89,12 +90,17 @@ class JobFormController extends ChangeNotifier with SafeNotifier {
     notifyListeners();
   }
 
+  /// Loads the delivery targets of the draft's profile. A load that a newer
+  /// one overtook is dropped.
   Future<void> loadTargets() async {
+    final load = ++_targetsLoad;
     try {
-      final loaded = await repository.deliveryTargets();
+      final loaded = await repository.deliveryTargets(profile: draft.profile);
+      if (load != _targetsLoad) return;
       if (loaded.isNotEmpty) _targets = loaded;
       _targetsFailed = false;
     } on Object {
+      if (load != _targetsLoad) return;
       _targetsFailed = true;
     }
     notifyListeners();

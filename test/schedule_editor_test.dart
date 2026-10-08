@@ -123,6 +123,13 @@ void main() {
       expect(find.text('Morning briefing'), findsOneWidget);
       expect(find.text('daily at 08:00'), findsOneWidget);
       expect(find.text('Important mail'), findsOneWidget);
+      expect(
+        server
+            .requestsTo('GET', '/api/cron/blueprints')
+            .single
+            .queryParameters['profile'],
+        'work',
+      );
     });
 
     testWidgets('search narrows the templates', (tester) async {

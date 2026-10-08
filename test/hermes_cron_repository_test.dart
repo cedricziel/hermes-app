@@ -136,6 +136,21 @@ void main() {
     expect(targets.last.homeTargetSet, isFalse);
   });
 
+  test('deliveryTargets and blueprints ask for the profile given', () async {
+    server
+      ..on('GET', '/api/cron/delivery-targets', cronDeliveryTargets)
+      ..on('GET', '/api/cron/blueprints', {'blueprints': <Object?>[]});
+
+    await repository.deliveryTargets(profile: 'work');
+    await repository.blueprints(profile: 'work');
+    await repository.deliveryTargets();
+
+    expect(
+      [for (final r in server.requests) r.queryParameters['profile']],
+      ['work', 'work', null],
+    );
+  });
+
   group('create and change', () {
     test('createJob posts the draft to the chosen profile', () async {
       server.on(

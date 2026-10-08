@@ -5,12 +5,17 @@ Describes how the app creates and changes scheduled tasks: the gallery of bluepr
 ## Requirements
 ### Requirement: New task gallery
 
-The system SHALL offer a "New" action on the Schedules list that opens a gallery with a "Custom task" card and the server's blueprints from `GET /api/cron/blueprints`. Each blueprint card SHALL show its title, description and its schedule in words (`scheduleHuman`). The gallery SHALL have a search field matching titles, descriptions and tags, and one chip per category the blueprints carry. A blueprint the app cannot render SHALL be skipped. When the blueprints cannot be loaded, the gallery SHALL still offer "Custom task" and say the templates are unavailable.
+The system SHALL offer a "New" action on the Schedules list that opens a gallery with a "Custom task" card and the blueprints of the profile new jobs go to, from `GET /api/cron/blueprints?profile=<profile>`. Each blueprint card SHALL show its title, description and its schedule in words (`scheduleHuman`). The gallery SHALL have a search field matching titles, descriptions and tags, and one chip per category the blueprints carry. A blueprint the app cannot render SHALL be skipped. When the blueprints cannot be loaded, the gallery SHALL still offer "Custom task" and say the templates are unavailable.
 
 #### Scenario: Gallery opens
 
 - **WHEN** the user taps "New" and the server lists blueprints
 - **THEN** a "Custom task" card and a card for each blueprint are shown
+
+#### Scenario: Blueprints of the profile
+
+- **WHEN** new jobs go to the profile "work"
+- **THEN** the blueprints are requested with `profile=work`, so the blueprints of that profile's plugins are offered
 
 #### Scenario: Search
 
@@ -130,7 +135,7 @@ The system SHALL open an existing job with "when" set from its stored schedule: 
 
 ### Requirement: Delivery targets
 
-The system SHALL offer the targets from `GET /api/cron/delivery-targets` for "deliver to", the implicit local target first, and SHALL warn under a target whose `home_target_set` is false that no home channel is set on the server. A job whose stored target is not in the list SHALL keep it as an extra choice. When the list cannot be loaded the field SHALL offer local only, and an edited job SHALL keep its stored target.
+The system SHALL offer the targets of the job's profile from `GET /api/cron/delivery-targets?profile=<profile>` for "deliver to", and load them again when the user picks another profile for a new job, keeping only the answer for the profile picked last. It SHALL put the implicit local target first, and SHALL warn under a target whose `home_target_set` is false that no home channel is set on the server. A job whose stored target is not in the list SHALL keep it as an extra choice. When the list cannot be loaded the field SHALL offer local only, and an edited job SHALL keep its stored target.
 
 #### Scenario: No home channel
 
@@ -141,6 +146,11 @@ The system SHALL offer the targets from `GET /api/cron/delivery-targets` for "de
 
 - **WHEN** a job delivers to a platform the server no longer lists
 - **THEN** that target stays selectable and is shown as unavailable
+
+#### Scenario: Targets of the profile picked
+
+- **WHEN** the user creating a job switches its profile from "work" to "home"
+- **THEN** the targets are requested again with `profile=home` and those of "home" are offered
 
 ### Requirement: Leaving the form
 

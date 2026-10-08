@@ -100,8 +100,11 @@ class HermesCronRepository {
     return _job(response.data);
   });
 
-  Future<List<Blueprint>> blueprints() => _guard(() async {
-    final response = await _api.listCronBlueprintsApiCronBlueprintsGet();
+  /// The built-in blueprints and those of [profile]'s plugins.
+  Future<List<Blueprint>> blueprints({String? profile}) => _guard(() async {
+    final response = await _api.listCronBlueprintsApiCronBlueprintsGet(
+      profile: profile,
+    );
     final data = response.data;
     final rows = data is Map ? data['blueprints'] : null;
     if (rows is! List) return const <Blueprint>[];
@@ -170,12 +173,15 @@ class HermesCronRepository {
     return [for (final row in rows) ?CronRun.fromJson(row)];
   });
 
-  Future<List<DeliveryTarget>> deliveryTargets() => _guard(() async {
-    final response = await _api
-        .getCronDeliveryTargetsApiCronDeliveryTargetsGet();
-    final data = response.data;
-    final rows = data is Map ? data['targets'] : null;
-    if (rows is! List) return const <DeliveryTarget>[];
-    return [for (final row in rows) ?DeliveryTarget.fromJson(row)];
-  });
+  /// Where a job of [profile] can deliver: `local` and its gateway
+  /// platforms.
+  Future<List<DeliveryTarget>> deliveryTargets({String? profile}) =>
+      _guard(() async {
+        final response = await _api
+            .getCronDeliveryTargetsApiCronDeliveryTargetsGet(profile: profile);
+        final data = response.data;
+        final rows = data is Map ? data['targets'] : null;
+        if (rows is! List) return const <DeliveryTarget>[];
+        return [for (final row in rows) ?DeliveryTarget.fromJson(row)];
+      });
 }

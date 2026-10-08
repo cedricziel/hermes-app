@@ -147,6 +147,62 @@ void main() {
       expect(form.selectedTarget?.name, 'matrix (unavailable)');
     });
 
+    test('loads the targets of the job\'s profile', () async {
+      server.on('GET', '/api/cron/delivery-targets', cronDeliveryTargets);
+      final job = CronJob.fromJson(cronJobRow(profile: 'home'))!;
+
+      await create().loadTargets();
+      await JobFormController(
+        repository: repository,
+        editing: job,
+      ).loadTargets();
+
+      expect(
+        server
+            .requestsTo('GET', '/api/cron/delivery-targets')
+            .map((r) => r.queryParameters['profile']),
+        ['work', 'home'],
+      );
+    });
+
+    test('drops targets a newer load overtook', () async {
+      final gate = Completer<FakeResponse>();
+      server
+        ..onRequest(
+          'GET',
+          '/api/cron/delivery-targets',
+          (_) => gate.future,
+          query: {'profile': 'work'},
+        )
+        ..on(
+          'GET',
+          '/api/cron/delivery-targets',
+          {
+            'targets': [
+              {'id': 'local', 'name': 'Local (save only)'},
+              {'id': 'slack', 'name': 'Slack'},
+            ],
+          },
+          query: {'profile': 'home'},
+        );
+      final form = create();
+
+      final first = form.loadTargets();
+      form.draft.profile = 'home';
+      await form.loadTargets();
+      gate.complete((
+        status: 200,
+        body: {
+          'targets': [
+            {'id': 'discord', 'name': 'Discord'},
+          ],
+        },
+      ));
+      await first;
+
+      expect(form.targets.map((t) => t.id), ['local', 'slack']);
+    });
+
     test('offers local only when the targets cannot be loaded', () async {
       server.on('GET', '/api/cron/delivery-targets', {}, status: 500);
       final form = create();
