@@ -471,29 +471,28 @@ class GroupedRow extends StatelessWidget {
         ),
       ),
     );
-    final tappable = MergeSemantics(
-      child: Semantics(
-        button: onTap != null,
-        selected: selected,
-        child: InkWell(onTap: onTap, child: content),
-      ),
+    final ink = InkWell(onTap: onTap, child: content);
+    final color = selected ? scheme.outline : Colors.transparent;
+    Widget merged(Widget child) => MergeSemantics(
+      child: Semantics(button: onTap != null, selected: selected, child: child),
     );
+    if (!trailingApart) {
+      return merged(Material(color: color, child: ink));
+    }
     return Material(
-      color: selected ? scheme.outline : Colors.transparent,
-      child: trailingApart
-          ? Row(
-              children: [
-                Expanded(child: tappable),
-                Padding(
-                  padding: EdgeInsetsDirectional.only(
-                    start: 8,
-                    end: metrics.rowPadding,
-                  ),
-                  child: trailing,
-                ),
-              ],
-            )
-          : tappable,
+      color: color,
+      child: Row(
+        children: [
+          Expanded(child: merged(ink)),
+          Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: 8,
+              end: metrics.rowPadding,
+            ),
+            child: trailing,
+          ),
+        ],
+      ),
     );
   }
 }
