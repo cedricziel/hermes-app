@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -894,6 +895,142 @@ void main() {
     skip: modelSkip,
     timeout: const Timeout(Duration(minutes: 3)),
   );
+
+  group('the gateway stream the transport relies on (model calls)', () {
+    const pong = 'Reply with the single word: pong. Use no tools.';
+    const counting = 'Count from 1 to 40, one number per line. Use no tools.';
+
+    Future<_GatewayTap> open() async {
+      final tap = _GatewayTap(
+        GatewayRpcClient(
+          await hermesGatewayConnect(
+            baseUrl: url!,
+            authRequired: false,
+            api: client,
+          )(),
+        ),
+      );
+      addTearDown(tap.close);
+      return tap;
+    }
+
+    test(
+      'a turn sends session.info running false after message.complete, and '
+      'every event frame carries a rising seq',
+      () async {
+        final tap = await open();
+        final session = await tap.rpc.request('session.create', {});
+        final sid = session['session_id'] as String;
+
+        final submit = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': pong,
+        });
+        await tap.until(
+          () => tap.idleAfterComplete(sid),
+          'session.info {running: false} after message.complete',
+        );
+
+        expect(submit['status'], 'streaming');
+        final types = tap.types(sid);
+        expect(types, contains('message.complete'));
+        expect(
+          tap
+              .eventsOf(sid)
+              .lastIndexWhere(
+                (e) =>
+                    e.type == 'session.info' && e.payload['running'] == false,
+              ),
+          greaterThan(types.lastIndexOf('message.complete')),
+        );
+        final seqs = [for (final e in tap.eventsOf(sid)) e.seq];
+        expect(seqs, everyElement(isA<int>()));
+        expect(seqs, orderedEquals([...seqs]..sort()));
+        expect(seqs.toSet(), hasLength(seqs.length));
+      },
+      skip: modelSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'session.events.since after a forced socket close returns the missed '
+      'seqs',
+      () async {
+        final first = await open();
+        final session = await first.rpc.request('session.create', {});
+        final sid = session['session_id'] as String;
+        final stored = session['stored_session_id'] as String;
+        await first.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': counting,
+        });
+        await first.until(
+          () => first.types(sid).contains('message.start'),
+          'message.start',
+        );
+        final lastSeen = first.eventsOf(sid).last.seq!;
+        // The socket, not the server: the turn goes on without a listener.
+        await first.close();
+
+        final second = await open();
+        final resumed = await second.rpc.request('session.resume', {
+          'session_id': stored,
+        });
+        expect(resumed['session_id'], sid);
+        final since = await second.rpc.request('session.events.since', {
+          'session_id': sid,
+          'last_seen': lastSeen,
+        });
+
+        expect(since['truncated'], isNot(true));
+        expect(since['epoch'], isA<String>());
+        final replayed = [
+          for (final event in since['events'] as List)
+            (event as Map)['seq'] as int,
+        ];
+        expect(replayed, isNotEmpty);
+        expect(replayed.first, lastSeen + 1);
+        expect(replayed, [
+          for (var i = 0; i < replayed.length; i++) lastSeen + 1 + i,
+        ]);
+        expect(since['latest_seq'], greaterThanOrEqualTo(replayed.last));
+      },
+      skip: modelSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+
+    test(
+      'a queued prompt sent right after a completion is queued or started, '
+      'never folded into the turn',
+      () async {
+        final tap = await open();
+        final session = await tap.rpc.request('session.create', {});
+        final sid = session['session_id'] as String;
+        await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': pong,
+        });
+        await tap.until(
+          () => tap.types(sid).contains('message.complete'),
+          'message.complete',
+        );
+
+        final submit = await tap.rpc.request('prompt.submit', {
+          'session_id': sid,
+          'text': 'Reply with the single word: ping. Use no tools.',
+          'queued': true,
+        });
+        expect(submit['status'], anyOf('queued', 'streaming'));
+        await tap.until(
+          () =>
+              tap.types(sid).where((t) => t == 'message.complete').length >= 2,
+          'the second message.complete',
+        );
+      },
+      skip: modelSkip,
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
+  });
 
   test(
     'the gateway creates and resumes sessions in the profile it is given',
@@ -2439,4 +2576,56 @@ Future<HttpServer> _serveScriptedModel({required String command}) async {
     await response.close();
   });
   return server;
+}
+
+/// A raw gateway connection that keeps the events it receives.
+class _GatewayTap {
+  _GatewayTap(this.rpc) {
+    _subscription = rpc.events.listen(_events.add);
+  }
+
+  final GatewayRpcClient rpc;
+  final _events = <GatewayEvent>[];
+  late final StreamSubscription<GatewayEvent> _subscription;
+
+  List<GatewayEvent> eventsOf(String sessionId) => [
+    for (final event in _events)
+      if (event.sessionId == sessionId) event,
+  ];
+
+  List<String> types(String sessionId) => [
+    for (final event in eventsOf(sessionId)) event.type,
+  ];
+
+  /// Whether [sessionId] reported that it stopped running after its last
+  /// `message.complete`.
+  bool idleAfterComplete(String sessionId) {
+    final events = eventsOf(sessionId);
+    final completed = events.lastIndexWhere(
+      (e) => e.type == 'message.complete',
+    );
+    return completed >= 0 &&
+        events
+            .skip(completed + 1)
+            .any(
+              (e) => e.type == 'session.info' && e.payload['running'] == false,
+            );
+  }
+
+  /// Waits until [condition] holds, and fails naming [what] when it does not
+  /// within two minutes.
+  Future<void> until(bool Function() condition, String what) async {
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+    while (!condition()) {
+      if (DateTime.now().isAfter(deadline)) {
+        fail('timed out waiting for $what');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+  }
+
+  Future<void> close() async {
+    await _subscription.cancel();
+    await rpc.close();
+  }
 }
