@@ -155,7 +155,7 @@ void main() {
       await open(tester);
 
       expect(find.text('Edit as JSON'), findsOneWidget);
-      expect(find.text('Profile: work · mcp_servers'), findsOneWidget);
+      expect(find.text('work · mcp_servers'), findsOneWidget);
       expect(find.textContaining('Replaces all servers'), findsOneWidget);
       expect(find.textContaining('secrets'), findsOneWidget);
     });

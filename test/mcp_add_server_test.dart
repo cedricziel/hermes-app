@@ -137,7 +137,7 @@ void main() {
       await openForm(tester);
 
       expect(find.text('Add server'), findsOneWidget);
-      expect(find.text('Profile: work'), findsOneWidget);
+      expect(find.text('work'), findsOneWidget);
     });
   });
 
