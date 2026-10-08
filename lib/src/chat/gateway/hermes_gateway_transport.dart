@@ -1021,15 +1021,23 @@ class HermesGatewayTransport implements ChatTransport {
           // holds of it goes to the follow-ups, ahead of the idle watch's.
           final gating = gate != null && !gate.ended;
           final own = <_Incoming>[];
+          final claimedAsks = Set<_Incoming>.identity();
           for (final incoming in resumed.ended) {
             if (unsolicited != null && unsolicited.claims(incoming.$1)) {
-              (_Unsolicited.isInputRequest(incoming.$1) ? own : setAside).add(
-                incoming,
-              );
+              if (_Unsolicited.isInputRequest(incoming.$1)) {
+                own.add(incoming);
+                claimedAsks.add(incoming);
+              } else {
+                setAside.add(incoming);
+              }
             } else {
               own.add(incoming);
             }
           }
+          // A turn that ended in the replay asks nothing of the user any more:
+          // what it raised is not shown, and what the send showed is withdrawn.
+          final claimedOver = unsolicited?.ended ?? false;
+          if (claimedOver) own.removeWhere(claimedAsks.contains);
           if (_rotatedIn(resumed.ended, storedId) case final rotated?) {
             final next = (profile, rotated);
             _rekey(owner, next);
@@ -1055,6 +1063,16 @@ class HermesGatewayTransport implements ChatTransport {
               yielded.add(admitted);
               yield admitted;
             }
+          }
+          if (claimedOver && (passed.isNotEmpty || passedAsked.isNotEmpty)) {
+            final withdrawn = InputRequestsCancelled([
+              ...passed,
+              ...passedAsked,
+            ]);
+            _track(withdrawn, runtimeId, mine, serverRequest: false);
+            passed.clear();
+            passedAsked.clear();
+            yield withdrawn;
           }
           if (holding && !completed && !resumed.giveUp) {
             yielded.add(const SessionInfo(running: false));

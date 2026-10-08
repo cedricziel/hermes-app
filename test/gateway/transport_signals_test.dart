@@ -319,6 +319,41 @@ void main() {
       expect(gateway.responses, isEmpty);
     });
 
+    test('Auto-continue after resume: a drop that ends the turn withdraws the '
+        'requests the send had passed through', () async {
+      final dropping = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..resumeResult = autoContinue
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          unsolicitedTurn(g);
+          g.serverRequest('srq-1', 'approval', 'rt-2', {
+            'command': 'ls build',
+            'description': 'list files',
+            'choices': ['once', 'deny'],
+            'tool_name': 'terminal',
+          });
+        };
+      final reconnecting = HermesGatewayTransport(connect: dropping.connect);
+      addTearDown(reconnecting.close);
+      dropping.turn = (g, sid) {
+        g.drop();
+        unsolicitedEnd(g);
+      };
+
+      final sent = await reconnecting
+          .send(threadId: 'stored-2', text: 'hi')
+          .toList()
+          .timeout(const Duration(seconds: 5));
+
+      expect(sent.whereType<ApprovalRequested>(), hasLength(1));
+      expect(sent.whereType<InputRequestsCancelled>().single.requestIds, [
+        'srq-1',
+      ]);
+      expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
+    });
+
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
         'own turn, and the turn reaches the follow-ups', () async {
       gateway.submitStatus = 'queued';
