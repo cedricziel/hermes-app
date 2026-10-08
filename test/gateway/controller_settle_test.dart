@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/api/hermes_api_client.dart';
@@ -287,6 +289,71 @@ void main() {
       expect(thread.messages, hasLength(3));
       expect(thread.messages.last.toolCalls, isNotEmpty);
       expect(thread.isReplying, isTrue);
+    });
+  });
+
+  group('Stop while the interrupt is in flight', () {
+    late Rig rig;
+
+    setUp(() {
+      rig = Rig();
+    });
+
+    tearDown(() => rig.dispose());
+
+    /// A chained turn is replying on follow-ups, and 'Two' waits behind it.
+    Future<ChatThread> replyingWithQueue() async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.complete(first);
+      await pumpEventQueue();
+      rig.followUp().emit(const ReplyDelta('Next'));
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      return thread;
+    }
+
+    test('an idle report before the interrupt answers is the stop: the queue '
+        'stays paused and the mark does not land on the next reply', () async {
+      final thread = await replyingWithQueue();
+      final gate = rig.transport.stopGate = Completer<void>();
+
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      gate.complete();
+      await stopping;
+
+      expect(rig.sentTexts, ['One']);
+      expect(rig.chat.queuedIn(thread), isNotEmpty);
+
+      // The user sends the queue by hand; that reply ends normally, and the
+      // stop of the one before it does not pause what is queued behind it.
+      rig.chat.sendQueued(thread);
+      rig.chat.submit('Three', const []);
+      rig.transport.sends.last
+        ..emit(const ThreadBound('s1'))
+        ..emit(const ReplyCompleted('Done.'))
+        ..finish();
+      await pumpEventQueue();
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      expect(rig.sentTexts, ['One', 'Two', 'Three']);
+    });
+
+    test('a stop that fails clears the mark: the next settle sends the '
+        'queue', () async {
+      final thread = await replyingWithQueue();
+      rig.transport.answerError = Exception('offline');
+
+      await rig.chat.stopReply(thread);
+      rig.followUp()
+        ..emit(const ReplyCompleted('Next.'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One', 'Two']);
     });
   });
 

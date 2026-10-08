@@ -1283,7 +1283,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a
         // failure or a stop it stays paused for the user.
-        final stopRequested = _stopRequested.remove(thread);
+        final stopRequested =
+            _stopRequested.remove(thread) ||
+            (settled && _stopPending.remove(thread));
         final halted =
             failed ||
             stopped ||
@@ -1380,7 +1382,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               // closed all the same, so the next chained turn gets a reply of
               // its own, and the queue goes on now that the session settled.
               reply = null;
-              if (!_stopRequested.remove(thread) &&
+              // A stop in flight owns this settle: the queue stays paused.
+              final stopRequested = _stopRequested.remove(thread);
+              final stopping = _stopPending.remove(thread);
+              if (!stopRequested &&
+                  !stopping &&
                   current.status != MessageStatus.error) {
                 sendQueued(thread);
               }
@@ -1490,7 +1496,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           announced = ReplyCompleted(
             reply.content,
             failed: reply.status == MessageStatus.error,
-            stopped: _stopRequested.contains(thread),
+            stopped:
+                _stopRequested.contains(thread) ||
+                _stopPending.contains(thread),
           );
         }
       case ThreadNeedsRefetch():
@@ -1599,15 +1607,23 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// an idle report, no interrupted completion, still pauses the queue.
   final _stopRequested = <ChatThread>{};
 
+  /// The threads whose interrupt is in flight. An idle report that arrives
+  /// before the answer is the stop's settle, so it takes the mark itself.
+  final _stopPending = <ChatThread>{};
+
   Future<void> stopReply(ChatThread thread) async {
     final pending = [
       for (final reply in thread.messages)
         if (reply.isPending) reply,
     ];
+    if (thread.isReplying) _stopPending.add(thread);
     try {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
       if (disposed) return;
-      if (stopped == true && thread.isReplying) _stopRequested.add(thread);
+      // A settle during the interrupt took the mark already.
+      if (_stopPending.remove(thread) && stopped == true && thread.isReplying) {
+        _stopRequested.add(thread);
+      }
       if (stopped != false) return;
       // The server has no turn left to interrupt. A completion was missed by
       // this listener, so release the stale pending reply and composer.
@@ -1619,6 +1635,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         );
       }
     } on Object {
+      _stopPending.remove(thread);
       report(_couldNotStop);
     }
   }
