@@ -23,8 +23,6 @@ import 'widgets/new_profile_dialog.dart';
 ///
 /// Counts are read when a profile is selected and left out when a read
 /// fails. Messaging platforms and plugins count the ones switched on.
-/// Plugins only count for the chat's profile: the dashboard's plugin hub
-/// takes no profile and answers for the one it is scoped to.
 class MacProfilesPage extends StatefulWidget {
   const MacProfilesPage({super.key, required this.profiles});
 
@@ -76,7 +74,6 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
     final generation = ++_generation;
     final repositories = HermesRepositories.maybeOf(context);
     final profile = _profiles.profiles.where((p) => p.name == name).firstOrNull;
-    final current = name == _profiles.current;
     void put(ProfileSection section, int count) {
       if (!mounted || generation != _generation) return;
       setState(() => _counts[name] = {...?_counts[name], section: count});
@@ -113,25 +110,13 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
             .where((p) => p.enabled)
             .length,
       ),
-      if (current)
-        count(
-          ProfileSection.plugins,
-          () async => (await repositories.pluginManager.load())
-              .where((p) => p.status == PluginStatus.enabled)
-              .length,
-        ),
+      count(
+        ProfileSection.plugins,
+        () async => (await repositories.pluginManager.forProfile(name).load())
+            .where((p) => p.status == PluginStatus.enabled)
+            .length,
+      ),
     ]);
-  }
-
-  /// The selected profile's counts, without plugins when it is not the chat's
-  /// profile any more: they were read for the dashboard's scope.
-  Map<ProfileSection, int> _shownCounts() {
-    final counts = _counts[_selected] ?? const {};
-    if (_selected == _profiles.current) return counts;
-    return {
-      for (final MapEntry(:key, :value) in counts.entries)
-        if (key != ProfileSection.plugins) key: value,
-    };
   }
 
   void _open(ProfileSection section) {
@@ -147,7 +132,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
         repository: repositories.messaging.forProfile(name),
       ),
       ProfileSection.plugins => PluginsScreen(
-        repository: repositories.pluginManager,
+        repository: repositories.pluginManager.forProfile(name),
       ),
       ProfileSection.mcp => McpServersScreen(
         repository: repositories.mcp,
@@ -200,7 +185,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                     profiles: profiles,
                     selected: _selected,
                     onSelect: _select,
-                    counts: _shownCounts(),
+                    counts: _counts[_selected] ?? const {},
                     onOpen: _open,
                   ),
           ),

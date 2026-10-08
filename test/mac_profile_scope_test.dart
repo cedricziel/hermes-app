@@ -75,6 +75,28 @@ void main() {
         {'detail': 'down'},
         status: 500,
         query: {'profile': 'work'},
+      )
+      ..on(
+        'GET',
+        '/api/dashboard/plugins/hub',
+        {
+          'plugins': [
+            {'name': 'netbox', 'runtime_status': 'enabled'},
+          ],
+        },
+        query: {'profile': 'default'},
+      )
+      ..on(
+        'GET',
+        '/api/dashboard/plugins/hub',
+        {
+          'plugins': [
+            {'name': 'netbox', 'runtime_status': 'enabled'},
+            {'name': 'jira', 'runtime_status': 'enabled'},
+            {'name': 'linear', 'runtime_status': 'disabled'},
+          ],
+        },
+        query: {'profile': 'work'},
       );
   });
 
@@ -175,23 +197,35 @@ void main() {
     expect(countIn(ProfileSection.skills), '12');
     expect(countIn(ProfileSection.mcp), '1');
     expect(countIn(ProfileSection.helperModels), isNull);
-    // Messaging is read for the profile itself; plugins only for the
-    // chat's profile, as the dashboard's plugin hub has no profile.
     expect(countIn(ProfileSection.messaging), '2');
-    expect(countIn(ProfileSection.plugins), isNull);
+    expect(countIn(ProfileSection.plugins), '2');
 
     await tester.tap(find.byKey(const ValueKey('profile-row-default')));
     await tester.pumpAndSettle();
     expect(countIn(ProfileSection.messaging), '1');
+    expect(countIn(ProfileSection.plugins), '1');
 
-    // After the chat moves to "work", the cached plugin count of "default"
-    // goes; its messaging count stays.
     await tester.tap(find.byKey(const Key('mac-profile-switcher')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('work').last);
     await tester.pumpAndSettle();
     expect(countIn(ProfileSection.messaging), '1');
-    expect(countIn(ProfileSection.plugins), isNull);
+    expect(countIn(ProfileSection.plugins), '1');
+  });
+
+  testWidgets('the Profiles page opens the plugins of the selected profile', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(inSidebar(find.text('Profiles')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('profile-row-work')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-section-plugins')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('jira'), findsOneWidget);
   });
 
   testWidgets('the account footer opens Settings', (tester) async {
