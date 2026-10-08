@@ -314,7 +314,7 @@ void main() {
     }
 
     test('an idle report before the interrupt answers is the stop: the queue '
-        'stays paused and the mark does not land on the next reply', () async {
+        'stays paused', () async {
       final thread = await replyingWithQueue();
       final gate = rig.transport.stopGate = Completer<void>();
 
@@ -322,23 +322,45 @@ void main() {
       await pumpEventQueue();
       rig.followUp().emit(const SessionInfo(running: false));
       await pumpEventQueue();
-      gate.complete();
-      await stopping;
-
       expect(rig.sentTexts, ['One']);
       expect(rig.chat.queuedIn(thread), isNotEmpty);
 
-      // The user sends the queue by hand; that reply ends normally, and the
-      // stop of the one before it does not pause what is queued behind it.
+      // The user sends by hand while the answer is still held; the answer
+      // then belongs to the turn before, not to this reply.
       rig.chat.sendQueued(thread);
       rig.chat.submit('Three', const []);
-      rig.transport.sends.last
-        ..emit(const ThreadBound('s1'))
-        ..emit(const ReplyCompleted('Done.'))
-        ..finish();
+      final second = rig.transport.sends.last;
+      gate.complete();
+      await stopping;
+      rig.complete(second);
       await pumpEventQueue();
       rig.followUp().emit(const SessionInfo(running: false));
       await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One', 'Two', 'Three']);
+    });
+
+    test('a completion before the interrupt answers does not leave the mark '
+        'for the next reply', () async {
+      final thread = await replyingWithQueue();
+      final gate = rig.transport.stopGate = Completer<void>();
+
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+      rig.followUp().emit(const ReplyCompleted('Next.', stopped: true));
+      await pumpEventQueue();
+
+      rig.chat.sendQueued(thread);
+      rig.chat.submit('Three', const []);
+      final second = rig.transport.sends.last;
+      gate.complete();
+      await stopping;
+      rig.complete(second);
+      await pumpEventQueue();
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(second.text, 'Two');
       expect(rig.sentTexts, ['One', 'Two', 'Three']);
     });
 
@@ -348,12 +370,30 @@ void main() {
       rig.transport.answerError = Exception('offline');
 
       await rig.chat.stopReply(thread);
-      rig.followUp()
-        ..emit(const ReplyCompleted('Next.'))
-        ..emit(const SessionInfo(running: false));
+      rig.followUp().emit(const SessionInfo(running: false));
       await pumpEventQueue();
 
       expect(rig.sentTexts, ['One', 'Two']);
+    });
+
+    test('a first stop that fails leaves the mark of the second one in '
+        'flight', () async {
+      final thread = await replyingWithQueue();
+      final first = Completer<bool>();
+      final second = Completer<bool>();
+      final answers = [first, second];
+      rig.transport.onStop = (_) => answers.removeAt(0).future;
+
+      final stopA = rig.chat.stopReply(thread);
+      final stopB = rig.chat.stopReply(thread);
+      first.completeError(Exception('offline'));
+      await stopA;
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      second.complete(true);
+      await stopB;
+
+      expect(rig.sentTexts, ['One']);
     });
   });
 

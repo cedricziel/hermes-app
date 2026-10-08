@@ -153,8 +153,15 @@ class FakeChatTransport implements ChatTransport {
   /// Holds a stop response while another reply event arrives.
   Completer<void>? stopGate;
 
+  /// Answers a stop in place of [stopsRunning], per call.
+  Future<bool> Function(String threadId)? onStop;
+
   @override
   Future<bool> stopReply(String threadId, {String? profile}) async {
+    if (onStop case final handler?) {
+      stops.add(threadId);
+      return handler(threadId);
+    }
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     stops.add(threadId);
     await stopGate?.future;
