@@ -4,7 +4,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
 import 'host.dart';
-import 'settings_chrome_use_cases.dart';
+import 'frame.dart';
 
 /// A profile with a few helper slots set and a model list to pick from.
 FakeHermesServer helperModelsServer({bool withMoa = true}) {
