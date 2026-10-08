@@ -13,3 +13,5 @@ flutter test test/gateway/gateway_contract_test.dart
 ```
 
 Then add each new frame to the test's table, with a reason.
+
+The `Update Hermes contracts` workflow does this every Monday, together with the REST spec in `openapi/`, and opens a PR when either changed.
