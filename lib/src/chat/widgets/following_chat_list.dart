@@ -15,6 +15,13 @@ import 'blank_list_watchdog.dart';
 /// kept growing a thread that had fit the screen, pulling a reader who
 /// scrolled up back down; following covers the open as well.
 ///
+/// Items appear and disappear without animating. An item still animating out
+/// keeps a stale index in `SliverAnimatedList`, because the package's index
+/// lookup no longer finds its message. Later inserts and removals then reorder
+/// the sliver's children, and paint fails a null check in
+/// `childMainAxisPosition`. Inserts take no time either, because an item
+/// removed while it animates in keeps its insert duration.
+///
 /// While following a streaming reply it also arms [BlankListWatchdog]: if the
 /// list churns its metrics but paints no items, it has lost its sliver state
 /// (the blank-thread bug) and one remount recovers it, without losing any
@@ -139,6 +146,8 @@ class _FollowingChatListState extends State<FollowingChatList> {
           onEndReached: widget.onEndReached,
           initialScrollToEndMode: InitialScrollToEndMode.none,
           shouldScrollToEndWhenAtBottom: false,
+          insertAnimationDuration: Duration.zero,
+          removeAnimationDuration: Duration.zero,
         ),
       ),
     );
