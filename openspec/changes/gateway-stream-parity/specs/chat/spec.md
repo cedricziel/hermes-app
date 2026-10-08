@@ -363,7 +363,7 @@ The system SHALL record the highest `seq` seen for each runtime session. When th
 
 #### Scenario: Replay truncated or server restarted
 
-- **WHEN** `session.events.since` reports `truncated`, or its `epoch` differs from the one the connection first saw in `gateway.ready`
+- **WHEN** `session.events.since` reports `truncated`, or its `epoch` differs from the one the recorded seqs were seen under
 - **THEN** no replayed event is delivered, the reply's text is replaced by the resume result's `inflight.assistant` while the turn runs, or by the thread's stored messages read over REST once it ended
 - **AND** live events the server sent after its `inflight` snapshot are still delivered on top of it, so no text streamed during the reconnect is lost; text the snapshot may already hold is delivered at most twice, never dropped
 
