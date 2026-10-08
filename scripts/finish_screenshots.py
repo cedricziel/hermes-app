@@ -9,8 +9,8 @@ Reads build/screenshots/<device>-<light|dark>/<screen>.png and writes
 - docs/screenshots/                       smaller copies for the README.
 
 Two things are erased from the raw captures, never added: the address of the
-throwaway dev backend that the account row shows when nobody is signed in, and
-the window resize handle iPadOS draws in a corner.
+throwaway dev backend that the account row shows when nobody is signed in
+(where the test reports it), and the window handle iPadOS draws in a corner.
 """
 
 from pathlib import Path
@@ -35,21 +35,11 @@ MAC_CANVAS = (2880, 1800)
 MAC_MAX_WINDOW = (2720, 1700)
 
 # Areas to flatten, per device and screen (None means every screen), each with
-# a pixel that has the colour of the empty space around it: the account row
-# with the dev address, and the window handle iPadOS draws in a corner.
+# a pixel that has the colour of the empty space around it: the window handle
+# iPadOS draws in a corner. Where the app shows the dev address, the test says
+# itself, in <screen>.erase next to the capture.
 ERASE = {
-    "iphone": {"threads": [((0, 2380, 830, 2495), (400, 2374))]},
-    "mac": {
-        # The wide window (widened by hand): the sidebar's account row.
-        None: [((168, 1748, 705, 1832), (400, 1738))],
-    },
-    "mac-compact": {"threads": [((0, 1008, 554, 1092), (280, 1000))]},
-    "ipad": {
-        None: [
-            ((165, 2620, 722, 2705), (400, 2612)),
-            ((1985, 2668, 2064, 2752), (1977, 2710)),
-        ],
-    },
+    "ipad": {None: [((1985, 2668, 2064, 2752), (1977, 2710))]},
 }
 
 
@@ -57,10 +47,23 @@ def erase(image: Image.Image, box: tuple[int, int, int, int], sample: tuple[int,
     ImageDraw.Draw(image).rectangle(box, fill=image.getpixel(sample))
 
 
-def tidy(device: str, screen: str, image: Image.Image) -> Image.Image:
-    for key in (None, screen):
-        for box, sample in ERASE.get(device, {}).get(key, []):
-            erase(image, box, sample)
+def reported(source: Path) -> list[tuple[tuple[int, int, int, int], tuple[int, int]]]:
+    """The areas the test reported, each sampled just above its top left."""
+    sidecar = source.with_suffix(".erase")
+    if not sidecar.exists():
+        return []
+    areas = []
+    for part in filter(None, sidecar.read_text().strip().split(";")):
+        left, top, right, bottom = (int(value) for value in part.split(","))
+        areas.append(((left, top, right, bottom), (left, max(0, top - 2))))
+    return areas
+
+
+def tidy(device: str, screen: str, source: Path) -> Image.Image:
+    image = Image.open(source)
+    areas = [area for key in (None, screen) for area in ERASE.get(device, {}).get(key, [])]
+    for box, sample in areas + reported(source):
+        erase(image, box, sample)
     return image
 
 
@@ -93,7 +96,7 @@ def main() -> None:
         store_dir = STORE / PLATFORM[device] / "en-US"
         cleared = False
         for index, (appearance, screen) in enumerate(screens, start=1):
-            # The Mac is captured wide by hand, or compact by the script.
+            # The Mac is captured wide, or compact with `mac compact`.
             variant = device
             source = RAW / f"{device}-{appearance}" / f"{screen}.png"
             if device == "mac" and not source.exists():
@@ -107,7 +110,7 @@ def main() -> None:
                     for old in folder.glob(f"{device}-*.png"):
                         old.unlink()
                 cleared = True
-            image = tidy(variant, screen, Image.open(source))
+            image = tidy(variant, screen, source)
             image = mac_canvas(image, appearance) if device == "mac" else image.convert("RGB")
 
             store_dir.mkdir(parents=True, exist_ok=True)

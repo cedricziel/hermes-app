@@ -10,7 +10,8 @@ import 'package:integration_test/integration_test_driver.dart';
 ///
 /// `SHOT_PORT` is where to listen and `SHOT_DIR` where the files go. With
 /// `SHOT_UDID` the whole screen of that simulator (status bar included) is
-/// captured; with `SHOT_MAC_PROCESS` the window of that macOS app.
+/// captured; with `SHOT_MAC_PROCESS` the window of that macOS app. The areas
+/// the test asks to erase go next to each image, in `<name>.erase`.
 Future<void> main() async {
   final dir = Directory(Platform.environment['SHOT_DIR'] ?? 'build/screenshots')
     ..createSync(recursive: true);
@@ -36,6 +37,10 @@ Future<void> main() async {
       ok = await _captureMacWindow(macProcess, file);
     } else {
       ok = false;
+    }
+    final erase = request.uri.queryParameters['erase'] ?? '';
+    if (ok && RegExp(r'^[0-9,;-]*$').hasMatch(erase)) {
+      File('${dir.path}/$name.erase').writeAsStringSync(erase);
     }
     request.response.statusCode = ok ? 200 : 500;
     await request.response.close();
