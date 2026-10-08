@@ -1818,14 +1818,21 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
     _refetchIfIdle(thread);
-    liveActivities?.onEvent(thread, announced);
-    if (announce) _announce(thread, announced, profile);
+    _announce(thread, announced, profile, notify: announce);
   }
 
   /// [profile] is the one the turn was sent under: the thread on screen only
   /// counts when the chat is still on that profile.
-  void _announce(ChatThread thread, ChatEvent event, String? profile) {
+  /// Moves the chat's Live Activity along for [event], and posts the
+  /// notification it deserves unless [notify] is false.
+  void _announce(
+    ChatThread thread,
+    ChatEvent event,
+    String? profile, {
+    bool notify = true,
+  }) {
     liveActivities?.onEvent(thread, event);
+    if (!notify) return;
     _attention.announce(
       thread,
       event,

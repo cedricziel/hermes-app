@@ -148,6 +148,13 @@ class LiveActivities with WidgetsBindingObserver {
       _end(thread, 'stopped');
       return;
     }
+    // Streaming keeps the state, and only a new title or thread id changes
+    // what is shown without it.
+    if (next == activity.state &&
+        event is! ThreadTitled &&
+        event is! ThreadBound) {
+      return;
+    }
     activity.state = next;
     _push(thread, activity);
     // A finished activity stays in the map so that the next send in this chat

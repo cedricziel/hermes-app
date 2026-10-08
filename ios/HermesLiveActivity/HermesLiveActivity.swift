@@ -98,29 +98,17 @@ struct HermesReplyActivity: Widget {
             .font(.title2)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          if reply.working {
-            Text(timerInterval: reply.startedAt...Date.distantFuture, countsDown: false)
-              .monospacedDigit()
-              .frame(maxWidth: 64)
-          }
+          if reply.working { ElapsedTime(since: reply.startedAt, width: 64) }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          VStack(alignment: .leading, spacing: 2) {
-            Text(reply.title).font(.headline).lineLimit(1)
-            Text(reply.label).font(.subheadline).foregroundStyle(.secondary)
-            if context.isStale && !reply.finished {
-              Text("Open Hermes for the latest").font(.caption).foregroundStyle(.secondary)
-            }
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
+          ReplyText(reply: reply, stale: context.isStale)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
       } compactLeading: {
         Image(systemName: reply.symbol).foregroundStyle(reply.tint)
       } compactTrailing: {
         if reply.working {
-          Text(timerInterval: reply.startedAt...Date.distantFuture, countsDown: false)
-            .monospacedDigit()
-            .frame(maxWidth: 44)
+          ElapsedTime(since: reply.startedAt, width: 44)
         } else {
           Text(reply.finished ? "Done" : "Waiting").font(.caption2)
         }
@@ -141,21 +129,40 @@ struct LockScreenView: View {
       Image(systemName: reply.symbol)
         .font(.title2)
         .foregroundStyle(reply.tint)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(reply.title).font(.headline).lineLimit(1)
-        Text(reply.label).font(.subheadline).foregroundStyle(.secondary)
-        if stale && !reply.finished {
-          Text("Open Hermes for the latest").font(.caption).foregroundStyle(.secondary)
-        }
-      }
+      ReplyText(reply: reply, stale: stale)
       Spacer(minLength: 0)
       if reply.working {
-        Text(timerInterval: reply.startedAt...Date.distantFuture, countsDown: false)
-          .monospacedDigit()
-          .font(.subheadline)
-          .frame(maxWidth: 64, alignment: .trailing)
+        ElapsedTime(since: reply.startedAt, width: 64).font(.subheadline)
       }
     }
     .padding(16)
+  }
+}
+
+/// The chat's title and state, and a note when the app may be behind.
+struct ReplyText: View {
+  let reply: ReplyActivity
+  let stale: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text(reply.title).font(.headline).lineLimit(1)
+      Text(reply.label).font(.subheadline).foregroundStyle(.secondary)
+      if stale && !reply.finished {
+        Text("Open Hermes for the latest").font(.caption).foregroundStyle(.secondary)
+      }
+    }
+  }
+}
+
+/// Counts up from the send without the app having to update it.
+struct ElapsedTime: View {
+  let since: Date
+  let width: CGFloat
+
+  var body: some View {
+    Text(timerInterval: since...Date.distantFuture, countsDown: false)
+      .monospacedDigit()
+      .frame(maxWidth: width, alignment: .trailing)
   }
 }

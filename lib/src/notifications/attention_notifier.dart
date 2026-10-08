@@ -38,7 +38,6 @@ class AttentionNotifier with WidgetsBindingObserver {
   StreamSubscription<NotificationTarget>? _taps;
   StreamSubscription<NotificationTarget>? _activityTaps;
   Future<NotificationTarget?>? _launch;
-  var _launchTaken = false;
   var _focused = true;
   var _askingPermission = false;
   Future<void>? _permissionRequest;
@@ -51,12 +50,9 @@ class AttentionNotifier with WidgetsBindingObserver {
   /// The chat of the notification or Live Activity whose tap started the
   /// app. Only the first call has it; later calls answer null.
   Future<NotificationTarget?> takeLaunchTarget() async {
-    if (_launchTaken) return null;
-    _launchTaken = true;
-    final notification = await _launch;
+    final lookup = _launch;
     _launch = null;
-    final activity = await activities?.takeLaunchTarget();
-    return notification ?? activity;
+    return await lookup ?? await activities?.takeLaunchTarget();
   }
 
   /// Posts the notification [event] on [thread] deserves, if any.

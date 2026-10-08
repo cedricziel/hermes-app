@@ -1,13 +1,11 @@
 import '../chat/chat_transport.dart';
 import '../notifications/attention_policy.dart';
 
-const kWorkingLabel = 'Working';
-
 /// What a chat's Live Activity shows. The labels are the notification bodies,
 /// so the Lock Screen never words a state two ways, and none of them carries
 /// anything the reply, a command or a question said.
 enum ReplyActivityState {
-  working(kWorkingLabel),
+  working('Working'),
   approval(kApprovalBody),
   question(kQuestionBody),
   needsYou(kNeedsYouBody),
