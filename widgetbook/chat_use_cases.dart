@@ -10,6 +10,8 @@ import 'package:hermes_app/src/chat/widgets/approval_card.dart';
 import 'package:hermes_app/src/chat/widgets/attachment_views.dart';
 import 'package:hermes_app/src/chat/widgets/chat_app_bar.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
+import 'package:hermes_app/src/voice/dictation_controller.dart';
+import 'package:hermes_app/src/voice/dictation_view.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
@@ -515,6 +517,24 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         ),
         _composer('Replying with a queue', replying: true, queued: _queued),
         _composer('No model pill', pill: false),
+        _composer('Dictation, idle', dictation: DictationPhase.idle),
+        _composer(
+          'Dictation, recording',
+          text: 'Please',
+          dictation: DictationPhase.recording,
+        ),
+        _composer(
+          'Dictation, live transcript',
+          dictation: DictationPhase.recording,
+          liveTranscript: dictationLiveTranscript,
+        ),
+        _composer(
+          'Dictation, transcribing',
+          dictation: DictationPhase.settling,
+        ),
+        _composer('Dictation failed', dictation: DictationPhase.failed),
+        _composer('Dictation, no speech', dictation: DictationPhase.noSpeech),
+        _composer('Dictation, no microphone', dictation: DictationPhase.denied),
       ],
     ),
     WidgetbookComponent(
@@ -550,10 +570,26 @@ WidgetbookUseCase _composer(
   bool pill = true,
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
+  DictationPhase? dictation,
+  String liveTranscript = '',
 }) => WidgetbookUseCase(
   name: name,
   builder: (_) => frame(
     _Composer(
+      dictation: dictation == null
+          ? null
+          : DictationView(
+              phase: dictation,
+              levels: dictationLevels,
+              elapsed: const Duration(seconds: 9),
+              liveTranscript: liveTranscript,
+              canRetry: dictation == DictationPhase.failed,
+              onStart: () {},
+              onStop: () {},
+              onCancel: () {},
+              onRetry: () {},
+              onDismiss: () {},
+            ),
       text: text,
       attachments: attachments,
       replying: replying,
@@ -575,7 +611,10 @@ class _Composer extends StatefulWidget {
     required this.pill,
     required this.slashCommands,
     required this.commandRunning,
+    this.dictation,
   });
+
+  final DictationView? dictation;
 
   final String text;
   final List<SharedFile> attachments;
@@ -611,6 +650,7 @@ class _ComposerState extends State<_Composer> {
     onRemoveQueued: (_) {},
     slashCommands: widget.slashCommands,
     commandRunning: widget.commandRunning,
+    dictation: widget.dictation,
     modelPill: widget.pill
         ? ComposerModelPill(
             options: modelOptions,

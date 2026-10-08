@@ -33,6 +33,7 @@ import 'bot_chat_use_cases.dart';
 import 'group_use_cases.dart';
 import 'state_use_cases.dart';
 import 'schedules_use_cases.dart';
+import 'voice_use_cases.dart';
 
 final List<WidgetbookNode> directories = [
   handoffNode(),
@@ -48,6 +49,7 @@ final List<WidgetbookNode> directories = [
   dialogsNode(),
   chatNode(),
   chatThreadNode(),
+  voiceNode(),
   macSidebarNode(),
   threadGroupingNode(),
   conversationWindowNode(),

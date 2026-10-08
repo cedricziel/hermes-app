@@ -16,8 +16,8 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 3. Composer UI in the catalog
 
-- [ ] 3.1 Write failing widget tests for `VoiceWaveform` (recording: bars follow the level, dot and timer; settling: "Transcribing") and for `ChatComposer` with a `DictationView`: mic hidden without one, mic beside send, waveform replaces the field and stop replaces the mic while recording, cancel, send unavailable until the transcript lands, live transcript over the waveform, error with Retry, "No speech detected", denied message. Build them until the tests pass
-- [ ] 3.2 Add Widgetbook use cases for each of those states (component-catalog skill) and verify `test/widgetbook_test.dart` passes in both themes at phone and desktop width
+- [x] 3.1 Write failing widget tests for `VoiceWaveform` (recording: bars follow the level, dot and timer; settling: "Transcribing") and for `ChatComposer` with a `DictationView`: mic hidden without one, mic beside send, waveform replaces the field and stop replaces the mic while recording, cancel, send unavailable until the transcript lands, live transcript over the waveform, error with Retry, "No speech detected", denied message. Build them until the tests pass
+- [x] 3.2 Add Widgetbook use cases for each of those states (component-catalog skill) and verify `test/widgetbook_test.dart` passes in both themes at phone and desktop width
 
 ## 4. Wiring and platforms
 
