@@ -15,6 +15,7 @@ class GroupedMetrics {
     required this.radius,
     required this.rowMinHeight,
     required this.rowPadding,
+    required this.rowVerticalPadding,
     required this.titleSize,
     required this.subtitleSize,
     required this.headerSize,
@@ -30,6 +31,7 @@ class GroupedMetrics {
     radius: 12,
     rowMinHeight: 44,
     rowPadding: 16,
+    rowVerticalPadding: 6,
     titleSize: 17,
     subtitleSize: 15,
     headerSize: 13,
@@ -45,6 +47,7 @@ class GroupedMetrics {
     radius: 10,
     rowMinHeight: 40,
     rowPadding: 12,
+    rowVerticalPadding: 6,
     titleSize: 13,
     subtitleSize: 11,
     headerSize: 11,
@@ -60,6 +63,7 @@ class GroupedMetrics {
     radius: 14,
     rowMinHeight: 56,
     rowPadding: 16,
+    rowVerticalPadding: 10,
     titleSize: 16,
     subtitleSize: 14,
     headerSize: 13,
@@ -87,6 +91,9 @@ class GroupedMetrics {
   /// The space between a row's content and the group's edge, which is also
   /// where a separator starts.
   final double rowPadding;
+
+  /// The space above and below a row's text.
+  final double rowVerticalPadding;
   final double titleSize;
   final double subtitleSize;
   final double headerSize;
@@ -94,8 +101,18 @@ class GroupedMetrics {
   final bool headerUppercase;
   final double footerSize;
 
-  /// The space above a section that follows another.
+  /// The space above a section with a header.
   final double sectionGap;
+
+  /// The size of a row's leading icon.
+  double get leadingSize => titleSize + 5;
+
+  /// The space between a row's leading icon and its text.
+  double get leadingGap => rowPadding * 0.75;
+
+  /// A [GroupedSection.dividerIndent] that starts the separators at the text
+  /// of rows with a leading icon.
+  double get indentAfterLeading => rowPadding + leadingSize + leadingGap;
 }
 
 /// A scrolling page of [GroupedSection]s: the groups keep the platform's
@@ -125,7 +142,7 @@ class GroupedListView extends StatelessWidget {
         return ListView(
           controller: controller,
           physics: physics,
-          padding: EdgeInsets.fromLTRB(side, 8, side, 32),
+          padding: EdgeInsets.fromLTRB(side, 0, side, 32),
           children: children,
         );
       },
@@ -150,8 +167,9 @@ class GroupedSection extends StatelessWidget {
   final String? footer;
   final List<Widget> children;
 
-  /// Where the separators start, for rows whose text sits after a leading
-  /// icon; the row padding when null.
+  /// Where the separators start, measured from the group's edge; the row
+  /// padding when null. Rows with a leading icon pass
+  /// [GroupedMetrics.indentAfterLeading].
   final double? dividerIndent;
 
   @override
@@ -295,7 +313,6 @@ class GroupedRow extends StatelessWidget {
       color: destructive ? scheme.error : scheme.onSurface,
     );
     // Only the text is padded, so a switch beside it keeps the row's height.
-    final verticalPadding = metrics.rowMinHeight >= 56 ? 10.0 : 6.0;
     final content = ConstrainedBox(
       constraints: BoxConstraints(minHeight: metrics.rowMinHeight),
       child: Padding(
@@ -304,14 +321,16 @@ class GroupedRow extends StatelessWidget {
           children: [
             if (leading != null) ...[
               IconTheme.merge(
-                data: IconThemeData(color: muted, size: metrics.titleSize + 5),
+                data: IconThemeData(color: muted, size: metrics.leadingSize),
                 child: leading,
               ),
-              SizedBox(width: metrics.rowPadding * 0.75),
+              SizedBox(width: metrics.leadingGap),
             ],
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: verticalPadding),
+                padding: EdgeInsets.symmetric(
+                  vertical: metrics.rowVerticalPadding,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
