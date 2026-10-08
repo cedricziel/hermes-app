@@ -18,11 +18,7 @@ rotation). No real server, account or chat is in them.
 
 ## Retake them
 
-The quickest way is the **Screenshots** workflow in GitHub Actions: run it by
-hand and it opens a pull request with the new images. Run it after a change
-that shows in these screens.
-
-To take them on your own Mac you need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
+You need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
 iOS 26 simulators, and Python 3 with Pillow.
 
 ```bash

@@ -18,9 +18,8 @@ erased. This is the procedure and the traps.
    `ios ipad` takes one.
 3. `scripts/store-screenshots.sh mac` takes the Mac window, resized to 1440 x
    900 points, light and dark. It takes over the screen for a few minutes.
-   To skip the local setup, run the **Screenshots** workflow in GitHub Actions
-   instead: it takes iPhone, iPad and Mac and opens a PR with
-   `docs/screenshots/`; its artifact has the store images.
+   Don't move this run to a GitHub macOS runner: there, `flutter drive` built
+   the iOS app (8 minutes) and then never reached it on the simulator.
 4. `scripts/store-screenshots.sh finish`, then look at every image in
    `fastlane/screenshots/`: no dev address, an English status bar, no seams
    where something was erased.
