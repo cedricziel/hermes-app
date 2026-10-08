@@ -8,7 +8,7 @@ Describes the iOS Live Activity that shows a reply the user sent from the iPhone
 
 ### Requirement: Starting an activity
 
-The system SHALL start a Live Activity on iOS when the user sends a prompt from the iPhone app and the agent connection accepts it (the reply streams or is queued). It SHALL NOT start one for a canned local reply without an agent connection, for a turn sent from the watch, for a turn the user did not submit (goal continuations, queued follow-ups, the turn Hermes resumes on its own), or for a prompt the server folded into a running turn. A chat SHALL have at most one activity: a send in a chat that already has one SHALL reuse it and return it to the working state with a new start time. The system SHALL NOT start one while the "Live Activities" setting is off or still loading, or while iOS reports that Live Activities are not allowed for Hermes. A refusal from iOS (for example because too many activities are running) SHALL be dropped without an error reaching the user.
+The system SHALL start a Live Activity on iOS when the user sends a prompt from the iPhone app over the agent connection. It SHALL NOT start one for a canned local reply without an agent connection, for a turn sent from the watch, or for a turn the user did not submit (goal continuations, the turn Hermes resumes on its own). A chat SHALL have at most one activity: a send in a chat whose activity is still running SHALL keep it, and a send in a chat whose activity already finished SHALL replace it with a new one in the working state with a new start time. The system SHALL NOT start one while the "Live Activities" setting is off or still loading, or while iOS reports that Live Activities are not allowed for Hermes. A refusal from iOS (for example because too many activities are running) SHALL be dropped without an error reaching the user.
 
 #### Scenario: Send from the phone
 
@@ -18,12 +18,12 @@ The system SHALL start a Live Activity on iOS when the user sends a prompt from 
 #### Scenario: Second send in the same chat
 
 - **WHEN** the user sends another prompt in chat A while chat A's activity shows "Reply ready"
-- **THEN** the same activity returns to the working state and no second activity appears
+- **THEN** that activity is replaced by one in the working state and no second activity appears
 
 #### Scenario: Prompt folded into the running turn
 
-- **WHEN** the server answers a send with `redirected` or `steered`
-- **THEN** no new activity is started for it
+- **WHEN** the user sends a prompt in chat A while its reply is working and the server folds it into the running turn
+- **THEN** chat A keeps its one activity, which goes on following the running turn
 
 #### Scenario: Turn sent from the watch
 
@@ -46,7 +46,7 @@ The activity SHALL show the chat's title and exactly one of these states, each w
 - the reply completed: "Reply ready";
 - the reply completed with failure or broke (as defined in the notifications spec): "Reply failed".
 
-An input request that is answered, expires or is withdrawn SHALL return the activity to working while the reply is still running. Streaming text, tool activity and reasoning SHALL NOT change the state. A title the gateway gives the chat during the turn SHALL replace the title shown.
+An input request that expires or is withdrawn, or progress after it (streamed text, reasoning, a tool call), SHALL return the activity to working while the reply is still running. Otherwise streaming text, tool activity and reasoning SHALL NOT change the state. Once the activity shows a finished state, later events in that chat SHALL NOT change it until the next send. A title the gateway gives the chat during the turn SHALL replace the title shown.
 
 #### Scenario: Approval requested mid-turn
 
@@ -89,12 +89,12 @@ The activity SHALL show only the chat's title, the state label, the elapsed time
 
 ### Requirement: Updates without a push channel
 
-The system SHALL update the activity only from the running app, since Hermes sends no pushes. While the app is not in the foreground and a reply is running, each update SHALL mark the activity to go stale 30 seconds later. A stale activity SHALL keep its last state and add "Open Hermes for the latest". When the app returns to the foreground, the next update SHALL clear the stale mark, and once the chat connection has caught up (reconnect and replay, or a re-read of the chat) the activity SHALL show the current state. A finished state SHALL NOT go stale.
+The system SHALL update the activity only from the running app, since Hermes sends no pushes. While the app is not in the foreground and a reply is running, each update SHALL mark the activity to go stale one minute later (ActivityKit is driven in whole minutes). A stale activity SHALL keep its last state and add "Open Hermes for the latest". When the app returns to the foreground, the system SHALL clear the stale mark of every running activity, and once the chat connection has caught up (reconnect and replay, or a re-read of the chat) the activity SHALL show the current state. A finished state SHALL NOT go stale.
 
 #### Scenario: App suspended mid-reply
 
 - **WHEN** the user locks the phone while chat A's reply is working and the app is suspended
-- **THEN** after 30 seconds without an update the activity says "Open Hermes for the latest"
+- **THEN** after a minute without an update the activity says "Open Hermes for the latest"
 
 #### Scenario: Returning to the app
 

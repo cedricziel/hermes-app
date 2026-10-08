@@ -16,7 +16,7 @@ One PR, `feat(ios): show a running reply as a Live Activity`. No API routes chan
 ## 3. Wiring
 
 - [ ] 3.1 Add `liveActivities` to `NotificationSettings` (key `hermes.live_activities`, default true, edit counter) with failing tests in the existing settings test first; verify the tests pass.
-- [ ] 3.2 Write failing `ChatController` tests (with `FakeChatTransport` and the fake service) that a send starts an activity only after a `streaming` or `queued` answer, a folded prompt starts none, a canned reply starts none, and `_onReplyEvent` drives the state including the synthesized completion for a settled turn; wire the controller into `ChatController` and `ChatScreen` (the conversation window passes none); verify the tests pass.
+- [ ] 3.2 Write failing `ChatController` tests (with `FakeChatTransport` and the fake service) that a send starts an activity, a canned reply starts none, a folded prompt keeps the chat's one activity, and `_onReplyEvent` drives the state including the synthesized completion for a settled turn; wire the controller into `ChatController` and `ChatScreen` (the conversation window passes none); verify the tests pass.
 - [ ] 3.3 End all activities on sign-out from `AuthController`'s sign-out path and on chat deletion, with a failing test first for each; verify.
 - [ ] 3.4 Route activity taps into the same open path as notification taps in `ChatScreen`/`ChatController`, with a test that a tap for another profile shows "Could not open that chat."; verify.
 
