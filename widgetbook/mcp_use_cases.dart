@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_banner.dart';
-import 'package:hermes_app/src/mcp/mcp_chip.dart';
 import 'package:hermes_app/src/mcp/mcp_command_review.dart';
 import 'package:hermes_app/src/mcp/widgets/mcp_server_row.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
@@ -153,24 +152,6 @@ WidgetbookNode mcpNode() => WidgetbookFolder(
               confirmLabel: 'Save servers',
             ),
             width: 480,
-          ),
-        ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'McpChip',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'Plain and warning',
-          builder: (_) => frame(
-            const Wrap(
-              spacing: 6,
-              children: [
-                McpChip('http'),
-                McpChip('OAuth'),
-                McpChip('Needs sign-in', warning: true),
-              ],
-            ),
           ),
         ),
       ],

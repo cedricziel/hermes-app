@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
-
-import 'package:hermes_app/src/theme/breakpoints.dart';
-
+import '../theme/breakpoints.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/settings_search_field.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_catalog_controller.dart';
-import 'mcp_chip.dart';
 import 'mcp_install_panel.dart';
 import 'mcp_presentation.dart';
 import 'mcp_server_detail.dart';
@@ -29,7 +27,6 @@ class McpCatalogScreen extends StatefulWidget {
 
 class _McpCatalogScreenState extends State<McpCatalogScreen> {
   late final McpCatalogController _catalog;
-  final _search = TextEditingController();
   String? _selected;
 
   @override
@@ -41,7 +38,6 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   @override
   void dispose() {
     _catalog.dispose();
-    _search.dispose();
     super.dispose();
   }
 
@@ -98,36 +94,35 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
     );
   }
 
-  void _clearSearch() {
-    _search.clear();
-    _catalog.clearSearch();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: ListenableBuilder(
-          listenable: widget.servers,
-          builder: (context, _) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Catalog'),
-              if (widget.servers.profile case final profile?)
-                Text(
-                  'Installing into: $profile',
-                  style: Theme.of(context).textTheme.bodySmall,
+    return ListenableBuilder(
+      listenable: _catalog,
+      builder: (context, _) {
+        final profile = widget.servers.profile;
+        final entries = _catalog.entries;
+        return SettingsScaffold(
+          title: 'Catalog',
+          subtitle: profile == null ? null : 'Installing into: $profile',
+          previousTitle: 'MCP servers',
+          search: entries == null
+              ? null
+              : SettingsSearch(
+                  query: _catalog.query,
+                  onChanged: _catalog.search,
+                  hint: 'Search ${mcpPlural(entries.length, 'server')}',
+                  filters: [
+                    for (final filter in McpCatalogFilter.values)
+                      SettingsFilter(
+                        label: filter.label,
+                        selected: _catalog.filter == filter,
+                        onSelected: () => _catalog.select(filter),
+                      ),
+                  ],
                 ),
-            ],
-          ),
-        ),
-      ),
-      body: ListenableBuilder(
-        listenable: _catalog,
-        builder: (context, _) => _body(),
-      ),
+          body: _body(),
+        );
+      },
     );
   }
 
@@ -152,10 +147,8 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
         final wide = isWideLayout(context, width: constraints.maxWidth);
         final list = _CatalogList(
           catalog: _catalog,
-          search: _search,
           selected: wide ? _selected : null,
           onOpen: (entry) => _open(entry, wide: wide),
-          onClear: _clearSearch,
         );
         if (!wide) return list;
         return Row(
@@ -203,62 +196,20 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
 class _CatalogList extends StatelessWidget {
   const _CatalogList({
     required this.catalog,
-    required this.search,
     required this.selected,
     required this.onOpen,
-    required this.onClear,
   });
 
   final McpCatalogController catalog;
-  final TextEditingController search;
   final String? selected;
   final ValueChanged<HermesMcpCatalogEntry> onOpen;
-  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final visible = catalog.visible;
-    final total = catalog.entries?.length ?? 0;
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 8),
+    return GroupedListView(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TextField(
-            controller: search,
-            onChanged: catalog.search,
-            decoration: InputDecoration(
-              prefixIcon: const AppIcon(AppIcons.search),
-              hintText: 'Search ${mcpPlural(total, 'server')}',
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 8,
-            children: [
-              for (final filter in McpCatalogFilter.values)
-                ChoiceChip(
-                  label: Text(filter.label),
-                  selected: catalog.filter == filter,
-                  onSelected: (_) => catalog.select(filter),
-                ),
-            ],
-          ),
-        ),
-        if (catalog.hasDiagnostics)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Text(
-              'Some catalog entries could not be read.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        const SizedBox(height: 8),
         if (visible.isEmpty)
           Padding(
             padding: const EdgeInsets.all(24),
@@ -267,25 +218,36 @@ class _CatalogList extends StatelessWidget {
                 Text('No servers match', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: onClear,
+                  onPressed: catalog.clearSearch,
                   child: const Text('Clear search'),
                 ),
               ],
             ),
-          ),
-        for (final entry in visible)
-          _CatalogRow(
-            key: ValueKey('mcp-catalog-row-${entry.name}'),
-            entry: entry,
-            building: catalog.buildOf(entry.name) != null,
-            selected: entry.name == selected,
-            onTap: () => onOpen(entry),
+          )
+        else
+          GroupedSection(
+            dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+            footer: catalog.hasDiagnostics
+                ? 'Some catalog entries could not be read.'
+                : null,
+            children: [
+              for (final entry in visible)
+                _CatalogRow(
+                  key: ValueKey('mcp-catalog-row-${entry.name}'),
+                  entry: entry,
+                  building: catalog.buildOf(entry.name) != null,
+                  selected: entry.name == selected,
+                  onTap: () => onOpen(entry),
+                ),
+            ],
           ),
       ],
     );
   }
 }
 
+/// An entry of the catalog: its initial in a tile, its name and description,
+/// and its facts on one line, such as "Remote · OAuth · Installed".
 class _CatalogRow extends StatelessWidget {
   const _CatalogRow({
     super.key,
@@ -302,64 +264,24 @@ class _CatalogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final transport = mcpTransportLabel(entry.transport);
-    final auth = mcpAuthKindLabel(entry.authKind);
-    return Material(
-      color: selected
-          ? theme.colorScheme.surfaceContainerHighest
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                child: Text(
-                  entry.name.characters.first.toUpperCase(),
-                  style: theme.textTheme.labelLarge,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    if (entry.description.isNotEmpty)
-                      Text(
-                        entry.description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        if (transport != null) McpChip(transport),
-                        if (auth != null) McpChip(auth),
-                        if (entry.buildsLocally)
-                          const McpChip('Builds locally'),
-                        if (entry.installed) const McpChip('Installed'),
-                        if (building) const McpChip('Building'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    final facts = [
+      ?mcpTransportLabel(entry.transport),
+      ?mcpAuthKindLabel(entry.authKind),
+      if (entry.buildsLocally) 'Builds locally',
+      if (entry.installed) 'Installed',
+      if (building) 'Building',
+    ].join(' · ');
+    return GroupedRow(
+      title: entry.name,
+      leading: ExcludeSemantics(
+        child: GroupedTile(
+          child: Text(entry.name.characters.first.toUpperCase()),
         ),
       ),
+      subtitle: entry.description.isEmpty ? null : entry.description,
+      caption: facts.isEmpty ? null : facts,
+      selected: selected,
+      onTap: onTap,
     );
   }
 }
