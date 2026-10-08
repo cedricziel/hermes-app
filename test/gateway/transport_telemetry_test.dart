@@ -484,6 +484,50 @@ void main() {
         });
       }
 
+      test('a truncated replay leaves nothing to skip: the next turn on the '
+          'follow-ups is counted', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'old'},
+              ],
+            }
+            ..truncateReplay = true
+            ..submitStatus = 'queued'
+            ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          gateway.drop();
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'old',
+            'status': 'complete',
+          });
+          async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+
+          _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
+
       test('a turn Hermes ran on its own is counted once, and not as the '
           'prompt\'s turn beginning', () {
         fake((async) {

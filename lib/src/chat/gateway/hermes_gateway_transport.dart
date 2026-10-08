@@ -1060,8 +1060,11 @@ class HermesGatewayTransport implements ChatTransport {
             yielded.add(const SessionInfo(running: false));
             yield const SessionInfo(running: false);
             // The prompt's own turn is still to come on the follow-ups; it
-            // is the reply settled here, so its end is not counted again.
-            _settledEarly.add(owner);
+            // is the reply settled here, so its end is not counted again. A
+            // replay that could not be trusted says nothing of that turn.
+            if (!resumed.truncated && !resumed.epochChanged) {
+              _settledEarly.add(owner);
+            }
           }
           if (resumed.giveUp) {
             if (setAside.isNotEmpty &&
@@ -1852,6 +1855,8 @@ class HermesGatewayTransport implements ChatTransport {
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
+        // The prompt's reply came in whole, so there is no turn left to skip.
+        if (event is ReplyCompleted) _settledEarly.remove(owner);
       }
       _forgetRequests(mine);
       if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
