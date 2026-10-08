@@ -1681,21 +1681,31 @@ void main() {
   });
 
   group('A stored reply across a queued gate', () {
+    Object stored(List<Map<String, String>> messages) => {
+      'session_id': 'rt-1',
+      'running': false,
+      'messages': messages,
+    };
+
+    /// A prompt queued behind a turn that is still running, then a drop.
+    void queuedThenDrop(FakeGateway g) {
+      g.submitStatus = 'queued';
+      g.turn = (g, sid) {
+        g.event('message.delta', sid, {'text': 'old'});
+        g.drop();
+      };
+    }
+
     test('a queued prompt whose turns both ended while disconnected shows the '
         'stored reply instead of swallowing it', () {
       fake((async) {
-        gateway.submitStatus = 'queued';
-        gateway.resumeResult = {
-          'session_id': 'rt-1',
-          'running': false,
-          'messages': [
-            {'role': 'assistant', 'text': 'the real reply'},
-          ],
-        };
-        gateway.turn = (g, sid) {
-          g.event('message.delta', sid, {'text': 'old'});
-          g.drop();
-        };
+        queuedThenDrop(gateway);
+        gateway.resumeResult = stored([
+          {'role': 'user', 'text': 'first'},
+          {'role': 'assistant', 'text': 'the turn ahead'},
+          {'role': 'user', 'text': 'next'},
+          {'role': 'assistant', 'text': 'the real reply'},
+        ]);
 
         final seen = _listen(transport.send(text: 'next', queued: true));
         async.flushMicrotasks();
@@ -1707,6 +1717,25 @@ void main() {
           seen.events.whereType<ReplyCompleted>().single.text,
           'the real reply',
         );
+      });
+    });
+
+    test('a stored thread that ends with the turn ahead\'s reply is not shown '
+        'as the queued prompt\'s', () {
+      fake((async) {
+        queuedThenDrop(gateway);
+        gateway.resumeResult = stored([
+          {'role': 'user', 'text': 'first'},
+          {'role': 'assistant', 'text': 'the turn ahead'},
+        ]);
+
+        final seen = _listen(transport.send(text: 'next', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
       });
     });
   });

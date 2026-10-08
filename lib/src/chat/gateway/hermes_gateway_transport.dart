@@ -96,6 +96,7 @@ final class _Resumed {
     this.idle,
     this.ended = const [],
     this.stored,
+    this.storedPrompt,
     this.giveUp = false,
     this.outcome = 'replayed',
     this.replayedCount = 0,
@@ -118,8 +119,12 @@ final class _Resumed {
 
   /// The reply read from the stored thread, when [ended] ends in it (the
   /// replay held no completion). It is the thread's real last reply, so a
-  /// queued prompt's gate lets it through.
+  /// queued prompt's gate lets it through only when [storedPrompt] shows it
+  /// answers that prompt.
   final ReplyCompleted? stored;
+
+  /// The text of the user message the [stored] reply follows, if any.
+  final String? storedPrompt;
 
   /// Set when the reply cannot end cleanly: no connection could be made, or the
   /// turn ended without a reply to show, so the reply fails after [ended].
@@ -959,9 +964,14 @@ class HermesGatewayTransport implements ChatTransport {
           final yielded = <ChatEvent>[];
           for (final (event, serverRequest) in own) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
-            // The stored reply is what the thread holds now, whichever turn
-            // it was: held back, it would be turned into one more refetch.
-            final gated = gating && !identical(event, resumed.stored);
+            // The stored reply passes the gate only when it follows this
+            // prompt in the thread. Otherwise it is the turn ahead's, which
+            // the gate turns into a refetch rather than show it twice.
+            final answersPrompt =
+                identical(event, resumed.stored) &&
+                text.trim().isNotEmpty &&
+                (resumed.storedPrompt?.trim().startsWith(text.trim()) ?? false);
+            final gated = gating && !answersPrompt;
             for (final admitted in gated ? gate.admit(event) : [event]) {
               completed = completed || admitted is ReplyCompleted;
               yielded.add(admitted);
@@ -1394,6 +1404,7 @@ class HermesGatewayTransport implements ChatTransport {
         runtimeId: runtimeId,
         ended: ended,
         stored: stored,
+        storedPrompt: stored == null ? null : _storedPrompt(resumed),
         idle: _watch(client, runtimeId, injected: next, shown: shown),
         outcome: outcome,
         replayedCount: replayedCount,
@@ -1525,6 +1536,18 @@ class HermesGatewayTransport implements ChatTransport {
         case [..., {'role': 'assistant', 'text': final String text}]
         when text.isNotEmpty) {
       return ReplyCompleted(text);
+    }
+    return null;
+  }
+
+  /// The text of the last user message before the session's last message.
+  String? _storedPrompt(Map<String, Object?> resumed) {
+    if (resumed['messages'] case [...final earlier, _]) {
+      for (final message in earlier.reversed) {
+        if (message case {'role': 'user', 'text': final String text}) {
+          return text;
+        }
+      }
     }
     return null;
   }
