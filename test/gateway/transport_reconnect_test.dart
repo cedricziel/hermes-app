@@ -514,6 +514,36 @@ void main() {
       });
     });
 
+    test('Spaces inside a run do not count towards the minimum length', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'x ab cd ef'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) =>
+            g.event('message.delta', 'rt-1', {'text': 'ab cd ef'});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'x ab cd efab cd ef',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['ab cd ef'],
+        );
+      });
+    });
+
     test('A delta that is only whitespace is delivered even when the snapshot '
         'ends with whitespace', () {
       fake((async) {

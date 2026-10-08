@@ -1621,7 +1621,8 @@ class HermesGatewayTransport implements ChatTransport {
       final text = frame.payload['text'];
       joined.write(text is String ? text : '');
       final run = joined.toString();
-      if (run.trim().length >= _minHeldRun && snapshot.endsWith(run)) {
+      final solid = run.replaceAll(RegExp(r'\s'), '').length;
+      if (solid >= _minHeldRun && snapshot.endsWith(run)) {
         return count;
       }
     }
