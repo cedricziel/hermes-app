@@ -28,6 +28,6 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 5. Docs and verification
 
-- [ ] 5.1 Add the voice routes to `test/real_backend_contract_test.dart` (`voice-config` shape, `transcribe` with a short WAV of silence returning an empty transcript)
-- [ ] 5.2 Update `CLAUDE.md` (a Voice paragraph and the Chat composer line) and the `verify-in-app` skill with how to dictate on the macOS dev app (microphone permission prompt, a dev backend's STT provider)
-- [ ] 5.3 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then dictate a prompt in the running macOS app against `scripts/dev-backend.sh` with the `verify-in-app` skill
+- [x] 5.1 Add the voice routes to `test/real_backend_contract_test.dart` (`voice-config` shape, `transcribe` with a short WAV of silence returning an empty transcript)
+- [x] 5.2 Update `CLAUDE.md` (a Voice paragraph and the Chat composer line) and the `verify-in-app` skill with how to dictate on the macOS dev app (microphone permission prompt, a dev backend's STT provider)
+- [x] 5.3 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then dictate a prompt in the running macOS app against `scripts/dev-backend.sh` with the `verify-in-app` skill
