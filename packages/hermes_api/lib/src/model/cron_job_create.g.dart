@@ -19,6 +19,8 @@ abstract class _$CronJobCreateCWProxy {
 
   CronJobCreate deliver(String? deliver);
 
+  CronJobCreate repeat(Object? repeat);
+
   CronJobCreate skills(List<String>? skills);
 
   CronJobCreate model(String? model);
@@ -50,6 +52,7 @@ abstract class _$CronJobCreateCWProxy {
     String schedule,
     String? name,
     String? deliver,
+    Object? repeat,
     List<String>? skills,
     String? model,
     String? provider,
@@ -86,6 +89,9 @@ class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
 
   @override
   CronJobCreate deliver(String? deliver) => this(deliver: deliver);
+
+  @override
+  CronJobCreate repeat(Object? repeat) => this(repeat: repeat);
 
   @override
   CronJobCreate skills(List<String>? skills) => this(skills: skills);
@@ -130,6 +136,7 @@ class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
     Object? schedule = const $CopyWithPlaceholder(),
     Object? name = const $CopyWithPlaceholder(),
     Object? deliver = const $CopyWithPlaceholder(),
+    Object? repeat = const $CopyWithPlaceholder(),
     Object? skills = const $CopyWithPlaceholder(),
     Object? model = const $CopyWithPlaceholder(),
     Object? provider = const $CopyWithPlaceholder(),
@@ -165,6 +172,10 @@ class _$CronJobCreateCWProxyImpl implements _$CronJobCreateCWProxy {
           ? _value.deliver
           // ignore: cast_nullable_to_non_nullable
           : deliver as String?,
+      repeat: repeat == const $CopyWithPlaceholder()
+          ? _value.repeat
+          // ignore: cast_nullable_to_non_nullable
+          : repeat as Object?,
       skills: skills == const $CopyWithPlaceholder()
           ? _value.skills
           // ignore: cast_nullable_to_non_nullable
@@ -228,6 +239,7 @@ CronJobCreate _$CronJobCreateFromJson(Map<String, dynamic> json) =>
           schedule: $checkedConvert('schedule', (v) => v as String),
           name: $checkedConvert('name', (v) => v as String? ?? ''),
           deliver: $checkedConvert('deliver', (v) => v as String? ?? 'local'),
+          repeat: $checkedConvert('repeat', (v) => v),
           skills: $checkedConvert(
             'skills',
             (v) => (v as List<dynamic>?)?.map((e) => e as String).toList(),
@@ -263,6 +275,7 @@ Map<String, dynamic> _$CronJobCreateToJson(CronJobCreate instance) =>
       'schedule': instance.schedule,
       'name': ?instance.name,
       'deliver': ?instance.deliver,
+      'repeat': ?instance.repeat,
       'skills': ?instance.skills,
       'model': ?instance.model,
       'provider': ?instance.provider,

@@ -8,12 +8,14 @@ import 'package:hermes_api/src/model/bulk_task_body.dart';
 import 'package:hermes_api/src/model/chat_image_upload.dart';
 import 'package:hermes_api/src/model/comment_body.dart';
 import 'package:hermes_api/src/model/config_update.dart';
+import 'package:hermes_api/src/model/consent_answer.dart';
 import 'package:hermes_api/src/model/create_board_body.dart';
 import 'package:hermes_api/src/model/create_task_body.dart';
 import 'package:hermes_api/src/model/credential_pool_add.dart';
 import 'package:hermes_api/src/model/cron_job_create.dart';
 import 'package:hermes_api/src/model/cron_job_update.dart';
 import 'package:hermes_api/src/model/curator_pause.dart';
+import 'package:hermes_api/src/model/custom_endpoint_model_detail.dart';
 import 'package:hermes_api/src/model/custom_endpoint_update.dart';
 import 'package:hermes_api/src/model/debug_share_request.dart';
 import 'package:hermes_api/src/model/decompose_body.dart';
@@ -38,6 +40,7 @@ import 'package:hermes_api/src/model/hook_create.dart';
 import 'package:hermes_api/src/model/hook_delete.dart';
 import 'package:hermes_api/src/model/import_board_body.dart';
 import 'package:hermes_api/src/model/import_request.dart';
+import 'package:hermes_api/src/model/job_id_body.dart';
 import 'package:hermes_api/src/model/learning_node_edit.dart';
 import 'package:hermes_api/src/model/learning_node_ref.dart';
 import 'package:hermes_api/src/model/link_body.dart';
@@ -84,6 +87,7 @@ import 'package:hermes_api/src/model/reassign_body.dart';
 import 'package:hermes_api/src/model/reclaim_body.dart';
 import 'package:hermes_api/src/model/rename_board_body.dart';
 import 'package:hermes_api/src/model/runtime_install_body.dart';
+import 'package:hermes_api/src/model/stt_lease_request.dart';
 import 'package:hermes_api/src/model/server_action_body.dart';
 import 'package:hermes_api/src/model/session_owner_backfill.dart';
 import 'package:hermes_api/src/model/session_pr_scan_body.dart';
@@ -167,6 +171,9 @@ ReturnType deserialize<ReturnType, BaseType>(
       return CommentBody.fromJson(value as Map<String, dynamic>) as ReturnType;
     case 'ConfigUpdate':
       return ConfigUpdate.fromJson(value as Map<String, dynamic>) as ReturnType;
+    case 'ConsentAnswer':
+      return ConsentAnswer.fromJson(value as Map<String, dynamic>)
+          as ReturnType;
     case 'CreateBoardBody':
       return CreateBoardBody.fromJson(value as Map<String, dynamic>)
           as ReturnType;
@@ -184,6 +191,9 @@ ReturnType deserialize<ReturnType, BaseType>(
           as ReturnType;
     case 'CuratorPause':
       return CuratorPause.fromJson(value as Map<String, dynamic>) as ReturnType;
+    case 'CustomEndpointModelDetail':
+      return CustomEndpointModelDetail.fromJson(value as Map<String, dynamic>)
+          as ReturnType;
     case 'CustomEndpointUpdate':
       return CustomEndpointUpdate.fromJson(value as Map<String, dynamic>)
           as ReturnType;
@@ -245,6 +255,8 @@ ReturnType deserialize<ReturnType, BaseType>(
     case 'ImportRequest':
       return ImportRequest.fromJson(value as Map<String, dynamic>)
           as ReturnType;
+    case 'JobIdBody':
+      return JobIdBody.fromJson(value as Map<String, dynamic>) as ReturnType;
     case 'LearningNodeEdit':
       return LearningNodeEdit.fromJson(value as Map<String, dynamic>)
           as ReturnType;
@@ -377,6 +389,9 @@ ReturnType deserialize<ReturnType, BaseType>(
           as ReturnType;
     case 'RuntimeInstallBody':
       return RuntimeInstallBody.fromJson(value as Map<String, dynamic>)
+          as ReturnType;
+    case 'STTLeaseRequest':
+      return STTLeaseRequest.fromJson(value as Map<String, dynamic>)
           as ReturnType;
     case 'ServerActionBody':
       return ServerActionBody.fromJson(value as Map<String, dynamic>)

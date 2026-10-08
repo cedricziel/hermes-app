@@ -30,6 +30,8 @@ class CronJobCreate {
 
     this.deliver = 'local',
 
+    this.repeat,
+
     this.skills,
 
     this.model,
@@ -87,6 +89,9 @@ class CronJobCreate {
   )
   final String? deliver;
 
+  @JsonKey(name: r'repeat', required: false, includeIfNull: false)
+  final Object? repeat;
+
   @JsonKey(name: r'skills', required: false, includeIfNull: false)
   final List<String>? skills;
 
@@ -129,6 +134,7 @@ class CronJobCreate {
           other.schedule == schedule &&
           other.name == name &&
           other.deliver == deliver &&
+          other.repeat == repeat &&
           other.skills == skills &&
           other.model == model &&
           other.provider == provider &&
@@ -147,6 +153,7 @@ class CronJobCreate {
       schedule.hashCode +
       name.hashCode +
       deliver.hashCode +
+      (repeat == null ? 0 : repeat.hashCode) +
       (skills == null ? 0 : skills.hashCode) +
       (model == null ? 0 : model.hashCode) +
       (provider == null ? 0 : provider.hashCode) +

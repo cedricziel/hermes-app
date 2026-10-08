@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Hermes Agent",
-    "version": "0.21.3"
+    "version": "167e9fdb8424"
   },
   "paths": {
     "/api/memory/providers/{provider}/oauth/start": {
@@ -126,6 +126,44 @@
             "schema": {
               "type": "string",
               "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media/proxy": {
+      "get": {
+        "summary": "Proxy Remote Media",
+        "description": "Fetch a remote image URL the gateway can reach but the client cannot\n(#74564), returning the same ``data_url`` shape as ``/api/media``. Only\nallowlisted image CDNs; the bytes stay behind the size cap.",
+        "operationId": "proxy_remote_media_api_media_proxy_get",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Url"
             }
           }
         ],
@@ -555,6 +593,22 @@
               "type": "string",
               "title": "Path"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -592,6 +646,22 @@
               "type": "string",
               "title": "Path"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -621,15 +691,33 @@
         "summary": "Fs Write Text",
         "description": "Overwrite (or create) a UTF-8 text file for the in-app spot editor.\n\nMirrors the Electron ``hermes:fs:writeText`` hardening: path validated by\n``_fs_path``, the parent must already exist (never build trees), only\nregular files may be replaced, payload size-capped, staged to a sibling\ntemp file and ``os.replace``-d so a crash can't truncate the original.\nStale-on-disk detection is the client's job (re-read before save).",
         "operationId": "fs_write_text_api_fs_write_text_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FsWriteText"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -804,6 +892,22 @@
               "type": "string",
               "title": "Path"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -832,12 +936,40 @@
       "get": {
         "summary": "Fs Default Cwd",
         "operationId": "fs_default_cwd_api_fs_default_cwd_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -1764,15 +1896,33 @@
       "post": {
         "summary": "Local Models Runtime Install",
         "operationId": "local_models_runtime_install_api_local_models_runtime_install_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RuntimeInstallBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1806,6 +1956,80 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ModelDownloadBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/local-models/download/pause": {
+      "post": {
+        "summary": "Local Models Download Pause",
+        "description": "Pause the download phase of a model, component or quickstart job.",
+        "operationId": "local_models_download_pause_api_local_models_download_pause_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobIdBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/local-models/download/resume": {
+      "post": {
+        "summary": "Local Models Download Resume",
+        "description": "Restart the same job; PM reuses verified files and durable ranges.",
+        "operationId": "local_models_download_resume_api_local_models_download_resume_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobIdBody"
               }
             }
           },
@@ -1876,15 +2100,33 @@
         "summary": "Local Models Quickstart",
         "description": "One job: install the runtime (if missing), download this machine's build of the recommended model (if\nmissing), make it the default. Each leg uses the same code as the individual setup routes.\nPreflight rejects (no automatic recommendation or no servable choice) fail the POST\nsynchronously so the button can explain itself; everything slow runs in the job with phase/byte progress.",
         "operationId": "local_models_quickstart_api_local_models_quickstart_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/QuickstartBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -1987,15 +2229,33 @@
         "summary": "Local Models Activate",
         "description": "Make a downloaded model the default for new chats: a config write via the same machinery as\n/api/model/set plus making sure the server is up. NO model loading (residency v2: models load on first\ninference; an empty router costs nothing). Kept as a job for UI continuity.",
         "operationId": "local_models_activate_api_local_models_activate_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ModelActivateBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2252,8 +2512,25 @@
     "/api/health": {
       "get": {
         "summary": "Get Health",
-        "description": "Lightweight process liveness for desktop/backend readiness probes.",
+        "description": "Lightweight process liveness for desktop/backend readiness probes.\n\n``commit`` is the code this process BOOTED from (``get_version_info`` is cached at\n``web_server`` import): Desktop refuses to attach to a backend whose commit differs from\nits checkout, so a serve that outlived ``hermes update`` is never re-adopted.",
         "operationId": "get_health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/host/identity": {
+      "get": {
+        "summary": "Get Host Identity",
+        "description": "Prove to an attaching `hermes serve`/`dashboard` WHO owns this port.\n\nThe host rendezvous record names a (pid, port) owner, but a record cannot say whether that\nowner still holds the port: a graceful-shutdown window or an unrelated listener that\ninherited the port both look identical on disk. The attaching side dials this endpoint with\nthe owner's 0600 token and attaches only when pid+role match. ``servesSpa`` is false for\nheadless ``serve``, so a `hermes dashboard` user is never routed to a backend with no UI.",
+        "operationId": "get_host_identity_api_host_identity_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2365,12 +2642,40 @@
       "get": {
         "summary": "Get Curator Status",
         "operationId": "get_curator_status_api_curator_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2381,15 +2686,33 @@
       "put": {
         "summary": "Set Curator Paused",
         "operationId": "set_curator_paused_api_curator_paused_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CuratorPause"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2416,14 +2739,42 @@
     "/api/curator/run": {
       "post": {
         "summary": "Run Curator",
-        "description": "Trigger a curator review now (backgrounded; tail via action status).",
+        "description": "Trigger a curator review now (backgrounded; tail via action status). The curator\narchives and rewrites skills, so an unnamed target is refused while this backend\nserves several profiles.",
         "operationId": "run_curator_api_curator_run_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2530,8 +2881,26 @@
       },
       "delete": {
         "summary": "Delete Learning Node",
-        "description": "Delete a journey node \u2014 skills are archived (restorable), memories removed.",
+        "description": "Delete a journey node \u2014 skills are archived (restorable), memories removed.\n\n``?profile=`` is honoured too: a shared-backend Desktop scopes this call by query only, and\nignoring it archived the same-named skill of the launch profile instead.",
         "operationId": "delete_learning_node_api_learning_node_delete",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2565,8 +2934,26 @@
       },
       "put": {
         "summary": "Update Learning Node",
-        "description": "Rewrite a journey node's content (SKILL.md or memory chunk).",
+        "description": "Rewrite a journey node's content (SKILL.md or memory chunk); profile as for DELETE.",
         "operationId": "update_learning_node_api_learning_node_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -2603,12 +2990,40 @@
       "get": {
         "summary": "Get Portal Status",
         "operationId": "get_portal_status_api_portal_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2619,12 +3034,40 @@
       "post": {
         "summary": "Run Prompt Size",
         "operationId": "run_prompt_size_api_ops_prompt_size_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2635,12 +3078,40 @@
       "post": {
         "summary": "Run Dump",
         "operationId": "run_dump_api_ops_dump_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2651,12 +3122,40 @@
       "post": {
         "summary": "Run Config Migrate",
         "operationId": "run_config_migrate_api_ops_config_migrate_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2668,6 +3167,24 @@
         "summary": "Run Debug Share Endpoint",
         "description": "Upload a redacted debug report + full logs and return the paste URLs. Synchronous,\nunlike the other diagnostics actions: the point is the shareable URLs, returned as a\nstructured payload the dashboard renders as copyable links.",
         "operationId": "run_debug_share_endpoint_api_ops_debug_share_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -2834,6 +3351,22 @@
               "type": "boolean",
               "default": false,
               "title": "Force"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -3187,6 +3720,61 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TTSLeaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audio/stt-lease": {
+      "post": {
+        "summary": "Stt Lease",
+        "description": "Desktop voice-input sessions as STT warm-up / release signals.\n\n``active: true`` registers a lease and pre-loads the configured local STT\nmodel (first-use download + load) so the transcription request doesn't pay\nthe cold cost inside its timeout; ``active: false`` drops the lease. The\nmodel stays resident after the last release \u2014 it is shared with the\ngateway/CLI surfaces in this process, and ``stt.local.unload_after_idle_seconds``\nstill governs eviction. Blocking work runs off the event loop. Warm-up\nfailures are reported in the body, never as an HTTP error \u2014 recording must\nstart even when preload fails.",
+        "operationId": "stt_lease_api_audio_stt_lease_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/STTLeaseRequest"
               }
             }
           }
@@ -3975,6 +4563,22 @@
               "type": "string",
               "title": "Name"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -4190,12 +4794,40 @@
         "summary": "Get Egress Status",
         "description": "Dashboard/Desktop-readable egress proxy status and remediation text.",
         "operationId": "get_egress_status_api_egress_status_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -4337,6 +4969,22 @@
               "default": "",
               "title": "Provider"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -4364,7 +5012,7 @@
     "/api/model/auxiliary": {
       "get": {
         "summary": "Get Auxiliary Models",
-        "description": "Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model,\nbase_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read \u2014\nwithout it the Models page would show the dashboard profile's pins while\n/api/model/set wrote the selected profile's.",
+        "description": "Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model,\nbase_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read \u2014\nwithout it the Models page would show the dashboard profile's pins while\n/api/model/set wrote the selected profile's.\n\nBuilt-in slots come first; plugin-registered tasks follow, each carrying the\n``label``/``hint``/``plugin`` the plugin declared (built-ins are labelled client-side) and\n``inherit_from`` (base slot key or null). An inheriting row also carries ``effective``: the\nroute it resolves to right now, which is the base's while the row itself is unpinned.\n``provider``/``model``/``base_url`` stay the slot's own stored values on every row.",
         "operationId": "get_auxiliary_models_api_model_auxiliary_get",
         "parameters": [
           {
@@ -5881,7 +6529,7 @@
     "/api/sessions/bulk-delete": {
       "post": {
         "summary": "Bulk Delete Sessions Endpoint",
-        "description": "Delete every session in ``body.ids`` in one transaction (POST: many\nclients refuse a DELETE body).\n\nPer :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted``\nreports what really happened), children are orphaned, active/archived rows\nARE deleted (hand-picked), on-disk cleanup is left to the next prune.",
+        "description": "Delete every session in ``body.ids`` in one transaction (POST: many\nclients refuse a DELETE body).\n\nPer :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted``\nreports what really happened), children are orphaned, active/archived rows\nARE deleted (hand-picked), on-disk cleanup is left to the next prune.\n\nCompression chains are deleted whole: the sessions list shows one row per\nlogical conversation carrying the chain *tip's* id, so deleting only that\nrow would leave the root to resurface as the previous chain link on the\nnext reload (#57543). ``deleted`` still counts the selected rows, not the\nexpanded chain links.",
         "operationId": "bulk_delete_sessions_endpoint_api_sessions_bulk_delete_post",
         "requestBody": {
           "content": {
@@ -6353,6 +7001,16 @@
               "default": false,
               "title": "Include Compacted"
             }
+          },
+          {
+            "name": "inline_images",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Inline Images"
+            }
           }
         ],
         "responses": {
@@ -6730,6 +7388,22 @@
               ],
               "title": "Search"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -7075,14 +7749,42 @@
     "/api/cron/delivery-targets": {
       "get": {
         "summary": "Get Cron Delivery Targets",
-        "description": "Delivery targets for the cron dropdown: implicit ``local`` plus the\nconfigured gateway platforms (a platform without a cron home channel is\nstill listed with ``home_target_set: false`` so the UI can say so).",
+        "description": "Delivery targets for the cron dropdown: implicit ``local`` plus the\nconfigured gateway platforms (a platform without a cron home channel is\nstill listed with ``home_target_set: false`` so the UI can say so).\n\n``cron_delivery_targets()`` reads each platform's home channel through\n``get_secret``, which fails closed once this process hosts more than one\nprofile home (the dashboard/desktop ``serve`` backend flips multi-profile\nhosting on the first ``?profile=`` request). The read must therefore run\ninside the profile scope, exactly like the sibling cron routes \u2014 otherwise\nthe poll raises ``UnscopedSecretError`` on every tick and the dropdown\nsilently loses every configured platform.",
         "operationId": "get_cron_delivery_targets_api_cron_delivery_targets_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -7268,14 +7970,42 @@
     "/api/cron/blueprints": {
       "get": {
         "summary": "List Cron Blueprints",
-        "description": "Blueprint catalog as form schemas; the ``deliver`` slot's options are\nrewritten from the actually configured gateway platforms.",
+        "description": "Blueprint catalog (built-ins + the profile's plugin blueprints) as form schemas.",
         "operationId": "list_cron_blueprints_api_cron_blueprints_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -7882,7 +8612,7 @@
     "/api/mcp/catalog": {
       "get": {
         "summary": "List Mcp Catalog",
-        "description": "Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each\nentry annotated with installed/enabled state for ``profile``. Opt-in app\nsignals describe this backend machine, never the client or terminal sandbox.",
+        "description": "Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each\nentry annotated with installed/enabled state for ``profile``.",
         "operationId": "list_mcp_catalog_api_mcp_catalog_get",
         "parameters": [
           {
@@ -7899,16 +8629,6 @@
                 }
               ],
               "title": "Profile"
-            }
-          },
-          {
-            "name": "detect_apps",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Detect Apps"
             }
           }
         ],
@@ -8153,6 +8873,24 @@
       "get": {
         "summary": "List Webhooks",
         "operationId": "list_webhooks_api_webhooks_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8161,21 +8899,49 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "summary": "Create Webhook",
         "operationId": "create_webhook_api_webhooks_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/WebhookCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8203,12 +8969,40 @@
       "post": {
         "summary": "Enable Webhooks",
         "operationId": "enable_webhooks_api_webhooks_enable_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8227,6 +9021,22 @@
             "schema": {
               "type": "string",
               "title": "Name"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -8265,6 +9075,22 @@
             "schema": {
               "type": "string",
               "title": "Name"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -8392,6 +9218,24 @@
       "get": {
         "summary": "List Credential Pool",
         "operationId": "list_credential_pool_api_credentials_pool_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -8400,21 +9244,49 @@
                 "schema": {}
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         }
       },
       "post": {
         "summary": "Add Credential Pool Entry",
         "operationId": "add_credential_pool_entry_api_credentials_pool_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CredentialPoolAdd"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8461,6 +9333,22 @@
               "type": "integer",
               "title": "Index"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -8489,12 +9377,40 @@
       "get": {
         "summary": "Get Memory Status",
         "operationId": "get_memory_status_api_memory_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8505,15 +9421,33 @@
       "put": {
         "summary": "Set Memory Provider",
         "operationId": "set_memory_provider_api_memory_provider_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/MemoryProviderSelect"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8541,15 +9475,33 @@
       "post": {
         "summary": "Reset Memory",
         "operationId": "reset_memory_api_memory_reset_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/MemoryReset"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8577,12 +9529,40 @@
       "post": {
         "summary": "Run Doctor",
         "operationId": "run_doctor_api_ops_doctor_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8593,12 +9573,40 @@
       "post": {
         "summary": "Run Security Audit",
         "operationId": "run_security_audit_api_ops_security_audit_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8609,15 +9617,33 @@
       "post": {
         "summary": "Run Backup",
         "operationId": "run_backup_api_ops_backup_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/BackupRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8654,6 +9680,22 @@
               "type": "string",
               "title": "Archive"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -8682,15 +9724,33 @@
       "post": {
         "summary": "Run Import",
         "operationId": "run_import_api_ops_import_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ImportRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8718,15 +9778,33 @@
       "post": {
         "summary": "Run Import Upload",
         "operationId": "run_import_upload_api_ops_import_upload_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "multipart/form-data": {
               "schema": {
                 "$ref": "#/components/schemas/Body_run_import_upload_api_ops_import_upload_post"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8755,12 +9833,40 @@
         "summary": "List Hooks",
         "description": "Configured shell hooks with consent (allowlist) status, whether the\nscript is currently executable, and the valid hook events for the form.",
         "operationId": "list_hooks_api_ops_hooks_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8770,15 +9876,33 @@
         "summary": "Create Hook",
         "description": "Add a shell hook to config.yaml and optionally record consent.\n\nShell hooks run arbitrary commands, so this is privileged: it writes the\n``hooks:`` block and, with ``approve``, records the allowlist entry so the\nhook actually fires. Takes effect on the next session / gateway restart.",
         "operationId": "create_hook_api_ops_hooks_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HookCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8805,15 +9929,33 @@
         "summary": "Delete Hook",
         "description": "Remove a hook from config.yaml and revoke its consent allowlist entry.",
         "operationId": "delete_hook_api_ops_hooks_delete",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/HookDelete"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -8842,12 +9984,40 @@
         "summary": "List Checkpoints",
         "description": "/rollback shadow-store checkpoints (read-only): count + size per session\nso the UI can show what a prune reclaims; pruning itself is a spawned CLI\naction so the confirmation logic stays in one place.",
         "operationId": "list_checkpoints_api_ops_checkpoints_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -8858,12 +10028,40 @@
       "post": {
         "summary": "Prune Checkpoints",
         "operationId": "prune_checkpoints_api_ops_checkpoints_prune_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -9965,8 +11163,26 @@
       },
       "post": {
         "summary": "Create Skill",
-        "description": "Create a skill via the agent's ``skill_manage`` write path, minus the\nwrite-approval gate \u2014 an authenticated dashboard write IS the user.",
+        "description": "Create a skill via the agent's ``skill_manage`` write path, minus the\nwrite-approval gate \u2014 an authenticated dashboard write IS the user.\nProfile from the body or ``?profile=``, like the rest of ``/api/skills``.",
         "operationId": "create_skill_api_skills_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -10110,6 +11326,24 @@
         "summary": "Update Skill Content",
         "description": "Replace the SKILL.md of an existing skill (full rewrite) from the editor.",
         "operationId": "update_skill_content_api_skills_content_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -11031,17 +12265,100 @@
         }
       }
     },
-    "/api/dashboard/themes": {
+    "/api/chat/workspaces": {
       "get": {
-        "summary": "Get Dashboard Themes",
-        "description": "Available themes + the active one. Built-ins ship name/label/description only\n(the frontend owns their definitions in `web/src/themes/presets.ts`); user themes\nfrom `~/.hermes/dashboard-themes/*.yaml` ship their normalised `definition`.",
-        "operationId": "get_dashboard_themes_api_dashboard_themes_get",
+        "summary": "Get Chat Workspaces",
+        "description": "Projects + discovered repos a fresh chat may start in; ``scan=1`` rescans the\nconfigured discovery roots on the host first (headless installs have no Desktop to do it).",
+        "operationId": "get_chat_workspaces_api_chat_workspaces_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          },
+          {
+            "name": "scan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Scan"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/themes": {
+      "get": {
+        "summary": "Get Dashboard Themes",
+        "description": "Available themes + the active one. Built-ins ship name/label/description only\n(the frontend owns their definitions in `web/src/themes/presets.ts`); user themes\nfrom `~/.hermes/dashboard-themes/*.yaml` ship their normalised `definition`.",
+        "operationId": "get_dashboard_themes_api_dashboard_themes_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11053,15 +12370,33 @@
         "summary": "Set Dashboard Theme",
         "description": "Set the active dashboard theme (persists to config.yaml).",
         "operationId": "set_dashboard_theme_api_dashboard_theme_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ThemeSetBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -11090,12 +12425,40 @@
         "summary": "Get Dashboard Font",
         "description": "Return the active font override (``\"theme\"`` = use the theme's font).",
         "operationId": "get_dashboard_font_api_dashboard_font_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11105,15 +12468,33 @@
         "summary": "Set Dashboard Font",
         "description": "Set the font override (config.yaml). Unknown ids coerce to ``\"theme\"`` rather than\n400 so a stale client can't wedge the picker.",
         "operationId": "set_dashboard_font_api_dashboard_font_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/FontSetBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -11142,12 +12523,40 @@
         "summary": "Get Dashboard Plugins",
         "description": "Return discovered dashboard plugins (excludes user-hidden and non-enabled ones).",
         "operationId": "get_dashboard_plugins_api_dashboard_plugins_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11176,12 +12585,40 @@
         "summary": "Get Plugins Hub",
         "description": "Unified agent plugins + dashboard extension metadata (session protected).",
         "operationId": "get_plugins_hub_api_dashboard_plugins_hub_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11389,20 +12826,55 @@
         }
       }
     },
+    "/api/dashboard/agent-plugins/activate": {
+      "post": {
+        "summary": "Post Agent Plugin Activate",
+        "description": "``hermes plugins install`` / ``enable`` in another process asks this backend to load the plugin\nfor ``home`` and hand its MCP servers and skills to that profile's open chats\n(``hermes_cli.plugins_activation.load_and_go_live``). ``home`` must be a profile this host serves.",
+        "operationId": "post_agent_plugin_activate_api_dashboard_agent_plugins_activate_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dashboard/plugin-providers": {
       "put": {
         "summary": "Put Plugin Providers",
         "description": "Persist memory provider / context engine selection (writes config.yaml).",
         "operationId": "put_plugin_providers_api_dashboard_plugin_providers_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/_PluginProvidersPutBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -11439,6 +12911,22 @@
             "schema": {
               "type": "string",
               "title": "Name"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -11521,16 +13009,140 @@
         }
       }
     },
-    "/api/plugins/hermes-achievements/achievements": {
+    "/api/shared-metrics/consent": {
       "get": {
-        "summary": "Achievements",
-        "operationId": "achievements_api_plugins_hermes_achievements_achievements_get",
+        "summary": "Get Shared Metrics Consent",
+        "operationId": "get_shared_metrics_consent_api_shared_metrics_consent_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Put Shared Metrics Consent",
+        "operationId": "put_shared_metrics_consent_api_shared_metrics_consent_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentAnswer"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plugins/hermes-achievements/achievements": {
+      "get": {
+        "summary": "Achievements",
+        "operationId": "achievements_api_plugins_hermes_achievements_achievements_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11541,12 +13153,40 @@
       "get": {
         "summary": "Scan Status",
         "operationId": "scan_status_api_plugins_hermes_achievements_scan_status_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11557,12 +13197,40 @@
       "get": {
         "summary": "Recent Unlocks",
         "operationId": "recent_unlocks_api_plugins_hermes_achievements_recent_unlocks_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11581,6 +13249,22 @@
             "schema": {
               "type": "string",
               "title": "Session Id"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -11610,12 +13294,40 @@
       "post": {
         "summary": "Rescan",
         "operationId": "rescan_api_plugins_hermes_achievements_rescan_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11626,12 +13338,40 @@
       "post": {
         "summary": "Reset State",
         "operationId": "reset_state_api_plugins_hermes_achievements_reset_state_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -11724,6 +13464,22 @@
               "title": "Current Step Key"
             },
             "description": "Restrict to tasks at this workflow step key"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -11813,6 +13569,22 @@
               "title": "Run State Name"
             },
             "description": "With run_state_type: exact value for that run column"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -11863,6 +13635,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -11925,6 +13713,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -11968,6 +13772,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12032,6 +13852,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12083,6 +13919,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12147,6 +13999,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12197,6 +14065,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12251,6 +14135,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -12304,6 +14204,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12375,6 +14291,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12419,6 +14351,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12495,6 +14443,22 @@
               "title": "Severity"
             },
             "description": "Filter by severity: warning|error|critical"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12542,6 +14506,22 @@
               "title": "Board"
             },
             "description": "Kanban board slug (omit for current)"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12598,6 +14578,22 @@
               "title": "Board"
             },
             "description": "Kanban board slug (omit for current)"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12654,6 +14650,22 @@
               "title": "Board"
             },
             "description": "Kanban board slug (omit for current)"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -12710,6 +14722,22 @@
               "title": "Board"
             },
             "description": "Kanban board slug (omit for current)"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -12773,6 +14801,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -12838,6 +14882,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -12902,6 +14962,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -12941,15 +15017,33 @@
         "summary": "Estimate Text Endpoint",
         "description": "Estimate from raw title/body (create dialog, before a task exists).",
         "operationId": "estimate_text_endpoint_api_plugins_kanban_estimate_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EstimateBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -13003,6 +15097,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13032,12 +15142,40 @@
         "summary": "Get Config",
         "description": "Kanban dashboard preferences from the ``dashboard.kanban`` config section.",
         "operationId": "get_config_api_plugins_kanban_config_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -13080,6 +15218,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13144,6 +15298,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13205,6 +15375,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13250,6 +15436,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13294,6 +15496,22 @@
                 }
               ],
               "title": "Board"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13367,6 +15585,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13432,6 +15666,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13461,12 +15711,40 @@
         "summary": "Model Options",
         "description": "Providers + curated models for the override dropdown via ``inventory.build_models_payload``\n(same substrate as the Models page) so it can't offer a pair Hermes rejects. Skips pricing\nand custom-provider probes: a slow/offline local endpoint must not hang the drawer.",
         "operationId": "model_options_api_plugins_kanban_model_options_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -13478,12 +15756,40 @@
         "summary": "List Kanban Projects",
         "description": "Live (non-archived) projects available for board scoping.",
         "operationId": "list_kanban_projects_api_plugins_kanban_projects_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -13504,6 +15810,22 @@
               "type": "boolean",
               "default": false,
               "title": "Include Archived"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13532,6 +15854,24 @@
         "summary": "Create Board Endpoint",
         "description": "Create a board. Idempotent \u2014 ``slug`` collision returns the existing one.",
         "operationId": "create_board_endpoint_api_plugins_kanban_boards_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -13577,6 +15917,22 @@
             "schema": {
               "type": "string",
               "title": "Slug"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13636,6 +15992,22 @@
               "title": "Delete"
             },
             "description": "Hard-delete instead of archive"
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13673,6 +16045,22 @@
             "schema": {
               "type": "string",
               "title": "Slug"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13713,15 +16101,33 @@
         "summary": "Import Board Endpoint",
         "description": "Import a board archive as a NEW board; return the landed board.",
         "operationId": "import_board_endpoint_api_plugins_kanban_boards_import_post",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ImportBoardBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -13759,6 +16165,22 @@
               "type": "string",
               "title": "Slug"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "responses": {
@@ -13788,12 +16210,40 @@
         "summary": "List Profile Roster",
         "description": "Every installed profile with its description (profiles without one are\nstill routable on name alone, just less precisely).",
         "operationId": "list_profile_roster_api_plugins_kanban_profiles_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -13813,6 +16263,22 @@
             "schema": {
               "type": "string",
               "title": "Profile Name"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13861,6 +16327,22 @@
             "schema": {
               "type": "string",
               "title": "Profile Name"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
             }
           }
         ],
@@ -13926,6 +16408,22 @@
               ],
               "title": "Board"
             }
+          },
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
           }
         ],
         "requestBody": {
@@ -13960,17 +16458,90 @@
         }
       }
     },
-    "/api/plugins/kanban/orchestration": {
+    "/api/plugins/kanban/workflow": {
       "get": {
-        "summary": "Get Orchestration Settings",
-        "description": "Current orchestration knobs from config.yaml plus the resolved effective\nvalues. An unset/unknown profile resolves to the active profile here; the\ndecomposer prefers the root card's assignee in that case and uses the active\nprofile only for cards with no assignee.",
-        "operationId": "get_orchestration_settings_api_plugins_kanban_orchestration_get",
+        "summary": "Get Workflow",
+        "description": "Board columns (order, label, icon, drag target) and the manual move\nallow-list. Every board uses the default workflow today; per-board\nworkflows (``board.json``) arrive in a later phase behind this same shape.",
+        "operationId": "get_workflow_api_plugins_kanban_workflow_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plugins/kanban/orchestration": {
+      "get": {
+        "summary": "Get Orchestration Settings",
+        "description": "Current orchestration knobs from config.yaml plus the resolved effective\nvalues. An unset/unknown profile resolves to the active profile here; the\ndecomposer prefers the root card's assignee in that case and uses the active\nprofile only for cards with no assignee.",
+        "operationId": "get_orchestration_settings_api_plugins_kanban_orchestration_get",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -13980,15 +16551,33 @@
         "summary": "Set Orchestration Settings",
         "description": "Update orchestration knobs in config.yaml. Only fields explicitly passed\nare written; empty profile strings clear the override.",
         "operationId": "set_orchestration_settings_api_plugins_kanban_orchestration_put",
+        "parameters": [
+          {
+            "name": "profile",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Profile"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/OrchestrationSettingsBody"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -14296,7 +16885,7 @@
     "/api/auth/me": {
       "get": {
         "summary": "Auth Me",
-        "description": "Return the verified session as JSON. Auth-required (gate enforces).",
+        "description": "Return the verified session as JSON.\n\nGated mode: the auth middleware attached a verified Session \u2014 return it.\nLoopback mode (``auth_required`` False): there is no OAuth Session, but the\nlegacy ``_SESSION_TOKEN`` middleware has already validated the bearer\ntoken for non-public ``/api/`` routes. Report the loopback identity\nhonestly instead of 401-ing (GH #66223). Belt-and-braces: re-verify the\ntoken so the handler stays safe even if this route were ever allowlisted.",
         "operationId": "auth_me_api_auth_me_get",
         "responses": {
           "200": {
@@ -14864,6 +17453,24 @@
         ],
         "title": "ConfigUpdate"
       },
+      "ConsentAnswer": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "send": {
+            "type": "boolean",
+            "title": "Send",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "ConsentAnswer"
+      },
       "CreateBoardBody": {
         "properties": {
           "slug": {
@@ -15195,6 +17802,20 @@
             "title": "Deliver",
             "default": "local"
           },
+          "repeat": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repeat"
+          },
           "skills": {
             "anyOf": [
               {
@@ -15326,6 +17947,42 @@
         ],
         "title": "CuratorPause"
       },
+      "CustomEndpointModelDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "canonical_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "CustomEndpointModelDetail",
+        "description": "One ``/v1/models`` row with the routing metadata a gateway may advertise on a\nreasoning alias (``gpt-5.6-sol-high`` \u2192 ``gpt-5.6-sol`` @ ``high``). See #93622."
+      },
       "CustomEndpointUpdate": {
         "properties": {
           "id": {
@@ -15355,6 +18012,23 @@
               }
             ],
             "title": "Api Key"
+          },
+          "api_mode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "",
+                  "chat_completions",
+                  "codex_responses",
+                  "anthropic_messages"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Api Mode"
           },
           "context_length": {
             "anyOf": [
@@ -15390,6 +18064,20 @@
               }
             ],
             "title": "Models"
+          },
+          "model_details": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CustomEndpointModelDetail"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Details"
           }
         },
         "type": "object",
@@ -15534,6 +18222,11 @@
             "type": "string",
             "title": "Api Key",
             "default": ""
+          },
+          "provider_setup": {
+            "type": "boolean",
+            "title": "Provider Setup",
+            "default": false
           }
         },
         "type": "object",
@@ -15926,6 +18619,19 @@
           "archive"
         ],
         "title": "ImportRequest"
+      },
+      "JobIdBody": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "JobIdBody"
       },
       "LearningNodeEdit": {
         "properties": {
@@ -17176,6 +19882,25 @@
         },
         "type": "object",
         "title": "RuntimeInstallBody"
+      },
+      "STTLeaseRequest": {
+        "properties": {
+          "lease": {
+            "type": "string",
+            "title": "Lease"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "lease"
+        ],
+        "title": "STTLeaseRequest",
+        "description": "POST /api/audio/stt-lease: ``lease`` names the voice-input session holding the lease\n(``desktop:voice-input:<renderer>``); ``active`` True acquires + pre-loads the local\nSTT model, False releases. Unlike TTS, release never unloads (shared engine)."
       },
       "ServerActionBody": {
         "properties": {
@@ -18512,6 +21237,7 @@
         "properties": {
           "provider": {
             "type": "string",
+            "maxLength": 128,
             "title": "Provider"
           },
           "username": {

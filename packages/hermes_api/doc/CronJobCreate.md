@@ -14,6 +14,7 @@ Name | Type | Description | Notes
 **schedule** | **String** |  | 
 **name** | **String** |  | [optional] [default to '']
 **deliver** | **String** |  | [optional] [default to 'local']
+**repeat** | **Object** |  | [optional] 
 **skills** | **List&lt;String&gt;** |  | [optional] 
 **model** | **String** |  | [optional] 
 **provider** | **String** |  | [optional] 

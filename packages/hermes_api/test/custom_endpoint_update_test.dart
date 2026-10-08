@@ -32,6 +32,11 @@ void main() {
       // TODO
     });
 
+    // String apiMode
+    test('to test the property `apiMode`', () async {
+      // TODO
+    });
+
     // int contextLength
     test('to test the property `contextLength`', () async {
       // TODO
@@ -49,6 +54,11 @@ void main() {
 
     // List<String> models
     test('to test the property `models`', () async {
+      // TODO
+    });
+
+    // List<CustomEndpointModelDetail> modelDetails
+    test('to test the property `modelDetails`', () async {
       // TODO
     });
   });

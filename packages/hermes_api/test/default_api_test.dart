@@ -8,7 +8,7 @@ void main() {
   group(DefaultApi, () {
     // Achievements
     //
-    //Future<Object> achievementsApiPluginsHermesAchievementsAchievementsGet() async
+    //Future<Object> achievementsApiPluginsHermesAchievementsAchievementsGet({ String profile }) async
     test(
       'test achievementsApiPluginsHermesAchievementsAchievementsGet',
       () async {
@@ -27,21 +27,21 @@ void main() {
 
     // Add Comment
     //
-    //Future<Object> addCommentApiPluginsKanbanTasksTaskIdCommentsPost(String taskId, CommentBody commentBody, { String board }) async
+    //Future<Object> addCommentApiPluginsKanbanTasksTaskIdCommentsPost(String taskId, CommentBody commentBody, { String board, String profile }) async
     test('test addCommentApiPluginsKanbanTasksTaskIdCommentsPost', () async {
       // TODO
     });
 
     // Add Credential Pool Entry
     //
-    //Future<Object> addCredentialPoolEntryApiCredentialsPoolPost(CredentialPoolAdd credentialPoolAdd) async
+    //Future<Object> addCredentialPoolEntryApiCredentialsPoolPost(CredentialPoolAdd credentialPoolAdd, { String profile }) async
     test('test addCredentialPoolEntryApiCredentialsPoolPost', () async {
       // TODO
     });
 
     // Add Link
     //
-    //Future<Object> addLinkApiPluginsKanbanLinksPost(LinkBody linkBody, { String board }) async
+    //Future<Object> addLinkApiPluginsKanbanLinksPost(LinkBody linkBody, { String board, String profile }) async
     test('test addLinkApiPluginsKanbanLinksPost', () async {
       // TODO
     });
@@ -106,7 +106,7 @@ void main() {
 
     // Auth Me
     //
-    // Return the verified session as JSON. Auth-required (gate enforces).
+    // Return the verified session as JSON.  Gated mode: the auth middleware attached a verified Session — return it. Loopback mode (``auth_required`` False): there is no OAuth Session, but the legacy ``_SESSION_TOKEN`` middleware has already validated the bearer token for non-public ``/api/`` routes. Report the loopback identity honestly instead of 401-ing (GH #66223). Belt-and-braces: re-verify the token so the handler stays safe even if this route were ever allowlisted.
     //
     //Future<Object> authMeApiAuthMeGet() async
     test('test authMeApiAuthMeGet', () async {
@@ -169,7 +169,7 @@ void main() {
     //
     // ``hermes profile describe <name> --auto``: persist with ``description_auto: true``. Non-OK outcomes are NOT HTTP errors — the UI renders the reason inline.
     //
-    //Future<Object> autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(String profileName, DescribeAutoBody describeAutoBody) async
+    //Future<Object> autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(String profileName, DescribeAutoBody describeAutoBody, { String profile }) async
     test('test autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost', () async {
       // TODO
     });
@@ -188,7 +188,7 @@ void main() {
 
     // Bulk Delete Sessions Endpoint
     //
-    // Delete every session in ``body.ids`` in one transaction (POST: many clients refuse a DELETE body).  Per :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted`` reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.
+    // Delete every session in ``body.ids`` in one transaction (POST: many clients refuse a DELETE body).  Per :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted`` reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.  Compression chains are deleted whole: the sessions list shows one row per logical conversation carrying the chain *tip's* id, so deleting only that row would leave the root to resurface as the previous chain link on the next reload (#57543). ``deleted`` still counts the selected rows, not the expanded chain links.
     //
     //Future<Object> bulkDeleteSessionsEndpointApiSessionsBulkDeletePost(BulkDeleteSessions bulkDeleteSessions) async
     test('test bulkDeleteSessionsEndpointApiSessionsBulkDeletePost', () async {
@@ -199,7 +199,7 @@ void main() {
     //
     // Apply the same patch to every id. Independent iteration — per-task failures don't abort siblings; returns per-id outcome for partials.
     //
-    //Future<Object> bulkUpdateApiPluginsKanbanTasksBulkPost(BulkTaskBody bulkTaskBody, { String board }) async
+    //Future<Object> bulkUpdateApiPluginsKanbanTasksBulkPost(BulkTaskBody bulkTaskBody, { String board, String profile }) async
     test('test bulkUpdateApiPluginsKanbanTasksBulkPost', () async {
       // TODO
     });
@@ -243,7 +243,7 @@ void main() {
     //
     // Report whether a Hermes update is available, without applying it.  Returns install_method ('apt'|'git'|'docker'|'nix'|'nixos'|'unknown'), current_version, behind (commits behind, 0 = up to date, -1 = unknown count, null = check could not run), update_available, can_apply (git only — the dashboard button can apply in place), update_command, message (guidance for non-applyable methods) and, for git installs that are behind, commits [{sha, summary, author, at}] (additive; existing consumers ignore it).
     //
-    //Future<Object> checkHermesUpdateApiHermesUpdateCheckGet({ bool force }) async
+    //Future<Object> checkHermesUpdateApiHermesUpdateCheckGet({ bool force, String profile }) async
     test('test checkHermesUpdateApiHermesUpdateCheckGet', () async {
       // TODO
     });
@@ -268,7 +268,7 @@ void main() {
     //
     // Create a board. Idempotent — ``slug`` collision returns the existing one.
     //
-    //Future<Object> createBoardEndpointApiPluginsKanbanBoardsPost(CreateBoardBody createBoardBody) async
+    //Future<Object> createBoardEndpointApiPluginsKanbanBoardsPost(CreateBoardBody createBoardBody, { String profile }) async
     test('test createBoardEndpointApiPluginsKanbanBoardsPost', () async {
       // TODO
     });
@@ -284,7 +284,7 @@ void main() {
     //
     // Add a shell hook to config.yaml and optionally record consent.  Shell hooks run arbitrary commands, so this is privileged: it writes the ``hooks:`` block and, with ``approve``, records the allowlist entry so the hook actually fires. Takes effect on the next session / gateway restart.
     //
-    //Future<Object> createHookApiOpsHooksPost(HookCreate hookCreate) async
+    //Future<Object> createHookApiOpsHooksPost(HookCreate hookCreate, { String profile }) async
     test('test createHookApiOpsHooksPost', () async {
       // TODO
     });
@@ -305,16 +305,16 @@ void main() {
 
     // Create Skill
     //
-    // Create a skill via the agent's ``skill_manage`` write path, minus the write-approval gate — an authenticated dashboard write IS the user.
+    // Create a skill via the agent's ``skill_manage`` write path, minus the write-approval gate — an authenticated dashboard write IS the user. Profile from the body or ``?profile=``, like the rest of ``/api/skills``.
     //
-    //Future<Object> createSkillApiSkillsPost(SkillCreate skillCreate) async
+    //Future<Object> createSkillApiSkillsPost(SkillCreate skillCreate, { String profile }) async
     test('test createSkillApiSkillsPost', () async {
       // TODO
     });
 
     // Create Task
     //
-    //Future<Object> createTaskApiPluginsKanbanTasksPost(CreateTaskBody createTaskBody, { String board }) async
+    //Future<Object> createTaskApiPluginsKanbanTasksPost(CreateTaskBody createTaskBody, { String board, String profile }) async
     test('test createTaskApiPluginsKanbanTasksPost', () async {
       // TODO
     });
@@ -330,7 +330,7 @@ void main() {
 
     // Create Webhook
     //
-    //Future<Object> createWebhookApiWebhooksPost(WebhookCreate webhookCreate) async
+    //Future<Object> createWebhookApiWebhooksPost(WebhookCreate webhookCreate, { String profile }) async
     test('test createWebhookApiWebhooksPost', () async {
       // TODO
     });
@@ -348,7 +348,7 @@ void main() {
     //
     // Fan a triage task out into child tasks via the auxiliary LLM (``hermes kanban decompose``). Non-OK is NOT an HTTP error. Sync ``def`` → runs in the threadpool.
     //
-    //Future<Object> decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(String taskId, DecomposeBody decomposeBody, { String board }) async
+    //Future<Object> decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(String taskId, DecomposeBody decomposeBody, { String board, String profile }) async
     test(
       'test decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost',
       () async {
@@ -367,7 +367,7 @@ void main() {
     //
     // Archive (default) or hard-delete a board.
     //
-    //Future<Object> deleteBoardApiPluginsKanbanBoardsSlugDelete(String slug, { bool delete }) async
+    //Future<Object> deleteBoardApiPluginsKanbanBoardsSlugDelete(String slug, { bool delete, String profile }) async
     test('test deleteBoardApiPluginsKanbanBoardsSlugDelete', () async {
       // TODO
     });
@@ -404,23 +404,23 @@ void main() {
     //
     // Remove a hook from config.yaml and revoke its consent allowlist entry.
     //
-    //Future<Object> deleteHookApiOpsHooksDelete(HookDelete hookDelete) async
+    //Future<Object> deleteHookApiOpsHooksDelete(HookDelete hookDelete, { String profile }) async
     test('test deleteHookApiOpsHooksDelete', () async {
       // TODO
     });
 
     // Delete Learning Node
     //
-    // Delete a journey node — skills are archived (restorable), memories removed.
+    // Delete a journey node — skills are archived (restorable), memories removed.  ``?profile=`` is honoured too: a shared-backend Desktop scopes this call by query only, and ignoring it archived the same-named skill of the launch profile instead.
     //
-    //Future<Object> deleteLearningNodeApiLearningNodeDelete(LearningNodeRef learningNodeRef) async
+    //Future<Object> deleteLearningNodeApiLearningNodeDelete(LearningNodeRef learningNodeRef, { String profile }) async
     test('test deleteLearningNodeApiLearningNodeDelete', () async {
       // TODO
     });
 
     // Delete Link
     //
-    //Future<Object> deleteLinkApiPluginsKanbanLinksDelete(String parentId, String childId, { String board }) async
+    //Future<Object> deleteLinkApiPluginsKanbanLinksDelete(String parentId, String childId, { String board, String profile }) async
     test('test deleteLinkApiPluginsKanbanLinksDelete', () async {
       // TODO
     });
@@ -450,14 +450,14 @@ void main() {
 
     // Delete Task
     //
-    //Future<Object> deleteTaskApiPluginsKanbanTasksTaskIdDelete(String taskId, { String board }) async
+    //Future<Object> deleteTaskApiPluginsKanbanTasksTaskIdDelete(String taskId, { String board, String profile }) async
     test('test deleteTaskApiPluginsKanbanTasksTaskIdDelete', () async {
       // TODO
     });
 
     // Delete Webhook
     //
-    //Future<Object> deleteWebhookApiWebhooksNameDelete(String name) async
+    //Future<Object> deleteWebhookApiWebhooksNameDelete(String name, { String profile }) async
     test('test deleteWebhookApiWebhooksNameDelete', () async {
       // TODO
     });
@@ -490,14 +490,14 @@ void main() {
     //
     // Dispatch nudge so the UI doesn't wait out the 60 s dispatcher tick.
     //
-    //Future<Object> dispatchApiPluginsKanbanDispatchPost({ bool dryRun, int max, String board }) async
+    //Future<Object> dispatchApiPluginsKanbanDispatchPost({ bool dryRun, int max, String board, String profile }) async
     test('test dispatchApiPluginsKanbanDispatchPost', () async {
       // TODO
     });
 
     // Download Attachment
     //
-    //Future<Object> downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(int attachmentId, { String board }) async
+    //Future<Object> downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(int attachmentId, { String board, String profile }) async
     test(
       'test downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet',
       () async {
@@ -507,7 +507,7 @@ void main() {
 
     // Download Dashboard Backup
     //
-    //Future<Object> downloadDashboardBackupApiOpsBackupDownloadGet(String archive) async
+    //Future<Object> downloadDashboardBackupApiOpsBackupDownloadGet(String archive, { String profile }) async
     test('test downloadDashboardBackupApiOpsBackupDownloadGet', () async {
       // TODO
     });
@@ -523,7 +523,7 @@ void main() {
 
     // Enable Webhooks
     //
-    //Future<Object> enableWebhooksApiWebhooksEnablePost() async
+    //Future<Object> enableWebhooksApiWebhooksEnablePost({ String profile }) async
     test('test enableWebhooksApiWebhooksEnablePost', () async {
       // TODO
     });
@@ -532,7 +532,7 @@ void main() {
     //
     // Estimate for an existing task; ``{ok, est_tokens, complexity, rationale, model}``.
     //
-    //Future<Object> estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(String taskId, { String board }) async
+    //Future<Object> estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(String taskId, { String board, String profile }) async
     test(
       'test estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost',
       () async {
@@ -544,7 +544,7 @@ void main() {
     //
     // Estimate from raw title/body (create dialog, before a task exists).
     //
-    //Future<Object> estimateTextEndpointApiPluginsKanbanEstimatePost(EstimateBody estimateBody) async
+    //Future<Object> estimateTextEndpointApiPluginsKanbanEstimatePost(EstimateBody estimateBody, { String profile }) async
     test('test estimateTextEndpointApiPluginsKanbanEstimatePost', () async {
       // TODO
     });
@@ -553,7 +553,7 @@ void main() {
     //
     // Write ``slug`` to a portable archive; return the path written.
     //
-    //Future<Object> exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(String slug, ExportBoardBody exportBoardBody) async
+    //Future<Object> exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(String slug, ExportBoardBody exportBoardBody, { String profile }) async
     test(
       'test exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost',
       () async {
@@ -579,7 +579,7 @@ void main() {
 
     // Fs Default Cwd
     //
-    //Future<Object> fsDefaultCwdApiFsDefaultCwdGet() async
+    //Future<Object> fsDefaultCwdApiFsDefaultCwdGet({ String profile }) async
     test('test fsDefaultCwdApiFsDefaultCwdGet', () async {
       // TODO
     });
@@ -593,14 +593,14 @@ void main() {
 
     // Fs Git Root
     //
-    //Future<Object> fsGitRootApiFsGitRootGet(String path) async
+    //Future<Object> fsGitRootApiFsGitRootGet(String path, { String profile }) async
     test('test fsGitRootApiFsGitRootGet', () async {
       // TODO
     });
 
     // Fs List
     //
-    //Future<Object> fsListApiFsListGet(String path) async
+    //Future<Object> fsListApiFsListGet(String path, { String profile }) async
     test('test fsListApiFsListGet', () async {
       // TODO
     });
@@ -614,7 +614,7 @@ void main() {
 
     // Fs Read Text
     //
-    //Future<Object> fsReadTextApiFsReadTextGet(String path) async
+    //Future<Object> fsReadTextApiFsReadTextGet(String path, { String profile }) async
     test('test fsReadTextApiFsReadTextGet', () async {
       // TODO
     });
@@ -623,7 +623,7 @@ void main() {
     //
     // Overwrite (or create) a UTF-8 text file for the in-app spot editor.  Mirrors the Electron ``hermes:fs:writeText`` hardening: path validated by ``_fs_path``, the parent must already exist (never build trees), only regular files may be replaced, payload size-capped, staged to a sibling temp file and ``os.replace``-d so a crash can't truncate the original. Stale-on-disk detection is the client's job (re-read before save).
     //
-    //Future<Object> fsWriteTextApiFsWriteTextPost(FsWriteText fsWriteText) async
+    //Future<Object> fsWriteTextApiFsWriteTextPost(FsWriteText fsWriteText, { String profile }) async
     test('test fsWriteTextApiFsWriteTextPost', () async {
       // TODO
     });
@@ -677,14 +677,14 @@ void main() {
     //
     // Union of on-disk profiles and assignees used on the board, so a fresh profile appears in the picker before it has any task.
     //
-    //Future<Object> getAssigneesApiPluginsKanbanAssigneesGet({ String board }) async
+    //Future<Object> getAssigneesApiPluginsKanbanAssigneesGet({ String board, String profile }) async
     test('test getAssigneesApiPluginsKanbanAssigneesGet', () async {
       // TODO
     });
 
     // Get Auxiliary Models
     //
-    // Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model, base_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read — without it the Models page would show the dashboard profile's pins while /api/model/set wrote the selected profile's.
+    // Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model, base_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read — without it the Models page would show the dashboard profile's pins while /api/model/set wrote the selected profile's.  Built-in slots come first; plugin-registered tasks follow, each carrying the ``label``/``hint``/``plugin`` the plugin declared (built-ins are labelled client-side) and ``inherit_from`` (base slot key or null). An inheriting row also carries ``effective``: the route it resolves to right now, which is the base's while the row itself is unpinned. ``provider``/``model``/``base_url`` stay the slot's own stored values on every row.
     //
     //Future<Object> getAuxiliaryModelsApiModelAuxiliaryGet({ String profile }) async
     test('test getAuxiliaryModelsApiModelAuxiliaryGet', () async {
@@ -693,8 +693,17 @@ void main() {
 
     // Get Board Endpoint
     //
-    //Future<Object> getBoardEndpointApiPluginsKanbanBoardGet({ String tenant, bool includeArchived, String board, String workflowTemplateId, String currentStepKey }) async
+    //Future<Object> getBoardEndpointApiPluginsKanbanBoardGet({ String tenant, bool includeArchived, String board, String workflowTemplateId, String currentStepKey, String profile }) async
     test('test getBoardEndpointApiPluginsKanbanBoardGet', () async {
+      // TODO
+    });
+
+    // Get Chat Workspaces
+    //
+    // Projects + discovered repos a fresh chat may start in; ``scan=1`` rescans the configured discovery roots on the host first (headless installs have no Desktop to do it).
+    //
+    //Future<Object> getChatWorkspacesApiChatWorkspacesGet({ String profile, bool scan }) async
+    test('test getChatWorkspacesApiChatWorkspacesGet', () async {
       // TODO
     });
 
@@ -727,7 +736,7 @@ void main() {
     //
     // Kanban dashboard preferences from the ``dashboard.kanban`` config section.
     //
-    //Future<Object> getConfigApiPluginsKanbanConfigGet() async
+    //Future<Object> getConfigApiPluginsKanbanConfigGet({ String profile }) async
     test('test getConfigApiPluginsKanbanConfigGet', () async {
       // TODO
     });
@@ -743,9 +752,9 @@ void main() {
 
     // Get Cron Delivery Targets
     //
-    // Delivery targets for the cron dropdown: implicit ``local`` plus the configured gateway platforms (a platform without a cron home channel is still listed with ``home_target_set: false`` so the UI can say so).
+    // Delivery targets for the cron dropdown: implicit ``local`` plus the configured gateway platforms (a platform without a cron home channel is still listed with ``home_target_set: false`` so the UI can say so).  ``cron_delivery_targets()`` reads each platform's home channel through ``get_secret``, which fails closed once this process hosts more than one profile home (the dashboard/desktop ``serve`` backend flips multi-profile hosting on the first ``?profile=`` request). The read must therefore run inside the profile scope, exactly like the sibling cron routes — otherwise the poll raises ``UnscopedSecretError`` on every tick and the dropdown silently loses every configured platform.
     //
-    //Future<Object> getCronDeliveryTargetsApiCronDeliveryTargetsGet() async
+    //Future<Object> getCronDeliveryTargetsApiCronDeliveryTargetsGet({ String profile }) async
     test('test getCronDeliveryTargetsApiCronDeliveryTargetsGet', () async {
       // TODO
     });
@@ -759,7 +768,7 @@ void main() {
 
     // Get Curator Status
     //
-    //Future<Object> getCuratorStatusApiCuratorGet() async
+    //Future<Object> getCuratorStatusApiCuratorGet({ String profile }) async
     test('test getCuratorStatusApiCuratorGet', () async {
       // TODO
     });
@@ -768,7 +777,7 @@ void main() {
     //
     // Return the active font override (``\"theme\"`` = use the theme's font).
     //
-    //Future<Object> getDashboardFontApiDashboardFontGet() async
+    //Future<Object> getDashboardFontApiDashboardFontGet({ String profile }) async
     test('test getDashboardFontApiDashboardFontGet', () async {
       // TODO
     });
@@ -777,7 +786,7 @@ void main() {
     //
     // Return discovered dashboard plugins (excludes user-hidden and non-enabled ones).
     //
-    //Future<Object> getDashboardPluginsApiDashboardPluginsGet() async
+    //Future<Object> getDashboardPluginsApiDashboardPluginsGet({ String profile }) async
     test('test getDashboardPluginsApiDashboardPluginsGet', () async {
       // TODO
     });
@@ -786,7 +795,7 @@ void main() {
     //
     // Available themes + the active one. Built-ins ship name/label/description only (the frontend owns their definitions in `web/src/themes/presets.ts`); user themes from `~/.hermes/dashboard-themes/_*.yaml` ship their normalised `definition`.
     //
-    //Future<Object> getDashboardThemesApiDashboardThemesGet() async
+    //Future<Object> getDashboardThemesApiDashboardThemesGet({ String profile }) async
     test('test getDashboardThemesApiDashboardThemesGet', () async {
       // TODO
     });
@@ -802,7 +811,7 @@ void main() {
     //
     // Dashboard/Desktop-readable egress proxy status and remediation text.
     //
-    //Future<Object> getEgressStatusApiEgressStatusGet() async
+    //Future<Object> getEgressStatusApiEgressStatusGet({ String profile }) async
     test('test getEgressStatusApiEgressStatusGet', () async {
       // TODO
     });
@@ -825,7 +834,7 @@ void main() {
 
     // Get Health
     //
-    // Lightweight process liveness for desktop/backend readiness probes.
+    // Lightweight process liveness for desktop/backend readiness probes.  ``commit`` is the code this process BOOTED from (``get_version_info`` is cached at ``web_server`` import): Desktop refuses to attach to a backend whose commit differs from its checkout, so a serve that outlived ``hermes update`` is never re-adopted.
     //
     //Future<Object> getHealthApiHealthGet() async
     test('test getHealthApiHealthGet', () async {
@@ -845,8 +854,17 @@ void main() {
     //
     // Every platform with a home channel plus whether *task_id* (if given) is subscribed to it; without ``task_id`` every ``subscribed`` is false.
     //
-    //Future<Object> getHomeChannelsApiPluginsKanbanHomeChannelsGet({ String taskId, String board }) async
+    //Future<Object> getHomeChannelsApiPluginsKanbanHomeChannelsGet({ String taskId, String board, String profile }) async
     test('test getHomeChannelsApiPluginsKanbanHomeChannelsGet', () async {
+      // TODO
+    });
+
+    // Get Host Identity
+    //
+    // Prove to an attaching `hermes serve`/`dashboard` WHO owns this port.  The host rendezvous record names a (pid, port) owner, but a record cannot say whether that owner still holds the port: a graceful-shutdown window or an unrelated listener that inherited the port both look identical on disk. The attaching side dials this endpoint with the owner's 0600 token and attaches only when pid+role match. ``servesSpa`` is false for headless ``serve``, so a `hermes dashboard` user is never routed to a backend with no UI.
+    //
+    //Future<Object> getHostIdentityApiHostIdentityGet() async
+    test('test getHostIdentityApiHostIdentityGet', () async {
       // TODO
     });
 
@@ -870,7 +888,7 @@ void main() {
 
     // Get Logs
     //
-    //Future<Object> getLogsApiLogsGet({ String file, int lines, String level, String component, String search }) async
+    //Future<Object> getLogsApiLogsGet({ String file, int lines, String level, String component, String search, String profile }) async
     test('test getLogsApiLogsGet', () async {
       // TODO
     });
@@ -896,7 +914,7 @@ void main() {
 
     // Get Memory Status
     //
-    //Future<Object> getMemoryStatusApiMemoryGet() async
+    //Future<Object> getMemoryStatusApiMemoryGet({ String profile }) async
     test('test getMemoryStatusApiMemoryGet', () async {
       // TODO
     });
@@ -948,7 +966,7 @@ void main() {
     //
     // Current orchestration knobs from config.yaml plus the resolved effective values. An unset/unknown profile resolves to the active profile here; the decomposer prefers the root card's assignee in that case and uses the active profile only for cards with no assignee.
     //
-    //Future<Object> getOrchestrationSettingsApiPluginsKanbanOrchestrationGet() async
+    //Future<Object> getOrchestrationSettingsApiPluginsKanbanOrchestrationGet({ String profile }) async
     test(
       'test getOrchestrationSettingsApiPluginsKanbanOrchestrationGet',
       () async {
@@ -969,14 +987,14 @@ void main() {
     //
     // Unified agent plugins + dashboard extension metadata (session protected).
     //
-    //Future<Object> getPluginsHubApiDashboardPluginsHubGet() async
+    //Future<Object> getPluginsHubApiDashboardPluginsHubGet({ String profile }) async
     test('test getPluginsHubApiDashboardPluginsHubGet', () async {
       // TODO
     });
 
     // Get Portal Status
     //
-    //Future<Object> getPortalStatusApiPortalGet() async
+    //Future<Object> getPortalStatusApiPortalGet({ String profile }) async
     test('test getPortalStatusApiPortalGet', () async {
       // TODO
     });
@@ -1041,7 +1059,7 @@ void main() {
     //
     // Recommended default model for a freshly-authenticated provider, mirroring ``hermes model``'s curation so GUI onboarding lands on a sensible default. Nous honors the user's free/paid tier. Any other provider gets the preferred silent default when its curated list carries it, else the first curated model — aggregator lists lead with the priciest Anthropic flagship, which must never be the model a user lands on without explicitly picking it. Response: {\"provider\", \"model\", \"free_tier\": bool | None} — free_tier only for Nous; ``model`` may be empty (caller degrades gracefully).
     //
-    //Future<Object> getRecommendedDefaultModelApiModelRecommendedDefaultGet({ String provider }) async
+    //Future<Object> getRecommendedDefaultModelApiModelRecommendedDefaultGet({ String provider, String profile }) async
     test(
       'test getRecommendedDefaultModelApiModelRecommendedDefaultGet',
       () async {
@@ -1053,7 +1071,7 @@ void main() {
     //
     // ``{run: {...}}`` with the same serialisation as ``GET /tasks/{id}``; 404 if unknown.
     //
-    //Future<Object> getRunEndpointApiPluginsKanbanRunsRunIdGet(int runId, { String board }) async
+    //Future<Object> getRunEndpointApiPluginsKanbanRunsRunIdGet(int runId, { String board, String profile }) async
     test('test getRunEndpointApiPluginsKanbanRunsRunIdGet', () async {
       // TODO
     });
@@ -1084,7 +1102,7 @@ void main() {
 
     // Get Session Messages
     //
-    //Future<Object> getSessionMessagesApiSessionsSessionIdMessagesGet(String sessionId, { String profile, int limit, int offset, String order, bool includeCompacted }) async
+    //Future<Object> getSessionMessagesApiSessionsSessionIdMessagesGet(String sessionId, { String profile, int limit, int offset, String order, bool includeCompacted, bool inlineImages }) async
     test('test getSessionMessagesApiSessionsSessionIdMessagesGet', () async {
       // TODO
     });
@@ -1128,6 +1146,13 @@ void main() {
       // TODO
     });
 
+    // Get Shared Metrics Consent
+    //
+    //Future<Object> getSharedMetricsConsentApiSharedMetricsConsentGet({ String profile }) async
+    test('test getSharedMetricsConsentApiSharedMetricsConsentGet', () async {
+      // TODO
+    });
+
     // Get Skill Content
     //
     // Raw SKILL.md text for the dashboard editor.
@@ -1155,7 +1180,7 @@ void main() {
     //
     // Per-status + per-assignee counts + oldest-ready age (HUD and router profiles).
     //
-    //Future<Object> getStatsApiPluginsKanbanStatsGet({ String board }) async
+    //Future<Object> getStatsApiPluginsKanbanStatsGet({ String board, String profile }) async
     test('test getStatsApiPluginsKanbanStatsGet', () async {
       // TODO
     });
@@ -1180,7 +1205,7 @@ void main() {
 
     // Get Task
     //
-    //Future<Object> getTaskApiPluginsKanbanTasksTaskIdGet(String taskId, { String board, String runStateType, String runStateName }) async
+    //Future<Object> getTaskApiPluginsKanbanTasksTaskIdGet(String taskId, { String board, String runStateType, String runStateName, String profile }) async
     test('test getTaskApiPluginsKanbanTasksTaskIdGet', () async {
       // TODO
     });
@@ -1189,7 +1214,7 @@ void main() {
     //
     // Worker stdout/stderr log. ``tail`` caps the response bytes; 404 if the task never spawned. On-disk log rotates at 2 MiB with one ``.log.1`` kept.
     //
-    //Future<Object> getTaskLogApiPluginsKanbanTasksTaskIdLogGet(String taskId, { int tail, String board }) async
+    //Future<Object> getTaskLogApiPluginsKanbanTasksTaskIdLogGet(String taskId, { int tail, String board, String profile }) async
     test('test getTaskLogApiPluginsKanbanTasksTaskIdLogGet', () async {
       // TODO
     });
@@ -1266,6 +1291,15 @@ void main() {
     //
     //Future<Object> getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet(String pairingId) async
     test('test getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet', () async {
+      // TODO
+    });
+
+    // Get Workflow
+    //
+    // Board columns (order, label, icon, drag target) and the manual move allow-list. Every board uses the default workflow today; per-board workflows (``board.json``) arrive in a later phase behind this same shape.
+    //
+    //Future<Object> getWorkflowApiPluginsKanbanWorkflowGet({ String profile }) async
+    test('test getWorkflowApiPluginsKanbanWorkflowGet', () async {
       // TODO
     });
 
@@ -1434,7 +1468,7 @@ void main() {
     //
     // Import a board archive as a NEW board; return the landed board.
     //
-    //Future<Object> importBoardEndpointApiPluginsKanbanBoardsImportPost(ImportBoardBody importBoardBody) async
+    //Future<Object> importBoardEndpointApiPluginsKanbanBoardsImportPost(ImportBoardBody importBoardBody, { String profile }) async
     test('test importBoardEndpointApiPluginsKanbanBoardsImportPost', () async {
       // TODO
     });
@@ -1459,7 +1493,7 @@ void main() {
     //
     // Live psutil stats for a run's worker; ``{alive: false, reason}`` when unavailable and access-denied reported inline rather than as a 500.
     //
-    //Future<Object> inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(int runId, { String board }) async
+    //Future<Object> inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(int runId, { String board, String profile }) async
     test(
       'test inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet',
       () async {
@@ -1496,7 +1530,7 @@ void main() {
     //
     // Every running worker: an open ``task_runs`` row with a ``worker_pid`` whose task is ``running``. Returns ``{workers, count, checked_at}``.
     //
-    //Future<Object> listActiveWorkersApiPluginsKanbanWorkersActiveGet({ String board }) async
+    //Future<Object> listActiveWorkersApiPluginsKanbanWorkersActiveGet({ String board, String profile }) async
     test('test listActiveWorkersApiPluginsKanbanWorkersActiveGet', () async {
       // TODO
     });
@@ -1505,7 +1539,7 @@ void main() {
     //
     // Every board on disk with task counts and the active slug.
     //
-    //Future<Object> listBoardsApiPluginsKanbanBoardsGet({ bool includeArchived }) async
+    //Future<Object> listBoardsApiPluginsKanbanBoardsGet({ bool includeArchived, String profile }) async
     test('test listBoardsApiPluginsKanbanBoardsGet', () async {
       // TODO
     });
@@ -1514,23 +1548,23 @@ void main() {
     //
     // /rollback shadow-store checkpoints (read-only): count + size per session so the UI can show what a prune reclaims; pruning itself is a spawned CLI action so the confirmation logic stays in one place.
     //
-    //Future<Object> listCheckpointsApiOpsCheckpointsGet() async
+    //Future<Object> listCheckpointsApiOpsCheckpointsGet({ String profile }) async
     test('test listCheckpointsApiOpsCheckpointsGet', () async {
       // TODO
     });
 
     // List Credential Pool
     //
-    //Future<Object> listCredentialPoolApiCredentialsPoolGet() async
+    //Future<Object> listCredentialPoolApiCredentialsPoolGet({ String profile }) async
     test('test listCredentialPoolApiCredentialsPoolGet', () async {
       // TODO
     });
 
     // List Cron Blueprints
     //
-    // Blueprint catalog as form schemas; the ``deliver`` slot's options are rewritten from the actually configured gateway platforms.
+    // Blueprint catalog (built-ins + the profile's plugin blueprints) as form schemas.
     //
-    //Future<Object> listCronBlueprintsApiCronBlueprintsGet() async
+    //Future<Object> listCronBlueprintsApiCronBlueprintsGet({ String profile }) async
     test('test listCronBlueprintsApiCronBlueprintsGet', () async {
       // TODO
     });
@@ -1562,7 +1596,7 @@ void main() {
     //
     // Tasks with an active diagnostic, highest severity first then most recent; also consumed by ``hermes kanban diagnostics`` when the dashboard runs.
     //
-    //Future<Object> listDiagnosticsApiPluginsKanbanDiagnosticsGet({ String board, String severity }) async
+    //Future<Object> listDiagnosticsApiPluginsKanbanDiagnosticsGet({ String board, String severity, String profile }) async
     test('test listDiagnosticsApiPluginsKanbanDiagnosticsGet', () async {
       // TODO
     });
@@ -1571,7 +1605,7 @@ void main() {
     //
     // Configured shell hooks with consent (allowlist) status, whether the script is currently executable, and the valid hook events for the form.
     //
-    //Future<Object> listHooksApiOpsHooksGet() async
+    //Future<Object> listHooksApiOpsHooksGet({ String profile }) async
     test('test listHooksApiOpsHooksGet', () async {
       // TODO
     });
@@ -1580,7 +1614,7 @@ void main() {
     //
     // Live (non-archived) projects available for board scoping.
     //
-    //Future<Object> listKanbanProjectsApiPluginsKanbanProjectsGet() async
+    //Future<Object> listKanbanProjectsApiPluginsKanbanProjectsGet({ String profile }) async
     test('test listKanbanProjectsApiPluginsKanbanProjectsGet', () async {
       // TODO
     });
@@ -1594,9 +1628,9 @@ void main() {
 
     // List Mcp Catalog
     //
-    // Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for ``profile``. Opt-in app signals describe this backend machine, never the client or terminal sandbox.
+    // Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for ``profile``.
     //
-    //Future<Object> listMcpCatalogApiMcpCatalogGet({ String profile, bool detectApps }) async
+    //Future<Object> listMcpCatalogApiMcpCatalogGet({ String profile }) async
     test('test listMcpCatalogApiMcpCatalogGet', () async {
       // TODO
     });
@@ -1637,7 +1671,7 @@ void main() {
     //
     // Every installed profile with its description (profiles without one are still routable on name alone, just less precisely).
     //
-    //Future<Object> listProfileRosterApiPluginsKanbanProfilesGet() async
+    //Future<Object> listProfileRosterApiPluginsKanbanProfilesGet({ String profile }) async
     test('test listProfileRosterApiPluginsKanbanProfilesGet', () async {
       // TODO
     });
@@ -1660,7 +1694,7 @@ void main() {
 
     // List Task Attachments
     //
-    //Future<Object> listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(String taskId, { String board }) async
+    //Future<Object> listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(String taskId, { String board, String profile }) async
     test(
       'test listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet',
       () async {
@@ -1670,7 +1704,7 @@ void main() {
 
     // List Webhooks
     //
-    //Future<Object> listWebhooksApiWebhooksGet() async
+    //Future<Object> listWebhooksApiWebhooksGet({ String profile }) async
     test('test listWebhooksApiWebhooksGet', () async {
       // TODO
     });
@@ -1679,7 +1713,7 @@ void main() {
     //
     // Make a downloaded model the default for new chats: a config write via the same machinery as /api/model/set plus making sure the server is up. NO model loading (residency v2: models load on first inference; an empty router costs nothing). Kept as a job for UI continuity.
     //
-    //Future<Object> localModelsActivateApiLocalModelsActivatePost(ModelActivateBody modelActivateBody) async
+    //Future<Object> localModelsActivateApiLocalModelsActivatePost(ModelActivateBody modelActivateBody, { String profile }) async
     test('test localModelsActivateApiLocalModelsActivatePost', () async {
       // TODO
     });
@@ -1723,6 +1757,30 @@ void main() {
       },
     );
 
+    // Local Models Download Pause
+    //
+    // Pause the download phase of a model, component or quickstart job.
+    //
+    //Future<Object> localModelsDownloadPauseApiLocalModelsDownloadPausePost(JobIdBody jobIdBody) async
+    test(
+      'test localModelsDownloadPauseApiLocalModelsDownloadPausePost',
+      () async {
+        // TODO
+      },
+    );
+
+    // Local Models Download Resume
+    //
+    // Restart the same job; PM reuses verified files and durable ranges.
+    //
+    //Future<Object> localModelsDownloadResumeApiLocalModelsDownloadResumePost(JobIdBody jobIdBody) async
+    test(
+      'test localModelsDownloadResumeApiLocalModelsDownloadResumePost',
+      () async {
+        // TODO
+      },
+    );
+
     // Local Models Eject
     //
     // Free a loaded model's GPU memory now; only demand (the next message) reloads it — residency v2 has no automatic loading anywhere. Sync def: the fallback path blocks on a 120s urlopen — threadpool, never the loop.
@@ -1761,14 +1819,14 @@ void main() {
     //
     // One job: install the runtime (if missing), download this machine's build of the recommended model (if missing), make it the default. Each leg uses the same code as the individual setup routes. Preflight rejects (no automatic recommendation or no servable choice) fail the POST synchronously so the button can explain itself; everything slow runs in the job with phase/byte progress.
     //
-    //Future<Object> localModelsQuickstartApiLocalModelsQuickstartPost(QuickstartBody quickstartBody) async
+    //Future<Object> localModelsQuickstartApiLocalModelsQuickstartPost(QuickstartBody quickstartBody, { String profile }) async
     test('test localModelsQuickstartApiLocalModelsQuickstartPost', () async {
       // TODO
     });
 
     // Local Models Runtime Install
     //
-    //Future<Object> localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(RuntimeInstallBody runtimeInstallBody) async
+    //Future<Object> localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(RuntimeInstallBody runtimeInstallBody, { String profile }) async
     test(
       'test localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost',
       () async {
@@ -1858,7 +1916,7 @@ void main() {
     //
     // Providers + curated models for the override dropdown via ``inventory.build_models_payload`` (same substrate as the Models page) so it can't offer a pair Hermes rejects. Skips pricing and custom-provider probes: a slow/offline local endpoint must not hang the drawer.
     //
-    //Future<Object> modelOptionsApiPluginsKanbanModelOptionsGet() async
+    //Future<Object> modelOptionsApiPluginsKanbanModelOptionsGet({ String profile }) async
     test('test modelOptionsApiPluginsKanbanModelOptionsGet', () async {
       // TODO
     });
@@ -1887,6 +1945,18 @@ void main() {
     //Future<Object> pollOauthSessionApiProvidersOauthProviderIdPollSessionIdGet(String providerId, String sessionId, { String profile }) async
     test(
       'test pollOauthSessionApiProvidersOauthProviderIdPollSessionIdGet',
+      () async {
+        // TODO
+      },
+    );
+
+    // Post Agent Plugin Activate
+    //
+    // ``hermes plugins install`` / ``enable`` in another process asks this backend to load the plugin for ``home`` and hand its MCP servers and skills to that profile's open chats (``hermes_cli.plugins_activation.load_and_go_live``). ``home`` must be a profile this host serves.
+    //
+    //Future<Object> postAgentPluginActivateApiDashboardAgentPluginsActivatePost() async
+    test(
+      'test postAgentPluginActivateApiDashboardAgentPluginsActivatePost',
       () async {
         // TODO
       },
@@ -1943,7 +2013,7 @@ void main() {
     //
     // Toggle a plugin's sidebar visibility (persists to config.yaml dashboard.hidden_plugins).
     //
-    //Future<Object> postPluginVisibilityApiDashboardPluginsNameVisibilityPost(String name, PluginVisibilityBody pluginVisibilityBody) async
+    //Future<Object> postPluginVisibilityApiDashboardPluginsNameVisibilityPost(String name, PluginVisibilityBody pluginVisibilityBody, { String profile }) async
     test(
       'test postPluginVisibilityApiDashboardPluginsNameVisibilityPost',
       () async {
@@ -1969,9 +2039,18 @@ void main() {
       // TODO
     });
 
+    // Proxy Remote Media
+    //
+    // Fetch a remote image URL the gateway can reach but the client cannot (#74564), returning the same ``data_url`` shape as ``/api/media``. Only allowlisted image CDNs; the bytes stay behind the size cap.
+    //
+    //Future<Object> proxyRemoteMediaApiMediaProxyGet(String url) async
+    test('test proxyRemoteMediaApiMediaProxyGet', () async {
+      // TODO
+    });
+
     // Prune Checkpoints
     //
-    //Future<Object> pruneCheckpointsApiOpsCheckpointsPrunePost() async
+    //Future<Object> pruneCheckpointsApiOpsCheckpointsPrunePost({ String profile }) async
     test('test pruneCheckpointsApiOpsCheckpointsPrunePost', () async {
       // TODO
     });
@@ -1989,8 +2068,15 @@ void main() {
     //
     // Persist memory provider / context engine selection (writes config.yaml).
     //
-    //Future<Object> putPluginProvidersApiDashboardPluginProvidersPut(PluginProvidersPutBody pluginProvidersPutBody) async
+    //Future<Object> putPluginProvidersApiDashboardPluginProvidersPut(PluginProvidersPutBody pluginProvidersPutBody, { String profile }) async
     test('test putPluginProvidersApiDashboardPluginProvidersPut', () async {
+      // TODO
+    });
+
+    // Put Shared Metrics Consent
+    //
+    //Future<Object> putSharedMetricsConsentApiSharedMetricsConsentPut(ConsentAnswer consentAnswer, { String profile }) async
+    test('test putSharedMetricsConsentApiSharedMetricsConsentPut', () async {
       // TODO
     });
 
@@ -2005,7 +2091,7 @@ void main() {
     //
     // Reassign to another profile, optionally reclaiming first (``hermes kanban reassign <task_id> <profile> [--reclaim]``).
     //
-    //Future<Object> reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(String taskId, ReassignBody reassignBody, { String board }) async
+    //Future<Object> reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(String taskId, ReassignBody reassignBody, { String board, String profile }) async
     test(
       'test reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost',
       () async {
@@ -2015,7 +2101,7 @@ void main() {
 
     // Recent Unlocks
     //
-    //Future<Object> recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet() async
+    //Future<Object> recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet({ String profile }) async
     test(
       'test recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet',
       () async {
@@ -2027,7 +2113,7 @@ void main() {
     //
     // Release an active worker claim without waiting for the claim TTL (``hermes kanban reclaim <task_id> --reason ...``).
     //
-    //Future<Object> reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(String taskId, ReclaimBody reclaimBody, { String board }) async
+    //Future<Object> reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(String taskId, ReclaimBody reclaimBody, { String board, String profile }) async
     test(
       'test reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost',
       () async {
@@ -2037,7 +2123,7 @@ void main() {
 
     // Remove Attachment
     //
-    //Future<Object> removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(int attachmentId, { String board }) async
+    //Future<Object> removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(int attachmentId, { String board, String profile }) async
     test(
       'test removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete',
       () async {
@@ -2049,7 +2135,7 @@ void main() {
     //
     // Remove a pool entry (``index`` is 1-based, as listed).  Removal must be sticky: ``load_pool()`` re-seeds entries from their backing source (.env var, OAuth file, custom-provider config) on every call, so deleting only the row silently reverts on the next refresh. Dispatch through the same RemovalStep registry as ``hermes auth remove``: each source cleans its external state and suppresses ``(provider, source)`` so seeders skip it. Manual entries have no step — nothing external, and they aren't re-seeded.  See #55217.
     //
-    //Future<Object> removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(String provider, int index) async
+    //Future<Object> removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(String provider, int index, { String profile }) async
     test(
       'test removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete',
       () async {
@@ -2075,7 +2161,7 @@ void main() {
     //
     // Update display metadata / default workdir / project scope (slug is immutable).
     //
-    //Future<Object> renameBoardApiPluginsKanbanBoardsSlugPatch(String slug, RenameBoardBody renameBoardBody) async
+    //Future<Object> renameBoardApiPluginsKanbanBoardsSlugPatch(String slug, RenameBoardBody renameBoardBody, { String profile }) async
     test('test renameBoardApiPluginsKanbanBoardsSlugPatch', () async {
       // TODO
     });
@@ -2107,7 +2193,7 @@ void main() {
 
     // Rescan
     //
-    //Future<Object> rescanApiPluginsHermesAchievementsRescanPost() async
+    //Future<Object> rescanApiPluginsHermesAchievementsRescanPost({ String profile }) async
     test('test rescanApiPluginsHermesAchievementsRescanPost', () async {
       // TODO
     });
@@ -2123,14 +2209,14 @@ void main() {
 
     // Reset Memory
     //
-    //Future<Object> resetMemoryApiMemoryResetPost(MemoryReset memoryReset) async
+    //Future<Object> resetMemoryApiMemoryResetPost(MemoryReset memoryReset, { String profile }) async
     test('test resetMemoryApiMemoryResetPost', () async {
       // TODO
     });
 
     // Reset State
     //
-    //Future<Object> resetStateApiPluginsHermesAchievementsResetStatePost() async
+    //Future<Object> resetStateApiPluginsHermesAchievementsResetStatePost({ String profile }) async
     test('test resetStateApiPluginsHermesAchievementsResetStatePost', () async {
       // TODO
     });
@@ -2169,23 +2255,23 @@ void main() {
 
     // Run Backup
     //
-    //Future<Object> runBackupApiOpsBackupPost(BackupRequest backupRequest) async
+    //Future<Object> runBackupApiOpsBackupPost(BackupRequest backupRequest, { String profile }) async
     test('test runBackupApiOpsBackupPost', () async {
       // TODO
     });
 
     // Run Config Migrate
     //
-    //Future<Object> runConfigMigrateApiOpsConfigMigratePost() async
+    //Future<Object> runConfigMigrateApiOpsConfigMigratePost({ String profile }) async
     test('test runConfigMigrateApiOpsConfigMigratePost', () async {
       // TODO
     });
 
     // Run Curator
     //
-    // Trigger a curator review now (backgrounded; tail via action status).
+    // Trigger a curator review now (backgrounded; tail via action status). The curator archives and rewrites skills, so an unnamed target is refused while this backend serves several profiles.
     //
-    //Future<Object> runCuratorApiCuratorRunPost() async
+    //Future<Object> runCuratorApiCuratorRunPost({ String profile }) async
     test('test runCuratorApiCuratorRunPost', () async {
       // TODO
     });
@@ -2194,49 +2280,49 @@ void main() {
     //
     // Upload a redacted debug report + full logs and return the paste URLs. Synchronous, unlike the other diagnostics actions: the point is the shareable URLs, returned as a structured payload the dashboard renders as copyable links.
     //
-    //Future<Object> runDebugShareEndpointApiOpsDebugSharePost({ DebugShareRequest debugShareRequest }) async
+    //Future<Object> runDebugShareEndpointApiOpsDebugSharePost({ String profile, DebugShareRequest debugShareRequest }) async
     test('test runDebugShareEndpointApiOpsDebugSharePost', () async {
       // TODO
     });
 
     // Run Doctor
     //
-    //Future<Object> runDoctorApiOpsDoctorPost() async
+    //Future<Object> runDoctorApiOpsDoctorPost({ String profile }) async
     test('test runDoctorApiOpsDoctorPost', () async {
       // TODO
     });
 
     // Run Dump
     //
-    //Future<Object> runDumpApiOpsDumpPost() async
+    //Future<Object> runDumpApiOpsDumpPost({ String profile }) async
     test('test runDumpApiOpsDumpPost', () async {
       // TODO
     });
 
     // Run Import
     //
-    //Future<Object> runImportApiOpsImportPost(ImportRequest importRequest) async
+    //Future<Object> runImportApiOpsImportPost(ImportRequest importRequest, { String profile }) async
     test('test runImportApiOpsImportPost', () async {
       // TODO
     });
 
     // Run Import Upload
     //
-    //Future<Object> runImportUploadApiOpsImportUploadPost(MultipartFile file, { bool force }) async
+    //Future<Object> runImportUploadApiOpsImportUploadPost(MultipartFile file, { String profile, bool force }) async
     test('test runImportUploadApiOpsImportUploadPost', () async {
       // TODO
     });
 
     // Run Prompt Size
     //
-    //Future<Object> runPromptSizeApiOpsPromptSizePost() async
+    //Future<Object> runPromptSizeApiOpsPromptSizePost({ String profile }) async
     test('test runPromptSizeApiOpsPromptSizePost', () async {
       // TODO
     });
 
     // Run Security Audit
     //
-    //Future<Object> runSecurityAuditApiOpsSecurityAuditPost() async
+    //Future<Object> runSecurityAuditApiOpsSecurityAuditPost({ String profile }) async
     test('test runSecurityAuditApiOpsSecurityAuditPost', () async {
       // TODO
     });
@@ -2270,7 +2356,7 @@ void main() {
 
     // Scan Status
     //
-    //Future<Object> scanStatusApiPluginsHermesAchievementsScanStatusGet() async
+    //Future<Object> scanStatusApiPluginsHermesAchievementsScanStatusGet({ String profile }) async
     test('test scanStatusApiPluginsHermesAchievementsScanStatusGet', () async {
       // TODO
     });
@@ -2348,7 +2434,7 @@ void main() {
 
     // Session Badges
     //
-    //Future<Object> sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(String sessionId) async
+    //Future<Object> sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(String sessionId, { String profile }) async
     test('test sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet', () async {
       // TODO
     });
@@ -2364,7 +2450,7 @@ void main() {
 
     // Set Curator Paused
     //
-    //Future<Object> setCuratorPausedApiCuratorPausedPut(CuratorPause curatorPause) async
+    //Future<Object> setCuratorPausedApiCuratorPausedPut(CuratorPause curatorPause, { String profile }) async
     test('test setCuratorPausedApiCuratorPausedPut', () async {
       // TODO
     });
@@ -2373,7 +2459,7 @@ void main() {
     //
     // Set the font override (config.yaml). Unknown ids coerce to ``\"theme\"`` rather than 400 so a stale client can't wedge the picker.
     //
-    //Future<Object> setDashboardFontApiDashboardFontPut(FontSetBody fontSetBody) async
+    //Future<Object> setDashboardFontApiDashboardFontPut(FontSetBody fontSetBody, { String profile }) async
     test('test setDashboardFontApiDashboardFontPut', () async {
       // TODO
     });
@@ -2382,7 +2468,7 @@ void main() {
     //
     // Set the active dashboard theme (persists to config.yaml).
     //
-    //Future<Object> setDashboardThemeApiDashboardThemePut(ThemeSetBody themeSetBody) async
+    //Future<Object> setDashboardThemeApiDashboardThemePut(ThemeSetBody themeSetBody, { String profile }) async
     test('test setDashboardThemeApiDashboardThemePut', () async {
       // TODO
     });
@@ -2405,7 +2491,7 @@ void main() {
 
     // Set Memory Provider
     //
-    //Future<Object> setMemoryProviderApiMemoryProviderPut(MemoryProviderSelect memoryProviderSelect) async
+    //Future<Object> setMemoryProviderApiMemoryProviderPut(MemoryProviderSelect memoryProviderSelect, { String profile }) async
     test('test setMemoryProviderApiMemoryProviderPut', () async {
       // TODO
     });
@@ -2432,7 +2518,7 @@ void main() {
     //
     // Update orchestration knobs in config.yaml. Only fields explicitly passed are written; empty profile strings clear the override.
     //
-    //Future<Object> setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(OrchestrationSettingsBody orchestrationSettingsBody) async
+    //Future<Object> setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(OrchestrationSettingsBody orchestrationSettingsBody, { String profile }) async
     test(
       'test setOrchestrationSettingsApiPluginsKanbanOrchestrationPut',
       () async {
@@ -2444,14 +2530,14 @@ void main() {
     //
     // Disabled routes stay on disk (re-enable later) but the gateway rejects their events with 403; it hot-reloads the file, so no restart is needed.
     //
-    //Future<Object> setWebhookEnabledApiWebhooksNameEnabledPut(String name, WebhookEnabledToggle webhookEnabledToggle) async
+    //Future<Object> setWebhookEnabledApiWebhooksNameEnabledPut(String name, WebhookEnabledToggle webhookEnabledToggle, { String profile }) async
     test('test setWebhookEnabledApiWebhooksNameEnabledPut', () async {
       // TODO
     });
 
     // Setup Memory Provider
     //
-    //Future<Object> setupMemoryProviderApiMemoryProvidersNameSetupPost(String name, MemoryProviderSetupRequest memoryProviderSetupRequest) async
+    //Future<Object> setupMemoryProviderApiMemoryProvidersNameSetupPost(String name, MemoryProviderSetupRequest memoryProviderSetupRequest, { String profile }) async
     test('test setupMemoryProviderApiMemoryProvidersNameSetupPost', () async {
       // TODO
     });
@@ -2469,7 +2555,7 @@ void main() {
     //
     // Flesh out a triage task via the auxiliary LLM (``hermes kanban specify``). Non-OK is NOT an HTTP error — the UI renders the reason inline. Sync ``def`` → runs in the threadpool.
     //
-    //Future<Object> specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(String taskId, SpecifyBody specifyBody, { String board }) async
+    //Future<Object> specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(String taskId, SpecifyBody specifyBody, { String board, String profile }) async
     test(
       'test specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost',
       () async {
@@ -2550,6 +2636,15 @@ void main() {
       // TODO
     });
 
+    // Stt Lease
+    //
+    // Desktop voice-input sessions as STT warm-up / release signals.  ``active: true`` registers a lease and pre-loads the configured local STT model (first-use download + load) so the transcription request doesn't pay the cold cost inside its timeout; ``active: false`` drops the lease. The model stays resident after the last release — it is shared with the gateway/CLI surfaces in this process, and ``stt.local.unload_after_idle_seconds`` still governs eviction. Blocking work runs off the event loop. Warm-up failures are reported in the body, never as an HTTP error — recording must start even when preload fails.
+    //
+    //Future<Object> sttLeaseApiAudioSttLeasePost(STTLeaseRequest sTTLeaseRequest, { String profile }) async
+    test('test sttLeaseApiAudioSttLeasePost', () async {
+      // TODO
+    });
+
     // Submit Oauth Code
     //
     // Submit the auth code for PKCE flows. Token-protected.
@@ -2563,7 +2658,7 @@ void main() {
     //
     // Subscribe *task_id* to *platform*'s home channel. Idempotent at the DB layer; 404 when the platform has no home or the task doesn't exist.
     //
-    //Future<Object> subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(String taskId, String platform, { String board }) async
+    //Future<Object> subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(String taskId, String platform, { String board, String profile }) async
     test(
       'test subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost',
       () async {
@@ -2575,7 +2670,7 @@ void main() {
     //
     // Persist ``slug`` as the active board for CLI / slash-command parity (dashboard users pick boards client-side via localStorage).
     //
-    //Future<Object> switchBoardApiPluginsKanbanBoardsSlugSwitchPost(String slug) async
+    //Future<Object> switchBoardApiPluginsKanbanBoardsSlugSwitchPost(String slug, { String profile }) async
     test('test switchBoardApiPluginsKanbanBoardsSlugSwitchPost', () async {
       // TODO
     });
@@ -2584,7 +2679,7 @@ void main() {
     //
     // Terminate an in-flight run via ``reclaim_task`` (same SIGTERM->SIGKILL flow, bookkeeping and events as ``POST /tasks/{id}/reclaim``); 409 if already ended / not reclaimable.  Closes the gap left by PR #28432, which shipped the read-only sibling endpoints (``/workers/active``, ``/runs/{run_id}``, ``/runs/{run_id}/inspect``) but no termination control surface.
     //
-    //Future<Object> terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(int runId, TerminateRunBody terminateRunBody, { String board }) async
+    //Future<Object> terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(int runId, TerminateRunBody terminateRunBody, { String board, String profile }) async
     test(
       'test terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost',
       () async {
@@ -2661,7 +2756,7 @@ void main() {
     //
     // Remove any notify subscription on *task_id* matching *platform*'s home.
     //
-    //Future<Object> unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(String taskId, String platform, { String board }) async
+    //Future<Object> unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(String taskId, String platform, { String board, String profile }) async
     test('test unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete', () async {
       // TODO
     });
@@ -2698,9 +2793,9 @@ void main() {
 
     // Update Learning Node
     //
-    // Rewrite a journey node's content (SKILL.md or memory chunk).
+    // Rewrite a journey node's content (SKILL.md or memory chunk); profile as for DELETE.
     //
-    //Future<Object> updateLearningNodeApiLearningNodePut(LearningNodeEdit learningNodeEdit) async
+    //Future<Object> updateLearningNodeApiLearningNodePut(LearningNodeEdit learningNodeEdit, { String profile }) async
     test('test updateLearningNodeApiLearningNodePut', () async {
       // TODO
     });
@@ -2729,7 +2824,7 @@ void main() {
     //
     // Set (``description_auto: false`` so the auto-describer won't overwrite it without ``--overwrite``) or clear (empty string) a profile's description.
     //
-    //Future<Object> updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(String profileName, DescribeBody describeBody) async
+    //Future<Object> updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(String profileName, DescribeBody describeBody, { String profile }) async
     test(
       'test updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch',
       () async {
@@ -2769,7 +2864,7 @@ void main() {
     //
     // Replace the SKILL.md of an existing skill (full rewrite) from the editor.
     //
-    //Future<Object> updateSkillContentApiSkillsContentPut(SkillContentUpdate skillContentUpdate) async
+    //Future<Object> updateSkillContentApiSkillsContentPut(SkillContentUpdate skillContentUpdate, { String profile }) async
     test('test updateSkillContentApiSkillsContentPut', () async {
       // TODO
     });
@@ -2783,7 +2878,7 @@ void main() {
 
     // Update Task
     //
-    //Future<Object> updateTaskApiPluginsKanbanTasksTaskIdPatch(String taskId, UpdateTaskBody updateTaskBody, { String board }) async
+    //Future<Object> updateTaskApiPluginsKanbanTasksTaskIdPatch(String taskId, UpdateTaskBody updateTaskBody, { String board, String profile }) async
     test('test updateTaskApiPluginsKanbanTasksTaskIdPatch', () async {
       // TODO
     });
@@ -2817,7 +2912,7 @@ void main() {
     //
     // Store an upload under ``attachments_root(board)/<task_id>/`` (sanitised, collision-resolved name; ``_safe_attachment_name`` ValueError → 400) and record it.
     //
-    //Future<Object> uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(String taskId, MultipartFile file, { String board, String uploadedBy }) async
+    //Future<Object> uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(String taskId, MultipartFile file, { String board, String profile, String uploadedBy }) async
     test(
       'test uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost',
       () async {

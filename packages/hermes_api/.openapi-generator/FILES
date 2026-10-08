@@ -13,12 +13,14 @@ doc/BulkTaskBody.md
 doc/ChatImageUpload.md
 doc/CommentBody.md
 doc/ConfigUpdate.md
+doc/ConsentAnswer.md
 doc/CreateBoardBody.md
 doc/CreateTaskBody.md
 doc/CredentialPoolAdd.md
 doc/CronJobCreate.md
 doc/CronJobUpdate.md
 doc/CuratorPause.md
+doc/CustomEndpointModelDetail.md
 doc/CustomEndpointUpdate.md
 doc/DebugShareRequest.md
 doc/DecomposeBody.md
@@ -44,6 +46,7 @@ doc/HookCreate.md
 doc/HookDelete.md
 doc/ImportBoardBody.md
 doc/ImportRequest.md
+doc/JobIdBody.md
 doc/LearningNodeEdit.md
 doc/LearningNodeRef.md
 doc/LinkBody.md
@@ -90,6 +93,7 @@ doc/ReassignBody.md
 doc/ReclaimBody.md
 doc/RenameBoardBody.md
 doc/RuntimeInstallBody.md
+doc/STTLeaseRequest.md
 doc/ServerActionBody.md
 doc/SessionOwnerBackfill.md
 doc/SessionPrScanBody.md
@@ -141,12 +145,14 @@ lib/src/model/bulk_task_body.dart
 lib/src/model/chat_image_upload.dart
 lib/src/model/comment_body.dart
 lib/src/model/config_update.dart
+lib/src/model/consent_answer.dart
 lib/src/model/create_board_body.dart
 lib/src/model/create_task_body.dart
 lib/src/model/credential_pool_add.dart
 lib/src/model/cron_job_create.dart
 lib/src/model/cron_job_update.dart
 lib/src/model/curator_pause.dart
+lib/src/model/custom_endpoint_model_detail.dart
 lib/src/model/custom_endpoint_update.dart
 lib/src/model/debug_share_request.dart
 lib/src/model/decompose_body.dart
@@ -171,6 +177,7 @@ lib/src/model/hook_delete.dart
 lib/src/model/http_validation_error.dart
 lib/src/model/import_board_body.dart
 lib/src/model/import_request.dart
+lib/src/model/job_id_body.dart
 lib/src/model/learning_node_edit.dart
 lib/src/model/learning_node_ref.dart
 lib/src/model/link_body.dart
@@ -230,6 +237,7 @@ lib/src/model/skill_toggle.dart
 lib/src/model/skill_uninstall_request.dart
 lib/src/model/skills_update_request.dart
 lib/src/model/specify_body.dart
+lib/src/model/stt_lease_request.dart
 lib/src/model/telegram_onboarding_apply.dart
 lib/src/model/telegram_onboarding_start.dart
 lib/src/model/terminal_backend_select.dart
@@ -260,12 +268,14 @@ test/bulk_task_body_test.dart
 test/chat_image_upload_test.dart
 test/comment_body_test.dart
 test/config_update_test.dart
+test/consent_answer_test.dart
 test/create_board_body_test.dart
 test/create_task_body_test.dart
 test/credential_pool_add_test.dart
 test/cron_job_create_test.dart
 test/cron_job_update_test.dart
 test/curator_pause_test.dart
+test/custom_endpoint_model_detail_test.dart
 test/custom_endpoint_update_test.dart
 test/debug_share_request_test.dart
 test/decompose_body_test.dart
@@ -291,6 +301,7 @@ test/hook_delete_test.dart
 test/http_validation_error_test.dart
 test/import_board_body_test.dart
 test/import_request_test.dart
+test/job_id_body_test.dart
 test/learning_node_edit_test.dart
 test/learning_node_ref_test.dart
 test/link_body_test.dart
@@ -350,6 +361,7 @@ test/skill_toggle_test.dart
 test/skill_uninstall_request_test.dart
 test/skills_update_request_test.dart
 test/specify_body_test.dart
+test/stt_lease_request_test.dart
 test/telegram_onboarding_apply_test.dart
 test/telegram_onboarding_start_test.dart
 test/terminal_backend_select_test.dart

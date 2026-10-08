@@ -15,6 +15,8 @@ abstract class _$EnvVarUpdateCWProxy {
 
   EnvVarUpdate apiKey(String? apiKey);
 
+  EnvVarUpdate providerSetup(bool? providerSetup);
+
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
   /// Usage
@@ -26,6 +28,7 @@ abstract class _$EnvVarUpdateCWProxy {
     String value,
     String? profile,
     String? apiKey,
+    bool? providerSetup,
   });
 }
 
@@ -48,6 +51,10 @@ class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
   EnvVarUpdate apiKey(String? apiKey) => this(apiKey: apiKey);
 
   @override
+  EnvVarUpdate providerSetup(bool? providerSetup) =>
+      this(providerSetup: providerSetup);
+
+  @override
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `EnvVarUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
   /// Usage
@@ -59,6 +66,7 @@ class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
     Object? value = const $CopyWithPlaceholder(),
     Object? profile = const $CopyWithPlaceholder(),
     Object? apiKey = const $CopyWithPlaceholder(),
+    Object? providerSetup = const $CopyWithPlaceholder(),
   }) {
     return EnvVarUpdate(
       key: key == const $CopyWithPlaceholder()
@@ -77,6 +85,10 @@ class _$EnvVarUpdateCWProxyImpl implements _$EnvVarUpdateCWProxy {
           ? _value.apiKey
           // ignore: cast_nullable_to_non_nullable
           : apiKey as String?,
+      providerSetup: providerSetup == const $CopyWithPlaceholder()
+          ? _value.providerSetup
+          // ignore: cast_nullable_to_non_nullable
+          : providerSetup as bool?,
     );
   }
 }
@@ -91,17 +103,22 @@ extension $EnvVarUpdateCopyWith on EnvVarUpdate {
 // JsonSerializableGenerator
 // **************************************************************************
 
-EnvVarUpdate _$EnvVarUpdateFromJson(Map<String, dynamic> json) =>
-    $checkedCreate('EnvVarUpdate', json, ($checkedConvert) {
-      $checkKeys(json, requiredKeys: const ['key', 'value']);
-      final val = EnvVarUpdate(
-        key: $checkedConvert('key', (v) => v as String),
-        value: $checkedConvert('value', (v) => v as String),
-        profile: $checkedConvert('profile', (v) => v as String?),
-        apiKey: $checkedConvert('api_key', (v) => v as String? ?? ''),
-      );
-      return val;
-    }, fieldKeyMap: const {'apiKey': 'api_key'});
+EnvVarUpdate _$EnvVarUpdateFromJson(
+  Map<String, dynamic> json,
+) => $checkedCreate('EnvVarUpdate', json, ($checkedConvert) {
+  $checkKeys(json, requiredKeys: const ['key', 'value']);
+  final val = EnvVarUpdate(
+    key: $checkedConvert('key', (v) => v as String),
+    value: $checkedConvert('value', (v) => v as String),
+    profile: $checkedConvert('profile', (v) => v as String?),
+    apiKey: $checkedConvert('api_key', (v) => v as String? ?? ''),
+    providerSetup: $checkedConvert(
+      'provider_setup',
+      (v) => v as bool? ?? false,
+    ),
+  );
+  return val;
+}, fieldKeyMap: const {'apiKey': 'api_key', 'providerSetup': 'provider_setup'});
 
 Map<String, dynamic> _$EnvVarUpdateToJson(EnvVarUpdate instance) =>
     <String, dynamic>{
@@ -109,4 +126,5 @@ Map<String, dynamic> _$EnvVarUpdateToJson(EnvVarUpdate instance) =>
       'value': instance.value,
       'profile': ?instance.profile,
       'api_key': ?instance.apiKey,
+      'provider_setup': ?instance.providerSetup,
     };
