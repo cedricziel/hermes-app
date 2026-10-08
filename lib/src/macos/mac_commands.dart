@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -125,23 +127,31 @@ class MacCommandRegistry extends ChangeNotifier {
     };
     if (mapEquals(shown, _shown)) return;
     _shown = shown;
-    _scheduleNotify();
+    _scheduleNotify(fromScope: true);
   }
 
   // A scope registers while it builds, when the menu bar above it cannot be
-  // marked for rebuilding, so the news waits for the end of the frame.
-  void _scheduleNotify() {
+  // marked for rebuilding, so the news waits for the end of the frame. The
+  // first build at start-up runs outside any frame, so there it waits for the
+  // build to return instead.
+  void _scheduleNotify({bool fromScope = false}) {
     final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase != SchedulerPhase.persistentCallbacks) {
+    if (phase != SchedulerPhase.persistentCallbacks && !fromScope) {
       notifyListeners();
       return;
     }
     if (_notifyScheduled) return;
     _notifyScheduled = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
+    void notify() {
       _notifyScheduled = false;
       if (!_disposed) notifyListeners();
-    });
+    }
+
+    if (phase == SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => notify());
+    } else {
+      scheduleMicrotask(notify);
+    }
   }
 }
 

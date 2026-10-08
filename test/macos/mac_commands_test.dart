@@ -160,4 +160,20 @@ void main() {
     registry.windows = const [];
     expect(notified, 2);
   });
+
+  test('a scope registering outside a frame, as the first build at start-up '
+      'does, notifies once that build is done', () async {
+    final registration = registry.register({
+      MacCommand.pinThread: MacCommandHandler(() {}),
+    });
+    expect(notified, 0);
+
+    await Future<void>.delayed(Duration.zero);
+    expect(notified, 1);
+
+    registration.dispose();
+    expect(notified, 1);
+    await Future<void>.delayed(Duration.zero);
+    expect(notified, 2);
+  });
 }
