@@ -189,6 +189,15 @@ final class ThreadTitled extends ChatEvent {
   final String title;
 }
 
+/// Hermes' background review of the last reply saved something: memories,
+/// the user profile or skills. It runs after the turn has ended.
+final class ReviewSummarized extends ChatEvent {
+  const ReviewSummarized(this.items);
+
+  /// One entry per change, such as "Memory updated".
+  final List<String> items;
+}
+
 /// The agent is waiting for the user's consent to run something.
 final class ApprovalRequested extends ChatEvent {
   const ApprovalRequested(this.request);

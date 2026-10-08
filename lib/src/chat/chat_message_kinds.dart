@@ -13,6 +13,7 @@ const String kKindThinking = 'thinking';
 const String kKindInputRequest = 'input_request';
 const String kKindReasoning = 'reasoning';
 const String kKindSubagents = 'subagents';
+const String kKindReviewSummary = 'review_summary';
 
 /// Metadata keys. A `kKindToolGroup` message carries `calls` (a
 /// `List<ToolCall>`): a run of one or more calls the agent made back to back,
@@ -40,6 +41,10 @@ const String kMetaReasoningActive = 'active';
 /// Carried by a `kKindSubagents` message: the reply's [Subagent]s, a
 /// `List<Subagent>`.
 const String kMetaSubagents = 'subagents';
+
+/// Carried by a `kKindReviewSummary` message: what the background review
+/// saved after the reply, a `List<String>`.
+const String kMetaReviewItems = 'items';
 
 /// `metadata` keys on a reply's `TextMessage`: why it failed, or that it is
 /// still being written and so has no actions yet.

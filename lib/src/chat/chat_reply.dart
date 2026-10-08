@@ -218,6 +218,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
           expireInputRequests(reply, requestId: id);
         }
       }
+    case ReviewSummarized(:final items):
+      reply.reviewNotes = {...reply.reviewNotes, ...items}.toList();
     case ReplyStarted() ||
         ThreadBound() ||
         ThreadTitled() ||

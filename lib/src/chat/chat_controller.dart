@@ -1618,6 +1618,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadTitled(:final title):
         if (!thread.isCanonicalBotChat) thread.title = title;
         notifyListeners();
+      case ReviewSummarized():
+        _onReviewSummary(thread, event);
       case ThreadNeedsRefetch():
         _refetch.add(thread);
         _refetchIfIdle(thread);
@@ -1635,6 +1637,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         settled.settledWithoutCompletion = false;
       default:
         break;
+    }
+  }
+
+  /// Puts what the background review saved under the reply it read: the
+  /// latest one that has finished. The review runs after its turn, so a reply
+  /// still being written ([open]) is the next turn's.
+  void _onReviewSummary(
+    ChatThread thread,
+    ReviewSummarized event, {
+    ChatMessage? open,
+  }) {
+    for (final message in thread.messages.reversed) {
+      if (message.role != ChatRole.assistant) continue;
+      if (identical(message, open) || message.isPending) continue;
+      _updateReply(thread, message, () => applyReplyEvent(message, event));
+      return;
     }
   }
 
@@ -1719,6 +1737,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
       case ThreadNeedsRefetch():
         _refetch.add(thread);
+      case ReviewSummarized():
+        _onReviewSummary(thread, event, open: reply);
       case ReplyErrored() ||
           ReplyStatus() ||
           InputRequestsCancelled() ||

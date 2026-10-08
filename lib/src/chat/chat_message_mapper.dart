@@ -160,6 +160,16 @@ List<Message> chatMessageToFlyer(ChatMessage m) {
       ),
     for (final (i, attachment) in media.attachments.indexed)
       _attachmentMessage('${m.id}-media-$i', authorId, createdAt, attachment),
+    if (m.reviewNotes.isNotEmpty)
+      CustomMessage(
+        id: '${m.id}-review',
+        authorId: authorId,
+        createdAt: createdAt,
+        metadata: {
+          kMetaKind: kKindReviewSummary,
+          kMetaReviewItems: m.reviewNotes,
+        },
+      ),
     if (showThinking)
       CustomMessage(
         id: '${m.id}-thinking',

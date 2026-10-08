@@ -397,6 +397,22 @@ void main() {
       await tester.pump();
       await shots.capture(tester, 'copied');
       expect(copied, [answer]);
+
+      reply.finish();
+      await runFrames(tester);
+      transport.followUpStreams['s1']!.emit(
+        const ReviewSummarized([
+          'Memory updated',
+          "Skill 'cert-rotation' patched",
+        ]),
+      );
+      await runFrames(tester);
+      await toBottom(tester);
+      await shots.capture(tester, 'review-saved');
+      expect(
+        find.text("Memory updated · Skill 'cert-rotation' patched"),
+        findsOneWidget,
+      );
     });
   }
 

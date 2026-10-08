@@ -50,8 +50,8 @@ const notifications = <String, (Use, String)>{
   'subagent.complete': (Use.shown, 'subagent row'),
   'gateway.ready': (Use.transport, 'replay epoch'),
   'review.summary': (
-    Use.gap,
-    'memory and skill saves by the background review',
+    Use.shown,
+    'what the background review saved, under the reply',
   ),
   'tool.output_risk': (Use.gap, 'tool output flagged for injection or secrets'),
   'todo.updated': (Use.gap, 'todo snapshot; the todo tool card covers most'),
@@ -134,6 +134,7 @@ const refusedRequests = <String, String>{
 
 /// A payload the mapper shows, for frames it drops when the payload is empty.
 const samples = <String, Map<String, Object?>>{
+  'review.summary': {'text': 'Memory updated'},
   'status.update': {'kind': 'compacting', 'text': 'compacting'},
   'subagent.spawn_requested': {'subagent_id': 'c1', 'goal': 'g'},
   'subagent.start': {'subagent_id': 'c1', 'goal': 'g'},

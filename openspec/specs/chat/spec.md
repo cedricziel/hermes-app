@@ -1458,3 +1458,17 @@ The system SHALL show what a thinking reply waits on in place of "Thinking…": 
 
 - **WHEN** `status.update` arrives with a kind other than `compacting`
 - **THEN** the indicator is unchanged
+
+### Requirement: What the background review saved
+
+After a turn ends, Hermes may read the reply back and save memories, the user profile or skills, and it reports what it saved with `review.summary`. The system SHALL show that report under the latest finished reply of the thread, never under a reply still being written, as a muted row with a memory icon and the changes joined by " · ". It SHALL leave out the leading glyph and the label before the first ": ", and SHALL show nothing for a report with no changes. The row is not stored in the history, so it is gone after the thread is read again.
+
+#### Scenario: A memory is saved after the reply
+
+- **WHEN** a reply completed and `review.summary` arrives with "💾 Self-improvement review: Memory updated · Skill 'x' patched"
+- **THEN** a row under that reply reads "Memory updated · Skill 'x' patched"
+
+#### Scenario: The next turn is already running
+
+- **WHEN** `review.summary` arrives while the next reply of the thread is streaming
+- **THEN** the row goes under the reply before it, which the review read
