@@ -19,6 +19,10 @@ class FakeGateway {
 
   var _handedOut = false;
 
+  /// Whether the current socket is open. Events recorded while it is down
+  /// only reach the replay ring.
+  var _socketOpen = false;
+
   /// Every request received, in order.
   final requests = <Map<String, Object?>>[];
 
@@ -28,9 +32,16 @@ class FakeGateway {
   StreamChannel<String> get channel => _wire.local;
 
   void _open() {
-    _wire = StreamChannelController<String>();
-    _closedByClient = Completer<void>();
-    _wire.foreign.stream.listen(_onFrame, onDone: _closedByClient.complete);
+    final wire = _wire = StreamChannelController<String>();
+    final closed = _closedByClient = Completer<void>();
+    _socketOpen = true;
+    wire.foreign.stream.listen(
+      _onFrame,
+      onDone: () {
+        if (identical(_wire, wire)) _socketOpen = false;
+        closed.complete();
+      },
+    );
   }
 
   /// Opens a socket for the app. The first call gives the socket the
@@ -50,10 +61,25 @@ class FakeGateway {
   /// Whether a connect sends `gateway.ready` carrying [epoch].
   bool sendReady = false;
 
-  String epoch = 'epoch-1';
+  var _epoch = 'epoch-1';
+
+  String get epoch => _epoch;
+
+  /// A new epoch is a restarted server: its seqs count from 1 again and its
+  /// replay ring is empty.
+  set epoch(String value) {
+    if (value == _epoch) return;
+    _epoch = value;
+    _seqs.clear();
+    _ring.clear();
+  }
 
   /// Whether `session.events.since` reports that the replay was truncated.
   bool truncateReplay = false;
+
+  /// When set, `session.events.since` is answered only once this completes,
+  /// with the ring as it is then.
+  Completer<void>? holdEventsAnswer;
 
   /// The `open_requests` `session.events.since` reports.
   List<Object?> openRequests = const [];
@@ -76,6 +102,10 @@ class FakeGateway {
   /// Runs after a `session.resume` request arrives and before it is answered,
   /// to send events that reach the app ahead of the answer.
   void Function(FakeGateway gateway)? beforeResumeAnswer;
+
+  /// Runs after a `session.events.since` request arrives and before it is
+  /// answered, so the events it sends are in the answer's replay.
+  void Function(FakeGateway gateway)? beforeEventsAnswer;
 
   /// Runs after a `prompt.submit` request arrives and before it is answered,
   /// to send events that reach the app ahead of the submit answer.
@@ -196,10 +226,17 @@ class FakeGateway {
     'params': {'session_id': sessionId, ...params},
   });
 
-  void drop() => _wire.foreign.sink.close();
+  /// Closes the current socket, as the network does. Frames sent while it is
+  /// down are dropped, and the ring still keeps the events.
+  void drop() {
+    _socketOpen = false;
+    _wire.foreign.sink.close();
+  }
 
-  void _send(Map<String, Object?> message) =>
-      _wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));
+  void _send(Map<String, Object?> message) {
+    if (!_socketOpen) return;
+    _wire.foreign.sink.add(jsonEncode({'jsonrpc': '2.0', ...message}));
+  }
 
   void _onFrame(String frame) {
     final request = jsonDecode(frame) as Map<String, Object?>;
@@ -233,25 +270,41 @@ class FakeGateway {
                   'error': {'code': 4007, 'message': 'session not found'},
                 },
         );
-      case 'session.events.since':
-        final replaySid = params['session_id'] as String;
-        final lastSeen = (params['last_seen'] as num?)?.toInt() ?? 0;
-        final replayRing = _ring[replaySid] ?? const <Map<String, Object?>>[];
-        final missed = [
-          for (final sent in replayRing)
-            if ((sent['seq'] as int) > lastSeen) sent,
-        ];
+      case 'session.events.since'
+          when unknownMethods.contains('session.events.since'):
         _send({
           'id': id,
-          'result': {
-            'events': missed,
-            'latest_seq': _seqs[replaySid] ?? 0,
-            'truncated': truncateReplay,
-            'count': missed.length,
-            'epoch': epoch,
-            'open_requests': openRequests,
-          },
+          'error': {'code': -32601, 'message': 'unknown method'},
         });
+      case 'session.events.since':
+        beforeEventsAnswer?.call(this);
+        void answerSince() {
+          final replaySid = params['session_id'] as String;
+          final lastSeen = (params['last_seen'] as num?)?.toInt() ?? 0;
+          final replayRing = _ring[replaySid] ?? const <Map<String, Object?>>[];
+          final missed = [
+            for (final sent in replayRing)
+              if ((sent['seq'] as int) > lastSeen) sent,
+          ];
+          _send({
+            'id': id,
+            'result': {
+              'events': missed,
+              'latest_seq': _seqs[replaySid] ?? 0,
+              'truncated': truncateReplay,
+              'count': missed.length,
+              'epoch': epoch,
+              'open_requests': openRequests,
+            },
+          });
+        }
+
+        final hold = holdEventsAnswer;
+        if (hold == null) {
+          answerSince();
+        } else {
+          unawaited(hold.future.then((_) => answerSince()));
+        }
       case 'gateway.ping' when pingUnknown:
         _send({
           'id': id,

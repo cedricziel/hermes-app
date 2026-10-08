@@ -102,7 +102,6 @@ void main() {
           latestSeq: 12,
         ),
         parked: [for (var i = 11; i <= 13; i++) _event('s', i)],
-        connectionEpoch: null,
       );
       expect(_seqs(decision), [8, 9, 10, 11, 12, 13]);
       expect(ledger.lastSeen('s'), 13);
@@ -123,7 +122,6 @@ void main() {
           ],
         ),
         parked: const [],
-        connectionEpoch: null,
       );
       final events = (decision as Deliver).events;
       expect(events, hasLength(1));
@@ -143,7 +141,6 @@ void main() {
           latestSeq: 50,
         ),
         parked: const [],
-        connectionEpoch: null,
       );
       expect(decision, isA<Refetch>());
       expect(ledger.lastSeen('s'), 7);
@@ -155,13 +152,11 @@ void main() {
         sid: 's',
         result: _result(events: const [], truncated: true, latestSeq: 50),
         parked: const [],
-        connectionEpoch: null,
       );
       final decision = ledger.merge(
         sid: 's',
         result: _result(events: const []),
         parked: [_event('s', 8), _event('s', 9)],
-        connectionEpoch: null,
       );
       expect(_seqs(decision), [8, 9]);
     });
@@ -172,56 +167,97 @@ void main() {
         sid: 's',
         result: _result(events: const [], truncated: true, latestSeq: 50),
         parked: const [],
-        connectionEpoch: 'e1',
       );
       expect(ledger.lastSeen('s'), isNot(50));
       expect(ledger.lastSeen('s'), 7);
     });
 
-    test('epoch differing from connectionEpoch returns Refetch and clears every watermark', () {
+    test('an answer from another epoch than the watermark was recorded at returns Refetch and clears every watermark', () {
       final ledger = ReplayLedger()
-        ..observe('a', 5)
-        ..observe('b', 9);
+        ..observe('a', 5, epoch: 'old')
+        ..observe('b', 9, epoch: 'old');
       final decision = ledger.merge(
         sid: 'a',
         result: _result(events: [_replayElement('a', 6)], epoch: 'new'),
         parked: const [],
-        connectionEpoch: 'old',
       );
       expect(decision, isA<Refetch>());
       expect(ledger.lastSeen('a'), 0);
       expect(ledger.lastSeen('b'), 0);
+      expect(ledger.epochOf('a'), isNull);
     });
 
+    test(
+      'an epoch mismatch clears only the sessions recorded at another epoch',
+      () {
+        final ledger = ReplayLedger()
+          ..observe('a', 5, epoch: 'old')
+          ..observe('b', 9, epoch: 'new');
+        final decision = ledger.merge(
+          sid: 'a',
+          result: _result(events: const [], epoch: 'new'),
+          parked: const [],
+        );
+        expect(decision, isA<Refetch>());
+        expect(ledger.lastSeen('a'), 0);
+        expect(ledger.lastSeen('b'), 9);
+      },
+    );
+
+    test('observe drops a watermark recorded at another epoch', () {
+      final ledger = ReplayLedger()..observe('s', 9, epoch: 'old');
+      expect(ledger.observe('s', 1, epoch: 'new'), isTrue);
+      expect(ledger.lastSeen('s'), 1);
+      expect(ledger.epochOf('s'), 'new');
+    });
+
+    test(
+      'resumeFrom is 0 for a connection at another epoch than the watermark',
+      () {
+        final ledger = ReplayLedger()..observe('s', 9, epoch: 'old');
+        expect(ledger.resumeFrom('s', 'new'), 0);
+        expect(ledger.resumeFrom('s', 'old'), 9);
+        expect(ledger.resumeFrom('s', null), 9);
+      },
+    );
+
     test('a matching epoch is not a mismatch', () {
-      final ledger = ReplayLedger()..observe('s', 1);
+      final ledger = ReplayLedger()..observe('s', 1, epoch: 'same');
       final decision = ledger.merge(
         sid: 's',
         result: _result(events: [_replayElement('s', 2)], epoch: 'same'),
         parked: const [],
-        connectionEpoch: 'same',
       );
       expect(_seqs(decision), [2]);
+      expect(ledger.epochOf('s'), 'same');
     });
 
-    test('an epoch is ignored when either side is null', () {
-      final ledger = ReplayLedger()..observe('s', 1);
-      final fromResult = ledger.merge(
+    test('an epoch is ignored when the watermark has none recorded or the answer has none', () {
+      final unrecorded = ReplayLedger()..observe('s', 1);
+      final fromResult = unrecorded.merge(
         sid: 's',
         result: _result(events: [_replayElement('s', 2)], epoch: 'e'),
         parked: const [],
-        connectionEpoch: null,
       );
       expect(_seqs(fromResult), [2]);
+      expect(unrecorded.epochOf('s'), 'e');
 
-      final ledger2 = ReplayLedger()..observe('s', 1);
-      final fromConnection = ledger2.merge(
+      final recorded = ReplayLedger()..observe('s', 1, epoch: 'e');
+      final fromConnection = recorded.merge(
         sid: 's',
         result: _result(events: [_replayElement('s', 2)]),
         parked: const [],
-        connectionEpoch: 'e',
       );
       expect(_seqs(fromConnection), [2]);
+    });
+
+    test('hasWatermark is true only once an event with a seq was observed', () {
+      final ledger = ReplayLedger();
+      expect(ledger.hasWatermark('s'), isFalse);
+      ledger.observe('s', null);
+      expect(ledger.hasWatermark('s'), isFalse);
+      ledger.observe('s', 3);
+      expect(ledger.hasWatermark('s'), isTrue);
     });
 
     test('parked events of another session are not delivered to this one', () {
@@ -230,7 +266,6 @@ void main() {
         sid: 's',
         result: _result(events: const []),
         parked: [_event('other', 1), _event('s', 1)],
-        connectionEpoch: null,
       );
       expect(_seqs(decision), [1]);
       expect(ledger.lastSeen('other'), 0);
@@ -249,7 +284,6 @@ void main() {
           ],
         ),
         parked: const [],
-        connectionEpoch: null,
       );
       expect(_seqs(decision), [1]);
     });

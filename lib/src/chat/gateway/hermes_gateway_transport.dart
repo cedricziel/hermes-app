@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
@@ -10,6 +11,7 @@ import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
 import '../slash_command.dart';
+import 'cancel_aware_stream.dart';
 import 'gateway_event_mapper.dart';
 import 'gateway_replay.dart';
 import 'gateway_rpc_client.dart';
@@ -33,10 +35,18 @@ const _handledRequests = {
 /// knows.
 const _unsupportedImage = 4016;
 
-/// How many times a reply tries to reattach after its connection drops
-/// before it gives up, so a socket that keeps flapping does not retry
-/// forever.
-const _maxReattempts = 5;
+/// How many reconnect attempts follow a drop before the reply gives up.
+const _maxReconnectAttempts = 5;
+
+/// How long one reconnect may take, from the drop, before the reply gives up.
+const _reconnectBudget = Duration(seconds: 60);
+
+/// How many times one reply may reconnect in all. Each drop gets its own
+/// attempts and budget, so a socket that keeps dropping right after it
+/// resumes would otherwise never run out.
+const _maxReplyReconnects = 5;
+
+Future<void> _delay(Duration delay) => Future<void>.delayed(delay);
 
 /// The `session.active_list` statuses of a session that still runs a turn.
 const _liveStatuses = {'working', 'waiting', 'starting'};
@@ -64,13 +74,54 @@ typedef _ThreadOwner = (String?, String);
 /// A chat event, and whether it came from a server-to-client request.
 typedef _Incoming = (ChatEvent event, bool serverRequest);
 
+/// How a reconnect ended. Either the turn still runs and [watch] carries it
+/// on, with the events the reconnect worked out already queued ahead of the
+/// live frames; or the turn ended while disconnected, and [ended] holds the
+/// events that finish the reply.
+final class _Resumed {
+  const _Resumed({
+    required this.runtimeId,
+    this.watch,
+    this.idle,
+    this.ended = const [],
+    this.giveUp = false,
+  });
+
+  /// The runtime session the reply is on now.
+  final String runtimeId;
+
+  /// Null when the turn ended while disconnected.
+  final _Watch? watch;
+
+  /// For a turn that ended while disconnected: the watch that goes on
+  /// listening to its session, in case Hermes chains another turn.
+  final _Watch? idle;
+
+  /// The events of a turn that ended while disconnected, in order.
+  final List<_Incoming> ended;
+
+  /// Set when the reply cannot end cleanly: no connection could be made, or the
+  /// turn ended without a reply to show, so the reply fails after [ended].
+  final bool giveUp;
+
+  /// Closes the watches, for a reconnect nobody is waiting for any more.
+  void discard() {
+    unawaited(watch?.close());
+    unawaited(idle?.close());
+  }
+}
+
 /// What one runtime session sends, buffered until the transport reads it. A
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
 class _Watch {
-  _Watch(this.runtimeId, this._inbox) : events = StreamIterator(_inbox.stream);
+  _Watch(this.runtimeId, this.client, this._inbox)
+    : events = StreamIterator(_inbox.stream);
 
   final String runtimeId;
+
+  /// The connection this watch listens on.
+  final GatewayRpcClient client;
   final StreamController<_Incoming?> _inbox;
   late List<StreamSubscription<Object?>> _sources;
   final StreamIterator<_Incoming?> events;
@@ -79,11 +130,17 @@ class _Watch {
   /// stream answers its cancel future only once its own cancel callback does,
   /// so awaiting it can hang the reply that is closing its watch.
   Future<void> close() async {
+    closedByUs = true;
     for (final source in _sources) {
       unawaited(source.cancel());
     }
     unawaited(_inbox.close());
   }
+
+  /// Set when the transport closed this watch itself, as opposed to the
+  /// socket under it dropping. A reader that finds the watch ended has nothing
+  /// to reconnect to then.
+  bool closedByUs = false;
 }
 
 /// Listens to a connection from before its runtime session is known, so the
@@ -101,6 +158,10 @@ class _Tap {
   final _frames = <Object>[];
   late final List<StreamSubscription<Object?>> _sources;
 
+  /// How many frames have arrived so far. Frames are only appended, so a
+  /// count taken at one moment splits [release]'s list at that point.
+  int get count => _frames.length;
+
   /// Stops listening and hands over the frames that arrived so far, for the
   /// watch of their session. Nothing is dropped in between: both steps are
   /// synchronous.
@@ -117,6 +178,16 @@ class _Tap {
     }
     _frames.clear();
   }
+}
+
+/// The watch a follow-up stream reads, which a reconnect replaces. Keeping it
+/// in one place lets the stream's cancel close the watch that is current then,
+/// not the one it started with.
+class _Follow {
+  _Follow(this.watch);
+
+  _Watch watch;
+  bool cancelled = false;
 }
 
 /// Keeps the frames of a turn that was already running out of the reply of a
@@ -185,7 +256,18 @@ class HermesGatewayTransport implements ChatTransport {
     this.probeTimeout = const Duration(seconds: 10),
     this.connectTimeout = const Duration(seconds: 15),
     this.silenceProbe = const Duration(seconds: 45),
-  });
+    Random? random,
+    this._sleep = _delay,
+  }) : _random = random ?? Random();
+
+  /// Jitters the delay before each reconnect attempt. Tests inject a fixed one.
+  final Random _random;
+
+  /// Waits out the delay before a reconnect attempt. Tests inject a recorder.
+  final Future<void> Function(Duration delay) _sleep;
+
+  /// Replays what a dropped socket missed, per runtime session.
+  final _ledger = ReplayLedger();
 
   /// How long opening a session or submitting a prompt may go unanswered
   /// before the connection is given up on.
@@ -338,11 +420,38 @@ class HermesGatewayTransport implements ChatTransport {
     List<OutgoingAttachment> attachments = const [],
     ModelChoice? model,
     bool queued = false,
+  }) {
+    final stopped = CancelFlag();
+    return CancelAwareStream(
+      _sendReply(
+        threadId: threadId,
+        profile: profile,
+        text: text,
+        attachments: attachments,
+        model: model,
+        queued: queued,
+        stopped: stopped,
+      ),
+      stopped,
+    );
+  }
+
+  Stream<ChatEvent> _sendReply({
+    String? threadId,
+    String? profile,
+    required String text,
+    List<OutgoingAttachment> attachments = const [],
+    ModelChoice? model,
+    bool queued = false,
+    required CancelFlag stopped,
   }) async* {
     final client = await _client();
     final scope = <String, Object?>{'profile': ?profile};
     // Listening starts before the resume is sent, so a frame the gateway pushes
     // ahead of its answer is kept for this session.
+    // What the ledger held before this send's first frame: a frame the tap
+    // buffers may already have been observed by a watch that was listening.
+    final before = _ledger.snapshot();
     final tap = _Tap(client);
     final Map<String, Object?> session;
     try {
@@ -394,13 +503,19 @@ class HermesGatewayTransport implements ChatTransport {
         _modelOf[owner] = model;
       }
       _beginReply(runtimeId, owner);
-      watch = _watch(client, runtimeId, tap.release());
+      watch = _watch(
+        client,
+        runtimeId,
+        buffered: tap.release(),
+        startAt: before.resumeFrom(runtimeId, client.epoch),
+      );
       released = true;
     } finally {
       if (!released) tap.close();
     }
     final mine = <String>{};
     var parked = false;
+    var drops = 0;
     // Whether the turn has begun. A report that the session is idle only ends
     // the reply once it has, or once the grace has passed (see [settles]).
     var started = false;
@@ -445,7 +560,7 @@ class HermesGatewayTransport implements ChatTransport {
         return;
       }
       if (submit['status'] == 'queued') gate = _QueuedGate();
-      for (var attempt = 0; ; attempt++) {
+      while (true) {
         var pending = watch.events.moveNext();
         var window = silenceProbe;
         while (true) {
@@ -455,7 +570,7 @@ class HermesGatewayTransport implements ChatTransport {
           } on TimeoutException {
             // Silent for a whole probe. Only the server can say whether the
             // turn still runs, so the reply ends only when it no longer does.
-            if (await _stillRunning(client, storedId)) {
+            if (await _stillRunning(watch.client, storedId)) {
               window = silenceProbe;
               continue;
             }
@@ -521,21 +636,50 @@ class HermesGatewayTransport implements ChatTransport {
         // The connection died before the turn finished. Hermes keeps running
         // it, so pick it back up on a fresh connection rather than failing a
         // reply that is still on its way.
-        final (next, ended) = attempt < _maxReattempts
-            ? await _reattach(owner)
-            : (null, null);
-        if (ended != null) {
-          yield ended;
+        if (stopped.value) return;
+        if (drops >= _maxReplyReconnects) throw const GatewayConnectionClosed();
+        final resumed = await _reattach(
+          owner,
+          runtimeId: runtimeId,
+          shown: mine,
+          drops: drops++,
+          cancelled: () => stopped.value,
+        );
+        await watch.close();
+        if (stopped.value) {
+          resumed.discard();
           return;
         }
-        if (next == null) throw const GatewayConnectionClosed();
-        await watch.close();
         _endReply(runtimeId, owner);
-        runtimeId = next.runtimeId;
+        runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
-        watch = next;
-        // The server reported the resumed session running, so its turn began.
-        started = true;
+        final live = resumed.watch;
+        if (live == null) {
+          if (resumed.idle case final idle?) await _park(owner, idle);
+          // A prompt queued behind a running turn keeps the gate across the
+          // drop: what the replay holds of the turn ahead of it is not this
+          // reply's. When the replay ends the reply with nothing of its own,
+          // the idle report settles it and the refetch the gate asks for
+          // reads the thread.
+          final gating = gate != null && !gate.ended;
+          var completed = false;
+          for (final (event, serverRequest) in resumed.ended) {
+            _track(event, runtimeId, mine, serverRequest: serverRequest);
+            for (final admitted in gating ? gate.admit(event) : [event]) {
+              completed = completed || admitted is ReplyCompleted;
+              yield admitted;
+            }
+          }
+          if (gating && !completed && !resumed.giveUp) {
+            yield const SessionInfo(running: false);
+          }
+          if (resumed.giveUp) throw const GatewayConnectionClosed();
+          return;
+        }
+        watch = live;
+        // The server reported the resumed session running, so its turn began,
+        // unless that turn is still the one a queued prompt waits behind.
+        if (gate?.ended ?? true) started = true;
       }
     } finally {
       _forgetRequests(mine);
@@ -608,28 +752,305 @@ class HermesGatewayTransport implements ChatTransport {
     }
   }
 
-  /// Reopens the socket and resumes [owner]'s runtime session, so a turn
-  /// still running there can be watched again. The same live agent process
-  /// keeps the same runtime id, so nothing needs remapping beyond that id.
-  /// When the server finished the turn while disconnected, the reply it
-  /// stored comes back as the turn's end instead. Returns neither when there
-  /// is nothing left to pick up: the turn failed or left no reply, the
-  /// session is gone, or the reconnect itself failed.
-  Future<(_Watch?, ReplyCompleted?)> _reattach(_ThreadOwner owner) async {
+  /// Reconnects [owner] after a drop and resumes its runtime session, so a
+  /// turn still running there is watched again, and the events it sent while
+  /// the socket was down are replayed.
+  ///
+  /// [runtimeId] is the session the reply was on, or null when this app never
+  /// followed it (a turn another client started); then nothing is replayed,
+  /// since the server's ring may hold turns this app already showed. [shown]
+  /// holds the request ids the reply has shown, so none is shown twice. [drops]
+  /// counts the reconnects this reply already made, so the backoff keeps
+  /// growing when a resumed turn drops again at once.
+  ///
+  /// Each attempt after the very first waits [reconnectDelay] before it. Up to
+  /// [maxAttempts] failed attempts, or 60 s from the drop, give up (see
+  /// [_Resumed.giveUp]). [cancelled] is asked between attempts and after each
+  /// step of one: once it holds, nothing more is tried and nothing is merged.
+  Future<_Resumed> _reattach(
+    _ThreadOwner owner, {
+    required String? runtimeId,
+    required Set<String> shown,
+    required int drops,
+    required bool Function() cancelled,
+    int maxAttempts = _maxReconnectAttempts,
+  }) async {
+    final budget = Completer<void>();
+    final timer = Timer(_reconnectBudget, () {
+      if (!budget.isCompleted) budget.complete();
+    });
+    bool stop() => budget.isCompleted || cancelled();
+    try {
+      for (var attempt = 0; attempt < maxAttempts; attempt++) {
+        if (stop()) break;
+        final index = attempt + drops;
+        if (index > 0) {
+          await _within(
+            _sleep(reconnectDelay(index, _random)),
+            budget.future,
+            (_) {},
+          );
+        }
+        if (stop()) break;
+        final resumed = await _within(
+          _resumeOnce(owner, runtimeId, shown, stop),
+          budget.future,
+          (resumed) => resumed?.discard(),
+        );
+        if (resumed != null) {
+          if (!cancelled()) return resumed;
+          resumed.discard();
+          break;
+        }
+      }
+      return _Resumed(runtimeId: runtimeId ?? owner.$2, giveUp: true);
+    } finally {
+      timer.cancel();
+    }
+  }
+
+  /// One reconnect attempt: opens a socket, resumes the session, and works out
+  /// what the reply missed. Null when the attempt failed and may be retried.
+  Future<_Resumed?> _resumeOnce(
+    _ThreadOwner owner,
+    String? previous,
+    Set<String> shown,
+    bool Function() stop,
+  ) async {
     final GatewayRpcClient client;
-    final Map<String, Object?> result;
     try {
       client = await _client();
-      result = await _call(client, 'session.resume', {
+    } on Object {
+      return null;
+    }
+    if (stop()) return null;
+    // Listening starts before the resume is sent, so the frames the gateway
+    // pushes ahead of its answer are kept rather than dropped.
+    final tap = _Tap(client);
+    final Map<String, Object?> resumed;
+    try {
+      resumed = await _call(client, 'session.resume', {
         'session_id': owner.$2,
         'profile': ?owner.$1,
       });
     } on Object {
-      return (null, null);
+      tap.close();
+      return null;
     }
-    if (result['running'] != true) return (null, _storedReply(result));
-    final runtimeId = result['session_id'] as String? ?? owner.$2;
-    return (_watch(client, runtimeId), null);
+    if (stop()) {
+      tap.close();
+      return null;
+    }
+    final answeredAt = tap.count;
+    final id = resumed['session_id'];
+    final runtimeId = id is String && id.isNotEmpty ? id : previous ?? owner.$2;
+    // The ring only replays what this app saw of this session when the
+    // session is the one the reply was on, and only from a seq this app
+    // holds: from none, `last_seen: 0` would hand over the whole ring.
+    final replay =
+        previous != null &&
+        runtimeId == previous &&
+        _ledger.hasWatermark(runtimeId);
+    Map<String, Object?>? since;
+    if (replay) {
+      try {
+        since = await _call(client, 'session.events.since', {
+          'session_id': runtimeId,
+          'last_seen': _ledger.lastSeen(runtimeId),
+        });
+      } on GatewayRpcException catch (error) {
+        // A gateway that predates the replay cannot fill the gap, so the
+        // reply is rebuilt from the resume answer instead.
+        if (error.code != kGatewayMethodNotFound) {
+          tap.close();
+          return null;
+        }
+      } on Object {
+        tap.close();
+        return null;
+      }
+    }
+    // An attempt the budget or the consumer gave up on must not move the
+    // watermark or park a watch.
+    if (stop()) {
+      tap.close();
+      return null;
+    }
+    // Nothing below awaits before the watch, so no frame is lost between the
+    // release and the subscription.
+    final frames = tap.release();
+    final before = _ofSession(frames.take(answeredAt), runtimeId).toList();
+    final after = _ofSession(frames.skip(answeredAt), runtimeId).toList();
+    final openRows = [resumed['open_requests'], since?['open_requests']];
+    final snapshot = _inflightText(resumed['inflight']);
+
+    final epoch = client.epoch;
+    if (resumed['running'] != true) {
+      final ended = <_Incoming>[];
+      // What the session said after the completion: a turn Hermes chained.
+      final next = <_Incoming>[];
+      var completed = false;
+      var merged = false;
+      if (since != null) {
+        final decision = _ledger.merge(
+          sid: runtimeId,
+          result: since,
+          parked: _eventsOf(frames, runtimeId),
+        );
+        if (decision case Deliver(:final events)) {
+          merged = true;
+          for (final event in events) {
+            final incoming = _incomingOf(event, runtimeId);
+            if (incoming == null) continue;
+            (completed ? next : ended).add(incoming);
+            completed = completed || incoming.$1 is ReplyCompleted;
+          }
+        }
+      }
+      if (!completed) {
+        // No completion was replayed, so the stored reply ends the turn. A
+        // reply on screen is refetched; a turn picked up with none has nothing
+        // to refetch, and ends quietly when it has no stored reply either. The
+        // refetch comes first: the completion must stay the reply's last
+        // event. A replayed error is the reason the turn failed, so it is
+        // shown, and the settle that follows lets the reply fail with it.
+        final stored = _storedReply(resumed);
+        final onScreen = previous != null;
+        final errored = ended.any((incoming) => incoming.$1 is ReplyErrored);
+        // After the events: a request binds to the tool call it was raised
+        // in, which the replay has to have started first.
+        _openRequests(ended, openRows, runtimeId, shown);
+        if (onScreen) ended.add((const ThreadNeedsRefetch(), false));
+        if (stored != null) {
+          ended.add((stored, false));
+        } else if (errored) {
+          ended.add((const SessionInfo(running: false), false));
+        }
+        if (stored == null && !errored && onScreen) {
+          return _Resumed(runtimeId: runtimeId, ended: ended, giveUp: true);
+        }
+        // Frames the replay did not cover (the merge counts them itself).
+        if (!merged) {
+          next.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+        }
+      }
+      // The session goes on being listened to: Hermes may chain another turn.
+      return _Resumed(
+        runtimeId: runtimeId,
+        ended: ended,
+        idle: _watch(client, runtimeId, injected: next, shown: shown),
+      );
+    }
+
+    final injected = <_Incoming>[];
+    final decision = since == null
+        ? const Refetch()
+        : _ledger.merge(
+            sid: runtimeId,
+            result: since,
+            parked: _eventsOf(frames, runtimeId),
+          );
+    if (decision case Deliver(:final events)) {
+      injected.addAll(_inArrivalOrder(events, frames, runtimeId, shown));
+      _openRequests(injected, openRows, runtimeId, shown);
+    } else {
+      // The replay cannot be trusted, so the snapshot replaces the text. Its
+      // leading deltas that it already holds are not shown again. With no
+      // snapshot to rebuild a reply on screen from (a replay refused as
+      // truncated or from another epoch, another runtime session, no seq to
+      // replay from, or a gateway without the replay), the gap is one only
+      // the stored thread can fill.
+      if (snapshot != null) {
+        injected.add((ReplyRebuilt(snapshot), false));
+      } else if (previous != null) {
+        injected.add((const ThreadNeedsRefetch(), false));
+      }
+      final dropped = snapshot == null ? 0 : _heldBySnapshot(before, snapshot);
+      injected.addAll(
+        _parked(before, runtimeId, shown, epoch: epoch, dropped: dropped),
+      );
+      injected.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+      _openRequests(injected, openRows, runtimeId, shown);
+    }
+    return _Resumed(
+      runtimeId: runtimeId,
+      watch: _watch(client, runtimeId, injected: injected, shown: shown),
+    );
+  }
+
+  /// The [delivered] events of a replay as chat events, in the order the
+  /// session sent them: the replayed ones first, then each live event and
+  /// server request where its frame sits among the [frames] parked during the
+  /// reconnect. A replayed event the parked frames also hold, by seq, takes
+  /// that frame's place. A request already in [shown] is not shown again.
+  List<_Incoming> _inArrivalOrder(
+    List<GatewayEvent> delivered,
+    List<Object> frames,
+    String sid,
+    Set<String> shown,
+  ) {
+    final parked = Set<Object>.identity()..addAll(frames);
+    final frameSeqs = {
+      for (final frame in frames)
+        if (frame is GatewayEvent &&
+            frame.sessionId == sid &&
+            frame.seq != null)
+          frame.seq!,
+    };
+    final live = Set<Object>.identity();
+    final replacing = <int, GatewayEvent>{};
+    final out = <_Incoming>[];
+    for (final event in delivered) {
+      final seq = event.seq;
+      if (parked.contains(event)) {
+        live.add(event);
+      } else if (seq != null && frameSeqs.contains(seq)) {
+        replacing[seq] = event;
+      } else if (_incomingOf(event, sid) case final incoming?) {
+        out.add(incoming);
+      }
+    }
+    for (final frame in frames) {
+      if (frame is GatewayEvent) {
+        final event = live.contains(frame) ? frame : replacing[frame.seq];
+        final incoming = event == null ? null : _incomingOf(event, sid);
+        if (incoming != null) out.add(incoming);
+      } else if (frame is GatewayServerRequest && frame.sessionId == sid) {
+        _addRequest(out, frame, shown);
+      }
+    }
+    return out;
+  }
+
+  /// Completes with [work]'s value, or with null once [budget] completes
+  /// first. A value that arrives after the budget is handed to [discard], so
+  /// a connection opened for an attempt that gave up is closed.
+  Future<T?> _within<T>(
+    Future<T> work,
+    Future<void> budget,
+    void Function(T value) discard,
+  ) {
+    final result = Completer<T?>();
+    unawaited(
+      work.then(
+        (value) {
+          if (result.isCompleted) {
+            discard(value);
+          } else {
+            result.complete(value);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!result.isCompleted) result.completeError(error, stack);
+        },
+      ),
+    );
+    unawaited(
+      budget.then((_) {
+        if (!result.isCompleted) result.complete(null);
+      }),
+    );
+    return result.future;
   }
 
   /// The reply a finished turn left as the session's last message, if any.
@@ -640,6 +1061,134 @@ class HermesGatewayTransport implements ChatTransport {
       return ReplyCompleted(text);
     }
     return null;
+  }
+
+  /// The frames of [sid]: its events and its server requests, in order.
+  static Iterable<Object> _ofSession(Iterable<Object> frames, String sid) =>
+      frames.where(
+        (frame) => switch (frame) {
+          GatewayEvent event => event.sessionId == sid,
+          GatewayServerRequest request => request.sessionId == sid,
+          _ => false,
+        },
+      );
+
+  static List<GatewayEvent> _eventsOf(List<Object> frames, String sid) => [
+    for (final frame in frames)
+      if (frame is GatewayEvent && frame.sessionId == sid) frame,
+  ];
+
+  /// The assistant text of a resume answer's `inflight` snapshot, if any.
+  static String? _inflightText(Object? inflight) {
+    if (inflight case {'assistant': final String text}) return text;
+    return null;
+  }
+
+  /// How many leading deltas of [before] the snapshot already holds: the
+  /// shortest run from the start whose joined text ends [snapshot]. The run
+  /// stops at the first frame that is not a delta, and a run of whitespace
+  /// alone proves nothing, since a snapshot often ends in a space or a
+  /// newline. Fewer is the safe error: a delta shown twice is a blemish, one
+  /// dropped is a hole in the reply.
+  static int _heldBySnapshot(List<Object> before, String snapshot) {
+    final joined = StringBuffer();
+    var count = 0;
+    for (final frame in before) {
+      if (frame is! GatewayEvent || frame.type != 'message.delta') break;
+      count++;
+      final text = frame.payload['text'];
+      joined.write(text is String ? text : '');
+      final run = joined.toString();
+      if (run.trim().isNotEmpty && snapshot.endsWith(run)) return count;
+    }
+    return 0;
+  }
+
+  /// The frames [parked] while a reconnect was in flight, as events to show.
+  /// Each event is observed on the ledger, so a later replay does not hand it
+  /// again. The first [dropped] frames are observed but not shown.
+  List<_Incoming> _parked(
+    List<Object> parked,
+    String sid,
+    Set<String> shown, {
+    required String? epoch,
+    int dropped = 0,
+  }) {
+    final out = <_Incoming>[];
+    for (var i = 0; i < parked.length; i++) {
+      final frame = parked[i];
+      if (frame is GatewayEvent) {
+        final fresh = _ledger.observe(sid, frame.seq, epoch: epoch);
+        if (!fresh || i < dropped) continue;
+        final incoming = _incomingOf(frame, sid);
+        if (incoming != null) out.add(incoming);
+      } else if (frame is GatewayServerRequest) {
+        _addRequest(out, frame, shown);
+      }
+    }
+    return out;
+  }
+
+  /// The chat event a frame of [runtimeId] shows, or null when it shows
+  /// nothing. Server requests are mapped as they arrive from the server.
+  _Incoming? _incomingOf(Object frame, String runtimeId) {
+    switch (frame) {
+      case GatewayEvent event when event.sessionId == runtimeId:
+        final shown = mapGatewayEvent(event);
+        return shown == null ? null : (shown, false);
+      case GatewayServerRequest request when request.sessionId == runtimeId:
+        final shown = _handledRequests.contains(request.method)
+            ? _fromServerRequest(request)
+            : null;
+        return shown == null ? null : (shown, true);
+      default:
+        return null;
+    }
+  }
+
+  /// Shows the requests of [rows] (each an `open_requests` list from a resume
+  /// or replay answer) that [shown] does not hold yet.
+  void _openRequests(
+    List<_Incoming> out,
+    List<Object?> rows,
+    String sid,
+    Set<String> shown,
+  ) {
+    for (final row in rows) {
+      if (row is! List) continue;
+      for (final item in row) {
+        if (item is! Map) continue;
+        final id = item['id'];
+        final method = item['method'];
+        if (id is! String || method is! String) continue;
+        final params = item['params'];
+        _addRequest(
+          out,
+          GatewayServerRequest(
+            id: id,
+            method: method,
+            sessionId: sid,
+            params: params is Map
+                ? {for (final e in params.entries) e.key.toString(): e.value}
+                : const {},
+          ),
+          shown,
+        );
+      }
+    }
+  }
+
+  /// Adds [request] to [out] as a shown request, unless its method is not
+  /// one the app answers or [shown] already holds its id.
+  void _addRequest(
+    List<_Incoming> out,
+    GatewayServerRequest request,
+    Set<String> shown,
+  ) {
+    if (!_handledRequests.contains(request.method)) return;
+    if (!shown.add(request.id)) return;
+    final incoming = _fromServerRequest(request);
+    if (incoming != null) out.add((incoming, true));
   }
 
   /// Sends [method] and gives up on a gateway that does not answer: the
@@ -674,12 +1223,10 @@ class HermesGatewayTransport implements ChatTransport {
     final owner = (profile, threadId);
     final watch = _idle[owner];
     if (watch != null) {
+      final follow = _Follow(watch);
       final out = StreamController<ChatEvent>();
-      out.onListen = () => unawaited(_relay(watch, owner, out));
-      out.onCancel = () {
-        _idle.removeWhere((_, parked) => parked == watch);
-        return watch.close();
-      };
+      out.onListen = () => unawaited(_relay(follow, owner, out));
+      out.onCancel = () => _stopFollowing(follow);
       return out.stream;
     }
     // A turn may have started in another client without a local watcher.
@@ -688,32 +1235,77 @@ class HermesGatewayTransport implements ChatTransport {
     return out.stream;
   }
 
+  /// Keeps [watch] as the listener of [owner]'s session between turns.
+  Future<void> _park(_ThreadOwner owner, _Watch watch) async {
+    final displaced = _idle.remove(owner);
+    _idle[owner] = watch;
+    await displaced?.close();
+  }
+
+  /// Ends [follow]: a reconnect under way stops, and the watch that is current
+  /// now, which may not be the one the stream began with, is closed. It is
+  /// found by identity, since compression may have re-keyed the thread.
+  Future<void> _stopFollowing(_Follow follow) {
+    follow.cancelled = true;
+    _idle.removeWhere((_, parked) => parked == follow.watch);
+    return follow.watch.close();
+  }
+
   Future<void> _pickUp(
     _ThreadOwner owner,
     StreamController<ChatEvent> out,
   ) async {
     var canceled = false;
     out.onCancel = () => canceled = true;
-    final (watch, ended) = await _reattach(owner);
+    // Nothing is replayed for a turn this app never followed, so the reply
+    // starts from the snapshot the resume answer carries. One attempt: this
+    // runs when a thread opens, which must not wait on a server that is down.
+    final mine = <String>{};
+    final resumed = await _reattach(
+      owner,
+      runtimeId: null,
+      shown: mine,
+      drops: 0,
+      maxAttempts: 1,
+      cancelled: () => canceled || out.isClosed,
+    );
+    final watch = resumed.watch;
     if (canceled || out.isClosed) {
-      await watch?.close();
+      resumed.discard();
       return;
     }
     if (watch == null) {
-      if (ended != null) out.add(ended);
-      await out.close();
+      final idle = resumed.idle;
+      if (idle != null) await _park(owner, idle);
+      for (final (event, serverRequest) in resumed.ended) {
+        _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
+        out.add(event);
+      }
+      _forgetRequests(mine);
+      if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
+        await out.close();
+        return;
+      }
+      // The turn is over, but the session goes on: what Hermes chains next
+      // reaches this stream through the idle watch. A thread with no turn to
+      // report has nothing to follow yet.
+      final follow = _Follow(idle);
+      out.onCancel = () => _stopFollowing(follow);
+      await _relay(follow, owner, out);
       return;
     }
     if (_idle.remove(owner) case final previous?) {
       await previous.close();
     }
+    if (canceled || out.isClosed) {
+      await watch.close();
+      return;
+    }
     _idle[owner] = watch;
-    out.onCancel = () {
-      _idle.removeWhere((_, parked) => parked == watch);
-      return watch.close();
-    };
+    final follow = _Follow(watch);
+    out.onCancel = () => _stopFollowing(follow);
     out.add(const ReplyStarted());
-    await _relay(watch, owner, out, initiallyReplying: true);
+    await _relay(follow, owner, out, initiallyReplying: true);
   }
 
   @override
@@ -748,21 +1340,21 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   Future<void> _relay(
-    _Watch initial,
+    _Follow follow,
     _ThreadOwner owner,
     StreamController<ChatEvent> out, {
     bool initiallyReplying = false,
   }) async {
-    var watch = initial;
     var key = owner;
-    var runtimeId = watch.runtimeId;
+    var runtimeId = follow.watch.runtimeId;
     var replying = initiallyReplying;
     if (replying) _beginReply(runtimeId, key);
     final mine = <String>{};
+    var drops = 0;
     try {
-      for (var attempt = 0; ; attempt++) {
-        while (await watch.events.moveNext()) {
-          final incoming = watch.events.current;
+      while (true) {
+        while (await follow.watch.events.moveNext()) {
+          final incoming = follow.watch.events.current;
           if (incoming == null) continue;
           final (event, serverRequest) = incoming;
           if (event is SessionInfo) {
@@ -791,62 +1383,124 @@ class HermesGatewayTransport implements ChatTransport {
               (event is ReplyCompleted ||
                   event is SessionInfo && event.running == false)) {
             replying = false;
+            drops = 0;
             _forgetRequests(mine);
             _endReply(runtimeId, key);
           }
         }
         // Idle between turns: nothing is running to pick back up, so the
-        // connection dropping just ends the stream quietly.
-        if (!replying) return;
-        final (next, ended) = attempt < _maxReattempts
-            ? await _reattach(key)
-            : (null, null);
-        if (ended != null) {
-          if (!out.isClosed) out.add(ended);
+        // connection dropping just ends the stream quietly. So does a watch
+        // the transport closed itself (another send took the session over).
+        if (!replying || follow.cancelled || out.isClosed) return;
+        if (follow.watch.closedByUs) return;
+        if (drops >= _maxReplyReconnects) {
+          out.addError(const GatewayConnectionClosed());
           return;
         }
-        if (next == null) {
-          if (!out.isClosed) out.addError(const GatewayConnectionClosed());
+        final resumed = await _reattach(
+          key,
+          runtimeId: runtimeId,
+          shown: mine,
+          drops: drops++,
+          cancelled: () => follow.cancelled || out.isClosed,
+        );
+        final previous = follow.watch;
+        await previous.close();
+        if (follow.cancelled || out.isClosed) {
+          resumed.discard();
           return;
         }
-        await watch.close();
         _endReply(runtimeId, key);
-        runtimeId = next.runtimeId;
+        runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, key);
-        watch = next;
+        final live = resumed.watch;
+        if (live == null) {
+          final idle = resumed.idle;
+          if (idle != null) await _park(key, idle);
+          for (final (event, serverRequest) in resumed.ended) {
+            if (out.isClosed) return;
+            _track(event, runtimeId, mine, serverRequest: serverRequest);
+            out.add(event);
+          }
+          if (resumed.giveUp && !out.isClosed) {
+            out.addError(const GatewayConnectionClosed());
+          }
+          if (idle == null || out.isClosed || follow.cancelled) return;
+          // The turn is over, but the session goes on: the idle watch carries
+          // whatever Hermes chains next, to this same stream.
+          replying = false;
+          drops = 0;
+          _forgetRequests(mine);
+          _endReply(runtimeId, key);
+          follow.watch = idle;
+          continue;
+        }
+        _idle.updateAll((_, parked) => parked == previous ? live : parked);
+        follow.watch = live;
       }
     } finally {
       _forgetRequests(mine);
       if (replying) _endReply(runtimeId, key);
       if (!out.isClosed) unawaited(out.close());
-      await watch.close();
+      await follow.watch.close();
     }
   }
 
   /// Starts listening to the events and requests of [runtimeId]. The
-  /// [buffered] frames of any session come first, filtered to it.
+  /// [injected] events, already decided by a reconnect, come first; then the
+  /// [buffered] frames of any session, filtered to it, and the live frames.
+  /// A live event at or below [startAt] (by default what the ledger holds for
+  /// this connection's epoch), or what the watch already showed, is dropped,
+  /// so one the replay already handed over is not shown twice.
   _Watch _watch(
     GatewayRpcClient client,
-    String runtimeId, [
+    String runtimeId, {
     List<Object> buffered = const [],
-  ]) {
+    List<_Incoming> injected = const [],
+    Set<String> shown = const {},
+    int? startAt,
+  }) {
     final inbox = StreamController<_Incoming?>();
-    final watch = _Watch(runtimeId, inbox);
+    final watch = _Watch(runtimeId, client, inbox);
+    for (final incoming in injected) {
+      inbox.add(incoming);
+    }
+    // The ledger is the transport's: it feeds the next replay. Whether this
+    // watch has shown a live event is its own matter, so two watches on one
+    // runtime session each get every frame.
+    var seen = startAt ?? _ledger.resumeFrom(runtimeId, client.epoch);
+    // A request the reply showed before the drop may come again from the new
+    // socket; a copy, so the reply's own set stays the reply's.
+    final requests = {...shown};
     void deliver(Object frame) {
-      final _Incoming? incoming;
+      final String sid;
       switch (frame) {
-        case GatewayEvent event when event.sessionId == runtimeId:
-          final shown = mapGatewayEvent(event);
-          incoming = shown == null ? null : (shown, false);
-        case GatewayServerRequest request when request.sessionId == runtimeId:
-          final shown = _handledRequests.contains(request.method)
-              ? _fromServerRequest(request)
-              : null;
-          incoming = shown == null ? null : (shown, true);
+        case GatewayEvent event:
+          sid = event.sessionId;
+        case GatewayServerRequest request:
+          sid = request.sessionId;
         default:
           return;
       }
-      inbox.add(incoming);
+      if (sid != runtimeId) return;
+      // A frame that shows nothing, or a replayed duplicate, still counts as
+      // a sign of life for the silence probe, so it is sent as a null.
+      if (frame is GatewayServerRequest && !requests.add(frame.id)) {
+        inbox.add(null);
+        return;
+      }
+      if (frame is GatewayEvent) {
+        final seq = frame.seq;
+        if (seq != null) {
+          _ledger.observe(runtimeId, seq, epoch: client.epoch);
+          if (seq <= seen) {
+            inbox.add(null);
+            return;
+          }
+          seen = seq;
+        }
+      }
+      inbox.add(_incomingOf(frame, runtimeId));
     }
 
     buffered.forEach(deliver);
@@ -1124,9 +1778,11 @@ class HermesGatewayTransport implements ChatTransport {
     return result['status'] != 'expired';
   }
 
-  /// Answers a server-to-client request. The gateway does not say whether it
-  /// was still waiting; a request that ended was already expired by
-  /// `request.cancel`, and it drops an answer it no longer waits for.
+  /// Answers a server-to-client request on the open connection, which after a
+  /// reconnect is not the one the request arrived on (see [_connected]). The
+  /// gateway does not say whether it was still waiting; a request that ended
+  /// was already expired by `request.cancel`, and it drops an answer it no
+  /// longer waits for.
   bool _respond(String requestId, Map<String, Object?> result) {
     final client = _connected();
     if (client == null) return false;
@@ -1134,8 +1790,9 @@ class HermesGatewayTransport implements ChatTransport {
     return true;
   }
 
-  /// The open connection, or null: a server-to-client request belongs to the
-  /// connection it arrived on and cannot be answered on a new one.
+  /// The open connection, or null. The gateway matches a server-to-client
+  /// answer by its request id on any connection, so after a reconnect the
+  /// answer goes out on the new socket, the one open now.
   GatewayRpcClient? _connected() {
     final open = _open;
     return open == null || open.isClosed ? null : open;
@@ -1150,7 +1807,9 @@ class HermesGatewayTransport implements ChatTransport {
     for (final watch in idle) {
       await watch.close();
     }
-    await open?.close();
+    // Not awaited: the socket may already be gone, and closing a channel whose
+    // peer has left can wait forever. Nothing here needs the close to finish.
+    unawaited(open?.close());
   }
 
   Future<GatewayRpcClient> _client() async {

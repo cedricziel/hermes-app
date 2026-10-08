@@ -257,9 +257,9 @@ Each group from 1 to 9 is a self-contained brief for one agent. It runs in its o
   - `truncateReplay: true` with resume `running: true, inflight: {assistant: 'abc'}` → yields `ReplyRebuilt('abc')` and continues live.
   - A delta between the resume and the truncated answer (seen in the inflight review): `beforeResumeAnswer` sends delta `'c'` (seq 9), the resume answers `inflight: {assistant: 'abc'}`, then delta `'d'` (seq 10) arrives before the truncated `events.since` answer → yields `ReplyRebuilt('abc')`, then `ReplyDelta('d')`, and `'c'` is not repeated.
   - The same, but `inflight: {assistant: 'ab'}` (the snapshot was taken before `'c'`) → yields `ReplyRebuilt('ab')`, then `'c'`, then `'d'`.
-  - Rule: of the deltas parked before the resume answer, drop the longest leading run whose joined text is a suffix of `inflight.assistant`. Deliver the rest, and everything after the answer, through `observe`.
-  - A new epoch on the new socket → the same.
-  - `running: false` and no completion in the replay → yields the stored-reply `ReplyCompleted` (today's `_storedReply`), then `ThreadNeedsRefetch()`.
+  - Rule: of the deltas parked before the resume answer, drop the shortest leading run whose joined text is a suffix of `inflight.assistant`, never a whitespace-only run. Deliver the rest, and everything after the answer, through `observe`.
+  - A server restart that changes the epoch before the new socket's `gateway.ready` (so it differs from the epoch the watermark was recorded at) → the same.
+  - `running: false` and no completion in the replay → yields `ThreadNeedsRefetch()`, then the stored-reply `ReplyCompleted` (today's `_storedReply`), so the completion stays the reply's last event.
 - [ ] 8.4 Tests first ("Requests open across the drop"): the resume result's `open_requests: [{id: 'srq-1', method: 'approval', params: {...}}]` → yields one `ApprovalRequested` keyed `srq-1`. The same id again from `events.since` → not yielded again.
 - [ ] 8.5 Tests first ("Backoff"):
   - Reconnect attempts wait `reconnectDelay(attempt)`. Inject `Random` and a `sleep` function for tests.
