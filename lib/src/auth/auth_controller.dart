@@ -90,6 +90,9 @@ class AuthController extends ChangeNotifier {
 
   AppEventLogger get _events => _connection.events;
 
+  /// The telemetry of the current connection, for what is opened on it.
+  ConnectionTelemetry get connectionTelemetry => _connection;
+
   final NativeLogin _login;
 
   final NetworkSignals _network;

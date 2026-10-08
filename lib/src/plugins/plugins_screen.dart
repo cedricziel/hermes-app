@@ -5,7 +5,6 @@ import '../widgets/adaptive_tab_bar.dart';
 
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
-import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
 
@@ -41,10 +40,12 @@ class _PluginsScreenState extends State<PluginsScreen> {
   @override
   void initState() {
     super.initState();
-    final repository =
-        widget.repository ?? HermesRepositories.of(context).pluginManager;
+    final repositories = widget.repository == null || widget.events == null
+        ? HermesRepositories.maybeOf(context)
+        : null;
+    final repository = widget.repository ?? repositories!.pluginManager;
     final events =
-        widget.events ?? context.read<AppEventLogger?>() ?? noopAppEventLogger;
+        widget.events ?? repositories?.telemetry.events ?? noopAppEventLogger;
     _installed = PluginsController(repository, events: events)..load();
     _catalog = CatalogController(
       repository,

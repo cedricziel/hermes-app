@@ -5,7 +5,6 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
-import 'package:provider/provider.dart';
 
 import '../theme/app_icons.dart';
 import '../widgets/adaptive_add_action.dart';
@@ -108,13 +107,9 @@ class _SkillsScreenState extends State<SkillsScreen>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  AppEventLogger _events() {
-    try {
-      return context.read<AppEventLogger>();
-    } on ProviderNotFoundException {
-      return noopAppEventLogger;
-    }
-  }
+  AppEventLogger _events() =>
+      HermesRepositories.maybeOf(context)?.telemetry.events ??
+      noopAppEventLogger;
 
   @override
   void dispose() {

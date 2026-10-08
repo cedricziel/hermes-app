@@ -1,9 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
-import 'package:flutter_otel/flutter_otel.dart'
-    show AppEventLogger, noopAppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
@@ -124,7 +121,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     final auth = _maybeRead<AuthController>();
     if (repositories != null && auth?.baseUrl != null) {
-      final telemetry = _maybeRead<MessagingConnectionTracer>();
+      final telemetry = repositories.telemetry.gateway();
       _gateway = HermesGatewayTransport(
         connect: hermesGatewayConnect(
           baseUrl: auth!.baseUrl!,
@@ -133,7 +130,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           telemetry: telemetry,
         ),
         telemetry: telemetry,
-        events: _maybeRead<AppEventLogger>() ?? noopAppEventLogger,
+        events: repositories.telemetry.events,
       );
       _botsRepository = BotModeRosterRepository(
         _gateway!.request,

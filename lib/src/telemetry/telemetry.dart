@@ -29,15 +29,19 @@ const _knownGatewayEvents = {
   'clarify.expire',
 };
 
-/// How the chat gateway socket is traced, on [tracer] or, when null, nowhere.
-MessagingConnectionTracer gatewayTracer(Tracer? tracer) =>
-    MessagingConnectionTracer(
-      tracer,
-      system: 'hermes.gateway',
-      jsonRpc: true,
-      skippedNames: _skippedGatewayEvents,
-      knownEvents: _knownGatewayEvents,
-    );
+/// How a chat gateway socket is traced, on [tracer] or, when null, nowhere,
+/// every span described with [serverAttributes].
+MessagingConnectionTracer gatewayTracer(
+  Tracer? tracer, {
+  Map<String, Object> serverAttributes = const {},
+}) => MessagingConnectionTracer(
+  tracer,
+  system: 'hermes.gateway',
+  jsonRpc: true,
+  skippedNames: _skippedGatewayEvents,
+  knownEvents: _knownGatewayEvents,
+  attributes: serverAttributes,
+);
 
 // The kinds the Kanban plugin writes to its task_events table. Heartbeats
 // come every few seconds from each running worker and say nothing new.
@@ -72,15 +76,17 @@ const _knownKanbanEvents = {
 };
 
 /// How the Kanban plugin's event socket is traced, on [tracer] or, when
-/// null, nowhere. A type of its own so it is provided apart from the chat
-/// gateway's tracer.
+/// null, nowhere, every span described with `serverAttributes`.
 class KanbanEventsTracer extends MessagingConnectionTracer {
-  KanbanEventsTracer(super.tracer)
-    : super(
-        system: 'hermes.kanban',
-        skippedNames: const {'heartbeat'},
-        knownEvents: _knownKanbanEvents,
-      );
+  KanbanEventsTracer(
+    super.tracer, {
+    Map<String, Object> serverAttributes = const {},
+  }) : super(
+         system: 'hermes.kanban',
+         skippedNames: const {'heartbeat'},
+         knownEvents: _knownKanbanEvents,
+         attributes: serverAttributes,
+       );
 }
 
 /// Traces and logs every request to the Hermes backend on [tracer] and
@@ -96,11 +102,13 @@ Interceptor httpInterceptor(
 );
 
 /// The telemetry of one connection to a Hermes server: what its HTTP clients
-/// are traced with and what its events are logged through.
+/// and sockets are traced with and what its events are logged through.
 class ConnectionTelemetry {
   const ConnectionTelemetry({
     this.interceptor,
     this.events = noopAppEventLogger,
+    this.tracer,
+    this.serverAttributes = const {},
   });
 
   /// For when telemetry is off.
@@ -109,6 +117,27 @@ class ConnectionTelemetry {
 
   final Interceptor? interceptor;
   final AppEventLogger events;
+
+  /// What [gateway] and [kanban] trace on; null when nothing is traced.
+  final Tracer? tracer;
+  final Map<String, Object> serverAttributes;
+
+  /// A tracer for one chat gateway socket. Each socket needs its own: a
+  /// tracer links its messages to the last upgrade it traced.
+  MessagingConnectionTracer? gateway() => switch (tracer) {
+    final tracer? => gatewayTracer(tracer, serverAttributes: serverAttributes),
+    null => null,
+  };
+
+  /// A tracer for one Kanban events socket; null when nothing is traced, so
+  /// its frames are not decoded for nothing.
+  KanbanEventsTracer? kanban() => switch (tracer) {
+    final tracer? => KanbanEventsTracer(
+      tracer,
+      serverAttributes: serverAttributes,
+    ),
+    null => null,
+  };
 }
 
 /// Builds the [ConnectionTelemetry] of a connection to a server described by
@@ -200,6 +229,8 @@ class Telemetry {
         sdk.getTracer(),
         serverAttributes: serverAttributes,
       ),
+      tracer: sdk.getTracer(),
+      serverAttributes: serverAttributes,
       events: _breadcrumbs.asAppEventLogger(
         serverAttributes.isEmpty
             ? log
@@ -207,16 +238,6 @@ class Telemetry {
                   log(name, {...serverAttributes, ...attributes}),
       ),
     );
-  }
-
-  /// Traces the gateway socket; does nothing when disabled.
-  MessagingConnectionTracer gateway() => gatewayTracer(_sdk?.getTracer());
-
-  /// Traces the Kanban event socket; null when disabled, so its frames are
-  /// not decoded for nothing.
-  KanbanEventsTracer? kanbanEvents() {
-    final sdk = _sdk;
-    return sdk == null ? null : KanbanEventsTracer(sdk.getTracer());
   }
 
   /// Logs app events such as sign-in outcomes, and keeps them as breadcrumbs
