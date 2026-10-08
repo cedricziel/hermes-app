@@ -55,7 +55,7 @@ export const Selected = () => (
   </HermesProvider>
 );
 
-/** Another profile than the chat's (#445): Messaging counts that profile's own platforms; `plugins` is left out of `counts`, as the dashboard's plugin hub answers only for the chat's profile, so the row shows no count. */
+/** Another profile than the chat's: every count is that profile's own, Messaging (#445) and Plugins (#497) included. */
 export const OtherProfile = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={mac}>
@@ -66,6 +66,7 @@ export const OtherProfile = () => (
         counts={{
           skills: 12,
           messaging: 1,
+          plugins: 1,
           mcp: 4,
           helperModels: 4,
         }}
