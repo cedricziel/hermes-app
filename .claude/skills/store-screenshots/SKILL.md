@@ -16,15 +16,11 @@ erased. This is the procedure and the traps.
 2. `scripts/store-screenshots.sh ios` takes the iPhone 17 Pro Max and iPad Pro
    13-inch simulators, light and dark (about 10 minutes cold). `ios iphone` or
    `ios ipad` takes one.
-3. Mac, wide (preferred): start the backend and seed it (`dev-backend.sh
-start`, then the seed script), run `scripts/dev-app.sh start`, and ask the
-   user to widen the window and open the backup chat. After each screen they
-   confirm, run `scripts/dev-app.sh screenshot
-build/screenshots/mac-<light|dark>/<chat|welcome>.png`: chat and new chat in
-   light, then the user switches to dark (account menu, Appearance) for the dark
-   chat. Tell them what to do next each time, and to leave the window in front.
-   `scripts/store-screenshots.sh mac` is the unattended fallback: the compact
-   800 x 600 window, into `mac-compact-*`.
+3. `scripts/store-screenshots.sh mac` takes the Mac window, resized to 1440 x
+   900 points, light and dark. It takes over the screen for a few minutes.
+   To skip the local setup, run the **Screenshots** workflow in GitHub Actions
+   instead: it takes iPhone, iPad and Mac and opens a PR with
+   `docs/screenshots/`; its artifact has the store images.
 4. `scripts/store-screenshots.sh finish`, then look at every image in
    `fastlane/screenshots/`: no dev address, an English status bar, no seams
    where something was erased.
@@ -56,9 +52,16 @@ version>`. Check the editable version on App Store Connect first and pass
   the icon, not its tooltip wrapper, and never open a drawer that is already
   open.
 - The Mac window opens at 800 x 600, under the 900 point wide breakpoint. A
-  script can't resize it without Accessibility permission, and a size in the
-  xib or in `MainFlutterWindow.swift` never reached the built app. The user
-  widening it by hand works.
+  size in the xib or in `MainFlutterWindow.swift` never reached the built app;
+  the test resizes it through the `setContentSize` call on the
+  `hermes_app/window` channel (`SHOT_WINDOW`).
+- Don't add erase boxes for the dev address by hand. The test finds the
+  address text and writes its pixel box to `<screen>.erase`; `finish` erases
+  that. A fixed box goes stale with the next layout change.
+- The seed script needs the interpreter `hermes` runs on. Newer installs run a
+  bundled Python and load their dependencies through `hermes_bootstrap`, so
+  `store-screenshots.sh` asks `hermes --print-runtime-command`; set
+  `HERMES_PYTHON` to override. A seed failure stops the run.
 - The welcome shot's starter prompts come from the backend: a failed cron job,
   a blocked Kanban task, the latest chat and the most-used skill. The seeded
   backend has only chats, so it shows "Pick up '<latest seeded chat>'" and

@@ -18,12 +18,16 @@ rotation). No real server, account or chat is in them.
 
 ## Retake them
 
-You need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
+The quickest way is the **Screenshots** workflow in GitHub Actions: run it by
+hand and it opens a pull request with the new images. Run it after a change
+that shows in these screens.
+
+To take them on your own Mac you need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
 iOS 26 simulators, and Python 3 with Pillow.
 
 ```bash
 scripts/store-screenshots.sh ios       # iPhone 17 Pro Max and iPad Pro 13-inch simulators, light and dark
-scripts/store-screenshots.sh mac       # the Mac window at its default, compact size
+scripts/store-screenshots.sh mac       # the Mac window, widened to 1440 x 900 points
 scripts/store-screenshots.sh watch     # the watch app, through its paired phone
 scripts/store-screenshots.sh finish    # flatten, size and write the images
 ```
@@ -44,8 +48,9 @@ What happens:
 3. `scripts/finish_screenshots.py` flattens the captures (the store rejects
    transparency), puts the Mac window on a 2880 x 1800 canvas, and writes both
    sets. It also erases two things, and adds nothing: the address of the
-   throwaway backend that the account row shows when nobody is signed in, and
-   the window handle iPadOS draws in a corner.
+   throwaway backend that the account row shows when nobody is signed in
+   (the test reports where it is drawn, in a `.erase` file next to each
+   capture), and the window handle iPadOS draws in a corner.
 
 Raw captures go to `build/screenshots/`. The store images go to
 `fastlane/screenshots/<ios|mac>/en-US/`, which is not committed.
@@ -58,15 +63,9 @@ Raw captures go to `build/screenshots/`. The store images go to
 | Apple Watch Ultra | 422 x 514   | Apple Watch   |
 
 The Mac window opens at 800 x 600 points, below the 900 point breakpoint of the
-wide layout, so `mac` takes the compact one, with the thread list in a drawer.
-A script can't widen the window without Accessibility permission for the
-terminal, and setting the size in the xib or in `MainFlutterWindow.swift` did
-not reach the built app. The wide Mac shots are taken by hand instead: start
-the backend and seed it, run `scripts/dev-app.sh start`, widen the window, open
-the chat, and run `scripts/dev-app.sh screenshot
-build/screenshots/mac-light/chat.png`. Do the same for `welcome.png`, then
-switch the app to dark for `mac-dark/chat.png`. `finish` prefers these over the
-compact ones.
+wide layout, so the test first resizes it (`SHOT_MAC_WINDOW`, 1440x900 by
+default). `mac compact` keeps the default size and writes `mac-compact-*`, which
+`finish` uses only when there is no wide capture.
 
 The watch screenshot needs the watchOS simulator runtime (Xcode > Settings >
 Components). The `watch` run builds the phone app with the watch app inside,
