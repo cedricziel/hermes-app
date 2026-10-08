@@ -330,7 +330,7 @@ def build_target(key, options)
     )
   end
 
-  # Writes Flutter/Generated.xcconfig and runs pod install without compiling;
+  # Writes Flutter/Generated.xcconfig and resolves the plugin packages without compiling;
   # the archive below does the single real build. Runs after the signing
   # settings so Flutter sees a team and skips its development-cert lookup,
   # which fails on a runner that only has the distribution cert.
