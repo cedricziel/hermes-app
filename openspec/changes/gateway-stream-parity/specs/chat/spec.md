@@ -410,7 +410,7 @@ The system SHALL show a turn Hermes runs on a thread without a prompt from this 
 - **WHEN** a resume reports `auto_continue` and a turn starts that the app did not submit
 - **THEN** a new reply appears in the thread and streams as any other
 - **AND** while that turn runs ahead of a prompt the user sent, the approvals and questions it raises are shown on the reply in front and can be answered, and that reply says Hermes is finishing the interrupted turn until the turn ends
-- **AND** the turn's text appears in a reply of its own once the submitted prompt's turn begins or ends
+- **AND** the turn's text appears in a reply of its own when the send ends
 
 #### Scenario: Missed start of a chained turn
 
