@@ -274,7 +274,7 @@ void main() {
       await tester.pumpAndSettle();
       await shots.capture(tester, 'picker');
 
-      await tester.tap(find.text('hermes-4-mini'));
+      await tester.tap(find.text('hermes-4-mini').last);
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();

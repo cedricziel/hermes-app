@@ -5,11 +5,22 @@ import '../../models/model_provider_option.dart';
 import '../../models/moa_setup.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../theme/platform_chrome.dart';
+import '../../widgets/grouped_list.dart';
 
-/// The helper model slots of a profile, one row each with the model it runs
-/// on, and below them the mixture-of-agents slots when there is a [moa].
-/// Rows whose task or MoA key is in [saving] show progress instead of a
-/// chevron and ignore taps.
+/// The last path segment of a model id, such as "deepseek-v4-pro" for
+/// "deepseek/deepseek-v4-pro".
+String shortModelName(String modelId) => modelId.split('/').last;
+
+/// The short name of the main model of [models], or null when it is unknown.
+String? mainModelName(AuxiliaryModels models) {
+  final main = models.main?.modelId;
+  return main == null || main.isEmpty ? null : shortModelName(main);
+}
+
+/// The helper model slots of a profile, one value row each with the model it
+/// runs on, and below them the mixture-of-agents slots when there is a [moa].
+/// Rows whose task or MoA key is in [saving] show progress and ignore taps.
 class HelperModelList extends StatelessWidget {
   const HelperModelList({
     super.key,
@@ -28,89 +39,179 @@ class HelperModelList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final moa = this.moa;
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    final onTapMoa = this.onTapMoa;
+    // The Mac names the main model in the toolbar instead.
+    final main = platformChromeOf(context) == PlatformChrome.macos
+        ? null
+        : mainModelName(models);
+    return GroupedListView(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: Text(
-            'Hermes runs side jobs on these models. Changes apply to new '
-            'chats.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: context.hermesColors.subtleText,
-            ),
-          ),
-        ),
-        for (final slot in models.slots)
-          _row(
-            slot.task,
-            slot.label,
-            _describe(slot.choice),
-            () => onTap(slot),
-          ),
-        if (moa != null) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 4),
-            child: Text(
-              moa.preset == 'default'
-                  ? 'Mixture of agents'
-                  : 'Mixture of agents · ${moa.preset}',
-              style: theme.textTheme.titleSmall,
-            ),
-          ),
-          if (moa.privacyFilterOn)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
-              child: Text(
-                'Hermes’ privacy filter is on, and saving here would turn it '
-                'off. Change these slots on the server.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+        GroupedSection(
+          footer: [
+            'Hermes runs side jobs on these models.',
+            if (main != null) 'Main model is $main.',
+            'Changes apply to new chats.',
+          ].join(' '),
+          children: [
+            for (final slot in models.slots)
+              _ValueRow(
+                key: Key('helper-${slot.task}'),
+                title: slot.label,
+                value: _describe(slot.choice),
+                busy: saving.contains(slot.task),
+                onTap: () => onTap(slot),
               ),
-            ),
-          for (final slot in moa.slots)
-            _row(
-              slot.key,
-              slot.enabled ? slot.label : '${slot.label} (off)',
-              _describe(slot.choice),
-              onTapMoa == null ? null : () => onTapMoa!(slot),
-            ),
-        ],
+          ],
+        ),
+        if (moa != null)
+          GroupedSection(
+            header: 'Mixture of agents',
+            footer: moa.privacyFilterOn
+                ? 'Hermes’ privacy filter is on, and saving here would turn '
+                      'it off. Change these slots on the server.'
+                : null,
+            children: [
+              _ValueRow(
+                key: const Key('helper-moa-preset'),
+                title: 'Preset',
+                value: moa.preset == 'default' ? 'Default' : moa.preset,
+              ),
+              for (final slot in moa.slots)
+                _ValueRow(
+                  key: Key('helper-${slot.key}'),
+                  title: slot.label,
+                  value: slot.enabled ? _describe(slot.choice) : 'Off',
+                  busy: saving.contains(slot.key),
+                  onTap: onTapMoa == null ? null : () => onTapMoa(slot),
+                ),
+            ],
+          ),
       ],
     );
   }
 
-  Widget _row(String key, String title, String subtitle, VoidCallback? onTap) {
-    final busy = saving.contains(key);
-    return ListTile(
-      key: Key('helper-$key'),
-      title: Text(title),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: busy
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-            )
-          : const AppIcon(AppIcons.chevronRight),
-      onTap: busy ? null : onTap,
-    );
+  static String _describe(ModelChoice? choice) {
+    if (choice == null) return 'Main model';
+    if (choice.modelId.isEmpty) return 'Provider default';
+    return shortModelName(choice.modelId);
   }
+}
 
-  String _describe(ModelChoice? choice) {
-    if (choice == null) {
-      final main = models.main?.modelId;
-      return main == null || main.isEmpty
-          ? 'Same as main model'
-          : 'Same as main model ($main)';
-    }
-    final effort = choice.effort;
-    return [
-      if (choice.modelId.isEmpty) 'Provider default' else choice.modelId,
-      choice.providerId,
-      if (effort != null) effortLabel(effort),
-    ].join(' · ');
+/// A job and its model: on iOS the model as a muted value before the
+/// chevron, on Material under the job, and on the Mac in a pop-up button.
+class _ValueRow extends StatelessWidget {
+  const _ValueRow({
+    super.key,
+    required this.title,
+    required this.value,
+    this.busy = false,
+    this.onTap,
+  });
+
+  final String title;
+  final String value;
+  final bool busy;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final chrome = platformChromeOf(context);
+    final onTap = busy ? null : this.onTap;
+    final progress = busy
+        ? SizedBox.square(
+            dimension: chrome == PlatformChrome.macos ? 14 : 18,
+            child: const CircularProgressIndicator.adaptive(strokeWidth: 2),
+          )
+        : null;
+    return switch (chrome) {
+      PlatformChrome.material => GroupedRow(
+        title: title,
+        subtitle: value,
+        trailing: progress,
+        chevron: false,
+        onTap: onTap,
+      ),
+      PlatformChrome.macos => GroupedRow(
+        title: title,
+        trailing: progress ?? _PopUpValue(value: value, onPressed: onTap),
+      ),
+      PlatformChrome.ios => GroupedRow(
+        title: title,
+        // GroupedRow's own value does not shrink for a long model id.
+        trailing:
+            progress ??
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.sizeOf(context).width * 0.4,
+              ),
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: GroupedMetrics.of(context).subtitleSize,
+                  color: context.hermesColors.subtleText,
+                ),
+              ),
+            ),
+        chevron: onTap != null,
+        onTap: onTap,
+      ),
+    };
+  }
+}
+
+/// A Mac pop-up button showing [value], which opens the picker.
+class _PopUpValue extends StatelessWidget {
+  const _PopUpValue({required this.value, required this.onPressed});
+
+  final String value;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onPressed != null;
+    final color = enabled ? scheme.onSurface : context.hermesColors.subtleText;
+    final radius = BorderRadius.circular(6);
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      value: value,
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Material(
+          color: scheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(color: scheme.outline),
+          ),
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(9, 2, 6, 2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 4,
+                children: [
+                  Flexible(
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: color),
+                    ),
+                  ),
+                  AppIcon(AppIcons.expandMore, size: 12, color: color),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

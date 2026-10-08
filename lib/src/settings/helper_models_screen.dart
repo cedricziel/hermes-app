@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
-import '../widgets/adaptive_back_button.dart';
 import '../models/auxiliary_models.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/moa_setup.dart';
 import '../models/widgets/model_picker.dart';
+import '../theme/platform_chrome.dart';
 import '../widgets/content_column.dart';
+import '../widgets/settings_scaffold.dart';
 import '../widgets/state_message.dart';
 import 'widgets/helper_model_list.dart';
 
@@ -161,31 +162,41 @@ class _HelperModelsScreenState extends State<HelperModelsScreen> {
   @override
   Widget build(BuildContext context) {
     final models = _models;
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: const Text('Helper models'),
-      ),
-      body: ContentColumn(
-        child: _failed
-            ? StateMessage(
+    return SettingsScaffold(
+      title: 'Helper models',
+      subtitle: _subtitle(context),
+      body: _failed
+          ? ContentColumn(
+              child: StateMessage(
                 title: 'Could not load the helper models',
                 action: FilledButton(
                   onPressed: _load,
                   child: const Text('Retry'),
                 ),
-              )
-            : models == null
-            ? const Center(child: CircularProgressIndicator.adaptive())
-            : HelperModelList(
-                models: models,
-                saving: _saving,
-                onTap: _open,
-                moa: _moa,
-                onTapMoa: _moa?.privacyFilterOn ?? false ? null : _openMoa,
               ),
-      ),
+            )
+          : models == null
+          ? const Center(child: CircularProgressIndicator.adaptive())
+          : HelperModelList(
+              models: models,
+              saving: _saving,
+              onTap: _open,
+              moa: _moa,
+              onTapMoa: _moa?.privacyFilterOn ?? false ? null : _openMoa,
+            ),
     );
+  }
+
+  /// The profile, and on the Mac the main model, which the list's footer
+  /// names elsewhere.
+  String? _subtitle(BuildContext context) {
+    final models = _models;
+    final main = models == null ? null : mainModelName(models);
+    final parts = [
+      ?widget.profile,
+      if (platformChromeOf(context) == PlatformChrome.macos && main != null)
+        'main model $main',
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 }
