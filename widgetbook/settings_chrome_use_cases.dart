@@ -50,6 +50,10 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
         ),
         ..._onEach('Switches', (_) => _list(_switchSections())),
         ..._onEach('Meta, warning and selection', (_) => _list(_metaSection())),
+        ..._onEach(
+          'Tiles, captions and errors',
+          (context) => _list(_tileSections(context)),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -109,6 +113,48 @@ List<Widget> _statusSections(BuildContext context) => [
       GroupedRow(title: 'Slack', value: 'Set up', onTap: () {}),
       GroupedRow(title: 'Signal', value: 'Set up', onTap: () {}),
       GroupedRow(title: 'Matrix', value: 'Set up', onTap: () {}),
+    ],
+  ),
+];
+
+List<Widget> _tileSections(BuildContext context) => [
+  GroupedSection(
+    dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+    footer:
+        'Changes apply from the next chat, not to one that is already running.',
+    children: [
+      GroupedSwitchRow(
+        title: 'grafana',
+        subtitle: 'https://mcp.grafana.com/mcp',
+        caption: 'Remote · OAuth · 2 tools',
+        leading: const GroupedTile(child: Text('G')),
+        value: true,
+        onChanged: (_) {},
+      ),
+      GroupedSwitchRow(
+        title: 'asana',
+        subtitle: 'https://mcp.asana.com/sse',
+        warning: 'Sign in needed',
+        leading: const GroupedTile(child: Text('A')),
+        value: true,
+        onChanged: (_) {},
+      ),
+      GroupedSwitchRow(
+        title: 'filesystem',
+        subtitle: 'npx -y @modelcontextprotocol/server-filesystem',
+        monospaceSubtitle: true,
+        caption: 'Command · Off',
+        leading: const GroupedTile(child: Text('F')),
+        value: false,
+        onChanged: (_) {},
+      ),
+      GroupedSwitchRow(
+        title: 'Slack',
+        error: 'Invalid bot token',
+        leading: const GroupedTile(child: AppIcon(AppIcons.chat)),
+        value: true,
+        onChanged: (_) {},
+      ),
     ],
   ),
 ];
