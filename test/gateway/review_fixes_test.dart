@@ -90,10 +90,11 @@ class _Rig {
     chat = ChatController(
       transport: transport,
       attention: attention,
-      report: (_) {},
+      report: reports.add,
     );
   }
 
+  final reports = <String>[];
   late final ChatController chat;
   late final AttentionNotifier attention;
   final FakeChatTransport transport;
@@ -1065,5 +1066,95 @@ void main() {
         await transport.close();
       },
     );
+  });
+
+  group('Third review', () {
+    test(
+      'Queued by the server: a running turn that took over 15 s does not make '
+      'its own idle report settle the queued reply',
+      () {
+        fakeAsync((async) {
+          final gateway = FakeGateway()..submitStatus = 'queued';
+          final transport = HermesGatewayTransport(
+            connect: () async => gateway.channel,
+          );
+          gateway.turn = (g, sid) =>
+              g.event('message.delta', sid, {'text': 'old'});
+          final seen = _listen(transport.send(text: 'next', queued: true));
+          async.flushMicrotasks();
+
+          async.elapse(const Duration(seconds: 20));
+          gateway
+            ..event('message.complete', 'rt-1', {
+              'text': 'old',
+              'status': 'complete',
+            })
+            ..event('session.info', 'rt-1', {'running': false});
+          async.flushMicrotasks();
+          expect(seen.done, isFalse);
+
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'new',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(seen.done, isTrue);
+          expect(seen.events.whereType<ReplyCompleted>().single.text, 'new');
+        });
+      },
+    );
+
+    test(
+      'Error event without a completion: a chained turn that is only an error '
+      'and a settle pauses the queue and says why',
+      () async {
+        final rig = _Rig();
+        final (thread, first) = rig.start('One');
+        await pumpEventQueue();
+        rig.chat.submit('Two', const []);
+        first
+          ..emit(const ReplyCompleted('Done.'))
+          ..finish();
+        await pumpEventQueue();
+
+        rig.followUp()
+          ..emit(const ReplyErrored('boom'))
+          ..emit(const SessionInfo(running: false));
+        await pumpEventQueue();
+
+        expect(rig.sentTexts, ['One']);
+        expect(rig.chat.queuePaused(thread), isTrue);
+        expect(rig.reports, ['boom']);
+        expect(thread.messages, hasLength(2));
+        rig.dispose();
+      },
+    );
+
+    test('Paused by stop: a stop answered with only an idle report is not '
+        'announced as a finished reply', () async {
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.paused,
+      );
+      final live = _Live();
+      final thread = await live.start('One');
+      live.gateway
+        ..event('message.start', 'rt-1')
+        ..event('message.delta', 'rt-1', {'text': 'part'});
+      await live.settle();
+
+      await live.chat.stopReply(thread);
+      live.gateway.event('session.info', 'rt-1', {'running': false});
+      await live.settle();
+
+      expect(thread.isReplying, isFalse);
+      expect(live.service.shown, isEmpty);
+      WidgetsBinding.instance.handleAppLifecycleStateChanged(
+        AppLifecycleState.resumed,
+      );
+      await live.dispose();
+    });
   });
 }

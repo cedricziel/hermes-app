@@ -130,6 +130,8 @@ class _QueuedGate {
   /// The running turn has ended, so the rest is the queued prompt's.
   var _ended = false;
 
+  bool get ended => _ended;
+
   /// The running turn has been seen at work, so a `message.start` is one of
   /// its own (a goal continuation's second start, or a replayed one), not the
   /// queued prompt's.
@@ -476,7 +478,12 @@ class HermesGatewayTransport implements ChatTransport {
                 storedId = rotated;
               }
             }
-            for (final admitted in gate == null ? [event] : gate.admit(event)) {
+            final wasEnded = gate?.ended ?? true;
+            final admittedNow = gate == null ? [event] : gate.admit(event);
+            // The running turn's end starts the queued turn's clock: an idle
+            // report right after it is stale, however long that turn took.
+            if (!wasEnded && gate!.ended) submittedAt = clock.now();
+            for (final admitted in admittedNow) {
               started = started || beginsTurn(admitted);
               final idle = admitted is SessionInfo && admitted.running == false;
               final settled =

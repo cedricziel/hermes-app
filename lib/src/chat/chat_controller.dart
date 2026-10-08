@@ -1283,10 +1283,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a
         // failure or a stop it stays paused for the user.
+        final stopRequested = _stopRequested.remove(thread);
         final halted =
             failed ||
             stopped ||
-            _stopRequested.remove(thread) ||
+            stopRequested ||
             reply.status == MessageStatus.error;
         _followUps(transport, thread, profile);
         if (!halted) {
@@ -1405,6 +1406,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadNeedsRefetch():
         _refetch.add(thread);
         _refetchIfIdle(thread);
+      case ReplyErrored(:final message):
+        // A failure with no reply open to show it, from a turn that never
+        // began. It pauses the queue like any failure, and says so.
+        _settleTimers.remove(thread)?.cancel();
+        if (message.isNotEmpty) report(message);
       case ReplyCompleted():
         final settled = _settledReply(thread);
         if (settled == null) return;
@@ -1484,6 +1490,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           announced = ReplyCompleted(
             reply.content,
             failed: reply.status == MessageStatus.error,
+            stopped: _stopRequested.contains(thread),
           );
         }
       case ThreadNeedsRefetch():
