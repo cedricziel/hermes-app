@@ -1,10 +1,10 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/grouped_list.dart';
 import '../../widgets/named_icon_button.dart';
+import '../../widgets/row_actions.dart';
 import '../hermes_profiles_repository.dart';
 import 'profile_avatar.dart';
 
@@ -13,8 +13,7 @@ import 'profile_avatar.dart';
 ///
 /// A check marks the active profile on Apple platforms, a muted "Active" on
 /// Material. With [onChangeModel] a button changes its default model; on iOS
-/// that moves to a long-press action sheet, which VoiceOver gets as a custom
-/// action.
+/// that moves to the row's long-press actions.
 class ProfileTile extends StatelessWidget {
   const ProfileTile({
     super.key,
@@ -61,37 +60,17 @@ class ProfileTile extends StatelessWidget {
       chevron: false,
       onTap: onTap,
     );
-    if (!ios || change == null) return row;
-    return Semantics(
-      customSemanticsActions: {
-        CustomSemanticsAction(label: 'Change default model'): change,
-      },
-      child: GestureDetector(
-        onLongPress: () => _showActions(context, change),
-        child: row,
-      ),
-    );
-  }
-
-  Future<void> _showActions(BuildContext context, VoidCallback change) {
-    return showCupertinoModalPopup<void>(
-      context: context,
-      builder: (sheet) => CupertinoActionSheet(
-        title: Text(profile.label),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.of(sheet).pop();
-              change();
-            },
-            child: const Text('Change default model'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(sheet).pop(),
-          child: const Text('Cancel'),
+    if (change == null) return row;
+    return RowActions(
+      title: profile.label,
+      actions: [
+        RowAction(
+          label: 'Change default model',
+          icon: AppIcons.tune,
+          onPressed: change,
         ),
-      ),
+      ],
+      child: row,
     );
   }
 }

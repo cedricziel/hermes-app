@@ -431,11 +431,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         profiles: profiles.profiles,
         current: profiles.current,
         onSwitch: _switchProfile,
-        onNewProfile: () => createProfile(
-          context,
-          (name, description) =>
-              profiles.create(name, description: description),
-        ),
+        onNewProfile: () => createProfile(context, profiles.create),
         onManage: () => _select(_Destination.profiles),
       ),
     );

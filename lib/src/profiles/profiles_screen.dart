@@ -142,7 +142,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     await _load();
   }
 
-  Future<void> _create() => createProfile(context, (name, description) async {
+  Future<void> _create() => createProfile(context, (name, {description}) async {
     await _repository.create(name, description: description);
     await _load();
   });

@@ -167,11 +167,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 key: const Key('profiles-new'),
                 label: 'New Profile',
                 icon: AppIcons.add,
-                onPressed: () => createProfile(
-                  context,
-                  (name, description) =>
-                      _profiles.create(name, description: description),
-                ),
+                onPressed: () => createProfile(context, _profiles.create),
               ),
             ],
           ),

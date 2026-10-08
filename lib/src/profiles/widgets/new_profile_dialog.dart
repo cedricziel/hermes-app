@@ -85,13 +85,13 @@ class _NewProfileDialogState extends State<_NewProfileDialog> {
 /// the dashboard refuses.
 Future<void> createProfile(
   BuildContext context,
-  Future<void> Function(String name, String description) create,
+  Future<void> Function(String name, {String? description}) create,
 ) async {
   final created = await showNewProfileDialog(context);
   if (created == null || !context.mounted) return;
   final messenger = ScaffoldMessenger.maybeOf(context);
   try {
-    await create(created.name, created.description);
+    await create(created.name, description: created.description);
   } on Object catch (error) {
     final detail = switch (error) {
       DioException(response: Response(data: {'detail': final String d})) =>
