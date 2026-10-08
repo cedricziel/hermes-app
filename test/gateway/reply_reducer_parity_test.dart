@@ -357,6 +357,46 @@ void main() {
       expect(reply.content, 'Found it, and more');
     });
 
+    test(
+      'a rebuild strips a checkpoint that rewrote unsealed streamed text',
+      () {
+        final reply = _placeholder();
+
+        applyReplyEvent(reply, const ReplyDelta('Let me look. '));
+        applyReplyEvent(reply, const ReplyCheckpoint('Let me take a look.'));
+        applyReplyEvent(reply, const ReplyRebuilt('Let me look. Found it'));
+
+        expect(_sealedTexts(reply), ['Let me take a look.']);
+        expect(reply.content, 'Found it');
+      },
+    );
+
+    test('a rebuild leaves no stray rest when the streamed form is a prefix of '
+        'the sealed text', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('Hi'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ReplyCheckpoint('Hi.'));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
+      applyReplyEvent(reply, const ReplyRebuilt('Hi. There'));
+
+      expect(reply.content, ' There');
+    });
+
+    test('a rebuild matches the sealed text where it comes first, not a later '
+        'repeat of the streamed form', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('Look into it'));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ReplyCheckpoint('Look'));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
+      applyReplyEvent(reply, const ReplyRebuilt('Look at this. Look into it'));
+
+      expect(reply.content, ' at this. Look into it');
+    });
+
     test('an interrupt cancelling one request expires only that request', () {
       final reply = _placeholder();
 

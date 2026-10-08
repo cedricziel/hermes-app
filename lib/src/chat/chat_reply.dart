@@ -43,7 +43,11 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
           );
         return;
       }
-      _seal(reply, text);
+      _seal(
+        reply,
+        text,
+        streamed: reply.content == text ? null : reply.content,
+      );
       reply.content = '';
     case ReasoningUpdated(:final text, fallback: false):
       reply.activity = null;
@@ -232,13 +236,20 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
 String _unsealed(ChatMessage reply, String rebuilt) {
   var from = 0;
   for (final segment in reply.sealedProse) {
+    // The earlier match wins, the longer one on a tie, so a streamed form that
+    // is a prefix of the sealed text leaves nothing of it behind.
+    var best = -1;
+    var length = 0;
     for (final text in [?segment.streamed, segment.text]) {
       if (text.isEmpty) continue;
       final at = rebuilt.indexOf(text, from);
       if (at < 0) continue;
-      from = at + text.length;
-      break;
+      if (best < 0 || at < best || (at == best && text.length > length)) {
+        best = at;
+        length = text.length;
+      }
     }
+    if (best >= 0) from = best + length;
   }
   return rebuilt.substring(from);
 }
@@ -270,7 +281,12 @@ void failReply(ChatMessage reply, [Object? error]) {
 /// Closes off [text] as its own segment, ahead of whatever tool calls have
 /// started so far, so it renders where it was actually written instead of
 /// always after every tool call the reply ever makes.
-void _seal(ChatMessage reply, String text, {bool awaitingCheckpoint = false}) {
+void _seal(
+  ChatMessage reply,
+  String text, {
+  bool awaitingCheckpoint = false,
+  String? streamed,
+}) {
   if (text.isEmpty) return;
   reply.sealedProse = [
     ...reply.sealedProse,
@@ -278,6 +294,7 @@ void _seal(ChatMessage reply, String text, {bool awaitingCheckpoint = false}) {
       text,
       beforeToolCall: reply.toolCalls.length,
       awaitingCheckpoint: awaitingCheckpoint,
+      streamed: streamed,
     ),
   ];
 }
