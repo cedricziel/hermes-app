@@ -23,6 +23,15 @@ The system SHALL offer the Kanban destination only while the server reports the 
 - **WHEN** the plugin list request fails or returns something that is not a list
 - **THEN** the app treats Kanban as off and offers no Kanban destination
 
+### Requirement: Kanban requests name no profile
+
+The system SHALL send the plugin check (`GET /api/dashboard/plugins`) and every `/api/plugins/kanban/*` request without a `profile` query parameter, whichever profile the chat shows. The board lives in the Hermes root and is shared by every profile, so a profile would not change which tasks are shown; it would only move the reads and writes of configuration (orchestration settings, board preferences, home channels, model options and the credentials of the helper calls) to that profile's home. Hermes serves the Kanban plugin's routes from the profile the dashboard was started with, and its own dashboard sends no profile to them either.
+
+#### Scenario: Chat on another profile
+
+- **WHEN** the chat shows the profile "work" and the user opens Kanban
+- **THEN** the board and its settings are requested without a `profile` parameter
+
 ### Requirement: Plugin state is re-checked on connect and on app resume
 
 The system SHALL run the plugin check when the signed-in home screen is first shown and again every time the app returns to the foreground. When the result changes, the navigation SHALL update to match. When the plugin turns off while the Kanban destination is selected, the app SHALL return to Chat. When several checks overlap, only the answer of the most recently started check SHALL apply.

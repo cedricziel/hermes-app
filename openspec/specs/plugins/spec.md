@@ -17,6 +17,25 @@ The system SHALL show a Plugins entry in the footer of the chat sidebar, after P
 - **WHEN** the chat runs without a dashboard connection (the demo chat)
 - **THEN** the sidebar has no Plugins entry
 
+### Requirement: Plugins follow the profile shown
+
+The system SHALL send the profile the user is looking at as the `profile` query parameter on `GET /api/dashboard/plugins/hub`, `POST /api/dashboard/plugins/{name}/visibility` and `PUT /api/dashboard/plugin-providers`: the chat's profile when the Plugins screen is opened from the chat sidebar, and the selected profile when it is opened from the Profiles page on macOS. The routes that install, enable, disable, update and remove a plugin and the catalog route SHALL be sent without a profile, since Hermes runs them for the profile the dashboard was started with. A server older than the profile parameter on the hub ignores it and answers for its own profile.
+
+#### Scenario: Plugins of the chat's profile
+
+- **WHEN** the chat shows the profile "work" and the user opens Plugins from the chat sidebar
+- **THEN** the hub is requested with `profile=work` and lists the plugins of "work"
+
+#### Scenario: Provider save for the profile shown
+
+- **WHEN** the Plugins screen shows "work" and the user saves a memory provider
+- **THEN** `PUT /api/dashboard/plugin-providers` is sent with `profile=work`
+
+#### Scenario: Install stays with the dashboard's profile
+
+- **WHEN** the user installs, enables, disables, updates or removes a plugin
+- **THEN** the request carries no `profile` parameter
+
 ### Requirement: Installed plugins are read from the plugins hub
 
 The system SHALL load the installed plugins with `GET /api/dashboard/plugins/hub` when the Plugins screen opens, when the user pulls to refresh, and after every change the user makes on the screen. It SHALL read the `plugins` list of the response leniently: a row without a non-empty string `name` SHALL be left out, and a missing or malformed field SHALL fall back to a default (empty text for the version and description, false for every flag, no login command, no removed reason). A response that is not an object with a `plugins` list SHALL be read as no plugins. Only that list SHALL be shown: dashboard-only extensions, which the server reports apart from it (`orphan_dashboard_plugins`), SHALL NOT be listed.

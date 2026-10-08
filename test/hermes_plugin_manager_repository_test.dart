@@ -821,4 +821,36 @@ void main() {
       expect((await repository.saveProviders(memoryProvider: 'x')).ok, isFalse);
     });
   });
+
+  group('a repository for one profile', () {
+    late HermesPluginManagerRepository work;
+
+    setUp(() => work = repository.forProfile('work'));
+
+    test('reads and changes that profile\'s plugins and providers', () async {
+      server
+        ..on('GET', '/api/dashboard/plugins/hub', hubBody([hubRow('netbox')]))
+        ..on('POST', '/api/dashboard/plugins/netbox/visibility', {'ok': true})
+        ..on('PUT', '/api/dashboard/plugin-providers', {'ok': true});
+
+      await work.load();
+      await work.loadProviders();
+      await work.setHidden('netbox', true);
+      await work.saveProviders(memoryProvider: 'honcho');
+
+      expect(
+        [for (final r in server.requests) r.queryParameters['profile']],
+        ['work', 'work', 'work', 'work'],
+      );
+    });
+
+    test('the default repository names no profile', () async {
+      server.on('GET', '/api/dashboard/plugins/hub', hubBody([]));
+      await repository.load();
+      expect(
+        server.requests.single.queryParameters.containsKey('profile'),
+        isFalse,
+      );
+    });
+  });
 }

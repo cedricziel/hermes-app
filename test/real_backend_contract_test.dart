@@ -2213,6 +2213,63 @@ void main() {
     }, skip: skip);
   });
 
+  group('requests scoped to a second profile (no model call)', () {
+    final profile = 'contract-scope-${DateTime.now().millisecondsSinceEpoch}';
+    late HermesPluginManagerRepository plugins;
+
+    setUpAll(() async {
+      if (url == null) return;
+      await client.raw.createProfileEndpointApiProfilesPost(
+        profileCreate: ProfileCreate(name: profile, noSkills: true),
+      );
+    });
+
+    tearDownAll(() async {
+      if (url == null) return;
+      await client.raw.deleteProfileEndpointApiProfilesNameDelete(
+        name: profile,
+      );
+    });
+
+    setUp(() => plugins = HermesPluginManagerRepository(client.raw));
+
+    test('servers that ignore the profile still answer', () async {
+      final cron = HermesCronRepository(client.raw);
+
+      expect((await cron.deliveryTargets(profile: profile)).first.id, 'local');
+      await cron.blueprints(profile: profile);
+      expect(await plugins.forProfile(profile).load(), isNotEmpty);
+    }, skip: skip);
+
+    Future<bool> hubTakesProfile() async {
+      try {
+        await client.raw.getPluginsHubApiDashboardPluginsHubGet(
+          profile: 'no-such-profile',
+        );
+        return false;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 404) return true;
+        rethrow;
+      }
+    }
+
+    test('the hub and plugin visibility follow the profile', () async {
+      if (!await hubTakesProfile()) return;
+      final scoped = plugins.forProfile(profile);
+      bool hidden(List<InstalledPlugin> list, String name) =>
+          list.any((p) => p.name == name && p.hidden);
+      final ownHub = await plugins.load();
+      final plugin = (await scoped.load()).firstWhere(
+        (p) => !p.hidden && !hidden(ownHub, p.name),
+      );
+
+      expect((await scoped.setHidden(plugin.name, true)).ok, isTrue);
+
+      expect(hidden(await scoped.load(), plugin.name), isTrue);
+      expect(hidden(await plugins.load(), plugin.name), isFalse);
+    }, skip: skip);
+  });
+
   group('a throwaway profile on a scripted model (no paid model call)', () {
     final profile = 'contract-check-${DateTime.now().millisecondsSinceEpoch}';
     late Directory scratch;

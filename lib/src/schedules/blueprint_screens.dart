@@ -44,7 +44,9 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
   Future<void> _load() async {
     setState(() => _failed = false);
     try {
-      final blueprints = await widget.repository.blueprints();
+      final blueprints = await widget.repository.blueprints(
+        profile: widget.profile,
+      );
       if (mounted) setState(() => _blueprints = blueprints);
     } on Object {
       if (mounted) setState(() => _failed = true);
