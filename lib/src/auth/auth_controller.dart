@@ -6,6 +6,7 @@ import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/hermes_api_client.dart';
+import '../api/request_timeout.dart';
 import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
@@ -704,13 +705,19 @@ class AuthController extends ChangeNotifier {
     String baseUrl, {
     Duration connectTimeout = const Duration(seconds: 15),
     Duration receiveTimeout = const Duration(seconds: 30),
-  }) => Dio(
-    BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: connectTimeout,
-      receiveTimeout: receiveTimeout,
-    ),
-  )..interceptors.addAll([..._interceptors, ?_connection.interceptor]);
+  }) =>
+      Dio(
+          BaseOptions(
+            baseUrl: baseUrl,
+            connectTimeout: connectTimeout,
+            receiveTimeout: receiveTimeout,
+          ),
+        )
+        ..interceptors.addAll([
+          RequestTimeoutInterceptor(),
+          ..._interceptors,
+          ?_connection.interceptor,
+        ]);
 
   void _announceSignedOut({bool expired = false}) {
     _sessionExpired = expired;
