@@ -927,8 +927,8 @@ void main() {
           'text': pong,
         });
         await tap.until(
-          () => tap.idleReports(sid) >= 1,
-          'session.info {running: false}',
+          () => tap.idleAfterComplete(sid),
+          'session.info {running: false} after message.complete',
         );
 
         expect(submit['status'], 'streaming');
@@ -1020,13 +1020,12 @@ void main() {
           'text': 'Reply with the single word: ping. Use no tools.',
           'queued': true,
         });
+        expect(submit['status'], anyOf('queued', 'streaming'));
         await tap.until(
           () =>
               tap.types(sid).where((t) => t == 'message.complete').length >= 2,
           'the second message.complete',
         );
-
-        expect(submit['status'], anyOf('queued', 'streaming'));
       },
       skip: modelSkip,
       timeout: const Timeout(Duration(minutes: 3)),
@@ -2598,10 +2597,20 @@ class _GatewayTap {
     for (final event in eventsOf(sessionId)) event.type,
   ];
 
-  /// How many `session.info` reports of [sessionId] say it stopped running.
-  int idleReports(String sessionId) => eventsOf(sessionId)
-      .where((e) => e.type == 'session.info' && e.payload['running'] == false)
-      .length;
+  /// Whether [sessionId] reported that it stopped running after its last
+  /// `message.complete`.
+  bool idleAfterComplete(String sessionId) {
+    final events = eventsOf(sessionId);
+    final completed = events.lastIndexWhere(
+      (e) => e.type == 'message.complete',
+    );
+    return completed >= 0 &&
+        events
+            .skip(completed + 1)
+            .any(
+              (e) => e.type == 'session.info' && e.payload['running'] == false,
+            );
+  }
 
   /// Waits until [condition] holds, and fails naming [what] when it does not
   /// within two minutes.
