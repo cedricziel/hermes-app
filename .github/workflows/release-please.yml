@@ -90,14 +90,6 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
 
-      # Flutter shells out to `pod`; after setup-ruby the runner's
-      # preinstalled CocoaPods is broken, so use the bundled one.
-      - name: Put the bundled CocoaPods on the PATH
-        run: |
-          bundle binstubs cocoapods
-          echo "$PWD/bin" >> "$GITHUB_PATH"
-          bin/pod --version
-
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

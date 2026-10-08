@@ -114,8 +114,8 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
 - macOS doesn't paint a covered window. `screenshot` brings the app forward
   for a moment and hands focus back; a hand-rolled capture of a background
   window shows a stale frame that makes a hot reload look like it did nothing.
-- The macOS build rewrites tracked `ios/` and `macos/` Xcode/xcconfig files
-  and adds `Podfile`s. Don't commit them: stage files by name, never
+- The macOS build rewrites tracked `ios/` and `macos/` Xcode/xcconfig files.
+  Don't commit them: stage files by name, never
   `git add -A`, and `git restore` the tracked ones afterwards.
 - In a detached command runner, `dev-app.sh start` may print `app up` but its
   background Flutter process may exit as the command session closes. Check
