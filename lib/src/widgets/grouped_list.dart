@@ -349,6 +349,9 @@ class GroupedRow extends StatelessWidget {
     final value = this.value;
     final trailing = this.trailing;
     final showChevron = chevron ?? (onTap != null && trailing == null);
+    // A control beside a row that opens something stays its own node, so a
+    // screen reader can both open the row and flip the switch.
+    final trailingApart = trailing != null && onTap != null;
     final titleStyle = TextStyle(
       fontSize: metrics.titleSize,
       color: destructive ? scheme.error : scheme.onSurface,
@@ -357,7 +360,10 @@ class GroupedRow extends StatelessWidget {
     final content = ConstrainedBox(
       constraints: BoxConstraints(minHeight: metrics.rowMinHeight),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: metrics.rowPadding),
+        padding: EdgeInsetsDirectional.only(
+          start: metrics.rowPadding,
+          end: trailingApart ? 0 : metrics.rowPadding,
+        ),
         child: Row(
           children: [
             if (leading != null) ...[
@@ -449,7 +455,7 @@ class GroupedRow extends StatelessWidget {
                   ),
                 ),
               ),
-            if (trailing != null)
+            if (trailing != null && !trailingApart)
               Padding(padding: const EdgeInsets.only(left: 8), child: trailing),
             if (showChevron)
               Padding(
@@ -465,15 +471,29 @@ class GroupedRow extends StatelessWidget {
         ),
       ),
     );
-    return MergeSemantics(
+    final tappable = MergeSemantics(
       child: Semantics(
         button: onTap != null,
         selected: selected,
-        child: Material(
-          color: selected ? scheme.outline : Colors.transparent,
-          child: InkWell(onTap: onTap, child: content),
-        ),
+        child: InkWell(onTap: onTap, child: content),
       ),
+    );
+    return Material(
+      color: selected ? scheme.outline : Colors.transparent,
+      child: trailingApart
+          ? Row(
+              children: [
+                Expanded(child: tappable),
+                Padding(
+                  padding: EdgeInsetsDirectional.only(
+                    start: 8,
+                    end: metrics.rowPadding,
+                  ),
+                  child: trailing,
+                ),
+              ],
+            )
+          : tappable,
     );
   }
 }
@@ -513,11 +533,18 @@ class GroupedSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final control = Switch.adaptive(
+    Widget control = Switch.adaptive(
       value: value,
       onChanged: onChanged,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
+    // Beside a row that opens details the switch is its own node, so it
+    // carries the title itself.
+    if (onTap != null) {
+      control = MergeSemantics(
+        child: Semantics(label: title, child: control),
+      );
+    }
     return GroupedRow(
       title: title,
       subtitle: subtitle,
