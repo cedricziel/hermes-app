@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../chat/widgets/relative_time.dart';
+import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/grouped_list.dart';
@@ -113,7 +114,7 @@ class _MenuRow extends StatelessWidget {
         trailing: AdaptivePopupMenuButton<String>(
           controller: menu,
           padding: EdgeInsets.all(mac ? 2 : 8),
-          iconSize: mac ? 16 : null,
+          icon: mac ? const AppIcon(AppIcons.more, size: 16) : null,
           onSelected: (label) => actions[label]?.call(),
           itemBuilder: (_) => [
             for (final label in actions.keys)
