@@ -96,6 +96,7 @@ final class _Resumed {
     this.idle,
     this.ended = const [],
     this.stored,
+    this.storedPrompt,
     this.giveUp = false,
     this.outcome = 'replayed',
     this.replayedCount = 0,
@@ -118,8 +119,12 @@ final class _Resumed {
 
   /// The reply read from the stored thread, when [ended] ends in it (the
   /// replay held no completion). It is the thread's real last reply, so a
-  /// queued prompt's gate lets it through.
+  /// queued prompt's gate lets it through only when [storedPrompt] shows it
+  /// answers that prompt.
   final ReplyCompleted? stored;
+
+  /// The text of the user message the [stored] reply follows, if any.
+  final String? storedPrompt;
 
   /// Set when the reply cannot end cleanly: no connection could be made, or the
   /// turn ended without a reply to show, so the reply fails after [ended].
@@ -147,6 +152,29 @@ final class _Resumed {
   }
 }
 
+/// A [StreamIterator] that counts the frames it handed out.
+class _CountedEvents implements StreamIterator<_Incoming?> {
+  _CountedEvents(this._inner);
+
+  final StreamIterator<_Incoming?> _inner;
+
+  /// How many frames were read.
+  int read = 0;
+
+  @override
+  _Incoming? get current => _inner.current;
+
+  @override
+  Future<bool> moveNext() async {
+    final more = await _inner.moveNext();
+    if (more) read++;
+    return more;
+  }
+
+  @override
+  Future<void> cancel() => _inner.cancel();
+}
+
 /// What one runtime session sends, buffered until the transport reads it. A
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
@@ -156,7 +184,7 @@ final class _Resumed {
 /// reader) or [close]. A reader takes the hold again with [hold].
 class _Watch {
   _Watch(this.runtimeId, this.client, this._inbox, {bool record = false})
-    : events = StreamIterator(_inbox.stream),
+    : events = _CountedEvents(StreamIterator(_inbox.stream)),
       _arrivals = record ? [] : null,
       _release = client.hold();
 
@@ -179,7 +207,8 @@ class _Watch {
   final GatewayRpcClient client;
   final StreamController<_Incoming?> _inbox;
   late List<StreamSubscription<Object?>> _sources;
-  final StreamIterator<_Incoming?> events;
+  final _CountedEvents events;
+  var _pushed = 0;
 
   /// Everything pushed so far, while a send still has to tell the turns that
   /// came before its prompt from its own. Null once that is settled.
@@ -192,6 +221,7 @@ class _Watch {
   /// Adds a frame of the session for the reader.
   void push(_Incoming? incoming) {
     _arrivals?.add(incoming);
+    _pushed++;
     _inbox.add(incoming);
   }
 
@@ -224,9 +254,13 @@ class _Watch {
     unawaited(_inbox.close());
   }
 
-  /// Whether nothing more will arrive: the socket under the watch closed, or
-  /// the watch was closed.
-  bool get isDead => _inbox.isClosed;
+  /// Whether nothing more will arrive and nothing is left to read: the watch
+  /// was closed, or the socket under it closed after everything it pushed was
+  /// read and no backlog is waiting. A closed watch that still holds frames is
+  /// not dead yet; the reader gets them first.
+  bool get isDead =>
+      closedByUs ||
+      _inbox.isClosed && events.read == _pushed && _backlog.isEmpty;
 
   /// Set when the transport closed this watch itself, as opposed to the
   /// socket under it dropping. A reader that finds the watch ended has nothing
@@ -959,9 +993,14 @@ class HermesGatewayTransport implements ChatTransport {
           final yielded = <ChatEvent>[];
           for (final (event, serverRequest) in own) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
-            // The stored reply is what the thread holds now, whichever turn
-            // it was: held back, it would be turned into one more refetch.
-            final gated = gating && !identical(event, resumed.stored);
+            // The stored reply passes the gate only when it follows this
+            // prompt in the thread. Otherwise it is the turn ahead's, which
+            // the gate turns into a refetch rather than show it twice.
+            final answersPrompt =
+                identical(event, resumed.stored) &&
+                text.trim().isNotEmpty &&
+                (resumed.storedPrompt?.trim().startsWith(text.trim()) ?? false);
+            final gated = gating && !answersPrompt;
             for (final admitted in gated ? gate.admit(event) : [event]) {
               completed = completed || admitted is ReplyCompleted;
               yielded.add(admitted);
@@ -1394,6 +1433,7 @@ class HermesGatewayTransport implements ChatTransport {
         runtimeId: runtimeId,
         ended: ended,
         stored: stored,
+        storedPrompt: stored == null ? null : _storedPrompt(resumed),
         idle: _watch(client, runtimeId, injected: next, shown: shown),
         outcome: outcome,
         replayedCount: replayedCount,
@@ -1529,6 +1569,18 @@ class HermesGatewayTransport implements ChatTransport {
     return null;
   }
 
+  /// The text of the last user message before the session's last message.
+  String? _storedPrompt(Map<String, Object?> resumed) {
+    if (resumed['messages'] case [...final earlier, _]) {
+      for (final message in earlier.reversed) {
+        if (message case {'role': 'user', 'text': final String text}) {
+          return text;
+        }
+      }
+    }
+    return null;
+  }
+
   /// The frames of [sid]: its events and its server requests, in order.
   static Iterable<Object> _ofSession(Iterable<Object> frames, String sid) =>
       frames.where(
@@ -1569,7 +1621,8 @@ class HermesGatewayTransport implements ChatTransport {
       final text = frame.payload['text'];
       joined.write(text is String ? text : '');
       final run = joined.toString();
-      if (run.trim().length >= _minHeldRun && snapshot.endsWith(run)) {
+      final solid = run.replaceAll(RegExp(r'\s'), '').length;
+      if (solid >= _minHeldRun && snapshot.endsWith(run)) {
         return count;
       }
     }
@@ -1696,9 +1749,10 @@ class HermesGatewayTransport implements ChatTransport {
     final owner = (profile, threadId);
     var watch = _idle[owner];
     if (watch != null && watch.isDead) {
-      // The socket closed while the thread was idle: nothing arrives on this
-      // watch any more, so the thread is picked up on a fresh one.
-      _idle.remove(owner);
+      // The socket closed while the thread was idle and everything the watch
+      // held was read: nothing arrives on it any more, so the thread is
+      // picked up on a fresh one.
+      unawaited(_idle.remove(owner)?.close());
       watch = null;
     }
     if (watch != null) {

@@ -514,6 +514,36 @@ void main() {
       });
     });
 
+    test('Spaces inside a run do not count towards the minimum length', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'x ab cd ef'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) =>
+            g.event('message.delta', 'rt-1', {'text': 'ab cd ef'});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'x ab cd efab cd ef',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['ab cd ef'],
+        );
+      });
+    });
+
     test('A delta that is only whitespace is delivered even when the snapshot '
         'ends with whitespace', () {
       fake((async) {
@@ -1680,22 +1710,85 @@ void main() {
     });
   });
 
+  group('A closed watch with frames left in it', () {
+    test('the backlog a send left is delivered after the socket closed, and '
+        'the thread is picked up afresh after it', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-2',
+          'session_key': 'stored-2',
+          'auto_continue': {'attempt': 1},
+        };
+        gateway.beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+          g.event('message.complete', 'rt-2', {
+            'text': 'resumed work',
+            'status': 'complete',
+          });
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {
+            'text': 'mine',
+            'status': 'complete',
+          });
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        final sent = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.done, isTrue);
+        gateway.drop();
+        async.flushMicrotasks();
+        final before = resumes();
+
+        final follow = _listen(transport.followUps('stored-2'));
+        async.flushMicrotasks();
+
+        expect(follow.events.map((e) => e.runtimeType), [
+          ReplyStarted,
+          ReplyDelta,
+          ReplyCompleted,
+        ]);
+        expect(follow.done, isTrue);
+        expect(resumes(), before);
+
+        final next = _listen(transport.followUps('stored-2'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), before + 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
   group('A stored reply across a queued gate', () {
+    Object stored(List<Map<String, String>> messages) => {
+      'session_id': 'rt-1',
+      'running': false,
+      'messages': messages,
+    };
+
+    /// A prompt queued behind a turn that is still running, then a drop.
+    void queuedThenDrop(FakeGateway g) {
+      g.submitStatus = 'queued';
+      g.turn = (g, sid) {
+        g.event('message.delta', sid, {'text': 'old'});
+        g.drop();
+      };
+    }
+
     test('a queued prompt whose turns both ended while disconnected shows the '
         'stored reply instead of swallowing it', () {
       fake((async) {
-        gateway.submitStatus = 'queued';
-        gateway.resumeResult = {
-          'session_id': 'rt-1',
-          'running': false,
-          'messages': [
-            {'role': 'assistant', 'text': 'the real reply'},
-          ],
-        };
-        gateway.turn = (g, sid) {
-          g.event('message.delta', sid, {'text': 'old'});
-          g.drop();
-        };
+        queuedThenDrop(gateway);
+        gateway.resumeResult = stored([
+          {'role': 'user', 'text': 'first'},
+          {'role': 'assistant', 'text': 'the turn ahead'},
+          {'role': 'user', 'text': 'next'},
+          {'role': 'assistant', 'text': 'the real reply'},
+        ]);
 
         final seen = _listen(transport.send(text: 'next', queued: true));
         async.flushMicrotasks();
@@ -1707,6 +1800,25 @@ void main() {
           seen.events.whereType<ReplyCompleted>().single.text,
           'the real reply',
         );
+      });
+    });
+
+    test('a stored thread that ends with the turn ahead\'s reply is not shown '
+        'as the queued prompt\'s', () {
+      fake((async) {
+        queuedThenDrop(gateway);
+        gateway.resumeResult = stored([
+          {'role': 'user', 'text': 'first'},
+          {'role': 'assistant', 'text': 'the turn ahead'},
+        ]);
+
+        final seen = _listen(transport.send(text: 'next', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
       });
     });
   });
