@@ -462,6 +462,26 @@ If a drop loses or repeats text, reproduce it first in
 `test/gateway/transport_reconnect_test.dart`, which drives the same path with a
 fake gateway.
 
+## Exported telemetry
+
+To check spans and logs the app exports, give it a loopback collector. Plain
+http is allowed only for loopback hosts, and the exporter sends OTLP as JSON,
+so a small Python server that writes each POST body to a file is enough
+(listen on `127.0.0.1`, answer `200 {}`, one file per request under the
+scratchpad). Run it in the background, then:
+
+```bash
+HERMES_DEV_DART_DEFINES="OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4399" \
+  scripts/dev-app.sh start
+```
+
+Exports arrive batched within a few seconds, at `/v1/logs` and `/v1/traces`.
+Read attributes from `resourceLogs[].scopeLogs[].logRecords[].attributes` and
+`resourceSpans[].scopeSpans[].spans[].attributes`; int values come as
+strings (`intValue: "49"`), as protobuf JSON encodes them. Exports sent
+before the collector was up are lost, so start it first, or
+`scripts/dev-app.sh restart` after. Stop the collector with the app.
+
 ## Hermes Agent setup
 
 `hermes` must be on PATH (tested with v0.21.3). Nothing installs it for you,
