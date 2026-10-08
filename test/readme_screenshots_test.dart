@@ -9,6 +9,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/kanban_fixtures.dart';
 import 'support/local_dashboard.dart';
 import 'support/memory_token_store.dart';
 import 'support/screenshot_recorder.dart';
@@ -54,6 +55,16 @@ Map<String, Object?> _demoRoutes() {
   final rows = <Map<String, Object?>>[];
   final routes = <String, Object?>{
     '/api/status': {'auth_required': false, 'version': '0.14.0'},
+    '/api/profiles': profileListBody([
+      profileRow(name: 'default', isDefault: true),
+    ]),
+    '/api/profiles/active': activeProfileBody(active: 'default'),
+    '/api/dashboard/plugins': [
+      {'name': 'kanban'},
+    ],
+    '/api/plugins/kanban/board': kanbanBoardBody([]),
+    '/api/cron/delivery-targets': {'targets': <Object?>[]},
+    '/api/cron/jobs': <Object?>[],
   };
   for (final session
       in (demo['sessions']! as List).cast<Map<String, Object?>>()) {
