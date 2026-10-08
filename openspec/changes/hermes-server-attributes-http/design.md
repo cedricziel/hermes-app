@@ -35,7 +35,7 @@ Instead the controller builds one immutable attribute map when the probe succeed
 
 `Telemetry` gains `forConnection(Map<String, Object> attributes)`, returning the interceptor and event logger for a connection (or none and the no-op logger when telemetry is off). The no-connection pair (empty map) is used for the probe and for events before the status is known.
 
-The event logger is `breadcrumbs.asAppEventLogger(scoped(appEventLogger(log), attributes))`: the breadcrumb trail sees only what the caller passed, and only the exported log record gets the merged map. `server.connected` is logged with `{'hermes.version': ...}` as its own attribute, so its breadcrumb carries the version and its log record carries everything. This keeps crash records small (20 breadcrumbs × 10 pairs otherwise) and free of a previous server's `install_id`.
+The event logger is `breadcrumbs.asAppEventLogger(scoped(appEventLogger(log), attributes))`: the breadcrumb trail sees only what the caller passed, and only the exported log record gets the merged map. `server.connected` is logged with `{'hermes.version': ...}` as its own attribute, so its breadcrumb carries the version and its log record carries everything. This keeps crash records small (40 breadcrumbs × 10 pairs otherwise) and free of a previous server's `install_id`.
 
 ### 4. `AuthController` owns the current connection's instruments
 
