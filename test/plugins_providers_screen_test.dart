@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
@@ -12,6 +13,9 @@ import 'hermes_plugin_manager_repository_test.dart'
     show memoryOption, providersHub;
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+
+Finder _tab(String name) =>
+    find.descendant(of: find.byType(AdaptiveTabBar), matching: find.text(name));
 
 const _hub = '/api/dashboard/plugins/hub';
 const _save = '/api/dashboard/plugin-providers';
@@ -74,7 +78,7 @@ void main() {
 
   Future<void> openProviders(WidgetTester tester) async {
     await pump(tester);
-    await tester.tap(find.widgetWithText(Tab, 'Providers'));
+    await tester.tap(_tab('Providers'));
     await tester.pumpAndSettle();
   }
 
@@ -100,17 +104,20 @@ void main() {
     ) async {
       await pump(tester);
 
-      expect(find.byType(Tab), findsNWidgets(3));
-      expect(find.widgetWithText(Tab, 'Providers'), findsOneWidget);
+      expect(
+        tester.widget<AdaptiveTabBar>(find.byType(AdaptiveTabBar)).labels,
+        ['Installed', 'Catalog', 'Providers'],
+      );
+      expect(_tab('Providers'), findsOneWidget);
       expect(server.requestsTo('GET', _hub), hasLength(1));
 
-      await tester.tap(find.widgetWithText(Tab, 'Providers'));
+      await tester.tap(_tab('Providers'));
       await tester.pumpAndSettle();
       expect(server.requestsTo('GET', _hub), hasLength(2));
 
-      await tester.tap(find.widgetWithText(Tab, 'Installed'));
+      await tester.tap(_tab('Installed'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Providers'));
+      await tester.tap(_tab('Providers'));
       await tester.pumpAndSettle();
       expect(server.requestsTo('GET', _hub), hasLength(2));
     });
@@ -123,7 +130,7 @@ void main() {
         return (status: 200, body: hub());
       });
 
-      await tester.tap(find.widgetWithText(Tab, 'Providers'));
+      await tester.tap(_tab('Providers'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -136,7 +143,7 @@ void main() {
     testWidgets('offers Retry after a failed load', (tester) async {
       await pump(tester);
       server.on('GET', _hub, {'detail': 'boom'}, status: 500);
-      await tester.tap(find.widgetWithText(Tab, 'Providers'));
+      await tester.tap(_tab('Providers'));
       await tester.pumpAndSettle();
       expect(find.text('Could not load provider settings'), findsOneWidget);
 
@@ -152,7 +159,7 @@ void main() {
     ) async {
       await pump(tester);
       server.on('GET', _hub, {'detail': 'Not Found'}, status: 404);
-      await tester.tap(find.widgetWithText(Tab, 'Providers'));
+      await tester.tap(_tab('Providers'));
       await tester.pumpAndSettle();
 
       expect(

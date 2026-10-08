@@ -42,12 +42,49 @@ void main() {
     });
   }
 
-  testWidgets('Android keeps the tab bar', (tester) async {
+  testWidgets('Android shows a pill segmented control that switches views', (
+    tester,
+  ) async {
     await tester.pumpWidget(_app(TargetPlatform.android));
-    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.byType(TabBar), findsNothing);
     expect(find.byType(CupertinoSlidingSegmentedControl<int>), findsNothing);
+    expect(find.byType(PillSegmentedControl<int>), findsOneWidget);
     await tester.tap(find.text('Providers'));
     await tester.pumpAndSettle();
     expect(find.text('three'), findsOneWidget);
+  });
+
+  testWidgets('the pill says which segment is selected', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(_app(TargetPlatform.android));
+    expect(
+      tester.getSemantics(find.text('Installed')),
+      isSemantics(label: 'Installed', isButton: true, isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.text('Catalog')),
+      isSemantics(label: 'Catalog', isButton: true, isSelected: false),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('Mac toolbar tabs switch views', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              title: const MacToolbarTabs(labels: ['Installed', 'Catalog']),
+            ),
+            body: const TabBarView(children: [Text('one'), Text('two')]),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Catalog'));
+    await tester.pumpAndSettle();
+    expect(find.text('two'), findsOneWidget);
   });
 }
