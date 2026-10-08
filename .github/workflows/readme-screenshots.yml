@@ -1,0 +1,71 @@
+name: README screenshots
+
+# Renders the README screenshots in a widget test, on Linux, and opens a PR
+# with the new images. The App Store images are not touched; they still come
+# from scripts/store-screenshots.sh on a Mac.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: readme-screenshots
+  cancel-in-progress: false
+
+jobs:
+  render:
+    name: Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Install Pillow
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install Pillow
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Render the raw screenshots
+        run: README_SCREENSHOTS=1 flutter test test/readme_screenshots_test.dart
+
+      - name: Finish the README images
+        run: python3 scripts/finish_screenshots.py --readme-only
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v7
+        with:
+          name: readme-screenshots
+          path: |
+            build/screenshots
+            docs/screenshots
+
+      - name: Open a PR with the new images
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$(git status --porcelain -- docs/screenshots)" ]; then
+            echo "The README screenshots did not change."
+            exit 0
+          fi
+          branch="chore/readme-screenshots-${{ github.run_id }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add docs/screenshots
+          git commit -m "docs(screenshots): rerender the README screenshots"
+          git push origin "$branch"
+          gh pr create \
+            --base "${{ github.ref_name }}" \
+            --head "$branch" \
+            --title "docs(screenshots): rerender the README screenshots" \
+            --body "Rendered by the README screenshots workflow (run ${{ github.run_id }}) in a widget test on Linux, from the demo chats in scripts/demo_sessions.json. The raw images are in the run's artifact."

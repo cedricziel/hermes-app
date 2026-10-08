@@ -45,7 +45,7 @@ Future<AppLockController> newAppLock(WidgetTester tester) async {
   return appLock;
 }
 
-/// Mounts the whole [HermesApp] in light mode.
+/// Mounts the whole [HermesApp], which follows the platform's [brightness].
 ///
 /// The test binding answers every HTTP request with 400, so this lifts that
 /// for the test: [auth] talks to a real [LocalDashboard]. Set
@@ -55,9 +55,16 @@ Future<void> pumpWorkflowApp(
   WidgetTester tester,
   ScreenshotRecorder shots, {
   required AuthController auth,
+  Size size = phoneSize,
+  double pixelRatio = 1.0,
+  TargetPlatform? platform,
+  Brightness brightness = Brightness.light,
 }) async {
   HttpOverrides.global = null;
-  await shots.start(tester, phoneSize);
+  platform ??= workflowPlatform;
+  await shots.start(tester, size, pixelRatio: pixelRatio);
+  tester.platformDispatcher.platformBrightnessTestValue = brightness;
+  addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
   final appLock = await newAppLock(tester);
   await tester.pumpWidget(
     shots.frame(
@@ -71,10 +78,10 @@ Future<void> pumpWorkflowApp(
         ],
         child: HermesApp(
           lightTheme: withScreenshotFont(
-            buildHermesLightTheme(platform: workflowPlatform),
+            buildHermesLightTheme(platform: platform),
           ),
           darkTheme: withScreenshotFont(
-            buildHermesDarkTheme(platform: workflowPlatform),
+            buildHermesDarkTheme(platform: platform),
           ),
         ),
       ),

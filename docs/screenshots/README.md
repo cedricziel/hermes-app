@@ -1,11 +1,14 @@
 # Screenshots
 
-The images in this folder are the ones in the main README. The same run makes
-the App Store screenshots.
+The images in this folder are the ones in the main README. They are rendered
+from the app's own widgets in a Flutter test, on any machine, in about a minute.
+The App Store screenshots are different: they are still captured from the real
+app on a Mac (see "App Store screenshots" below).
 
-They come from the real app, running against a throwaway Hermes dashboard that
-holds a few invented chats (a failed backup, release notes, a certificate
-rotation). No real server, account or chat is in them.
+Both show a few invented chats (a failed backup, release notes, a certificate
+rotation). They live in `scripts/demo_sessions.json`, which the render test
+and `scripts/seed_demo_sessions.py` both read. No real server, account or chat
+is in them.
 
 | File                                                      | Shows                                                  |
 | --------------------------------------------------------- | ------------------------------------------------------ |
@@ -16,9 +19,37 @@ rotation). No real server, account or chat is in them.
 | `mac-chat.png`, `mac-chat-dark.png`, `mac-welcome.png`    | The wide layout in a Mac window                        |
 | `watch-threads.png`                                       | The watch app's thread list                            |
 
-## Retake them
+## Render the README images
 
-You need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
+```bash
+README_SCREENSHOTS=1 flutter test test/readme_screenshots_test.dart
+python3 scripts/finish_screenshots.py --readme-only   # needs Python 3 with Pillow
+```
+
+The test mounts the whole app against a stand-in dashboard on a loopback
+socket, which serves the demo chats. It renders the iPhone, iPad and Mac
+screens at the store sizes, light and dark, and writes the raw images to
+`build/screenshots/`. Without `README_SCREENSHOTS=1` it renders the same
+screens and writes nothing, so a plain `flutter test` still checks that they
+render. `--readme-only` writes `docs/screenshots/` and never
+`fastlane/screenshots/`, so a rendered image can't reach an App Store upload.
+It leaves the watch image alone.
+
+The "README screenshots" GitHub workflow does the same on demand (Actions >
+README screenshots > Run workflow) and opens a PR with the new images. Its
+artifact holds the raw and finished files.
+
+What differs from the real app:
+
+- Text is Roboto, not San Francisco, and code is JetBrains Mono.
+- There is no status bar and no native Mac window frame. The Mac image is the
+  window content on the usual canvas.
+- The server is a stand-in that answers only what the chat and welcome
+  screens ask for. Anything else is a 404 and its feature stays hidden.
+
+## App Store screenshots
+
+These need the real app. You need `hermes` on your PATH (see `scripts/dev-backend.sh`), Xcode with the
 iOS 26 simulators, and Python 3 with Pillow.
 
 ```bash
@@ -35,8 +66,9 @@ front to be captured; leave the machine alone until it is done.
 What happens:
 
 1. `scripts/dev-backend.sh` starts a throwaway dashboard in its own
-   `HERMES_HOME`, and `scripts/seed_demo_sessions.py` fills it with the demo
-   chats. Edit that file to change what the screenshots say.
+   `HERMES_HOME`, and `scripts/seed_demo_sessions.py` fills it with the chats
+   from `scripts/demo_sessions.json`. Edit that file to change what the
+   screenshots say.
 2. `integration_test/store_screenshots_test.dart` opens the app on each device
    and walks to the chat, the thread list and a new chat. It asks the driver
    in `test_driver/integration_test.dart` for a screenshot at each stop. The
