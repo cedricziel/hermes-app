@@ -787,6 +787,17 @@ class HermesGatewayTransport implements ChatTransport {
     // The same for a clarify question that arrived as an event: it is not a
     // request the transport answers, so [mine] does not hold it.
     final passedAsked = <String>{};
+    // Takes the requests passed through so far off the send, for the
+    // withdrawal that tells the reply nobody can answer them any more.
+    InputRequestsCancelled? takeWithdrawn() {
+      if (passed.isEmpty && passedAsked.isEmpty) return null;
+      final withdrawn = InputRequestsCancelled([...passed, ...passedAsked]);
+      _track(withdrawn, runtimeId, mine, serverRequest: false);
+      passed.clear();
+      passedAsked.clear();
+      return withdrawn;
+    }
+
     var submittedAt = clock.now();
     // Set when the server queued the prompt behind a turn that was running.
     _QueuedGate? gate;
@@ -863,6 +874,7 @@ class HermesGatewayTransport implements ChatTransport {
           } on GatewayConnectionClosed {
             // The probe ended the reply as broken: no turn is being finished.
             if (finishing) yield const ReplyStatus('');
+            if (takeWithdrawn() case final withdrawn?) yield withdrawn;
             // The turn set aside is not carried on: the thread is read again.
             if (setAside.isNotEmpty) yield const ThreadNeedsRefetch();
             rethrow;
@@ -926,17 +938,9 @@ class HermesGatewayTransport implements ChatTransport {
                 yield const ReplyStatus('');
               }
             }
-            if (claimant.ended &&
-                (passed.isNotEmpty || passedAsked.isNotEmpty)) {
-              // Nobody can answer what the turn asked once it is over.
-              final withdrawn = InputRequestsCancelled([
-                ...passed,
-                ...passedAsked,
-              ]);
-              _track(withdrawn, runtimeId, mine, serverRequest: false);
-              passed.clear();
-              passedAsked.clear();
-              yield withdrawn;
+            // Nobody can answer what the turn asked once it is over.
+            if (claimant.ended) {
+              if (takeWithdrawn() case final withdrawn?) yield withdrawn;
             }
             // The turn's end starts the prompt's clock, as a running turn's
             // does for a queued one.
@@ -991,6 +995,7 @@ class HermesGatewayTransport implements ChatTransport {
         final made = drops.dropped();
         if (made >= _maxReplyReconnects) {
           if (finishing) yield const ReplyStatus('');
+          if (takeWithdrawn() case final withdrawn?) yield withdrawn;
           if (setAside.isNotEmpty) yield const ThreadNeedsRefetch();
           throw const GatewayConnectionClosed();
         }
@@ -1047,9 +1052,7 @@ class HermesGatewayTransport implements ChatTransport {
             storedId = rotated;
           }
           if (resumed.idle case final idle?) {
-            // A send that fails has the thread read again instead, so the
-            // follow-ups must not show the turn a second time.
-            if (!resumed.giveUp) idle.leaveBacklog(setAside);
+            idle.leaveBacklog(setAside);
             await _park(owner, idle);
           }
           // When the replay ends the reply with nothing of its own, the idle
@@ -1066,16 +1069,9 @@ class HermesGatewayTransport implements ChatTransport {
               yield admitted;
             }
           }
-          if (claimedOver && (passed.isNotEmpty || passedAsked.isNotEmpty)) {
-            final withdrawn = InputRequestsCancelled([
-              ...passed,
-              ...passedAsked,
-            ]);
-            _track(withdrawn, runtimeId, mine, serverRequest: false);
-            passed.clear();
-            passedAsked.clear();
-            yield withdrawn;
-          }
+          // The session is idle, so nothing the claimed turn asked is open,
+          // whether or not the replay held its end.
+          if (takeWithdrawn() case final withdrawn?) yield withdrawn;
           if (holding && !completed && !resumed.giveUp) {
             yielded.add(const SessionInfo(running: false));
             yield const SessionInfo(running: false);

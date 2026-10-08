@@ -374,6 +374,81 @@ void main() {
       expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
     });
 
+    for (final (name, unreliable) in <(String, void Function(FakeGateway))>[
+      ('a truncated replay', (g) => g.truncateReplay = true),
+      ('a restarted server', (g) => g.epoch = 'epoch-2'),
+    ]) {
+      test('Auto-continue after resume: $name withdraws the requests the send '
+          'had passed through before the send fails', () async {
+        final dropping = FakeGateway()
+          ..stampSeq = true
+          ..sendReady = true
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final reconnecting = HermesGatewayTransport(connect: dropping.connect);
+        addTearDown(reconnecting.close);
+        dropping.turn = (g, sid) {
+          g.drop();
+          unreliable(g);
+        };
+
+        final seen = _listen(
+          reconnecting.send(threadId: 'stored-2', text: 'hi'),
+        );
+        await pumpEventQueue(times: 100);
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+        expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
+      });
+    }
+
+    test('Auto-continue after resume: a send the silence probe ends as broken '
+        'withdraws the requests it had passed through', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final seen = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+      });
+    });
+
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
         'own turn, and the turn reaches the follow-ups', () async {
       gateway.submitStatus = 'queued';
