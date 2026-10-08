@@ -140,12 +140,11 @@ void main() {
     ) async {
       await openDiscover(tester);
 
-      expect(find.text('FEATURED'), findsOneWidget);
-      expect(find.text('OFFICIAL'), findsOneWidget);
+      expect(find.text('Featured'), findsOneWidget);
+      expect(find.text('Official'), findsOneWidget);
       expect(find.text('web-research'), findsOneWidget);
-      expect(find.text('Official'), findsWidgets);
-      expect(find.text('Community'), findsWidgets);
-      expect(find.text('#search'), findsOneWidget);
+      expect(find.text('Official · Search the web'), findsOneWidget);
+      expect(find.textContaining('Community · '), findsWidgets);
     });
 
     testWidgets('an installed skill is marked', (tester) async {
@@ -153,10 +152,7 @@ void main() {
 
       final card = find.byKey(const ValueKey('hub-github/compose'));
       expect(
-        find.descendant(
-          of: card,
-          matching: find.byIcon(Icons.check_circle_outline),
-        ),
+        find.descendant(of: card, matching: find.text('Installed')),
         findsOneWidget,
       );
     });
@@ -169,7 +165,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('web-scraper'), findsOneWidget);
-      expect(find.text('FEATURED'), findsNothing);
+      expect(find.text('Featured'), findsNothing);
       expect(find.text('1 source timed out'), findsOneWidget);
       expect(
         server
@@ -183,7 +179,14 @@ void main() {
     testWidgets('a source chip narrows the featured list', (tester) async {
       await openDiscover(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Official (Nous)'));
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(
+          CheckedPopupMenuItem<VoidCallback>,
+          'Official (Nous)',
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('web-research'), findsOneWidget);

@@ -236,6 +236,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> pickSource(WidgetTester tester, String label) async {
+    await tester.tap(find.byKey(const Key('settings-search-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(CheckedPopupMenuItem<VoidCallback>, label),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  final installedTab = find.descendant(
+    of: find.byType(AppBar),
+    matching: find.text('Installed'),
+  );
+
   final variants = [
     ('phone', phoneSize, Brightness.light),
     ('desktop', desktopSize, Brightness.light),
@@ -262,42 +276,24 @@ void main() {
       await tester.drag(list.last, const Offset(0, 3000));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Official (Nous)'));
-      await tester.pumpAndSettle();
+      await pickSource(tester, 'Official (Nous)');
       await shots.capture(tester, 'source-official');
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'ClawHub'));
-      await tester.pumpAndSettle();
+      await pickSource(tester, 'ClawHub');
       await shots.capture(tester, 'source-empty');
 
-      final long = find.widgetWithText(
-        ChoiceChip,
-        'Community registry (skills.sh)',
-      );
-      await tester.scrollUntilVisible(
-        long,
-        100,
-        scrollable: find
-            .byWidgetPredicate(
-              (w) => w is Scrollable && w.axis == Axis.horizontal,
-            )
-            .last,
-      );
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
       await tester.pumpAndSettle();
-      await tester.tap(long);
+      await shots.capture(tester, 'source-menu');
+      await tester.tap(
+        find.widgetWithText(
+          CheckedPopupMenuItem<VoidCallback>,
+          'Community registry (skills.sh)',
+        ),
+      );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'source-long-label');
-      await tester.drag(
-        find
-            .byWidgetPredicate(
-              (w) => w is Scrollable && w.axis == Axis.horizontal,
-            )
-            .last,
-        const Offset(2000, 0),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
-      await tester.pumpAndSettle();
+      await pickSource(tester, 'All sources');
 
       await search(tester, 'scrape');
       await shots.capture(tester, 'search-results');
@@ -524,7 +520,7 @@ void main() {
       await frames(tester, 5000);
 
       // Uninstall a hub skill, from its page on the Installed tab.
-      await tester.tap(find.text('Installed'));
+      await tester.tap(installedTab);
       await tester.pumpAndSettle();
       await tester.tap(find.text('compose'));
       await tester.pumpAndSettle();
@@ -600,7 +596,7 @@ void main() {
     testWidgets('$name: writing a new skill', (tester) async {
       final shots = ScreenshotRecorder('skills-hub-editor-$name');
       await pumpSkills(tester, shots, size: size, brightness: brightness);
-      await tester.tap(find.text('New skill'));
+      await tester.tap(find.byTooltip('New skill'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'template');
 

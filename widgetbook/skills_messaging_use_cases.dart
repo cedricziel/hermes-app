@@ -5,7 +5,6 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
 import 'package:hermes_app/src/profiles/widgets/profile_tile.dart';
-import 'package:hermes_app/src/skills/discover_tab.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/skills/hub_skill_screen.dart';
@@ -15,7 +14,7 @@ import 'package:hermes_app/src/skills/skill_job.dart';
 import 'package:hermes_app/src/skills/skill_job_sheet.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/skills_hub_controller.dart';
-import 'package:hermes_app/src/skills/skills_screen.dart';
+import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
@@ -255,34 +254,6 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
   name: 'Skills and profiles',
   children: [
     WidgetbookComponent(
-      name: 'SkillsScreen',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'Installed and discover',
-          builder: (_) {
-            final server = skillsServer();
-            return SkillsScreen(
-              repository: HermesSkillsRepository(server.client().raw),
-              hubRepository: HermesSkillsHubRepository(server.client().raw),
-              profiles: HermesProfilesRepository(server.client().raw),
-              chatProfile: 'default',
-            );
-          },
-        ),
-        WidgetbookUseCase(
-          name: 'Without the hub',
-          builder: (_) {
-            final server = skillsServer();
-            return SkillsScreen(
-              repository: HermesSkillsRepository(server.client().raw),
-              profiles: HermesProfilesRepository(server.client().raw),
-              chatProfile: 'default',
-            );
-          },
-        ),
-      ],
-    ),
-    WidgetbookComponent(
       name: 'SkillDetailScreen',
       useCases: [
         skillsUseCase(
@@ -311,18 +282,6 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
                 '---\nname: pr-review\n---\n\n# Review PRs\n\nBe kind.',
             onSave: (_, _, _) async => null,
           ),
-        ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'DiscoverTab',
-      useCases: [
-        skillsUseCase(
-          'Featured',
-          (skills, hub) => Scaffold(
-            body: DiscoverTab(hub: hub, onOpen: (_) {}),
-          ),
-          loadHub: true,
         ),
       ],
     ),

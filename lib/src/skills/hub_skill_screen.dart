@@ -8,7 +8,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../widgets/markdown_links.dart';
-import 'discover_tab.dart' show TrustBadge;
+import 'widgets/skill_badges.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'skill_detail_screen.dart' show skillMarkdownBody;
 import 'skill_job_sheet.dart';
