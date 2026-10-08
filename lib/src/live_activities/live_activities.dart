@@ -26,9 +26,11 @@ const kBackgroundStaleAfter = Duration(minutes: 1);
 const kForegroundStaleAfter = Duration(hours: 8);
 
 class _Activity {
-  _Activity(this.id, this.profile, this.startedAt);
+  _Activity(this.name, this.profile, this.startedAt);
 
-  final String id;
+  /// The name it is created under. Updates take the id iOS gives it instead.
+  final String name;
+  String? id;
   final String? profile;
   final DateTime startedAt;
   ReplyActivityState state = ReplyActivityState.working;
@@ -100,6 +102,13 @@ class LiveActivities with WidgetsBindingObserver {
     _queue = _queue.then((_) => call()).catchError((Object _) {});
   }
 
+  /// Runs [call] with [activity]'s id once its start has answered; nothing
+  /// when iOS refused to start it.
+  void _call(_Activity activity, Future<void> Function(String id) call) =>
+      _run(() async {
+        if (activity.id case final id?) await call(id);
+      });
+
   /// Shows [thread] working for a prompt just sent under [profile]. A chat
   /// keeps a running activity; a finished one is replaced, since ActivityKit
   /// cannot update an activity after it ended.
@@ -107,7 +116,7 @@ class LiveActivities with WidgetsBindingObserver {
     if (!_on) return;
     final current = _activities[thread];
     if (current != null && !current.state.finished) return;
-    if (current != null) _run(() => service.endNow(current.id));
+    if (current != null) _call(current, service.endNow);
     final activity = _Activity(
       'hermes-${_now().microsecondsSinceEpoch}-${_ids++}',
       profile,
@@ -120,7 +129,8 @@ class LiveActivities with WidgetsBindingObserver {
       ..shownFocused = _focused;
     final staleIn = _staleIn;
     _run(() async {
-      if (await service.start(activity.id, data, staleIn)) {
+      activity.id = await service.start(activity.name, data, staleIn);
+      if (activity.id != null) {
         breadcrumbs('live_activity.started');
       } else {
         if (_activities[thread] == activity) _activities.remove(thread);
@@ -144,7 +154,7 @@ class LiveActivities with WidgetsBindingObserver {
     // replaces it.
     if (next.finished) {
       final dismissAt = _now().add(kFinishedActivityLinger);
-      _run(() => service.endAt(activity.id, dismissAt));
+      _call(activity, (id) => service.endAt(id, dismissAt));
       breadcrumbs('live_activity.ended', {
         'outcome': next == ReplyActivityState.ready ? 'completed' : 'failed',
       });
@@ -162,7 +172,7 @@ class LiveActivities with WidgetsBindingObserver {
   void _end(ChatThread thread, String outcome) {
     final activity = _activities.remove(thread);
     if (activity == null) return;
-    _run(() => service.endNow(activity.id));
+    _call(activity, service.endNow);
     if (!activity.state.finished) {
       breadcrumbs('live_activity.ended', {'outcome': outcome});
     }
@@ -205,7 +215,7 @@ class LiveActivities with WidgetsBindingObserver {
       ..shown = data
       ..shownFocused = _focused;
     final staleIn = activity.state.finished ? kForegroundStaleAfter : _staleIn;
-    _run(() => service.update(activity.id, data, staleIn));
+    _call(activity, (id) => service.update(id, data, staleIn));
   }
 
   @override

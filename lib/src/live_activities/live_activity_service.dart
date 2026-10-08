@@ -19,8 +19,9 @@ abstract interface class LiveActivityService {
   /// Whether iOS lets Hermes show Live Activities at all.
   Future<bool> allowed();
 
-  /// Shows a new activity [id] with [data]; false when iOS refused it.
-  Future<bool> start(String id, Map<String, Object> data, Duration staleIn);
+  /// Shows a new activity named [id] with [data]. Answers the id iOS gave
+  /// it, which the other calls take, or null when iOS refused it.
+  Future<String?> start(String id, Map<String, Object> data, Duration staleIn);
 
   Future<void> update(String id, Map<String, Object> data, Duration staleIn);
 
@@ -70,21 +71,18 @@ class PluginLiveActivityService implements LiveActivityService {
       await _safely(_activities.areActivitiesEnabled) ?? false;
 
   @override
-  Future<bool> start(
+  Future<String?> start(
     String id,
     Map<String, Object> data,
     Duration staleIn,
-  ) async {
-    final created = await _safely(
-      () => _activities.createActivity(
-        id,
-        data,
-        iOSEnableRemoteUpdates: false,
-        staleIn: staleIn,
-      ),
-    );
-    return created != null;
-  }
+  ) => _safely<String?>(
+    () => _activities.createActivity(
+      id,
+      data,
+      iOSEnableRemoteUpdates: false,
+      staleIn: staleIn,
+    ),
+  );
 
   @override
   Future<void> update(String id, Map<String, Object> data, Duration staleIn) =>

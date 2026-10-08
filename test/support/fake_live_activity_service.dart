@@ -7,6 +7,7 @@ class FakeActivity {
   FakeActivity(this.id, this.data, this.staleIn);
 
   final String id;
+  String? name;
   Map<String, Object> data;
   Duration staleIn;
   int updates = 0;
@@ -32,7 +33,11 @@ class FakeLiveActivityService implements LiveActivityService {
 
   void tap(Uri uri) => _taps.add(uri);
 
-  FakeActivity _find(String id) => activities.lastWhere((a) => a.id == id);
+  /// Fails like the plugin does for an id iOS did not give.
+  FakeActivity _find(String id) => activities.lastWhere(
+    (a) => a.id == id,
+    orElse: () => throw StateError('Activity not found: $id'),
+  );
 
   @override
   Future<void> init() async {}
@@ -41,14 +46,18 @@ class FakeLiveActivityService implements LiveActivityService {
   Future<bool> allowed() async => allow;
 
   @override
-  Future<bool> start(
+  Future<String?> start(
     String id,
     Map<String, Object> data,
     Duration staleIn,
   ) async {
-    if (refuse || !allow) return false;
-    activities.add(FakeActivity(id, data, staleIn));
-    return true;
+    if (refuse || !allow) return null;
+    // Like iOS, the activity gets an id of its own, not the name it was
+    // asked for under.
+    final activity = FakeActivity('ios-${activities.length}', data, staleIn)
+      ..name = id;
+    activities.add(activity);
+    return activity.id;
   }
 
   @override
