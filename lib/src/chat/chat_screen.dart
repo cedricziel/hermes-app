@@ -19,6 +19,7 @@ import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/composer_model_pill.dart';
+import '../live_activities/live_activities.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -188,10 +189,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
+    final liveActivities = _maybeRead<LiveActivities?>();
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
       settings: _maybeRead<NotificationSettings>(),
       onOpen: _openFromNotification,
+      activities: liveActivities,
     );
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;
@@ -228,6 +231,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ? BotModeChatRepository(transport.request)
           : null,
       attention: _attention,
+      liveActivities: liveActivities,
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),

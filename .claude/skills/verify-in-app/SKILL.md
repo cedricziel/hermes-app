@@ -314,6 +314,27 @@ pair (`xcrun simctl list pairs`).
 - The phone can't be locked on a simulator, so behaviour on a locked phone,
   such as keychain access, can only be checked on a device.
 
+## Live Activities
+
+The macOS loop never shows them; they exist only on iOS. On an iPhone 17 Pro
+simulator:
+
+- A temporary `integration_test/` file that builds `LiveActivities` on
+  `PluginLiveActivityService` and calls `begin`/`onEvent` drives the real
+  ActivityKit without a backend: `flutter test integration_test/<file> -d
+  <udid>`. Delete the file afterwards.
+- `xcrun simctl io <udid> screenshot` does not capture the Dynamic Island,
+  and the simulator can't be locked. Check the outcome in the unified log
+  instead: `xcrun simctl spawn <udid> log show --last 5m --predicate
+  'process == "HermesLiveActivity" OR (process == "Runner" AND eventMessage
+  CONTAINS "activity")'`. "Updating activity ... to state: active" is an
+  update, "Ending activity" an end, and WidgetKit's "Batch end ... success"
+  from `HermesLiveActivity` a render. `Live Activity call failed` from Dart
+  means a plugin call threw.
+- Sending the app to the background (`xcrun simctl launch <udid>
+  com.apple.Preferences`) suspends it within seconds, so Dart timers stop;
+  `xcrun simctl launch <udid> com.cedricziel.hermesApp` resumes it.
+
 ## Sign-in against a real server
 
 The loopback backend skips sign-in. To exercise it, run `flutter run -d macos

@@ -12,6 +12,7 @@ import '../bot_mode/bot_chat_context.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
+import '../live_activities/live_activities.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
@@ -47,6 +48,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.transport,
     this.botChats,
     required this._attention,
+    this.liveActivities,
     required this.report,
     this.onShowChat,
     this.onOpenJob,
@@ -84,6 +86,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final BotModeChatRepository? botChats;
   int _openGeneration = 0;
   final AttentionNotifier _attention;
+
+  /// Shows replies sent here as Live Activities; null where there are none.
+  final LiveActivities? liveActivities;
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -690,6 +695,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _queues.remove(thread);
     _settleTimers.remove(thread)?.cancel();
     _refetch.remove(thread);
+    liveActivities?.endChat(thread.id, _profile);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -1409,6 +1415,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
     }
 
+    liveActivities?.begin(thread, profile: profile);
     breadcrumbs('chat.reply.started', {
       'queued': queued,
       'attachments': attachments.length,
@@ -1811,18 +1818,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
     _refetchIfIdle(thread);
-    if (announce) _announce(thread, announced, profile);
+    _announce(thread, announced, profile, notify: announce);
   }
 
   /// [profile] is the one the turn was sent under: the thread on screen only
   /// counts when the chat is still on that profile.
-  void _announce(ChatThread thread, ChatEvent event, String? profile) =>
-      _attention.announce(
-        thread,
-        event,
-        selectedThreadId: profile == _profile ? _selectedId : null,
-        profile: profile,
-      );
+  /// Moves the chat's Live Activity along for [event], and posts the
+  /// notification it deserves unless [notify] is false.
+  void _announce(
+    ChatThread thread,
+    ChatEvent event,
+    String? profile, {
+    bool notify = true,
+  }) {
+    liveActivities?.onEvent(thread, event);
+    if (!notify) return;
+    _attention.announce(
+      thread,
+      event,
+      selectedThreadId: profile == _profile ? _selectedId : null,
+      profile: profile,
+    );
+  }
 
   /// Gives a thread created here the id the dashboard stored it under, so it
   /// stays one row and later sends continue that session.
