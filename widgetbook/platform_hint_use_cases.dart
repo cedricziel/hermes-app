@@ -21,7 +21,7 @@ Widget _prompt({
       update: update,
       busy: busy,
       failed: failed,
-      selected: selected,
+      selected: selected ?? profiles.toSet(),
       saved: saved,
       onToggle: (_, _) {},
       onAdd: () {},

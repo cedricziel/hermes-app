@@ -78,17 +78,6 @@ void main() {
     });
   });
 
-  test('the profiles to check are listed by name', () async {
-    server.on('GET', '/api/profiles', {
-      'profiles': [
-        {'name': 'default'},
-        {'name': 'work'},
-      ],
-    });
-
-    expect(await repository.profiles(), ['default', 'work']);
-  });
-
   test('write sends only the app hint key for that profile', () async {
     server.on('PUT', '/api/config', {'ok': true});
 

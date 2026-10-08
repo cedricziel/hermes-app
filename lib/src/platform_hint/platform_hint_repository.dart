@@ -1,8 +1,6 @@
 import 'package:hermes_api/hermes_api.dart';
 
-import '../chat/gateway/hermes_gateway_transport.dart'
-    show gatewaySessionSource;
-import '../profiles/hermes_profiles_repository.dart';
+import '../api/session_source.dart';
 
 /// What Hermes tells the agent about where this app's replies appear. Hermes
 /// has no hint of its own for [gatewaySessionSource], so without it the
@@ -51,12 +49,6 @@ class PlatformHintRepository {
   final String text;
   final List<String> earlierTexts;
 
-  /// The names of the server's profiles.
-  Future<List<String>> profiles() async => [
-    for (final profile in await HermesProfilesRepository(_api).list())
-      profile.name,
-  ];
-
   /// Where [profile] stands, from its saved config only (defaults left out).
   /// Null when the config cannot be read.
   Future<PlatformHintState?> state(String profile) async {
@@ -65,13 +57,10 @@ class PlatformHintRepository {
         profile: profile,
         includeDefaults: false,
       );
-      final hints = switch (response.data) {
-        {'platform_hints': final Map<dynamic, dynamic> hints} => hints,
-        Map() => const {},
-        _ => null,
-      };
-      if (hints == null) return null;
-      return switch (hints[gatewaySessionSource]) {
+      final data = response.data;
+      if (data is! Map) return null;
+      final hints = data['platform_hints'];
+      return switch (hints is Map ? hints[gatewaySessionSource] : null) {
         null => PlatformHintState.missing,
         {'replace': final String saved} when saved == text =>
           PlatformHintState.current,

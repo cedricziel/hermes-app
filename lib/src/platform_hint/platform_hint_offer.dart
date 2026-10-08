@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/safe_notifier.dart';
+import '../profiles/hermes_profiles_repository.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'platform_hint_repository.dart';
 
@@ -11,6 +12,7 @@ import 'platform_hint_repository.dart';
 class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
   PlatformHintOffer({
     required this.repository,
+    required this.profileList,
     required String server,
     this.breadcrumbs = Breadcrumbs.none,
     SharedPreferencesAsync? prefs,
@@ -18,6 +20,7 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
        _prefs = prefs ?? SharedPreferencesAsync();
 
   final PlatformHintRepository repository;
+  final HermesProfilesRepository profileList;
   final Breadcrumbs breadcrumbs;
   final String _declinedKey;
   final SharedPreferencesAsync _prefs;
@@ -36,10 +39,10 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
   /// The profiles whose last write failed.
   List<String> failed = const [];
 
-  final _done = <String>{};
-
   /// The profiles saved so far.
-  Set<String> get saved => Set.unmodifiable(_done);
+  final saved = <String>{};
+
+  bool _answered = false;
 
   /// Finds the profiles that need the hint. True when the user should be
   /// asked: some profile needs it and they have not turned the question off
@@ -47,23 +50,19 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
   Future<bool> check() async {
     try {
       if (await _prefs.getBool(_declinedKey) ?? false) return false;
-      final names = await repository.profiles();
+      final names = [for (final p in await profileList.list()) p.name];
       final states = await Future.wait(names.map(repository.state));
-      final needed = <String>[];
-      var outdated = 0;
-      for (final (i, name) in names.indexed) {
-        switch (states[i]) {
-          case PlatformHintState.missing:
-            needed.add(name);
-          case PlatformHintState.outdated:
-            needed.add(name);
-            outdated++;
-          case _:
-        }
-      }
-      profiles = needed;
-      selected = needed.toSet();
-      update = needed.isNotEmpty && outdated == needed.length;
+      final needed = {
+        for (final (i, name) in names.indexed)
+          if (states[i]
+              case PlatformHintState.missing || PlatformHintState.outdated)
+            name: states[i],
+      };
+      profiles = needed.keys.toList();
+      selected = needed.keys.toSet();
+      update =
+          needed.isNotEmpty &&
+          needed.values.every((s) => s == PlatformHintState.outdated);
       return needed.isNotEmpty;
     } on Object {
       return false;
@@ -72,8 +71,7 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
 
   /// Ticks or unticks [profile].
   void toggle(String profile, bool on) {
-    selected = {...selected}..remove(profile);
-    if (on) selected.add(profile);
+    selected = on ? {...selected, profile} : ({...selected}..remove(profile));
     notifyListeners();
   }
 
@@ -83,39 +81,46 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
     'update': update,
   });
 
-  /// Writes the hint to each ticked profile not written yet. True when
-  /// every one is saved; otherwise [failed] names the rest and a second call
-  /// retries only those.
+  /// Writes the hint to each ticked profile not saved yet, all at once.
+  /// True when every one is saved; otherwise [failed] names the rest and a
+  /// second call retries only those.
   Future<bool> add() async {
     if (busy) return false;
     busy = true;
     failed = const [];
     notifyListeners();
-    final missed = <String>[];
-    final pending = profiles.where(
-      (p) => selected.contains(p) && !_done.contains(p),
+    final pending = [
+      for (final p in profiles)
+        if (selected.contains(p) && !saved.contains(p)) p,
+    ];
+    final results = await Future.wait(
+      pending.map(
+        (p) => repository.write(p).then((_) => true, onError: (_) => false),
+      ),
     );
-    for (final profile in pending.toList()) {
-      try {
-        await repository.write(profile);
-        _done.add(profile);
-      } on Object {
-        missed.add(profile);
-      }
-    }
+    final missed = [
+      for (final (i, p) in pending.indexed)
+        if (!results[i]) p,
+    ];
+    saved.addAll(pending.where((p) => !missed.contains(p)));
     busy = false;
     failed = missed;
     notifyListeners();
-    _answered(missed.isEmpty ? 'added' : 'failed');
+    if (missed.isEmpty) {
+      _answer('added');
+    } else {
+      breadcrumbs('platform_hint.answered', {'outcome': 'failed'});
+    }
     return missed.isEmpty;
   }
 
-  /// The user put it off; the next start asks again.
-  void later() => _answered('later');
+  /// The user put it off, or closed the prompt without answering; the next
+  /// start asks again. Does nothing once the prompt was answered.
+  void later() => _answer('later');
 
   /// The user turned the question off for this server.
   Future<void> never() async {
-    _answered('never');
+    _answer('never');
     try {
       await _prefs.setBool(_declinedKey, true);
     } on Object {
@@ -123,6 +128,9 @@ class PlatformHintOffer extends ChangeNotifier with SafeNotifier {
     }
   }
 
-  void _answered(String outcome) =>
-      breadcrumbs('platform_hint.answered', {'outcome': outcome});
+  void _answer(String outcome) {
+    if (_answered) return;
+    _answered = true;
+    breadcrumbs('platform_hint.answered', {'outcome': outcome});
+  }
 }

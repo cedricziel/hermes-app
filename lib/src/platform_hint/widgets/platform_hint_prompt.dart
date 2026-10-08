@@ -12,12 +12,12 @@ class PlatformHintPrompt extends StatelessWidget {
   const PlatformHintPrompt({
     super.key,
     required this.profiles,
+    required this.selected,
+    required this.onToggle,
     required this.text,
     required this.onAdd,
     required this.onLater,
     required this.onNever,
-    this.selected,
-    this.onToggle,
     this.update = false,
     this.busy = false,
     this.failed = const [],
@@ -30,11 +30,11 @@ class PlatformHintPrompt extends StatelessWidget {
   /// The note, shown on request.
   final String text;
 
-  /// The profiles ticked to receive it; all of [profiles] when null.
-  final Set<String>? selected;
+  /// The profiles ticked to receive it.
+  final Set<String> selected;
 
   /// Ticks or unticks a profile.
-  final void Function(String profile, bool selected)? onToggle;
+  final void Function(String profile, bool selected) onToggle;
 
   /// Every profile holds an older note this app wrote.
   final bool update;
@@ -106,7 +106,7 @@ class PlatformHintPrompt extends StatelessWidget {
             const SizedBox(height: 8),
             _ProfileChecklist(
               profiles: profiles,
-              selected: _selected,
+              selected: selected,
               failed: failed,
               saved: saved,
               onToggle: busy ? null : onToggle,
@@ -130,7 +130,7 @@ class PlatformHintPrompt extends StatelessWidget {
           _Actions(
             busy: busy,
             addLabel: _addLabel,
-            onAdd: _selected.isEmpty ? null : onAdd,
+            onAdd: selected.isEmpty ? null : onAdd,
             onLater: onLater,
             onNever: onNever,
           ),
@@ -139,11 +139,9 @@ class PlatformHintPrompt extends StatelessWidget {
     );
   }
 
-  Set<String> get _selected => selected ?? profiles.toSet();
-
   String get _addLabel {
     if (failed.isNotEmpty) return 'Try again';
-    final count = _selected.length;
+    final count = selected.length;
     if (profiles.length == 1 || count == 0) {
       return update ? 'Update note' : 'Add note';
     }
@@ -230,6 +228,14 @@ class _ProfileChecklist extends StatelessWidget {
   final Set<String> saved;
   final void Function(String profile, bool selected)? onToggle;
 
+  Widget? _status(String profile, ColorScheme scheme) {
+    if (failed.contains(profile)) {
+      return Text("Couldn't save", style: TextStyle(color: scheme.error));
+    }
+    if (saved.contains(profile)) return const Text('Saved');
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -251,11 +257,7 @@ class _ProfileChecklist extends StatelessWidget {
               controlAffinity: ListTileControlAffinity.leading,
               dense: true,
               title: Text(profile),
-              subtitle: failed.contains(profile)
-                  ? Text("Couldn't save", style: TextStyle(color: scheme.error))
-                  : saved.contains(profile)
-                  ? const Text('Saved')
-                  : null,
+              subtitle: _status(profile, scheme),
             ),
           ],
         ],

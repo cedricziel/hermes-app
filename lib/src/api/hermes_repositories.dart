@@ -8,6 +8,7 @@ import '../kanban/hermes_plugins_repository.dart';
 import '../kanban/kanban_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../models/hermes_models_repository.dart';
+import '../platform_hint/platform_hint_repository.dart';
 import '../plugins/hermes_plugin_manager_repository.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
@@ -30,6 +31,7 @@ class HermesRepositories {
       mcp = HermesMcpRepository(api.raw),
       models = HermesModelsRepository(api.raw),
       cron = HermesCronRepository(api.raw),
+      platformHint = PlatformHintRepository(api.raw),
       kanban = KanbanRepository(api);
 
   final HermesApiClient api;
@@ -47,6 +49,7 @@ class HermesRepositories {
   final HermesMcpRepository mcp;
   final HermesModelsRepository models;
   final HermesCronRepository cron;
+  final PlatformHintRepository platformHint;
   final KanbanRepository kanban;
 
   /// Keeps [previous] while the API client is the same one.

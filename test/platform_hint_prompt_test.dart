@@ -26,7 +26,7 @@ void main() {
             update: update,
             busy: busy,
             failed: failed,
-            selected: selected,
+            selected: selected ?? profiles.toSet(),
             saved: saved,
             onToggle: (p, on) => taps.add('${on ? 'tick' : 'untick'} $p'),
             onAdd: () => taps.add('add'),

@@ -2,6 +2,7 @@ import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_offer.dart';
 import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
+import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -46,6 +47,7 @@ void main() {
           text: 'new',
           earlierTexts: const ['old'],
         ),
+        profileList: HermesProfilesRepository(server.client().raw),
         server: server_,
         breadcrumbs: Breadcrumbs.of(trail),
       );
@@ -159,7 +161,7 @@ void main() {
     expect(await offer(server_: 'https://other.example').check(), isTrue);
   });
 
-  test('breadcrumbs carry counts and outcomes only', () async {
+  test('breadcrumbs carry counts and one outcome per offer', () async {
     hint('default', null);
     hint('work', null);
     hint('mine', {'replace': 'mine'});
@@ -175,7 +177,6 @@ void main() {
       [
         'platform_hint.offered {profiles: 2, update: false}',
         'platform_hint.answered {outcome: added}',
-        'platform_hint.answered {outcome: later}',
       ],
     );
   });

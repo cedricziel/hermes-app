@@ -397,9 +397,9 @@ void main() {
 
   test('the app hint is saved per profile without touching the rest', () async {
     final hints = PlatformHintRepository(client.raw);
-    final profiles = await hints.profiles();
+    final profiles = await HermesProfilesRepository(client.raw).list();
     expect(profiles, isNotEmpty);
-    final profile = profiles.last;
+    final profile = profiles.last.name;
     Future<Map<dynamic, dynamic>> saved() async =>
         (await client.raw.getConfigApiConfigGet(
               profile: profile,
