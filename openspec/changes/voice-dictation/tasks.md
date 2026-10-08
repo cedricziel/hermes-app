@@ -11,8 +11,8 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 2. Dictation controller
 
-- [ ] 2.1 Write failing tests for `DictationController` with a fake recorder, a fake stream and `FakeHermesServer`: permission denied, live final transcript, error frame falls back to `POST /api/audio/transcribe` with a `data:audio/wav;base64,` body, empty final falls back, empty upload gives "No speech detected", upload failure keeps the clip for retry, cancel discards, 5-minute limit stops, stt-lease acquired and released and its failure ignored. Build `lib/src/voice/dictation_controller.dart` until they pass
-- [ ] 2.2 Add the breadcrumbs `voice.dictation.started` and `voice.dictation.ended` (`outcome`, `path`) through `Breadcrumbs`, with a test that no transcript text reaches the trail
+- [x] 2.1 Write failing tests for `DictationController` with a fake recorder, a fake stream and `FakeHermesServer`: permission denied, live final transcript, error frame falls back to `POST /api/audio/transcribe` with a `data:audio/wav;base64,` body, empty final falls back, empty upload gives "No speech detected", upload failure keeps the clip for retry, cancel discards, 5-minute limit stops, stt-lease acquired and released and its failure ignored. Build `lib/src/voice/dictation_controller.dart` until they pass
+- [x] 2.2 Add the breadcrumbs `voice.dictation.started` and `voice.dictation.ended` (`outcome`, `path`) through `Breadcrumbs`, with a test that no transcript text reaches the trail
 
 ## 3. Composer UI in the catalog
 

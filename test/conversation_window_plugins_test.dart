@@ -18,7 +18,8 @@ const _inConversationWindows = {
 
 /// Main engine only: notifications take the notification centre's delegate,
 /// secure storage holds the tokens a window must never read,
-/// macos_window_utils is bound to the main window, and the rest is unused
+/// macos_window_utils is bound to the main window, record is left out
+/// because a conversation window offers no voice input, and the rest is unused
 /// in a conversation window.
 const _mainEngineOnly = {
   'ConnectivityPlusPlugin',
@@ -29,6 +30,7 @@ const _mainEngineOnly = {
   'MacOSWindowUtilsPlugin',
   'FPPPackageInfoPlusPlugin',
   'FlutterMultiWindowPlugin',
+  'RecordMacOsPlugin',
 };
 
 Set<String> _registered(String source) => {
