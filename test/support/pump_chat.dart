@@ -14,6 +14,7 @@ import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/voice/voice_recorder.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -46,6 +47,7 @@ Future<void> pumpChatScreen(
   StarterContextLoader? starterContext,
   TargetPlatform? platform,
   MacCommandRegistry? commands,
+  VoiceRecorder? voiceRecorder,
 }) async {
   SharedPreferencesAsyncPlatform.instance =
       InMemorySharedPreferencesAsync.empty();
@@ -79,6 +81,7 @@ Future<void> pumpChatScreen(
           onShowChat: onShowChat,
           attachmentSource: attachmentSource,
           starterContext: starterContext,
+          voiceRecorder: voiceRecorder,
         ),
       ),
     ),

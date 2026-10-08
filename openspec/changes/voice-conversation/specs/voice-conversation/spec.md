@@ -144,9 +144,9 @@ When `GET /api/audio/voice-live/status` reports `mode: "gpt-live"`, the app SHAL
 
 ### Requirement: Backend contract
 
-Voice conversation SHALL rely only on these Hermes Agent routes and methods, present since Hermes v2026.9.11:
+Voice conversation SHALL rely only on these Hermes Agent routes and methods, present since Hermes v2026.9.11 unless noted:
 
-- The dictation routes.
+- The dictation routes (`transcribe-stream` and `stt-lease` since v0.21.6).
 - `GET /api/model/auxiliary` (`{tasks: [{task, provider, model, base_url, …}], main: {provider, model}}`).
 - `GET /api/audio/voice-live/status` (`{ok, mode, available, …}`).
 - The `/api/audio/speak-stream` WebSocket (protocol above).

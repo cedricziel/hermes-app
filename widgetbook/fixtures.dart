@@ -715,3 +715,11 @@ final cronRuns = [
     startedAt: _now.subtract(const Duration(hours: 74)),
   ),
 ];
+
+/// Input levels of a dictation, oldest first.
+const dictationLevels = [
+  0.05, 0.1, 0.3, 0.55, 0.7, 0.45, 0.6, 0.8, 0.65, 0.4, 0.2, 0.35, 0.5, //
+  0.75, 0.9, 0.7, 0.5, 0.3, 0.15, 0.25, 0.45, 0.6, 0.5, 0.3, 0.1, 0.05,
+];
+
+const dictationLiveTranscript = 'Book a table for two at the Italian place';

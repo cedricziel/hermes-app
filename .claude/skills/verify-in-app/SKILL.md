@@ -543,6 +543,34 @@ Bash call. Once `$DIR` exists, only the `DIR=` and `export` lines are needed.
 - Its API contract is `openapi/hermes-agent.openapi.json`.
 
 
+## Dictation
+
+The composer shows a microphone when the dev backend's profile has usable
+speech-to-text (`GET /api/audio/voice-config` with the page's session token as
+`X-Hermes-Session-Token`; `stt.reason` must not be `stt disabled` or
+`no credentials`). Hermes' default `local` provider reports usable even when
+`faster-whisper` is missing; the upload then answers an empty transcript and
+the app says "No speech detected".
+
+- `transcribe-stream` and `stt-lease` came in Hermes v0.21.6. The version CI
+  pins may be older: the socket is refused (the app uploads) and the lease
+  answers 405 (ignored). To try the real socket, build v0.21.6 or newer with
+  the recipe above, which needs `python3.14` (its dependencies are pinned for
+  3.14), and add `faster-whisper` to that venv. faster-whisper 1.2.1 fails
+  with "open() got an unexpected keyword argument 'metadata_errors'" on
+  PyAV 16 or newer; `pip install "av<16"` fixes it.
+- Local Whisper does not stream (`stt.streaming: false`), so dictation
+  uploads the whole clip after stop; live partials need a provider that
+  streams.
+- Without a microphone in the loop, drive `DictationController` from a
+  throwaway test: read PCM from a WAV made with
+  `say -o speech.wav --data-format=LEI16@16000 "…"`, feed it through
+  `FakeVoiceRecorder.speak`, and point the repository at the dev backend.
+  Delete the test before committing.
+- The first tap on the microphone in the dev build asks macOS for microphone
+  access; allow it by hand. A screenshot can show the waveform but not what
+  was heard: speak, tap stop and read the draft.
+
 ## Verify Apple Handoff
 
 Use an isolated backend and invented saved chats. Never install a test build

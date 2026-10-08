@@ -130,7 +130,12 @@ When the app goes to the background or the chat screen is closed during a record
 
 ### Requirement: Backend contract
 
-Dictation SHALL rely only on these Hermes Agent routes, present since Hermes v2026.9.11: `GET /api/audio/voice-config` (`{ok, stt: {mode, streaming?, …}, tts: {…}}`; only `stt.reason` and `stt.streaming` are read), the `/api/audio/transcribe-stream` WebSocket (protocol above, authenticated like `/api/ws` with `ticket` or `token`, closed with 4401 or 4403 when rejected), `POST /api/audio/transcribe` (`{ok, transcript, provider}`; 400 for empty or malformed audio, 413 above 25 MiB) and `POST /api/audio/stt-lease` (`{ok, lease, active, …}`). The app SHALL NOT use the client-direct provider settings or keys that `voice-config` may return.
+Dictation SHALL rely only on these Hermes Agent routes. `voice-config` and `transcribe` are present since Hermes v2026.9.11, and `transcribe-stream` and `stt-lease` since v0.21.6. On an older server dictation SHALL still work by uploading, and SHALL ignore the missing lease route. The routes: `GET /api/audio/voice-config` (`{ok, stt: {mode, streaming?, …}, tts: {…}}`; only `stt.reason` and `stt.streaming` are read), the `/api/audio/transcribe-stream` WebSocket (protocol above, authenticated like `/api/ws` with `ticket` or `token`, closed with 4401 or 4403 when rejected), `POST /api/audio/transcribe` (`{ok, transcript, provider}`; 400 for empty or malformed audio, 413 above 25 MiB) and `POST /api/audio/stt-lease` (`{ok, lease, active, …}`). The app SHALL NOT use the client-direct provider settings or keys that `voice-config` may return.
+
+#### Scenario: Server before v0.21.6
+
+- **WHEN** the transcribe-stream socket is refused and `stt-lease` answers 405
+- **THEN** the recording is uploaded on stop and its transcript inserted
 
 #### Scenario: Provider keys ignored
 

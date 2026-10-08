@@ -41,6 +41,7 @@ import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
 import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
+import 'package:hermes_app/src/voice/wav.dart';
 
 import 'support/attachment_fixtures.dart';
 
@@ -132,6 +133,101 @@ void main() {
       ]),
     );
   }, skip: skip);
+
+  group('voice', () {
+    test('voice-config describes both directions', () async {
+      final response = await client.raw
+          .getClientVoiceConfigApiAudioVoiceConfigGet();
+      final body = response.data! as Map;
+
+      for (final key in ['stt', 'tts']) {
+        final section = body[key] as Map;
+        expect(section['mode'], anyOf('relay', 'direct'), reason: key);
+        if (section['mode'] == 'relay') {
+          expect(section['reason'], isA<String>(), reason: key);
+        }
+      }
+      final stt = body['stt'] as Map;
+      if (stt.containsKey('streaming')) {
+        expect(stt['streaming'], isA<bool>());
+      }
+    }, skip: skip);
+
+    test('a speech-to-text lease is taken and released', () async {
+      final repository = HermesChatRepository(client.raw);
+
+      try {
+        await repository.holdSpeechToText(
+          'app:voice-input:contract',
+          active: true,
+        );
+      } on DioException catch (error) {
+        // The route came in Hermes v0.21.6; the app ignores its absence.
+        if (const {404, 405}.contains(error.response?.statusCode)) {
+          markTestSkipped('stt-lease is not on this Hermes');
+          return;
+        }
+        rethrow;
+      }
+      await repository.holdSpeechToText(
+        'app:voice-input:contract',
+        active: false,
+      );
+    }, skip: skip);
+
+    test('a second of silence transcribes to nothing, or fails without a '
+        'speech-to-text provider', () async {
+      final silence = wavFromPcm16(Uint8List(32000), sampleRate: 16000);
+      try {
+        final text = await HermesChatRepository(client.raw)
+            .transcribe(silence, mimeType: 'audio/wav');
+        expect(text, isEmpty);
+      } on DioException catch (error) {
+        expect(error.response?.statusCode, anyOf(400, 500));
+      }
+    }, skip: skip);
+
+    test(
+      'transcribe-stream answers eos with a final or an error frame',
+      () async {
+        final config =
+            (await client.raw.getClientVoiceConfigApiAudioVoiceConfigGet())
+                    .data!
+                as Map;
+        // The socket came in Hermes v0.21.6, together with `stt.streaming`.
+        if (!(config['stt'] as Map).containsKey('streaming')) {
+          markTestSkipped('transcribe-stream is not on this Hermes');
+          return;
+        }
+        final connect = hermesMixedSocketConnect(
+          baseUrl: url!,
+          authRequired: false,
+          api: client,
+          path: '/api/audio/transcribe-stream',
+        );
+        final channel = await connect();
+        channel.sink
+          ..add(jsonEncode({'sample_rate': 16000}))
+          ..add(Uint8List(3200))
+          ..add(jsonEncode({'eos': true}));
+
+        final frame = await channel.stream
+            .where((f) => f is String)
+            .map((f) => jsonDecode(f! as String) as Map)
+            .firstWhere((f) => f['type'] != 'partial')
+            .timeout(const Duration(seconds: 60));
+        await channel.sink.close();
+
+        expect(frame['type'], anyOf('final', 'error'));
+        if (frame['type'] == 'final') {
+          expect(frame['transcript'], isA<String>());
+        } else {
+          expect(frame['message'], isA<String>());
+        }
+      },
+      skip: skip,
+    );
+  });
 
   test('sessions load as threads', () async {
     final threads = await HermesChatRepository(client.raw).loadThreads();

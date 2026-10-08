@@ -2,7 +2,7 @@
 
 ## Context
 
-Hermes serves dictation for its desktop app from `hermes_cli/web_routers/audio.py`. `voice-config` says whether the profile's provider can transcribe live (`stt.streaming`). The `transcribe-stream` socket takes a sample-rate frame, binary PCM and `eos`, and answers with partials and a final transcript. It sends an `error` frame straight away when the provider has no live mode; the desktop then uploads its recording as a data URL to `POST /api/audio/transcribe`. `stt-lease` only pre-loads a local Whisper model. All of this exists since Hermes v2026.9.11, and the generated client already has the REST calls.
+Hermes serves dictation for its desktop app from `hermes_cli/web_routers/audio.py`. `voice-config` says whether the profile's provider can transcribe live (`stt.streaming`). The `transcribe-stream` socket takes a sample-rate frame, binary PCM and `eos`, and answers with partials and a final transcript. It sends an `error` frame straight away when the provider has no live mode; the desktop then uploads its recording as a data URL to `POST /api/audio/transcribe`. `stt-lease` only pre-loads a local Whisper model. `voice-config` and `transcribe` exist since Hermes v2026.9.11; `transcribe-stream` and `stt-lease` came in v0.21.6, so on an older server the socket is refused (the app uploads) and the lease answers 405 (ignored). The generated client already has the REST calls.
 
 The app opens dashboard sockets with `hermesSocketConnect` (`gateway/gateway_connection.dart`): a single-use `ticket` from `/api/auth/ws-ticket` when the dashboard is gated, otherwise the page's session `token`. The audio sockets accept the same credentials. That helper returns a `StreamChannel<String>`, but dictation has to send binary frames.
 

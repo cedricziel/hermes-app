@@ -16,18 +16,18 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 3. Composer UI in the catalog
 
-- [ ] 3.1 Write failing widget tests for `VoiceWaveform` (recording: bars follow the level, dot and timer; settling: "Transcribing") and for `ChatComposer` with a `DictationView`: mic hidden without one, mic beside send, waveform replaces the field and stop replaces the mic while recording, cancel, send unavailable until the transcript lands, live transcript over the waveform, error with Retry, "No speech detected", denied message. Build them until the tests pass
-- [ ] 3.2 Add Widgetbook use cases for each of those states (component-catalog skill) and verify `test/widgetbook_test.dart` passes in both themes at phone and desktop width
+- [x] 3.1 Write failing widget tests for `VoiceWaveform` (recording: bars follow the level, dot and timer; settling: "Transcribing") and for `ChatComposer` with a `DictationView`: mic hidden without one, mic beside send, waveform replaces the field and stop replaces the mic while recording, cancel, send unavailable until the transcript lands, live transcript over the waveform, error with Retry, "No speech detected", denied message. Build them until the tests pass
+- [x] 3.2 Add Widgetbook use cases for each of those states (component-catalog skill) and verify `test/widgetbook_test.dart` passes in both themes at phone and desktop width
 
 ## 4. Wiring and platforms
 
-- [ ] 4.1 Write a failing chat-screen test: mic appears when `voice-config` answers 200 and not on 404, and a transcript is inserted at the cursor with a single space and not sent. Wire `DictationController` into `ChatScreen` and `buildChatComposer` (profile switch, dispose and backgrounding cancel) until it passes
-- [ ] 4.2 Add `NSMicrophoneUsageDescription` to the iOS and macOS `Info.plist`, `com.apple.security.device.audio-input` to both macOS entitlement files, `RECORD_AUDIO` to the Android manifest, and `pulseaudio-utils` to the `.deb` `Depends` in `scripts/package-linux.sh`; verify with `plutil -lint` and a Linux package build in CI
-- [ ] 4.3 Hide the mic in macOS conversation windows, and verify the window engine starts without the `record` plugin registered
-- [ ] 4.4 Add a step to the chat workflow test (`test/workflows/`) that dictates with a fake recorder, and check its screenshots (workflow-screenshots skill)
+- [x] 4.1 Write a failing chat-screen test: mic appears when `voice-config` answers 200 and not on 404, and a transcript is inserted at the cursor with a single space and not sent. Wire `DictationController` into `ChatScreen` and `buildChatComposer` (profile switch, dispose and backgrounding cancel) until it passes
+- [x] 4.2 Add `NSMicrophoneUsageDescription` to the iOS and macOS `Info.plist`, `com.apple.security.device.audio-input` to both macOS entitlement files, `RECORD_AUDIO` to the Android manifest, and `pulseaudio-utils` to the `.deb` `Depends` in `scripts/package-linux.sh`; verify with `plutil -lint` and a Linux package build in CI
+- [x] 4.3 Hide the mic in macOS conversation windows, and verify the window engine starts without the `record` plugin registered
+- [x] 4.4 Add a step to the chat workflow test (`test/workflows/`) that dictates with a fake recorder, and check its screenshots (workflow-screenshots skill)
 
 ## 5. Docs and verification
 
-- [ ] 5.1 Add the voice routes to `test/real_backend_contract_test.dart` (`voice-config` shape, `transcribe` with a short WAV of silence returning an empty transcript)
-- [ ] 5.2 Update `CLAUDE.md` (a Voice paragraph and the Chat composer line) and the `verify-in-app` skill with how to dictate on the macOS dev app (microphone permission prompt, a dev backend's STT provider)
-- [ ] 5.3 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then dictate a prompt in the running macOS app against `scripts/dev-backend.sh` with the `verify-in-app` skill
+- [x] 5.1 Add the voice routes to `test/real_backend_contract_test.dart` (`voice-config` shape, `transcribe` with a short WAV of silence returning an empty transcript)
+- [x] 5.2 Update `CLAUDE.md` (a Voice paragraph and the Chat composer line) and the `verify-in-app` skill with how to dictate on the macOS dev app (microphone permission prompt, a dev backend's STT provider)
+- [x] 5.3 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`, then dictate a prompt in the running macOS app against `scripts/dev-backend.sh` with the `verify-in-app` skill

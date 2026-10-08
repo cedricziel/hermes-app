@@ -51,6 +51,9 @@ class DictationController extends ChangeNotifier {
   static const sampleRate = 16000;
   static const _tick = Duration(milliseconds: 100);
 
+  /// How many ticks of levels [levels] keeps for the waveform.
+  static const levelHistory = 40;
+
   final HermesChatRepository _repository;
   final MixedSocketConnect _connect;
   final VoiceRecorder _recorder;
@@ -65,6 +68,7 @@ class DictationController extends ChangeNotifier {
   VoiceSupport _support = VoiceSupport.none;
   var _phase = DictationPhase.idle;
   var _level = 0.0;
+  final _levels = <double>[];
   var _elapsed = Duration.zero;
   var _liveTranscript = '';
   var _run = 0;
@@ -80,6 +84,9 @@ class DictationController extends ChangeNotifier {
 
   /// The input level, from 0 (silence) to 1, updated every tick.
   double get level => _level;
+
+  /// The levels of the last [levelHistory] ticks, oldest first.
+  List<double> get levels => List.unmodifiable(_levels);
 
   Duration get elapsed => _elapsed;
 
@@ -133,11 +140,14 @@ class DictationController extends ChangeNotifier {
     _clip = BytesBuilder(copy: false);
     _elapsed = Duration.zero;
     _level = 0;
+    _levels.clear();
     _liveTranscript = '';
     final done = _pcmDone = Completer();
     _pcm = pcm.listen(_onPcm, onDone: done.complete);
     _ticker = Timer.periodic(_tick, (_) {
       _elapsed += _tick;
+      _levels.add(_level);
+      if (_levels.length > levelHistory) _levels.removeAt(0);
       notifyListeners();
       if (_elapsed >= maxDuration) unawaited(stop());
     });
@@ -298,10 +308,17 @@ class DictationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  var _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
-    unawaited(cancel());
-    unawaited(_recorder.dispose());
+    _disposed = true;
+    unawaited(cancel().whenComplete(_recorder.dispose));
     super.dispose();
   }
 

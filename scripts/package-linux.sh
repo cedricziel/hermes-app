@@ -55,7 +55,7 @@ Architecture: $DEB_ARCH
 Maintainer: Cedric Ziel <cedric.ziel@gmail.com>
 Section: net
 Priority: optional
-Depends: libgtk-3-0 | libgtk-3-0t64, libsecret-1-0, libjsoncpp25 | libjsoncpp26
+Depends: libgtk-3-0 | libgtk-3-0t64, libsecret-1-0, libjsoncpp25 | libjsoncpp26, pulseaudio-utils
 Description: Client for the Hermes Agent dashboard
  Sign in to a self-hosted Hermes Agent server and chat with the agent.
 EOF

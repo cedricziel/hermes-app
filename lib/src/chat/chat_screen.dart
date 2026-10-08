@@ -50,6 +50,8 @@ import 'chat_transport.dart';
 import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
+import '../voice/dictation_controller.dart';
+import '../voice/voice_recorder.dart';
 import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
@@ -89,6 +91,7 @@ class ChatScreen extends StatefulWidget {
     this.starterContext,
     this.visible = true,
     this.chatProfiles,
+    this.voiceRecorder,
   });
 
   final HermesChatRepository? repository;
@@ -130,6 +133,10 @@ class ChatScreen extends StatefulWidget {
   /// the profile it shows and follows a switch made there.
   final ChatProfiles? chatProfiles;
 
+  /// The microphone for dictation; the platform's unless a test supplies its
+  /// own.
+  final VoiceRecorder? voiceRecorder;
+
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
@@ -145,6 +152,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
   final _composerController = TextEditingController();
+  DictationController? _dictation;
+
+  /// The profile whose voice support [_dictation] was last configured for.
+  ({String? profile})? _voiceProfile;
   List<SlashCommand> _slashCommands = const [];
   String? _slashContext;
   int _slashFetchGeneration = 0;
@@ -242,6 +253,26 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         selection: TextSelection.collapsed(offset: draft.length),
       ),
     )..addListener(_changed);
+    if (_chat.repository case final repository?) {
+      final auth = _maybeRead<AuthController>();
+      final baseUrl = auth?.baseUrl;
+      _dictation = DictationController(
+        repository: repository,
+        connect: api == null || baseUrl == null
+            ? ([_ = const {}]) => Future.error(StateError('No dashboard'))
+            : hermesMixedSocketConnect(
+                baseUrl: baseUrl,
+                authRequired: auth?.status?.authRequired ?? true,
+                api: api,
+                path: '/api/audio/transcribe-stream',
+                telemetry: repositories?.telemetry.gateway(),
+              ),
+        recorder: widget.voiceRecorder ?? RecordVoiceRecorder(),
+        onTranscript: _insertTranscript,
+        breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+      );
+      _refreshVoice();
+    }
     _handoff = _maybeRead<HandoffController>();
     _handoff?.bind((activity, valid) async {
       // A chat open in a conversation window continues there.
@@ -355,6 +386,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _changed() {
     if (!mounted) return;
+    if (_voiceProfile?.profile != _chat.profile) _refreshVoice();
     widget.chatProfiles?.showing(_chat.profile);
     setState(() {});
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
@@ -498,7 +530,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
     _updateActivePolling();
+    if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {
+      _dictation?.cancel();
+    }
     if (!_foreground) return;
+    _refreshVoice();
     _chat.checkConnection();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
@@ -519,12 +555,50 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..removeListener(_changed)
       ..dispose();
     _ownedTransport?.close();
+    _dictation?.dispose();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
     _composerFocus.dispose();
     _latestReplyId.dispose();
     _searchFocus.dispose();
     super.dispose();
+  }
+
+  /// Asks what voice input the shown profile allows, and points dictation
+  /// at it.
+  Future<void> _refreshVoice() async {
+    final dictation = _dictation;
+    final repository = _chat.repository;
+    if (dictation == null || repository == null) return;
+    final profile = _chat.profile;
+    _voiceProfile = (profile: profile);
+    final support = await repository.voiceSupport(profile: profile);
+    if (!mounted || _chat.profile != profile) return;
+    dictation.configure(profile: profile, support: support);
+  }
+
+  /// Puts a dictated [transcript] where the cursor is, a space apart from the
+  /// text around it, without sending.
+  void _insertTranscript(String transcript) {
+    final value = _composerController.value;
+    final text = value.text;
+    final selection = value.selection.isValid
+        ? value.selection
+        : TextSelection.collapsed(offset: text.length);
+    final before = text.substring(0, selection.start);
+    final after = text.substring(selection.end);
+    bool spaced(String s) => s.isEmpty || RegExp(r'\s').hasMatch(s);
+    final lead = spaced(before.isEmpty ? '' : before[before.length - 1])
+        ? ''
+        : ' ';
+    final trail = spaced(after.isEmpty ? '' : after[0]) ? '' : ' ';
+    final inserted = '$lead$transcript$trail';
+    _composerController.value = TextEditingValue(
+      text: '$before$inserted$after',
+      selection: TextSelection.collapsed(
+        offset: before.length + lead.length + transcript.length,
+      ),
+    );
   }
 
   void _newThread() {
@@ -921,6 +995,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           chatController: chat.controllerFor(selected),
           composerController: _composerController,
           composerFocus: _composerFocus,
+          dictation: _dictation,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,

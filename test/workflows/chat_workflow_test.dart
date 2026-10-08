@@ -17,6 +17,7 @@ import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import '../support/cron_fixtures.dart';
 import '../support/fake_chat_transport.dart';
 import '../support/fake_hermes_server.dart';
+import '../support/fake_voice_recorder.dart';
 import '../support/kanban_fixtures.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
@@ -35,10 +36,22 @@ const _unbroken =
 void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
+  late FakeVoiceRecorder recorder;
 
   setUp(() {
     transport = FakeChatTransport();
+    recorder = FakeVoiceRecorder();
     server = FakeHermesServer()
+      ..on('GET', '/api/audio/voice-config', {
+        'ok': true,
+        'stt': {'mode': 'relay', 'reason': 'local provider'},
+        'tts': {'mode': 'relay'},
+      })
+      ..on('POST', '/api/audio/stt-lease', {'ok': true})
+      ..on('POST', '/api/audio/transcribe', {
+        'ok': true,
+        'transcript': 'and keep the old certificate as a fallback',
+      })
       ..on('GET', '/api/cron/jobs', [
         cronJobRow(
           name: 'Nightly backup',
@@ -156,6 +169,7 @@ void main() {
       models: HermesModelsRepository(server.client().raw),
       transport: transport,
       starterContext: StarterContextLoader(HermesRepositories(server.client())),
+      voiceRecorder: recorder,
     ),
     size: size,
     brightness: brightness,
@@ -269,6 +283,36 @@ void main() {
       await emit(tester, reply, ReplyCompleted('Done. The backup ran clean.'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'reply-completed');
+    });
+
+    testWidgets('$name: dictate into the draft', (tester) async {
+      final shots = ScreenshotRecorder('chat-dictation-$name');
+      await pumpChat(tester, shots, size: size);
+      await openSidebar(tester);
+      await openSidebarThread(tester, 's1');
+      await tester.enterText(
+        composerField,
+        'Re-pin the certificate on staging',
+      );
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel('Dictate'));
+      await tester.pump(const Duration(milliseconds: 100));
+      for (var i = 0; i < 30; i++) {
+        recorder.speak(List.filled(160, (i % 7) * 2500));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await shots.capture(tester, 'recording');
+
+      await tester.tap(find.bySemanticsLabel('Stop voice input'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'transcript-in-draft');
+      expect(
+        tester.widget<EditableText>(composerField).controller.text,
+        'Re-pin the certificate on staging and keep the old certificate as '
+        'a fallback',
+      );
+      expect(transport.sends, isEmpty);
     });
 
     testWidgets('$name: delegated subagents run beside the reply', (

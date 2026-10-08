@@ -160,6 +160,11 @@ abstract final class AppIcons {
     Icons.stop_circle_outlined,
     CupertinoIcons.stop_circle,
   );
+  static const mic = AppIconSet(Icons.mic_none, CupertinoIcons.mic);
+  static const stopRecording = AppIconSet(
+    Icons.stop_rounded,
+    CupertinoIcons.stop_fill,
+  );
   static const speed = AppIconSet(
     Icons.speed_outlined,
     CupertinoIcons.speedometer,
@@ -415,6 +420,8 @@ abstract final class AppIcons {
     'redo': redo,
     'tune': tune,
     'stop': stop,
+    'mic': mic,
+    'stopRecording': stopRecording,
     'speed': speed,
     'bot': bot,
     'shield': shield,
