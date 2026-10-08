@@ -21,6 +21,7 @@ import 'src/notifications/notification_settings.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
+import 'src/telemetry/breadcrumbs.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';
@@ -75,6 +76,7 @@ Future<void> main([List<String> args = const []]) async {
         Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
         Provider<KanbanEventsTracer?>.value(value: telemetry.kanbanEvents()),
         Provider<AppEventLogger>.value(value: telemetry.events()),
+        Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,
           create: (context) {
@@ -95,6 +97,7 @@ Future<void> main([List<String> args = const []]) async {
                 );
               },
               headers: auth.windowAuthHeaders,
+              breadcrumbs: context.read<Breadcrumbs>(),
             );
             // An expired session keeps the windows for after the sign-in.
             auth.signedOut.listen(

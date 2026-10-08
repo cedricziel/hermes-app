@@ -38,6 +38,7 @@ import '../macos/mac_sidebar.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_window_args.dart';
 import '../windows/conversation_windows.dart';
@@ -233,6 +234,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
       onOpened: () => _scaffoldKey.currentState?.closeDrawer(),
+      breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       onPrefill: (draft) => _composerController.value = TextEditingValue(
         text: draft,
         selection: TextSelection.collapsed(offset: draft.length),

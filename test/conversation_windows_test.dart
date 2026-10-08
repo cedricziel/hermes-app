@@ -1,5 +1,7 @@
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -12,6 +14,7 @@ const _server = (baseUrl: 'https://hermes.test', authRequired: true);
 void main() {
   late FakeConversationWindowHost host;
   late ConversationWindows windows;
+  late BreadcrumbTrail trail;
   late List<(String, String?)> shownInMain;
   ({String baseUrl, bool authRequired})? connection;
 
@@ -20,11 +23,13 @@ void main() {
     store: ConversationWindowStore(SharedPreferencesAsync()),
     connection: () => connection,
     headers: ({rejected}) async => {'Authorization': 'Bearer t'},
+    breadcrumbs: Breadcrumbs.of(trail),
   )..showInMainRequests.listen((r) => shownInMain.add((r.threadId, r.profile)));
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    trail = BreadcrumbTrail();
     host = FakeConversationWindowHost();
     shownInMain = [];
     connection = _server;
@@ -32,6 +37,20 @@ void main() {
   });
 
   tearDown(() => windows.dispose());
+
+  test('opening and closing windows leave crumbs without the chat', () async {
+    await windows.open(
+      'secret-thread',
+      profile: 'secret-profile',
+      title: 'Secret',
+    );
+    await windows.closeAll();
+
+    final text = [for (final c in trail.recent) '${c.name} ${c.attributes}'];
+    expect(text, ['window.opened {open: 1}', 'window.closed {open: 0}']);
+    expect(text.join(), isNot(contains('secret')));
+    expect(text.join(), isNot(contains('Secret')));
+  });
 
   test('opens a chat in a window that stays on its profile', () async {
     await windows.open('s1', profile: 'work', title: 'Plan');

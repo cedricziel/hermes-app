@@ -315,6 +315,53 @@ When telemetry is enabled the connection controller SHALL log app events as info
 - **WHEN** a token refresh succeeds
 - **THEN** `auth.session.refreshed` is logged with the `trigger` that caused it
 
+### Requirement: Navigation and chat activity are kept as breadcrumbs for crash reports
+
+When telemetry is enabled the system SHALL keep the last 40 breadcrumbs in memory, shared with the app events above, and attach them to the log record of an uncaught error. A breadcrumb is a name and a few attributes of fixed names and coarse values: a destination, a state, a count, a flag or an outcome. The system SHALL NOT export a breadcrumb as a log record of its own, and SHALL NOT put message or prompt text, a chat title, a profile name, a server address or a chat or session id in one. Recording a breadcrumb SHALL never throw, and does nothing when telemetry is off. The breadcrumbs are:
+
+- `nav.destination` with `destination` (`chat`, `bots`, `kanban`, `schedules` or `profiles`) when the shell moves to another destination; `gone` = true when the destination in front went away and the shell fell back to Chat.
+- `app.lifecycle` with `state` (`resumed` or `paused`).
+- `chat.threads.loaded` with `switched` (the profile changed) and `count`; `chat.threads.failed`.
+- `chat.thread.selected` with `remote`; `chat.thread.new`; `chat.thread.closed`.
+- `chat.open.requested` with `fetch_missing`, when a notification, handoff or search asks for a chat; `chat.open.failed` when it could not be opened.
+- `chat.reply.started` with `queued` and `attachments` (a count); `chat.reply.ended` with `outcome` (`completed`, `stopped`, `failed` or `folded`).
+- `window.opened` and `window.closed`, each with `open` (how many conversation windows are open), and `window.key` with `conversation` (a conversation window rather than the main window is key), on macOS.
+- The `gateway.reconnect`, `gateway.turn_settled` and `gateway.event_unmapped` app events, which are also breadcrumbs.
+
+#### Scenario: Moving between destinations
+
+- **WHEN** the user opens Kanban and then Chat
+- **THEN** the breadcrumbs `nav.destination` with `destination` = `kanban` and `nav.destination` with `destination` = `chat` are recorded in that order
+- **AND** opening the destination that is already in front records nothing
+
+#### Scenario: App goes to the background
+
+- **WHEN** the app is paused and then resumed
+- **THEN** `app.lifecycle` is recorded with `state` = `paused` and then `resumed`
+- **AND** the passing `inactive` and `hidden` states record nothing
+
+#### Scenario: A reply
+
+- **WHEN** the user sends a prompt and the reply completes
+- **THEN** `chat.reply.started` and `chat.reply.ended` with `outcome` = `completed` are recorded
+- **AND** neither carries the prompt, the reply, the chat title, the profile name or the chat id
+
+#### Scenario: A reply that cannot finish
+
+- **WHEN** a send fails, or its stream ends with no completion
+- **THEN** `chat.reply.ended` is recorded with `outcome` = `failed`
+
+#### Scenario: A crash after a chat was opened
+
+- **WHEN** an uncaught error is reported after the user opened a chat
+- **THEN** the crash record's `breadcrumbs` list `chat.thread.selected` before the error
+- **AND** no log record named `chat.thread.selected` was exported
+
+#### Scenario: Telemetry off
+
+- **WHEN** telemetry is disabled and the user navigates
+- **THEN** nothing is recorded and nothing fails
+
 ### Requirement: Uncaught errors are logged by type only
 
 When telemetry is enabled the system SHALL log every uncaught Flutter framework error as an error log record with the body `Uncaught Flutter error` and every uncaught asynchronous error as an error log record with the body `Uncaught async error`. The only attribute SHALL be `exception.type`, the runtime type name of the error. The system SHALL NOT record the error message or stack trace. The system SHALL then call the error handler that was installed before it; for asynchronous errors the result of that handler is returned, and it is `false` (unhandled) when there was none.

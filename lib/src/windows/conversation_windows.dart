@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../chat/widgets/thread_actions_menu.dart';
+import '../telemetry/breadcrumbs.dart';
 
 import 'conversation_window_args.dart';
 import 'window_auth_interceptor.dart';
@@ -106,6 +107,7 @@ class ConversationWindows extends ChangeNotifier {
     required this._store,
     required this._connection,
     required this._headers,
+    this._breadcrumbs = Breadcrumbs.none,
   }) {
     _host.listen(_handle);
     _subscriptions
@@ -122,6 +124,7 @@ class ConversationWindows extends ChangeNotifier {
   final ConversationWindowStore _store;
   final ({String baseUrl, bool authRequired})? Function() _connection;
   final WindowAuthHeaders _headers;
+  final Breadcrumbs _breadcrumbs;
   final _subscriptions = <StreamSubscription<void>>[];
   final _mainFocused = StreamController<void>.broadcast();
   final _showInMain = StreamController<ConversationRef>.broadcast();
@@ -243,6 +246,7 @@ class ConversationWindows extends ChangeNotifier {
       return false;
     }
     _windows.add(ConversationWindowEntry(windowId, args));
+    _breadcrumbs('window.opened', {'open': _windows.length});
     _touched.add((threadId: args.threadId, profile: args.profile));
     unawaited(_changed());
     return true;
@@ -268,7 +272,10 @@ class ConversationWindows extends ChangeNotifier {
     final before = _windows.length;
     _windows.removeWhere(test);
     if (_keyWindow == null) _setKey(null);
-    if (_windows.length != before) await _changed();
+    if (_windows.length != before) {
+      _breadcrumbs('window.closed', {'open': _windows.length});
+      await _changed();
+    }
   }
 
   ConversationWindowEntry? _entry(Object? windowId) =>
@@ -303,6 +310,7 @@ class ConversationWindows extends ChangeNotifier {
   /// is signed in.
   Future<void> closeAll({bool forget = true}) async {
     _generation++;
+    if (_windows.isNotEmpty) _breadcrumbs('window.closed', {'open': 0});
     _windows.clear();
     _touched.clear();
     _setKey(null);
@@ -380,6 +388,7 @@ class ConversationWindows extends ChangeNotifier {
   void _setKey(String? windowId) {
     if (_keyWindowId == windowId) return;
     _keyWindowId = windowId;
+    _breadcrumbs('window.key', {'conversation': windowId != null});
     notifyListeners();
   }
 

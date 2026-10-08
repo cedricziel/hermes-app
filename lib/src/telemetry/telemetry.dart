@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_otel_device_info/flutter_otel_device_info.dart';
 
+import 'breadcrumbs.dart';
 import 'telemetry_config.dart';
 
 /// Owns the OpenTelemetry SDK for the app.
@@ -95,7 +96,9 @@ class Telemetry {
   Telemetry._(this._sdk);
 
   final OTelSdk? _sdk;
-  final _breadcrumbs = BreadcrumbTrail();
+  // Room for a screen's worth of navigation and a reply or two between the
+  // sign-in events and the crash.
+  final _breadcrumbs = BreadcrumbTrail(capacity: 40);
 
   bool get enabled => _sdk != null;
 
@@ -183,6 +186,12 @@ class Telemetry {
         ? noopAppEventLogger
         : _breadcrumbs.asAppEventLogger(appEventLogger(sdk.getLogger()));
   }
+
+  /// Notes where the user is and what they are doing, for [logUncaughtErrors]
+  /// to attach to a crash. Unlike [events] it exports nothing on its own;
+  /// does nothing when disabled.
+  Breadcrumbs breadcrumbs() =>
+      _sdk == null ? Breadcrumbs.none : Breadcrumbs.of(_breadcrumbs);
 
   /// Logs uncaught Flutter and async errors, with their message, stack
   /// trace and recent breadcrumbs from [events]; does nothing when

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
@@ -17,6 +18,7 @@ import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/shell/shell_navigation.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -56,6 +58,7 @@ void main() {
     WidgetBuilder? kanbanBuilder,
     TargetPlatform? platform,
     MacCommandRegistry? commands,
+    BreadcrumbTrail? trail,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -71,6 +74,8 @@ void main() {
             create: (_) => ShareController(inbox)..start(),
           ),
           Provider<NotificationService>.value(value: notifications),
+          if (trail != null)
+            Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
           if (settings != null)
             ChangeNotifierProvider<NotificationSettings>.value(value: settings),
         ],
@@ -145,6 +150,58 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  group('breadcrumbs', () {
+    testWidgets('record each destination the user moves to', (tester) async {
+      kanbanPlugin(on: true);
+      final trail = BreadcrumbTrail();
+      await pumpShell(tester, size: const Size(400, 800), trail: trail);
+
+      await openTab(tester, 'Kanban');
+      await openTab(tester, 'Chat');
+
+      expect(
+        [for (final c in trail.recent) '${c.name} ${c.attributes}'],
+        [
+          'nav.destination {destination: kanban}',
+          'nav.destination {destination: chat}',
+        ],
+      );
+    });
+
+    testWidgets('do not repeat a destination that is already in front', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final trail = BreadcrumbTrail();
+      await pumpShell(tester, size: const Size(400, 800), trail: trail);
+
+      await openTab(tester, 'Chat');
+
+      expect(trail.recent, isEmpty);
+    });
+
+    testWidgets('record the app going to the background and coming back', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final trail = BreadcrumbTrail();
+      await pumpShell(tester, size: const Size(400, 800), trail: trail);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        [for (final c in trail.recent) '${c.name} ${c.attributes}'],
+        ['app.lifecycle {state: paused}', 'app.lifecycle {state: resumed}'],
+      );
+    });
+  });
 
   testWidgets('shows no navigation while the plugin is off', (tester) async {
     kanbanPlugin(on: false);
