@@ -403,6 +403,48 @@ void main() {
       await shots.capture(tester, 'cut-off');
     });
 
+    testWidgets('$name: Hermes finishes an interrupted turn ahead of the '
+        'prompt', (tester) async {
+      final shots = ScreenshotRecorder('chat-$name-auto-continue');
+      await pumpChat(tester, shots, size: size);
+      final reply = await startReply(tester, 's3', 'Draft the release notes.');
+      await emit(
+        tester,
+        reply,
+        const UnsolicitedEvent(ReplyStarted()),
+        settle: false,
+      );
+      await emit(
+        tester,
+        reply,
+        const UnsolicitedEvent(
+          ReplyDelta('Picking up where the connection dropped: the changelog '),
+        ),
+      );
+      await shots.capture(tester, 'interrupted-turn-live');
+      expect(
+        find.textContaining('Picking up where the connection dropped'),
+        findsOneWidget,
+      );
+
+      await emit(
+        tester,
+        reply,
+        const UnsolicitedEvent(
+          ReplyCompleted(
+            'Picking up where the connection dropped: the changelog is done.',
+          ),
+        ),
+      );
+      await emit(tester, reply, const ReplyStarted(), settle: false);
+      await emit(tester, reply, const ReplyDelta('Here are the notes.'));
+      await emit(tester, reply, const ReplyCompleted('Here are the notes.'));
+      await tester.pumpAndSettle();
+      await shots.capture(tester, 'prompt-answered');
+      expect(find.textContaining('the changelog is done'), findsOneWidget);
+      expect(find.textContaining('Here are the notes.'), findsOneWidget);
+    });
+
     for (final brightness in Brightness.values) {
       testWidgets('$name: queue prompts while replying (${brightness.name})', (
         tester,
