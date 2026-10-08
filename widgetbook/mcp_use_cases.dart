@@ -10,7 +10,6 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
-import 'platforms.dart';
 
 WidgetbookUseCase _banner(String name, McpBanner banner) =>
     WidgetbookUseCase(name: name, builder: (_) => frame(banner));

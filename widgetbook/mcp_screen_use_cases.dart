@@ -13,8 +13,8 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
+import 'frame.dart';
 import 'host.dart';
-import 'platforms.dart';
 
 /// A profile with an OAuth server, a switched-off command server and a catalog
 /// of a few entries, for every MCP screen.
@@ -153,7 +153,7 @@ List<WidgetbookUseCase> _list(
   FakeHermesServer Function() server,
 ) => onEachPlatform(
   name,
-  (_) => PushedPage(
+  (_) => pushed(
     McpServersScreen(
       repository: HermesMcpRepository(server().client().raw),
       profiles: HermesProfilesRepository(mcpServer().client().raw),
