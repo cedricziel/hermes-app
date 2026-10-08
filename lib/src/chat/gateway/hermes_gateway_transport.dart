@@ -524,6 +524,10 @@ class HermesGatewayTransport implements ChatTransport {
   /// The sessions still listened to after their reply ended, by thread.
   final _idle = <_ThreadOwner, _Watch>{};
 
+  /// What a send that gave up left of the turn it set aside, for the next
+  /// follow-up stream of the thread: no watch survived to carry it.
+  final _stranded = <_ThreadOwner, List<_Incoming>>{};
+
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
 
@@ -721,6 +725,7 @@ class HermesGatewayTransport implements ChatTransport {
       runtimeId = session['session_id'] as String;
       storedId = threadId ?? session['stored_session_id'] as String;
       owner = (profile, storedId);
+      _stranded.remove(owner);
       await _idle.remove(owner)?.close();
       // A relay may have re-keyed its watch after compression before the
       // caller knew the new id: the runtime session is the same all the same.
@@ -928,6 +933,7 @@ class HermesGatewayTransport implements ChatTransport {
         final made = drops.dropped();
         if (made >= _maxReplyReconnects) {
           if (finishing) yield const ReplyStatus('');
+          _strand(owner, setAside);
           throw const GatewayConnectionClosed();
         }
         drops.attempt();
@@ -995,7 +1001,10 @@ class HermesGatewayTransport implements ChatTransport {
             yielded.add(const SessionInfo(running: false));
             yield const SessionInfo(running: false);
           }
-          if (resumed.giveUp) throw const GatewayConnectionClosed();
+          if (resumed.giveUp) {
+            if (resumed.idle == null) _strand(owner, setAside);
+            throw const GatewayConnectionClosed();
+          }
           _reportSettled(
             yielded,
             errored: errored,
@@ -1015,6 +1024,12 @@ class HermesGatewayTransport implements ChatTransport {
       _endReply(runtimeId, owner);
       if (!parked) await watch.close();
     }
+  }
+
+  /// Keeps the [events] a send set aside for the next follow-up stream of
+  /// [owner], when the send fails with no watch left to carry them.
+  void _strand(_ThreadOwner owner, List<_Incoming> events) {
+    if (events.isNotEmpty) _stranded[owner] = List.of(events);
   }
 
   /// Logs the event [name], and never lets the logger break the transport.
@@ -1142,6 +1157,7 @@ class HermesGatewayTransport implements ChatTransport {
       _runtimeOf[to] = runtimeId;
     }
     if (_modelOf.remove(from) case final model?) _modelOf[to] = model;
+    if (_stranded.remove(from) case final events?) _stranded[to] = events;
     if (_idle.remove(from) case final watch?) {
       final displaced = _idle[to];
       _idle[to] = watch;
@@ -1790,15 +1806,23 @@ class HermesGatewayTransport implements ChatTransport {
       resumed.discard();
       return;
     }
+    final stranded = _stranded.remove(owner) ?? const <_Incoming>[];
     if (watch == null) {
       final idle = resumed.idle;
       if (idle != null) await _park(owner, idle);
+      // What a send that gave up had set aside comes first.
+      for (final (event, _) in stranded) {
+        out.add(event);
+      }
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
       }
       _forgetRequests(mine);
-      if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
+      if (idle == null ||
+          resumed.ended.isEmpty && stranded.isEmpty ||
+          canceled ||
+          out.isClosed) {
         await out.close();
         return;
       }
@@ -1820,6 +1844,9 @@ class HermesGatewayTransport implements ChatTransport {
     _idle[owner] = watch;
     final follow = _Follow(watch);
     out.onCancel = () => _stopFollowing(follow);
+    for (final (event, _) in stranded) {
+      out.add(event);
+    }
     out.add(const ReplyStarted());
     await _relay(follow, owner, out, initiallyReplying: true);
   }
@@ -2380,6 +2407,7 @@ class HermesGatewayTransport implements ChatTransport {
     _open = null;
     final idle = _idle.values.toList();
     _idle.clear();
+    _stranded.clear();
     for (final watch in idle) {
       await watch.close();
     }

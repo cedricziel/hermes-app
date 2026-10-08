@@ -528,6 +528,58 @@ void main() {
     });
   });
 
+  group('a turn nobody submitted, when the send gives up (476)', () {
+    final autoContinue = {
+      'session_id': 'rt-2',
+      'session_key': 'stored-2',
+      'auto_continue': {'attempt': 1},
+    };
+
+    test('Auto-continue after resume: a send that gives up after a drop leaves '
+        'the turn it set aside to the follow-ups', () async {
+      final server = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..resumeResult = autoContinue
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+        };
+      var reachable = true;
+      final flaky = HermesGatewayTransport(
+        sleep: (_) async {},
+        connect: () async {
+          if (!reachable) throw StateError('gateway unreachable');
+          return server.connect();
+        },
+      );
+      addTearDown(flaky.close);
+      server.turn = (g, sid) {
+        g.event('message.complete', 'rt-2', {
+          'text': 'resumed work',
+          'status': 'complete',
+        });
+        reachable = false;
+        g.drop();
+      };
+
+      final sent = _listen(flaky.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+      expect(sent.error, isA<GatewayConnectionClosed>());
+
+      reachable = true;
+      final later = await flaky
+          .followUps('stored-2')
+          .take(3)
+          .toList()
+          .timeout(const Duration(seconds: 5));
+
+      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((later[1] as ReplyDelta).text, 'resumed work');
+    });
+  });
+
   group('status lines (9.4)', () {
     test('Compacting: a status.update reaches the reply as a status', () async {
       gateway.turn = (g, sid) {
