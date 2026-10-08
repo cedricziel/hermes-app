@@ -6,8 +6,8 @@ import 'plugins_controller.dart' show PluginsFailure;
 import 'provider_settings.dart';
 import 'providers_controller.dart';
 
-import '../theme/platform_chrome.dart';
 import '../widgets/disclosure_tile.dart';
+import '../widgets/grouped_choice_row.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
 
@@ -120,61 +120,6 @@ class _ProvidersTabState extends State<ProvidersTab>
   }
 }
 
-/// The width of a shrink-wrapped Material radio button.
-const _radioSize = 40.0;
-
-/// Where the separators of a group of [_ChoiceRow]s start: past the radio
-/// button on Material.
-double? _choiceIndent(BuildContext context) {
-  if (platformChromeOf(context).isApple) return null;
-  final metrics = GroupedMetrics.of(context);
-  return metrics.rowPadding + _radioSize + metrics.leadingGap;
-}
-
-/// A provider the user can pick: a check mark at the trailing edge on Apple
-/// platforms, a radio button at the leading edge on Material.
-class _ChoiceRow extends StatelessWidget {
-  const _ChoiceRow({
-    super.key,
-    required this.value,
-    required this.title,
-    this.subtitle,
-    this.meta,
-    this.warning,
-    this.enabled = true,
-    required this.onSelect,
-  });
-
-  final String value;
-  final String title;
-  final String? subtitle;
-  final String? meta;
-  final String? warning;
-  final bool enabled;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final apple = platformChromeOf(context).isApple;
-    final radio = Radio<String>.adaptive(
-      value: value,
-      enabled: enabled,
-      useCupertinoCheckmarkStyle: true,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-    return GroupedRow(
-      title: title,
-      subtitle: subtitle,
-      meta: meta,
-      warning: warning,
-      leading: apple ? null : radio,
-      trailing: apple ? radio : null,
-      chevron: false,
-      onTap: enabled ? () => onSelect(value) : null,
-    );
-  }
-}
-
 class _MemorySection extends StatelessWidget {
   const _MemorySection({required this.controller});
 
@@ -192,18 +137,17 @@ class _MemorySection extends StatelessWidget {
       onChanged: _choose,
       child: GroupedSection(
         header: 'Memory provider',
-        dividerIndent: _choiceIndent(context),
+        dividerIndent: GroupedChoiceRow.dividerIndent(context),
         footer: 'Where the agent keeps long-term memory.',
         children: [
-          _ChoiceRow(
+          GroupedChoiceRow<String>(
             key: const Key('memory-builtin'),
             value: '',
             title: 'Built-in',
             subtitle: 'No external memory',
-            onSelect: _choose,
           ),
           for (final option in controller.memoryOptions) ...[
-            _ChoiceRow(
+            GroupedChoiceRow<String>(
               key: Key('memory-${option.name}'),
               value: option.name,
               enabled: option.ready || option.name == inUse,
@@ -211,7 +155,6 @@ class _MemorySection extends StatelessWidget {
               meta: option.ready ? _statusText(option.status) : null,
               warning: option.ready ? null : _statusText(option.status),
               subtitle: option.description.isEmpty ? null : option.description,
-              onSelect: _choose,
             ),
             if (!option.ready) _Needs(option: option),
           ],
@@ -345,7 +288,7 @@ class _ContextSection extends StatelessWidget {
       child: GroupedSection(
         header: 'Context engine',
         footer: 'How long conversations are compressed.',
-        dividerIndent: _choiceIndent(context),
+        dividerIndent: GroupedChoiceRow.dividerIndent(context),
         children: [
           if (!controller.hasContextChoice)
             GroupedRow(
@@ -354,14 +297,13 @@ class _ContextSection extends StatelessWidget {
             )
           else
             for (final option in options)
-              _ChoiceRow(
+              GroupedChoiceRow<String>(
                 key: Key('engine-${option.name}'),
                 value: option.name,
                 title: option.name,
                 subtitle: option.description.isEmpty
                     ? null
                     : option.description,
-                onSelect: _choose,
               ),
         ],
       ),
