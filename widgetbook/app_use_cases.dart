@@ -22,6 +22,8 @@ import 'package:hermes_app/src/chat/widgets/chat_composer_builder.dart';
 import 'package:hermes_app/src/chat/widgets/image_viewer.dart';
 import 'package:hermes_app/src/chat/widgets/input_card_frame.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/live_activities/live_activities.dart';
+import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/notifications/notifications_dialog.dart';
 import 'package:hermes_app/src/screens/home_screen.dart';
 import 'package:hermes_app/src/screens/login_screen.dart';
@@ -35,6 +37,7 @@ import 'package:hermes_app/src/widgets/content_column.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_device_authenticator.dart';
+import '../test/support/fake_live_activity_service.dart';
 import '../test/support/fake_hermes_server.dart';
 import '../test/support/fake_attachment_source.dart';
 import 'catalog_auth.dart';
@@ -51,6 +54,21 @@ Widget _dialog(Future<void> Function(BuildContext context) open) =>
     openOnShow(open);
 
 Future<bool> _opensLink(Uri _) async => true;
+
+/// The notifications dialog as on an iPhone, where Live Activities exist.
+Widget _withLiveActivities({required bool allowed}) {
+  final settings = NotificationSettings();
+  final activities = LiveActivities(
+    service: FakeLiveActivityService()..allow = allowed,
+    settings: settings,
+  );
+  unawaited(activities.start());
+  return withAppProviders(
+    CatalogAuth(),
+    _dialog(showNotificationsDialog),
+    liveActivities: activities,
+  );
+}
 
 WidgetbookUseCase _screen(
   String name,
@@ -375,6 +393,14 @@ WidgetbookNode appNode() => WidgetbookFolder(
           name: 'Notifications',
           builder: (_) =>
               withAppProviders(CatalogAuth(), _dialog(showNotificationsDialog)),
+        ),
+        WidgetbookUseCase(
+          name: 'Notifications · Live Activities',
+          builder: (_) => _withLiveActivities(allowed: true),
+        ),
+        WidgetbookUseCase(
+          name: 'Notifications · Live Activities off in iOS',
+          builder: (_) => _withLiveActivities(allowed: false),
         ),
         WidgetbookUseCase(
           name: 'App lock',

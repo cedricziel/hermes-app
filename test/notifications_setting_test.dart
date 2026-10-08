@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -9,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
+import 'support/fake_live_activity_service.dart';
 import 'support/fake_share_inbox.dart';
 
 void main() {
@@ -21,7 +24,10 @@ void main() {
     settings = NotificationSettings();
   });
 
-  Future<void> openDialog(WidgetTester tester) async {
+  Future<void> openDialog(
+    WidgetTester tester, {
+    LiveActivities? liveActivities,
+  }) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -35,6 +41,7 @@ void main() {
             create: (_) => ShareController(FakeShareInbox()),
           ),
           ChangeNotifierProvider.value(value: settings),
+          Provider<LiveActivities?>.value(value: liveActivities),
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
@@ -146,5 +153,58 @@ void main() {
           .onChanged,
       isNull,
     );
+  });
+
+  group('Live Activities', () {
+    final tile = find.byKey(const Key('live-activities'));
+    const hint = 'Turn on Live Activities for Hermes in system settings.';
+    late FakeLiveActivityService service;
+
+    Future<LiveActivities> activities(WidgetTester tester) async {
+      service = FakeLiveActivityService();
+      final activities = LiveActivities(service: service, settings: settings);
+      addTearDown(activities.dispose);
+      await tester.runAsync(activities.start);
+      return activities;
+    }
+
+    testWidgets('no switch where there are none', (tester) async {
+      await openDialog(tester);
+
+      expect(tile, findsNothing);
+    });
+
+    testWidgets('on to begin with, and off ends what is shown', (tester) async {
+      final live = await activities(tester);
+      await openDialog(tester, liveActivities: live);
+      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+      expect(find.text(hint), findsNothing);
+
+      await tester.runAsync(() async {
+        live.begin(ChatThread(id: 's1', title: 'T', updatedAt: DateTime(2026)));
+        await pumpEventQueue();
+      });
+      expect(service.running, hasLength(1));
+
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      await tester.runAsync(pumpEventQueue);
+
+      expect(settings.liveActivities, isFalse);
+      expect(service.running, isEmpty);
+    });
+
+    testWidgets('says where to turn them on when iOS has them off', (
+      tester,
+    ) async {
+      service = FakeLiveActivityService()..allow = false;
+      final live = LiveActivities(service: service, settings: settings);
+      addTearDown(live.dispose);
+      await tester.runAsync(live.start);
+
+      await openDialog(tester, liveActivities: live);
+
+      expect(find.text(hint), findsOneWidget);
+    });
   });
 }

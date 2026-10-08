@@ -6,6 +6,7 @@ import 'package:hermes_app/src/auth/connect_failure.dart';
 import 'package:hermes_app/src/models/auth_provider_info.dart';
 import 'package:hermes_app/src/models/hermes_session.dart';
 import 'package:hermes_app/src/models/hermes_status.dart';
+import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/settings/theme_controller.dart';
@@ -110,6 +111,7 @@ Widget withAppProviders(
   AuthController auth,
   Widget child, {
   AppLockController? lock,
+  LiveActivities? liveActivities,
 }) => MultiProvider(
   providers: [
     ChangeNotifierProvider<AuthController>.value(value: auth),
@@ -123,6 +125,7 @@ Widget withAppProviders(
     ),
     ChangeNotifierProvider(create: (_) => NotificationSettings()),
     Provider<NotificationService>.value(value: FakeNotificationService()),
+    Provider<LiveActivities?>.value(value: liveActivities),
   ],
   child: child,
 );
