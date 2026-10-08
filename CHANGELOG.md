@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.1.52](https://github.com/cedricziel/hermes-app/compare/v0.1.51...v0.1.52) (2026-10-08)
+
+
+### Features
+
+* **chat:** edit the last prompt and regenerate in place ([#463](https://github.com/cedricziel/hermes-app/issues/463)) ([e4c05ee](https://github.com/cedricziel/hermes-app/commit/e4c05eea92870e3b39d04764cd0c216c658986a3))
+* **chat:** gateway heartbeat, replay ledger and reconnect backoff ([#466](https://github.com/cedricziel/hermes-app/issues/466)) ([de72a0c](https://github.com/cedricziel/hermes-app/commit/de72a0c38dba693f8e4598b652d1a8c1e43580fd))
+* **chat:** replay missed events after a dropped socket ([#474](https://github.com/cedricziel/hermes-app/issues/474)) ([78e7477](https://github.com/cedricziel/hermes-app/commit/78e7477899e4319e29624d9efe1030337aa1a2f8))
+* **chat:** route turns nobody submitted, probe silent chained turns, and log gateway telemetry ([#477](https://github.com/cedricziel/hermes-app/issues/477)) ([1413268](https://github.com/cedricziel/hermes-app/commit/141326837be7e539d7b3870e9d888700e8be7af5))
+* **chat:** show the auto-continue turn live in its own reply ([#488](https://github.com/cedricziel/hermes-app/issues/488)) ([ad53c87](https://github.com/cedricziel/hermes-app/commit/ad53c875855bc3a84b8d7ed19af9c219b0a476dc))
+* **chat:** show what the background review saved under the reply ([#495](https://github.com/cedricziel/hermes-app/issues/495)) ([6c65225](https://github.com/cedricziel/hermes-app/commit/6c652254c6fc053430b0ce582891136439189e22))
+* scope plugin and schedule requests to the shown profile ([#497](https://github.com/cedricziel/hermes-app/issues/497)) ([f8618f2](https://github.com/cedricziel/hermes-app/commit/f8618f22be1dc9210d0f95f75f6d4288fce12662))
+* **screenshots:** render the README screenshots on Linux ([#496](https://github.com/cedricziel/hermes-app/issues/496)) ([6f5707b](https://github.com/cedricziel/hermes-app/commit/6f5707bbdacaadd5c0035638085cc343eef63c8f))
+* **screenshots:** take the wide Mac screenshots unattended ([#487](https://github.com/cedricziel/hermes-app/issues/487)) ([05c81d3](https://github.com/cedricziel/hermes-app/commit/05c81d3d148a057bcf3b7cd9e98ecd759e175743))
+
+
+### Bug Fixes
+
+* **auth:** clear the session before the token store on sign-out ([#473](https://github.com/cedricziel/hermes-app/issues/473)) ([c68c3db](https://github.com/cedricziel/hermes-app/commit/c68c3dba2d54263bd52f8f2a1f121de396660d16))
+* **chat:** apply completion flags, settling and status to streamed replies ([#465](https://github.com/cedricziel/hermes-app/issues/465)) ([b622adb](https://github.com/cedricziel/hermes-app/commit/b622adb7295e2949e9b90976322d288d03bfa82a))
+* **chat:** close reconnect edge cases from [#476](https://github.com/cedricziel/hermes-app/issues/476) ([#481](https://github.com/cedricziel/hermes-app/issues/481)) ([1fafc0c](https://github.com/cedricziel/hermes-app/commit/1fafc0c99b8e34504524a200d2b889841938b3f6))
+* **chat:** don't show the turn ahead's reply on a queued prompt after a drop ([#482](https://github.com/cedricziel/hermes-app/issues/482)) ([5f95468](https://github.com/cedricziel/hermes-app/commit/5f95468ec99a43b248e8d762bd47112b71776e57))
+* **chat:** keep a rebuilt reply from repeating rewritten text, and mark a stop before the interrupt answers ([#479](https://github.com/cedricziel/hermes-app/issues/479)) ([565ad94](https://github.com/cedricziel/hermes-app/commit/565ad94f340d5d4b4a2e438cb2cd52f665728756))
+* **chat:** keep auto-continue turns and their requests straight across drops ([#485](https://github.com/cedricziel/hermes-app/issues/485)) ([73ae3dd](https://github.com/cedricziel/hermes-app/commit/73ae3dda4af37b9f48435934b58d6a24ee654d68))
+* **chat:** keep Stop and the queue in step around folded sends and late answers ([#486](https://github.com/cedricziel/hermes-app/issues/486)) ([a0bfa38](https://github.com/cedricziel/hermes-app/commit/a0bfa382cd2dd044c734d63db715d418782b63a2))
+* **chat:** load history whose tool-call arguments are not a string ([#471](https://github.com/cedricziel/hermes-app/issues/471)) ([688d896](https://github.com/cedricziel/hermes-app/commit/688d896982d0278b483957ef1f55332b2130eb03))
+* **chat:** probe a late-waking socket and ping only while it is in use ([#480](https://github.com/cedricziel/hermes-app/issues/480)) ([1a2b859](https://github.com/cedricziel/hermes-app/commit/1a2b859d8accbc6b562e364b32beb6e3280b774c))
+* **chat:** refetch a queued prompt's reply after a drop instead of guessing from the stored thread ([#483](https://github.com/cedricziel/hermes-app/issues/483)) ([900d40e](https://github.com/cedricziel/hermes-app/commit/900d40e63db826ee4e9794c46c27b5008bca3d3f))
+* **chat:** settle silent turns, read the submit outcome and drain the queue on settle ([#470](https://github.com/cedricziel/hermes-app/issues/470)) ([4aee117](https://github.com/cedricziel/hermes-app/commit/4aee1178348ff8724ae2edbea3ead6f8a924f7b1))
+* **chat:** settle, queue and rotate turns correctly after review of [#470](https://github.com/cedricziel/hermes-app/issues/470) ([#475](https://github.com/cedricziel/hermes-app/issues/475)) ([50d5c50](https://github.com/cedricziel/hermes-app/commit/50d5c50d5da8673d4de3c4d331d795aefbb78051))
+* **chat:** share the stale-socket probe and drop a dead socket without waiting ([#484](https://github.com/cedricziel/hermes-app/issues/484)) ([f41017c](https://github.com/cedricziel/hermes-app/commit/f41017cfb856721674908409b74d2f1e6b0bc383))
+* **chat:** time out a gateway socket that never finishes opening ([#472](https://github.com/cedricziel/hermes-app/issues/472)) ([1296bca](https://github.com/cedricziel/hermes-app/commit/1296bca47a370ef4390c9414e960d26069e1ab57))
+
+
+### Documentation
+
+* **openspec:** archive gateway-stream-parity and sync its chat spec ([#478](https://github.com/cedricziel/hermes-app/issues/478)) ([1255fe5](https://github.com/cedricziel/hermes-app/commit/1255fe5428463b48a3e774ea024082d3a757c656))
+
 ## [0.1.51](https://github.com/cedricziel/hermes-app/compare/v0.1.50...v0.1.51) (2026-10-07)
 
 
