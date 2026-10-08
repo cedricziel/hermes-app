@@ -150,6 +150,58 @@ void main() {
     expect(find.text('Needs a newer Hermes'), findsOneWidget);
   });
 
+  testWidgets('shows an error line in the error colour', (tester) async {
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        const GroupedRow(title: 'Slack', error: 'Invalid bot token'),
+      ),
+    );
+    final context = tester.element(find.byType(GroupedRow));
+    final text = tester.widget<Text>(find.text('Invalid bot token'));
+    expect(text.style?.color, Theme.of(context).colorScheme.error);
+  });
+
+  testWidgets('shows a caption under the subtitle, monospaced on request', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.android,
+        const GroupedRow(
+          title: 'filesystem',
+          subtitle: 'npx server-filesystem',
+          monospaceSubtitle: true,
+          caption: 'Command · Off',
+        ),
+      ),
+    );
+    expect(
+      tester.widget<Text>(find.text('npx server-filesystem')).style?.fontFamily,
+      'monospace',
+    );
+    expect(find.text('Command · Off'), findsOneWidget);
+  });
+
+  for (final (platform, size) in [
+    (TargetPlatform.iOS, 29.0),
+    (TargetPlatform.macOS, 24.0),
+    (TargetPlatform.android, 32.0),
+  ]) {
+    testWidgets('a leading tile on $platform is $size square', (tester) async {
+      await tester.pumpWidget(
+        _app(
+          platform,
+          const GroupedRow(
+            title: 'grafana',
+            leading: GroupedTile(child: Text('G')),
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(GroupedTile)), Size.square(size));
+    });
+  }
+
   testWidgets('centers the groups in the Mac column on a wide page', (
     tester,
   ) async {

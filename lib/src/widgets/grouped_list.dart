@@ -23,6 +23,10 @@ class GroupedMetrics {
     required this.headerUppercase,
     required this.footerSize,
     required this.sectionGap,
+    required this.leadingGap,
+    required this.tileSize,
+    required this.tileRadius,
+    required this.tileIconSize,
   });
 
   static const ios = GroupedMetrics._(
@@ -39,6 +43,10 @@ class GroupedMetrics {
     headerUppercase: true,
     footerSize: 13,
     sectionGap: 24,
+    leadingGap: 12,
+    tileSize: 29,
+    tileRadius: 7,
+    tileIconSize: 18,
   );
 
   static const macos = GroupedMetrics._(
@@ -55,6 +63,10 @@ class GroupedMetrics {
     headerUppercase: false,
     footerSize: 11,
     sectionGap: 20,
+    leadingGap: 10,
+    tileSize: 24,
+    tileRadius: 6,
+    tileIconSize: 14,
   );
 
   static const material = GroupedMetrics._(
@@ -71,6 +83,10 @@ class GroupedMetrics {
     headerUppercase: false,
     footerSize: 13,
     sectionGap: 20,
+    leadingGap: 16,
+    tileSize: 32,
+    tileRadius: 10,
+    tileIconSize: 20,
   );
 
   static GroupedMetrics of(BuildContext context) =>
@@ -107,12 +123,21 @@ class GroupedMetrics {
   /// The size of a row's leading icon.
   double get leadingSize => titleSize + 5;
 
-  /// The space between a row's leading icon and its text.
-  double get leadingGap => rowPadding * 0.75;
+  /// The space between a row's leading icon or tile and its text.
+  final double leadingGap;
+
+  /// The side of a [GroupedTile].
+  final double tileSize;
+  final double tileRadius;
+  final double tileIconSize;
 
   /// A [GroupedSection.dividerIndent] that starts the separators at the text
   /// of rows with a leading icon.
   double get indentAfterLeading => rowPadding + leadingSize + leadingGap;
+
+  /// A [GroupedSection.dividerIndent] for rows that lead with a
+  /// [GroupedTile].
+  double get indentAfterTile => rowPadding + tileSize + leadingGap;
 }
 
 /// A scrolling page of [GroupedSection]s: the groups keep the platform's
@@ -256,7 +281,10 @@ class GroupedRow extends StatelessWidget {
     required this.title,
     this.meta,
     this.subtitle,
+    this.monospaceSubtitle = false,
+    this.caption,
     this.warning,
+    this.error,
     this.leading,
     this.value,
     this.trailing,
@@ -272,8 +300,19 @@ class GroupedRow extends StatelessWidget {
   final String? meta;
   final String? subtitle;
 
+  /// Sets [subtitle] in a monospaced font, for a command line.
+  final bool monospaceSubtitle;
+
+  /// A smaller muted line under the subtitle, such as "Remote · OAuth".
+  final String? caption;
+
   /// A line in the warning colour, such as why a plugin cannot load.
   final String? warning;
+
+  /// A line in the error colour, such as a rejected bot token.
+  final String? error;
+
+  /// An icon, or a [GroupedTile].
   final Widget? leading;
 
   /// A status in muted text before the chevron, such as "Off" or "3 tools".
@@ -303,7 +342,9 @@ class GroupedRow extends StatelessWidget {
     final apple = platformChromeOf(context).isApple;
     final meta = this.meta;
     final subtitle = this.subtitle;
+    final caption = this.caption;
     final warning = this.warning;
+    final error = this.error;
     final leading = this.leading;
     final value = this.value;
     final trailing = this.trailing;
@@ -359,34 +400,38 @@ class GroupedRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: metrics.subtitleSize,
+                          fontSize: monospaceSubtitle
+                              ? metrics.footerSize
+                              : metrics.subtitleSize,
+                          fontFamily: monospaceSubtitle ? 'monospace' : null,
+                          color: muted,
+                        ),
+                      ),
+                    if (caption != null)
+                      Text(
+                        caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: metrics.footerSize,
                           color: muted,
                         ),
                       ),
                     if (warning != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Row(
-                          spacing: 4,
-                          children: [
-                            AppIcon(
-                              AppIcons.warning,
-                              size: metrics.subtitleSize,
-                              color: colors.warning,
-                            ),
-                            Expanded(
-                              child: Text(
-                                warning,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: metrics.subtitleSize,
-                                  color: colors.warning,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      _StatusLine(
+                        icon: AppIcons.warning,
+                        text: warning,
+                        color: colors.warning,
+                        size: metrics.subtitleSize,
+                        maxLines: 2,
+                      ),
+                    if (error != null)
+                      _StatusLine(
+                        icon: AppIcons.error,
+                        text: error,
+                        color: scheme.error,
+                        size: metrics.subtitleSize,
+                        maxLines: 1,
                       ),
                   ],
                 ),
@@ -441,8 +486,11 @@ class GroupedSwitchRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.subtitle,
+    this.monospaceSubtitle = false,
     this.meta,
+    this.caption,
     this.warning,
+    this.error,
     this.leading,
     this.onTap,
   });
@@ -453,8 +501,11 @@ class GroupedSwitchRow extends StatelessWidget {
   /// Null disables the switch.
   final ValueChanged<bool>? onChanged;
   final String? subtitle;
+  final bool monospaceSubtitle;
   final String? meta;
+  final String? caption;
   final String? warning;
+  final String? error;
   final Widget? leading;
 
   /// Opens the row's details; the switch alone changes [value].
@@ -470,8 +521,11 @@ class GroupedSwitchRow extends StatelessWidget {
     return GroupedRow(
       title: title,
       subtitle: subtitle,
+      monospaceSubtitle: monospaceSubtitle,
       meta: meta,
+      caption: caption,
       warning: warning,
+      error: error,
       leading: leading,
       onTap: onTap,
       chevron: false,
@@ -479,6 +533,80 @@ class GroupedSwitchRow extends StatelessWidget {
       trailing: platformChromeOf(context) == PlatformChrome.macos
           ? SizedBox(height: 22, child: FittedBox(child: control))
           : control,
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.icon,
+    required this.text,
+    required this.color,
+    required this.size,
+    required this.maxLines,
+  });
+
+  final AppIconSet icon;
+  final String text;
+  final Color color;
+  final double size;
+  final int maxLines;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 2),
+    child: Row(
+      spacing: 4,
+      children: [
+        AppIcon(icon, size: size, color: color),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: size, color: color),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A row's leading picture in a rounded square, such as a platform's icon
+/// or a server's initial; the section passes
+/// [GroupedMetrics.indentAfterTile] so separators start past it.
+class GroupedTile extends StatelessWidget {
+  const GroupedTile({super.key, required this.child});
+
+  /// An icon or a letter; both are sized to the tile.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: metrics.tileSize,
+      height: metrics.tileSize,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(metrics.tileRadius),
+      ),
+      child: IconTheme.merge(
+        data: IconThemeData(
+          size: metrics.tileIconSize,
+          color: scheme.onSurface,
+        ),
+        child: DefaultTextStyle.merge(
+          style: TextStyle(
+            fontSize: metrics.tileIconSize * 0.75,
+            fontWeight: FontWeight.w600,
+            color: scheme.onSurface,
+          ),
+          child: child,
+        ),
+      ),
     );
   }
 }
