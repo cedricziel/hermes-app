@@ -424,6 +424,43 @@ void main() {
       });
     });
 
+    test('Heartbeat holds: concurrent sends on a stale dead socket share one probe and one reconnect', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        var connects = 0;
+        final transport = HermesGatewayTransport(
+          connect: () async {
+            connects++;
+            if (connects > 1) gateway.deaf = false;
+            return gateway.connect();
+          },
+        );
+        gateway.turn = (g, sid) => g.event('message.complete', sid, {
+          'text': 'Hi',
+          'status': 'complete',
+        });
+        _listen(transport.send(text: 'one'));
+        async.flushMicrotasks();
+        async.elapse(const Duration(minutes: 2));
+        gateway.deaf = true;
+
+        final a = _listen(transport.send(text: 'two'));
+        final b = _listen(transport.send(text: 'three'));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 10));
+        async.flushMicrotasks();
+
+        expect(connects, 2);
+        expect(a.done && b.done, isTrue);
+        expect(a.error ?? b.error, isNull);
+        // The first connection's greeting, one probe, the new connection's.
+        expect(
+          gateway.methods.where((m) => m == 'client.capabilities'),
+          hasLength(3),
+        );
+      });
+    });
+
     test('Heartbeat holds: a recently active connection is not probed before a send', () {
       fakeAsync((async) {
         final gateway = FakeGateway();
@@ -448,7 +485,7 @@ void main() {
       });
     });
 
-    test('Heartbeat holds: after a dead-socket reconnect the new connection is pinged while the reply runs', () {
+    test('Heartbeat holds: after a dead-socket reconnect the new connection is held while the reply runs and released after it', () {
       fakeAsync((async) {
         final gateway = FakeGateway()
           ..activeSessions = {'stored-1': 'working'}
@@ -471,7 +508,7 @@ void main() {
         async.flushMicrotasks();
         expect(connects, 2);
 
-        // One connection pings, not two.
+        // The new connection is held while the reply runs.
         final before = pings();
         async.elapse(const Duration(seconds: 60));
         expect(pings() - before, 4);

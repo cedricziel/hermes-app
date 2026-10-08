@@ -663,35 +663,44 @@ void main() {
   });
 
   group('isStale', () {
-    test(
-      'Only an unheld connection that went quiet for deadAfter is stale',
-      () {
-        fakeAsync((async) {
-          final wire = StreamChannelController<String>();
-          final server = _Server(wire);
-          final client = GatewayRpcClient(wire.local, heartbeat: true);
+    test('An unheld connection that went quiet for deadAfter is stale', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        final server = _Server(wire);
+        final client = GatewayRpcClient(wire.local, heartbeat: true);
 
-          async.elapse(const Duration(seconds: 44));
-          expect(client.isStale, isFalse);
-          async.elapse(const Duration(seconds: 2));
-          expect(client.isStale, isTrue);
+        async.elapse(const Duration(seconds: 44));
+        expect(client.isStale, isFalse);
+        async.elapse(const Duration(seconds: 2));
+        expect(client.isStale, isTrue);
 
-          // Any frame is a sign of life.
-          server.send(_eventFrame('sessions.changed', sessionId: ''));
-          async.flushMicrotasks();
-          expect(client.isStale, isFalse);
+        // Any frame is a sign of life.
+        server.send(_eventFrame('sessions.changed', sessionId: ''));
+        async.flushMicrotasks();
+        expect(client.isStale, isFalse);
 
-          // A held connection has the heartbeat watching it instead.
-          final release = client.hold();
-          async.elapse(const Duration(minutes: 5));
-          expect(client.isStale, isFalse);
-          release();
-          expect(client.isStale, isFalse);
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
 
-          unawaited(client.close());
-          async.flushMicrotasks();
-        });
-      },
-    );
+    test('A held connection is not stale, whatever the heartbeat does', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        _Server(wire, answerPings: false);
+        // No heartbeat, so nothing but the hold keeps it from being stale.
+        final client = GatewayRpcClient(wire.local);
+
+        final release = client.hold();
+        async.elapse(const Duration(minutes: 5));
+        expect(client.isStale, isFalse);
+
+        release();
+        expect(client.isStale, isTrue);
+
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
   });
 }

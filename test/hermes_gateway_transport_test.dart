@@ -2408,6 +2408,39 @@ void main() {
       expect((events.last as ReplyCompleted).text, 'Checked');
     });
 
+    test('after the connection was dropped a follow-up resumes the thread '
+        'and delivers a turn running elsewhere', () async {
+      final first = FakeGateway()..turn = plainReply;
+      final second = FakeGateway()
+        ..resumeResult = {'session_id': 'rt-1', 'running': true};
+      final sockets = [first, second];
+      var connects = 0;
+      final dropping = HermesGatewayTransport(
+        connect: () async => sockets[connects++].connect(),
+        probeTimeout: const Duration(milliseconds: 50),
+      );
+      addTearDown(dropping.close);
+      await dropping.send(text: 'hi').toList();
+
+      // The parked watch's socket is found dead and dropped.
+      first.deaf = true;
+      await dropping.checkConnection();
+
+      final followed = dropping.followUps('stored-1').toList();
+      await pumpEventQueue();
+      expect(connects, 2);
+      second.event('message.complete', 'rt-1', {
+        'text': 'Elsewhere',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+      second.drop();
+
+      final events = await followed;
+      expect(events.first, isA<ReplyStarted>());
+      expect(events.last, isA<ReplyCompleted>());
+    });
+
     test('a turn that started before the listener came is not lost', () async {
       gateway.turn = (g, sid) {
         plainReply(g, sid);
