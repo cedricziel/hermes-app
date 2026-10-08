@@ -45,6 +45,14 @@ class MainFlutterWindow: NSWindow {
         self?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         result(nil)
+      case "setContentSize":
+        if let args = call.arguments as? [String: Double],
+          let width = args["width"], let height = args["height"]
+        {
+          self?.setContentSize(NSSize(width: width, height: height))
+          self?.center()
+        }
+        result(nil)
       case "closeConversation":
         ConversationWindow.close(id: call.arguments as? String)
         result(nil)

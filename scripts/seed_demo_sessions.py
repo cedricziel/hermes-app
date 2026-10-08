@@ -146,6 +146,11 @@ def main() -> None:
         sys.exit("Refusing to write demo chats into the real ~/.hermes.")
 
     sys.path.insert(0, str(AGENT_DIR))
+    try:
+        # Newer installs keep their dependencies outside the interpreter.
+        import hermes_bootstrap  # noqa: F401
+    except ImportError:
+        pass
     from hermes_state import SessionDB
 
     db = SessionDB()
