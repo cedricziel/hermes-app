@@ -66,6 +66,10 @@ abstract final class AppIcons {
     Icons.chevron_right,
     CupertinoIcons.chevron_right,
   );
+  static const chevronLeft = AppIconSet(
+    Icons.chevron_left,
+    CupertinoIcons.chevron_left,
+  );
   static const refresh = AppIconSet(Icons.refresh, CupertinoIcons.refresh);
   static const lock = AppIconSet(Icons.lock_outline, CupertinoIcons.lock);
   static const copy = AppIconSet(Icons.copy, CupertinoIcons.doc_on_doc);
@@ -380,6 +384,7 @@ abstract final class AppIcons {
     'expandMore': expandMore,
     'expandLess': expandLess,
     'chevronRight': chevronRight,
+    'chevronLeft': chevronLeft,
     'refresh': refresh,
     'lock': lock,
     'copy': copy,
