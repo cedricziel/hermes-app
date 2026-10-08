@@ -1177,8 +1177,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final flyer in chatMessageToFlyer(userMessage)) {
       controllerFor(thread).insertMessage(flyer);
     }
-    // A reply of its own: no stop asked before it is about it.
+    // A reply of its own: no stop asked before it is about it, and the answer
+    // to one is no longer about this thread's current reply.
     _holds.remove(thread);
+    _generations.update(thread, (n) => n + 1, ifAbsent: () => 1);
     final placeholder = _addPlaceholder(thread);
     thread.updatedAt = DateTime.now();
     notifyListeners();
@@ -1277,6 +1279,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           if (_holdOf(thread) == _Hold.none) _awaitSettle(thread);
           unawaited(refreshActive());
         } else {
+          _turnEnded(thread, halted: true);
           notifyListeners();
         }
       } else if (reply.isPending) {
@@ -1358,6 +1361,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
+        _turnEnded(thread, halted: true);
         _updateReply(thread, pending, () => failReply(pending, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
       }
@@ -1425,6 +1429,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // A failure with no reply open to show it, from a turn that never
         // began. It pauses the queue like any failure, and says so.
         _settleTimers.remove(thread)?.cancel();
+        _turnEnded(thread, halted: true);
         if (message.isNotEmpty) report(message);
       case ReplyCompleted():
         final settled = _settledReply(thread);
@@ -1506,7 +1511,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             reply.content,
             failed: reply.status == MessageStatus.error,
             stopped: switch (_holdOf(thread)) {
-              _Hold.asked || _Hold.stopping => true,
+              _Hold.stopping || _Hold.paused => true,
               _ => false,
             },
           );
@@ -1621,6 +1626,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// The interrupts sent per thread that have not been answered.
   final _interrupts = <ChatThread, int>{};
 
+  /// Bumped when the user sends in a thread. An interrupt's answer is about
+  /// the generation it was sent in, and changes no hold of a later one.
+  final _generations = <ChatThread, int>{};
+
   _Hold _holdOf(ChatThread thread) => _holds[thread] ?? _Hold.none;
 
   void _setHold(ChatThread thread, _Hold hold) {
@@ -1652,9 +1661,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     switch (_holdOf(thread)) {
       case _Hold.none:
         return true;
-      case _Hold.paused:
-        return false;
-      case _Hold.stopping:
+      case _Hold.paused || _Hold.stopping:
         _setHold(thread, afterwards);
         return false;
       case _Hold.asked || _Hold.askedEnded:
@@ -1685,6 +1692,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       for (final reply in thread.messages)
         if (reply.isPending) reply,
     ];
+    final generation = _generations[thread] ?? 0;
     _interrupts.update(thread, (n) => n + 1, ifAbsent: () => 1);
     if (thread.isReplying && _holdOf(thread) == _Hold.none) {
       _setHold(thread, _Hold.asked);
@@ -1693,6 +1701,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
       if (disposed) return;
       final others = _endInterrupt(thread);
+      if ((_generations[thread] ?? 0) != generation) return;
       final hold = _holdOf(thread);
       if (stopped == true) {
         // The turn is going to end stopped. If it ended already, this answer
@@ -1716,7 +1725,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (stale.isNotEmpty) {
         // The server has no turn left to interrupt. A completion was missed by
         // this listener, so release the stale pending reply and composer.
-        _setHold(thread, others ? _Hold.paused : _Hold.none);
+        _setHold(
+          thread,
+          others || hold == _Hold.stopping || hold == _Hold.paused
+              ? _Hold.paused
+              : _Hold.none,
+        );
         for (final reply in stale) {
           _updateReply(
             thread,
@@ -1741,7 +1755,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
     } on Object {
       final others = _endInterrupt(thread);
-      if (!others) {
+      if (!others && (_generations[thread] ?? 0) == generation) {
         // The interrupt did not get through, so it decides nothing: the queue
         // goes on with the turn's own end.
         switch (_holdOf(thread)) {
