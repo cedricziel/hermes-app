@@ -362,26 +362,41 @@ When telemetry is enabled the system SHALL keep the last 40 breadcrumbs in memor
 - **WHEN** telemetry is disabled and the user navigates
 - **THEN** nothing is recorded and nothing fails
 
-### Requirement: Uncaught errors are logged by type only
+### Requirement: Uncaught errors are logged as crash records
 
-When telemetry is enabled the system SHALL log every uncaught Flutter framework error as an error log record with the body `Uncaught Flutter error` and every uncaught asynchronous error as an error log record with the body `Uncaught async error`. The only attribute SHALL be `exception.type`, the runtime type name of the error. The system SHALL NOT record the error message or stack trace. The system SHALL then call the error handler that was installed before it; for asynchronous errors the result of that handler is returned, and it is `false` (unhandled) when there was none.
+When telemetry is enabled the system SHALL log an uncaught Flutter framework error as an error log record with the body `Uncaught Flutter error`, and an uncaught asynchronous error as one with the body `Uncaught async error`. The record SHALL carry `exception.type` (the runtime type name of the error), `exception.message` (the error's text), `exception.stacktrace` when the error came with a stack trace, and `breadcrumbs` (the recent breadcrumbs, oldest first) when there are any. The message and the stack trace SHALL each be kept up to 4096 bytes of UTF-8, the largest attribute value SignalDB keeps by default. A longer stack trace is cut after its last whole frame that fits and ends with a line `... N more frames`. A longer message is cut and ends with `…`. A missing stack trace SHALL NOT be replaced by another one.
+
+An error that recurs SHALL be logged in full the first time only. Later occurrences with the same body, type, message and top five stack frames SHALL be counted instead. At most once a minute, the error SHALL be logged again with the same attributes plus `exception.repeat_count`, the number of occurrences that record stands for. Up to 100 different errors are tracked. Beyond that, the least recently seen one is forgotten after its pending count is logged.
+
+For every occurrence, logged or counted, the system SHALL then call the error handler that was installed before it. For asynchronous errors the result of that handler is returned, and it is `false` (unhandled) when there was none.
 
 #### Scenario: Framework error
 
-- **WHEN** a framework error carrying the message `user typed: hunter2` is reported
-- **THEN** one error log `Uncaught Flutter error` with `exception.type` = `StateError` and no other attributes is emitted
+- **WHEN** a framework error with the message `boom` is reported after the event `auth.signed_in`
+- **THEN** one error log `Uncaught Flutter error` is emitted with `exception.type` = `StateError`, an `exception.message` containing `boom`, and `breadcrumbs` listing `auth.signed_in`
 - **AND** the previously installed Flutter error handler is still called
 
 #### Scenario: Async error
 
-- **WHEN** an asynchronous error whose message is a URL with a token is reported
-- **THEN** one error log `Uncaught async error` with `exception.type` = `ArgumentError` is emitted and the message is not recorded
+- **WHEN** an asynchronous `ArgumentError` with the message `bad input` and a stack trace is reported
+- **THEN** one error log `Uncaught async error` is emitted with `exception.type` = `ArgumentError`, the message and the stack trace
 - **AND** the previous platform handler's verdict is returned
 
 #### Scenario: No previous handler
 
 - **WHEN** an uncaught asynchronous error is reported and no platform handler was installed before
 - **THEN** the error is logged and reported as unhandled (`false`)
+
+#### Scenario: Error repeated on every frame
+
+- **WHEN** the same framework error is reported 50 times in a row
+- **THEN** one error log `Uncaught Flutter error` is emitted
+- **AND** a minute later the error is logged once more with `exception.repeat_count` = 49
+
+#### Scenario: Long stack trace
+
+- **WHEN** an error is reported with a stack trace longer than 4096 bytes
+- **THEN** its `exception.stacktrace` is at most 4096 bytes, starts with the top frame and ends with `... N more frames`
 
 ### Requirement: Telemetry failures never break the app
 

@@ -229,10 +229,10 @@ packages:
     dependency: transitive
     description:
       name: dart_otel_sdk
-      sha256: "467cae9869d2760b489fe587ce49fbffad89f105862ead176354e25006167223"
+      sha256: "8c9dd99d67dfcce448706000dc9d8c43437a3f13c85e45b3a31f9b9f62e57be4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.2"
   dart_pre_commit:
     dependency: "direct dev"
     description:
@@ -524,10 +524,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_otel
-      sha256: "1c1a0a8e73f377f2e5027e2bc45b21e5b205b977146759c2a6c2c33ddef684f5"
+      sha256: "76a14ece569d30244ea706eb0ebf64efd198fe7569a7436256031af149e4a405"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.1"
+    version: "0.1.6"
   flutter_otel_device_info:
     dependency: "direct main"
     description:
