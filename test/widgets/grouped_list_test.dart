@@ -112,6 +112,41 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('a switch row that opens details keeps its own switch node', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    var opened = 0;
+    bool? changed;
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        GroupedSwitchRow(
+          title: 'grafana',
+          subtitle: 'https://mcp.grafana.com/mcp',
+          leading: const GroupedTile(child: Text('G')),
+          value: true,
+          onChanged: (on) => changed = on,
+          onTap: () => opened++,
+        ),
+      ),
+    );
+    expect(
+      tester.getSemantics(find.byType(Switch)),
+      isSemantics(label: 'grafana', isToggled: true, hasToggledState: true),
+    );
+    expect(
+      find.semantics.byLabel(RegExp(r'grafana[\s\S]*mcp\.grafana\.com')),
+      findsOne,
+    );
+    await tester.tap(find.text('grafana'));
+    expect(opened, 1);
+    await tester.tap(find.byType(Switch));
+    expect(changed, isFalse);
+    expect(opened, 1);
+    semantics.dispose();
+  });
+
   for (final (platform, height) in [
     (TargetPlatform.iOS, 44.0),
     (TargetPlatform.macOS, 40.0),
