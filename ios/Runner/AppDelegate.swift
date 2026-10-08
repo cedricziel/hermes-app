@@ -19,6 +19,7 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
+    LiveActivityLaunch.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
   }
@@ -78,5 +79,24 @@ class ChatHandoff {
     guard type == Self.activityType else { return }
     pending = ["error": true]
     channel?.invokeMethod("incoming", arguments: nil)
+  }
+}
+
+/// The URL of the Live Activity tap that launched the app, handed to Dart once.
+class LiveActivityLaunch {
+  static let shared = LiveActivityLaunch()
+  private var url: URL?
+
+  func install(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "hermes_app/live_activity", binaryMessenger: messenger)
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "takeLaunchUrl" else { result(FlutterMethodNotImplemented); return }
+      result(self?.url?.absoluteString)
+      self?.url = nil
+    }
+  }
+
+  func receive(_ contexts: Set<UIOpenURLContext>) {
+    url = contexts.map(\.url).first { $0.scheme == "hermes-activity" }
   }
 }

@@ -1,0 +1,2 @@
+// Only the Flutter version variables, not the Runner's own settings.
+#include "../Flutter/Generated.xcconfig"
