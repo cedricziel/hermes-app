@@ -922,9 +922,9 @@ class HermesGatewayTransport implements ChatTransport {
   /// as having begun it too.
   void _reportSettled(
     Iterable<ChatEvent> events, {
+    required DateTime submittedAt,
     bool errored = false,
     bool started = false,
-    DateTime? submittedAt,
   }) {
     final list = events.toList();
     final begun = started || list.any(beginsTurn);
@@ -934,12 +934,11 @@ class HermesGatewayTransport implements ChatTransport {
       if (event is ReplyCompleted) {
         ending = event;
       } else if (event is SessionInfo && event.running == false) {
-        if (submittedAt == null ||
-            settles(
-              started: begun,
-              submittedAt: submittedAt,
-              now: clock.now(),
-            )) {
+        if (settles(
+          started: begun,
+          submittedAt: submittedAt,
+          now: clock.now(),
+        )) {
           ending = event;
         }
       }
@@ -1628,11 +1627,6 @@ class HermesGatewayTransport implements ChatTransport {
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
-      }
-      // A thread opened on an idle session ends with its stored reply, which
-      // is no turn that ran. Only what a replay handed over is one.
-      if (!resumed.giveUp && resumed.replayedCount > 0) {
-        _reportSettled([for (final e in resumed.ended) e.$1]);
       }
       _forgetRequests(mine);
       if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
