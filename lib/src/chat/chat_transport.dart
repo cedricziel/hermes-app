@@ -100,6 +100,19 @@ final class PromptFolded extends ChatEvent {
   const PromptFolded();
 }
 
+/// A frame of a turn Hermes ran on its own ahead of the prompt just sent, as
+/// after a resume that reported `auto_continue`. [ChatTransport.send] hands it
+/// over as it arrives and the controller shows it in a reply of its own, in
+/// front of the prompt's, which keeps waiting for its turn.
+///
+/// [event] is what the frame means: a delta, a tool call, an approval, the
+/// turn's completion or the idle report that trails it.
+final class UnsolicitedEvent extends ChatEvent {
+  const UnsolicitedEvent(this.event);
+
+  final ChatEvent event;
+}
+
 /// The reply text as the server now holds it. It replaces what streamed since
 /// the last seal, because the streamed deltas were lost or are out of date.
 final class ReplyRebuilt extends ChatEvent {

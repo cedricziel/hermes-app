@@ -11,13 +11,21 @@ import '../support/fake_gateway.dart';
 /// What a stream has delivered so far, readable while fake time runs.
 class _Seen {
   final events = <ChatEvent>[];
+
+  /// The frames of the turn Hermes ran on its own, as they were handed over.
+  List<ChatEvent> get own => _own(events);
+
+  /// What is the prompt's: everything but [own].
+  List<ChatEvent> get mine => _mine(events);
   Object? error;
   var done = false;
+  // ignore: cancel_subscriptions
+  late final StreamSubscription<ChatEvent> subscription;
 }
 
 _Seen _listen(Stream<ChatEvent> stream) {
   final seen = _Seen();
-  stream.listen(
+  seen.subscription = stream.listen(
     seen.events.add,
     onError: (Object error) => seen.error = error,
     onDone: () => seen.done = true,
@@ -27,6 +35,18 @@ _Seen _listen(Stream<ChatEvent> stream) {
 
 List<Type> _types(Iterable<ChatEvent> events) =>
     events.map((e) => e.runtimeType).toList();
+
+/// The frames of the turn Hermes ran on its own, unwrapped.
+List<ChatEvent> _own(Iterable<ChatEvent> events) => [
+  for (final e in events)
+    if (e is UnsolicitedEvent) e.event,
+];
+
+/// What is the prompt's: everything but [_own].
+List<ChatEvent> _mine(Iterable<ChatEvent> events) => [
+  for (final e in events)
+    if (e is! UnsolicitedEvent) e,
+];
 
 void main() {
   late FakeGateway gateway;
@@ -233,9 +253,23 @@ void main() {
 
     setUp(() => gateway.resumeResult = autoContinue);
 
+    /// What the follow-ups carry on top of what the send handed over: the
+    /// send ended, so they listen to the parked session and hold back a turn
+    /// the send already showed.
+    Future<List<ChatEvent>> followedNothing() async {
+      final seen = _listen(transport.followUps('stored-2'));
+      await pumpEventQueue();
+      // Real time passes, so a frame that only arrives later would show.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await pumpEventQueue();
+      final events = List.of(seen.events);
+      await seen.subscription.cancel();
+      return events;
+    }
+
     test('Auto-continue after resume: a turn that ended before the submit was '
-        'answered reaches the follow-ups, and the prompt still gets its own '
-        'turn', () async {
+        'answered is handed over by the send, and the prompt still gets its '
+        'own turn', () async {
       gateway.beforeSubmitAnswer = (g) {
         unsolicitedTurn(g);
         unsolicitedEnd(g);
@@ -243,16 +277,16 @@ void main() {
       gateway.turn = submittedTurn;
 
       final sent = await reply(threadId: 'stored-2');
-      final later = await followed(3);
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((sent[1] as ReplyDelta).text, 'mine');
-      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((later[1] as ReplyDelta).text, 'resumed work');
+      expect(_types(_mine(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((_mine(sent)[1] as ReplyDelta).text, 'mine');
+      expect(_types(_own(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((_own(sent)[1] as ReplyDelta).text, 'resumed work');
+      expect(await followedNothing(), isEmpty);
     });
 
-    test('Auto-continue after resume: a turn that failed at once is set aside '
-        'with its error and its idle report', () async {
+    test('Auto-continue after resume: a turn that failed at once is handed '
+        'over with its error and its idle report', () async {
       gateway.beforeSubmitAnswer = (g) {
         g.event('message.start', 'rt-2');
         g.event('error', 'rt-2', {'message': 'provider down'});
@@ -262,16 +296,48 @@ void main() {
       gateway.turn = submittedTurn;
 
       final sent = await reply(threadId: 'stored-2');
-      final later = await followed(4);
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((sent.last as ReplyCompleted).failed, isFalse);
-      expect(_types(later), [
+      expect(_types(_mine(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((_mine(sent).last as ReplyCompleted).failed, isFalse);
+      expect(_types(_own(sent)), [
         ReplyStarted,
         ReplyErrored,
         ReplyCompleted,
         SessionInfo,
       ]);
+      expect(await followedNothing(), isEmpty);
+    });
+
+    test('Auto-continue after resume: the turn reaches the send live, while '
+        'the prompt waits, and is not repeated on the follow-ups when the send '
+        'ends', () async {
+      gateway.submitStatus = 'queued';
+      gateway.beforeSubmitAnswer = unsolicitedTurn;
+      final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+
+      expect(_types(seen.own), [ReplyStarted, ReplyDelta]);
+      expect((seen.own[1] as ReplyDelta).text, 'resumed work');
+      expect(seen.done, isFalse);
+
+      gateway.event('message.delta', 'rt-2', {'text': ' goes on'});
+      await pumpEventQueue();
+      expect((seen.own.last as ReplyDelta).text, ' goes on');
+      expect(seen.done, isFalse);
+
+      unsolicitedEnd(gateway);
+      submittedTurn(gateway, 'rt-2');
+      await pumpEventQueue();
+
+      expect(seen.done, isTrue);
+      expect(_types(seen.own), [
+        ReplyStarted,
+        ReplyDelta,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect(_types(seen.mine).where((t) => t == ReplyCompleted), hasLength(1));
+      expect(await followedNothing(), isEmpty);
     });
 
     test('Auto-continue after resume: an approval of a turn that is already '
@@ -290,7 +356,8 @@ void main() {
 
       final sent = await reply(threadId: 'stored-2');
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect(_types(_mine(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect(_own(sent).whereType<ApprovalRequested>(), isEmpty);
     });
 
     test('Auto-continue after resume: a request of a turn that is already over '
@@ -313,14 +380,15 @@ void main() {
       final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
       await pumpEventQueue();
 
-      expect(_types(seen.events), [ReplyStarted, ReplyDelta]);
+      expect(_types(seen.mine), [ReplyStarted, ReplyDelta]);
+      expect(seen.own.whereType<ApprovalRequested>(), isEmpty);
       expect(seen.done, isFalse);
       expect(await transport.answerApproval('srq-old', 'once'), isFalse);
       expect(gateway.responses, isEmpty);
     });
 
     test('Auto-continue after resume: a request of a turn that was already '
-        'over does not come back on the follow-ups', () async {
+        'over comes back neither on the send nor on the follow-ups', () async {
       gateway.beforeSubmitAnswer = (g) {
         unsolicitedTurn(g);
         g.serverRequest('srq-old', 'approval', 'rt-2', {
@@ -333,10 +401,10 @@ void main() {
       };
       gateway.turn = submittedTurn;
 
-      await reply(threadId: 'stored-2');
-      final later = await followed(3);
+      final sent = await reply(threadId: 'stored-2');
 
-      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect(_types(_own(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect(await followedNothing(), isEmpty);
     });
 
     test('Auto-continue after resume: a drop that ends the turn withdraws the '
@@ -367,8 +435,8 @@ void main() {
           .toList()
           .timeout(const Duration(seconds: 5));
 
-      expect(sent.whereType<ApprovalRequested>(), hasLength(1));
-      expect(sent.whereType<InputRequestsCancelled>().single.requestIds, [
+      expect(_own(sent).whereType<ApprovalRequested>(), hasLength(1));
+      expect(_own(sent).whereType<InputRequestsCancelled>().single.requestIds, [
         'srq-1',
       ]);
       expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
@@ -407,10 +475,9 @@ void main() {
         await pumpEventQueue(times: 100);
 
         expect(seen.error, isA<GatewayConnectionClosed>());
-        expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-          ['srq-1'],
-        );
+        expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+          'srq-1',
+        ]);
         expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
       });
     }
@@ -444,16 +511,15 @@ void main() {
           async.elapse(const Duration(seconds: 10));
         }
         expect(seen.error, isNull);
-        expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
+        expect(seen.own.whereType<InputRequestsCancelled>(), isEmpty);
 
         server.drop();
         async.elapse(const Duration(seconds: 10));
 
         expect(seen.error, isA<GatewayConnectionClosed>());
-        expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-          ['srq-1'],
-        );
+        expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+          'srq-1',
+        ]);
       });
     });
 
@@ -478,21 +544,20 @@ void main() {
         );
         final seen = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
         async.flushMicrotasks();
-        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.own.whereType<ApprovalRequested>(), hasLength(1));
 
         async.elapse(const Duration(seconds: 46));
         async.flushMicrotasks();
 
         expect(seen.error, isA<GatewayConnectionClosed>());
-        expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-          ['srq-1'],
-        );
+        expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+          'srq-1',
+        ]);
       });
     });
 
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
-        'own turn, and the turn reaches the follow-ups', () async {
+        'own turn, and the turn is handed over ahead of it', () async {
       gateway.submitStatus = 'queued';
       gateway.beforeSubmitAnswer = unsolicitedTurn;
       gateway.turn = (g, sid) {
@@ -501,18 +566,29 @@ void main() {
       };
 
       final sent = await reply(threadId: 'stored-2');
-      final later = await followed(3);
 
-      expect(_types(sent), [
+      expect(_types(_mine(sent)), [
         ReplyStatus,
         ReplyStatus,
         ReplyStarted,
         ReplyDelta,
         ReplyCompleted,
       ]);
-      expect((sent[3] as ReplyDelta).text, 'mine');
-      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((later[1] as ReplyDelta).text, 'resumed work');
+      expect((_mine(sent)[3] as ReplyDelta).text, 'mine');
+      expect(_types(_own(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((_own(sent)[1] as ReplyDelta).text, 'resumed work');
+      // The turn comes ahead of the prompt's reply, frame by frame.
+      expect(_types(sent), [
+        UnsolicitedEvent,
+        ReplyStatus,
+        UnsolicitedEvent,
+        UnsolicitedEvent,
+        ReplyStatus,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect(await followedNothing(), isEmpty);
     });
 
     test('Auto-continue after resume: a prompt folded into the turn leaves it '
@@ -550,20 +626,17 @@ void main() {
           .timeout(const Duration(seconds: 5));
       final later = await reconnecting
           .followUps('stored-2')
-          .take(6)
+          .take(3)
           .toList()
           .timeout(const Duration(seconds: 5));
 
-      expect(sent.whereType<ReplyDelta>(), isEmpty);
+      expect(_mine(sent).whereType<ReplyDelta>(), isEmpty);
       expect(sent.last, isA<SessionInfo>());
-      expect(_types(later), [
-        ReplyStarted,
-        ReplyDelta,
-        ReplyCompleted,
-        ReplyStarted,
-        ReplyDelta,
-        ReplyCompleted,
-      ]);
+      // The turn is shown once, by the send, with its end from the replay.
+      expect(_types(_own(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      // The prompt's own turn follows, in a reply of its own.
+      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((later[1] as ReplyDelta).text, 'mine');
     });
 
     test('Auto-continue after resume: a drop that ends the turn clears the '
@@ -616,7 +689,7 @@ void main() {
         final seen = queuedBehindApproval();
         await pumpEventQueue();
 
-        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.own.whereType<ApprovalRequested>(), hasLength(1));
         expect(seen.done, isFalse);
         expect(await transport.answerApproval('srq-1', 'once'), isTrue);
         await pumpEventQueue();
@@ -651,10 +724,9 @@ void main() {
         unsolicitedEnd(gateway);
         await pumpEventQueue();
 
-        expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-          ['srq-1'],
-        );
+        expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+          'srq-1',
+        ]);
         expect(await transport.answerApproval('srq-1', 'once'), isFalse);
       });
 
@@ -671,15 +743,14 @@ void main() {
         };
         final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
         await pumpEventQueue();
-        expect(seen.events.whereType<ClarifyRequested>(), hasLength(1));
+        expect(seen.own.whereType<ClarifyRequested>(), hasLength(1));
 
         unsolicitedEnd(gateway);
         await pumpEventQueue();
 
-        expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-          ['clar-1'],
-        );
+        expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+          'clar-1',
+        ]);
       });
 
       test('Auto-continue after resume: a request already withdrawn is not '
@@ -689,14 +760,14 @@ void main() {
         gateway.event('approval.cancelled', '', {'session_id': 'rt-2'});
         await pumpEventQueue();
         expect(
-          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          seen.own.whereType<InputRequestsCancelled>().single.requestIds,
           isEmpty,
         );
 
         unsolicitedEnd(gateway);
         await pumpEventQueue();
 
-        expect(seen.events.whereType<InputRequestsCancelled>(), hasLength(1));
+        expect(seen.own.whereType<InputRequestsCancelled>(), hasLength(1));
       });
 
       test('Auto-continue after resume: the follow-ups do not repeat a request '
@@ -709,9 +780,7 @@ void main() {
         await pumpEventQueue();
         expect(seen.done, isTrue);
 
-        final later = await followed(3);
-
-        expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+        expect(await followedNothing(), isEmpty);
         expect(await transport.answerApproval('srq-1', 'once'), isFalse);
       });
     });
@@ -791,7 +860,9 @@ void main() {
       await pumpEventQueue();
       expect(sent.error, isA<GatewayConnectionClosed>());
       expect(sent.events.last, isA<ThreadNeedsRefetch>());
-      expect(sent.events.whereType<ReplyDelta>(), isEmpty);
+      // What the turn showed before the send gave up was handed over live.
+      expect(sent.own.whereType<ReplyDelta>(), hasLength(1));
+      expect(sent.mine.whereType<ReplyDelta>(), isEmpty);
 
       reachable = true;
       final later = await flaky
@@ -800,6 +871,36 @@ void main() {
           .timeout(const Duration(seconds: 5));
 
       expect(later, isEmpty);
+    });
+
+    test('Auto-continue after resume: a send that gives up after a turn that '
+        'only asked asks for the thread to be read again', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final sent = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.own.whereType<ApprovalRequested>(), hasLength(1));
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(sent.error, isA<GatewayConnectionClosed>());
+        expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      });
     });
 
     test('Auto-continue after resume: a send the silence probe ends as broken '
@@ -862,7 +963,7 @@ void main() {
         };
       final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
       await pumpEventQueue();
-      expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+      expect(seen.own.whereType<ApprovalRequested>(), hasLength(1));
       expect(gateway.methods.where((m) => m == 'session.resume'), hasLength(2));
       return seen;
     }
@@ -877,10 +978,9 @@ void main() {
       });
       await pumpEventQueue();
 
-      expect(
-        seen.events.whereType<InputRequestsCancelled>().single.requestIds,
-        ['srq-1'],
-      );
+      expect(seen.own.whereType<InputRequestsCancelled>().single.requestIds, [
+        'srq-1',
+      ]);
       expect(await transport.answerApproval('srq-1', 'once'), isFalse);
     });
 
@@ -891,7 +991,7 @@ void main() {
       gateway.event('approval.cancelled', '', {'session_id': 'rt-3'});
       await pumpEventQueue();
 
-      expect(seen.events.whereType<InputRequestsCancelled>(), hasLength(1));
+      expect(seen.own.whereType<InputRequestsCancelled>(), hasLength(1));
       expect(await transport.answerApproval('srq-1', 'once'), isFalse);
     });
   });
@@ -928,7 +1028,7 @@ void main() {
         final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
         await pumpEventQueue();
 
-        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.mine.whereType<ApprovalRequested>(), hasLength(1));
         expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
         expect(await transport.answerApproval('srq-2', 'once'), isTrue);
       },

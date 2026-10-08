@@ -204,8 +204,14 @@ class WatchRequestHandler {
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
-              UnsupportedRequested():
-            announceEnd(event);
+              UnsupportedRequested() ||
+              // The turn Hermes ran ahead of the prompt asks too.
+              UnsolicitedEvent(
+                event: ApprovalRequested() ||
+                    ClarifyRequested() ||
+                    UnsupportedRequested(),
+              ):
+            announceEnd(event is UnsolicitedEvent ? event.event : event);
             return {
               'ok': true,
               ..._threadEntry(profile, boundId),

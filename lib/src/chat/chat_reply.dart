@@ -222,6 +222,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
         ThreadBound() ||
         ThreadTitled() ||
         PromptFolded() ||
+        UnsolicitedEvent() ||
         ThreadNeedsRefetch():
       break;
   }
