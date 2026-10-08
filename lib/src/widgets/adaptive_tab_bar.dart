@@ -21,7 +21,6 @@ class AdaptiveTabBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final tabs = controller ?? DefaultTabController.of(context);
-    final scheme = Theme.of(context).colorScheme;
     final apple = platformChromeOf(context).isApple;
     return SizedBox(
       height: kTextTabBarHeight,
@@ -30,24 +29,7 @@ class AdaptiveTabBar extends StatelessWidget implements PreferredSizeWidget {
         child: ListenableBuilder(
           listenable: tabs.animation ?? tabs,
           builder: (context, _) => apple
-              ? CupertinoSlidingSegmentedControl<int>(
-                  groupValue: tabs.index,
-                  backgroundColor: scheme.surfaceContainerHighest,
-                  thumbColor: scheme.surface,
-                  children: {
-                    for (final (i, label) in labels.indexed)
-                      i: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          label,
-                          style: TextStyle(color: scheme.onSurface),
-                        ),
-                      ),
-                  },
-                  onValueChanged: (value) {
-                    if (value != null) tabs.animateTo(value);
-                  },
-                )
+              ? _CupertinoTabs(tabs: tabs, labels: labels)
               : PillSegmentedControl<int>(
                   value: tabs.index,
                   segments: {for (final (i, l) in labels.indexed) i: l},
@@ -70,29 +52,54 @@ class MacToolbarTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tabs = controller ?? DefaultTabController.of(context);
-    final scheme = Theme.of(context).colorScheme;
     return ListenableBuilder(
       listenable: tabs.animation ?? tabs,
-      builder: (context, _) => CupertinoSlidingSegmentedControl<int>(
-        groupValue: tabs.index,
-        backgroundColor: scheme.surfaceContainerHighest,
-        thumbColor: scheme.surface,
-        padding: const EdgeInsets.all(2),
-        children: {
-          for (final (i, label) in labels.indexed)
-            i: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                label,
-                maxLines: 1,
-                style: TextStyle(fontSize: 12, color: scheme.onSurface),
+      builder: (context, _) =>
+          _CupertinoTabs(tabs: tabs, labels: labels, compact: true),
+    );
+  }
+}
+
+class _CupertinoTabs extends StatelessWidget {
+  const _CupertinoTabs({
+    required this.tabs,
+    required this.labels,
+    this.compact = false,
+  });
+
+  final TabController tabs;
+  final List<String> labels;
+
+  /// The small control of a Mac toolbar.
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return CupertinoSlidingSegmentedControl<int>(
+      groupValue: tabs.index,
+      backgroundColor: scheme.surfaceContainerHighest,
+      thumbColor: scheme.surface,
+      padding: compact
+          ? const EdgeInsets.all(2)
+          : const EdgeInsets.symmetric(vertical: 2, horizontal: 3),
+      children: {
+        for (final (i, label) in labels.indexed)
+          i: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: compact ? 12 : null,
+                color: scheme.onSurface,
               ),
             ),
-        },
-        onValueChanged: (value) {
-          if (value != null) tabs.animateTo(value);
-        },
-      ),
+          ),
+      },
+      onValueChanged: (value) {
+        if (value != null) tabs.animateTo(value);
+      },
     );
   }
 }
