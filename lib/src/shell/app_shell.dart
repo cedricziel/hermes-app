@@ -28,6 +28,7 @@ import '../macos/mac_sidebar.dart';
 import '../settings/account_actions.dart';
 import '../settings/settings_dialog.dart';
 import '../kanban/kanban_screen.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../profiles/chat_profiles.dart';
@@ -97,6 +98,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _detection = 0;
   int _botOpenVersion = 0;
   _Destination _current = _Destination.chat;
+  late final Breadcrumbs _breadcrumbs;
 
   /// Destinations whose page has been built. A page loads only once its tab
   /// has been opened.
@@ -112,6 +114,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _breadcrumbs = _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none;
     final repositories = HermesRepositories.maybeOf(context);
     _plugins = widget.plugins ?? repositories?.plugins;
     _cron = widget.cron ?? repositories?.cron;
@@ -187,6 +190,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The states between the two are passing steps of the same trip.
+    if (state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.paused) {
+      _breadcrumbs('app.lifecycle', {'state': state.name});
+    }
     _schedulesController?.foreground = state == AppLifecycleState.resumed;
     if (state == AppLifecycleState.resumed) _detect();
   }
@@ -228,7 +236,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// by coming back on.
   void _drop(_Destination destination) {
     _opened.remove(destination);
-    if (_current == destination) _current = _Destination.chat;
+    if (_current == destination) {
+      _current = _Destination.chat;
+      _breadcrumbs('nav.destination', {'destination': 'chat', 'gone': true});
+    }
     if (destination == _Destination.schedules) {
       final controller = _schedulesController;
       _schedulesController = null;
@@ -243,6 +254,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (cancelHandoff) _maybeRead<HandoffController>()?.cancel();
     _sidebar.closeOverlay();
     if (_current == destination) return;
+    _breadcrumbs('nav.destination', {'destination': destination.name});
     setState(() {
       _current = destination;
       _opened.add(destination);

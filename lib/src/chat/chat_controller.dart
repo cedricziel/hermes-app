@@ -16,6 +16,7 @@ import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
+import '../telemetry/breadcrumbs.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
@@ -51,6 +52,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onOpenJob,
     this.onOpened,
     this.onPrefill,
+    this.breadcrumbs = Breadcrumbs.none,
   }) {
     final repository = this.repository;
     if (repository == null) {
@@ -98,6 +100,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Restores a draft returned by a command such as `/undo`.
   final ValueChanged<String>? onPrefill;
 
+  /// Notes what the user did, for a crash report. It is never given text,
+  /// titles, profile names or ids.
+  final Breadcrumbs breadcrumbs;
+
   ThreadHousekeeping? housekeeping;
 
   /// Whether the last chat asked for from outside could not be opened.
@@ -106,6 +112,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   void _failOpen() {
     _openFailed = true;
+    breadcrumbs('chat.open.failed');
     report(_couldNotOpenChat);
     notifyListeners();
   }
@@ -231,12 +238,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         controller.dispose();
       }
       _chatControllers.clear();
-      if (profile != _profile) {
+      final switched = profile != _profile;
+      if (switched) {
         _modelOptions = null;
         _newChatModel = null;
         search?.clear();
       }
       _profile = profile;
+      breadcrumbs('chat.threads.loaded', {
+        'switched': switched,
+        'count': threads.length,
+      });
       unawaited(_loadModelOptions(profile, generation));
       _threads = threads;
       _unloaded
@@ -284,6 +296,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (disposed || generation != _loadGeneration) return;
       _loadingThreads = false;
       _threadsFailed = true;
+      breadcrumbs('chat.threads.failed');
       notifyListeners();
     }
   }
@@ -499,6 +512,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// threads do not hold is fetched, on its own profile.
   void open(NotificationTarget target, {required bool fetchMissing}) {
     final generation = ++_openGeneration;
+    breadcrumbs('chat.open.requested', {'fetch_missing': fetchMissing});
     onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
@@ -715,12 +729,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// its own.
   void clearSelection() {
     if (_selectedId == null) return;
+    breadcrumbs('chat.thread.closed');
     _openGeneration++;
     _selectedId = null;
     notifyListeners();
   }
 
   void newThread() {
+    breadcrumbs('chat.thread.new');
     _openGeneration++;
     final thread = ChatThread(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -734,6 +750,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void select(String id) {
+    breadcrumbs('chat.thread.selected', {
+      'remote': _threads.any((t) => t.id == id && t.remote),
+    });
     _openGeneration++;
     _openFailed = false;
     _selectedId = id;
@@ -1322,8 +1341,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     var folded = false;
     var settled = false;
     final own = _OwnTurn();
+    String outcome(Object? error) {
+      if (error != null || reply.isPending && !folded) return 'failed';
+      if (folded) return 'folded';
+      if (stopped) return 'stopped';
+      return failed || reply.status == MessageStatus.error
+          ? 'failed'
+          : 'completed';
+    }
+
     void end([Object? error]) {
       _replies.remove(subscription);
+      breadcrumbs('chat.reply.ended', {'outcome': outcome(error)});
       _closeOwnTurn(
         thread,
         own,
@@ -1380,6 +1409,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
     }
 
+    breadcrumbs('chat.reply.started', {
+      'queued': queued,
+      'attachments': attachments.length,
+    });
     subscription = transport
         .send(
           threadId: threadId,

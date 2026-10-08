@@ -182,6 +182,46 @@ void main() {
       },
     );
 
+    test('attaches breadcrumbs from breadcrumbs() to a crash without exporting them', () async {
+      final exporter = _RecordingExporter();
+      final telemetry = await Telemetry.initialize(
+        config(),
+        logExporter: exporter,
+      );
+      telemetry.logUncaughtErrors();
+      telemetry.breadcrumbs()('nav.destination', {'destination': 'kanban'});
+      telemetry.events()('auth.signed_in');
+
+      FlutterError.onError!(FlutterErrorDetails(exception: StateError('boom')));
+      await telemetry.flush();
+
+      final crash = exporter.records.singleWhere(
+        (r) => r.body == 'Uncaught Flutter error',
+      );
+      expect(crash.attributes['breadcrumbs'], [
+        allOf(contains('nav.destination'), contains('kanban')),
+        contains('auth.signed_in'),
+      ]);
+      expect(
+        exporter.records.map((r) => r.body),
+        isNot(contains('nav.destination')),
+      );
+    });
+
+    test('records no breadcrumb while telemetry is off', () async {
+      final telemetry = await Telemetry.initialize(
+        TelemetryConfig(
+          otlpEndpoint: '',
+          otlpHeaders: const {},
+          serviceName: 'hermes-app',
+          serviceVersion: '',
+          deploymentEnvironment: 'test',
+        ),
+      );
+
+      expect(() => telemetry.breadcrumbs()('nav.destination'), returnsNormally);
+    });
+
     test('exports the message, stack trace and breadcrumbs of an uncaught async error', () async {
       final exporter = _RecordingExporter();
       final telemetry = await Telemetry.initialize(
