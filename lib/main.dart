@@ -1,6 +1,4 @@
-import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,9 +69,6 @@ Future<void> main([List<String> args = const []]) async {
           },
           dispose: (_, store) => store?.dispose(),
         ),
-        Provider<MessagingConnectionTracer>.value(value: telemetry.gateway()),
-        Provider<KanbanEventsTracer?>.value(value: telemetry.kanbanEvents()),
-        Provider<AppEventLogger>.value(value: telemetry.events()),
         Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,
@@ -120,7 +115,7 @@ Future<void> main([List<String> args = const []]) async {
           lazy: false,
           create: (context) => WatchBridge.forAuth(
             context.read<AuthController>(),
-            events: context.read<AppEventLogger>(),
+            events: telemetry.events(),
             notifications: context.read<NotificationService>(),
             settings: context.read<NotificationSettings>(),
           )?..start(),

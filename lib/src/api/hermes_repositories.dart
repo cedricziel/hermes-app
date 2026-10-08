@@ -13,12 +13,13 @@ import '../profiles/hermes_profiles_repository.dart';
 import '../schedules/hermes_cron_repository.dart';
 import '../skills/hermes_skills_hub_repository.dart';
 import '../skills/hermes_skills_repository.dart';
+import '../telemetry/telemetry.dart';
 import 'hermes_api_client.dart';
 
 /// The repositories of one signed-in API client. `main.dart` provides it
 /// while signed in, so screens read it instead of building repositories.
 class HermesRepositories {
-  HermesRepositories(this.api)
+  HermesRepositories(this.api, {this.telemetry = const ConnectionTelemetry()})
     : chat = HermesChatRepository(api.raw),
       profiles = HermesProfilesRepository(api.raw),
       messaging = HermesMessagingRepository(api.raw),
@@ -32,6 +33,10 @@ class HermesRepositories {
       kanban = KanbanRepository(api);
 
   final HermesApiClient api;
+
+  /// The telemetry of the connection [api] belongs to: sockets opened and
+  /// events logged for these repositories describe its server.
+  final ConnectionTelemetry telemetry;
   final HermesChatRepository chat;
   final HermesProfilesRepository profiles;
   final HermesMessagingRepository messaging;
@@ -52,7 +57,7 @@ class HermesRepositories {
     final api = auth.api;
     if (api == null) return null;
     if (identical(previous?.api, api)) return previous;
-    return HermesRepositories(api);
+    return HermesRepositories(api, telemetry: auth.connectionTelemetry);
   }
 
   /// The provided repositories, or null when signed out. A widget pumped

@@ -6,8 +6,7 @@ import 'package:hermes_app/src/widgets/state_message.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_otel/flutter_otel.dart'
-    show AppEventLogger, noopAppEventLogger;
+import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -19,7 +18,6 @@ import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../theme/platform_chrome.dart';
 import '../shell/shell_navigation.dart';
-import '../telemetry/telemetry.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../widgets/named_icon_button.dart';
@@ -98,7 +96,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         baseUrl: auth.baseUrl!,
         authRequired: auth.status?.authRequired ?? true,
         api: repositories!.api,
-        telemetry: context.read<KanbanEventsTracer?>(),
+        telemetry: repositories.telemetry.kanban(),
       );
     }
     _controller = KanbanBoardController(
@@ -106,7 +104,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       connect: connect,
       prefs: SharedPreferencesAsync(),
       prefsKey: 'hermes.kanban.board.${auth.baseUrl}',
-      log: context.read<AppEventLogger?>() ?? noopAppEventLogger,
+      log: repositories?.telemetry.events ?? noopAppEventLogger,
     )..start();
     unawaited(_inspector.load());
     _lifecycle = AppLifecycleListener(

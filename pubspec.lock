@@ -221,10 +221,10 @@ packages:
     dependency: "direct main"
     description:
       name: dart_otel_instrumentation_messaging
-      sha256: "580be05e27123bb06b9050f93c68ddca5f06af50a3c6a32682387b631fd216e9"
+      sha256: "88aef38157af7c778bb8662b31b4a7c93c2a60d2266174633bacc94267b23c9f"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.1"
+    version: "0.1.2"
   dart_otel_sdk:
     dependency: transitive
     description:

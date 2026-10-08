@@ -3,11 +3,9 @@ import 'dart:async';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:clock/clock.dart';
-import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
-import 'package:flutter_otel/flutter_otel.dart'
-    show AppEventLogger, noopAppEventLogger;
+import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
@@ -209,7 +207,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     var transport = widget.transport;
     if (transport == null && api != null) {
       final auth = context.read<AuthController>();
-      final telemetry = _maybeRead<MessagingConnectionTracer>();
+      final telemetry = repositories?.telemetry.gateway();
       transport = _ownedTransport = HermesGatewayTransport(
         connect: hermesGatewayConnect(
           baseUrl: auth.baseUrl!,
@@ -218,7 +216,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           telemetry: telemetry,
         ),
         telemetry: telemetry,
-        events: _maybeRead<AppEventLogger>() ?? noopAppEventLogger,
+        events: repositories?.telemetry.events ?? noopAppEventLogger,
       );
     }
     _chat = ChatController(

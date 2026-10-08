@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -524,10 +525,10 @@ void main() {
   });
 
   group('telemetry', () {
-    testWidgets('logs a change through the app\'s event logger', (
+    testWidgets('logs a change through the connection\'s event logger', (
       tester,
     ) async {
-      final events = <String>[];
+      final events = <(String, Map<String, Object>)>[];
       tester.view
         ..physicalSize = const Size(1000, 900)
         ..devicePixelRatio = 1;
@@ -535,13 +536,16 @@ void main() {
       server.on('POST', '$_agent/netbox/disable', {'ok': true});
 
       await tester.pumpWidget(
-        Provider<AppEventLogger>.value(
-          value: (name, [attributes = const {}]) => events.add(name),
-          child: MaterialApp(
-            home: PluginsScreen(
-              repository: HermesPluginManagerRepository(server.client().raw),
+        Provider<HermesRepositories?>.value(
+          value: HermesRepositories(
+            server.client(),
+            telemetry: ConnectionTelemetry(
+              events: (name, [attributes = const {}]) =>
+                  events.add((name, attributes)),
+              serverAttributes: const {'hermes.version': '0.14.2'},
             ),
           ),
+          child: const MaterialApp(home: PluginsScreen()),
         ),
       );
       await tester.pumpAndSettle();
@@ -550,7 +554,7 @@ void main() {
       await tester.tap(find.byKey(const Key('plugin-enabled')));
       await tester.pumpAndSettle();
 
-      expect(events, ['plugins.disable.ok']);
+      expect(events.map((e) => e.$1), ['plugins.disable.ok']);
     });
   });
 
