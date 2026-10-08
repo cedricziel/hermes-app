@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.53](https://github.com/cedricziel/hermes-app/compare/v0.1.52...v0.1.53) (2026-10-08)
+
+
+### Features
+
+* **design:** port Edit prompt, the review note and per-profile plugin counts to Claude Design ([#498](https://github.com/cedricziel/hermes-app/issues/498)) ([9d0b18b](https://github.com/cedricziel/hermes-app/commit/9d0b18b4abe188f3bc88622a653e57071a1a482d))
+* **telemetry:** record navigation and chat breadcrumbs for crash reports ([#500](https://github.com/cedricziel/hermes-app/issues/500)) ([f48fa78](https://github.com/cedricziel/hermes-app/commit/f48fa78d099347f368bbac9760beae1921e1318a))
+
+
+### Bug Fixes
+
+* **chat:** stop the transcript from painting children it never laid out ([#502](https://github.com/cedricziel/hermes-app/issues/502)) ([3e6ceb3](https://github.com/cedricziel/hermes-app/commit/3e6ceb380159c6479bfad8497107dae75365b431))
+* **telemetry:** collapse repeating crashes and keep their stack traces ([#501](https://github.com/cedricziel/hermes-app/issues/501)) ([f955fdb](https://github.com/cedricziel/hermes-app/commit/f955fdb592f14477d5440ad4042a0436253147cf))
+
 ## [0.1.52](https://github.com/cedricziel/hermes-app/compare/v0.1.51...v0.1.52) (2026-10-08)
 
 
