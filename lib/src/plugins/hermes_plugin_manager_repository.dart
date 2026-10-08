@@ -11,27 +11,28 @@ class PluginsUnsupported implements Exception {
   const PluginsUnsupported();
 }
 
-/// Reads and changes the plugins of the dashboard through the generated
+/// Reads and changes the plugins of a profile through the generated
 /// [DefaultApi].
 ///
 /// None of the routes declares a response schema, so the hub is parsed by
 /// hand, skipping rows that don't fit. The generated client puts a plugin's
 /// name into the path as it is, so names are encoded here.
 class HermesPluginManagerRepository {
-  HermesPluginManagerRepository(this._api);
+  HermesPluginManagerRepository(this._api, {this.profile});
 
   final DefaultApi _api;
 
+  /// The profile whose plugin list, visibility and providers are read and
+  /// changed; the one the dashboard is scoped to when null.
+  final String? profile;
+
+  /// This repository for the plugins of [profile].
+  HermesPluginManagerRepository forProfile(String? profile) =>
+      HermesPluginManagerRepository(_api, profile: profile);
+
   /// Throws [PluginsUnsupported] on a server without the route.
   Future<List<InstalledPlugin>> load() async {
-    final Response<Object> response;
-    try {
-      response = await _api.getPluginsHubApiDashboardPluginsHubGet();
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 404) throw const PluginsUnsupported();
-      rethrow;
-    }
-    final rows = switch (response.data) {
+    final rows = switch (await _hub()) {
       {'plugins': final List<dynamic> rows} => rows,
       _ => const <dynamic>[],
     };
@@ -54,17 +55,21 @@ class HermesPluginManagerRepository {
     ];
   }
 
-  /// The memory provider and context engine settings, from the hub. Throws
-  /// [PluginsUnsupported] on a server without the route.
-  Future<ProviderSettings> loadProviders() async {
-    final Response<Object> response;
+  Future<Object?> _hub() async {
     try {
-      response = await _api.getPluginsHubApiDashboardPluginsHubGet();
+      return (await _api.getPluginsHubApiDashboardPluginsHubGet(
+        profile: profile,
+      )).data;
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) throw const PluginsUnsupported();
       rethrow;
     }
-    final providers = switch (response.data) {
+  }
+
+  /// The memory provider and context engine settings, from the hub. Throws
+  /// [PluginsUnsupported] on a server without the route.
+  Future<ProviderSettings> loadProviders() async {
+    final providers = switch (await _hub()) {
       {'providers': final Map<String, dynamic> providers} => providers,
       _ => const <String, dynamic>{},
     };
@@ -98,6 +103,7 @@ class HermesPluginManagerRepository {
         memoryProvider: memoryProvider,
         contextEngine: contextEngine,
       ),
+      profile: profile,
     ),
   );
 
@@ -215,6 +221,7 @@ class HermesPluginManagerRepository {
     () => _api.postPluginVisibilityApiDashboardPluginsNameVisibilityPost(
       name: Uri.encodeComponent(name),
       pluginVisibilityBody: PluginVisibilityBody(hidden: hidden),
+      profile: profile,
     ),
   );
 
