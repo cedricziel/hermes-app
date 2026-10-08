@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import '../theme/app_icons.dart';
+import '../widgets/adaptive_sheet.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review_items.dart';
 
 /// Shows [McpCommandReview] as a bottom sheet on a compact
-/// layout and as a dialog on a wide one (see [isWideLayout]). True only
+/// layout and as a dialog on a wide one ([showAdaptiveSheet]). True only
 /// when the user confirms; going back, tapping outside or the system back
 /// gesture all answer false.
 Future<bool> showMcpCommandReview(
@@ -14,25 +14,11 @@ Future<bool> showMcpCommandReview(
   List<McpCommandReviewItem> commands, {
   required String confirmLabel,
 }) async {
-  Widget review(BuildContext context) =>
-      McpCommandReview(commands: commands, confirmLabel: confirmLabel);
-  final wide = isWideLayout(context);
-  final confirmed = wide
-      ? await showDialog<bool>(
-          context: context,
-          builder: (dialog) => Dialog(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: review(dialog),
-            ),
-          ),
-        )
-      : await showModalBottomSheet<bool>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: review,
-        );
+  final confirmed = await showAdaptiveSheet<bool>(
+    context,
+    builder: (context) =>
+        McpCommandReview(commands: commands, confirmLabel: confirmLabel),
+  );
   return confirmed == true;
 }
 

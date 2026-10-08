@@ -33,6 +33,7 @@ import 'package:hermes_app/src/plugins/installed_plugin.dart';
 import 'package:hermes_app/src/plugins/provider_settings.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/models/model_provider_option.dart';
+import 'package:hermes_app/src/platform_hint/platform_hint_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_draft.dart';
@@ -488,6 +489,29 @@ void main() {
       'provider': current.providerId,
       'model': current.modelId,
     });
+  }, skip: skip);
+
+  test('the app hint is saved per profile without touching the rest', () async {
+    final hints = PlatformHintRepository(client.raw);
+    final profiles = await HermesProfilesRepository(client.raw).list();
+    expect(profiles, isNotEmpty);
+    final profile = profiles.last.name;
+    Future<Map<dynamic, dynamic>> saved() async =>
+        (await client.raw.getConfigApiConfigGet(
+              profile: profile,
+              includeDefaults: false,
+            )).data!
+            as Map;
+    final before = await saved();
+
+    expect(await hints.state(profile), isNotNull);
+    await hints.write(profile);
+
+    expect(await hints.state(profile), PlatformHintState.current);
+    final after = await saved();
+    for (final key in before.keys.where((k) => k != 'platform_hints')) {
+      expect(after[key], before[key], reason: '$key');
+    }
   }, skip: skip);
 
   test('the MoA config carries the fields the settings read', () async {

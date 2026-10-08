@@ -9,6 +9,7 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 import 'package:stream_channel/stream_channel.dart';
 
+import '../../api/session_source.dart';
 import '../../models/model_provider_option.dart';
 import '../chat_models.dart';
 import '../chat_transport.dart';
@@ -33,11 +34,6 @@ const handledServerRequests = {
   'vault.unlock_prompt',
   'vault.code',
 };
-
-/// The `source` every session this app creates or resumes carries. Without
-/// one Hermes falls back to `tui` and prompts the agent as if it ran in a
-/// terminal, where files cannot be attached or shown.
-const gatewaySessionSource = 'hermes_app';
 
 /// What `image.attach_bytes` answers for a file that is not an image type it
 /// knows.

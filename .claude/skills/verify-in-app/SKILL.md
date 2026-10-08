@@ -208,8 +208,10 @@ moves the real mouse pointer, so tell the user first if they are working.
   drag) with `.post(tap: .cghidEventTap)`, then restore the pointer with
   `CGWarpMouseCursorPosition`. For a drag, hold the button over the target
   for a second before releasing, so a screenshot can catch the drop hint.
-- `screencapture -x out.png` captures the whole screen and works without the
-  Screen Recording problem noted below; use it to find a Finder window to
+- `screencapture -x out.png` captures the whole screen. It has worked without
+  Screen Recording permission on some machines but failed on others with
+  "could not create image from display" (2026-10-09); then use the VM-service
+  dump below. Use it to find a Finder window to
   drag from (`open` a directory of throwaway files, or script Finder to
   place its window over an empty part of the app).
 - Focus the app by pid, not by name: an installed Hermes app has the same
@@ -223,6 +225,11 @@ moves the real mouse pointer, so tell the user first if they are working.
   after focusing the app (`set frontmost to true`).
 
 ## When the screenshot can't be taken
+
+To set up state the screen needs (a second profile, say), use the CLI against
+the backend's own home, e.g. `HERMES_HOME="$PWD/.dart_tool/hermes-dev/home"
+hermes profile create work`: the REST routes answer 401 without the session
+token from the dashboard page.
 
 Without Screen Recording (and Accessibility) permission, the running app can
 still be inspected through its Dart VM service: `dev-app.sh logs` prints the

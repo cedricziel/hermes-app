@@ -28,6 +28,8 @@ import '../kanban/kanban_screen.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../platform_hint/platform_hint_offer.dart';
+import '../platform_hint/show_platform_hint_prompt.dart';
 import '../profiles/chat_profiles.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
@@ -139,6 +141,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _botChats = BotModeChatRepository(_gateway!.request);
       _groups = HermesGroupsRepository(_gateway!.request);
       _bots = true;
+      final server = auth.baseUrl!;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _offerHint(repositories, server),
+      );
     }
     final service = _maybeRead<NotificationService>();
     final settings = _maybeRead<NotificationSettings>();
@@ -204,6 +210,28 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (_current == _Destination.chat) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
     _select(_Destination.chat, cancelHandoff: false);
+  }
+
+  /// Asks once per sign-in or start whether to add the app's hint to the
+  /// profiles that need it.
+  Future<void> _offerHint(
+    HermesRepositories repositories,
+    String server,
+  ) async {
+    if (!mounted) return;
+    final offer = PlatformHintOffer(
+      repository: repositories.platformHint,
+      profileList: repositories.profiles,
+      server: server,
+      breadcrumbs: _breadcrumbs,
+    );
+    try {
+      if (await offer.check() && mounted) {
+        await showPlatformHintPrompt(context, offer);
+      }
+    } finally {
+      offer.dispose();
+    }
   }
 
   Future<void> _detect() async {
