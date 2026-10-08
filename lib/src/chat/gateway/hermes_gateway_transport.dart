@@ -34,6 +34,11 @@ const handledServerRequests = {
   'vault.code',
 };
 
+/// The `source` every session this app creates or resumes carries. Without
+/// one Hermes falls back to `tui` and prompts the agent as if it ran in a
+/// terminal, where files cannot be attached or shown.
+const gatewaySessionSource = 'hermes_app';
+
 /// What `image.attach_bytes` answers for a file that is not an image type it
 /// knows.
 const _unsupportedImage = 4016;
@@ -588,7 +593,10 @@ class HermesGatewayTransport implements ChatTransport {
   }) async {
     final client = await _client();
     final session = threadId == null
-        ? await _call(client, 'session.create', {'profile': ?profile})
+        ? await _call(client, 'session.create', {
+            'profile': ?profile,
+            'source': gatewaySessionSource,
+          })
         : null;
     final runtimeId = threadId == null
         ? session!['session_id'] as String
@@ -647,6 +655,7 @@ class HermesGatewayTransport implements ChatTransport {
     final session = await _call(client, 'session.resume', {
       'session_id': storedId,
       'profile': ?profile,
+      'source': gatewaySessionSource,
     });
     return session['session_id'] as String;
   }
@@ -685,7 +694,10 @@ class HermesGatewayTransport implements ChatTransport {
     required CancelFlag stopped,
   }) async* {
     final client = await _client();
-    final scope = <String, Object?>{'profile': ?profile};
+    final scope = <String, Object?>{
+      'profile': ?profile,
+      'source': gatewaySessionSource,
+    };
     // Listening starts before the resume is sent, so a frame the gateway pushes
     // ahead of its answer is kept for this session.
     // What the ledger held before this send's first frame: a frame the tap
@@ -1386,6 +1398,7 @@ class HermesGatewayTransport implements ChatTransport {
       resumed = await _call(client, 'session.resume', {
         'session_id': owner.$2,
         'profile': ?owner.$1,
+        'source': gatewaySessionSource,
       });
     } on Object {
       tap.close();
@@ -2418,6 +2431,7 @@ class HermesGatewayTransport implements ChatTransport {
       final resumed = await _call(client, 'session.resume', {
         'session_id': threadId,
         'profile': ?owner.$1,
+        'source': gatewaySessionSource,
       });
       if (resumed['running'] != true) return false;
       runtimeId = resumed['session_id'] as String? ?? threadId;

@@ -246,6 +246,7 @@ void main() {
       ]);
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
+        'source': 'hermes_app',
       });
       expect(gateway.requestOf('prompt.submit')['params'], {
         'session_id': 'rt-2',
@@ -363,6 +364,7 @@ void main() {
     expect(second.requestOf('session.resume')['params'], {
       'session_id': 'shared',
       'profile': 'alpha',
+      'source': 'hermes_app',
     });
   });
 
@@ -388,6 +390,7 @@ void main() {
     expect(second.requestOf('session.resume')['params'], {
       'session_id': 'shared',
       'profile': 'alpha',
+      'source': 'hermes_app',
     });
   });
 
@@ -409,6 +412,7 @@ void main() {
         'model': 'claude-opus-4',
         'provider': 'anthropic',
         'reasoning_effort': 'high',
+        'source': 'hermes_app',
       });
       expect(configSets(), isEmpty);
     });
@@ -421,6 +425,7 @@ void main() {
       expect(gateway.requestOf('session.create')['params'], {
         'model': 'gpt-5.1',
         'provider': 'openai',
+        'source': 'hermes_app',
       });
     });
 
@@ -484,12 +489,31 @@ void main() {
     });
   });
 
+  test('sessions name the app as their source, not the TUI', () async {
+    gateway.turn = plainReply;
+
+    await reply();
+    await reply(threadId: 'stored-2');
+
+    expect(
+      gateway.requestOf('session.create')['params'],
+      containsPair('source', 'hermes_app'),
+    );
+    expect(
+      gateway.requestOf('session.resume')['params'],
+      containsPair('source', 'hermes_app'),
+    );
+  });
+
   test('a new thread is created in the given profile', () async {
     gateway.turn = plainReply;
 
     await reply(profile: 'work');
 
-    expect(gateway.requestOf('session.create')['params'], {'profile': 'work'});
+    expect(gateway.requestOf('session.create')['params'], {
+      'profile': 'work',
+      'source': 'hermes_app',
+    });
     expect(gateway.requestOf('prompt.submit')['params'], {
       'session_id': 'rt-1',
       'text': 'hi',
@@ -504,6 +528,7 @@ void main() {
     expect(gateway.requestOf('session.resume')['params'], {
       'session_id': 'stored-2',
       'profile': 'work',
+      'source': 'hermes_app',
     });
   });
 
@@ -513,9 +538,12 @@ void main() {
     await reply();
     await reply(threadId: 'stored-2');
 
-    expect(gateway.requestOf('session.create')['params'], isEmpty);
+    expect(gateway.requestOf('session.create')['params'], {
+      'source': 'hermes_app',
+    });
     expect(gateway.requestOf('session.resume')['params'], {
       'session_id': 'stored-2',
+      'source': 'hermes_app',
     });
   });
 
@@ -2224,6 +2252,7 @@ void main() {
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-2',
         'profile': 'work',
+        'source': 'hermes_app',
       });
       expect(gateway.requestOf('session.undo')['params'], {
         'session_id': 'rt-2',
@@ -2354,6 +2383,7 @@ void main() {
         expect(gateway.requestOf('session.resume')['params'], {
           'session_id': 'stored-1',
           'profile': 'work',
+          'source': 'hermes_app',
         });
         expect(gateway.methods, isNot(contains('prompt.submit')));
         expect(gateway.methods, isNot(contains('session.interrupt')));
@@ -2370,6 +2400,7 @@ void main() {
       expect(gateway.requestOf('session.resume')['params'], {
         'session_id': 'stored-1',
         'profile': 'work',
+        'source': 'hermes_app',
       });
       expect(await transport.stopReply('stored-1'), isTrue);
       gateway.event('message.complete', 'rt-1', {
@@ -2878,7 +2909,11 @@ void main() {
         await canceled;
 
         expect(stopped, isTrue);
-        expect(resumed, {'session_id': 'stored-1', 'profile': 'work'});
+        expect(resumed, {
+          'session_id': 'stored-1',
+          'profile': 'work',
+          'source': 'hermes_app',
+        });
       },
     );
   });
