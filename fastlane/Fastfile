@@ -111,7 +111,8 @@ lane :bootstrap_app do
   {
     APP_IDENTIFIER => APP_NAME,
     EXTENSION_IDENTIFIER => "#{APP_NAME} Share Extension",
-    WATCH_IDENTIFIER => "#{APP_NAME} Watch"
+    WATCH_IDENTIFIER => "#{APP_NAME} Watch",
+    LIVE_ACTIVITY_IDENTIFIER => "#{APP_NAME} Live Activity"
   }.each do |identifier, name|
     bundle = Spaceship::ConnectAPI::BundleId.all(filter: { identifier: identifier })
                                             .find { |b| b.identifier == identifier }
@@ -129,10 +130,11 @@ lane :bootstrap_app do
 
   # The App Groups capability and the group container can't be set up through
   # the public API; without them the share extension can't hand content to
-  # the app.
+  # the app, and the Live Activity can't read what the app shows in it.
   UI.important(<<~MSG)
-    In the developer portal (Identifiers), enable "App Groups" on #{APP_IDENTIFIER} and
-    #{EXTENSION_IDENTIFIER} and assign both to group.#{APP_IDENTIFIER}, then run
+    In the developer portal (Identifiers), enable "App Groups" on #{APP_IDENTIFIER},
+    #{EXTENSION_IDENTIFIER} and #{LIVE_ACTIVITY_IDENTIFIER} and assign them to
+    group.#{APP_IDENTIFIER}, then run
     `fastlane bootstrap_signing force:true` to regenerate the profiles.
   MSG
 
