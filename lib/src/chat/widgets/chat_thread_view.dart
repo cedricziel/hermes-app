@@ -17,6 +17,7 @@ import '../queued_prompt.dart';
 import '../slash_command.dart';
 import '../starter_prompts.dart';
 import 'chat_builders.dart';
+import '../../voice/dictation_controller.dart';
 import 'chat_composer_builder.dart';
 
 /// The id of [thread]'s last message once it is a finished reply, the one
@@ -39,6 +40,7 @@ class ChatThreadView extends StatelessWidget {
     required this.chatController,
     required this.composerController,
     required this.composerFocus,
+    this.dictation,
     required this.attachments,
     required this.attachmentSource,
     required this.onAddAttachments,
@@ -70,6 +72,9 @@ class ChatThreadView extends StatelessWidget {
   final InMemoryChatController chatController;
   final TextEditingController composerController;
   final FocusNode composerFocus;
+
+  /// Dictation into the composer; none in a conversation window.
+  final DictationController? dictation;
   final List<SharedFile> attachments;
   final AttachmentSource attachmentSource;
   final ValueChanged<List<SharedFile>> onAddAttachments;
@@ -132,6 +137,7 @@ class ChatThreadView extends StatelessWidget {
           composerBuilder: buildChatComposer(
             controller: composerController,
             focusNode: composerFocus,
+            dictation: dictation,
             botContext: botContext,
             attachments: attachments,
             onRemoveAttachment: onRemoveAttachment,

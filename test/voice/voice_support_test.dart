@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:hermes_app/src/voice/wav.dart';
 
@@ -99,10 +100,8 @@ void main() {
           query: {'profile': 'work'},
         );
 
-        final support = await VoiceSupport.fetch(
-          server.client(),
-          profile: 'work',
-        );
+        final support = await HermesChatRepository(server.client().raw)
+            .voiceSupport(profile: 'work');
 
         expect(support.speechToText, isTrue);
         expect(support.liveTranscription, isTrue);
@@ -113,7 +112,8 @@ void main() {
           'detail': 'Not Found',
         }, status: 404);
 
-        final support = await VoiceSupport.fetch(server.client());
+        final support = await HermesChatRepository(server.client().raw)
+            .voiceSupport();
 
         expect(support.speechToText, isFalse);
         expect(support.textToSpeech, isFalse);

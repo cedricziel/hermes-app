@@ -1,5 +1,3 @@
-import '../api/hermes_api_client.dart';
-
 /// Which voice features a profile's speech providers allow, read from
 /// `GET /api/audio/voice-config`.
 ///
@@ -26,21 +24,6 @@ class VoiceSupport {
       liveTranscription: stt is Map && stt['streaming'] == true,
       textToSpeech: _usable(tts),
     );
-  }
-
-  /// The voice support of [profile], or [none] when the server cannot say.
-  static Future<VoiceSupport> fetch(
-    HermesApiClient api, {
-    String? profile,
-  }) async {
-    try {
-      final response = await api.raw.getClientVoiceConfigApiAudioVoiceConfigGet(
-        profile: profile,
-      );
-      return VoiceSupport.fromJson(response.data);
-    } on Object {
-      return none;
-    }
   }
 
   /// Whether speech can be transcribed, which dictation needs.

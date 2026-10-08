@@ -308,10 +308,17 @@ class DictationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  var _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
-    unawaited(cancel());
-    unawaited(_recorder.dispose());
+    _disposed = true;
+    unawaited(cancel().whenComplete(_recorder.dispose));
     super.dispose();
   }
 

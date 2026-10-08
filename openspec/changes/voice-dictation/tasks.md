@@ -21,10 +21,10 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 4. Wiring and platforms
 
-- [ ] 4.1 Write a failing chat-screen test: mic appears when `voice-config` answers 200 and not on 404, and a transcript is inserted at the cursor with a single space and not sent. Wire `DictationController` into `ChatScreen` and `buildChatComposer` (profile switch, dispose and backgrounding cancel) until it passes
-- [ ] 4.2 Add `NSMicrophoneUsageDescription` to the iOS and macOS `Info.plist`, `com.apple.security.device.audio-input` to both macOS entitlement files, `RECORD_AUDIO` to the Android manifest, and `pulseaudio-utils` to the `.deb` `Depends` in `scripts/package-linux.sh`; verify with `plutil -lint` and a Linux package build in CI
-- [ ] 4.3 Hide the mic in macOS conversation windows, and verify the window engine starts without the `record` plugin registered
-- [ ] 4.4 Add a step to the chat workflow test (`test/workflows/`) that dictates with a fake recorder, and check its screenshots (workflow-screenshots skill)
+- [x] 4.1 Write a failing chat-screen test: mic appears when `voice-config` answers 200 and not on 404, and a transcript is inserted at the cursor with a single space and not sent. Wire `DictationController` into `ChatScreen` and `buildChatComposer` (profile switch, dispose and backgrounding cancel) until it passes
+- [x] 4.2 Add `NSMicrophoneUsageDescription` to the iOS and macOS `Info.plist`, `com.apple.security.device.audio-input` to both macOS entitlement files, `RECORD_AUDIO` to the Android manifest, and `pulseaudio-utils` to the `.deb` `Depends` in `scripts/package-linux.sh`; verify with `plutil -lint` and a Linux package build in CI
+- [x] 4.3 Hide the mic in macOS conversation windows, and verify the window engine starts without the `record` plugin registered
+- [x] 4.4 Add a step to the chat workflow test (`test/workflows/`) that dictates with a fake recorder, and check its screenshots (workflow-screenshots skill)
 
 ## 5. Docs and verification
 

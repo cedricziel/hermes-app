@@ -7,6 +7,8 @@ import '../../share/shared_item.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../queued_prompt.dart';
 import '../slash_command.dart';
+import '../../voice/dictation_controller.dart';
+import '../../voice/dictation_view.dart';
 import 'chat_composer.dart';
 
 /// Builds the Hermes [ChatComposer] for flutter_chat_ui's `Chat`, in place of
@@ -15,6 +17,7 @@ import 'chat_composer.dart';
 WidgetBuilder buildChatComposer({
   required TextEditingController controller,
   FocusNode? focusNode,
+  DictationController? dictation,
   required List<SharedFile> attachments,
   required ValueChanged<SharedFile> onRemoveAttachment,
   bool replying = false,
@@ -27,24 +30,39 @@ WidgetBuilder buildChatComposer({
   bool commandRunning = false,
   BotChatContext? botContext,
 }) {
+  Widget composer(
+    ValueChanged<String> onSend,
+    VoidCallback? onAttach,
+    DictationView? dictationView,
+  ) => ChatComposer(
+    controller: controller,
+    focusNode: focusNode,
+    botContext: botContext,
+    onSend: onSend,
+    onAttach: onAttach,
+    attachments: attachments,
+    onRemoveAttachment: onRemoveAttachment,
+    replying: replying,
+    onStop: onStop,
+    queued: queued,
+    onRemoveQueued: onRemoveQueued,
+    onSendQueued: onSendQueued,
+    modelPill: modelPill,
+    slashCommands: slashCommands,
+    commandRunning: commandRunning,
+    dictation: dictationView,
+  );
   return (context) => _ComposerSlot(
-    builder: (onSend, onAttach) => ChatComposer(
-      controller: controller,
-      focusNode: focusNode,
-      botContext: botContext,
-      onSend: onSend,
-      onAttach: onAttach,
-      attachments: attachments,
-      onRemoveAttachment: onRemoveAttachment,
-      replying: replying,
-      onStop: onStop,
-      queued: queued,
-      onRemoveQueued: onRemoveQueued,
-      onSendQueued: onSendQueued,
-      modelPill: modelPill,
-      slashCommands: slashCommands,
-      commandRunning: commandRunning,
-    ),
+    builder: (onSend, onAttach) => dictation == null
+        ? composer(onSend, onAttach, null)
+        : ListenableBuilder(
+            listenable: dictation,
+            builder: (context, _) => composer(
+              onSend,
+              onAttach,
+              dictation.available ? DictationView.of(dictation) : null,
+            ),
+          ),
   );
 }
 

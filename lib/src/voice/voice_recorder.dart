@@ -17,9 +17,11 @@ abstract interface class VoiceRecorder {
 }
 
 /// [VoiceRecorder] on the `record` plugin, which captures on every platform
-/// the app runs on.
+/// the app runs on. The plugin is only reached once dictation is used.
 class RecordVoiceRecorder implements VoiceRecorder {
-  final _recorder = AudioRecorder();
+  AudioRecorder? _plugin;
+
+  AudioRecorder get _recorder => _plugin ??= AudioRecorder();
 
   @override
   Future<bool> requestPermission() => _recorder.hasPermission();
@@ -37,9 +39,12 @@ class RecordVoiceRecorder implements VoiceRecorder {
 
   @override
   Future<void> stop() async {
-    if (await _recorder.isRecording()) await _recorder.stop();
+    final recorder = _plugin;
+    if (recorder != null && await recorder.isRecording()) {
+      await recorder.stop();
+    }
   }
 
   @override
-  Future<void> dispose() => _recorder.dispose();
+  Future<void> dispose() async => _plugin?.dispose();
 }

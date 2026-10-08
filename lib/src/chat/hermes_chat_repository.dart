@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 import '../api/request_timeout.dart';
+import '../voice/voice_support.dart';
 import 'chat_models.dart';
 import 'thread_sections.dart';
 import 'stored_content.dart';
@@ -178,6 +179,20 @@ class HermesChatRepository {
       {'transcript': final String transcript} => transcript.trim(),
       _ => '',
     };
+  }
+
+  /// What voice input [profile]'s speech providers allow, or
+  /// [VoiceSupport.none] when the dashboard cannot say (an older one has no
+  /// voice routes).
+  Future<VoiceSupport> voiceSupport({String? profile}) async {
+    try {
+      final response = await _api.getClientVoiceConfigApiAudioVoiceConfigGet(
+        profile: profile,
+      );
+      return VoiceSupport.fromJson(response.data);
+    } on Object {
+      return VoiceSupport.none;
+    }
   }
 
   /// Asks the dashboard to load (or lets it unload) the profile's
