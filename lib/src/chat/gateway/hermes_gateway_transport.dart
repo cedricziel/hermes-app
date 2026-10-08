@@ -24,7 +24,7 @@ typedef GatewayConnect = Future<StreamChannel<String>> Function();
 
 /// The server-to-client request methods the app answers. The gateway sends
 /// many more (vault prompts, desktop bridges); those are refused at once.
-const _handledRequests = {
+const handledServerRequests = {
   'approval',
   'clarify',
   'sudo',
@@ -1708,7 +1708,7 @@ class HermesGatewayTransport implements ChatTransport {
         if (shown == null) _reportUnmapped(event.type);
         return shown == null ? null : (shown, false);
       case GatewayServerRequest request when request.sessionId == runtimeId:
-        final shown = _handledRequests.contains(request.method)
+        final shown = handledServerRequests.contains(request.method)
             ? _fromServerRequest(request)
             : null;
         return shown == null ? null : (shown, true);
@@ -1756,7 +1756,7 @@ class HermesGatewayTransport implements ChatTransport {
     GatewayServerRequest request,
     Set<String> shown,
   ) {
-    if (!_handledRequests.contains(request.method)) return;
+    if (!handledServerRequests.contains(request.method)) return;
     if (!shown.add(request.id)) return;
     final incoming = _fromServerRequest(request);
     if (incoming != null) out.add((incoming, true));
@@ -2534,7 +2534,7 @@ class HermesGatewayTransport implements ChatTransport {
     // session this app is replying in.
     final unmapped = _unmapped = UnmappedEvents();
     client.serverRequests
-        .where((request) => !_handledRequests.contains(request.method))
+        .where((request) => !handledServerRequests.contains(request.method))
         .listen((request) {
           _reportUnmapped(request.method, serverRequest: true, on: unmapped);
           if (_replying.containsKey(request.sessionId)) {
