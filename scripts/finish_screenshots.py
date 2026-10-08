@@ -1,6 +1,6 @@
 """Turns the raw captures from scripts/store-screenshots.sh into store and README images.
 
-    python3 scripts/finish_screenshots.py
+    python3 scripts/finish_screenshots.py [--readme-only]
 
 Reads build/screenshots/<device>-<light|dark>/<screen>.png and writes
 
@@ -8,11 +8,16 @@ Reads build/screenshots/<device>-<light|dark>/<screen>.png and writes
   store rejects transparency), in listing order. Not committed.
 - docs/screenshots/                       smaller copies for the README.
 
+--readme-only writes docs/screenshots/ and nothing else, for captures that must
+not reach the App Store (the README images rendered in a test). Devices with no
+raw capture keep their current README image.
+
 Two things are erased from the raw captures, never added: the address of the
 throwaway dev backend that the account row shows when nobody is signed in
 (where the test reports it), and the window handle iPadOS draws in a corner.
 """
 
+import argparse
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -91,6 +96,10 @@ def mac_canvas(window: Image.Image, appearance: str) -> Image.Image:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Turns raw screenshot captures into store and README images.")
+    parser.add_argument("--readme-only", action="store_true", help="write docs/screenshots/ only")
+    readme_only = parser.parse_args().readme_only
+
     made = 0
     for device, screens in LISTING.items():
         store_dir = STORE / PLATFORM[device] / "en-US"
@@ -106,23 +115,25 @@ def main() -> None:
                 continue
             if not cleared:
                 # A screen dropped from the listing must not linger and get uploaded.
-                for folder in (store_dir, DOCS):
+                for folder in (DOCS,) if readme_only else (store_dir, DOCS):
                     for old in folder.glob(f"{device}-*.png"):
                         old.unlink()
                 cleared = True
             image = tidy(variant, screen, source)
             image = mac_canvas(image, appearance) if device == "mac" else image.convert("RGB")
 
-            store_dir.mkdir(parents=True, exist_ok=True)
             suffix = "" if appearance == "light" else "-dark"
-            image.save(store_dir / f"{device}-{index:02d}-{screen}{suffix}.png", optimize=True)
+            if not readme_only:
+                store_dir.mkdir(parents=True, exist_ok=True)
+                image.save(store_dir / f"{device}-{index:02d}-{screen}{suffix}.png", optimize=True)
 
             DOCS.mkdir(parents=True, exist_ok=True)
             width = README_WIDTH[device]
             small = image.resize((width, round(image.height * width / image.width)), Image.LANCZOS)
             small.save(DOCS / f"{device}-{screen}{suffix}.png", optimize=True)
             made += 1
-    print(f"finished {made} screenshots -> {STORE.relative_to(ROOT)} and {DOCS.relative_to(ROOT)}")
+    targets = DOCS.relative_to(ROOT) if readme_only else f"{STORE.relative_to(ROOT)} and {DOCS.relative_to(ROOT)}"
+    print(f"finished {made} screenshots -> {targets}")
 
 
 if __name__ == "__main__":
