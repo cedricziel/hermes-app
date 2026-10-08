@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
 import '../api/hermes_repositories.dart';
-
-import '../widgets/content_column.dart';
-import 'messaging_setup_screen.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import 'hermes_messaging_repository.dart';
-import 'widgets/messaging_introduction.dart';
+import 'messaging_setup_screen.dart';
+import 'widgets/messaging_platform_row.dart';
 
 /// Lists the messaging platforms Hermes can run as platforms and switches them
-/// on or off. A platform that lacks credentials shows "Needs setup" and
-/// can't be switched on until its row is opened and they are saved.
+/// on or off. A platform that lacks credentials offers "Set Up" in place of
+/// its switch until its row is opened and they are saved.
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({super.key, this.repository});
 
@@ -83,21 +82,15 @@ class _MessagingScreenState extends State<MessagingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: const Text('Messaging'),
-      ),
-      body: ContentColumn(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const MessagingIntroduction(),
-            Expanded(child: _body()),
-          ],
-        ),
-      ),
+    final platforms = _platforms;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    return SettingsScaffold(
+      title: 'Messaging',
+      subtitle: mac && platforms != null
+          ? '${platforms.where((p) => p.enabled).length} of '
+                '${platforms.length} on'
+          : null,
+      body: _body(),
     );
   }
 
@@ -118,31 +111,23 @@ class _MessagingScreenState extends State<MessagingScreen> {
         ),
       );
     }
-    return ListView(
+    return GroupedListView(
       children: [
-        for (final platform in platforms)
-          ListTile(
-            leading: const AppIcon(AppIcons.bot),
-            title: Text(platform.name),
-            subtitle: _subtitle(platform),
-            onTap: () => _setUp(platform),
-            trailing: Switch.adaptive(
-              value: platform.enabled,
-              onChanged: platform.configured || platform.enabled
-                  ? (v) => _toggle(platform, v)
-                  : null,
-            ),
-          ),
+        GroupedSection(
+          dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+          footer:
+              'Connect Hermes to Telegram, Discord, and other messaging '
+              'platforms.',
+          children: [
+            for (final platform in platforms)
+              MessagingPlatformRow(
+                platform: platform,
+                onSetUp: () => _setUp(platform),
+                onToggle: (enabled) => _toggle(platform, enabled),
+              ),
+          ],
+        ),
       ],
     );
-  }
-
-  Widget _subtitle(HermesMessagingPlatform platform) {
-    final lines = [
-      if (platform.description.isNotEmpty) platform.description,
-      if (!platform.configured) 'Needs setup',
-      if (platform.errorMessage != null) platform.errorMessage!,
-    ];
-    return Text(lines.join('\n'));
   }
 }
