@@ -42,11 +42,30 @@ Future<void> _loadFonts() async {
     ])
       read(name),
   ];
-  // The SDK ships no monospace font; Roboto stands in for it, which keeps
-  // code legible but not fixed-width.
-  for (final family in const ['Roboto', 'monospace']) {
+  // Roboto also stands in for the system fonts of the Apple platforms, which
+  // text outside the app's own theme asks for.
+  for (final family in const [
+    'Roboto',
+    '.AppleSystemUIFont',
+    'CupertinoSystemText',
+    'CupertinoSystemDisplay',
+  ]) {
     final loader = FontLoader(family);
     roboto.forEach(loader.addFont);
+    await loader.load();
+  }
+
+  // The SDK ships no monospace font; the one gpt_markdown bundles for code
+  // blocks stands in for the app's own `monospace` as well.
+  final mono = await _readPackageAsset(
+    'gpt_markdown',
+    'lib/fonts/JetBrainsMono-Regular.ttf',
+  );
+  for (final family in const [
+    'monospace',
+    'packages/gpt_markdown/JetBrainsMono',
+  ]) {
+    final loader = FontLoader(family)..addFont(Future.value(mono));
     await loader.load();
   }
 
@@ -54,25 +73,26 @@ Future<void> _loadFonts() async {
     ..addFont(read('MaterialIcons-Regular.otf'));
   await icons.load();
 
-  final cupertino = FontLoader('packages/cupertino_icons/CupertinoIcons')
-    ..addFont(_readCupertinoIcons());
+  final cupertino = FontLoader(
+    'packages/cupertino_icons/CupertinoIcons',
+  )..addFont(_readPackageAsset('cupertino_icons', 'assets/CupertinoIcons.ttf'));
   await cupertino.load();
 }
 
-Future<ByteData> _readCupertinoIcons() async {
+Future<ByteData> _readPackageAsset(String name, String path) async {
   final config = jsonDecode(
     await File('.dart_tool/package_config.json').readAsString(),
   ) as Map<String, dynamic>;
   final package = (config['packages'] as List)
       .cast<Map<String, dynamic>>()
-      .firstWhere((p) => p['name'] == 'cupertino_icons');
+      .firstWhere((p) => p['name'] == name);
   final rootUri = package['rootUri'] as String;
   final root = Uri.parse(rootUri.endsWith('/') ? rootUri : '$rootUri/');
   final bytes = await File.fromUri(
     Directory.current.uri
         .resolve('.dart_tool/package_config.json')
         .resolveUri(root)
-        .resolve('assets/CupertinoIcons.ttf'),
+        .resolve(path),
   ).readAsBytes();
   return ByteData.sublistView(bytes);
 }
@@ -102,23 +122,29 @@ class ScreenshotRecorder {
   final _boundary = GlobalKey();
   var _count = 0;
 
-  /// Loads the fonts (once per run) and sets the window to [size] at a device
-  /// pixel ratio of 1 for the rest of the test. Call it first in the test:
-  /// fonts loaded in a `setUpAll` are ignored by the test renderer.
-  Future<void> start(WidgetTester tester, Size size) async {
+  /// Loads the fonts (once per run) and sets the window to [size] logical
+  /// pixels at [pixelRatio] for the rest of the test. Call it first in the
+  /// test: fonts loaded in a `setUpAll` are ignored by the test renderer.
+  Future<void> start(
+    WidgetTester tester,
+    Size size, {
+    double pixelRatio = 1.0,
+  }) async {
     // A tap that misses would otherwise leave the same screen in every image.
     WidgetController.hitTestWarningShouldBeFatal = true;
     await tester.runAsync(() => _fontsLoaded ??= _loadFonts());
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = size * pixelRatio;
+    tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.reset);
   }
 
   Widget frame(Widget child) => RepaintBoundary(key: _boundary, child: child);
 
-  /// Writes what is on screen now to `<flow>/<step>-<name>.png`. A phone is
-  /// saved at twice its logical size, a desktop window at its own.
-  Future<void> capture(WidgetTester tester, String name) async {
+  /// The PNG of what is on screen now, [pixelRatio] times its logical size.
+  Future<Uint8List> render(
+    WidgetTester tester, {
+    required double pixelRatio,
+  }) async {
     final boundary =
         _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
     // Tests draw every elevation shadow as a hard black outline. Repaint the
@@ -132,19 +158,30 @@ class ScreenshotRecorder {
     repaint(boundary);
     try {
       await tester.pump();
-      _count++;
-      final step = _count.toString().padLeft(2, '0');
-      final file = File('$_shotsRoot/$flow/$step-$name.png');
-      final pixelRatio = boundary.size.width > phoneSize.width * 2 ? 1.0 : 2.0;
-      await tester.runAsync(() async {
+      return (await tester.runAsync(() async {
         final image = await boundary.toImage(pixelRatio: pixelRatio);
         final png = await image.toByteData(format: ui.ImageByteFormat.png);
         image.dispose();
-        await file.parent.create(recursive: true);
-        await file.writeAsBytes(png!.buffer.asUint8List());
-      });
+        return png!.buffer.asUint8List();
+      }))!;
     } finally {
       debugDisableShadows = true;
     }
+  }
+
+  /// Writes what is on screen now to `<flow>/<step>-<name>.png`. A phone is
+  /// saved at twice its logical size, a desktop window at its own.
+  Future<void> capture(WidgetTester tester, String name) async {
+    final boundary =
+        _boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    final pixelRatio = boundary.size.width > phoneSize.width * 2 ? 1.0 : 2.0;
+    final png = await render(tester, pixelRatio: pixelRatio);
+    _count++;
+    final step = _count.toString().padLeft(2, '0');
+    final file = File('$_shotsRoot/$flow/$step-$name.png');
+    await tester.runAsync(() async {
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(png);
+    });
   }
 }
