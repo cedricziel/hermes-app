@@ -4,10 +4,10 @@ Two stacked PRs, each about 500 changed lines or fewer: `feat(voice): transcribe
 
 ## 1. Capture and transcription
 
-- [ ] 1.1 Add `record` to `pubspec.yaml`, run `flutter pub get`, and verify `flutter build macos --debug` still links
-- [ ] 1.2 Write failing tests for a binary dashboard socket (ticket when gated, token otherwise, `profile` in the query, path `/api/audio/transcribe-stream`), then extend `gateway/gateway_connection.dart` until they pass
-- [ ] 1.3 Write failing tests for `TranscribeStream` against a fake `StreamChannel`: sample-rate frame first, PCM buffered until open, `eos` on finish, partial/final/error frames, close without `eos` on cancel, 5 s open timeout. Build `lib/src/voice/transcribe_stream.dart` until they pass
-- [ ] 1.4 Write failing tests for the WAV wrapper (header fields for 16 kHz mono 16-bit, data length) and the `voice-config` parser (usable unless the request fails, 404, or `stt.reason` is `stt disabled` or `no credentials`; reads `stt.streaming`; ignores `api_key`), then build them in `lib/src/voice/`
+- [x] 1.1 Add `record` to `pubspec.yaml`, run `flutter pub get`, and verify `flutter build macos --debug` still links
+- [x] 1.2 Write failing tests for a binary dashboard socket (ticket when gated, token otherwise, `profile` in the query, path `/api/audio/transcribe-stream`), then extend `gateway/gateway_connection.dart` until they pass
+- [x] 1.3 Write failing tests for `TranscribeStream` against a fake `StreamChannel`: sample-rate frame first, PCM buffered until open, `eos` on finish, partial/final/error frames, close without `eos` on cancel, 5 s open timeout. Build `lib/src/voice/transcribe_stream.dart` until they pass
+- [x] 1.4 Write failing tests for the WAV wrapper (header fields for 16 kHz mono 16-bit, data length) and the `voice-config` parser (usable unless the request fails, 404, or `stt.reason` is `stt disabled` or `no credentials`; reads `stt.streaming`; ignores `api_key`), then build them in `lib/src/voice/`
 
 ## 2. Dictation controller
 
