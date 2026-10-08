@@ -1779,8 +1779,8 @@ void main() {
       };
     }
 
-    test('a queued prompt whose turns both ended while disconnected shows the '
-        'stored reply instead of swallowing it', () {
+    test('a queued prompt whose turns both ended while disconnected is '
+        'refetched, not shown from the stored thread', () {
       fake((async) {
         queuedThenDrop(gateway);
         gateway.resumeResult = stored([
@@ -1796,10 +1796,26 @@ void main() {
         expect(seen.error, isNull);
         expect(seen.done, isTrue);
         expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
-        expect(
-          seen.events.whereType<ReplyCompleted>().single.text,
-          'the real reply',
-        );
+        expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
+      });
+    });
+
+    test('a queued prompt that repeats the turn ahead\'s text is not given '
+        'that turn\'s reply', () {
+      fake((async) {
+        queuedThenDrop(gateway);
+        gateway.resumeResult = stored([
+          {'role': 'user', 'text': 'continue'},
+          {'role': 'assistant', 'text': 'the turn ahead'},
+        ]);
+
+        final seen = _listen(transport.send(text: 'continue', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
       });
     });
 
