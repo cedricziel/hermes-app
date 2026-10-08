@@ -4,6 +4,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
 import 'host.dart';
+import 'settings_chrome_use_cases.dart';
 
 /// A profile with a few helper slots set and a model list to pick from.
 FakeHermesServer helperModelsServer({bool withMoa = true}) {
@@ -50,10 +51,10 @@ HelperModelsScreen helperModelsScreen(FakeHermesServer server) =>
       profile: 'work',
     );
 
-WidgetbookUseCase _helperModels(String name, {bool withMoa = true}) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (_) => Hosted<FakeHermesServer>(
+List<WidgetbookUseCase> _helperModels(String name, {bool withMoa = true}) =>
+    onEachPlatform(
+      name,
+      (_) => Hosted<FakeHermesServer>(
         create: () => helperModelsServer(withMoa: withMoa),
         builder: (_, server) => helperModelsScreen(server),
       ),
@@ -65,8 +66,8 @@ WidgetbookNode settingsScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'HelperModelsScreen',
       useCases: [
-        _helperModels('Slots and mixture of agents'),
-        _helperModels('Without mixture of agents', withMoa: false),
+        ..._helperModels('Slots and mixture of agents'),
+        ..._helperModels('Without mixture of agents', withMoa: false),
       ],
     ),
   ],

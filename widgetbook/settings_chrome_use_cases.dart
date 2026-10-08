@@ -16,7 +16,7 @@ const _platforms = {
 };
 
 /// One use case per platform, named after the state and the platform.
-List<WidgetbookUseCase> _onEach(
+List<WidgetbookUseCase> onEachPlatform(
   String state,
   Widget Function(BuildContext context) builder,
 ) => [
@@ -36,21 +36,30 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SettingsScaffold',
       useCases: [
-        ..._onEach('Tabs, search and add', (_) => const _Pushed(_TabsPage())),
-        ..._onEach('List with add menu', (_) => const _Pushed(_ListPage())),
-        ..._onEach('Loading', (_) => const _Pushed(_LoadingPage())),
+        ...onEachPlatform(
+          'Tabs, search and add',
+          (_) => const _Pushed(_TabsPage()),
+        ),
+        ...onEachPlatform(
+          'List with add menu',
+          (_) => const _Pushed(_ListPage()),
+        ),
+        ...onEachPlatform('Loading', (_) => const _Pushed(_LoadingPage())),
       ],
     ),
     WidgetbookComponent(
       name: 'GroupedSection',
       useCases: [
-        ..._onEach(
+        ...onEachPlatform(
           'Status and chevrons',
           (context) => _list(_statusSections(context)),
         ),
-        ..._onEach('Switches', (_) => _list(_switchSections())),
-        ..._onEach('Meta, warning and selection', (_) => _list(_metaSection())),
-        ..._onEach(
+        ...onEachPlatform('Switches', (_) => _list(_switchSections())),
+        ...onEachPlatform(
+          'Meta, warning and selection',
+          (_) => _list(_metaSection()),
+        ),
+        ...onEachPlatform(
           'Tiles, captions and errors',
           (context) => _list(_tileSections(context)),
         ),
@@ -59,9 +68,9 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SettingsSearchField',
       useCases: [
-        ..._onEach('Empty', (_) => _searchField(query: '')),
-        ..._onEach('Query', (_) => _searchField(query: 'calendar')),
-        ..._onEach(
+        ...onEachPlatform('Empty', (_) => _searchField(query: '')),
+        ...onEachPlatform('Query', (_) => _searchField(query: 'calendar')),
+        ...onEachPlatform(
           'Filter in use',
           (_) => _searchField(query: '', filterActive: true),
         ),
