@@ -705,6 +705,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
+      _refetchIfIdle(thread);
       final profile = _profile;
       unawaited(
         load.then((_) {
@@ -1282,9 +1283,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
-        // A send that gave up asks for the thread to be read again first: what
-        // Hermes ran meanwhile is in its history.
-        _refetchIfIdle(thread);
+        // A refetch the send asked for just before failing waits for the next
+        // read: now it would replace the failed reply, its error and the
+        // prompt Hermes may never have stored. It stays in [_refetch] until
+        // the next reply ends or the thread is opened.
       } else if (error == null) {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a

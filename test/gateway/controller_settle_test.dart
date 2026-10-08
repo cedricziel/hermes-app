@@ -523,23 +523,46 @@ void main() {
       },
     );
 
-    test(
-      'ThreadNeedsRefetch just before the send fails reads the thread once the '
-      'reply has failed',
-      () async {
-        rig.chat.submit('Plan', const []);
-        rig.transport.sends.last
-          ..emit(const ThreadNeedsRefetch())
-          ..fail();
-        await pumpEventQueue();
+    test('ThreadNeedsRefetch just before the send fails keeps the failed reply '
+        'on screen and reads the thread at the next open', () async {
+      rig.chat.submit('Plan', const []);
+      rig.transport.sends.last
+        ..emit(const ThreadNeedsRefetch())
+        ..fail();
+      await pumpEventQueue();
 
-        expect(
-          rig.chat.selectedThread!.messages.last.status,
-          isNot(MessageStatus.thinking),
-        );
-        expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
-      },
-    );
+      final shown = rig.chat.selectedThread!.messages;
+      expect(shown.where((m) => m.content == 'Plan'), hasLength(1));
+      expect(shown.last.status, MessageStatus.error);
+      expect(shown.last.error, isNotNull);
+      expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
+
+      rig.chat.select('s1');
+      await pumpEventQueue();
+
+      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+
+      rig.chat.select('s1');
+      await pumpEventQueue();
+
+      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+    });
+
+    test('ThreadNeedsRefetch just before the send fails is read when the next '
+        'reply ends', () async {
+      rig.chat.submit('Plan', const []);
+      rig.transport.sends.last
+        ..emit(const ThreadNeedsRefetch())
+        ..fail();
+      await pumpEventQueue();
+      expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
+
+      rig.chat.submit('Again', const []);
+      rig.complete(rig.transport.sends.last);
+      await pumpEventQueue();
+
+      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+    });
 
     test(
       'ThreadNeedsRefetch on follow-ups with no reply open reads the thread at '
