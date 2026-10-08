@@ -741,6 +741,40 @@ void main() {
     });
   });
 
+  group('silence probe on a turn nobody submitted (476)', () {
+    test('Auto-continue after resume: a silent turn the probe ends as broken '
+        'clears the status the send showed', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = {
+            'session_id': 'rt-2',
+            'session_key': 'stored-2',
+            'auto_continue': {'attempt': 1},
+          }
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) => g.event('message.start', 'rt-2');
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+        ]);
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+          '',
+        ]);
+      });
+    });
+  });
+
   group('silence probe on a chained turn', () {
     /// A transport whose first reply ended, with a follow-up stream listening
     /// and a turn Hermes chained on its own under way and then silent.

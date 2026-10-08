@@ -852,7 +852,16 @@ class HermesGatewayTransport implements ChatTransport {
         }
       }
       while (true) {
-        while (await _advance(watch, storedId)) {
+        while (true) {
+          final bool more;
+          try {
+            more = await _advance(watch, storedId);
+          } on GatewayConnectionClosed {
+            // The probe ended the reply as broken: no turn is being finished.
+            if (finishing) yield const ReplyStatus('');
+            rethrow;
+          }
+          if (!more) break;
           drops.frame(clock.now());
           final incoming = watch.events.current;
           if (incoming == null) continue;
