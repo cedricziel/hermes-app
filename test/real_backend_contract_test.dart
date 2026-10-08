@@ -40,6 +40,7 @@ import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/skills/hermes_skills_hub_repository.dart';
 import 'package:hermes_app/src/skills/hermes_skills_repository.dart';
+import 'package:hermes_app/src/telemetry/hermes_server_attributes.dart';
 
 import 'support/attachment_fixtures.dart';
 
@@ -103,6 +104,34 @@ void main() {
       ),
     );
   });
+
+  test('the status carries the fields telemetry describes the server '
+      'with', () async {
+    final status = (await Dio().get<Map<String, dynamic>>('$url/api/status'))
+        .data!;
+
+    expect(status['version'], isA<String>());
+    expect(status['config_version'], isA<int>());
+    expect(status['auth_required'], isA<bool>());
+    expect(status['auth_providers'], everyElement(isA<String>()));
+    expect(status['gateway_mode'], isA<String>());
+    expect(status['profiles'], everyElement(isA<String>()));
+    expect(status['gateway_state'], anyOf(isNull, isA<String>()));
+    expect(status['overall'], anyOf('ok', 'degraded'));
+    if (status.containsKey('install_id')) {
+      expect(status['install_id'], isA<String>());
+    }
+    expect(
+      hermesServerAttributes(status).keys,
+      containsAll([
+        'hermes.version',
+        'hermes.config_version',
+        'hermes.auth.required',
+        'hermes.gateway.mode',
+        'hermes.overall',
+      ]),
+    );
+  }, skip: skip);
 
   test('sessions load as threads', () async {
     final threads = await HermesChatRepository(client.raw).loadThreads();
