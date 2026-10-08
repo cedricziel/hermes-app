@@ -68,6 +68,8 @@
 	<!-- file_picker links DKImagePickerController, whose code references the
 	     location API. The app never calls it, but App Store validation
 	     (ITMS-90683) still wants a purpose string. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hermes records your voice when you dictate a message and sends it to your Hermes server to turn into text.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Hermes can read the location stored in a photo you attach to a chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

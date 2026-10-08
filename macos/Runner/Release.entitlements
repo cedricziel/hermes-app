@@ -11,6 +11,8 @@
 		<string>group.com.cedricziel.hermesApp</string>
 	</array>
 	<!-- REST calls to the configured Hermes dashboard. -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<!-- The native OAuth loopback listener (see NativeLoginFlow) binds a
