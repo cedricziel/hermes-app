@@ -3,7 +3,7 @@
 # throwaway Hermes backend seeded with invented demo chats.
 #
 #   scripts/store-screenshots.sh ios [iphone|ipad]   # simulators, light and dark
-#   scripts/store-screenshots.sh mac       # the Mac window at its default (compact) size
+#   scripts/store-screenshots.sh mac [compact]  # the Mac window, wide (or at its default size)
 #   scripts/store-screenshots.sh watch     # the watch app, through its paired phone (~3 min)
 #   scripts/store-screenshots.sh finish    # flatten, tidy and size what was taken
 #
@@ -12,8 +12,7 @@
 # them) and the README-sized ones in docs/screenshots/.
 #
 # The Mac run opens the app and takes over the screen for a few minutes (the
-# window has to be in front to be captured), so leave the machine alone. The
-# wide Mac shots are taken by hand; see the store-screenshots skill.
+# window has to be in front to be captured), so leave the machine alone.
 #
 # Needs `hermes` on PATH (see scripts/dev-backend.sh), Xcode with iOS 26
 # simulators and Python 3 with Pillow. Each run boots the two simulators and
@@ -27,7 +26,17 @@ IPHONE="${SHOT_IPHONE:-iPhone 17 Pro Max}"
 IPAD="${SHOT_IPAD:-iPad Pro 13-inch (M5)}"
 WATCH="${SHOT_WATCH:-Apple Watch Ultra 4 (49mm)}"
 RUNTIME="${SHOT_RUNTIME:-iOS-26}"
-HERMES_PYTHON="${HERMES_PYTHON:-$HOME/.hermes/hermes-agent/venv/bin/python}"
+
+# The interpreter the installed hermes runs on, which has its dependencies.
+hermes_python() {
+  if [[ -n "${HERMES_PYTHON:-}" ]]; then
+    echo "$HERMES_PYTHON"
+  elif hermes --print-runtime-command >/dev/null 2>&1; then
+    hermes --print-runtime-command | python3 -c 'import json, sys; print(json.load(sys.stdin)[0])'
+  else
+    echo "$HOME/.hermes/hermes-agent/venv/bin/python"
+  fi
+}
 
 udid_of() {
   xcrun simctl list devices available -j | python3 -c '
@@ -48,7 +57,8 @@ start_backend() {
   "$ROOT_DIR/scripts/dev-backend.sh" stop >&2 || true
   rm -f "$home"/state.db*
   "$ROOT_DIR/scripts/dev-backend.sh" start >&2
-  HERMES_HOME="$home" "$HERMES_PYTHON" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2
+  # Runs inside $(...), where a failure would not stop the script.
+  HERMES_HOME="$home" "$(hermes_python)" "$ROOT_DIR/scripts/seed_demo_sessions.py" >&2 || exit 1
   "$ROOT_DIR/scripts/dev-backend.sh" url
 }
 
@@ -94,23 +104,22 @@ cmd_ios() { # [iphone|ipad]
 }
 
 # The Mac window opens at 800x600, below the 900 point breakpoint of the wide
-# layout, so this run takes the compact layout, into mac-compact-*. The wide
-# shots are taken with the user widening the window by hand (see the
-# store-screenshots skill) into mac-*, and finish prefers those. Widening the
-# window from a script needs Accessibility permission, and changing the size in
-# the xib or in MainFlutterWindow.swift did not change the built app's window.
-cmd_mac() {
-  local url process
+# layout, so the test resizes it to SHOT_MAC_WINDOW first (points; the
+# finished image is 2880x1800 pixels). `mac compact` keeps the default size,
+# into mac-compact-*.
+cmd_mac() { # [compact]
+  local url process label=mac size="${SHOT_MAC_WINDOW:-1440x900}"
+  if [[ "${1:-}" == compact ]]; then label=mac-compact size=""; fi
   process="$(sed -n 's/^PRODUCT_NAME *= *//p' "$ROOT_DIR/macos/Runner/Configs/AppInfo.xcconfig")"
   url="$(start_backend)"
   for appearance in dark light; do
-    echo "== mac ($appearance)"
-    rm -rf "$RAW_DIR/mac-compact-$appearance"
-    SHOT_PORT="$PORT" SHOT_MAC_PROCESS="$process" SHOT_DIR="$RAW_DIR/mac-compact-$appearance" \
+    echo "== $label ($appearance)"
+    rm -rf "$RAW_DIR/$label-$appearance"
+    SHOT_PORT="$PORT" SHOT_MAC_PROCESS="$process" SHOT_DIR="$RAW_DIR/$label-$appearance" \
       flutter drive --driver=test_driver/integration_test.dart \
       --target=integration_test/store_screenshots_test.dart -d macos \
       --dart-define=HERMES_SERVER_URL="$url" --dart-define=SHOT_PORT="$PORT" \
-      --dart-define=SHOT_THEME="$appearance"
+      --dart-define=SHOT_THEME="$appearance" --dart-define=SHOT_WINDOW="$size"
   done
   "$ROOT_DIR/scripts/dev-backend.sh" stop || true
 }
@@ -163,11 +172,11 @@ cmd_watch() {
 
 case "${1:-}" in
   ios) shift; cmd_ios "$@" ;;
-  mac) cmd_mac ;;
+  mac) shift; cmd_mac "$@" ;;
   watch) cmd_watch ;;
   finish) python3 "$ROOT_DIR/scripts/finish_screenshots.py" ;;
   *)
-    echo "usage: $0 ios [iphone|ipad] | mac | watch | finish" >&2
+    echo "usage: $0 ios [iphone|ipad] | mac [compact] | watch | finish" >&2
     exit 2
     ;;
 esac
