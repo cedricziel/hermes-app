@@ -29,3 +29,12 @@ String? mcpAuthKindLabel(McpAuthKind kind) => switch (kind) {
   McpAuthKind.none => 'No auth',
   McpAuthKind.unknown => null,
 };
+
+/// A server's facts on one line, such as "Remote · OAuth · 2 tools · Off":
+/// the tool count once a test has listed them.
+String mcpServerMeta(HermesMcpServer server, HermesMcpTestResult? tested) => [
+  ?mcpTransportLabel(server.transport),
+  ?mcpAuthLabel(server),
+  if (tested != null && tested.ok) mcpPlural(tested.tools.length, 'tool'),
+  if (!server.enabled) 'Off',
+].join(' · ');
