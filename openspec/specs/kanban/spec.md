@@ -3,7 +3,9 @@
 ## Purpose
 
 Describes how the app surfaces the Hermes dashboard's optional Kanban plugin: when the Kanban tab is offered, how the Chat and Kanban destinations are laid out on narrow and wide screens, how the board is displayed and filtered, how it stays current, and how tasks are opened, created, changed, commented on, triaged and dispatched, how several are changed at once, how boards, runs, logs and attachments are handled, and which backend routes it relies on.
+
 ## Requirements
+
 ### Requirement: Plugin detection gates the Kanban tab
 
 The system SHALL offer the Kanban destination only while the server reports the Kanban plugin as on. It SHALL ask `GET /api/dashboard/plugins` and treat the plugin as on when the returned list contains an entry named `kanban`. Any failure to get a usable answer (network error, an error status, a body that is not a list, a server too old to have the route) SHALL count as off. While the plugin is off and no other destination is offered, the signed-in home screen SHALL be the chat alone, without any navigation bar or rail.
@@ -301,7 +303,7 @@ On macOS the open task SHALL be shown in a 380-point inspector on the right of t
 
 ### Requirement: Tasks are created from a form
 
-The system SHALL offer a "New task" action on the board that opens a form with a title, a description, an assignee (defaulting to "Auto (triage picks)", with the profiles and assignees the board knows as options), a priority of Normal or P1 to P3, and a start of Triage (the default) or Todo. Creating SHALL call `POST /api/plugins/kanban/tasks` with the selected board and, when a tenant filter is active, that tenant. A task without a title SHALL NOT be sent. When the plugin answers with a dispatcher warning, the system SHALL show it. When the plugin refuses the task, the form SHALL stay open and show the plugin's reason.
+The system SHALL offer a "New task" action on the board that opens a form with a title, a description, an assignee (defaulting to "Auto (triage picks)", with the profiles and assignees the board knows as options), a model (defaulting to "Profile default"), a priority of Normal or P1 to P3, and a start of Triage (the default) or Todo. Creating SHALL call `POST /api/plugins/kanban/tasks` with the selected board and, when a tenant filter is active, that tenant. A task without a title SHALL NOT be sent. When the plugin answers with a dispatcher warning, the system SHALL show it. When the plugin refuses the task, the form SHALL stay open and show the plugin's reason.
 
 #### Scenario: Create a triage task
 
@@ -479,3 +481,21 @@ The system SHALL rely only on routes of the Kanban plugin bundled with Hermes Ag
 - **WHEN** the contract test runs with `HERMES_DEV_URL` pointing at a Hermes Agent dashboard
 - **THEN** the plugin is reported as on, a task can be created, commented on, blocked and deleted, and the event stream announces a new task
 
+### Requirement: A new task can run on a chosen model
+
+The create form SHALL load the models it offers from `GET /api/plugins/kanban/model-options`, which answers `{"providers": [{"slug", "label", "models": [<model id>]}]}` and lists only providers the user configured. Tapping the form's model row SHALL open a picker with a "Use the profile's default" entry, then each provider's models under its label, and, once a model is picked, the reasoning efforts Minimal, Low, Medium, High, Extra High, Max and Ultra. Creating the task with a picked model SHALL send `model_override` (the model id) and `provider_override` (the provider slug), plus `reasoning_effort` (`minimal` to `ultra`) when an effort is picked. With the profile's default, none of the three SHALL be sent. When the answer lists no provider, or the request fails, the row SHALL be a text field instead, and a non-empty name SHALL be sent as `model_override` alone. The route and fields are those of the Kanban plugin in Hermes Agent 0.21.4; an older plugin that lacks the route gets the text field.
+
+#### Scenario: Create a task on a chosen model
+
+- **WHEN** the user picks `claude-opus-4` under Anthropic with effort High and creates the task
+- **THEN** the request carries `model_override: "claude-opus-4"`, `provider_override: "anthropic"` and `reasoning_effort: "high"`
+
+#### Scenario: Back to the profile default
+
+- **WHEN** the user picks a model, then picks "Use the profile's default", and creates the task
+- **THEN** the request carries no `model_override`, `provider_override` or `reasoning_effort`
+
+#### Scenario: No models listed
+
+- **WHEN** the plugin answers `{"providers": []}` and the user types `gpt-5` into the model field
+- **THEN** the request carries `model_override: "gpt-5"` and no provider or effort
