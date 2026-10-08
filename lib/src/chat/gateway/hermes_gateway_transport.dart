@@ -912,6 +912,12 @@ class HermesGatewayTransport implements ChatTransport {
               own.add(incoming);
             }
           }
+          if (_rotatedIn(resumed.ended, storedId) case final rotated?) {
+            final next = (profile, rotated);
+            _rekey(owner, next);
+            owner = next;
+            storedId = rotated;
+          }
           if (resumed.idle case final idle?) {
             idle.leaveBacklog(setAside);
             await _park(owner, idle);
@@ -1058,6 +1064,21 @@ class HermesGatewayTransport implements ChatTransport {
         'value': effort,
       });
     }
+  }
+
+  /// The stored id the thread was given while the app was disconnected: the
+  /// last one a `session.info` of [ended] reports other than [current]. The
+  /// events of a turn that ended meanwhile are only shown, never read by the
+  /// loop that follows a live turn, so the rotation is found here.
+  static String? _rotatedIn(Iterable<_Incoming> ended, String current) {
+    String? rotated;
+    for (final (event, _) in ended) {
+      if (event is SessionInfo) {
+        final id = event.storedSessionId;
+        if (id != null && id.isNotEmpty) rotated = id;
+      }
+    }
+    return rotated == current ? null : rotated;
   }
 
   /// Moves what is kept for the thread [from] to [to], after compression gave
@@ -1873,6 +1894,11 @@ class HermesGatewayTransport implements ChatTransport {
         _beginReply(runtimeId, key);
         final live = resumed.watch;
         if (live == null) {
+          if (_rotatedIn(resumed.ended, key.$2) case final rotated?) {
+            final next = (key.$1, rotated);
+            _rekey(key, next);
+            key = next;
+          }
           final idle = resumed.idle;
           if (idle != null) await _park(key, idle);
           for (final (event, serverRequest) in resumed.ended) {
