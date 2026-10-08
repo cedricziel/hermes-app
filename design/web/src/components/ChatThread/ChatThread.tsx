@@ -53,6 +53,8 @@ export interface AssistantTurn {
   stopped?: boolean;
   /** The reply failed: a red note under what arrived. */
   error?: string;
+  /** What Hermes' background review saved after this reply (see `AssistantMessage` `reviewNotes`). */
+  reviewNotes?: string[];
   /** Nothing has arrived for a while: the thinking indicator, with seconds elapsed and what Hermes is doing. */
   thinking?: { elapsedSeconds: number; activity?: string };
 }
@@ -65,6 +67,8 @@ export interface ChatThreadProps {
   turns: ChatTurn[];
   /** "Try again" under the latest finished reply (the app offers it on that one only). */
   onRetry?: () => void;
+  /** "Edit prompt" under the latest finished reply, next to "Try again": the app drops that turn and puts its prompt back in the composer. */
+  onEdit?: () => void;
   /** An approval was answered; `turn` is its index in `turns`. */
   onAnswerApproval?: (turn: number, choice: ApprovalChoice) => void;
   /** A clarify request was answered; `turn` is its index in `turns`. */
@@ -85,6 +89,7 @@ export interface ChatThreadProps {
 export function ChatThread({
   turns,
   onRetry,
+  onEdit,
   onAnswerApproval,
   onAnswerClarify,
   platform,
@@ -106,6 +111,7 @@ export function ChatThread({
                 <AssistantTurnParts
                   turn={turn}
                   onRetry={i === latest ? onRetry : undefined}
+                  onEdit={i === latest ? onEdit : undefined}
                   onAnswerApproval={(choice) => onAnswerApproval?.(i, choice)}
                   onAnswerClarify={(answers) => onAnswerClarify?.(i, answers)}
                 />
@@ -121,11 +127,13 @@ export function ChatThread({
 function AssistantTurnParts({
   turn,
   onRetry,
+  onEdit,
   onAnswerApproval,
   onAnswerClarify,
 }: {
   turn: AssistantTurn;
   onRetry?: () => void;
+  onEdit?: () => void;
   onAnswerApproval: (choice: ApprovalChoice) => void;
   onAnswerClarify: (answers: Record<string, string[]>) => void;
 }) {
@@ -156,6 +164,8 @@ function AssistantTurnParts({
           stopped={turn.stopped}
           error={turn.error}
           onRetry={onRetry}
+          onEdit={onEdit}
+          reviewNotes={turn.reviewNotes}
         />
       ) : null}
       {turn.thinking ? <ThinkingIndicator {...turn.thinking} /> : null}

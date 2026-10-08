@@ -125,8 +125,8 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   `ShellDestination` gained `bots` and `profiles` (`MacProfilesPage` in the shell). `Menu` items gained `heading`
   and `detail`.
 - Mac follow-ups #444 and #445: Sign Out asks first (`AppShell`/`ChatScreen` `signOutConfirmOpen`, the internal
-  `SignOutAlert` in `MacAccount.tsx`, an Apple `AlertDialog`); `MacProfilesPage` documents that Messaging counts per
-  profile while Plugins is counted only for the chat's profile (left out of `counts` otherwise, `OtherProfile` cell); a chat opened in its own window leaves the main window
+  `SignOutAlert` in `MacAccount.tsx`, an Apple `AlertDialog`); `MacProfilesPage` counts every section per profile,
+  Messaging (#445) and Plugins (#497) included (`OtherProfile` cell); a chat opened in its own window leaves the main window
   (welcome view, empty composer) and its draft moves to `ConversationWindowScreen`'s composer (`CarriedOverDraft`
   cell). The Hermes menu's Connection Details and Sign Out… are native menu bar items with no card.
 - The Kanban toolbar and task panel menus have no outside-click or Escape dismissal (ThreadSidebar's
@@ -173,6 +173,12 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Small additions to shared parts for these: `KanbanToolbar` `showSearch`, `showMore`, `onOpenMenu` and
   `onMoreAction`; `KanbanColumn` `showHandles`; `ListDetailLayout` `onOpenMenu`; `ScheduleJobRow` Mac cards and a
   status line that wraps the next run under it; `FactList` `mono`.
+
+- Chat follow-ups #463 and #495: the latest reply's actions are Copy, Try again and Edit prompt (`AssistantMessage`
+  `onEdit`, `ChatThread onEdit`, `ChatScreen`/`ConversationWindowScreen` `onEditPrompt`); what the background review
+  saved is `AssistantMessage reviewNotes` (`ChatTurn.reviewNotes`), the app's `ReviewSummaryNote`: a 16px bookmark
+  (`bookmark_added`, the app's `AppIcons.memory`) and the entries joined with " · " in 13px muted text, under the
+  actions. The app hides Edit prompt while an undo is in flight; that transient state is not drawn.
 
 ## Known gaps in the recreations
 

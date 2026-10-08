@@ -19,11 +19,25 @@ export const Reply = () => (
   </div>
 );
 
+/** The latest reply: Copy, Try again and Edit prompt (#463). */
 export const LatestWithRetry = () => (
   <div style={{ width: 720 }}>
     <AssistantMessage
       text="Yes. Every retry reused the same stale pin, so each one failed the same way. Run `backup-agent repin --env staging` to fix it."
       onRetry={() => {}}
+      onEdit={() => {}}
+    />
+  </div>
+);
+
+/** What Hermes' background review saved after reading the reply (#495), under its actions. */
+export const ReviewSaved = () => (
+  <div style={{ width: 720 }}>
+    <AssistantMessage
+      text="Noted: staging deploys go out after 18:00 and need a green smoke test first. I'll check both before the next one."
+      onRetry={() => {}}
+      onEdit={() => {}}
+      reviewNotes={["Memory updated", "Skill 'staging-deploy' patched"]}
     />
   </div>
 );
@@ -61,11 +75,17 @@ export const Dark = () => (
     theme="dark"
     style={{ padding: 16, borderRadius: 14, width: 720 }}
   >
-    <AssistantMessage text={reply} copied onRetry={() => {}} />
+    <AssistantMessage
+      text={reply}
+      copied
+      onRetry={() => {}}
+      onEdit={() => {}}
+      reviewNotes={["Memory updated"]}
+    />
   </HermesProvider>
 );
 
-/** Material (top) and iOS (bottom): 14.5px vs 17px Body text, 32px vs 44px action buttons. */
+/** Material (top) and iOS (bottom): 14.5px vs 17px Body text, 32px vs 44px action buttons, the review note's bookmark glyph from each set. */
 export const PlatformCompare = () => (
   <div
     style={{ width: 640, display: "flex", flexDirection: "column", gap: 16 }}
@@ -73,11 +93,15 @@ export const PlatformCompare = () => (
     <AssistantMessage
       text="Every retry reused the same stale pin. Run `backup-agent repin --env staging`."
       onRetry={() => {}}
+      onEdit={() => {}}
+      reviewNotes={["Memory updated"]}
     />
     <HermesProvider platform="apple">
       <AssistantMessage
         text="Every retry reused the same stale pin. Run `backup-agent repin --env staging`."
         onRetry={() => {}}
+        onEdit={() => {}}
+        reviewNotes={["Memory updated"]}
       />
     </HermesProvider>
   </div>

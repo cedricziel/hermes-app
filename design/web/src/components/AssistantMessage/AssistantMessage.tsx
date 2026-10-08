@@ -27,8 +27,17 @@ export interface AssistantMessageProps {
   onCopy?: () => void;
   /** Shows the "Try again" action (only on the latest reply) and is called by it. */
   onRetry?: () => void;
+  /** Shows the "Edit prompt" action after "Try again" (only on the latest reply): the app drops that turn and puts its prompt back in the composer. */
+  onEdit?: () => void;
   /**
-   * `apple`: the copy and retry buttons are 44x44px (the glyph stays 16px),
+   * What Hermes' background review saved after reading this reply, one entry
+   * per change ("Memory updated", "Skill 'deploy-checklist' patched"). Shown
+   * under the actions as one muted line, joined with " · ", after a bookmark
+   * icon. Live only: a reply read from history has none.
+   */
+  reviewNotes?: string[];
+  /**
+   * `apple`: the copy, retry and edit buttons are 44x44px (the glyph stays 16px),
    * the iOS minimum tap target; text is 17px Body when the provider's ramp is
    * `ios`. Inherits the provider's platform.
    */
@@ -37,8 +46,8 @@ export interface AssistantMessageProps {
 
 /**
  * The assistant's reply in a chat: bare Markdown prose with no bubble, then a
- * small row of actions (copy, try again) once it has finished, and an error
- * note when it failed.
+ * small row of actions (copy, try again, edit prompt) once it has finished,
+ * an error note when it failed, and what Hermes saved after reading it.
  */
 export function AssistantMessage({
   text,
@@ -50,6 +59,8 @@ export function AssistantMessage({
   copied = false,
   onCopy,
   onRetry,
+  onEdit,
+  reviewNotes,
   platform,
 }: AssistantMessageProps) {
   const resolvedPlatform = usePlatform(platform);
@@ -57,7 +68,7 @@ export function AssistantMessage({
   const body = children ?? (text ? <Markdown source={text} /> : null);
   const copyVisible = showCopy ?? Boolean(text || children);
   const actionsVisible =
-    !streaming && (copyVisible || Boolean(onRetry) || stopped);
+    !streaming && (copyVisible || Boolean(onRetry) || Boolean(onEdit) || stopped);
   return (
     <PlatformScope platform={resolvedPlatform}>
       <div
@@ -103,6 +114,27 @@ export function AssistantMessage({
                 <Icon name="refresh" size={16} />
               </button>
             ) : null}
+            {onEdit ? (
+              <button
+                type="button"
+                className="h-assistant-message__action"
+                aria-label="Edit prompt"
+                title="Edit prompt"
+                onClick={onEdit}
+              >
+                <Icon name="edit" size={16} />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        {reviewNotes?.length ? (
+          <div
+            className="h-assistant-message__review"
+            role="note"
+            aria-label={`Hermes saved: ${reviewNotes.join(" · ")}`}
+          >
+            <Icon name="bookmark_added" size={16} />
+            <span>{reviewNotes.join(" · ")}</span>
           </div>
         ) : null}
       </div>

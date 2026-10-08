@@ -64,10 +64,8 @@ export interface MacProfilesPageProps {
    * How many of each the selected profile holds: skills, messaging
    * platforms switched on, plugins switched on, MCP servers and helper
    * model slots. A section left out (still loading, or unreadable) shows no
-   * count. Every count is the selected profile's own, Messaging included
-   * (#445), except Plugins: the dashboard's plugin hub takes no profile, so
-   * the app counts plugins only while the chat's own profile is selected
-   * and leaves `plugins` out for any other one.
+   * count. Every count is the selected profile's own, Messaging (#445) and
+   * Plugins (#497) included.
    */
   counts?: Partial<Record<ProfileSection, number>>;
   /** The server's host, in the subtitle: "4 profiles on hermes.example.com". */
