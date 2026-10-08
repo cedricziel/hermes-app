@@ -84,13 +84,38 @@ class KanbanEventsTracer extends MessagingConnectionTracer {
 }
 
 /// Traces and logs every request to the Hermes backend on [tracer] and
-/// [logger].
-Interceptor httpInterceptor(Logger logger, Tracer? tracer) =>
-    DioOTelInterceptor.privacy(
-      logger,
-      tracer: tracer,
-      attributes: const {'peer.service': 'hermes-agent'},
-    );
+/// [logger], each described with [serverAttributes].
+Interceptor httpInterceptor(
+  Logger logger,
+  Tracer? tracer, {
+  Map<String, Object> serverAttributes = const {},
+}) => DioOTelInterceptor.privacy(
+  logger,
+  tracer: tracer,
+  attributes: {...serverAttributes, 'peer.service': 'hermes-agent'},
+);
+
+/// The telemetry of one connection to a Hermes server: what its HTTP clients
+/// are traced with and what its events are logged through.
+class ConnectionTelemetry {
+  const ConnectionTelemetry({
+    this.interceptor,
+    this.events = noopAppEventLogger,
+  });
+
+  /// For when telemetry is off.
+  static ConnectionTelemetry off(Map<String, Object> serverAttributes) =>
+      const ConnectionTelemetry();
+
+  final Interceptor? interceptor;
+  final AppEventLogger events;
+}
+
+/// Builds the [ConnectionTelemetry] of a connection to a server described by
+/// `serverAttributes`, or of no connection yet when it is empty.
+typedef ConnectionTelemetryFactory = ConnectionTelemetry Function(
+  Map<String, Object> serverAttributes,
+);
 
 class Telemetry {
   Telemetry._(this._sdk);
@@ -166,6 +191,29 @@ class Telemetry {
     final sdk = _sdk;
     if (sdk == null) return null;
     return httpInterceptor(sdk.getLogger(), sdk.getTracer());
+  }
+
+  /// The telemetry of a connection to a server described by
+  /// [serverAttributes]: its requests' spans and log records and its events'
+  /// log records carry them, while breadcrumbs keep only what each event
+  /// passed. Nothing when disabled.
+  ConnectionTelemetry forConnection(Map<String, Object> serverAttributes) {
+    final sdk = _sdk;
+    if (sdk == null) return const ConnectionTelemetry();
+    final log = appEventLogger(sdk.getLogger());
+    return ConnectionTelemetry(
+      interceptor: httpInterceptor(
+        sdk.getLogger(),
+        sdk.getTracer(),
+        serverAttributes: serverAttributes,
+      ),
+      events: _breadcrumbs.asAppEventLogger(
+        serverAttributes.isEmpty
+            ? log
+            : (name, [attributes = const {}]) =>
+                  log(name, {...serverAttributes, ...attributes}),
+      ),
+    );
   }
 
   /// Traces the gateway socket; does nothing when disabled.
