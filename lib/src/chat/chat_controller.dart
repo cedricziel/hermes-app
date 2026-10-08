@@ -456,9 +456,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// The turn of [thread] that ended in a failed reply and is still its last,
   /// to show after the [history] a read brought: the prompt, unless the history
-  /// already ends with it, and the failed reply with its error and Retry. It
-  /// is dropped once the history holds an answer to that prompt, and a later
-  /// send leaves it behind the thread's last message anyway.
+  /// already holds it, and the failed reply with its error and Retry. It is
+  /// dropped once an assistant message follows the prompt in the history, and
+  /// a later send leaves it behind the thread's last message anyway.
+  ///
+  /// A prompt repeats earlier ones, so it is found by its place among the user
+  /// messages of the same text: with n of them before it here, the history
+  /// holds it only when it has more than n, and its occurrence is the next.
   List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
     final messages = thread.messages;
     final reply = messages.lastOrNull;
@@ -468,15 +472,20 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       return const [];
     }
     final promptAt = messages.lastIndexWhere((m) => m.role == ChatRole.user);
-    final prompt = promptAt < 0 ? null : messages[promptAt];
-    final lastUser = history.lastIndexWhere((m) => m.role == ChatRole.user);
-    final stored =
-        prompt != null &&
-        lastUser >= 0 &&
-        history[lastUser].content == prompt.content;
-    // The prompt is in the history and something answered it.
-    if (stored && lastUser < history.length - 1) return const [];
-    return [if (prompt != null && !stored) prompt, reply];
+    if (promptAt < 0) return [reply];
+    final prompt = messages[promptAt];
+    bool same(ChatMessage m) =>
+        m.role == ChatRole.user && m.content == prompt.content;
+    final before = messages.take(promptAt).where(same).length;
+    final occurrences = [
+      for (var i = 0; i < history.length; i++)
+        if (same(history[i])) i,
+    ];
+    if (occurrences.length <= before) return [prompt, reply];
+    final answered = history
+        .skip(occurrences[before] + 1)
+        .any((m) => m.role == ChatRole.assistant);
+    return answered ? const [] : [reply];
   }
 
   /// Whether [target] names a chat on [profile]. A thread id is only unique

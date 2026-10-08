@@ -1376,8 +1376,9 @@ The system SHALL show a turn Hermes runs on a thread without a prompt from this 
 
 - **WHEN** a prompt sent behind such a turn fails because the connection could not be restored
 - **THEN** the thread is read again as soon as the send has failed, so that turn is shown once from the stored history, and the follow-ups do not replay it
-- **AND** after that history the failed reply stays with its error and Retry, preceded by the prompt unless the history already ends with it
+- **AND** after that history the failed reply stays with its error and Retry, preceded by the prompt unless the history already holds it
 - **AND** the failed turn goes once the user retries or sends again, or a later read finds an answer to that prompt
+- **AND** a prompt that repeats an earlier one is told apart by its place among the prompts of the same text, so an older answered copy does not drop the failed turn
 
 #### Scenario: Missed start of a chained turn
 

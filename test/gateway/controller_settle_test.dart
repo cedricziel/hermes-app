@@ -626,6 +626,48 @@ void main() {
       },
     );
 
+    test(
+      'A repeated prompt keeps its failed turn next to an older answered '
+      'one, until the history holds the new occurrence with an answer',
+      () async {
+        final earlier = [
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'user', content: 'Plan'),
+          messageRow(id: 3, role: 'assistant', content: 'Done'),
+        ];
+        historyIs(earlier, lastActive: 1780000200);
+        await rig.chat.refreshThread('s1');
+        expect(shownTexts(), ['user:Hi', 'user:Plan', 'assistant:Done']);
+
+        await giveUpWithSetAsideTurn();
+
+        expect(shownTexts().take(4), [
+          'user:Hi',
+          'user:Plan',
+          'assistant:Done',
+          'user:Plan',
+        ]);
+        final thread = rig.chat.selectedThread!;
+        expect(thread.messages, hasLength(5));
+        expect(thread.messages.last.status, MessageStatus.error);
+
+        historyIs([
+          ...earlier,
+          messageRow(id: 4, role: 'user', content: 'Plan'),
+          messageRow(id: 5, role: 'assistant', content: 'Done again'),
+        ], lastActive: 1780000500);
+        await rig.chat.refreshThread('s1');
+
+        expect(shownTexts(), [
+          'user:Hi',
+          'user:Plan',
+          'assistant:Done',
+          'user:Plan',
+          'assistant:Done again',
+        ]);
+      },
+    );
+
     test('The kept failed turn goes once the user sends again', () async {
       historyIs([
         messageRow(id: 1, role: 'user', content: 'Hi'),
