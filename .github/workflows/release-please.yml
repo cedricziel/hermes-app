@@ -137,6 +137,14 @@ jobs:
           OTLP_INGEST_URL: ${{ secrets.OTLP_INGEST_URL }}
           OTLP_INGEST_KEY: ${{ secrets.OTLP_INGEST_KEY }}
           RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
+          # The demo account Beta App Review signs in with.
+          REVIEW_CONTACT_FIRST_NAME: ${{ secrets.REVIEW_CONTACT_FIRST_NAME }}
+          REVIEW_CONTACT_LAST_NAME: ${{ secrets.REVIEW_CONTACT_LAST_NAME }}
+          REVIEW_CONTACT_PHONE: ${{ secrets.REVIEW_CONTACT_PHONE }}
+          REVIEW_CONTACT_EMAIL: ${{ secrets.REVIEW_CONTACT_EMAIL }}
+          REVIEW_DEMO_URL: ${{ secrets.REVIEW_DEMO_URL }}
+          REVIEW_DEMO_USER: ${{ secrets.REVIEW_DEMO_USER }}
+          REVIEW_DEMO_PASSWORD: ${{ secrets.REVIEW_DEMO_PASSWORD }}
           FASTLANE_HIDE_CHANGELOG: "true"
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "5"
