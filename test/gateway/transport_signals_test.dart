@@ -245,14 +245,8 @@ void main() {
       final sent = await reply(threadId: 'stored-2');
       final later = await followed(3);
 
-      expect(_types(sent), [
-        ReplyStatus,
-        ReplyStatus,
-        ReplyStarted,
-        ReplyDelta,
-        ReplyCompleted,
-      ]);
-      expect((sent[3] as ReplyDelta).text, 'mine');
+      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect((sent[1] as ReplyDelta).text, 'mine');
       expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
       expect((later[1] as ReplyDelta).text, 'resumed work');
     });
@@ -270,13 +264,7 @@ void main() {
       final sent = await reply(threadId: 'stored-2');
       final later = await followed(4);
 
-      expect(_types(sent), [
-        ReplyStatus,
-        ReplyStatus,
-        ReplyStarted,
-        ReplyDelta,
-        ReplyCompleted,
-      ]);
+      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
       expect((sent.last as ReplyCompleted).failed, isFalse);
       expect(_types(later), [
         ReplyStarted,
@@ -284,6 +272,25 @@ void main() {
         ReplyCompleted,
         SessionInfo,
       ]);
+    });
+
+    test('Auto-continue after resume: an approval of a turn that is already '
+        'over is not a live card, and the send shows no status', () async {
+      gateway.beforeSubmitAnswer = (g) {
+        unsolicitedTurn(g);
+        g.serverRequest('srq-old', 'approval', 'rt-2', {
+          'command': 'rm -rf build',
+          'description': 'delete files',
+          'choices': ['once', 'deny'],
+          'tool_name': 'terminal',
+        });
+        unsolicitedEnd(g);
+      };
+      gateway.turn = submittedTurn;
+
+      final sent = await reply(threadId: 'stored-2');
+
+      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
     });
 
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
@@ -361,6 +368,33 @@ void main() {
       ]);
     });
 
+    test('Auto-continue after resume: a drop that ends the turn clears the '
+        'status the send showed', () async {
+      final dropping = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..resumeResult = autoContinue
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = unsolicitedTurn;
+      final reconnecting = HermesGatewayTransport(connect: dropping.connect);
+      addTearDown(reconnecting.close);
+      dropping.turn = (g, sid) {
+        g.drop();
+        unsolicitedEnd(g);
+        submittedTurn(g, sid);
+      };
+
+      final sent = await reconnecting
+          .send(threadId: 'stored-2', text: 'hi')
+          .toList()
+          .timeout(const Duration(seconds: 5));
+
+      expect(sent.whereType<ReplyStatus>().map((e) => e.text), [
+        'Hermes is finishing the interrupted turn…',
+        '',
+      ]);
+    });
+
     group('while the turn nobody submitted still runs', () {
       const approval = {
         'command': 'rm -rf build',
@@ -408,6 +442,39 @@ void main() {
           'Hermes is finishing the interrupted turn…',
           '',
         ]);
+      });
+
+      test('Auto-continue after resume: when the turn ends, the send withdraws '
+          'the requests it passed through', () async {
+        final seen = queuedBehindApproval();
+        await pumpEventQueue();
+        expect(await transport.answerApproval('srq-1', 'once'), isTrue);
+
+        unsolicitedEnd(gateway);
+        await pumpEventQueue();
+
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+        expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+      });
+
+      test('Auto-continue after resume: a request already withdrawn is not '
+          'withdrawn again when the turn ends', () async {
+        final seen = queuedBehindApproval();
+        await pumpEventQueue();
+        gateway.event('approval.cancelled', '', {'session_id': 'rt-2'});
+        await pumpEventQueue();
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          isEmpty,
+        );
+
+        unsolicitedEnd(gateway);
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<InputRequestsCancelled>(), hasLength(1));
       });
 
       test('Auto-continue after resume: the follow-ups do not repeat a request '

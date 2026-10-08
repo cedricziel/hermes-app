@@ -356,7 +356,26 @@ void main() {
       });
     });
 
-    test('a thread picked up after its turn ended is reported as settled', () {
+    test('a thread picked up while its turn runs is reported once it '
+        'settles', () async {
+      gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+
+      _listen(transport.followUps('stored-1'));
+      await pumpEventQueue();
+      expect(events.named('gateway.turn_settled'), isEmpty);
+
+      gateway.event('message.complete', 'rt-1', {
+        'text': 'Done',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+
+      expect(events.named('gateway.turn_settled'), [
+        {'via': 'complete'},
+      ]);
+    });
+
+    test('opening an idle thread with a stored reply logs no settle', () {
       fake((async) {
         gateway.resumeResult = {
           'session_id': 'rt-1',
@@ -366,12 +385,62 @@ void main() {
           ],
         };
 
+        final seen = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(seen.events.whereType<ReplyCompleted>(), isNotEmpty);
+        expect(events.named('gateway.turn_settled'), isEmpty);
+      });
+    });
+
+    test('opening an idle thread with nothing stored logs no settle', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+
         _listen(transport.followUps('stored-1'));
         async.flushMicrotasks();
 
-        expect(events.named('gateway.turn_settled'), [
-          {'via': 'complete'},
-        ]);
+        expect(events.named('gateway.turn_settled'), isEmpty);
+      });
+    });
+
+    group('a queued prompt whose connection dropped', () {
+      /// The turn ahead of the prompt ends while the socket is down, and the
+      /// replay hands over its completion before the prompt's own turn began.
+      void queuedBehindEndedTurn(FakeAsync async, {required Duration after}) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.submitStatus = 'queued';
+        gateway.turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        async.elapse(after);
+        gateway.drop();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'old',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+      }
+
+      test('the idle report that stands in for the turn ahead is not a settle '
+          'inside the grace', () {
+        fake((async) {
+          queuedBehindEndedTurn(async, after: const Duration(seconds: 1));
+
+          expect(events.named('gateway.reconnect'), hasLength(1));
+          expect(events.named('gateway.turn_settled'), isEmpty);
+        });
+      });
+
+      test('the same report is a settle once the grace has passed', () {
+        fake((async) {
+          queuedBehindEndedTurn(async, after: const Duration(seconds: 20));
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+        });
       });
     });
 
