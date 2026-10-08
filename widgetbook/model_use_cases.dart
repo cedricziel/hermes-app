@@ -8,6 +8,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
+import 'settings_chrome_use_cases.dart';
 
 const _longModel = ModelChoice(
   'openrouter',
@@ -139,22 +140,25 @@ WidgetbookNode modelNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'HelperModelList',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Pinned and on the main model',
-          builder: (_) => HelperModelList(models: helperModels, onTap: (_) {}),
+        ...onEachPlatform(
+          'Pinned and on the main model',
+          (_) => HelperModelList(models: helperModels, onTap: (_) {}),
         ),
-        WidgetbookUseCase(
-          name: 'With mixture of agents',
-          builder: (_) => HelperModelList(
-            models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 3)),
+        ...onEachPlatform(
+          'With mixture of agents',
+          (_) => HelperModelList(
+            models: AuxiliaryModels(
+              main: helperModels.main,
+              slots: helperModels.slots.sublist(0, 3),
+            ),
             onTap: (_) {},
             moa: helperMoa(),
             onTapMoa: (_) {},
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Named MoA preset, advisor off, saving',
-          builder: (_) => HelperModelList(
+        ...onEachPlatform(
+          'Named MoA preset, advisor off, saving',
+          (_) => HelperModelList(
             models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 2)),
             onTap: (_) {},
             moa: helperMoa(preset: 'deep-research', advisorOff: true),
@@ -162,25 +166,25 @@ WidgetbookNode modelNode() => WidgetbookFolder(
             saving: const {'moa-aggregator'},
           ),
         ),
-        WidgetbookUseCase(
-          name: 'MoA locked by the privacy filter',
-          builder: (_) => HelperModelList(
+        ...onEachPlatform(
+          'MoA locked by the privacy filter',
+          (_) => HelperModelList(
             models: AuxiliaryModels(slots: helperModels.slots.sublist(0, 2)),
             onTap: (_) {},
             moa: helperMoa(privacyFilter: true),
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Saving a slot',
-          builder: (_) => HelperModelList(
+        ...onEachPlatform(
+          'Saving a slot',
+          (_) => HelperModelList(
             models: helperModels,
             saving: const {'vision'},
             onTap: (_) {},
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Main model unknown',
-          builder: (_) => HelperModelList(
+        ...onEachPlatform(
+          'Main model unknown',
+          (_) => HelperModelList(
             models: AuxiliaryModels(slots: helperModels.slots.sublist(1, 3)),
             onTap: (_) {},
           ),

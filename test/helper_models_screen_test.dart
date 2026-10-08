@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/settings/helper_models_screen.dart';
@@ -56,10 +57,13 @@ void main() {
       jsonBody(r)! as Map<String, Object?>,
   ];
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    TargetPlatform? platform,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme().copyWith(platform: platform),
         home: HelperModelsScreen(
           repository: HermesModelsRepository(server.client().raw),
           profile: 'work',
@@ -80,10 +84,16 @@ void main() {
     await pumpScreen(tester);
 
     expect(find.text('Vision'), findsOneWidget);
-    expect(find.text('Same as main model (claude-opus-4)'), findsOneWidget);
+    expect(find.text('Main model'), findsOneWidget);
     expect(find.text('Chat titles'), findsOneWidget);
-    expect(find.text('gemini-flash · openrouter · Low'), findsOneWidget);
-    expect(find.textContaining('new chats'), findsOneWidget);
+    expect(find.text('gemini-flash'), findsOneWidget);
+    expect(
+      find.text(
+        'Hermes runs side jobs on these models. Main model is '
+        'claude-opus-4. Changes apply to new chats.',
+      ),
+      findsOneWidget,
+    );
     expect(
       server.requestsTo('GET', '/api/model/auxiliary').single.queryParameters,
       {'profile': 'work'},
@@ -108,7 +118,7 @@ void main() {
     expect(server.requestsTo('POST', '/api/model/set').single.queryParameters, {
       'profile': 'work',
     });
-    expect(find.text('gpt-5-mini · openai'), findsOneWidget);
+    expect(find.text('gpt-5-mini'), findsOneWidget);
   });
 
   testWidgets('closing without a change sends nothing', (tester) async {
@@ -134,7 +144,7 @@ void main() {
     expect(posts().single, containsPair('provider', 'auto'));
     expect(posts().single, containsPair('model', ''));
     expect(posts().single, containsPair('task', 'title_generation'));
-    expect(find.text('Same as main model (claude-opus-4)'), findsNWidgets(2));
+    expect(find.text('Main model'), findsNWidgets(2));
   });
 
   group('an expensive model', () {
@@ -172,7 +182,7 @@ void main() {
 
       expect(posts(), hasLength(2));
       expect(posts().last, containsPair('confirm_expensive_model', true));
-      expect(find.text('gpt-5-pro · openai'), findsOneWidget);
+      expect(find.text('gpt-5-pro'), findsOneWidget);
     });
 
     testWidgets('is not saved when declined', (tester) async {
@@ -182,7 +192,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(posts(), hasLength(1));
-      expect(find.text('Same as main model (claude-opus-4)'), findsOneWidget);
+      expect(find.text('Main model'), findsOneWidget);
     });
   });
 
@@ -197,7 +207,25 @@ void main() {
     await closePicker(tester);
 
     expect(find.text('Could not change Vision'), findsOneWidget);
-    expect(find.text('Same as main model (claude-opus-4)'), findsOneWidget);
+    expect(find.text('Main model'), findsOneWidget);
+  });
+
+  testWidgets('on the Mac a pop-up button picks the model', (tester) async {
+    await pumpScreen(tester, platform: TargetPlatform.macOS);
+    final semantics = tester.ensureSemantics();
+    final row = tester.getSemantics(find.byKey(const Key('helper-vision')));
+    expect(row.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    semantics.dispose();
+
+    expect(find.text('work · main model claude-opus-4'), findsOneWidget);
+    expect(find.textContaining('Main model is'), findsNothing);
+    await tester.tap(find.text('Main model'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('gpt-5-mini'));
+    await tester.pump();
+    await closePicker(tester);
+
+    expect(posts().single, containsPair('task', 'vision'));
   });
 
   testWidgets('a failed load offers a retry', (tester) async {
@@ -248,12 +276,12 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text('Mixture of agents'), findsOneWidget);
-      expect(find.text('gpt-5.5 · openai-codex'), findsOneWidget);
-      expect(find.text('Advisor 2 (off)'), findsOneWidget);
-      expect(
-        find.text('deepseek/deepseek-v4-pro · openrouter · High'),
-        findsOneWidget,
-      );
+      expect(find.text('gpt-5.5'), findsOneWidget);
+      expect(find.text('Advisor 2'), findsOneWidget);
+      expect(find.text('Off'), findsOneWidget);
+      expect(find.text('Preset'), findsOneWidget);
+      expect(find.text('Default'), findsOneWidget);
+      expect(find.text('deepseek-v4-pro'), findsNothing);
       expect(
         server.requestsTo('GET', '/api/model/moa').single.queryParameters,
         {'profile': 'work'},
@@ -282,7 +310,7 @@ void main() {
         server.requestsTo('PUT', '/api/model/moa').single.queryParameters,
         {'profile': 'work'},
       );
-      expect(find.text('gpt-5-mini · openai'), findsOneWidget);
+      expect(find.text('gpt-5-mini'), findsOneWidget);
       expect(posts(), isEmpty);
     });
 
@@ -318,10 +346,7 @@ void main() {
       await pickAggregator(tester);
 
       expect(find.text('Could not change Aggregator'), findsOneWidget);
-      expect(
-        find.text('anthropic/claude-opus-4.8 · openrouter'),
-        findsOneWidget,
-      );
+      expect(find.text('claude-opus-4.8'), findsOneWidget);
     });
 
     testWidgets('does not save while the privacy filter is on', (tester) async {
