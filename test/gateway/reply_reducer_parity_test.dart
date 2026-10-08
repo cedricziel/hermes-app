@@ -339,6 +339,24 @@ void main() {
       expect(reply.content, 'Step two');
     });
 
+    test('a rebuild strips a sealed segment a checkpoint rewrote by the text '
+        'it streamed as', () {
+      final reply = _placeholder();
+
+      applyReplyEvent(reply, const ReplyDelta('Let me look. '));
+      applyReplyEvent(reply, const ToolPreparing('terminal'));
+      applyReplyEvent(reply, const ReplyCheckpoint('Let me take a look.'));
+      applyReplyEvent(reply, const ToolStarted(id: 't1', name: 'terminal'));
+      applyReplyEvent(reply, const ReplyDelta('Found '));
+      applyReplyEvent(
+        reply,
+        const ReplyRebuilt('Let me look. Found it, and more'),
+      );
+
+      expect(_sealedTexts(reply), ['Let me take a look.']);
+      expect(reply.content, 'Found it, and more');
+    });
+
     test('an interrupt cancelling one request expires only that request', () {
       final reply = _placeholder();
 

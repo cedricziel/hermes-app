@@ -581,10 +581,15 @@ class SealedProse {
     this.text, {
     required this.beforeToolCall,
     this.awaitingCheckpoint = false,
+    this.streamed,
   });
 
   final String text;
   final int beforeToolCall;
+
+  /// The text as it streamed, when a checkpoint rewrote [text] afterwards.
+  /// Hermes' snapshot of a running turn joins the streamed form.
+  final String? streamed;
 
   /// Sealed from what streamed, when the model began writing a tool call;
   /// Hermes' checkpoint for the same text is still to come and replaces it.

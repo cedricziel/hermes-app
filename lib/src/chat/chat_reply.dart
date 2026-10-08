@@ -39,6 +39,7 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
             text,
             beforeToolCall: sealed.last.beforeToolCall,
             awaitingCheckpoint: true,
+            streamed: sealed.last.streamed ?? sealed.last.text,
           );
         return;
       }
@@ -225,13 +226,19 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
 /// a tool call, so each sealed segment is skipped where it sits in the
 /// snapshot, in order. A segment the snapshot does not hold (a checkpoint
 /// that never streamed) is left out of the search, and when none is found the
-/// snapshot is kept whole: a repeat is better than a loss.
+/// snapshot is kept whole: a repeat is better than a loss. A segment a
+/// checkpoint rewrote is searched as it streamed first, since that is what the
+/// snapshot holds.
 String _unsealed(ChatMessage reply, String rebuilt) {
   var from = 0;
   for (final segment in reply.sealedProse) {
-    if (segment.text.isEmpty) continue;
-    final at = rebuilt.indexOf(segment.text, from);
-    if (at >= 0) from = at + segment.text.length;
+    for (final text in [?segment.streamed, segment.text]) {
+      if (text.isEmpty) continue;
+      final at = rebuilt.indexOf(text, from);
+      if (at < 0) continue;
+      from = at + text.length;
+      break;
+    }
   }
   return rebuilt.substring(from);
 }
@@ -283,6 +290,7 @@ void _closeCheckpoint(ChatMessage reply) {
     ..last = SealedProse(
       sealed.last.text,
       beforeToolCall: sealed.last.beforeToolCall,
+      streamed: sealed.last.streamed,
     );
 }
 
