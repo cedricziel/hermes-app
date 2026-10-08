@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/settings/helper_models_screen.dart';
@@ -211,6 +212,10 @@ void main() {
 
   testWidgets('on the Mac a pop-up button picks the model', (tester) async {
     await pumpScreen(tester, platform: TargetPlatform.macOS);
+    final semantics = tester.ensureSemantics();
+    final row = tester.getSemantics(find.byKey(const Key('helper-vision')));
+    expect(row.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+    semantics.dispose();
 
     expect(find.text('work · main model claude-opus-4'), findsOneWidget);
     expect(find.textContaining('Main model is'), findsNothing);

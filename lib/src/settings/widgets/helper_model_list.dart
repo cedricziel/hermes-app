@@ -179,6 +179,7 @@ class _PopUpValue extends StatelessWidget {
       button: true,
       enabled: enabled,
       value: value,
+      onTap: onPressed,
       excludeSemantics: true,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 260),
