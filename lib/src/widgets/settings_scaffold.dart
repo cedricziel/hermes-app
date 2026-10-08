@@ -6,6 +6,7 @@ import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import 'adaptive_back_button.dart';
+import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'named_icon_button.dart';
 import 'named_popup_menu_button.dart';
@@ -41,6 +42,51 @@ class SettingsBarAction {
   final Key? key;
 }
 
+/// A menu that a settings page's subtitle opens, such as the profiles a page
+/// can show; the subtitle then ends in a small chevron.
+class SettingsSubtitleMenu<T> {
+  const SettingsSubtitleMenu({
+    required this.label,
+    required this.itemBuilder,
+    required this.onSelected,
+  });
+
+  /// The button's accessible name, such as "Profile".
+  final String label;
+  final PopupMenuItemBuilder<T> itemBuilder;
+  final ValueChanged<T> onSelected;
+
+  Widget _button(BuildContext context, Widget subtitle) {
+    final muted = context.hermesColors.subtleText;
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      widthFactor: 1,
+      child: MergeSemantics(
+        child: Semantics(
+          button: true,
+          label: label,
+          child: AdaptivePopupMenuButton<T>(
+            key: const Key('settings-subtitle-menu'),
+            tooltip: '',
+            padding: EdgeInsets.zero,
+            position: PopupMenuPosition.under,
+            onSelected: onSelected,
+            itemBuilder: itemBuilder,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: 2,
+              children: [
+                Flexible(child: subtitle),
+                AppIcon(AppIcons.expandMore, size: 12, color: muted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A settings page (Skills, Plugins, MCP servers…) with its platform's bar:
 ///
 /// - iOS: a 44 point bar with a back chevron, the title centered over the
@@ -57,6 +103,7 @@ class SettingsScaffold extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleMenu,
     this.previousTitle = 'Chat',
     this.actions = const [],
     this.tabs,
@@ -69,6 +116,9 @@ class SettingsScaffold extends StatelessWidget {
 
   /// A muted line under the title, such as "work · 12 skills".
   final String? subtitle;
+
+  /// Makes the [subtitle] a button that opens this menu.
+  final SettingsSubtitleMenu<Object?>? subtitleMenu;
 
   /// The title of the page underneath, which the iOS back button shows.
   final String? previousTitle;
@@ -95,6 +145,7 @@ class SettingsScaffold extends StatelessWidget {
           MacToolbar(
             title: title,
             subtitle: subtitle,
+            subtitleBuilder: subtitleMenu?._button,
             // A page pushed over the whole window sits under the title bar.
             clearTrafficLights:
                 MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
@@ -177,7 +228,12 @@ class SettingsScaffold extends StatelessWidget {
         centerTitle: ios,
         leading: AdaptiveBackButton(previousTitle: previousTitle),
         leadingWidth: adaptiveBackLeadingWidth(context),
-        title: _BarTitle(title: title, subtitle: subtitle, ios: ios),
+        title: _BarTitle(
+          title: title,
+          subtitle: subtitle,
+          subtitleMenu: subtitleMenu,
+          ios: ios,
+        ),
         actions: [
           for (final action in actions) _phoneAction(context, action, ios),
           SizedBox(width: ios ? 4 : 8),
@@ -248,11 +304,13 @@ class _BarTitle extends StatelessWidget {
   const _BarTitle({
     required this.title,
     required this.subtitle,
+    required this.subtitleMenu,
     required this.ios,
   });
 
   final String title;
   final String? subtitle;
+  final SettingsSubtitleMenu<Object?>? subtitleMenu;
   final bool ios;
 
   @override
@@ -276,19 +334,23 @@ class _BarTitle extends StatelessWidget {
             color: onSurface,
           ),
         ),
-        if (subtitle != null)
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.2,
-              color: context.hermesColors.subtleText,
-            ),
-          ),
+        if (subtitle != null) _subtitle(context, subtitle),
       ],
     );
+  }
+
+  Widget _subtitle(BuildContext context, String subtitle) {
+    final text = Text(
+      subtitle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        height: 1.2,
+        color: context.hermesColors.subtleText,
+      ),
+    );
+    return subtitleMenu?._button(context, text) ?? text;
   }
 }

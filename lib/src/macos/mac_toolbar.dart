@@ -19,6 +19,7 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleBuilder,
     this.leading,
     this.actions = const [],
     this.border = false,
@@ -27,6 +28,9 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
 
   final String title;
   final String? subtitle;
+
+  /// Wraps the [subtitle], such as in a button that opens a menu.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
 
   /// A control before the title, such as a back button.
   final Widget? leading;
@@ -84,7 +88,11 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
               const SizedBox(width: 8),
             ],
             Expanded(
-              child: MacToolbarTitle(title: title, subtitle: subtitle),
+              child: MacToolbarTitle(
+                title: title,
+                subtitle: subtitle,
+                subtitleBuilder: subtitleBuilder,
+              ),
             ),
             for (final action in actions) ...[const SizedBox(width: 4), action],
           ],
@@ -97,10 +105,18 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
 /// A toolbar's title in 13 point bold, with an optional 11 point muted line
 /// under it.
 class MacToolbarTitle extends StatelessWidget {
-  const MacToolbarTitle({super.key, required this.title, this.subtitle});
+  const MacToolbarTitle({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.subtitleBuilder,
+  });
 
   final String title;
   final String? subtitle;
+
+  /// Wraps the [subtitle], such as in a button that opens a menu.
+  final Widget Function(BuildContext context, Widget subtitle)? subtitleBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -122,15 +138,19 @@ class MacToolbarTitle extends StatelessWidget {
             color: onSurface,
           ),
         ),
-        if (subtitle != null)
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, height: 1.25, color: muted),
-          ),
+        if (subtitle != null) _subtitle(context, subtitle, muted),
       ],
     );
+  }
+
+  Widget _subtitle(BuildContext context, String subtitle, Color muted) {
+    final text = Text(
+      subtitle,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: 11, height: 1.25, color: muted),
+    );
+    return subtitleBuilder?.call(context, text) ?? text;
   }
 }
 
