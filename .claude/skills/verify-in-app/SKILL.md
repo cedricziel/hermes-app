@@ -424,6 +424,43 @@ providers:
   `ws://<host>/api/ws?token=<session token>`, then `session.create`,
   `prompt.submit`, and read `event` messages until `message.complete`.
 
+## A reply across a dropped socket
+
+Check the reconnect path by cutting the app's websocket mid-reply while the
+backend keeps running: the server goes on with the turn and the app has to pick
+it up again. Needs a model that streams for a few seconds (see "A local model",
+or the scripted one under "Scripted tool calls" with "slow" in the prompt) and
+`socat`.
+
+1. Put a forwarding proxy in front of the throwaway backend and run the app
+   against the proxy, not the backend (`dev-app.sh` always uses the backend's
+   own address, so start the app by hand as in "Sign-in against a real
+   server"):
+
+   ```bash
+   BACKEND=$(scripts/dev-backend.sh url | sed 's|.*://||')
+   socat TCP-LISTEN:18777,fork,reuseaddr TCP:$BACKEND &
+   PROXY=$!
+   flutter run -d macos --dart-define=HERMES_SERVER_URL=http://127.0.0.1:18777
+   ```
+
+2. Send a prompt that makes a long reply, such as "Count from 1 to 60, one
+   number per line", and wait for the first lines to stream.
+3. Drop the connections, not the server: `kill $(pgrep -P $PROXY)` ends every
+   connection the proxy holds (each `socat` child is one) and leaves the
+   listener, so the app can reconnect through it. Never kill the backend or run
+   `hermes dashboard --stop`.
+4. The reply must finish on its own. Screenshot it: it completes once, with no
+   duplicated or missing lines and no second bubble, and the thread is not
+   marked failed, and the `flutter run` console shows no uncaught errors.
+5. Repeat once between turns, with the reply already finished: nothing should
+   appear or repeat.
+6. Stop the proxy (`kill $PROXY`) with the app and the backend.
+
+If a drop loses or repeats text, reproduce it first in
+`test/gateway/transport_reconnect_test.dart`, which drives the same path with a
+fake gateway.
+
 ## Hermes Agent setup
 
 `hermes` must be on PATH (tested with v0.21.3). Nothing installs it for you,
