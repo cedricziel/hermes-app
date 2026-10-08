@@ -3,7 +3,9 @@
 ## Purpose
 
 The chat screen is the app's main destination once the user is connected and signed in. It lists the conversations ("threads") the Hermes dashboard holds, shows their messages, sends new messages to the agent over the dashboard's `/api/ws` JSON-RPC socket, streams the reply, and lets the user answer the agent when it stops to ask for approval or clarification. This spec describes the behaviour of the code as it is today.
+
 ## Requirements
+
 ### Requirement: Thread list loading
 
 The system SHALL load the first page of the thread list from the dashboard when the chat screen opens, showing a progress indicator while it loads, and SHALL list threads with the most recently active first. Archived sessions SHALL be left out of the list.
@@ -140,6 +142,7 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 
 - **WHEN** the user opens a thread whose messages were already loaded, or that was created in this session
 - **THEN** its messages are shown from memory without another request
+- **AND** this holds after a send that gave up too: the read it asked for happens when the send fails, not when the thread is opened
 
 #### Scenario: Loading messages fails
 
@@ -1189,7 +1192,6 @@ On macOS the sidebar SHALL stay beside the content down to a window width of 760
 - **WHEN** the user opens the sidebar in a 700 point window and picks a thread
 - **THEN** the thread opens and the sidebar closes
 
-
 ### Requirement: Conversation windows (macOS)
 
 On macOS the system SHALL let the user open a chat the dashboard holds in a window of its own, from the thread's "Open in New Window" action (⌥⌘O) or by double-clicking the thread in the sidebar. The window SHALL show only that chat: a toolbar with the chat's title and "<profile> · <model>" below it, the messages and the composer, without the sidebar. Its toolbar SHALL offer Show in Main Window, Pin or Unpin (⇧⌘P), Share and a menu with Rename, Copy Transcript, Archive and Delete. The window SHALL stay on the profile the chat was opened from, whatever profile the main window switches to. Opening a chat that already has a window SHALL bring that window to the front. The Window menu SHALL list the open conversation windows; while one is key, the menu bar's window and chat commands SHALL act on it, ⌘0 SHALL bring back the main window and ⌘W SHALL close the conversation window. A chat that has a window SHALL be followed there only: selecting it or sending in it from the main window SHALL bring its window up instead. The open conversation windows SHALL be opened again, in their last frames, the next time the app connects to the same server. Signing out or changing server SHALL close them and forget them; a session that expires SHALL close them and open them again after the next sign-in. On other platforms none of this is offered.
@@ -1375,6 +1377,19 @@ The system SHALL show a turn Hermes runs on a thread without a prompt from this 
 - **AND** while that turn runs ahead of a prompt the user sent, the approvals and questions it raises are shown on the reply in front and can be answered, and that reply says Hermes is finishing the interrupted turn until the turn ends
 - **AND** the turn's text appears in a reply of its own when the send ends
 
+#### Scenario: A request ahead of the prompt's first frame
+
+- **WHEN** the turn nobody submitted has ended and the next frame is an approval or question
+- **THEN** it belongs to the prompt's own turn, is shown on its reply and stays answerable
+
+#### Scenario: A send that gives up
+
+- **WHEN** a prompt sent behind such a turn fails because the connection could not be restored
+- **THEN** the thread is read again as soon as the send has failed, so that turn is shown once from the stored history, and the follow-ups do not replay it
+- **AND** after that history the failed reply stays with its error and Retry, preceded by the prompt unless the history already holds it
+- **AND** the failed turn goes once the user retries or sends again, or a later read finds an answer to that prompt
+- **AND** a prompt that repeats an earlier one is told apart by its place among the prompts of the same text, so an older answered copy does not drop the failed turn
+
 #### Scenario: Missed start of a chained turn
 
 - **WHEN** after a completed reply the session's deltas or tool events arrive without a `message.start`
@@ -1408,6 +1423,11 @@ The system SHALL lock an approval card as expired when an `approval.cancelled` b
 
 - **WHEN** `approval.cancelled` names another session
 - **THEN** no card changes
+
+#### Scenario: A reconnect moved the reply to another session
+
+- **WHEN** a reconnect resumes the reply on a new runtime session and a request opened before it is then withdrawn, by the broadcast or by the end of the turn that raised it
+- **THEN** that card is locked as expired and can no longer be answered
 
 ### Requirement: Reply status line
 

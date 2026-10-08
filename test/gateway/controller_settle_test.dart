@@ -992,6 +992,177 @@ void main() {
       },
     );
 
+    /// Makes the dashboard hold [rows] for `s1`, as of [lastActive].
+    void historyIs(List<Map<String, Object?>> rows, {double? lastActive}) {
+      server
+        ..on(
+          'GET',
+          '/api/sessions/s1',
+          sessionRow(
+            id: 's1',
+            title: 'Old title',
+            lastActive: lastActive ?? 1780000100,
+          ),
+        )
+        ..on('GET', '/api/sessions/s1/messages', messageListBody('s1', rows));
+    }
+
+    /// A send that held the turn Hermes ran on its own, then gave up.
+    Future<void> giveUpWithSetAsideTurn() async {
+      rig.chat.submit('Plan', const []);
+      rig.transport.sends.last
+        ..emit(const ThreadNeedsRefetch())
+        ..fail();
+      await pumpEventQueue();
+    }
+
+    List<String> shownTexts() => [
+      for (final m in rig.chat.selectedThread!.messages)
+        '${m.role.name}:${m.content}',
+    ];
+
+    test(
+      'A send that gives up after setting a turn aside shows the history '
+      'with that turn, then the prompt, then the failed reply with Retry',
+      () async {
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        ], lastActive: 1780000300);
+
+        await giveUpWithSetAsideTurn();
+
+        final thread = rig.chat.selectedThread!;
+        expect(shownTexts().take(3), [
+          'user:Hi',
+          'assistant:Resumed work',
+          'user:Plan',
+        ]);
+        expect(thread.messages, hasLength(4));
+        expect(thread.messages.last.status, MessageStatus.error);
+        expect(thread.messages.last.error, isNotNull);
+        expect(rig.chat.lastPromptText(thread), 'Plan');
+        expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+      },
+    );
+
+    test('A prompt the history already ends with is not shown twice', () async {
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        messageRow(id: 3, role: 'user', content: 'Plan'),
+      ], lastActive: 1780000300);
+
+      await giveUpWithSetAsideTurn();
+
+      final thread = rig.chat.selectedThread!;
+      expect(shownTexts().take(3), [
+        'user:Hi',
+        'assistant:Resumed work',
+        'user:Plan',
+      ]);
+      expect(thread.messages, hasLength(4));
+      expect(thread.messages.last.status, MessageStatus.error);
+    });
+
+    test(
+      'The kept failed turn goes once a re-read finds a newer reply',
+      () async {
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        ], lastActive: 1780000300);
+        await giveUpWithSetAsideTurn();
+        expect(
+          rig.chat.selectedThread!.messages.last.status,
+          MessageStatus.error,
+        );
+
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+          messageRow(id: 3, role: 'user', content: 'Plan'),
+          messageRow(id: 4, role: 'assistant', content: 'Done'),
+        ], lastActive: 1780000400);
+        await rig.chat.refreshThread('s1');
+
+        expect(shownTexts(), [
+          'user:Hi',
+          'assistant:Resumed work',
+          'user:Plan',
+          'assistant:Done',
+        ]);
+      },
+    );
+
+    test(
+      'A repeated prompt keeps its failed turn next to an older answered '
+      'one, until the history holds the new occurrence with an answer',
+      () async {
+        final earlier = [
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'user', content: 'Plan'),
+          messageRow(id: 3, role: 'assistant', content: 'Done'),
+        ];
+        historyIs(earlier, lastActive: 1780000200);
+        await rig.chat.refreshThread('s1');
+        expect(shownTexts(), ['user:Hi', 'user:Plan', 'assistant:Done']);
+
+        await giveUpWithSetAsideTurn();
+
+        expect(shownTexts().take(4), [
+          'user:Hi',
+          'user:Plan',
+          'assistant:Done',
+          'user:Plan',
+        ]);
+        final thread = rig.chat.selectedThread!;
+        expect(thread.messages, hasLength(5));
+        expect(thread.messages.last.status, MessageStatus.error);
+
+        historyIs([
+          ...earlier,
+          messageRow(id: 4, role: 'user', content: 'Plan'),
+          messageRow(id: 5, role: 'assistant', content: 'Done again'),
+        ], lastActive: 1780000500);
+        await rig.chat.refreshThread('s1');
+
+        expect(shownTexts(), [
+          'user:Hi',
+          'user:Plan',
+          'assistant:Done',
+          'user:Plan',
+          'assistant:Done again',
+        ]);
+      },
+    );
+
+    test('The kept failed turn goes once the user sends again', () async {
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+      ], lastActive: 1780000300);
+      await giveUpWithSetAsideTurn();
+
+      rig.chat.submit('Again', const []);
+      rig.complete(rig.transport.sends.last, text: 'Fine.');
+      await pumpEventQueue();
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        messageRow(id: 3, role: 'user', content: 'Again'),
+        messageRow(id: 4, role: 'assistant', content: 'Fine.'),
+      ], lastActive: 1780000500);
+      await rig.chat.refreshThread('s1');
+
+      expect(shownTexts(), [
+        'user:Hi',
+        'assistant:Resumed work',
+        'user:Again',
+        'assistant:Fine.',
+      ]);
+    });
+
     test(
       'ThreadNeedsRefetch on follow-ups with no reply open reads the thread at '
       'once',

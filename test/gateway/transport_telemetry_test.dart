@@ -423,13 +423,15 @@ void main() {
         async.flushMicrotasks();
       }
 
-      test('the idle report that stands in for the turn ahead is not a settle '
-          'inside the grace', () {
+      test('the idle report that stands in for the turn ahead settles the '
+          'reply inside the grace too', () {
         fake((async) {
           queuedBehindEndedTurn(async, after: const Duration(seconds: 1));
 
           expect(events.named('gateway.reconnect'), hasLength(1));
-          expect(events.named('gateway.turn_settled'), isEmpty);
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
         });
       });
 
@@ -439,6 +441,205 @@ void main() {
 
           expect(events.named('gateway.turn_settled'), [
             {'via': 'session_info'},
+          ]);
+        });
+      });
+
+      for (final after in [1, 20]) {
+        test('the prompt\'s own turn settling later on the follow-ups is not '
+            'counted again (${after}s)', () {
+          fake((async) {
+            queuedBehindEndedTurn(async, after: Duration(seconds: after));
+            final seen = _listen(transport.followUps('stored-1'));
+            async.flushMicrotasks();
+
+            gateway
+              ..event('message.start', 'rt-1')
+              ..event('message.delta', 'rt-1', {'text': 'mine'})
+              ..event('message.complete', 'rt-1', {
+                'text': 'mine',
+                'status': 'complete',
+              });
+            async.flushMicrotasks();
+
+            expect(seen.events.whereType<ReplyCompleted>(), hasLength(1));
+            expect(events.named('gateway.turn_settled'), [
+              {'via': 'session_info'},
+            ]);
+
+            // The next turn Hermes chains is a reply of its own.
+            gateway
+              ..event('message.start', 'rt-1')
+              ..event('message.complete', 'rt-1', {
+                'text': 'goal',
+                'status': 'complete',
+              });
+            async.flushMicrotasks();
+
+            expect(events.named('gateway.turn_settled'), [
+              {'via': 'session_info'},
+              {'via': 'complete'},
+            ]);
+          });
+        });
+      }
+
+      test('a truncated replay settles the queued prompt\'s reply once, and a separate '
+          'turn on the follow-ups is counted too', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'old'},
+              ],
+            }
+            ..truncateReplay = true
+            ..submitStatus = 'queued'
+            ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          gateway.drop();
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'old',
+            'status': 'complete',
+          });
+          async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+
+          _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
+
+      test('a restarted server settles the queued prompt\'s reply once, and a separate '
+          'turn on the follow-ups is counted too', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'old'},
+              ],
+            }
+            ..submitStatus = 'queued'
+            ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          gateway.drop();
+          gateway.epoch = 'epoch-2';
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'old',
+            'status': 'complete',
+          });
+          async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+
+          _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
+
+      test('a prompt\'s completion delivered by a pick-up leaves nothing to '
+          'skip: the next turn on the follow-ups is counted', () {
+        fake((async) {
+          queuedBehindEndedTurn(async, after: const Duration(seconds: 20));
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+
+          // The idle watch dies, so reopening the thread picks it up afresh
+          // and finds the prompt's reply stored.
+          gateway.drop();
+          gateway.resumeResult = {
+            'session_id': 'rt-1',
+            'running': false,
+            'messages': [
+              {'role': 'assistant', 'text': 'mine'},
+            ],
+          };
+          async.flushMicrotasks();
+          final seen = _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          expect(seen.events.whereType<ReplyCompleted>(), hasLength(1));
+
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
+
+      test('a turn Hermes ran on its own is counted once, and not as the '
+          'prompt\'s turn beginning', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-2',
+              'session_key': 'stored-2',
+              'auto_continue': {'attempt': 1},
+            }
+            ..submitStatus = 'queued'
+            ..beforeSubmitAnswer = (g) {
+              g.event('message.start', 'rt-2');
+            }
+            ..turn = (g, sid) {
+              g.drop();
+              g.event('message.complete', 'rt-2', {
+                'text': 'resumed',
+                'status': 'complete',
+              });
+            };
+
+          _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+          async.flushMicrotasks();
+          final seen = _listen(transport.followUps('stored-2'));
+          async.flushMicrotasks();
+
+          expect(seen.events.whereType<ReplyCompleted>(), hasLength(1));
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
           ]);
         });
       });

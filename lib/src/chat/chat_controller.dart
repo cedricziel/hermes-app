@@ -437,9 +437,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (unchanged || _unloaded.contains(id)) return;
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return;
+      final failed = _failedTurn(thread, page.messages);
       thread.messages
         ..clear()
-        ..addAll(page.messages);
+        ..addAll(page.messages)
+        ..addAll(failed);
       if (page.hasMore) {
         _olderRows[id] = page.rows;
       } else {
@@ -450,6 +452,40 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } on Object {
       // Keeps what it shows; the next refresh or open reads it again.
     }
+  }
+
+  /// The turn of [thread] that ended in a failed reply and is still its last,
+  /// to show after the [history] a read brought: the prompt, unless the history
+  /// already holds it, and the failed reply with its error and Retry. It is
+  /// dropped once an assistant message follows the prompt in the history, and
+  /// a later send leaves it behind the thread's last message anyway.
+  ///
+  /// A prompt repeats earlier ones, so it is found by its place among the user
+  /// messages of the same text: with n of them before it here, the history
+  /// holds it only when it has more than n, and its occurrence is the next.
+  List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
+    final messages = thread.messages;
+    final reply = messages.lastOrNull;
+    if (reply == null ||
+        reply.role != ChatRole.assistant ||
+        reply.status != MessageStatus.error) {
+      return const [];
+    }
+    final promptAt = messages.lastIndexWhere((m) => m.role == ChatRole.user);
+    if (promptAt < 0) return [reply];
+    final prompt = messages[promptAt];
+    bool same(ChatMessage m) =>
+        m.role == ChatRole.user && m.content == prompt.content;
+    final before = messages.take(promptAt).where(same).length;
+    final occurrences = [
+      for (var i = 0; i < history.length; i++)
+        if (same(history[i])) i,
+    ];
+    if (occurrences.length <= before) return [prompt, reply];
+    final answered = history
+        .skip(occurrences[before] + 1)
+        .any((m) => m.role == ChatRole.assistant);
+    return answered ? const [] : [reply];
   }
 
   /// Whether [target] names a chat on [profile]. A thread id is only unique
@@ -1287,6 +1323,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _turnEnded(thread, halted: true);
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // A send that gave up asks for the thread to be read again: what
+        // Hermes ran meanwhile is in its history. The read keeps this failed
+        // turn after it (see [refreshThread]).
+        _refetchIfIdle(thread);
       } else if (error == null) {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a

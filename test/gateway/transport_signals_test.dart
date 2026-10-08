@@ -293,6 +293,204 @@ void main() {
       expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
     });
 
+    test('Auto-continue after resume: a request of a turn that is already over '
+        'cannot be answered while the send runs', () async {
+      gateway.beforeSubmitAnswer = (g) {
+        unsolicitedTurn(g);
+        g.serverRequest('srq-old', 'approval', 'rt-2', {
+          'command': 'ls build',
+          'description': 'list files',
+          'choices': ['once', 'deny'],
+          'tool_name': 'terminal',
+        });
+        unsolicitedEnd(g);
+      };
+      gateway.turn = (g, sid) {
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'mine'});
+      };
+
+      final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+
+      expect(_types(seen.events), [ReplyStarted, ReplyDelta]);
+      expect(seen.done, isFalse);
+      expect(await transport.answerApproval('srq-old', 'once'), isFalse);
+      expect(gateway.responses, isEmpty);
+    });
+
+    test('Auto-continue after resume: a request of a turn that was already '
+        'over does not come back on the follow-ups', () async {
+      gateway.beforeSubmitAnswer = (g) {
+        unsolicitedTurn(g);
+        g.serverRequest('srq-old', 'approval', 'rt-2', {
+          'command': 'ls build',
+          'description': 'list files',
+          'choices': ['once', 'deny'],
+          'tool_name': 'terminal',
+        });
+        unsolicitedEnd(g);
+      };
+      gateway.turn = submittedTurn;
+
+      await reply(threadId: 'stored-2');
+      final later = await followed(3);
+
+      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+    });
+
+    test('Auto-continue after resume: a drop that ends the turn withdraws the '
+        'requests the send had passed through', () async {
+      final dropping = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..resumeResult = autoContinue
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          unsolicitedTurn(g);
+          g.serverRequest('srq-1', 'approval', 'rt-2', {
+            'command': 'ls build',
+            'description': 'list files',
+            'choices': ['once', 'deny'],
+            'tool_name': 'terminal',
+          });
+        };
+      final reconnecting = HermesGatewayTransport(connect: dropping.connect);
+      addTearDown(reconnecting.close);
+      dropping.turn = (g, sid) {
+        g.drop();
+        unsolicitedEnd(g);
+      };
+
+      final sent = await reconnecting
+          .send(threadId: 'stored-2', text: 'hi')
+          .toList()
+          .timeout(const Duration(seconds: 5));
+
+      expect(sent.whereType<ApprovalRequested>(), hasLength(1));
+      expect(sent.whereType<InputRequestsCancelled>().single.requestIds, [
+        'srq-1',
+      ]);
+      expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
+    });
+
+    for (final (name, unreliable) in <(String, void Function(FakeGateway))>[
+      ('a truncated replay', (g) => g.truncateReplay = true),
+      ('a restarted server', (g) => g.epoch = 'epoch-2'),
+    ]) {
+      test('Auto-continue after resume: $name withdraws the requests the send '
+          'had passed through before the send fails', () async {
+        final dropping = FakeGateway()
+          ..stampSeq = true
+          ..sendReady = true
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final reconnecting = HermesGatewayTransport(connect: dropping.connect);
+        addTearDown(reconnecting.close);
+        dropping.turn = (g, sid) {
+          g.drop();
+          unreliable(g);
+        };
+
+        final seen = _listen(
+          reconnecting.send(threadId: 'stored-2', text: 'hi'),
+        );
+        await pumpEventQueue(times: 100);
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+        expect(await reconnecting.answerApproval('srq-1', 'once'), isFalse);
+      });
+    }
+
+    test('Auto-continue after resume: a socket that keeps dropping withdraws '
+        'the requests the send had passed through when it gives up', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..stampSeq = true
+          ..sendReady = true
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final dropping = HermesGatewayTransport(connect: server.connect);
+        server.turn = (g, sid) {
+          g.resumeResult = {'session_id': 'rt-2', 'running': true};
+          g.drop();
+        };
+        final seen = _listen(dropping.send(threadId: 'stored-2', text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        for (var again = 2; again <= 5; again++) {
+          server.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+        expect(seen.error, isNull);
+        expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
+
+        server.drop();
+        async.elapse(const Duration(seconds: 10));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+      });
+    });
+
+    test('Auto-continue after resume: a send the silence probe ends as broken '
+        'withdraws the requests it had passed through', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final seen = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+      });
+    });
+
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
         'own turn, and the turn reaches the follow-ups', () async {
       gateway.submitStatus = 'queued';
@@ -460,6 +658,30 @@ void main() {
         expect(await transport.answerApproval('srq-1', 'once'), isFalse);
       });
 
+      test('Auto-continue after resume: when the turn ends, the send withdraws '
+          'a clarify question that arrived as an event', () async {
+        gateway.submitStatus = 'queued';
+        gateway.beforeSubmitAnswer = (g) {
+          unsolicitedTurn(g);
+          g.event('clarify.request', 'rt-2', {
+            'request_id': 'clar-1',
+            'question': 'Which colour?',
+            'choices': ['red', 'blue'],
+          });
+        };
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        await pumpEventQueue();
+        expect(seen.events.whereType<ClarifyRequested>(), hasLength(1));
+
+        unsolicitedEnd(gateway);
+        await pumpEventQueue();
+
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['clar-1'],
+        );
+      });
+
       test('Auto-continue after resume: a request already withdrawn is not '
           'withdrawn again when the turn ends', () async {
         final seen = queuedBehindApproval();
@@ -528,6 +750,191 @@ void main() {
     });
   });
 
+  group('a turn nobody submitted, when the send gives up (476)', () {
+    final autoContinue = {
+      'session_id': 'rt-2',
+      'session_key': 'stored-2',
+      'auto_continue': {'attempt': 1},
+    };
+
+    test('Auto-continue after resume: a send that gives up after a drop asks '
+        'for the thread to be read again, and nothing replays on the '
+        'follow-ups', () async {
+      final server = FakeGateway()
+        ..stampSeq = true
+        ..sendReady = true
+        ..resumeResult = autoContinue
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+        };
+      var reachable = true;
+      final flaky = HermesGatewayTransport(
+        sleep: (_) async {},
+        connect: () async {
+          if (!reachable) throw StateError('gateway unreachable');
+          return server.connect();
+        },
+      );
+      addTearDown(flaky.close);
+      server.turn = (g, sid) {
+        g.event('message.complete', 'rt-2', {
+          'text': 'resumed work',
+          'status': 'complete',
+        });
+        reachable = false;
+        g.drop();
+      };
+
+      final sent = _listen(flaky.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+      expect(sent.error, isA<GatewayConnectionClosed>());
+      expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      expect(sent.events.whereType<ReplyDelta>(), isEmpty);
+
+      reachable = true;
+      final later = await flaky
+          .followUps('stored-2')
+          .toList()
+          .timeout(const Duration(seconds: 5));
+
+      expect(later, isEmpty);
+    });
+
+    test('Auto-continue after resume: a send the silence probe ends as broken '
+        'asks for the thread to be read again', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.event('message.start', 'rt-2');
+            g.event('message.complete', 'rt-2', {
+              'text': 'resumed work',
+              'status': 'complete',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final sent = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.error, isNull);
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(sent.error, isA<GatewayConnectionClosed>());
+        expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      });
+    });
+  });
+
+  group('requests of a turn nobody submitted, across a re-key (476)', () {
+    const approval = {
+      'command': 'rm -rf build',
+      'description': 'delete files',
+      'choices': ['once', 'deny'],
+      'tool_name': 'terminal',
+    };
+
+    /// A prompt queued behind an auto-continue turn that asked for approval
+    /// and then lost its connection; the resume moved the reply from `rt-2`
+    /// to `rt-3`.
+    Future<_Seen> rekeyedBehindApproval() async {
+      transport = HermesGatewayTransport(connect: gateway.connect);
+      gateway
+        ..resumeResult = {
+          'session_id': 'rt-2',
+          'session_key': 'stored-2',
+          'auto_continue': {'attempt': 1},
+        }
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.serverRequest('srq-1', 'approval', 'rt-2', approval);
+        }
+        ..turn = (g, sid) {
+          g.resumeResult = {'session_id': 'rt-3', 'running': true};
+          g.drop();
+        };
+      final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+      expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+      expect(gateway.methods.where((m) => m == 'session.resume'), hasLength(2));
+      return seen;
+    }
+
+    test('Auto-continue after resume: a turn that ends after a re-key still '
+        'withdraws the requests it passed through', () async {
+      final seen = await rekeyedBehindApproval();
+
+      gateway.event('message.complete', 'rt-3', {
+        'text': 'resumed work',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+
+      expect(
+        seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+        ['srq-1'],
+      );
+      expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+    });
+
+    test('Withdrawn approvals: a broadcast for the session after a re-key '
+        'withdraws the open request', () async {
+      final seen = await rekeyedBehindApproval();
+
+      gateway.event('approval.cancelled', '', {'session_id': 'rt-3'});
+      await pumpEventQueue();
+
+      expect(seen.events.whereType<InputRequestsCancelled>(), hasLength(1));
+      expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+    });
+  });
+
+  group('a request before the prompt\'s first frame (476)', () {
+    test(
+      'Auto-continue after resume: an approval the prompt\'s own turn raises '
+      'before its first frame is not withdrawn with the turn ahead',
+      () async {
+        gateway
+          ..resumeResult = {
+            'session_id': 'rt-2',
+            'session_key': 'stored-2',
+            'auto_continue': {'attempt': 1},
+          }
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.event('message.start', 'rt-2');
+            g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+          }
+          ..turn = (g, sid) {
+            g.event('message.complete', 'rt-2', {
+              'text': 'resumed work',
+              'status': 'complete',
+            });
+            g.serverRequest('srq-2', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
+        expect(await transport.answerApproval('srq-2', 'once'), isTrue);
+      },
+    );
+  });
+
   group('status lines (9.4)', () {
     test('Compacting: a status.update reaches the reply as a status', () async {
       gateway.turn = (g, sid) {
@@ -557,6 +964,40 @@ void main() {
         (events[1] as ReplyStatus).text,
         '⏳ waiting on local-model — 30s with no output yet',
       );
+    });
+  });
+
+  group('silence probe on a turn nobody submitted (476)', () {
+    test('Auto-continue after resume: a silent turn the probe ends as broken '
+        'clears the status the send showed', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = {
+            'session_id': 'rt-2',
+            'session_key': 'stored-2',
+            'auto_continue': {'attempt': 1},
+          }
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) => g.event('message.start', 'rt-2');
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+        ]);
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+          '',
+        ]);
+      });
     });
   });
 
