@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../macos/mac_source_list.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
+import '../../widgets/grouped_list.dart';
 import '../hermes_profiles_repository.dart';
 import 'profile_avatar.dart';
 
@@ -67,21 +68,10 @@ class MacProfilesView extends StatelessWidget {
         Expanded(
           child: profile == null
               ? const SizedBox.shrink()
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 24,
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: MacProfileDetail(
-                        profile: profile,
-                        counts: counts,
-                        onOpen: onOpen,
-                      ),
-                    ),
-                  ),
+              : MacProfileDetail(
+                  profile: profile,
+                  counts: counts,
+                  onOpen: onOpen,
                 ),
         ),
       ],
@@ -147,8 +137,8 @@ class MacProfileRow extends StatelessWidget {
   }
 }
 
-/// One profile's home: its name and path, then a card of what it holds with
-/// a count each, and a note on what else lives there.
+/// One profile's home: its name and path, then a group of what it holds
+/// with a count each, and a note on what else lives there.
 class MacProfileDetail extends StatelessWidget {
   const MacProfileDetail({
     super.key,
@@ -163,120 +153,41 @@ class MacProfileDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtle = context.hermesColors.subtleText;
+    final metrics = GroupedMetrics.of(context);
     final path = profile.path;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return GroupedListView(
       children: [
-        Row(
+        GroupedSection(
           children: [
-            InitialsAvatar(label: profile.label, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(profile.label, style: theme.textTheme.titleMedium),
-                  if (path != null && path.isNotEmpty)
-                    SelectableText(
-                      path,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'Menlo',
-                        fontFamilyFallback: const ['Courier', 'monospace'],
-                        color: subtle,
-                      ),
-                    ),
-                ],
-              ),
+            GroupedRow(
+              title: profile.label,
+              subtitle: path == null || path.isEmpty ? null : path,
+              monospaceSubtitle: true,
+              caption: profile.description.isEmpty ? null : profile.description,
+              leading: GroupedTile(child: Text(initialsOf(profile.label))),
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Column(
-            children: [
-              for (final (i, section) in ProfileSection.values.indexed) ...[
-                if (i > 0) const Divider(height: 1, indent: 44),
-                _SectionRow(
-                  section: section,
-                  count: counts[section],
-                  onTap: () => onOpen(section),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          "Everything here lives in this profile's home directory. Chats, "
-          'schedules, memory and API keys are also per profile; Kanban and '
-          'sign-in are shared.',
-          style: TextStyle(fontSize: 11, color: subtle),
+        GroupedSection(
+          header: 'In this profile',
+          dividerIndent: metrics.indentAfterTile,
+          footer:
+              "Everything here lives in this profile's home directory. Chats, "
+              'schedules, memory and API keys are also per profile; Kanban and '
+              'sign-in are shared.',
+          children: [
+            for (final section in ProfileSection.values)
+              GroupedRow(
+                key: ValueKey('profile-section-${section.name}'),
+                title: section.label,
+                subtitle: section.detail,
+                leading: GroupedTile(child: AppIcon(section.icon)),
+                value: counts[section]?.toString(),
+                onTap: () => onOpen(section),
+              ),
+          ],
         ),
       ],
-    );
-  }
-}
-
-class _SectionRow extends StatelessWidget {
-  const _SectionRow({
-    required this.section,
-    required this.count,
-    required this.onTap,
-  });
-
-  final ProfileSection section;
-  final int? count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtle = context.hermesColors.subtleText;
-    final count = this.count;
-    return Semantics(
-      button: true,
-      child: InkWell(
-        key: ValueKey('profile-section-${section.name}'),
-        onTap: onTap,
-        child: SizedBox(
-          height: 48,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Row(
-              children: [
-                AppIcon(section.icon, size: 18, color: subtle),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(section.label, style: const TextStyle(fontSize: 13)),
-                      Text(
-                        section.detail,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11, color: subtle),
-                      ),
-                    ],
-                  ),
-                ),
-                if (count != null)
-                  Text('$count', style: TextStyle(fontSize: 13, color: subtle)),
-                const SizedBox(width: 6),
-                AppIcon(AppIcons.chevronRight, size: 14, color: subtle),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

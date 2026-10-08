@@ -1,19 +1,20 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/grouped_list.dart';
 import '../../widgets/named_icon_button.dart';
 import '../hermes_profiles_repository.dart';
+import 'profile_avatar.dart';
 
-/// One row of the Profiles screen: the profile's label, its description,
-/// default model and skill count, an "Active" chip on the active one, and,
-/// with [onChangeModel], a button that changes its default model.
+/// One profile in the Profiles group: its initials in a tile, its label,
+/// its description (or home), and its default model and skill count.
 ///
-/// On iOS it is a standard list row instead: a trailing checkmark marks the
-/// active profile and the model change moves to a long-press action sheet,
-/// which VoiceOver gets as a custom action.
+/// A check marks the active profile on Apple platforms, a muted "Active" on
+/// Material. With [onChangeModel] a button changes its default model; on iOS
+/// that moves to a long-press action sheet, which VoiceOver gets as a custom
+/// action.
 class ProfileTile extends StatelessWidget {
   const ProfileTile({
     super.key,
@@ -30,56 +31,45 @@ class ProfileTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parts = [
-      if (profile.description.isNotEmpty) profile.description,
-      ?profile.model,
-      '${profile.skillCount} skills',
-    ];
-    if (platformChromeOf(context) == PlatformChrome.ios) {
-      return _buildIos(context, parts.join(' · '));
-    }
-    return ListTile(
-      leading: const AppIcon(AppIcons.person),
-      title: Text(profile.label),
-      subtitle: Text(parts.join(' · ')),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (active) const Chip(label: Text('Active')),
-          if (onChangeModel != null)
-            NamedIconButton(
-              key: Key('profile-model-${profile.name}'),
-              label: 'Change default model',
-              icon: AppIcons.tune,
-              onPressed: onChangeModel,
-            ),
-        ],
-      ),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildIos(BuildContext context, String subtitle) {
+    final chrome = platformChromeOf(context);
+    final ios = chrome == PlatformChrome.ios;
     final change = onChangeModel;
-    final row = ListTile(
-      dense: true,
-      visualDensity: VisualDensity.compact,
-      minTileHeight: kAppleMinTapTarget,
-      selected: active,
-      title: Text(profile.label),
-      subtitle: Text(subtitle),
-      trailing: active
-          ? const Icon(CupertinoIcons.check_mark, semanticLabel: 'Active')
-          : null,
+    final path = profile.path;
+    final check = active && chrome.isApple
+        ? const AppIcon(AppIcons.check, semanticLabel: 'Active')
+        : null;
+    final button = change == null || ios
+        ? null
+        : NamedIconButton(
+            key: Key('profile-model-${profile.name}'),
+            label: 'Change default model',
+            icon: AppIcons.tune,
+            onPressed: change,
+          );
+    final trailing = [?check, ?button];
+    final row = GroupedRow(
+      title: profile.label,
+      subtitle: profile.description.isNotEmpty
+          ? profile.description
+          : (path != null && path.isNotEmpty ? path : null),
+      caption: [?profile.model, '${profile.skillCount} skills'].join(' · '),
+      leading: GroupedTile(child: Text(initialsOf(profile.label))),
+      value: active && !chrome.isApple ? 'Active' : null,
+      trailing: trailing.isEmpty
+          ? null
+          : Row(mainAxisSize: MainAxisSize.min, children: trailing),
+      chevron: false,
       onTap: onTap,
-      onLongPress: change == null ? null : () => _showActions(context, change),
     );
-    if (change == null) return row;
+    if (!ios || change == null) return row;
     return Semantics(
       customSemanticsActions: {
         CustomSemanticsAction(label: 'Change default model'): change,
       },
-      child: row,
+      child: GestureDetector(
+        onLongPress: () => _showActions(context, change),
+        child: row,
+      ),
     );
   }
 

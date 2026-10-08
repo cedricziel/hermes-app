@@ -73,13 +73,41 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('a new profile is created from the bar and listed', (
+    tester,
+  ) async {
+    server.on('POST', '/api/profiles', {'ok': true});
+    await pumpProfiles(tester);
+    server.on(
+      'GET',
+      '/api/profiles',
+      profileListBody([
+        profileRow(name: 'default', isDefault: true),
+        profileRow(name: 'travel'),
+      ]),
+    );
+
+    await tester.tap(find.byKey(const Key('profiles-new')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('new-profile-name')), 'travel');
+    await tester.pump();
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(
+      jsonBody(server.requestsTo('POST', '/api/profiles').single),
+      containsPair('name', 'travel'),
+    );
+    expect(find.byKey(const ValueKey('profile-travel')), findsOneWidget);
+  });
+
   testWidgets('marks only the active profile as active', (tester) async {
     await pumpProfiles(tester);
 
     expect(find.text('Active'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.widgetWithText(ListTile, 'default'),
+        of: find.byKey(const ValueKey('profile-default')),
         matching: find.text('Active'),
       ),
       findsOneWidget,
@@ -97,7 +125,7 @@ void main() {
     expect(jsonBody(request), {'name': 'work'});
     expect(
       find.descendant(
-        of: find.widgetWithText(ListTile, 'Work assistant'),
+        of: find.byKey(const ValueKey('profile-work')),
         matching: find.text('Active'),
       ),
       findsOneWidget,
@@ -127,7 +155,7 @@ void main() {
     expect(find.text('Could not switch profile'), findsOneWidget);
     expect(
       find.descendant(
-        of: find.widgetWithText(ListTile, 'default'),
+        of: find.byKey(const ValueKey('profile-default')),
         matching: find.text('Active'),
       ),
       findsOneWidget,
