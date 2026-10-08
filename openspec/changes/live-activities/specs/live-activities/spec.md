@@ -112,7 +112,8 @@ The system SHALL end an activity:
 
 - 15 minutes after it reached "Reply ready" or "Reply failed", leaving the final state on the Lock Screen until then;
 - at once when the user stopped the reply;
-- at once when the user deletes the chat or signs out (all activities);
+- at once when the chat is deleted or archived, so the chat list no longer shows it;
+- at once, all of them, when the user signs out;
 - at once, all of them, when the user turns the setting off;
 - at once when the app starts and finds an activity from an earlier launch, which it can no longer update.
 

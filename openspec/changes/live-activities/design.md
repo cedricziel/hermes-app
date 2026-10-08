@@ -64,7 +64,7 @@ A new `HermesLiveActivity` widget extension target (SwiftUI, `ActivityConfigurat
 - Lock Screen: Hermes icon, chat title (one line), state label, `Text(timerInterval:)` for working, a stale note when `context.isStale`.
 - Dynamic Island: compact leading icon, compact trailing timer or state glyph; minimal icon; expanded shows title and label.
 
-Platforms affected: iOS only. Native changes: new extension target in `ios/Runner.xcodeproj` (embedded in Runner, App Group entitlement `$(CUSTOM_GROUP_ID)`, bundle IDs `com.cedricziel.hermesApp.LiveActivity` and Debug `com.cedricziel.hermesApp.dev.LiveActivity`), `NSSupportsLiveActivities = YES` and the `hermes-activity` URL scheme in `ios/Runner/Info.plist`, fastlane match/signing for the new bundle ID in `fastlane/Fastfile`. No Android manifest, macOS or watchOS change.
+Platforms affected: iOS only. Native changes: new extension target in `ios/Runner.xcodeproj` (embedded in Runner, App Group entitlement `$(CUSTOM_GROUP_ID)`, bundle ID `com.cedricziel.hermesApp.LiveActivity` in every configuration, like the other extensions), `NSSupportsLiveActivities = YES` and the `hermes-activity` URL scheme in `ios/Runner/Info.plist`, fastlane match/signing for the new bundle ID in `fastlane/Fastfile`. No Android manifest, macOS or watchOS change.
 
 ### Invariants touched
 
