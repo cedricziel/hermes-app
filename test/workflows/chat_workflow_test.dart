@@ -443,6 +443,24 @@ void main() {
       await shots.capture(tester, 'prompt-answered');
       expect(find.textContaining('the changelog is done'), findsOneWidget);
       expect(find.textContaining('Here are the notes.'), findsOneWidget);
+      // On screen the turn comes first, then the prompt, then its reply: the
+      // order the server stores them in.
+      final turn = tester
+          .getTopLeft(find.textContaining('the changelog is done'))
+          .dy;
+      final answer = tester
+          .getTopLeft(find.textContaining('Here are the notes.'))
+          .dy;
+      final prompts = [
+        for (final prompt in find.text('Draft the release notes.').evaluate())
+          tester.getTopLeft(find.byWidget(prompt.widget)).dy,
+      ];
+      expect(turn, lessThan(answer));
+      expect(
+        prompts.any((dy) => dy > turn && dy < answer),
+        isTrue,
+        reason: 'the prompt sits between the turn and its reply: $prompts',
+      );
     });
 
     for (final brightness in Brightness.values) {

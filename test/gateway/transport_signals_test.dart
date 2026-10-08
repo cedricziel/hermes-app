@@ -19,11 +19,13 @@ class _Seen {
   List<ChatEvent> get mine => _mine(events);
   Object? error;
   var done = false;
+  // ignore: cancel_subscriptions
+  late final StreamSubscription<ChatEvent> subscription;
 }
 
 _Seen _listen(Stream<ChatEvent> stream) {
   final seen = _Seen();
-  stream.listen(
+  seen.subscription = stream.listen(
     seen.events.add,
     onError: (Object error) => seen.error = error,
     onDone: () => seen.done = true,
@@ -257,7 +259,12 @@ void main() {
     Future<List<ChatEvent>> followedNothing() async {
       final seen = _listen(transport.followUps('stored-2'));
       await pumpEventQueue();
-      return seen.events;
+      // Real time passes, so a frame that only arrives later would show.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await pumpEventQueue();
+      final events = List.of(seen.events);
+      await seen.subscription.cancel();
+      return events;
     }
 
     test('Auto-continue after resume: a turn that ended before the submit was '
@@ -570,8 +577,17 @@ void main() {
       expect((_mine(sent)[3] as ReplyDelta).text, 'mine');
       expect(_types(_own(sent)), [ReplyStarted, ReplyDelta, ReplyCompleted]);
       expect((_own(sent)[1] as ReplyDelta).text, 'resumed work');
-      // The turn comes ahead of the prompt's reply.
-      expect(sent.indexWhere((e) => e is UnsolicitedEvent), lessThan(2));
+      // The turn comes ahead of the prompt's reply, frame by frame.
+      expect(_types(sent), [
+        UnsolicitedEvent,
+        ReplyStatus,
+        UnsolicitedEvent,
+        UnsolicitedEvent,
+        ReplyStatus,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
       expect(await followedNothing(), isEmpty);
     });
 
@@ -855,6 +871,36 @@ void main() {
           .timeout(const Duration(seconds: 5));
 
       expect(later, isEmpty);
+    });
+
+    test('Auto-continue after resume: a send that gives up after a turn that '
+        'only asked asks for the thread to be read again', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final sent = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.own.whereType<ApprovalRequested>(), hasLength(1));
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(sent.error, isA<GatewayConnectionClosed>());
+        expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      });
     });
 
     test('Auto-continue after resume: a send the silence probe ends as broken '
