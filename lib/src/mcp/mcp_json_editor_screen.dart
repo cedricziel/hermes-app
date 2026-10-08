@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
+import '../widgets/settings_scaffold.dart';
+import 'widgets/form_submit_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -185,46 +186,16 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _leave();
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
-          leadingWidth: adaptiveBackLeadingWidth(context),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Edit as JSON'),
-              Text(
-                profile == null
-                    ? 'mcp_servers'
-                    : 'Profile: $profile · mcp_servers',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: FilledButton(
-                key: const ValueKey('mcp-json-save'),
-                onPressed: _canSave ? _save : null,
-                child: sending
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-            ),
-          ],
-        ),
-        body: _body(theme),
+      child: SettingsScaffold(
+        title: 'Edit as JSON',
+        subtitle: [?profile, 'mcp_servers'].join(' · '),
+        previousTitle: 'MCP servers',
+        body: _body(theme, sending: sending),
       ),
     );
   }
 
-  Widget _body(ThemeData theme) {
+  Widget _body(ThemeData theme, {required bool sending}) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
@@ -305,6 +276,13 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
             const SizedBox(height: 8),
             Text(failure, style: TextStyle(color: theme.colorScheme.error)),
           ],
+          const SizedBox(height: 12),
+          FormSubmitButton(
+            buttonKey: const ValueKey('mcp-json-save'),
+            label: 'Save',
+            busy: sending,
+            onPressed: _canSave ? _save : null,
+          ),
         ],
       ),
     );

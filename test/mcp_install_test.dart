@@ -500,7 +500,10 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.text('Installed context7'), findsOneWidget);
       expect(
-        find.descendant(of: row('context7'), matching: find.text('Installed')),
+        find.descendant(
+          of: row('context7'),
+          matching: find.textContaining('Installed'),
+        ),
         findsOneWidget,
       );
       final request = server.requestsTo('POST', installPath).single;
@@ -629,7 +632,10 @@ void main() {
       expect(find.byType(BottomSheet), findsOneWidget);
       expect(find.textContaining('does not declare'), findsOneWidget);
       expect(
-        find.descendant(of: row('context7'), matching: find.text('Installed')),
+        find.descendant(
+          of: row('context7'),
+          matching: find.textContaining('Installed'),
+        ),
         findsNothing,
       );
       expect(installEnabled(tester), isTrue);
@@ -733,7 +739,10 @@ void main() {
       expect(find.byType(BottomSheet), findsNothing);
       expect(find.text('Installed buildkite'), findsOneWidget);
       expect(
-        find.descendant(of: row('buildkite'), matching: find.text('Installed')),
+        find.descendant(
+          of: row('buildkite'),
+          matching: find.textContaining('Installed'),
+        ),
         findsOneWidget,
       );
       final polls = server.requestsTo('GET', statusPath).length;
@@ -772,7 +781,10 @@ void main() {
         findsNothing,
       );
       expect(
-        find.descendant(of: row('buildkite'), matching: find.text('Installed')),
+        find.descendant(
+          of: row('buildkite'),
+          matching: find.textContaining('Installed'),
+        ),
         findsNothing,
       );
     });
@@ -826,8 +838,10 @@ void main() {
       expect(server.requestsTo('GET', statusPath), isEmpty);
     });
 
-    Finder building(String name) =>
-        find.descendant(of: row(name), matching: find.text('Building'));
+    Finder building(String name) => find.descendant(
+      of: row(name),
+      matching: find.textContaining('Building'),
+    );
 
     Future<void> closeSheet(WidgetTester tester) async {
       await tester.tapAt(const Offset(200, 20));

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
+import '../widgets/settings_scaffold.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
+import 'widgets/form_submit_button.dart';
 
 import '../widgets/named_icon_button.dart';
 
@@ -199,35 +200,10 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final profile = widget.servers.profile;
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Add server'),
-            if (profile != null)
-              Text('Profile: $profile', style: theme.textTheme.bodySmall),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton(
-              key: const ValueKey('mcp-add-server-button'),
-              onPressed: _canAdd ? _submit : null,
-              child: _saving && !widget.servers.isReviewing
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const Text('Add'),
-            ),
-          ),
-        ],
-      ),
+    return SettingsScaffold(
+      title: 'Add server',
+      subtitle: widget.servers.profile,
+      previousTitle: 'MCP servers',
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -267,6 +243,13 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
                   title: error,
                 ),
               ],
+              const SizedBox(height: 20),
+              FormSubmitButton(
+                buttonKey: const ValueKey('mcp-add-server-button'),
+                label: 'Add',
+                busy: _saving && !widget.servers.isReviewing,
+                onPressed: _canAdd ? _submit : null,
+              ),
             ],
           ),
         ),

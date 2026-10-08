@@ -608,7 +608,7 @@ void main() {
 
   group('removal', () {
     Future<void> tapRemove(WidgetTester tester) async {
-      await tester.tap(find.byTooltip('Remove'));
+      await tester.tap(find.byKey(const Key('mcp-remove')));
       await tester.pumpAndSettle();
     }
 
@@ -658,7 +658,7 @@ void main() {
       await openDetail(tester, 'grafana');
       await tester.tap(find.text('Test connection'));
       await tester.pump();
-      await tester.tap(find.byTooltip('Remove'));
+      await tester.tap(find.byKey(const Key('mcp-remove')));
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.text('Remove grafana?'), findsOneWidget);
       listServers([filesystem]);
@@ -772,7 +772,7 @@ void main() {
       await tester.pumpAndSettle();
       listServers([grafana]);
 
-      await tester.tap(find.byTooltip('Remove'));
+      await tester.tap(find.byKey(const Key('mcp-remove')));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(TextButton, 'Remove'));
       await tester.pumpAndSettle();
@@ -822,7 +822,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(McpAddServerScreen), findsOneWidget);
-      expect(find.text('Profile: work'), findsOneWidget);
+      expect(find.text('work'), findsOneWidget);
     });
 
     testWidgets('the empty state offers both', (tester) async {
@@ -946,7 +946,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(McpJsonEditorScreen), findsOneWidget);
-      expect(find.text('Profile: work · mcp_servers'), findsOneWidget);
+      expect(find.text('work · mcp_servers'), findsOneWidget);
       expect(find.textContaining('"timeout": 30'), findsOneWidget);
     });
 
@@ -1015,8 +1015,13 @@ void main() {
 
     await openDetail(tester, 'grafana');
     expect(
-      tester.getSemantics(find.byIcon(Icons.delete_outline)),
-      namedButton('Remove'),
+      tester.getSemantics(
+        find.descendant(
+          of: find.byKey(const Key('mcp-remove')),
+          matching: find.text('Remove'),
+        ),
+      ),
+      isSemantics(label: 'Remove', isButton: true, hasTapAction: true),
     );
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();

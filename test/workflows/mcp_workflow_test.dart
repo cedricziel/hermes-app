@@ -251,7 +251,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await select(tester, size, 'flaky');
-      await tester.tap(find.byTooltip('Remove'));
+      await tester.tap(find.byKey(const Key('mcp-remove')));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'remove-dialog');
       await tester.tap(find.text('Cancel'));

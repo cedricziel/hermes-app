@@ -97,6 +97,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> pickFilter(WidgetTester tester, String label) async {
+    await tester.tap(find.byKey(const Key('settings-search-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label));
+    await tester.pumpAndSettle();
+  }
+
   Finder row(String name) => find.byKey(ValueKey('mcp-catalog-row-$name'));
 
   Finder inRow(String name, String text) =>
@@ -167,14 +174,12 @@ void main() {
       await openCatalog(tester);
 
       expect(inRow('asana', 'Tasks, projects and workspaces.'), findsOneWidget);
-      expect(inRow('asana', 'Remote'), findsOneWidget);
-      expect(inRow('asana', 'OAuth'), findsOneWidget);
-      expect(inRow('asana', 'Installed'), findsOneWidget);
-      expect(inRow('buildkite', 'Command'), findsOneWidget);
-      expect(inRow('buildkite', 'API key'), findsOneWidget);
-      expect(inRow('buildkite', 'Builds locally'), findsOneWidget);
-      expect(inRow('buildkite', 'Installed'), findsNothing);
-      expect(inRow('context7', 'No auth'), findsOneWidget);
+      expect(inRow('asana', 'Remote · OAuth · Installed'), findsOneWidget);
+      expect(
+        inRow('buildkite', 'Command · API key · Builds locally'),
+        findsOneWidget,
+      );
+      expect(inRow('context7', 'Remote · No auth'), findsOneWidget);
     });
 
     testWidgets('skips entries without a usable name', (tester) async {
@@ -272,24 +277,24 @@ void main() {
     testWidgets('filters by transport and by sign-in kind', (tester) async {
       await openCatalog(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'OAuth'));
+      await pickFilter(tester, 'OAuth');
       await tester.pump();
       expect(row('asana'), findsOneWidget);
       expect(row('grafana'), findsOneWidget);
       expect(row('buildkite'), findsNothing);
       expect(row('context7'), findsNothing);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Command'));
+      await pickFilter(tester, 'Command');
       await tester.pump();
       expect(row('buildkite'), findsOneWidget);
       expect(row('asana'), findsNothing);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Remote'));
+      await pickFilter(tester, 'Remote');
       await tester.pump();
       expect(row('context7'), findsOneWidget);
       expect(row('buildkite'), findsNothing);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'All'));
+      await pickFilter(tester, 'All');
       await tester.pump();
       expect(row('buildkite'), findsOneWidget);
     });
@@ -297,7 +302,7 @@ void main() {
     testWidgets('search and filter narrow the list together', (tester) async {
       await openCatalog(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'OAuth'));
+      await pickFilter(tester, 'OAuth');
       await tester.enterText(find.byType(TextField), 'dash');
       await tester.pump();
 
