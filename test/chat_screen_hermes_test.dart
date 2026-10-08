@@ -395,7 +395,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(McpServersScreen), findsOneWidget);
-    expect(find.text('Profile: work'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(McpServersScreen),
+        matching: find.text('work'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('grafana'), findsWidgets);
   });
 

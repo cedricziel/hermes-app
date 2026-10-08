@@ -91,7 +91,7 @@ void main() {
     Size size = const Size(420, 900),
   }) async {
     await pumpServers(tester, size: size);
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.byTooltip('Add server'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Browse the catalog'));
     await tester.pumpAndSettle();
@@ -137,7 +137,7 @@ void main() {
       await pumpServers(tester);
 
       expect(find.text('Could not load MCP servers'), findsOneWidget);
-      expect(find.text('Add'), findsNothing);
+      expect(find.byTooltip('Add server'), findsNothing);
     });
   });
 
@@ -147,7 +147,7 @@ void main() {
       server.onRequest('GET', '/api/mcp/catalog', (_) => answer.future);
       await pumpServers(tester);
 
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.byTooltip('Add server'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Browse the catalog'));
       for (var i = 0; i < 4; i++) {

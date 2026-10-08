@@ -170,7 +170,7 @@ void main() {
   }
 
   Future<void> openAddMenu(WidgetTester tester) async {
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.byTooltip('Add server'));
     await tester.pumpAndSettle();
   }
 
