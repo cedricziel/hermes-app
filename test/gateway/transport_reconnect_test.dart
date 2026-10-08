@@ -130,6 +130,48 @@ void main() {
     );
   });
 
+  group('A queued prompt across a drop', () {
+    test(
+      'Queued by the server: a drop while the turn ahead still runs does not '
+      'let that turn\'s idle report settle the queued reply',
+      () {
+        fake((async) {
+          gateway.submitStatus = 'queued';
+          gateway.turn = (g, sid) {
+            g.event('message.delta', sid, {'text': 'old'});
+            g.drop();
+          };
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+
+          final seen = _listen(transport.send(text: 'next', queued: true));
+          async.flushMicrotasks();
+          async.elapse(const Duration(seconds: 20));
+
+          gateway
+            ..event('message.complete', 'rt-1', {
+              'text': 'old',
+              'status': 'complete',
+            })
+            ..event('session.info', 'rt-1', {'running': false});
+          async.flushMicrotasks();
+          expect(seen.done, isFalse);
+
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'new',
+              'status': 'complete',
+            });
+          async.flushMicrotasks();
+
+          expect(seen.error, isNull);
+          expect(seen.done, isTrue);
+          expect(seen.events.whereType<ReplyCompleted>().single.text, 'new');
+        });
+      },
+    );
+  });
+
   group('Live events overlap the replay', () {
     test('Live events overlap the replay: seqs 11 to 13 sent before the replay answer are not delivered twice', () {
       fake((async) {

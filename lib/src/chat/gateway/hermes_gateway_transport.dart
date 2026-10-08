@@ -677,8 +677,9 @@ class HermesGatewayTransport implements ChatTransport {
           return;
         }
         watch = live;
-        // The server reported the resumed session running, so its turn began.
-        started = true;
+        // The server reported the resumed session running, so its turn began,
+        // unless that turn is still the one a queued prompt waits behind.
+        if (gate?.ended ?? true) started = true;
       }
     } finally {
       _forgetRequests(mine);
