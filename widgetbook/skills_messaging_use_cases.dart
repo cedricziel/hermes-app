@@ -1,11 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/messaging/messaging_setup_screen.dart';
-import 'package:hermes_app/src/messaging/messaging_screen.dart';
-import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
-import 'package:hermes_app/src/messaging/telegram_pairing_screen.dart';
-import 'package:hermes_app/src/messaging/widgets/messaging_introduction.dart';
 import 'package:hermes_app/src/models/hermes_models_repository.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/profiles_screen.dart';
@@ -256,29 +251,9 @@ WidgetbookUseCase _sheet(String name, SkillJob Function() job) =>
       ),
     );
 
-WidgetbookUseCase _messaging(
-  String name,
-  Widget Function(HermesMessagingRepository r) b,
-) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => Hosted<HermesMessagingRepository>(
-    create: () => HermesMessagingRepository(skillsServer().client().raw),
-    builder: (_, repository) => b(repository),
-  ),
-);
-
 WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
-  name: 'Skills, messaging and profiles',
+  name: 'Skills and profiles',
   children: [
-    WidgetbookComponent(
-      name: 'MessagingIntroduction',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'Purpose',
-          builder: (_) => frame(const MessagingIntroduction()),
-        ),
-      ],
-    ),
     WidgetbookComponent(
       name: 'SkillsScreen',
       useCases: [
@@ -403,51 +378,6 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
               spacing: 8,
               children: [for (final s in SkillSource.values) SourceBadge(s)],
             ),
-          ),
-        ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'MessagingScreen',
-      useCases: [
-        _messaging(
-          'Platforms',
-          (repository) => MessagingScreen(repository: repository),
-        ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'MessagingSetupScreen',
-      useCases: [
-        _messaging(
-          'Discord',
-          (repository) => FutureBuilder<List<HermesMessagingPlatform>>(
-            future: repository.load(),
-            builder: (_, snapshot) {
-              final platforms = snapshot.data;
-              if (platforms == null) {
-                return const Center(
-                  child: CircularProgressIndicator.adaptive(),
-                );
-              }
-              return MessagingSetupScreen(
-                platform: platforms.firstWhere((b) => b.id == 'discord'),
-                repository: repository,
-              );
-            },
-          ),
-        ),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'TelegramPairingScreen',
-      useCases: [
-        _messaging(
-          'Waiting for Telegram',
-          (repository) => TelegramPairingScreen(
-            repository: repository,
-            pollInterval: const Duration(days: 1),
-            launchLink: (_) async => true,
           ),
         ),
       ],

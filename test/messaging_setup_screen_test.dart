@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/messaging/messaging_screen.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
 
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
@@ -61,7 +62,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, name));
+    await tester.tap(find.widgetWithText(MessagingPlatformRow, name));
     await tester.pumpAndSettle();
   }
 
@@ -308,7 +309,7 @@ void main() {
     await save(tester);
 
     expect(find.text('Set up Discord'), findsNothing);
-    expect(find.text('Needs setup'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Set up'), findsOneWidget);
   });
 
   testWidgets('screen readers get the clear button and Advanced by name', (

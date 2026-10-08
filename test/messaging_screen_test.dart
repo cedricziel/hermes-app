@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/messaging/messaging_screen.dart';
 import 'package:hermes_app/src/messaging/hermes_messaging_repository.dart';
+import 'package:hermes_app/src/messaging/widgets/messaging_platform_row.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/pump_on_platform.dart';
 
 /// The messaging screen against a fake dashboard, through the real generated
 /// client.
@@ -62,7 +64,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder tile(String name) => find.widgetWithText(ListTile, name);
+  Finder tile(String name) => find.widgetWithText(MessagingPlatformRow, name);
 
   Switch switchIn(WidgetTester tester, String name) => tester.widget<Switch>(
     find.descendant(of: tile(name), matching: find.byType(Switch)),
@@ -119,19 +121,27 @@ void main() {
   });
 
   testWidgets(
-    'a platform without credentials says it needs setup and cannot be '
-    'switched on',
+    'a platform without credentials offers setup in place of its switch',
     (tester) async {
       await pumpMessaging(tester);
 
       expect(
+        find.descendant(of: tile('WhatsApp'), matching: find.byType(Switch)),
+        findsNothing,
+      );
+      await tester.tap(
         find.descendant(
           of: tile('WhatsApp'),
-          matching: find.text('Needs setup'),
+          matching: find.widgetWithText(OutlinedButton, 'Set up'),
         ),
-        findsOneWidget,
       );
-      expect(switchIn(tester, 'WhatsApp').onChanged, isNull);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Set up WhatsApp'), findsOneWidget);
+      expect(
+        server.requestsTo('PUT', '/api/messaging/platforms/whatsapp'),
+        isEmpty,
+      );
     },
   );
 
@@ -162,8 +172,14 @@ void main() {
           .requestsTo('PUT', '/api/messaging/platforms/signal')
           .single;
       expect((jsonBody(request) as Map)['enabled'], isFalse);
-      expect(switchIn(tester, 'Signal').value, isFalse);
-      expect(switchIn(tester, 'Signal').onChanged, isNull);
+      expect(
+        find.descendant(of: tile('Signal'), matching: find.byType(Switch)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: tile('Signal'), matching: find.text('Set up')),
+        findsOneWidget,
+      );
     },
   );
 
@@ -249,5 +265,44 @@ void main() {
 
     expect(find.text('Could not load messaging platforms'), findsNothing);
     expect(find.text('Telegram'), findsOneWidget);
+  });
+
+  Future<void> pumpOn(WidgetTester tester, TargetPlatform platform) async {
+    await pumpOnPlatform(
+      tester,
+      MessagingScreen(
+        repository: HermesMessagingRepository(server.client().raw),
+      ),
+      platform: platform,
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('on a Mac the bar counts the platforms switched on', (
+    tester,
+  ) async {
+    await pumpOn(tester, TargetPlatform.macOS);
+
+    expect(find.text('3 of 5 on'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: tile('WhatsApp'),
+        matching: find.widgetWithText(OutlinedButton, 'Set Up…'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('on an iPhone a platform without credentials reads Set Up and '
+      'opens its setup', (tester) async {
+    await pumpOn(tester, TargetPlatform.iOS);
+
+    expect(find.text('3 of 5 on'), findsNothing);
+    await tester.tap(
+      find.descendant(of: tile('WhatsApp'), matching: find.text('Set Up')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Set up WhatsApp'), findsOneWidget);
   });
 }

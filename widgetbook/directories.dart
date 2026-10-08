@@ -24,6 +24,7 @@ import 'schedules_mac_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
 import 'settings_chrome_use_cases.dart';
 import 'settings_screen_use_cases.dart';
+import 'messaging_use_cases.dart';
 import 'skills_messaging_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'busy_bar_use_cases.dart';
@@ -56,6 +57,7 @@ final List<WidgetbookNode> directories = [
   schedulesScreensNode(),
   schedulesMacNode(),
   skillsMessagingNode(),
+  messagingNode(),
   botModeRosterNode(),
   botChatNode(),
   groupUiNode(),
