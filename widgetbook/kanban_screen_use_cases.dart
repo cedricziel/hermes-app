@@ -18,6 +18,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
 import '../test/support/kanban_fixtures.dart';
+import 'frame.dart';
 import 'host.dart';
 
 const _root = '/api/plugins/kanban';
@@ -157,6 +158,18 @@ WidgetbookUseCase _screen(
   ),
 );
 
+List<WidgetbookUseCase> _onEachPlatform(
+  String name,
+  FakeHermesServer Function() server,
+  Widget Function(KanbanRepository repository) build,
+) => onEachPlatform(
+  name,
+  (_) => Hosted<KanbanRepository>(
+    create: () => KanbanRepository(server().client()),
+    builder: (_, repository) => build(repository),
+  ),
+);
+
 WidgetbookUseCase _boardScreen(String name, {bool empty = false}) =>
     WidgetbookUseCase(
       name: name,
@@ -181,26 +194,26 @@ List<WidgetbookNode> kanbanScreenComponents() => [
   ),
   WidgetbookComponent(
     name: 'KanbanBoardsScreen',
-    useCases: [
-      WidgetbookUseCase(
-        name: 'Boards',
-        builder: (_) => Hosted<KanbanBoardController>(
-          create: () async {
-            final controller = KanbanBoardController(
-              repository: KanbanRepository(kanbanServer().client()),
-              connect: noKanbanEvents,
-            );
-            await controller.start();
-            return controller;
-          },
-          dispose: (controller) => controller.dispose(),
-          builder: (_, controller) => KanbanBoardsScreen(
+    useCases: onEachPlatform(
+      'Boards',
+      (_) => Hosted<KanbanBoardController>(
+        create: () async {
+          final controller = KanbanBoardController(
+            repository: KanbanRepository(kanbanServer().client()),
+            connect: noKanbanEvents,
+          );
+          await controller.start();
+          return controller;
+        },
+        dispose: (controller) => controller.dispose(),
+        builder: (_, controller) => pushed(
+          KanbanBoardsScreen(
             controller: controller,
             repository: KanbanRepository(kanbanServer().client()),
           ),
         ),
       ),
-    ],
+    ),
   ),
   WidgetbookComponent(
     name: 'KanbanCreateScreen',
@@ -224,16 +237,16 @@ List<WidgetbookNode> kanbanScreenComponents() => [
   WidgetbookComponent(
     name: 'KanbanWorkersScreen',
     useCases: [
-      _screen(
+      ..._onEachPlatform(
         'Running worker',
         kanbanServer,
-        (repository) => KanbanWorkersScreen(repository: repository),
+        (repository) => pushed(KanbanWorkersScreen(repository: repository)),
       ),
-      _screen(
+      ..._onEachPlatform(
         'No workers',
         () =>
             kanbanServer()..on('GET', '$_root/workers/active', {'workers': []}),
-        (repository) => KanbanWorkersScreen(repository: repository),
+        (repository) => pushed(KanbanWorkersScreen(repository: repository)),
       ),
     ],
   ),

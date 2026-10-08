@@ -79,7 +79,7 @@ void main() {
     server.on('POST', '/api/plugins/kanban/boards', {'board': {}});
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Q3 Launch');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -95,7 +95,7 @@ void main() {
   testWidgets('will not send a name that leaves no slug', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '日本語');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -114,7 +114,7 @@ void main() {
     }, status: 400);
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Ops');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
