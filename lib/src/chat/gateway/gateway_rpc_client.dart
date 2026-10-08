@@ -82,29 +82,35 @@ class GatewayRpcClient {
   /// closes itself once no frame of any kind has arrived for [deadAfter]. A
   /// socket the OS dropped while the app slept can look open and never
   /// answer; without the heartbeat nothing notices until the next request.
+  /// The heartbeat runs only while the connection is held (see [hold]).
   GatewayRpcClient(
     StreamChannel<String> channel, {
     this._telemetry,
-    bool heartbeat = false,
-    Duration pingEvery = const Duration(seconds: 15),
-    Duration deadAfter = const Duration(seconds: 45),
+    this.heartbeat = false,
+    this.pingEvery = const Duration(seconds: 15),
+    this.deadAfter = const Duration(seconds: 45),
     this.resumeGrace = const Duration(milliseconds: 250),
+    this.probeTimeout = const Duration(seconds: 5),
   }) : _channel = channel {
     _subscription = channel.stream.listen(
       _onFrame,
       onError: (Object _) {},
       onDone: _onClosed,
     );
-    if (heartbeat) {
-      _armDeadline(deadAfter);
-      _pingTimer = Timer.periodic(pingEvery, (_) => _ping());
-      _deadAfter = deadAfter;
-    }
   }
 
-  /// How long a deadline that fired far later than due (the app was
-  /// suspended) waits for the socket reads the OS had not delivered yet.
+  final bool heartbeat;
+  final Duration pingEvery;
+  final Duration deadAfter;
+
+  /// How late a deadline must fire to count as one the app slept through.
   final Duration resumeGrace;
+
+  /// How long a deadline that fired late waits, after a ping, for any frame
+  /// before closing. A radio that is waking up can take a few seconds to
+  /// carry traffic again; this is long enough for that and still quick to
+  /// give up on a dead socket.
+  final Duration probeTimeout;
 
   final StreamChannel<String> _channel;
   final MessagingConnectionTracer? _telemetry;
@@ -118,13 +124,51 @@ class GatewayRpcClient {
   /// How many frames have arrived, to tell a socket that went quiet from one
   /// whose frames are still waiting to be handled.
   var _framesSeen = 0;
+  var _holds = 0;
+  DateTime _lastFrameAt = clock.now();
   Timer? _pingTimer;
   Timer? _deadline;
-  Duration? _deadAfter;
+  Timer? _probe;
   DateTime? _armedFor;
   String? _epoch;
 
   bool get isClosed => _closed;
+
+  /// Whether nothing has watched this socket and it has been quiet for
+  /// [deadAfter]: it may have died unnoticed, so a caller about to rely on it
+  /// should check it first (see [isResponsive]). A held connection is watched
+  /// by the heartbeat instead.
+  bool get isStale =>
+      !_closed &&
+      _holds == 0 &&
+      clock.now().difference(_lastFrameAt) > deadAfter;
+
+  /// Keeps the heartbeat running until the returned function is called, which
+  /// is safe to call more than once. The heartbeat runs while any hold is
+  /// open, with a fresh silence deadline from the first one, so a connection
+  /// nobody holds is neither pinged nor closed for silence.
+  void Function() hold() {
+    if (_closed) return () {};
+    if (_holds++ == 0 && heartbeat) {
+      _armDeadline(deadAfter);
+      _pingTimer = Timer.periodic(pingEvery, (_) => _ping());
+    }
+    var held = true;
+    return () {
+      if (!held) return;
+      held = false;
+      if (--_holds == 0) _stopHeartbeat();
+    };
+  }
+
+  void _stopHeartbeat() {
+    _pingTimer?.cancel();
+    _pingTimer = null;
+    _deadline?.cancel();
+    _deadline = null;
+    _probe?.cancel();
+    _probe = null;
+  }
 
   /// The replay epoch the gateway announced in `gateway.ready`, or null
   /// until one arrives. A changed epoch means the gateway lost its replay
@@ -213,20 +257,23 @@ class GatewayRpcClient {
   /// The deadline passed. After the app was suspended it fires long past due,
   /// before the frames that arrived meanwhile are read from the socket, so
   /// the socket is closed only if still no frame came after a wait: one turn
-  /// of the event loop, or [resumeGrace] when the deadline ran late.
+  /// of the event loop, or, when the deadline ran late, a ping and up to
+  /// [probeTimeout] for any frame.
   void _onSilent() {
     final seen = _framesSeen;
     final due = _armedFor;
     final late = due != null && clock.now().difference(due) > resumeGrace;
     void check() {
-      if (_closed || _framesSeen != seen) return;
+      if (_closed || _holds == 0 || _framesSeen != seen) return;
       _close();
     }
 
+    _probe?.cancel();
     if (late) {
-      Timer(resumeGrace, check);
+      _ping();
+      _probe = Timer(probeTimeout, check);
     } else {
-      Timer.run(check);
+      _probe = Timer(Duration.zero, check);
     }
   }
 
@@ -238,7 +285,8 @@ class GatewayRpcClient {
 
   void _onFrame(String frame) {
     _framesSeen++;
-    if (_deadAfter != null && !_closed) _armDeadline(_deadAfter!);
+    _lastFrameAt = clock.now();
+    if (_holds > 0 && heartbeat && !_closed) _armDeadline(deadAfter);
     final Object? message;
     try {
       message = jsonDecode(frame);
@@ -320,8 +368,7 @@ class GatewayRpcClient {
   void _onClosed() {
     if (_closed) return;
     _closed = true;
-    _pingTimer?.cancel();
-    _deadline?.cancel();
+    _stopHeartbeat();
     final pending = _pending.values.toList();
     _pending.clear();
     for (final call in pending) {
