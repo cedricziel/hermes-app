@@ -169,6 +169,26 @@ def app_review_information
   }
 end
 
+# Beta App Review reads its demo account from TestFlight's Test Information,
+# not from the App Store version, so external builds get the same account.
+# Left out when a secret is missing, so a release still uploads.
+def beta_app_review_information
+  info = app_review_information
+  {
+    contact_first_name: info[:first_name],
+    contact_last_name: info[:last_name],
+    contact_phone: info[:phone_number],
+    contact_email: info[:email_address],
+    demo_account_required: true,
+    demo_account_name: info[:demo_user],
+    demo_account_password: info[:demo_password],
+    notes: info[:notes]
+  }
+rescue FastlaneCore::Interface::FastlaneError => e
+  UI.important("Skipping the Beta App Review information: #{e.message}")
+  nil
+end
+
 desc "Upload App Store metadata (listing text, category, age rating) without a binary"
 desc "  version:X.Y.Z  the editable version to update (default: pubspec.yaml, which renames it)"
 lane :sync_metadata do |options|
@@ -372,6 +392,8 @@ def release_target(key, options)
     notify_external_testers: true,
     changelog: notes.to_s.empty? ? "Build #{built[:version]} (#{built[:build_number]})" : notes,
   }
+  review = beta_app_review_information
+  params[:beta_app_review_info] = review if review
   params[key == :mac ? :pkg : :ipa] = t[:artifact]
 
   upload_to_testflight(**params)
