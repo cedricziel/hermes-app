@@ -9,6 +9,10 @@
 /// the blank-thread state. It heals only when the subtree is remounted, which
 /// until now took a manual switch to another thread and back.
 ///
+/// The known cause, items still animating out at a stale index, is gone:
+/// `FollowingChatList` turns the list's animations off. The watchdog stays as
+/// a safeguard against any other desync.
+///
 /// The signal available from outside the package: while the follower is glued
 /// to the bottom of a non-empty list and the scroll metrics are churning
 /// (streaming keeps resizing the content), the list must be building items.
