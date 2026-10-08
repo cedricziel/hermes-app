@@ -141,16 +141,27 @@ final class _Resumed {
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
 ///
-/// A watch holds its connection's heartbeat from creation until [close], so
-/// the connection is pinged while a reply is in flight or a thread is
-/// listened to, and not otherwise.
+/// A watch holds its connection's heartbeat while a reply or a follow-up
+/// stream reads it, from creation until [release] (when it is parked with no
+/// reader) or [close]. A reader takes the hold again with [hold].
 class _Watch {
   _Watch(this.runtimeId, this.client, this._inbox, {bool record = false})
     : events = StreamIterator(_inbox.stream),
       _arrivals = record ? [] : null,
       _release = client.hold();
 
-  final void Function() _release;
+  void Function()? _release;
+
+  /// Takes the connection's heartbeat hold, unless already held or closed.
+  void hold() {
+    if (!closedByUs) _release ??= client.hold();
+  }
+
+  /// Gives the hold back, for a watch parked with nobody reading it.
+  void release() {
+    _release?.call();
+    _release = null;
+  }
 
   final String runtimeId;
 
@@ -196,7 +207,7 @@ class _Watch {
   /// so awaiting it can hang the reply that is closing its watch.
   Future<void> close() async {
     closedByUs = true;
-    _release();
+    release();
     for (final source in _sources) {
       unawaited(source.cancel());
     }
@@ -250,9 +261,17 @@ class _Tap {
 /// in one place lets the stream's cancel close the watch that is current then,
 /// not the one it started with.
 class _Follow {
-  _Follow(this.watch);
+  _Follow(this._watch);
 
-  _Watch watch;
+  _Watch _watch;
+  _Watch get watch => _watch;
+
+  /// The follow reads [next] from now on, so it holds its connection.
+  set watch(_Watch next) {
+    next.hold();
+    _watch = next;
+  }
+
   bool cancelled = false;
 }
 
@@ -696,6 +715,7 @@ class HermesGatewayTransport implements ChatTransport {
         // for the follow-ups, which carry them.
         final displaced = _idle.remove(owner);
         _idle[owner] = watch;
+        watch.release();
         parked = true;
         await displaced?.close();
         yield const PromptFolded();
@@ -806,6 +826,7 @@ class HermesGatewayTransport implements ChatTransport {
               final displaced = _idle.remove(owner);
               watch.leaveBacklog(setAside);
               _idle[owner] = watch;
+              watch.release();
               parked = true;
               await displaced?.close();
               return;
@@ -1594,6 +1615,7 @@ class HermesGatewayTransport implements ChatTransport {
   Future<void> _park(_ThreadOwner owner, _Watch watch) async {
     final displaced = _idle.remove(owner);
     _idle[owner] = watch;
+    watch.release();
     await displaced?.close();
   }
 
@@ -1700,6 +1722,7 @@ class HermesGatewayTransport implements ChatTransport {
     StreamController<ChatEvent> out, {
     bool initiallyReplying = false,
   }) async {
+    follow.watch.hold();
     var key = owner;
     var runtimeId = follow.watch.runtimeId;
     var replying = initiallyReplying;
@@ -2215,7 +2238,17 @@ class HermesGatewayTransport implements ChatTransport {
 
   Future<GatewayRpcClient> _client() async {
     final open = _connected();
-    if (open != null) return open;
+    if (open != null &&
+        open.isStale &&
+        !await open.isResponsive(probeTimeout)) {
+      // Nothing was pinging it, so a socket the OS dropped meanwhile would
+      // fail the send after the request timeout. Not awaited: closing a
+      // channel whose peer has left can wait forever.
+      if (_open == open) _open = null;
+      unawaited(open.close());
+    }
+    final current = _connected();
+    if (current != null) return current;
     return _opening ??= _openNew().whenComplete(() => _opening = null);
   }
 

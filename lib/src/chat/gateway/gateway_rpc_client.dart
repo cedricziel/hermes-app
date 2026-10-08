@@ -125,6 +125,7 @@ class GatewayRpcClient {
   /// whose frames are still waiting to be handled.
   var _framesSeen = 0;
   var _holds = 0;
+  DateTime _lastFrameAt = clock.now();
   Timer? _pingTimer;
   Timer? _deadline;
   Timer? _probe;
@@ -133,10 +134,19 @@ class GatewayRpcClient {
 
   bool get isClosed => _closed;
 
+  /// Whether nothing has watched this socket and it has been quiet for
+  /// [deadAfter]: it may have died unnoticed, so a caller about to rely on it
+  /// should check it first (see [isResponsive]). A held connection is watched
+  /// by the heartbeat instead.
+  bool get isStale =>
+      !_closed &&
+      _holds == 0 &&
+      clock.now().difference(_lastFrameAt) > deadAfter;
+
   /// Keeps the heartbeat running until the returned function is called, which
   /// is safe to call more than once. The heartbeat runs while any hold is
-  /// open, with a fresh silence deadline from the first one, so an idle
-  /// connection nobody listens to is neither pinged nor closed for silence.
+  /// open, with a fresh silence deadline from the first one, so a connection
+  /// nobody holds is neither pinged nor closed for silence.
   void Function() hold() {
     if (_closed) return () {};
     if (_holds++ == 0 && heartbeat) {
@@ -258,11 +268,12 @@ class GatewayRpcClient {
       _close();
     }
 
+    _probe?.cancel();
     if (late) {
       _ping();
       _probe = Timer(probeTimeout, check);
     } else {
-      Timer.run(check);
+      _probe = Timer(Duration.zero, check);
     }
   }
 
@@ -274,6 +285,7 @@ class GatewayRpcClient {
 
   void _onFrame(String frame) {
     _framesSeen++;
+    _lastFrameAt = clock.now();
     if (_holds > 0 && heartbeat && !_closed) _armDeadline(deadAfter);
     final Object? message;
     try {

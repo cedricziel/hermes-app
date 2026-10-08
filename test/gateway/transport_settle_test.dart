@@ -353,30 +353,140 @@ void main() {
       });
     });
 
-    test('Heartbeat holds: a listened-to thread is pinged until its follow-ups end', () {
+    test(
+      'Heartbeat holds: a parked thread is not pinged, a followed one is',
+      () {
+        fakeAsync((async) {
+          final gateway = FakeGateway();
+          final transport = HermesGatewayTransport(
+            connect: () async => gateway.channel,
+          );
+          int pings() =>
+              gateway.methods.where((m) => m == 'gateway.ping').length;
+          gateway.turn = (g, sid) => g.event('message.complete', sid, {
+            'text': 'Hi',
+            'status': 'complete',
+          });
+          final seen = _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          expect(seen.done, isTrue);
+
+          // Nobody follows the finished reply, so nothing is pinged.
+          async.elapse(const Duration(minutes: 2));
+          expect(pings(), 0);
+
+          // A follow-up stream listens, so the connection is held.
+          final follow = transport.followUps('stored-1').listen((_) {});
+          async.flushMicrotasks();
+          async.elapse(const Duration(seconds: 30));
+          expect(pings(), 2);
+
+          unawaited(follow.cancel());
+          async.flushMicrotasks();
+          async.elapse(const Duration(minutes: 5));
+          expect(pings(), 2);
+        });
+      },
+    );
+
+    test('Heartbeat holds: a dead socket nobody listens to is probed and replaced by the next send', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        var connects = 0;
+        final transport = HermesGatewayTransport(
+          connect: () async {
+            connects++;
+            if (connects > 1) gateway.deaf = false;
+            return gateway.connect();
+          },
+        );
+        gateway.turn = (g, sid) => g.event('message.complete', sid, {
+          'text': 'Hi',
+          'status': 'complete',
+        });
+        final first = _listen(transport.send(text: 'one'));
+        async.flushMicrotasks();
+        expect(first.done, isTrue);
+
+        // The network changed while nothing was pinging.
+        async.elapse(const Duration(minutes: 2));
+        gateway.deaf = true;
+        final second = _listen(transport.send(text: 'two'));
+        async.flushMicrotasks();
+        expect(connects, 1);
+
+        async.elapse(const Duration(seconds: 10));
+        async.flushMicrotasks();
+        expect(connects, 2);
+        expect(second.error, isNull);
+        expect(second.done, isTrue);
+        expect(second.events.last, isA<ReplyCompleted>());
+      });
+    });
+
+    test('Heartbeat holds: a recently active connection is not probed before a send', () {
       fakeAsync((async) {
         final gateway = FakeGateway();
         final transport = HermesGatewayTransport(
           connect: () async => gateway.channel,
         );
-        int pings() => gateway.methods.where((m) => m == 'gateway.ping').length;
         gateway.turn = (g, sid) => g.event('message.complete', sid, {
           'text': 'Hi',
           'status': 'complete',
         });
+        _listen(transport.send(text: 'one'));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 20));
+
+        final second = _listen(transport.send(text: 'two'));
+        async.flushMicrotasks();
+        expect(second.done, isTrue);
+        expect(
+          gateway.methods.where((m) => m == 'client.capabilities'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('Heartbeat holds: after a dead-socket reconnect the new connection is pinged while the reply runs', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway()
+          ..activeSessions = {'stored-1': 'working'}
+          ..resumeResult = {'session_id': 'rt-1', 'running': true};
+        var connects = 0;
+        final transport = HermesGatewayTransport(
+          connect: () async {
+            connects++;
+            if (connects > 1) gateway.deaf = false;
+            return gateway.connect();
+          },
+        );
+        int pings() => gateway.methods.where((m) => m == 'gateway.ping').length;
+        gateway.turn = (g, sid) => g.event('message.start', sid);
         final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        gateway.deaf = true;
+        async.elapse(const Duration(seconds: 45));
+        async.flushMicrotasks();
+        expect(connects, 2);
+
+        // One connection pings, not two.
+        final before = pings();
+        async.elapse(const Duration(seconds: 60));
+        expect(pings() - before, 4);
+
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'Back',
+          'status': 'complete',
+        });
         async.flushMicrotasks();
         expect(seen.done, isTrue);
 
-        final follow = transport.followUps('stored-1').listen((_) {});
-        async.flushMicrotasks();
-        async.elapse(const Duration(seconds: 30));
-        expect(pings(), 2);
-
-        unawaited(follow.cancel());
-        async.flushMicrotasks();
+        // The reply is over and nobody follows, so the pings stop.
+        final after = pings();
         async.elapse(const Duration(minutes: 5));
-        expect(pings(), 2);
+        expect(pings(), after);
       });
     });
 

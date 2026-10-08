@@ -631,4 +631,67 @@ void main() {
       });
     });
   });
+
+  group('heartbeat timers', () {
+    test(
+      'Release and re-hold in the turn the deadline fired keeps it open',
+      () {
+        fakeAsync((async) {
+          final wire = StreamChannelController<String>();
+          _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(
+            wire.local,
+            heartbeat: true,
+            pingEvery: const Duration(minutes: 10),
+          );
+          var release = client.hold();
+          // Due with the deadline but queued behind it, before its check runs.
+          Timer(const Duration(seconds: 45), () {
+            release();
+            release = client.hold();
+          });
+
+          async.elapse(const Duration(seconds: 45));
+          async.flushMicrotasks();
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      },
+    );
+  });
+
+  group('isStale', () {
+    test(
+      'Only an unheld connection that went quiet for deadAfter is stale',
+      () {
+        fakeAsync((async) {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+
+          async.elapse(const Duration(seconds: 44));
+          expect(client.isStale, isFalse);
+          async.elapse(const Duration(seconds: 2));
+          expect(client.isStale, isTrue);
+
+          // Any frame is a sign of life.
+          server.send(_eventFrame('sessions.changed', sessionId: ''));
+          async.flushMicrotasks();
+          expect(client.isStale, isFalse);
+
+          // A held connection has the heartbeat watching it instead.
+          final release = client.hold();
+          async.elapse(const Duration(minutes: 5));
+          expect(client.isStale, isFalse);
+          release();
+          expect(client.isStale, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      },
+    );
+  });
 }
