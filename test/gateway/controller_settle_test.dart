@@ -417,6 +417,32 @@ void main() {
       });
     });
 
+    test('a stop before the folded answer that finds nothing to interrupt '
+        'sends the queue', () {
+      fakeAsync((async) {
+        final rig = Rig();
+        final (thread, send) = rig.start('One');
+        async.flushMicrotasks();
+        rig.chat.submit('Two', const []);
+        rig.transport.stopsRunning = false;
+        final gate = rig.transport.stopGate = Completer<void>();
+        unawaited(rig.chat.stopReply(thread));
+        async.flushMicrotasks();
+
+        send
+          ..emit(const PromptFolded())
+          ..finish();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(rig.sentTexts, ['One']);
+
+        gate.complete();
+        async.flushMicrotasks();
+        expect(rig.sentTexts, ['One', 'Two']);
+        rig.dispose();
+      });
+    });
+
     test('a normal completion then an idle report on the send, with the '
         'interrupt answering false, is a normal finish', () async {
       final (thread, first) = rig.start('One');

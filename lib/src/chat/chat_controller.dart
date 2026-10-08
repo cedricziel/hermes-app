@@ -1652,6 +1652,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _stopRequested.add(thread);
       }
       if (stopped != false) return;
+      if (!thread.isReplying) {
+        // Nothing was running: the turn ended on its own while the stop was in
+        // flight, so the queue it paused goes on as after a normal settle.
+        if (!_stopPending.containsKey(thread)) sendQueued(thread);
+        return;
+      }
       // The server has no turn left to interrupt. A completion was missed by
       // this listener, so release the stale pending reply and composer.
       for (final reply in pending.where((reply) => reply.isPending)) {
