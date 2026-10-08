@@ -1264,7 +1264,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       id: _newMessageId(thread),
       role: ChatRole.assistant,
       content: '',
-      createdAt: DateTime.now(),
+      createdAt: before?.createdAt ?? DateTime.now(),
       status: MessageStatus.thinking,
     );
     final at = before == null ? -1 : thread.messages.indexOf(before);
@@ -1324,7 +1324,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final own = _OwnTurn();
     void end([Object? error]) {
       _replies.remove(subscription);
-      _closeOwnTurn(thread, own, failed: error != null);
+      _closeOwnTurn(
+        thread,
+        own,
+        profile,
+        failed: error != null,
+        announceFailure: !reply.isPending,
+      );
       if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
@@ -1404,35 +1410,79 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _replies.add(subscription);
   }
 
-  /// An event of the turn Hermes ran on its own ahead of the prompt [prompt]
-  /// answers. It streams into a reply of its own, in front of the prompt's
-  /// reply, which keeps waiting for its turn; the turn's end closes it.
+  /// The prompt [reply] answers: the user message before it, which the turn
+  /// Hermes ran ahead of it goes in front of. The server stores it there too.
+  ChatMessage _promptOf(ChatThread thread, ChatMessage reply) {
+    final at = thread.messages.indexOf(reply);
+    final user = thread.messages
+        .take(at < 0 ? thread.messages.length : at)
+        .toList()
+        .lastIndexWhere((m) => m.role == ChatRole.user);
+    return user < 0 ? reply : thread.messages[user];
+  }
+
+  /// An event of the turn Hermes ran on its own ahead of the prompt that
+  /// [reply] answers. It streams into a reply of its own, in front of the
+  /// prompt, while [reply] keeps waiting for its turn; the turn's end closes
+  /// it. The turn belongs to the send: its end does not settle the queue or
+  /// touch a stop in flight.
   void _onOwnTurnEvent(
     ChatThread thread,
-    ChatMessage prompt,
+    ChatMessage reply,
     _OwnTurn own,
     ChatEvent event,
     String? profile,
   ) {
+    // The transport takes an idle report for the turn's end only once the turn
+    // has begun; so does this. An approval alone does not begin it.
+    if (beginsTurn(event)) own.began = true;
+    final asks =
+        event is ApprovalRequested ||
+        event is ClarifyRequested ||
+        event is VaultRequested ||
+        event is UnsupportedRequested;
     if (own.open == null &&
         (opensTurn(event) ||
-            event is ApprovalRequested ||
-            event is ClarifyRequested ||
-            event is VaultRequested ||
-            event is UnsupportedRequested)) {
-      own.open = own.last = _insertReply(thread, before: prompt);
+            asks ||
+            // A snapshot of a turn already running, and a failure before any
+            // frame of it, are the turn's too.
+            event is ReplyRebuilt ||
+            event is ReplyErrored && own.last == null)) {
+      own.open = own.last = _insertReply(
+        thread,
+        before: _promptOf(thread, reply),
+      );
     }
     final open = own.open;
     if (open == null) {
-      // Nothing of the turn is on screen to carry it: a withdrawal is for the
-      // reply that asked, the rest is about the thread.
+      // Nothing of the turn is on screen to carry it.
+      final last = own.last;
       switch (event) {
+        case ReplyCompleted() when last?.settledWithoutCompletion ?? false:
+          // The turn settled on an idle report; its completion comes late.
+          _onReplyEvent(
+            thread,
+            last!,
+            event,
+            profile,
+            announce: event.failed,
+            settles: false,
+          );
+          last.settledWithoutCompletion = false;
         case InputRequestsCancelled() || InputRequestExpired():
-          if (own.last case final last?) {
+          if (last != null) {
             _onReplyEvent(thread, last, event, profile, announce: false);
           }
+        case ReplyErrored(:final message):
+          // The turn failed with no reply to show it; the hold of the send in
+          // flight is not its to end.
+          if (message.isNotEmpty) report(message);
         case SessionInfo(:final storedSessionId?) when storedSessionId != '':
-          _onSessionInfo(thread, SessionInfo(storedSessionId: storedSessionId));
+          _onSessionInfo(
+            thread,
+            SessionInfo(storedSessionId: storedSessionId),
+            settle: false,
+          );
         case ThreadTitled(:final title):
           if (!thread.isCanonicalBotChat) thread.title = title;
           notifyListeners();
@@ -1443,16 +1493,34 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       return;
     }
-    _onReplyEvent(thread, open, event, profile);
-    if (event is ReplyCompleted ||
-        event is SessionInfo && event.running == false) {
-      own.open = null;
+    final idle = event is SessionInfo && event.running == false;
+    if (idle && !own.began) {
+      // Hermes may still wait on what the turn asked: only a re-keyed id goes
+      // on.
+      if (event.storedSessionId case final stored? when stored != '') {
+        _onSessionInfo(
+          thread,
+          SessionInfo(storedSessionId: stored),
+          settle: false,
+        );
+      }
+      return;
     }
+    _onReplyEvent(thread, open, event, profile, settles: false);
+    if (event is ReplyCompleted || idle) own.open = null;
   }
 
   /// Ends the reply of the turn Hermes ran on its own when the send is over:
-  /// settled when the send ended well, failed when it gave up.
-  void _closeOwnTurn(ChatThread thread, _OwnTurn own, {required bool failed}) {
+  /// settled when the send ended well, failed when it gave up. A failure is
+  /// announced here only when the prompt's reply, which announces its own, is
+  /// no longer pending to do so.
+  void _closeOwnTurn(
+    ChatThread thread,
+    _OwnTurn own,
+    String? profile, {
+    required bool failed,
+    required bool announceFailure,
+  }) {
     final open = own.open;
     own.open = null;
     if (open == null || !open.isPending) return;
@@ -1463,6 +1531,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ? failReply(open, null)
           : applyReplyEvent(open, const SessionInfo(running: false)),
     );
+    if (failed && announceFailure) {
+      _announce(thread, const ReplyCompleted('', failed: true), profile);
+    }
   }
 
   void _stopFollowing() {
@@ -1580,7 +1651,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Follows the session's stored id when compression rotates it, and
   /// settles the queue when the session reports it is no longer running.
-  void _onSessionInfo(ChatThread thread, SessionInfo info) {
+  void _onSessionInfo(
+    ChatThread thread,
+    SessionInfo info, {
+    bool settle = true,
+  }) {
     final stored = info.storedSessionId;
     if (stored != null && stored.isNotEmpty && stored != thread.id) {
       if (_bound.contains(thread)) {
@@ -1589,7 +1664,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _bindThread(thread, stored);
       }
     }
-    if (info.running == false) _settle(thread);
+    if (settle && info.running == false) _settle(thread);
   }
 
   /// Takes [reply] out of the transcript, for a prompt the server folded into
@@ -1613,6 +1688,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile, {
     bool announce = true,
+    bool settles = true,
   }) {
     var announced = event;
     switch (event) {
@@ -1628,7 +1704,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case SessionInfo():
         final wasPending = reply.isPending;
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
-        _onSessionInfo(thread, event);
+        _onSessionInfo(thread, event, settle: settles);
         if (wasPending && !reply.isPending) {
           // The turn ended without a completion, which the notifications wait
           // for: tell them how it ended.
@@ -2014,4 +2090,8 @@ enum _Hold {
 class _OwnTurn {
   ChatMessage? open;
   ChatMessage? last;
+
+  /// Whether a frame that begins a turn has come: before that, an idle report
+  /// is not the turn's end.
+  var began = false;
 }

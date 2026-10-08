@@ -807,8 +807,9 @@ class HermesGatewayTransport implements ChatTransport {
     // Set when the prompt follows a turn Hermes ran on its own. That turn's
     // events are handed over as [UnsolicitedEvent]s while the prompt waits.
     _Unsolicited? unsolicited;
-    // Whether any of that turn's frames, other than its requests, were handed
-    // over. A send that gives up then has a half-shown turn behind it.
+    // Whether any of that turn's frames were handed over, a request that opens
+    // its reply included. A send that gives up then has a half-shown turn
+    // behind it.
     var claimedShown = false;
     // The log of that turn's end: it is counted here, not on the follow-ups,
     // which never see it.
@@ -931,6 +932,7 @@ class HermesGatewayTransport implements ChatTransport {
             if (passes) {
               // Held back, the request could not be answered while the turn
               // waits on it, and the queued prompt would wait behind that.
+              claimedShown = true;
               yield UnsolicitedEvent(event);
               notePassed(event);
             } else if (!_Unsolicited.isInputRequest(event)) {
@@ -1064,10 +1066,10 @@ class HermesGatewayTransport implements ChatTransport {
             final ask = _Unsolicited.isInputRequest(event);
             if (ask && claimedOver) continue;
             _track(event, runtimeId, mine, serverRequest: serverRequest);
+            claimedShown = true;
             if (ask) {
               notePassed(event);
             } else {
-              claimedShown = true;
               claimedFrame(event);
             }
             yield UnsolicitedEvent(event);
