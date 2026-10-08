@@ -213,4 +213,31 @@ void main() {
       expect(event.requestIds, isEmpty);
     });
   });
+
+  group('review.summary', () {
+    List<String>? items(String text) =>
+        (map('review.summary', {'text': text}) as ReviewSummarized?)?.items;
+
+    test('drops the glyph and the label, and splits the changes', () {
+      expect(
+        items("💾 Self-improvement review: Memory updated · Skill 'x' patched"),
+        ['Memory updated', "Skill 'x' patched"],
+      );
+    });
+
+    test('keeps a colon inside a change', () {
+      expect(
+        items('💾 Self-improvement review: 📝 Skill \'x\' patched: "a" → "b"'),
+        ['📝 Skill \'x\' patched: "a" → "b"'],
+      );
+    });
+
+    test('takes a summary without a label as it is', () {
+      expect(items('Memory updated · Memory updated'), ['Memory updated']);
+    });
+
+    test('shows nothing for an empty summary', () {
+      expect(items('💾 '), isNull);
+    });
+  });
 }

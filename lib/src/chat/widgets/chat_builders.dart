@@ -28,6 +28,7 @@ import 'following_chat_list.dart';
 import 'message_actions.dart';
 import '../starter_prompts.dart';
 import 'reasoning_block.dart';
+import 'review_summary_note.dart';
 import '../../theme/type_scale.dart';
 import 'reply_error_note.dart';
 import 'subagent_card.dart';
@@ -273,6 +274,10 @@ Widget _buildCustom(
     case kKindSubagents:
       return SubagentGroupCard(
         subagents: metadata![kMetaSubagents] as List<Subagent>,
+      );
+    case kKindReviewSummary:
+      return ReviewSummaryNote(
+        items: metadata![kMetaReviewItems] as List<String>,
       );
     case kKindReasoning:
       return ReasoningBlock(

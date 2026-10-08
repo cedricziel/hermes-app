@@ -533,6 +533,10 @@ class ChatMessage {
   /// session; read-from-history replies do not carry them yet.
   List<Subagent> subagents;
 
+  /// What Hermes' background review saved after reading this reply, one
+  /// entry per change. Live only: the history does not record it.
+  List<String> reviewNotes = const [];
+
   /// Where each of [inputRequests] arrived, by request id, so its card
   /// renders after the call that asked and before whatever followed. A
   /// request missing here renders after everything but the text.

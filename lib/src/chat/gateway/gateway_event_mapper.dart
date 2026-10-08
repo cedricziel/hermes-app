@@ -39,6 +39,7 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
       duration: _seconds(payload['duration_s']),
     ),
     'session.title' => ThreadTitled(text('title')),
+    'review.summary' => _reviewSummary(text('text')),
     'message.complete' => ReplyCompleted(
       text('text'),
       failed: payload['status'] == 'error',
@@ -147,6 +148,24 @@ ChatEvent? _subagentEvent(String type, Map<String, Object?> payload) {
     ),
   );
 }
+
+/// Hermes writes the review's changes as one line under a translated label,
+/// "💾 Self-improvement review: Memory updated · Skill 'x' patched". The
+/// glyph and the label go; the row draws its own icon.
+ChatEvent? _reviewSummary(String text) {
+  var body = text.trim().replaceFirst(_leadingSymbols, '');
+  final colon = body.indexOf(': ');
+  if (colon > 0 && !body.substring(0, colon).contains(' · ')) {
+    body = body.substring(colon + 2);
+  }
+  final items = {
+    for (final item in body.split(' · '))
+      if (item.trim().isNotEmpty) item.trim(),
+  }.toList();
+  return items.isEmpty ? null : ReviewSummarized(items);
+}
+
+final _leadingSymbols = RegExp(r'^[^\p{L}\p{N}]+', unicode: true);
 
 /// Hermes writes a provider wait as a status line in its thinking text, such
 /// as "⏳ waiting on local-model". Anything else is spinner noise and yields

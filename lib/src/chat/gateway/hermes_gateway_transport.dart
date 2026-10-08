@@ -393,6 +393,7 @@ class _QueuedGate {
           InputRequestExpired() ||
           InputRequestsCancelled() ||
           ThreadTitled() ||
+          ReviewSummarized() ||
           ThreadNeedsRefetch():
         return [event];
       default:

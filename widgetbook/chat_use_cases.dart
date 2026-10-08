@@ -15,6 +15,7 @@ import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
+import 'package:hermes_app/src/chat/widgets/review_summary_note.dart';
 import 'package:hermes_app/src/chat/widgets/subagent_card.dart';
 import 'package:hermes_app/src/chat/widgets/thinking_indicator.dart';
 import 'package:hermes_app/src/chat/widgets/sidebar_row.dart';
@@ -173,6 +174,31 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           const SubagentGroupCard(
             subagents: subagentBatch,
             initiallyOpen: true,
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'ReviewSummaryNote',
+      useCases: [
+        _tool('Memory', const ReviewSummaryNote(items: ['Memory updated'])),
+        _tool(
+          'Several changes',
+          const ReviewSummaryNote(
+            items: [
+              'Memory updated',
+              'User profile updated',
+              "Skill 'deploy' patched",
+            ],
+          ),
+        ),
+        _tool(
+          'Verbose, wrapping',
+          const ReviewSummaryNote(
+            items: [
+              'Memory + Prefers short answers and metric units in every reply',
+              "Skill 'release-notes' patched: \"Draft first\" → \"Draft, then check the tag\"",
+            ],
           ),
         ),
       ],

@@ -181,6 +181,10 @@ abstract final class AppIcons {
     Icons.psychology_outlined,
     CupertinoIcons.lightbulb,
   );
+  static const memory = AppIconSet(
+    Icons.bookmark_added_outlined,
+    CupertinoIcons.bookmark,
+  );
   static const idea = AppIconSet(
     Icons.lightbulb_outline,
     CupertinoIcons.lightbulb,
@@ -413,6 +417,7 @@ abstract final class AppIcons {
     'sendOutlined': sendOutlined,
     'sendArrow': sendArrow,
     'reasoning': reasoning,
+    'memory': memory,
     'idea': idea,
     'resume': resume,
     'play': play,
