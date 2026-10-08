@@ -252,7 +252,11 @@ void main() {
     await tester.tap(find.text('Helper models'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Same as main model (claude-sonnet-4-5)'), findsOneWidget);
+    expect(find.text('Main model'), findsOneWidget);
+    expect(
+      find.textContaining('Main model is claude-sonnet-4-5.'),
+      findsOneWidget,
+    );
     expect(
       server.requestsTo('GET', '/api/model/auxiliary').single.queryParameters,
       {'profile': 'work'},
