@@ -9,27 +9,6 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'frame.dart';
 
-const _platforms = {
-  'iPhone': TargetPlatform.iOS,
-  'Mac': TargetPlatform.macOS,
-  'Material': TargetPlatform.android,
-};
-
-/// One use case per platform, named after the state and the platform.
-List<WidgetbookUseCase> onEachPlatform(
-  String state,
-  Widget Function(BuildContext context) builder,
-) => [
-  for (final MapEntry(key: name, value: platform) in _platforms.entries)
-    WidgetbookUseCase(
-      name: '$state ($name)',
-      builder: (context) => Theme(
-        data: Theme.of(context).copyWith(platform: platform),
-        child: Builder(builder: builder),
-      ),
-    ),
-];
-
 WidgetbookNode settingsChromeNode() => WidgetbookFolder(
   name: 'Settings pages',
   children: [

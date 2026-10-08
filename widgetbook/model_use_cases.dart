@@ -8,7 +8,6 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
-import 'settings_chrome_use_cases.dart';
 
 const _longModel = ModelChoice(
   'openrouter',
