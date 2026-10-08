@@ -524,6 +524,24 @@ void main() {
     );
 
     test(
+      'ThreadNeedsRefetch just before the send fails reads the thread once the '
+      'reply has failed',
+      () async {
+        rig.chat.submit('Plan', const []);
+        rig.transport.sends.last
+          ..emit(const ThreadNeedsRefetch())
+          ..fail();
+        await pumpEventQueue();
+
+        expect(
+          rig.chat.selectedThread!.messages.last.status,
+          isNot(MessageStatus.thinking),
+        );
+        expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+      },
+    );
+
+    test(
       'ThreadNeedsRefetch on follow-ups with no reply open reads the thread at '
       'once',
       () async {

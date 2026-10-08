@@ -1371,6 +1371,11 @@ The system SHALL show a turn Hermes runs on a thread without a prompt from this 
 - **WHEN** the turn nobody submitted has ended and the next frame is an approval or question
 - **THEN** it belongs to the prompt's own turn, is shown on its reply and stays answerable
 
+#### Scenario: A send that gives up
+
+- **WHEN** a prompt sent behind such a turn fails because the connection could not be restored
+- **THEN** the thread is read again before the send fails, so that turn is shown once from the stored history, and the follow-ups do not replay it
+
 #### Scenario: Missed start of a chained turn
 
 - **WHEN** after a completed reply the session's deltas or tool events arrive without a `message.start`

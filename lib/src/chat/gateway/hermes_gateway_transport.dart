@@ -547,10 +547,6 @@ class HermesGatewayTransport implements ChatTransport {
   /// seen on the follow-ups, is the same reply and is not logged again.
   final _settledEarly = <_ThreadOwner>{};
 
-  /// What a send that gave up left of the turn it set aside, for the next
-  /// follow-up stream of the thread: no watch survived to carry it.
-  final _stranded = <_ThreadOwner, List<_Incoming>>{};
-
   /// The runtime sessions a reply is in flight for, with how many.
   final _replying = <String, int>{};
 
@@ -748,7 +744,6 @@ class HermesGatewayTransport implements ChatTransport {
       runtimeId = session['session_id'] as String;
       storedId = threadId ?? session['stored_session_id'] as String;
       owner = (profile, storedId);
-      _stranded.remove(owner);
       _settledEarly.remove(owner);
       await _idle.remove(owner)?.close();
       // A relay may have re-keyed its watch after compression before the
@@ -868,6 +863,8 @@ class HermesGatewayTransport implements ChatTransport {
           } on GatewayConnectionClosed {
             // The probe ended the reply as broken: no turn is being finished.
             if (finishing) yield const ReplyStatus('');
+            // The turn set aside is not carried on: the thread is read again.
+            if (setAside.isNotEmpty) yield const ThreadNeedsRefetch();
             rethrow;
           }
           if (!more) break;
@@ -992,7 +989,7 @@ class HermesGatewayTransport implements ChatTransport {
         final made = drops.dropped();
         if (made >= _maxReplyReconnects) {
           if (finishing) yield const ReplyStatus('');
-          _strand(owner, setAside);
+          if (setAside.isNotEmpty) yield const ThreadNeedsRefetch();
           throw const GatewayConnectionClosed();
         }
         drops.attempt();
@@ -1040,7 +1037,9 @@ class HermesGatewayTransport implements ChatTransport {
             storedId = rotated;
           }
           if (resumed.idle case final idle?) {
-            idle.leaveBacklog(setAside);
+            // A send that fails has the thread read again instead, so the
+            // follow-ups must not show the turn a second time.
+            if (!resumed.giveUp) idle.leaveBacklog(setAside);
             await _park(owner, idle);
           }
           // When the replay ends the reply with nothing of its own, the idle
@@ -1065,7 +1064,10 @@ class HermesGatewayTransport implements ChatTransport {
             _settledEarly.add(owner);
           }
           if (resumed.giveUp) {
-            if (resumed.idle == null) _strand(owner, setAside);
+            if (setAside.isNotEmpty &&
+                !yielded.any((event) => event is ThreadNeedsRefetch)) {
+              yield const ThreadNeedsRefetch();
+            }
             throw const GatewayConnectionClosed();
           }
           _reportSettled(yielded, errored: errored);
@@ -1082,12 +1084,6 @@ class HermesGatewayTransport implements ChatTransport {
       _endReply(runtimeId, owner);
       if (!parked) await watch.close();
     }
-  }
-
-  /// Keeps the [events] a send set aside for the next follow-up stream of
-  /// [owner], when the send fails with no watch left to carry them.
-  void _strand(_ThreadOwner owner, List<_Incoming> events) {
-    if (events.isNotEmpty) _stranded[owner] = List.of(events);
   }
 
   /// Logs the event [name], and never lets the logger break the transport.
@@ -1201,7 +1197,6 @@ class HermesGatewayTransport implements ChatTransport {
       _runtimeOf[to] = runtimeId;
     }
     if (_modelOf.remove(from) case final model?) _modelOf[to] = model;
-    if (_stranded.remove(from) case final events?) _stranded[to] = events;
     if (_settledEarly.remove(from)) _settledEarly.add(to);
     if (_idle.remove(from) case final watch?) {
       final displaced = _idle[to];
@@ -1851,23 +1846,15 @@ class HermesGatewayTransport implements ChatTransport {
       resumed.discard();
       return;
     }
-    final stranded = _stranded.remove(owner) ?? const <_Incoming>[];
     if (watch == null) {
       final idle = resumed.idle;
       if (idle != null) await _park(owner, idle);
-      // What a send that gave up had set aside comes first.
-      for (final (event, _) in stranded) {
-        out.add(event);
-      }
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
       }
       _forgetRequests(mine);
-      if (idle == null ||
-          resumed.ended.isEmpty && stranded.isEmpty ||
-          canceled ||
-          out.isClosed) {
+      if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
         await out.close();
         return;
       }
@@ -1889,9 +1876,6 @@ class HermesGatewayTransport implements ChatTransport {
     _idle[owner] = watch;
     final follow = _Follow(watch);
     out.onCancel = () => _stopFollowing(follow);
-    for (final (event, _) in stranded) {
-      out.add(event);
-    }
     out.add(const ReplyStarted());
     await _relay(follow, owner, out, initiallyReplying: true);
   }
@@ -2471,7 +2455,6 @@ class HermesGatewayTransport implements ChatTransport {
     _open = null;
     final idle = _idle.values.toList();
     _idle.clear();
-    _stranded.clear();
     _settledEarly.clear();
     for (final watch in idle) {
       await watch.close();

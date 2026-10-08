@@ -1282,6 +1282,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
+        // A send that gave up asks for the thread to be read again first: what
+        // Hermes ran meanwhile is in its history.
+        _refetchIfIdle(thread);
       } else if (error == null) {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a

@@ -585,8 +585,9 @@ void main() {
       'auto_continue': {'attempt': 1},
     };
 
-    test('Auto-continue after resume: a send that gives up after a drop leaves '
-        'the turn it set aside to the follow-ups', () async {
+    test('Auto-continue after resume: a send that gives up after a drop asks '
+        'for the thread to be read again, and nothing replays on the '
+        'follow-ups', () async {
       final server = FakeGateway()
         ..stampSeq = true
         ..sendReady = true
@@ -617,16 +618,45 @@ void main() {
       final sent = _listen(flaky.send(threadId: 'stored-2', text: 'hi'));
       await pumpEventQueue();
       expect(sent.error, isA<GatewayConnectionClosed>());
+      expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      expect(sent.events.whereType<ReplyDelta>(), isEmpty);
 
       reachable = true;
       final later = await flaky
           .followUps('stored-2')
-          .take(3)
           .toList()
           .timeout(const Duration(seconds: 5));
 
-      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((later[1] as ReplyDelta).text, 'resumed work');
+      expect(later, isEmpty);
+    });
+
+    test('Auto-continue after resume: a send the silence probe ends as broken '
+        'asks for the thread to be read again', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..activeSessions = {}
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.event('message.start', 'rt-2');
+            g.event('message.complete', 'rt-2', {
+              'text': 'resumed work',
+              'status': 'complete',
+            });
+          };
+        final probing = HermesGatewayTransport(
+          connect: () async => server.channel,
+        );
+        final sent = _listen(probing.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.error, isNull);
+
+        async.elapse(const Duration(seconds: 46));
+        async.flushMicrotasks();
+
+        expect(sent.error, isA<GatewayConnectionClosed>());
+        expect(sent.events.last, isA<ThreadNeedsRefetch>());
+      });
     });
   });
 
