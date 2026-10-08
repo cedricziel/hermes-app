@@ -644,6 +644,45 @@ void main() {
     });
   });
 
+  group('a request before the prompt\'s first frame (476)', () {
+    test(
+      'Auto-continue after resume: an approval the prompt\'s own turn raises '
+      'before its first frame is not withdrawn with the turn ahead',
+      () async {
+        gateway
+          ..resumeResult = {
+            'session_id': 'rt-2',
+            'session_key': 'stored-2',
+            'auto_continue': {'attempt': 1},
+          }
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            g.event('message.start', 'rt-2');
+            g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+          }
+          ..turn = (g, sid) {
+            g.event('message.complete', 'rt-2', {
+              'text': 'resumed work',
+              'status': 'complete',
+            });
+            g.serverRequest('srq-2', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
+        expect(await transport.answerApproval('srq-2', 'once'), isTrue);
+      },
+    );
+  });
+
   group('status lines (9.4)', () {
     test('Compacting: a status.update reaches the reply as a status', () async {
       gateway.turn = (g, sid) {

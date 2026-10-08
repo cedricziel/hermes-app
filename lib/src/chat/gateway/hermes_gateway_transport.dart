@@ -457,10 +457,20 @@ class _Unsolicited {
       event is InputRequestExpired ||
       event is InputRequestsCancelled;
 
+  static bool _raisesRequest(ChatEvent event) =>
+      event is ApprovalRequested ||
+      event is ClarifyRequested ||
+      event is VaultRequested ||
+      event is UnsupportedRequested;
+
   /// Whether [event] belongs to the turn nobody here submitted.
+  ///
+  /// Once the turn has ended, the next frame that opens a turn or raises a
+  /// request is the prompt's: a turn can ask for approval before it says
+  /// anything else.
   bool claims(ChatEvent event) {
     if (_done) return false;
-    if (_ended && opensTurn(event)) {
+    if (_ended && (opensTurn(event) || _raisesRequest(event))) {
       _done = true;
       return false;
     }
