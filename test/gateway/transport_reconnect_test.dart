@@ -1543,6 +1543,62 @@ void main() {
     });
   });
 
+  group('An idle watch whose socket closed', () {
+    test('a follow-up stream that ends idle on a closed socket leaves nothing '
+        'parked, so the next one picks the thread up afresh', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.flushMicrotasks();
+
+        expect(follow.done, isTrue);
+        expect(resumes(), 0);
+
+        final next = _listen(transport.followUps('stored-1'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
+  group('An idle watch whose socket closed before anyone followed', () {
+    test('a socket that closed after the turn leaves nothing parked, so the '
+        'next follow-up stream picks the thread up afresh', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.flushMicrotasks();
+
+        final next = _listen(transport.followUps('stored-1'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
   group('A stored reply across a queued gate', () {
     test('a queued prompt whose turns both ended while disconnected shows the '
         'stored reply instead of swallowing it', () {

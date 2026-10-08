@@ -205,6 +205,10 @@ class _Watch {
     unawaited(_inbox.close());
   }
 
+  /// Whether nothing more will arrive: the socket under the watch closed, or
+  /// the watch was closed.
+  bool get isDead => _inbox.isClosed;
+
   /// Set when the transport closed this watch itself, as opposed to the
   /// socket under it dropping. A reader that finds the watch ended has nothing
   /// to reconnect to then.
@@ -1640,7 +1644,13 @@ class HermesGatewayTransport implements ChatTransport {
   @override
   Stream<ChatEvent> followUps(String threadId, {String? profile}) {
     final owner = (profile, threadId);
-    final watch = _idle[owner];
+    var watch = _idle[owner];
+    if (watch != null && watch.isDead) {
+      // The socket closed while the thread was idle: nothing arrives on this
+      // watch any more, so the thread is picked up on a fresh one.
+      _idle.remove(owner);
+      watch = null;
+    }
     if (watch != null) {
       final follow = _Follow(watch);
       final out = StreamController<ChatEvent>();
@@ -1890,6 +1900,10 @@ class HermesGatewayTransport implements ChatTransport {
     } finally {
       _forgetRequests(mine);
       if (replying) _endReply(runtimeId, key);
+      // The watch is closed below, so it must not stay parked for the next
+      // follow-up stream to find dead. By identity: a send that took the
+      // session over has parked its own.
+      _idle.removeWhere((_, parked) => parked == follow.watch);
       if (!out.isClosed) unawaited(out.close());
       await follow.watch.close();
     }
