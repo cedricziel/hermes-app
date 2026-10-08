@@ -242,6 +242,53 @@ class _Tap {
   }
 }
 
+/// How long frames must have flowed on a reconnected socket before the next
+/// drop counts as a fresh one rather than another in a row.
+const _stableStreaming = Duration(seconds: 30);
+
+/// How many times one reply reconnected, forgetting the ones before a stretch
+/// of steady streaming: a long turn on a flaky network may drop more than
+/// [_maxReplyReconnects] times in all, and only a socket that drops again at
+/// once, with nothing flowing in between, is given up on.
+class _Reconnects {
+  int _count = 0;
+  DateTime? _reconnectedAt;
+  DateTime? _lastFrameAt;
+
+  /// Frames have flowed on the current socket as of [now].
+  void frame(DateTime now) => _lastFrameAt = now;
+
+  /// The socket dropped. Returns how many reconnects came before this one,
+  /// after forgetting them when the socket that dropped had streamed for
+  /// [_stableStreaming].
+  int dropped() {
+    final since = _reconnectedAt;
+    final last = _lastFrameAt;
+    if (since != null &&
+        last != null &&
+        last.difference(since) >= _stableStreaming) {
+      _count = 0;
+    }
+    return _count;
+  }
+
+  /// A reconnect is about to be attempted.
+  void attempt() => _count++;
+
+  /// The reply is back on a live socket as of [now].
+  void reconnected(DateTime now) {
+    _reconnectedAt = now;
+    _lastFrameAt = null;
+  }
+
+  /// A turn ended: the next one starts afresh.
+  void reset() {
+    _count = 0;
+    _reconnectedAt = null;
+    _lastFrameAt = null;
+  }
+}
+
 /// The watch a follow-up stream reads, which a reconnect replaces. Keeping it
 /// in one place lets the stream's cancel close the watch that is current then,
 /// not the one it started with.
@@ -640,7 +687,7 @@ class HermesGatewayTransport implements ChatTransport {
     }
     final mine = <String>{};
     var parked = false;
-    var drops = 0;
+    final drops = _Reconnects();
     // Whether the turn has begun. A report that the session is idle only ends
     // the reply once it has, or once the grace has passed (see [settles]).
     var started = false;
@@ -719,6 +766,7 @@ class HermesGatewayTransport implements ChatTransport {
       }
       while (true) {
         while (await _advance(watch, storedId)) {
+          drops.frame(clock.now());
           final incoming = watch.events.current;
           if (incoming == null) continue;
           final (event, serverRequest) = incoming;
@@ -812,15 +860,17 @@ class HermesGatewayTransport implements ChatTransport {
         // it, so pick it back up on a fresh connection rather than failing a
         // reply that is still on its way.
         if (stopped.value) return;
-        if (drops >= _maxReplyReconnects) {
+        final made = drops.dropped();
+        if (made >= _maxReplyReconnects) {
           if (finishing) yield const ReplyStatus('');
           throw const GatewayConnectionClosed();
         }
+        drops.attempt();
         final resumed = await _reattach(
           owner,
           runtimeId: runtimeId,
           shown: mine,
-          drops: drops++,
+          drops: made,
           cancelled: () => stopped.value,
         );
         await watch.close();
@@ -884,6 +934,7 @@ class HermesGatewayTransport implements ChatTransport {
           return;
         }
         watch = live;
+        drops.reconnected(clock.now());
         // The server reported the resumed session running, so its turn began,
         // unless that turn is still the one a queued prompt waits behind.
         if (gate?.ended ?? true) started = true;
@@ -1707,7 +1758,7 @@ class HermesGatewayTransport implements ChatTransport {
     var replying = initiallyReplying;
     if (replying) _beginReply(runtimeId, key);
     final mine = <String>{};
-    var drops = 0;
+    final drops = _Reconnects();
     var errored = false;
     void forward(_Incoming incoming) {
       final (event, serverRequest) = incoming;
@@ -1740,7 +1791,7 @@ class HermesGatewayTransport implements ChatTransport {
         _turnSettled(event, errored: errored);
         errored = false;
         replying = false;
-        drops = 0;
+        drops.reset();
         _forgetRequests(mine);
         _endReply(runtimeId, key);
       }
@@ -1766,6 +1817,7 @@ class HermesGatewayTransport implements ChatTransport {
             return;
           }
           if (!more) break;
+          drops.frame(clock.now());
           final incoming = follow.watch.events.current;
           if (incoming == null) continue;
           forward(incoming);
@@ -1776,15 +1828,17 @@ class HermesGatewayTransport implements ChatTransport {
         // the transport closed itself (another send took the session over).
         if (!replying || follow.cancelled || out.isClosed) return;
         if (follow.watch.closedByUs) return;
-        if (drops >= _maxReplyReconnects) {
+        final made = drops.dropped();
+        if (made >= _maxReplyReconnects) {
           out.addError(const GatewayConnectionClosed());
           return;
         }
+        drops.attempt();
         final resumed = await _reattach(
           key,
           runtimeId: runtimeId,
           shown: mine,
-          drops: drops++,
+          drops: made,
           cancelled: () => follow.cancelled || out.isClosed,
         );
         final previous = follow.watch;
@@ -1812,7 +1866,7 @@ class HermesGatewayTransport implements ChatTransport {
           // The turn is over, but the session goes on: the idle watch carries
           // whatever Hermes chains next, to this same stream.
           replying = false;
-          drops = 0;
+          drops.reset();
           _forgetRequests(mine);
           _endReply(runtimeId, key);
           follow.watch = idle;
@@ -1820,6 +1874,7 @@ class HermesGatewayTransport implements ChatTransport {
         }
         _idle.updateAll((_, parked) => parked == previous ? live : parked);
         follow.watch = live;
+        drops.reconnected(clock.now());
       }
     } finally {
       _forgetRequests(mine);

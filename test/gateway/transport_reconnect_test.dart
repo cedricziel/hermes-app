@@ -1048,6 +1048,33 @@ void main() {
       });
     });
 
+    test('a reply that streams steadily between drops never runs out of '
+        'reconnects', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        // Each reconnect is followed by 45 s of frames before the next drop.
+        for (var drop = 1; drop <= 7; drop++) {
+          for (final at in [20, 20, 5]) {
+            gateway.event('message.delta', 'rt-1', {'text': 'x'});
+            async.elapse(Duration(seconds: at));
+          }
+          gateway.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+
+        expect(seen.error, isNull);
+        expect(seen.done, isFalse);
+        // The turn's own drop, then seven more: past the cap of five.
+        expect(resumes(), 8);
+      });
+    });
+
     test('a socket that keeps dropping gives up after 5 reconnects', () {
       fake((async) {
         gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
