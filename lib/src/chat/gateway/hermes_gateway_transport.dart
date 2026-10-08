@@ -51,6 +51,10 @@ const _maxReplyReconnects = 5;
 
 Future<void> _delay(Duration delay) => Future<void>.delayed(delay);
 
+/// The fewest characters (whitespace trimmed) of parked deltas that a resume
+/// snapshot's text must end with for the deltas to be taken as held by it.
+const _minHeldRun = 8;
+
 /// What a send shows while Hermes finishes the turn it began before the app
 /// came back, ahead of the prompt the user sent.
 const _finishingInterruptedTurn = 'Hermes is finishing the interrupted turn…';
@@ -1432,10 +1436,14 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// How many leading deltas of [before] the snapshot already holds: the
   /// shortest run from the start whose joined text ends [snapshot]. The run
-  /// stops at the first frame that is not a delta, and a run of whitespace
-  /// alone proves nothing, since a snapshot often ends in a space or a
-  /// newline. Fewer is the safe error: a delta shown twice is a blemish, one
-  /// dropped is a hole in the reply.
+  /// stops at the first frame that is not a delta.
+  ///
+  /// Only the text can say whether the snapshot holds a delta, so the guess
+  /// errs towards a duplicate over a hole: a run counts only with at least
+  /// [_minHeldRun] characters besides whitespace. A shorter one ("." after a
+  /// snapshot ending in "end.") is as likely a new delta that happens to
+  /// match, and dropping it loses text; shown twice, it is a blemish the
+  /// completion's full text corrects.
   static int _heldBySnapshot(List<Object> before, String snapshot) {
     final joined = StringBuffer();
     var count = 0;
@@ -1445,7 +1453,9 @@ class HermesGatewayTransport implements ChatTransport {
       final text = frame.payload['text'];
       joined.write(text is String ? text : '');
       final run = joined.toString();
-      if (run.trim().isNotEmpty && snapshot.endsWith(run)) return count;
+      if (run.trim().length >= _minHeldRun && snapshot.endsWith(run)) {
+        return count;
+      }
     }
     return 0;
   }

@@ -230,7 +230,7 @@ void main() {
         gateway.resumeResult = {
           'session_id': 'rt-1',
           'running': true,
-          'inflight': {'assistant': 'abc'},
+          'inflight': {'assistant': 'abcdefghij'},
         };
         gateway.turn = (g, sid) => _streamSevenThenDrop(
           g,
@@ -238,23 +238,23 @@ void main() {
           (g) => g.event('message.delta', sid, {'text': 'b'}),
         );
         gateway.beforeResumeAnswer = (g) =>
-            g.event('message.delta', 'rt-1', {'text': 'c'});
+            g.event('message.delta', 'rt-1', {'text': 'cdefghij'});
         gateway.beforeEventsAnswer = (g) =>
             g.event('message.delta', 'rt-1', {'text': 'd'});
 
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
         gateway.event('message.complete', 'rt-1', {
-          'text': 'abcd',
+          'text': 'abcdefghijd',
           'status': 'complete',
         });
         async.flushMicrotasks();
 
         expect(seen.error, isNull);
         expect(_fromRebuild(seen), [ReplyRebuilt, ReplyDelta, ReplyCompleted]);
-        expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abc');
+        expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abcdefghij');
         expect(_deltas(seen).last, 'd');
-        expect(_deltas(seen).where((text) => text == 'c'), hasLength(0));
+        expect(_deltas(seen).where((text) => text == 'cdefghij'), hasLength(0));
       });
     });
 
@@ -452,6 +452,68 @@ void main() {
       });
     });
 
+    test('A short delta that happens to end the snapshot is delivered: the '
+        'snapshot cannot be told to hold it', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'The end.'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) =>
+            g.event('message.delta', 'rt-1', {'text': '.'});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'The end..',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['.'],
+        );
+      });
+    });
+
+    test('Deltas parked before the snapshot that jointly reach the minimum '
+        'run are still recognised as held', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'It was a long road'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) {
+          g.event('message.delta', 'rt-1', {'text': ' long'});
+          g.event('message.delta', 'rt-1', {'text': ' road'});
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': '.'});
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['.'],
+        );
+      });
+    });
+
     test('A delta that is only whitespace is delivered even when the snapshot '
         'ends with whitespace', () {
       fake((async) {
@@ -484,25 +546,25 @@ void main() {
       });
     });
 
-    test('Of two identical short deltas parked ahead of the snapshot only the '
+    test('Of two identical deltas parked ahead of the snapshot only the '
         'first can be dropped', () {
       fake((async) {
         gateway.truncateReplay = true;
         gateway.resumeResult = {
           'session_id': 'rt-1',
           'running': true,
-          'inflight': {'assistant': 'abb'},
+          'inflight': {'assistant': 'abbbbbbbb'},
         };
         gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
         gateway.beforeResumeAnswer = (g) {
-          g.event('message.delta', 'rt-1', {'text': 'b'});
-          g.event('message.delta', 'rt-1', {'text': 'b'});
+          g.event('message.delta', 'rt-1', {'text': 'bbbbbbbb'});
+          g.event('message.delta', 'rt-1', {'text': 'bbbbbbbb'});
         };
 
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
         gateway.event('message.complete', 'rt-1', {
-          'text': 'abbb',
+          'text': 'abbbbbbbbbbbbbbbb',
           'status': 'complete',
         });
         async.flushMicrotasks();
@@ -512,7 +574,7 @@ void main() {
               .skipWhile((e) => e is! ReplyRebuilt)
               .whereType<ReplyDelta>()
               .map((e) => e.text),
-          ['b'],
+          ['bbbbbbbb'],
         );
       });
     });
