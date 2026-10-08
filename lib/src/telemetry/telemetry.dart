@@ -186,13 +186,6 @@ class Telemetry {
 
   static const _loopbackHosts = {'localhost', '127.0.0.1', '::1'};
 
-  /// Traces and logs every request on the Dio client it is added to.
-  Interceptor? dioInterceptor() {
-    final sdk = _sdk;
-    if (sdk == null) return null;
-    return httpInterceptor(sdk.getLogger(), sdk.getTracer());
-  }
-
   /// The telemetry of a connection to a server described by
   /// [serverAttributes]: its requests' spans and log records and its events'
   /// log records carry them, while breadcrumbs keep only what each event

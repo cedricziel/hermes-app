@@ -40,7 +40,6 @@ Future<void> main([List<String> args = const []]) async {
     TelemetryConfig.fromEnvironment(),
   );
   telemetry.logUncaughtErrors();
-  final httpInterceptor = telemetry.dioInterceptor();
 
   runApp(
     MultiProvider(
@@ -51,8 +50,7 @@ Future<void> main([List<String> args = const []]) async {
         ),
         ChangeNotifierProvider(
           create: (_) => AuthController(
-            interceptors: [?httpInterceptor],
-            events: telemetry.events(),
+            telemetry: telemetry.forConnection,
             networkSignals: ConnectivityNetworkSignals(),
           )..bootstrap(),
         ),

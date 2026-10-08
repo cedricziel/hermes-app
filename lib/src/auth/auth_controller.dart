@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_otel/flutter_otel.dart'
-    show AppEventLogger, noopAppEventLogger;
+import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/hermes_api_client.dart';
@@ -11,6 +10,7 @@ import '../models/auth_provider_info.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
 import '../network/network_signals.dart';
+import '../telemetry/telemetry.dart';
 import 'connect_failure.dart';
 import 'native_login_flow.dart';
 import 'token_store.dart';
@@ -58,10 +58,13 @@ class AuthController extends ChangeNotifier {
     SharedPreferencesAsync? prefs,
     String? devServerUrl,
     this._interceptors = const [],
-    this._events = noopAppEventLogger,
+    ConnectionTelemetryFactory telemetry = ConnectionTelemetry.off,
     this._login = runNativeLogin,
     NetworkSignals networkSignals = const NoNetworkSignals(),
-  }) : _tokenStore = tokenStore ?? TokenStore(events: _events),
+  }) : _telemetry = telemetry,
+       _connection = telemetry(const {}),
+       _tokenStore =
+           tokenStore ?? TokenStore(events: telemetry(const {}).events),
        _prefs = prefs ?? SharedPreferencesAsync(),
        _devServerUrl = devServerUrl ?? _devServerUrlDefine,
        _network = networkSignals {
@@ -79,7 +82,13 @@ class AuthController extends ChangeNotifier {
   /// Added to every [Dio] client this controller builds.
   final List<Interceptor> _interceptors;
 
-  final AppEventLogger _events;
+  final ConnectionTelemetryFactory _telemetry;
+
+  /// The telemetry of the current connection, from its status answer on.
+  /// Before that, and after Change Server, it describes no server.
+  ConnectionTelemetry _connection;
+
+  AppEventLogger get _events => _connection.events;
 
   final NativeLogin _login;
 
@@ -183,6 +192,7 @@ class AuthController extends ChangeNotifier {
     _errorMessage = null;
     _lastFailure = null;
     _failedUrl = null;
+    _connection = _telemetry(const {});
     if (!restoring) _setState(HermesConnectionState.connecting);
 
     final probeDio = _plainDio(
@@ -215,6 +225,10 @@ class AuthController extends ChangeNotifier {
 
     _baseUrl = normalized;
     _status = status;
+    _connection = _telemetry(status.serverAttributes);
+    _events('server.connected', {
+      'hermes.version': ?status.serverAttributes['hermes.version'],
+    });
     if (remember) {
       await _writeSavedServer(() async {
         if (stale()) return;
@@ -457,6 +471,7 @@ class AuthController extends ChangeNotifier {
     await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
     _baseUrl = null;
     _status = null;
+    _connection = _telemetry(const {});
     _providers = const [];
     _identity = null;
     _dio = null;
@@ -678,7 +693,8 @@ class AuthController extends ChangeNotifier {
     _setState(HermesConnectionState.needsLogin);
   }
 
-  /// A client for [baseUrl] with this controller's interceptors. Also serves
+  /// A client for [baseUrl] with this controller's interceptors and the
+  /// current connection's telemetry. Also serves
   /// the token endpoints, which the authenticated client must not use (it
   /// would try to attach and refresh the very token being minted).
   Dio _plainDio(
@@ -691,7 +707,7 @@ class AuthController extends ChangeNotifier {
       connectTimeout: connectTimeout,
       receiveTimeout: receiveTimeout,
     ),
-  )..interceptors.addAll(_interceptors);
+  )..interceptors.addAll([..._interceptors, ?_connection.interceptor]);
 
   void _announceSignedOut({bool expired = false}) {
     _sessionExpired = expired;

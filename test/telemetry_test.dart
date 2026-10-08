@@ -86,7 +86,7 @@ void main() {
       final telemetry = await Telemetry.initialize(config(''));
 
       expect(telemetry.enabled, isFalse);
-      expect(telemetry.dioInterceptor(), isNull);
+      expect(telemetry.forConnection(const {}).interceptor, isNull);
     });
 
     test('leaves the error handlers alone when disabled', () async {
@@ -104,7 +104,7 @@ void main() {
       final telemetry = await Telemetry.initialize(config('not a url'));
 
       expect(telemetry.enabled, isFalse);
-      expect(telemetry.dioInterceptor(), isNull);
+      expect(telemetry.forConnection(const {}).interceptor, isNull);
     });
 
     for (final endpoint in [
@@ -116,7 +116,7 @@ void main() {
         final telemetry = await Telemetry.initialize(config(endpoint));
 
         expect(telemetry.enabled, isFalse);
-        expect(telemetry.dioInterceptor(), isNull);
+        expect(telemetry.forConnection(const {}).interceptor, isNull);
       });
     }
   });
