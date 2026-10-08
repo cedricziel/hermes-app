@@ -693,7 +693,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void _openPlugins() {
     _closeDrawerIfNarrow();
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => PluginsScreen(repository: _plugins)),
+      MaterialPageRoute(
+        builder: (_) =>
+            PluginsScreen(repository: _plugins!.forProfile(_chat.profile)),
+      ),
     );
   }
 

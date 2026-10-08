@@ -293,14 +293,16 @@ void main() {
     expect(find.text('Telegram'), findsOneWidget);
   });
 
-  testWidgets('the sidebar opens the plugins of the connected dashboard', (
+  testWidgets('the sidebar opens the plugins of the chat\'s profile', (
     tester,
   ) async {
-    server.on('GET', '/api/dashboard/plugins/hub', {
-      'plugins': [
-        {'name': 'netbox', 'runtime_status': 'enabled'},
-      ],
-    });
+    server
+      ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+      ..on('GET', '/api/dashboard/plugins/hub', {
+        'plugins': [
+          {'name': 'netbox', 'runtime_status': 'enabled'},
+        ],
+      });
     await pumpChat(tester);
     await tester.pumpAndSettle();
 
@@ -311,6 +313,13 @@ void main() {
 
     expect(find.byType(PluginsScreen), findsOneWidget);
     expect(find.text('netbox'), findsOneWidget);
+    expect(
+      server
+          .requestsTo('GET', '/api/dashboard/plugins/hub')
+          .single
+          .queryParameters['profile'],
+      'work',
+    );
   });
 
   testWidgets('the management entries stay behind More until it is opened', (
