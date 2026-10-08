@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
@@ -15,6 +16,9 @@ import '../hermes_plugin_manager_repository_test.dart'
 import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
+
+Finder _tab(String name) =>
+    find.descendant(of: find.byType(AdaptiveTabBar), matching: find.text(name));
 
 /// The Plugins screen: installed plugins and their details, the catalog and
 /// installing from it or from a Git URL, and the memory provider and context
@@ -137,7 +141,7 @@ void main() {
   );
 
   Future<void> tab(WidgetTester tester, String name) async {
-    await tester.tap(find.widgetWithText(Tab, name));
+    await tester.tap(_tab(name));
     await tester.pumpAndSettle();
   }
 

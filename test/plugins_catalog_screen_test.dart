@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
@@ -12,6 +13,9 @@ import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
 import 'support/accessibility.dart';
 import 'support/fake_hermes_server.dart';
+
+Finder _tab(String name) =>
+    find.descendant(of: find.byType(AdaptiveTabBar), matching: find.text(name));
 
 const catalogPath = '/api/dashboard/plugins/catalog';
 const _hub = '/api/dashboard/plugins/hub';
@@ -71,7 +75,7 @@ void main() {
 
   Future<void> openCatalog(WidgetTester tester, {double width = 400}) async {
     await pump(tester, width: width);
-    await tester.tap(find.widgetWithText(Tab, 'Catalog'));
+    await tester.tap(_tab('Catalog'));
     await tester.pumpAndSettle();
   }
 
@@ -81,8 +85,8 @@ void main() {
     ) async {
       await pump(tester);
 
-      expect(find.widgetWithText(Tab, 'Installed'), findsOneWidget);
-      expect(find.widgetWithText(Tab, 'Catalog'), findsOneWidget);
+      expect(_tab('Installed'), findsOneWidget);
+      expect(_tab('Catalog'), findsOneWidget);
       expect(find.text('netbox'), findsOneWidget);
       expect(server.requestsTo('GET', catalogPath), isEmpty);
     });
@@ -93,9 +97,9 @@ void main() {
       await openCatalog(tester);
       expect(server.requestsTo('GET', catalogPath), hasLength(1));
 
-      await tester.tap(find.widgetWithText(Tab, 'Installed'));
+      await tester.tap(_tab('Installed'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Catalog'));
+      await tester.tap(_tab('Catalog'));
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', catalogPath), hasLength(1));
@@ -106,9 +110,9 @@ void main() {
       await tester.enterText(find.byKey(const Key('catalog-search')), 'snap');
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(Tab, 'Installed'));
+      await tester.tap(_tab('Installed'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(Tab, 'Catalog'));
+      await tester.tap(_tab('Catalog'));
       await tester.pumpAndSettle();
 
       expect(find.text('snap'), findsOneWidget);
@@ -130,7 +134,7 @@ void main() {
         );
       });
       await pump(tester);
-      await tester.tap(find.widgetWithText(Tab, 'Catalog'));
+      await tester.tap(_tab('Catalog'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

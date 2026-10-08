@@ -20,6 +20,7 @@ class MacToolbarSearchField extends StatefulWidget {
     this.onBegin,
     this.onSubmitted,
     this.focusNode,
+    this.hint = 'Search',
   });
 
   final String query;
@@ -33,6 +34,7 @@ class MacToolbarSearchField extends StatefulWidget {
   final VoidCallback? onBegin;
   final ValueChanged<String>? onSubmitted;
   final FocusNode? focusNode;
+  final String hint;
 
   @override
   State<MacToolbarSearchField> createState() => _MacToolbarSearchFieldState();
@@ -122,7 +124,7 @@ class _MacToolbarSearchFieldState extends State<MacToolbarSearchField> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   contentPadding: EdgeInsets.zero,
-                  hintText: 'Search',
+                  hintText: widget.hint,
                   hintStyle: TextStyle(fontSize: 13, color: subtle),
                 ),
               ),

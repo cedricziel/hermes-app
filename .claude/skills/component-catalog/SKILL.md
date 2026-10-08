@@ -58,6 +58,19 @@ lower-cased names with `-` for spaces.
    exception or an overflow. The test font is wider than the real one, so
    check text scale in the catalog (Addons panel), not in the test.
 
+## Platforms and screenshots
+
+The viewports are Phone (iOS) and Desktop (macOS) only. To show the Material
+variant, wrap the use case in `Theme(data: Theme.of(context).copyWith(platform:
+TargetPlatform.android))`; `widgetbook/settings_chrome_use_cases.dart` builds
+one use case per platform this way (`_onEach`).
+
+For PR screenshots without running the catalog, render use cases in a
+throwaway test with `ScreenshotRecorder` (`test/support/screenshot_recorder.dart`):
+pump `rec.frame(MaterialApp(theme: withScreenshotFont(theme), home:
+Scaffold(body: Builder(builder: useCase.builder))))` and `rec.capture`. It loads
+real fonts, so the PNGs read like the app. Don't commit the test.
+
 ## Rules
 
 - Directories are written by hand; there is no `widgetbook_generator` and no
