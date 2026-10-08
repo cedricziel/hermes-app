@@ -152,6 +152,29 @@ final class _Resumed {
   }
 }
 
+/// A [StreamIterator] that counts the frames it handed out.
+class _CountedEvents implements StreamIterator<_Incoming?> {
+  _CountedEvents(this._inner);
+
+  final StreamIterator<_Incoming?> _inner;
+
+  /// How many frames were read.
+  int read = 0;
+
+  @override
+  _Incoming? get current => _inner.current;
+
+  @override
+  Future<bool> moveNext() async {
+    final more = await _inner.moveNext();
+    if (more) read++;
+    return more;
+  }
+
+  @override
+  Future<void> cancel() => _inner.cancel();
+}
+
 /// What one runtime session sends, buffered until the transport reads it. A
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
@@ -161,7 +184,7 @@ final class _Resumed {
 /// reader) or [close]. A reader takes the hold again with [hold].
 class _Watch {
   _Watch(this.runtimeId, this.client, this._inbox, {bool record = false})
-    : events = StreamIterator(_inbox.stream),
+    : events = _CountedEvents(StreamIterator(_inbox.stream)),
       _arrivals = record ? [] : null,
       _release = client.hold();
 
@@ -184,7 +207,8 @@ class _Watch {
   final GatewayRpcClient client;
   final StreamController<_Incoming?> _inbox;
   late List<StreamSubscription<Object?>> _sources;
-  final StreamIterator<_Incoming?> events;
+  final _CountedEvents events;
+  var _pushed = 0;
 
   /// Everything pushed so far, while a send still has to tell the turns that
   /// came before its prompt from its own. Null once that is settled.
@@ -197,6 +221,7 @@ class _Watch {
   /// Adds a frame of the session for the reader.
   void push(_Incoming? incoming) {
     _arrivals?.add(incoming);
+    _pushed++;
     _inbox.add(incoming);
   }
 
@@ -229,9 +254,13 @@ class _Watch {
     unawaited(_inbox.close());
   }
 
-  /// Whether nothing more will arrive: the socket under the watch closed, or
-  /// the watch was closed.
-  bool get isDead => _inbox.isClosed;
+  /// Whether nothing more will arrive and nothing is left to read: the watch
+  /// was closed, or the socket under it closed after everything it pushed was
+  /// read and no backlog is waiting. A closed watch that still holds frames is
+  /// not dead yet; the reader gets them first.
+  bool get isDead =>
+      closedByUs ||
+      _inbox.isClosed && events.read == _pushed && _backlog.isEmpty;
 
   /// Set when the transport closed this watch itself, as opposed to the
   /// socket under it dropping. A reader that finds the watch ended has nothing
@@ -1719,9 +1748,10 @@ class HermesGatewayTransport implements ChatTransport {
     final owner = (profile, threadId);
     var watch = _idle[owner];
     if (watch != null && watch.isDead) {
-      // The socket closed while the thread was idle: nothing arrives on this
-      // watch any more, so the thread is picked up on a fresh one.
-      _idle.remove(owner);
+      // The socket closed while the thread was idle and everything the watch
+      // held was read: nothing arrives on it any more, so the thread is
+      // picked up on a fresh one.
+      unawaited(_idle.remove(owner)?.close());
       watch = null;
     }
     if (watch != null) {

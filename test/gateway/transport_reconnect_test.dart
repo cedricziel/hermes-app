@@ -1680,6 +1680,59 @@ void main() {
     });
   });
 
+  group('A closed watch with frames left in it', () {
+    test('the backlog a send left is delivered after the socket closed, and '
+        'the thread is picked up afresh after it', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-2',
+          'session_key': 'stored-2',
+          'auto_continue': {'attempt': 1},
+        };
+        gateway.beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+          g.event('message.complete', 'rt-2', {
+            'text': 'resumed work',
+            'status': 'complete',
+          });
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {
+            'text': 'mine',
+            'status': 'complete',
+          });
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        final sent = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        expect(sent.done, isTrue);
+        gateway.drop();
+        async.flushMicrotasks();
+        final before = resumes();
+
+        final follow = _listen(transport.followUps('stored-2'));
+        async.flushMicrotasks();
+
+        expect(follow.events.map((e) => e.runtimeType), [
+          ReplyStarted,
+          ReplyDelta,
+          ReplyCompleted,
+        ]);
+        expect(follow.done, isTrue);
+        expect(resumes(), before);
+
+        final next = _listen(transport.followUps('stored-2'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), before + 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
   group('A stored reply across a queued gate', () {
     Object stored(List<Map<String, String>> messages) => {
       'session_id': 'rt-1',
