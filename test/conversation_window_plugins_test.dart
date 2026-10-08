@@ -24,6 +24,7 @@ const _inConversationWindows = {
 const _mainEngineOnly = {
   'ConnectivityPlusPlugin',
   'DeviceInfoPlusMacosPlugin',
+  'FlutterAppGroupDirectoryPlugin',
   'FlutterLocalNotificationsPlugin',
   'FlutterSecureStorageDarwinPlugin',
   'LocalAuthPlugin',
