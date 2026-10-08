@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
+import 'package:hermes_app/src/widgets/grouped_choice_row.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 import 'package:hermes_app/src/widgets/settings_search_field.dart';
@@ -41,6 +42,19 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
         ...onEachPlatform(
           'Tiles, captions and errors',
           (context) => _list(_tileSections(context)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'GroupedChoiceRow',
+      useCases: [
+        ...onEachPlatform(
+          'Short options',
+          (_) => _list(const [_ThemeChoice()]),
+        ),
+        ...onEachPlatform(
+          'Subtitles, status and disabled',
+          (_) => _list(const [_ProviderChoice()]),
         ),
       ],
     ),
@@ -372,5 +386,73 @@ class _LoadingPage extends StatelessWidget {
   Widget build(BuildContext context) => const SettingsScaffold(
     title: 'Helper models',
     body: Center(child: CircularProgressIndicator.adaptive()),
+  );
+}
+
+class _ThemeChoice extends StatefulWidget {
+  const _ThemeChoice();
+
+  @override
+  State<_ThemeChoice> createState() => _ThemeChoiceState();
+}
+
+class _ThemeChoiceState extends State<_ThemeChoice> {
+  var _mode = ThemeMode.system;
+
+  @override
+  Widget build(BuildContext context) => RadioGroup<ThemeMode>(
+    groupValue: _mode,
+    onChanged: (mode) => setState(() => _mode = mode!),
+    child: GroupedSection(
+      header: 'Theme',
+      dividerIndent: GroupedChoiceRow.dividerIndent(context),
+      children: const [
+        GroupedChoiceRow(value: ThemeMode.system, title: 'System'),
+        GroupedChoiceRow(value: ThemeMode.light, title: 'Light'),
+        GroupedChoiceRow(value: ThemeMode.dark, title: 'Dark'),
+      ],
+    ),
+  );
+}
+
+class _ProviderChoice extends StatefulWidget {
+  const _ProviderChoice();
+
+  @override
+  State<_ProviderChoice> createState() => _ProviderChoiceState();
+}
+
+class _ProviderChoiceState extends State<_ProviderChoice> {
+  var _provider = 'honcho';
+
+  @override
+  Widget build(BuildContext context) => RadioGroup<String>(
+    groupValue: _provider,
+    onChanged: (provider) => setState(() => _provider = provider!),
+    child: GroupedSection(
+      header: 'Memory provider',
+      footer: 'Where the agent keeps long-term memory.',
+      dividerIndent: GroupedChoiceRow.dividerIndent(context),
+      children: const [
+        GroupedChoiceRow(
+          value: '',
+          title: 'Built-in',
+          subtitle: 'No external memory',
+        ),
+        GroupedChoiceRow(
+          value: 'honcho',
+          title: 'honcho',
+          meta: 'Ready',
+          subtitle: 'Dialectic user modelling across sessions',
+        ),
+        GroupedChoiceRow(
+          value: 'mem0',
+          title: 'mem0',
+          warning: 'Needs setup',
+          subtitle: 'Hosted memory layer',
+          enabled: false,
+        ),
+      ],
+    ),
   );
 }
