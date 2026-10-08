@@ -1446,8 +1446,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             asks ||
             // A snapshot of a turn already running, and a failure before any
             // frame of it, are the turn's too.
-            event is ReplyRebuilt ||
-            event is ReplyErrored && own.last == null)) {
+            (event is ReplyRebuilt || event is ReplyErrored) &&
+                own.last == null)) {
       own.open = own.last = _insertReply(
         thread,
         before: _promptOf(thread, reply),

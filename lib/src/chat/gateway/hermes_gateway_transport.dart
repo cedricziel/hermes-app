@@ -448,12 +448,14 @@ class _Unsolicited {
 
   /// Whether [event] belongs to the turn nobody here submitted.
   ///
-  /// Once the turn has ended, the next frame that opens a turn or raises a
-  /// request is the prompt's: a turn can ask for approval before it says
-  /// anything else.
+  /// Once the turn has ended, the next frame that opens a turn, raises a
+  /// request or rebuilds a reply from a snapshot is the prompt's: a turn can
+  /// ask for approval before it says anything else, and a reconnect rebuilds
+  /// the turn running now.
   bool claims(ChatEvent event) {
     if (_done) return false;
-    if (_ended && (opensTurn(event) || _raisesRequest(event))) {
+    if (_ended &&
+        (opensTurn(event) || _raisesRequest(event) || event is ReplyRebuilt)) {
       _done = true;
       return false;
     }

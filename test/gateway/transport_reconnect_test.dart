@@ -1759,6 +1759,50 @@ void main() {
     });
   });
 
+  group('A snapshot after the turn nobody submitted', () {
+    test('a rebuilt snapshot after that turn ended is the prompt\'s, not '
+        'the turn\'s', () {
+      fake((async) {
+        gateway.submitStatus = 'queued';
+        gateway.resumeResult = {
+          'session_id': 'rt-2',
+          'session_key': 'stored-2',
+          'running': true,
+          'auto_continue': {'attempt': 1},
+          'inflight': {'assistant': 'mi'},
+        };
+        gateway.beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.event('message.delta', 'rt-2', {'text': 'resumed work'});
+          g.event('message.complete', 'rt-2', {
+            'text': 'resumed work',
+            'status': 'complete',
+          });
+        };
+        gateway.turn = (g, sid) {
+          gateway.truncateReplay = true;
+          g.drop();
+        };
+
+        final sent = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 1));
+
+        expect(
+          sent.events
+              .whereType<UnsolicitedEvent>()
+              .map((e) => e.event)
+              .whereType<ReplyRebuilt>(),
+          isEmpty,
+        );
+        expect(sent.events.whereType<ReplyRebuilt>().map((e) => e.text), [
+          'mi',
+        ]);
+        unawaited(sent.subscription.cancel());
+      });
+    });
+  });
+
   group('A stored reply across a queued gate', () {
     Object stored(List<Map<String, String>> messages) => {
       'session_id': 'rt-1',

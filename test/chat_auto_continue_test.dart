@@ -157,7 +157,7 @@ void main() {
         messageListBody('s1', [
           messageRow(id: 1, role: 'assistant', content: 'resumed work'),
           messageRow(id: 2, role: 'user', content: 'Plan it'),
-          messageRow(id: 3, role: 'assistant', content: 'mine'),
+          messageRow(id: 3, role: 'assistant', content: 'mine, as stored'),
         ]),
       );
     chat.dispose();
@@ -179,8 +179,12 @@ void main() {
 
     await chat.refreshThread('s1');
 
-    expect(thread.messages.map((m) => (m.role, m.content)), live);
     expect(live.map((m) => m.$2), ['resumed work', 'Plan it', 'mine']);
+    expect(thread.messages.map((m) => (m.role, m.content)), [
+      (ChatRole.assistant, 'resumed work'),
+      (ChatRole.user, 'Plan it'),
+      (ChatRole.assistant, 'mine, as stored'),
+    ]);
   });
 
   test('Auto-continue after resume: editing the prompt leaves the turn that '
@@ -385,6 +389,21 @@ void main() {
     final [auto, prompt] = replies(thread);
     expect(auto.content, 'so far: resumed');
     expect(auto.status, MessageStatus.streaming);
+    expect(prompt.content, isEmpty);
+  });
+
+  test('Auto-continue after resume: a snapshot after the turn ended opens no '
+      'second reply for it', () async {
+    final (thread, send) = sendPrompt();
+    await pumpEventQueue();
+    send
+      ..emit(const UnsolicitedEvent(ReplyStarted()))
+      ..emit(const UnsolicitedEvent(ReplyCompleted('resumed work')))
+      ..emit(const UnsolicitedEvent(ReplyRebuilt('so far: mine')));
+    await pumpEventQueue();
+
+    final [auto, prompt] = replies(thread);
+    expect(auto.content, 'resumed work');
     expect(prompt.content, isEmpty);
   });
 
