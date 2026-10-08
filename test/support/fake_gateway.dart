@@ -61,7 +61,18 @@ class FakeGateway {
   /// Whether a connect sends `gateway.ready` carrying [epoch].
   bool sendReady = false;
 
-  String epoch = 'epoch-1';
+  var _epoch = 'epoch-1';
+
+  String get epoch => _epoch;
+
+  /// A new epoch is a restarted server: its seqs count from 1 again and its
+  /// replay ring is empty.
+  set epoch(String value) {
+    if (value == _epoch) return;
+    _epoch = value;
+    _seqs.clear();
+    _ring.clear();
+  }
 
   /// Whether `session.events.since` reports that the replay was truncated.
   bool truncateReplay = false;

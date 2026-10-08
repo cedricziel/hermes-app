@@ -500,7 +500,7 @@ void main() {
       });
     });
 
-    test('Turn ended while disconnected with no completion in the replay: the stored reply, then a refetch', () {
+    test('Turn ended while disconnected with no completion in the replay: a refetch, then the stored reply', () {
       fake((async) {
         gateway.resumeResult = {
           'session_id': 'rt-1',
@@ -773,6 +773,72 @@ void main() {
         async.flushMicrotasks();
 
         expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+      });
+    });
+  });
+
+  group('Open requests after the events', () {
+    const approval = {
+      'id': 'srq-1',
+      'method': 'approval',
+      'params': {'command': 'ls', 'tool_name': 'terminal'},
+    };
+
+    ChatMessage placeholder() => ChatMessage(
+      id: 'r',
+      role: ChatRole.assistant,
+      content: '',
+      createdAt: DateTime(2026),
+      status: MessageStatus.thinking,
+    );
+
+    test('a request raised during the outage binds to the tool call the '
+        'replay starts', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'open_requests': [approval],
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.event('tool.start', sid, {'tool_id': 't1', 'name': 'terminal'});
+        });
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        final reply = placeholder();
+        for (final event in seen.events) {
+          applyReplyEvent(reply, event);
+        }
+
+        final request = reply.inputRequests.single as ApprovalRequest;
+        expect(request.requestId, 'srq-1');
+        expect(request.toolCallIndex, 0);
+      });
+    });
+
+    test('an ended turn shows its open request after the replayed events', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'open_requests': [approval],
+          'messages': [
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.event('tool.start', sid, {'tool_id': 't1', 'name': 'terminal'});
+        });
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final types = seen.events.map((e) => e.runtimeType).toList();
+        expect(
+          types.indexOf(ToolStarted),
+          lessThan(types.indexOf(ApprovalRequested)),
+        );
       });
     });
   });
@@ -1094,6 +1160,175 @@ void main() {
         expect(waits, isEmpty);
         expect(follow.done, isTrue);
         expect(follow.error, isNull);
+      });
+    });
+  });
+
+  group('Watches that start where they should', () {
+    test('frames a send buffered are not dropped because a live idle watch '
+        'already saw them', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        gateway.turn = (_, _) {};
+        gateway.beforeResumeAnswer = (g) => _deltaSeqs(g, 'rt-1', 3, 4);
+        final again = _listen(
+          transport.send(threadId: 'stored-1', text: 'again'),
+        );
+        async.flushMicrotasks();
+
+        expect(_deltas(again), ['3', '4']);
+      });
+    });
+
+    test('a restarted server that numbers from 1 again is not mistaken for '
+        'duplicates', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'a'});
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        gateway.drop();
+        gateway.epoch = 'epoch-2';
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.delta', sid, {'text': 'x'});
+          g.event('message.complete', sid, {'text': 'x', 'status': 'complete'});
+        };
+        final again = _listen(
+          transport.send(threadId: 'stored-1', text: 'again'),
+        );
+        async.flushMicrotasks();
+
+        expect(again.error, isNull);
+        expect(_deltas(again), ['x']);
+        expect(again.events.last, isA<ReplyCompleted>());
+      });
+    });
+
+    test('a resume on another runtime session with no snapshot reads the '
+        'thread again', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-9', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-9', {
+          'text': 'z',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), hasLength(1));
+        expect(seen.events.last, isA<ReplyCompleted>());
+      });
+    });
+  });
+
+  group('Listening on after a turn that ended while disconnected', () {
+    test('a follow-up stream goes on to the next turn Hermes chains', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+        gateway.drop();
+        async.elapse(const Duration(seconds: 1));
+        expect(follow.events.last, isA<ReplyCompleted>());
+
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'again'});
+        async.flushMicrotasks();
+
+        expect(follow.done, isFalse);
+        final tail = follow.events.sublist(follow.events.length - 2);
+        expect(tail.map((e) => e.runtimeType), [ReplyStarted, ReplyDelta]);
+        expect(_deltas(follow), ['again']);
+      });
+    });
+
+    test('a picked-up thread whose turn ended goes on to the next one', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        expect(follow.events.single, isA<ReplyCompleted>());
+
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'again'});
+        async.flushMicrotasks();
+
+        expect(follow.done, isFalse);
+        expect(_deltas(follow), ['again']);
+      });
+    });
+  });
+
+  group('A watch the transport closed', () {
+    test('a follow-up stream is not reconnected when a send takes the '
+        'session over', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        async.flushMicrotasks();
+
+        gateway.turn = (_, _) {};
+        _listen(transport.send(threadId: 'stored-1', text: 'next'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': 'z'});
+        async.flushMicrotasks();
+
+        expect(follow.done, isTrue);
+        expect(follow.error, isNull);
+        expect(_deltas(follow), isEmpty);
+        // One resume: the send's own, not a reconnect of the follow-up.
+        expect(
+          gateway.methods.where((m) => m == 'session.resume'),
+          hasLength(1),
+        );
       });
     });
   });

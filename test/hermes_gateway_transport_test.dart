@@ -346,12 +346,18 @@ void main() {
     await scoped
         .send(threadId: 'shared', profile: 'alpha', text: 'hello')
         .toList();
-    final follow = scoped.followUps('shared', profile: 'alpha').toList();
+    final followed = <ChatEvent>[];
+    final follow = scoped
+        .followUps('shared', profile: 'alpha')
+        .listen(followed.add);
     gateway.event('message.start', 'alpha-runtime');
     await pumpEventQueue();
     gateway.drop();
+    await pumpEventQueue();
+    // The stream stays open on the idle watch for the next turn Hermes chains.
+    await follow.cancel();
     expect(
-      (await follow).whereType<ReplyCompleted>().single.text,
+      followed.whereType<ReplyCompleted>().single.text,
       'background finished',
     );
     expect(second.requestOf('session.resume')['params'], {
@@ -2642,6 +2648,8 @@ void main() {
           ThreadBound,
           ReplyStarted,
           ReplyDelta,
+          // No seq to replay from, so the gap is read from the thread.
+          ThreadNeedsRefetch,
           ReplyDelta,
           ReplyCompleted,
         ]);
@@ -2679,6 +2687,7 @@ void main() {
       expect((await follow).map((e) => e.runtimeType), [
         ReplyStarted,
         ReplyDelta,
+        ThreadNeedsRefetch,
         ReplyCompleted,
       ]);
     });
@@ -2760,7 +2769,8 @@ void main() {
           requestTimeout: const Duration(milliseconds: 50),
         );
         await reattaching.send(text: 'hi').toList();
-        final follow = reattaching.followUps('stored-1').toList();
+        final followed = <ChatEvent>[];
+        final follow = reattaching.followUps('stored-1').listen(followed.add);
         gateways.single.event('message.start', 'rt-1');
         gateways.single.event('message.delta', 'rt-1', {'text': 'Checking'});
         gateways.add(
@@ -2774,9 +2784,12 @@ void main() {
             },
         );
         gateways[0].drop();
+        await pumpEventQueue();
+        // The stream stays open on the idle watch for the next chained turn.
+        await follow.cancel();
 
         expect(
-          (await follow).last,
+          followed.last,
           isA<ReplyCompleted>().having((e) => e.text, 'text', 'Checking done'),
         );
       },

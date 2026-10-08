@@ -18,6 +18,13 @@ class ReplayLedger {
   /// leaves the watermark alone.
   bool observe(String sid, int? seq, {String? epoch}) {
     if (seq == null) return true;
+    // Another epoch numbers its seqs from 1 again, so a watermark recorded in
+    // the old one says nothing about this event.
+    final recorded = _epochs[sid];
+    if (recorded != null && epoch != null && recorded != epoch) {
+      _watermarks.remove(sid);
+      _epochs.remove(sid);
+    }
     final watermark = _watermarks[sid];
     if (watermark != null && seq <= watermark) return false;
     _watermarks[sid] = seq;
@@ -32,6 +39,19 @@ class ReplayLedger {
   /// nothing to replay from: `last_seen: 0` would hand over the whole ring.
   bool hasWatermark(String sid) => _watermarks.containsKey(sid);
 
+  /// The seq a watch of [sid] on a connection at [epoch] starts after: the
+  /// watermark, unless it was recorded at another epoch.
+  int resumeFrom(String sid, String? epoch) {
+    final recorded = _epochs[sid];
+    if (recorded != null && epoch != null && recorded != epoch) return 0;
+    return lastSeen(sid);
+  }
+
+  /// A copy of what the ledger holds now.
+  ReplayLedger snapshot() => ReplayLedger()
+    .._watermarks.addAll(_watermarks)
+    .._epochs.addAll(_epochs);
+
   /// The replay epoch [sid]'s watermark was recorded at, or null when none was
   /// known.
   String? epochOf(String sid) => _epochs[sid];
@@ -40,8 +60,8 @@ class ReplayLedger {
   /// while it was in flight.
   ///
   /// An answer from another epoch than the one the watermark was recorded at
-  /// means a different process numbered the seqs, so every watermark is
-  /// dropped and the caller must refetch. A truncated answer is refetched too,
+  /// means a different process numbered the seqs, so the watermarks recorded
+  /// at any other epoch are dropped and the caller must refetch. A truncated answer is refetched too,
   /// and the watermark stays where it was: parked events are still checked
   /// against it, and jumping to `latest_seq` would lose the deltas the server
   /// sent after the snapshot.
@@ -53,8 +73,13 @@ class ReplayLedger {
     final epoch = result['epoch'];
     final recorded = _epochs[sid];
     if (recorded != null && epoch is String && epoch != recorded) {
-      _watermarks.clear();
-      _epochs.clear();
+      for (final stale in [
+        for (final entry in _epochs.entries)
+          if (entry.value != epoch) entry.key,
+      ]) {
+        _watermarks.remove(stale);
+        _epochs.remove(stale);
+      }
       return const Refetch();
     }
     if (result['truncated'] == true) return const Refetch();

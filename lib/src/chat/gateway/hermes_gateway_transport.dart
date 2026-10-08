@@ -130,11 +130,17 @@ class _Watch {
   /// stream answers its cancel future only once its own cancel callback does,
   /// so awaiting it can hang the reply that is closing its watch.
   Future<void> close() async {
+    closedByUs = true;
     for (final source in _sources) {
       unawaited(source.cancel());
     }
     unawaited(_inbox.close());
   }
+
+  /// Set when the transport closed this watch itself, as opposed to the
+  /// socket under it dropping. A reader that finds the watch ended has nothing
+  /// to reconnect to then.
+  bool closedByUs = false;
 }
 
 /// Listens to a connection from before its runtime session is known, so the
@@ -387,6 +393,9 @@ class HermesGatewayTransport implements ChatTransport {
     final scope = <String, Object?>{'profile': ?profile};
     // Listening starts before the resume is sent, so a frame the gateway pushes
     // ahead of its answer is kept for this session.
+    // What the ledger held before this send's first frame: a frame the tap
+    // buffers may already have been observed by a watch that was listening.
+    final before = _ledger.snapshot();
     final tap = _Tap(client);
     final Map<String, Object?> session;
     try {
@@ -429,7 +438,12 @@ class HermesGatewayTransport implements ChatTransport {
       rethrow;
     }
     _beginReply(runtimeId, owner);
-    var watch = _watch(client, runtimeId, buffered: tap.release());
+    var watch = _watch(
+      client,
+      runtimeId,
+      buffered: tap.release(),
+      startAt: before.resumeFrom(runtimeId, client.epoch),
+    );
     final mine = <String>{};
     var parked = false;
     var drops = 0;
@@ -750,7 +764,6 @@ class HermesGatewayTransport implements ChatTransport {
       final next = <_Incoming>[];
       var completed = false;
       var merged = false;
-      _openRequests(ended, openRows, runtimeId, shown);
       if (since != null) {
         final decision = _ledger.merge(
           sid: runtimeId,
@@ -777,6 +790,9 @@ class HermesGatewayTransport implements ChatTransport {
         final stored = _storedReply(resumed);
         final onScreen = previous != null;
         final errored = ended.any((incoming) => incoming.$1 is ReplyErrored);
+        // After the events: a request binds to the tool call it was raised
+        // in, which the replay has to have started first.
+        _openRequests(ended, openRows, runtimeId, shown);
         if (onScreen) ended.add((const ThreadNeedsRefetch(), false));
         if (stored != null) {
           ended.add((stored, false));
@@ -808,24 +824,26 @@ class HermesGatewayTransport implements ChatTransport {
             parked: _eventsOf(frames, runtimeId),
           );
     if (decision case Deliver(:final events)) {
-      _openRequests(injected, openRows, runtimeId, shown);
       injected.addAll(_inArrivalOrder(events, frames, runtimeId, shown));
+      _openRequests(injected, openRows, runtimeId, shown);
     } else {
       // The replay cannot be trusted, so the snapshot replaces the text. Its
-      // leading deltas that it already holds are not shown again. A replay
-      // that was refused as truncated or from another epoch, with no snapshot
-      // to rebuild from, leaves a gap that only the stored thread can fill.
+      // leading deltas that it already holds are not shown again. With no
+      // snapshot to rebuild a reply on screen from (a replay refused as
+      // truncated or from another epoch, another runtime session, no seq to
+      // replay from, or a gateway without the replay), the gap is one only
+      // the stored thread can fill.
       if (snapshot != null) {
         injected.add((ReplyRebuilt(snapshot), false));
-      } else if (since != null) {
+      } else if (previous != null) {
         injected.add((const ThreadNeedsRefetch(), false));
       }
-      _openRequests(injected, openRows, runtimeId, shown);
       final dropped = snapshot == null ? 0 : _heldBySnapshot(before, snapshot);
       injected.addAll(
         _parked(before, runtimeId, shown, epoch: epoch, dropped: dropped),
       );
       injected.addAll(_parked(after, runtimeId, shown, epoch: epoch));
+      _openRequests(injected, openRows, runtimeId, shown);
     }
     return _Resumed(
       runtimeId: runtimeId,
@@ -1129,17 +1147,31 @@ class HermesGatewayTransport implements ChatTransport {
       return;
     }
     if (watch == null) {
-      if (resumed.idle case final idle?) await _park(owner, idle);
+      final idle = resumed.idle;
+      if (idle != null) await _park(owner, idle);
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
       }
       _forgetRequests(mine);
-      await out.close();
+      if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
+        await out.close();
+        return;
+      }
+      // The turn is over, but the session goes on: what Hermes chains next
+      // reaches this stream through the idle watch. A thread with no turn to
+      // report has nothing to follow yet.
+      final follow = _Follow(idle);
+      out.onCancel = () => _stopFollowing(follow, owner);
+      await _relay(follow, owner, out);
       return;
     }
     if (_idle.remove(owner) case final previous?) {
       await previous.close();
+    }
+    if (canceled || out.isClosed) {
+      await watch.close();
+      return;
     }
     _idle[owner] = watch;
     final follow = _Follow(watch);
@@ -1214,8 +1246,10 @@ class HermesGatewayTransport implements ChatTransport {
           }
         }
         // Idle between turns: nothing is running to pick back up, so the
-        // connection dropping just ends the stream quietly.
+        // connection dropping just ends the stream quietly. So does a watch
+        // the transport closed itself (another send took the session over).
         if (!replying || follow.cancelled || out.isClosed) return;
+        if (follow.watch.closedByUs) return;
         if (drops >= _maxReplyReconnects) {
           out.addError(const GatewayConnectionClosed());
           return;
@@ -1238,7 +1272,8 @@ class HermesGatewayTransport implements ChatTransport {
         _beginReply(runtimeId, owner);
         final live = resumed.watch;
         if (live == null) {
-          if (resumed.idle case final idle?) await _park(owner, idle);
+          final idle = resumed.idle;
+          if (idle != null) await _park(owner, idle);
           for (final (event, serverRequest) in resumed.ended) {
             if (out.isClosed) return;
             _track(event, runtimeId, mine, serverRequest: serverRequest);
@@ -1247,7 +1282,15 @@ class HermesGatewayTransport implements ChatTransport {
           if (resumed.giveUp && !out.isClosed) {
             out.addError(const GatewayConnectionClosed());
           }
-          return;
+          if (idle == null || out.isClosed || follow.cancelled) return;
+          // The turn is over, but the session goes on: the idle watch carries
+          // whatever Hermes chains next, to this same stream.
+          replying = false;
+          drops = 0;
+          _forgetRequests(mine);
+          _endReply(runtimeId, owner);
+          follow.watch = idle;
+          continue;
         }
         if (_idle[owner] == previous) _idle[owner] = live;
         follow.watch = live;
@@ -1263,15 +1306,16 @@ class HermesGatewayTransport implements ChatTransport {
   /// Starts listening to the events and requests of [runtimeId]. The
   /// [injected] events, already decided by a reconnect, come first; then the
   /// [buffered] frames of any session, filtered to it, and the live frames.
-  /// A live event at or below what the ledger held when the watch began, or
-  /// what the watch already showed, is dropped, so one the replay already
-  /// handed over is not shown twice.
+  /// A live event at or below [startAt] (by default what the ledger holds for
+  /// this connection's epoch), or what the watch already showed, is dropped,
+  /// so one the replay already handed over is not shown twice.
   _Watch _watch(
     GatewayRpcClient client,
     String runtimeId, {
     List<Object> buffered = const [],
     List<_Incoming> injected = const [],
     Set<String> shown = const {},
+    int? startAt,
   }) {
     final inbox = StreamController<_Incoming?>();
     final watch = _Watch(runtimeId, client, inbox);
@@ -1281,7 +1325,7 @@ class HermesGatewayTransport implements ChatTransport {
     // The ledger is the transport's: it feeds the next replay. Whether this
     // watch has shown a live event is its own matter, so two watches on one
     // runtime session each get every frame.
-    var seen = _ledger.lastSeen(runtimeId);
+    var seen = startAt ?? _ledger.resumeFrom(runtimeId, client.epoch);
     // A request the reply showed before the drop may come again from the new
     // socket; a copy, so the reply's own set stays the reply's.
     final requests = {...shown};
