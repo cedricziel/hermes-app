@@ -1,0 +1,114 @@
+name: Update Hermes contracts
+
+# Refreshes both descriptions of the Hermes backend from one hermes-agent
+# main commit, and opens (or refreshes) one PR when either changed:
+#
+# - openrpc/: the gateway contract (the /api/ws protocol). A frame it gained
+#   fails test/gateway/gateway_contract_test.dart on that PR until it is
+#   classified there.
+# - openapi/: the dashboard's REST spec, with packages/hermes_api
+#   regenerated from it. An operation the app calls that was removed or
+#   retyped fails flutter analyze on that PR.
+#
+# RELEASE_PLEASE_TOKEN is a PAT: a PR opened with GITHUB_TOKEN does not
+# trigger ci.yml, and those failing checks are the whole point.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-hermes-contracts
+
+env:
+  BRANCH: chore/update-hermes-contracts
+  UV_NO_CONFIG: "1"
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Resolve hermes-agent main
+        id: ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "sha=$(gh api repos/NousResearch/hermes-agent/commits/main --jq .sha)" >>"$GITHUB_OUTPUT"
+
+      - name: Fetch the gateway contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch_gateway_contract.sh "${{ steps.ref.outputs.sha }}"
+
+      - name: Fetch the OpenAPI spec
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch_openapi_spec.sh "${{ steps.ref.outputs.sha }}"
+
+      - name: Summarize the change
+        id: diff
+        run: |
+          body="$RUNNER_TEMP/body.md"
+          : >"$body"
+          changed=false
+          if ! git diff --quiet -- openrpc/hermes-gateway.openrpc.json; then
+            changed=true
+            git show HEAD:openrpc/hermes-gateway.openrpc.json >"$RUNNER_TEMP/old-openrpc.json"
+            { echo "## Gateway contract"; echo
+              python3 -I scripts/diff_gateway_contract.py \
+                "$RUNNER_TEMP/old-openrpc.json" openrpc/hermes-gateway.openrpc.json
+              echo; } >>"$body"
+          fi
+          if ! git diff --quiet -- openapi/hermes-agent.openapi.json; then
+            changed=true
+            git show HEAD:openapi/hermes-agent.openapi.json >"$RUNNER_TEMP/old-openapi.json"
+            { echo "## REST API"; echo
+              python3 -I scripts/diff_openapi_spec.py \
+                "$RUNNER_TEMP/old-openapi.json" openapi/hermes-agent.openapi.json; } >>"$body"
+          fi
+          echo "changed=$changed" >>"$GITHUB_OUTPUT"
+
+      - name: Regenerate packages/hermes_api
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          if ! git diff --quiet -- openapi/hermes-agent.openapi.json; then
+            ./scripts/generate_hermes_api_client.sh
+          fi
+
+      - name: Open or update the PR
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          SHA: ${{ steps.ref.outputs.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add openrpc openapi packages/hermes_api
+          git commit -m "chore(api): update Hermes contracts to ${SHA:0:8}"
+          git push --force origin "$BRANCH"
+          if gh pr view "$BRANCH" --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh pr create --head "$BRANCH" --title "chore(api): update Hermes contracts" \
+              --body-file "$RUNNER_TEMP/body.md"
+          fi

@@ -13,19 +13,15 @@ the `hermes-agent` package into an ephemeral virtualenv and calling
 `hermes_cli.web_server.app.openapi()` directly — the same schema FastAPI
 would serve, generated in-process instead of over the network.
 
-- Source version: `hermes-agent` 0.21.3
-- Regenerate with:
-  ```bash
-  git clone --depth 1 https://github.com/NousResearch/hermes-agent
-  cd hermes-agent
-  uv venv .venv-openapi && source .venv-openapi/bin/activate
-  uv pip install -e .
-  python -c "
-  import json
-  import hermes_cli.web_server as ws
-  json.dump(ws.app.openapi(), open('openapi.json', 'w'), indent=2)
-  "
-  ```
+`HERMES_REF` holds the hermes-agent commit it was built from. A spec built from a source tarball has no version for Hermes to report, so `info.version` is that commit's short SHA.
+
+To update it from Hermes main, or from a commit, branch or tag (needs `gh`, `curl` and `uv`):
+
+```bash
+scripts/fetch_openapi_spec.sh [ref]
+```
+
+The `Update Hermes contracts` workflow does this every Monday, together with the gateway contract in `openrpc/`, and opens a PR when either changed.
 
 ## The generated Dart client
 

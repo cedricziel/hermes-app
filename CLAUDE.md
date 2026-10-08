@@ -36,8 +36,11 @@ Commits follow Conventional Commits; release-please builds `CHANGELOG.md` and bu
 ### Regenerating the API client
 
 ```bash
+scripts/fetch_openapi_spec.sh [ref]       # rebuild openapi/ from hermes-agent main or a ref; needs gh, curl, uv
 ./scripts/generate_hermes_api_client.sh   # needs a JDK (npx openapi-generator-cli) and dart on PATH
 ```
+
+`update-hermes-contracts.yml` runs both every Monday, refreshes `openrpc/` from the same Hermes commit, and opens one PR when either changed.
 
 `verify-hermes-api-client.yml` fails CI if `openapi/`, `scripts/` or `packages/hermes_api/` change without a matching regenerated client. Never hand-edit `packages/hermes_api`. Fix template bugs in `scripts/patch_openapi_for_dart.py` or `scripts/patch_generated_dart_client.py`. `packages/hermes_api/pubspec.lock` is committed on purpose.
 
