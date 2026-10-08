@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_search_field.dart';
+
 import 'catalog_controller.dart';
 import 'catalog_detail.dart';
 import 'catalog_entry.dart';
-import 'git_install_dialog.dart';
 import 'install_report.dart';
-import 'plugin_install_result.dart';
-import 'plugin_tag.dart';
 import 'plugins_controller.dart' show PluginsFailure;
 import 'sheet_host.dart';
+import 'widgets/catalog_row.dart';
 
 /// The catalog to install plugins from, with a search field. It loads when
 /// it is first shown.
@@ -30,7 +31,6 @@ class CatalogTab extends StatefulWidget {
 class _CatalogTabState extends State<CatalogTab>
     with AutomaticKeepAliveClientMixin {
   CatalogController get _controller => widget.controller;
-  final _search = TextEditingController();
 
   LinkOpener get _openLink =>
       widget.openLink ??
@@ -43,12 +43,6 @@ class _CatalogTabState extends State<CatalogTab>
   void initState() {
     super.initState();
     _controller.load();
-  }
-
-  @override
-  void dispose() {
-    _search.dispose();
-    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -85,16 +79,6 @@ class _CatalogTabState extends State<CatalogTab>
     await reportInstall(context, result);
   }
 
-  Future<void> _installFromGit() async {
-    final result = await showDialog<PluginInstallResult>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => GitInstallDialog(install: _controller.installFromSource),
-    );
-    if (result == null || !mounted) return;
-    await reportInstall(context, result);
-  }
-
   Widget _detail(CatalogEntry entry) => CatalogDetail(
     key: ValueKey(entry.name),
     entry: entry,
@@ -121,33 +105,19 @@ class _CatalogTabState extends State<CatalogTab>
               wide: wide,
               list: Column(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            key: const Key('catalog-search'),
-                            controller: _search,
-                            onChanged: _controller.setQuery,
-                            decoration: const InputDecoration(
-                              hintText: 'Search catalog',
-                              prefixIcon: AppIcon(AppIcons.search),
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
+                  // A Mac window searches from its toolbar.
+                  if (platformChromeOf(context) != PlatformChrome.macos)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: SettingsSearchField(
+                        key: const Key('catalog-search'),
+                        search: SettingsSearch(
+                          query: _controller.query,
+                          hint: 'Search catalog',
+                          onChanged: _controller.setQuery,
                         ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          key: const Key('catalog-git-install'),
-                          onPressed: _installFromGit,
-                          icon: const AppIcon(AppIcons.link, size: 16),
-                          label: const Text('Git URL'),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
                   Expanded(child: _body(wide)),
                 ],
               ),
@@ -211,98 +181,23 @@ class _CatalogTabState extends State<CatalogTab>
                 ),
               ],
             )
-          : ListView.separated(
+          : GroupedListView(
               key: const Key('catalog-list'),
-              itemCount: entries.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final entry = entries[index];
-                return _CatalogRow(
-                  entry: entry,
-                  controller: _controller,
-                  selected: wide && entry.name == _controller.selectedName,
-                  onTap: () => _open(entry, wide: wide),
-                  onInstall: () => _install(entry),
-                );
-              },
-            ),
-    );
-  }
-}
-
-class _CatalogRow extends StatelessWidget {
-  const _CatalogRow({
-    required this.entry,
-    required this.controller,
-    required this.selected,
-    required this.onTap,
-    required this.onInstall,
-  });
-
-  final CatalogEntry entry;
-  final CatalogController controller;
-  final bool selected;
-  final VoidCallback onTap;
-  final VoidCallback onInstall;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtle = Theme.of(context).colorScheme.onSurfaceVariant;
-    final installing = controller.isInstalling(entry.name);
-    return ListTile(
-      selected: selected,
-      selectedTileColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      onTap: onTap,
-      title: Row(
-        children: [
-          Flexible(child: Text(entry.name, overflow: TextOverflow.ellipsis)),
-          if (entry.official) ...[
-            const SizedBox(width: 8),
-            const PluginTag('Official', filled: true),
-          ],
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (entry.maintainer.isNotEmpty)
-            Text(
-              entry.maintainer,
-              style: TextStyle(color: subtle, fontSize: 12),
-            ),
-          if (entry.description.isNotEmpty)
-            Text(
-              entry.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
               children: [
-                if (entry.commit.isNotEmpty)
-                  PluginTag(entry.commit, mono: true),
-                if (entry.installed && entry.updateAvailable)
-                  const PluginTag('Update available', strong: true),
+                GroupedSection(
+                  children: [
+                    for (final entry in entries)
+                      CatalogRow(
+                        entry: entry,
+                        installing: _controller.isInstalling(entry.name),
+                        selected:
+                            wide && entry.name == _controller.selectedName,
+                        onTap: () => _open(entry, wide: wide),
+                        onInstall: () => _install(entry),
+                      ),
+                  ],
+                ),
               ],
-            ),
-          ),
-        ],
-      ),
-      trailing: entry.installed
-          ? const PluginTag('Installed', filled: true)
-          : FilledButton.tonal(
-              key: Key('catalog-install-${entry.name}'),
-              onPressed: installing ? null : onInstall,
-              child: installing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const Text('Install'),
             ),
     );
   }
@@ -329,26 +224,35 @@ class _InstallActionsState extends State<InstallActions> {
 
   @override
   Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
-        SwitchListTile.adaptive(
-          key: const Key('catalog-enable-switch'),
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Enable after install'),
-          value: _enable,
-          onChanged: widget.installing
-              ? null
-              : (value) => setState(() => _enable = value),
+        GroupedSection(
+          children: [
+            GroupedSwitchRow(
+              key: const Key('catalog-enable-switch'),
+              title: 'Enable after install',
+              value: _enable,
+              onChanged: widget.installing
+                  ? null
+                  : (value) => setState(() => _enable = value),
+            ),
+          ],
         ),
+        SizedBox(height: metrics.sectionGap),
         FilledButton(
           key: const Key('catalog-detail-install'),
+          style: FilledButton.styleFrom(
+            minimumSize: Size.fromHeight(metrics.rowMinHeight),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(metrics.radius),
+            ),
+          ),
           onPressed: widget.installing ? null : () => widget.onInstall(_enable),
           child: widget.installing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
+              ? const SizedBox.square(
+                  dimension: 16,
                   child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                 )
               : const Text('Install'),

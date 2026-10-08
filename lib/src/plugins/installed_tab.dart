@@ -4,9 +4,10 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'installed_plugin.dart';
 import 'plugin_actions.dart';
 import 'plugin_detail.dart';
-import 'plugin_tag.dart';
+import 'widgets/plugin_row.dart';
 import 'plugins_controller.dart';
 import 'sheet_host.dart';
+import '../widgets/grouped_list.dart';
 import '../widgets/row_actions.dart';
 
 /// The installed plugins, with a details view for each: a bottom sheet on a
@@ -127,76 +128,25 @@ class _InstalledTabState extends State<InstalledTab>
                 ),
               ],
             )
-          : ListView.separated(
-              itemCount: plugins.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final plugin = plugins[index];
-                return RowActions(
-                  title: plugin.name,
-                  actions: pluginRowActions(context, _controller, plugin),
-                  child: _PluginRow(
-                    plugin: plugin,
-                    selected: wide && plugin.name == _controller.selectedName,
-                    onTap: () => _open(plugin, wide: wide),
-                  ),
-                );
-              },
+          : GroupedListView(
+              children: [
+                GroupedSection(
+                  children: [
+                    for (final plugin in plugins)
+                      RowActions(
+                        title: plugin.name,
+                        actions: pluginRowActions(context, _controller, plugin),
+                        child: PluginRow(
+                          plugin: plugin,
+                          selected:
+                              wide && plugin.name == _controller.selectedName,
+                          onTap: () => _open(plugin, wide: wide),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
-    );
-  }
-}
-
-class _PluginRow extends StatelessWidget {
-  const _PluginRow({
-    required this.plugin,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final InstalledPlugin plugin;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final subtle = Theme.of(context).colorScheme.onSurfaceVariant;
-    final tags = [
-      if (plugin.bundled) const PluginTag('Bundled'),
-      if (plugin.authRequired) const PluginTag('Needs login', strong: true),
-      if (plugin.removedReason case final reason?)
-        PluginTag('Removed: $reason', strong: true),
-    ];
-    return ListTile(
-      selected: selected,
-      selectedTileColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-      onTap: onTap,
-      title: Row(
-        children: [
-          Flexible(child: Text(plugin.name, overflow: TextOverflow.ellipsis)),
-          if (plugin.version.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Text(plugin.version, style: TextStyle(color: subtle, fontSize: 12)),
-          ],
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (plugin.description.isNotEmpty)
-            Text(
-              plugin.description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          if (tags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Wrap(spacing: 6, runSpacing: 4, children: tags),
-            ),
-        ],
-      ),
-      trailing: PluginStatusChip(plugin.status),
     );
   }
 }

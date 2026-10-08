@@ -67,6 +67,7 @@ class ListWithDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!wide) return list;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SizedBox(width: 400, child: list),
         const VerticalDivider(width: 1),
