@@ -293,6 +293,32 @@ void main() {
       expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
     });
 
+    test('Auto-continue after resume: a request of a turn that is already over '
+        'cannot be answered while the send runs', () async {
+      gateway.beforeSubmitAnswer = (g) {
+        unsolicitedTurn(g);
+        g.serverRequest('srq-old', 'approval', 'rt-2', {
+          'command': 'ls build',
+          'description': 'list files',
+          'choices': ['once', 'deny'],
+          'tool_name': 'terminal',
+        });
+        unsolicitedEnd(g);
+      };
+      gateway.turn = (g, sid) {
+        g.event('message.start', sid);
+        g.event('message.delta', sid, {'text': 'mine'});
+      };
+
+      final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+
+      expect(_types(seen.events), [ReplyStarted, ReplyDelta]);
+      expect(seen.done, isFalse);
+      expect(await transport.answerApproval('srq-old', 'once'), isFalse);
+      expect(gateway.responses, isEmpty);
+    });
+
     test('Auto-continue after resume: a prompt queued behind the turn gets its '
         'own turn, and the turn reaches the follow-ups', () async {
       gateway.submitStatus = 'queued';

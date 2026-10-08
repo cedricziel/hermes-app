@@ -857,7 +857,15 @@ class HermesGatewayTransport implements ChatTransport {
           final incoming = watch.events.current;
           if (incoming == null) continue;
           final (event, serverRequest) = incoming;
-          _track(event, runtimeId, mine, serverRequest: serverRequest);
+          final claimant = unsolicited;
+          final claimed = claimant != null && claimant.claims(event);
+          // A request of a turn that was over before the submit was answered
+          // is not shown, so it must not stay answerable either.
+          final history =
+              claimed && !claimant.live && _Unsolicited.isInputRequest(event);
+          if (!history) {
+            _track(event, runtimeId, mine, serverRequest: serverRequest);
+          }
           if (event is SessionInfo) {
             final rotated = event.storedSessionId;
             if (rotated != null && rotated.isNotEmpty && rotated != storedId) {
@@ -868,9 +876,8 @@ class HermesGatewayTransport implements ChatTransport {
               storedId = rotated;
             }
           }
-          if (unsolicited != null && unsolicited.claims(event)) {
-            final passes =
-                unsolicited.live && _Unsolicited.isInputRequest(event);
+          if (claimed) {
+            final passes = claimant.live && _Unsolicited.isInputRequest(event);
             if (passes) {
               // Held back, the request could not be answered while the turn
               // waits on it, and the queued prompt would wait behind that.
@@ -882,16 +889,16 @@ class HermesGatewayTransport implements ChatTransport {
             } else {
               setAside.add(incoming);
             }
-            if (unsolicited.live) {
-              if (!finishing && !unsolicited.ended) {
+            if (claimant.live) {
+              if (!finishing && !claimant.ended) {
                 finishing = true;
                 yield const ReplyStatus(_finishingInterruptedTurn);
-              } else if (finishing && unsolicited.ended) {
+              } else if (finishing && claimant.ended) {
                 finishing = false;
                 yield const ReplyStatus('');
               }
             }
-            if (unsolicited.ended && passed.isNotEmpty) {
+            if (claimant.ended && passed.isNotEmpty) {
               // Nobody can answer what the turn asked once it is over.
               final withdrawn = InputRequestsCancelled(passed.toList());
               _track(withdrawn, runtimeId, mine, serverRequest: false);
@@ -900,7 +907,7 @@ class HermesGatewayTransport implements ChatTransport {
             }
             // The turn's end starts the prompt's clock, as a running turn's
             // does for a queued one.
-            if (unsolicited.ended) submittedAt = clock.now();
+            if (claimant.ended) submittedAt = clock.now();
             continue;
           }
           final wasEnded = gate?.ended ?? true;
