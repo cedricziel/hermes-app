@@ -249,4 +249,29 @@ void main() {
       expect(heard, 1);
     });
   });
+
+  group('Live Activities', () {
+    test('are on by default and the choice survives a restart', () async {
+      final settings = await relaunch();
+      expect(settings.liveActivities, isTrue);
+
+      await settings.setLiveActivities(false);
+
+      expect((await relaunch()).liveActivities, isFalse);
+    });
+
+    test('a switch flipped while loading is not undone', () async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.withData({
+            'hermes.live_activities': true,
+          });
+      final settings = NotificationSettings();
+
+      final loading = settings.load();
+      await settings.setLiveActivities(false);
+      await loading;
+
+      expect(settings.liveActivities, isFalse);
+    });
+  });
 }

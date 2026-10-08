@@ -6,6 +6,7 @@ const _prefsAskedKey = 'hermes.notifications_permission_asked';
 const _prefsDeniedKey = 'hermes.notifications_permission_denied';
 const _prefsSchedulesKey = 'hermes.notifications_schedules';
 const _prefsMutedKey = 'hermes.notifications_muted_jobs';
+const _prefsLiveActivitiesKey = 'hermes.live_activities';
 
 /// Whether the user wants notifications, and what the system said when the
 /// app asked for permission. Kept across launches.
@@ -20,9 +21,11 @@ class NotificationSettings extends ChangeNotifier {
   bool _denied = false;
   bool _loaded = false;
   bool _scheduleAlerts = true;
+  bool _liveActivities = true;
   Set<String> _muted = {};
   int _scheduleEdits = 0;
   int _mutedEdits = 0;
+  int _liveActivityEdits = 0;
   int _enabledEdits = 0;
   int _permissionEdits = 0;
   Future<void> _lastWrite = Future.value();
@@ -37,6 +40,9 @@ class NotificationSettings extends ChangeNotifier {
   /// Whether a scheduled task that ran is announced.
   bool get scheduleAlerts => _scheduleAlerts;
 
+  /// Whether a reply sent from this iPhone is shown as a Live Activity.
+  bool get liveActivities => _liveActivities;
+
   /// Whether the job [key] (`profile/id`) is muted.
   bool isMuted(String key) => _muted.contains(key);
 
@@ -47,11 +53,13 @@ class NotificationSettings extends ChangeNotifier {
     final permissionEditsBefore = _permissionEdits;
     final scheduleEditsBefore = _scheduleEdits;
     final mutedEditsBefore = _mutedEdits;
+    final liveActivityEditsBefore = _liveActivityEdits;
     final enabled = await _prefs.getBool(_prefsEnabledKey);
     final asked = await _prefs.getBool(_prefsAskedKey);
     final denied = await _prefs.getBool(_prefsDeniedKey);
     final schedules = await _prefs.getBool(_prefsSchedulesKey);
     final muted = await _prefs.getStringList(_prefsMutedKey);
+    final liveActivities = await _prefs.getBool(_prefsLiveActivitiesKey);
     if (_enabledEdits == enabledEditsBefore) _enabled = enabled ?? true;
     if (_permissionEdits == permissionEditsBefore) {
       _asked = asked ?? false;
@@ -61,6 +69,9 @@ class NotificationSettings extends ChangeNotifier {
       _scheduleAlerts = schedules ?? true;
     }
     if (_mutedEdits == mutedEditsBefore) _muted = {...?muted};
+    if (_liveActivityEdits == liveActivityEditsBefore) {
+      _liveActivities = liveActivities ?? true;
+    }
     _loaded = true;
     notifyListeners();
   }
@@ -74,6 +85,11 @@ class NotificationSettings extends ChangeNotifier {
     _scheduleEdits++;
     _scheduleAlerts = value;
   }, {_prefsSchedulesKey: value});
+
+  Future<void> setLiveActivities(bool value) => _change(() {
+    _liveActivityEdits++;
+    _liveActivities = value;
+  }, {_prefsLiveActivitiesKey: value});
 
   Future<void> setMuted(String key, bool muted) {
     if (isMuted(key) == muted) return _lastWrite;
