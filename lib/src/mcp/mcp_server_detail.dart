@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
+import '../theme/hermes_theme.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import 'hermes_mcp_repository.dart';
 import 'mcp_banner.dart';
 import 'mcp_presentation.dart';
 import 'mcp_servers_controller.dart';
 import 'mcp_sign_in_screen.dart';
-
-import '../widgets/named_icon_button.dart';
 
 /// Turns [server] on or off and says so when it could not.
 Future<void> switchMcpServer(
@@ -86,16 +86,20 @@ Future<void> signInToMcpServer(
 
 /// One server in full: how it connects, its switch, a connection test and its
 /// tools, and removal. The same widget fills the page on a narrow layout and
-/// the right-hand pane on a wide one.
+/// the right-hand pane on a wide one, where [showName] heads it.
 class McpServerDetail extends StatelessWidget {
   const McpServerDetail({
     super.key,
     required this.controller,
     required this.name,
+    this.showName = true,
   });
 
   final McpServersController controller;
   final String name;
+
+  /// Whether the server's name heads the detail; a page names it in its bar.
+  final bool showName;
 
   @override
   Widget build(BuildContext context) {
@@ -104,54 +108,89 @@ class McpServerDetail extends StatelessWidget {
       builder: (context, _) {
         final server = controller.serverNamed(name);
         if (server == null) return const SizedBox.shrink();
-        return ListView(
-          padding: const EdgeInsets.all(16),
+        final theme = Theme.of(context);
+        final muted = context.hermesColors.subtleText;
+        final padding = GroupedMetrics.of(context).rowPadding;
+        final facts = [
+          ?mcpTransportLabel(server.transport),
+          ?mcpAuthLabel(server),
+        ].join(' · ');
+        return GroupedListView(
           children: [
-            Text(server.name, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              [
-                ?mcpTransportLabel(server.transport),
-                ?mcpAuthLabel(server),
-              ].join(' · '),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (server.address.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              SelectableText(
-                server.address,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            Padding(
+              padding: EdgeInsets.fromLTRB(padding, 16, padding, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showName)
+                    Text(
+                      server.name,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  Text(
+                    facts,
+                    style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                  ),
+                  if (server.address.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      server.address,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-            ],
-            const SizedBox(height: 16),
-            Card(
-              margin: EdgeInsets.zero,
-              child: SwitchListTile.adaptive(
-                title: const Text('Enabled'),
-                subtitle: Text(
-                  server.enabled
+            ),
+            GroupedSection(
+              children: [
+                GroupedSwitchRow(
+                  title: 'Enabled',
+                  subtitle: server.enabled
                       ? 'Used from the next chat'
                       : 'Not used from the next chat',
+                  value: server.enabled,
+                  onChanged: controller.isSwitching(server.name)
+                      ? null
+                      : (on) =>
+                            switchMcpServer(context, controller, server, on),
                 ),
-                value: server.enabled,
-                onChanged: controller.isSwitching(server.name)
-                    ? null
-                    : (on) => switchMcpServer(context, controller, server, on),
-              ),
+              ],
             ),
-            const SizedBox(height: 12),
             _Actions(controller: controller, server: server),
-            const SizedBox(height: 12),
-            if (controller.signInNoteOf(server.name) case final note?) ...[
-              McpBanner(tone: McpTone.error, icon: AppIcons.error, title: note),
-              const SizedBox(height: 12),
-            ],
+            if (controller.signInNoteOf(server.name) case final note?)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: McpBanner(
+                  tone: McpTone.error,
+                  icon: AppIcons.error,
+                  title: note,
+                ),
+              ),
             _TestOutcome(controller: controller, server: server),
           ],
         );
       },
     );
   }
+}
+
+/// A spinner the size of a row's leading icon.
+class _RowSpinner extends StatelessWidget {
+  const _RowSpinner();
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: GroupedMetrics.of(context).leadingSize,
+    child: const Padding(
+      padding: EdgeInsets.all(2),
+      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+    ),
+  );
 }
 
 class _Actions extends StatelessWidget {
@@ -165,73 +204,67 @@ class _Actions extends StatelessWidget {
     final test = controller.testOf(server.name);
     final running = test is McpTestRunning;
     final signInNeeded = test is McpTestFinished && test.result.signInNeeded;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    final starting = controller.isStartingSignIn(server.name);
+    return GroupedSection(
+      dividerIndent: GroupedMetrics.of(context).indentAfterLeading,
       children: [
-        if (server.usesOAuth && !signInNeeded) ...[
-          _SignInButton(controller: controller, server: server),
-          const SizedBox(height: 8),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: running ? null : () => controller.test(server),
-                icon: running
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const AppIcon(AppIcons.check, size: 18),
-                label: const Text('Test connection'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            NamedIconButton(
-              outlined: true,
-              label: 'Remove',
-              color: Theme.of(context).colorScheme.error,
-              icon: AppIcons.delete,
-              onPressed: () => removeMcpServer(context, controller, server),
-            ),
-          ],
+        if (server.usesOAuth && !signInNeeded)
+          GroupedRow(
+            title: 'Sign in',
+            leading: starting
+                ? const _RowSpinner()
+                : const AppIcon(AppIcons.signIn),
+            chevron: false,
+            onTap: starting
+                ? null
+                : () => signInToMcpServer(context, controller, server),
+          ),
+        GroupedRow(
+          title: 'Test connection',
+          leading: running
+              ? const _RowSpinner()
+              : const AppIcon(AppIcons.check),
+          chevron: false,
+          onTap: running ? null : () => controller.test(server),
+        ),
+        GroupedRow(
+          key: const Key('mcp-remove'),
+          title: 'Remove',
+          leading: AppIcon(
+            AppIcons.delete,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          destructive: true,
+          chevron: false,
+          onTap: () => removeMcpServer(context, controller, server),
         ),
       ],
     );
   }
 }
 
-/// "Sign in" for an OAuth server: on its own in the detail, and as the action
-/// of the "Sign in needed" banner.
+/// "Sign in" on the "Sign in needed" banner.
 class _SignInButton extends StatelessWidget {
-  const _SignInButton({
-    required this.controller,
-    required this.server,
-    this.inBanner = false,
-  });
+  const _SignInButton({required this.controller, required this.server});
 
   final McpServersController controller;
   final HermesMcpServer server;
-  final bool inBanner;
 
   @override
   Widget build(BuildContext context) {
     final starting = controller.isStartingSignIn(server.name);
-    final onPressed = starting
-        ? null
-        : () => signInToMcpServer(context, controller, server);
-    final icon = starting
-        ? const SizedBox.square(
-            dimension: 16,
-            child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-          )
-        : const AppIcon(AppIcons.signIn, size: 18);
-    const label = Text('Sign in');
-    return inBanner
-        ? TextButton.icon(onPressed: onPressed, icon: icon, label: label)
-        : OutlinedButton.icon(onPressed: onPressed, icon: icon, label: label);
+    return TextButton.icon(
+      onPressed: starting
+          ? null
+          : () => signInToMcpServer(context, controller, server),
+      icon: starting
+          ? const SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+            )
+          : const AppIcon(AppIcons.signIn, size: 18),
+      label: const Text('Sign in'),
+    );
   }
 }
 
@@ -243,105 +276,77 @@ class _TestOutcome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return switch (controller.testOf(server.name)) {
-      null || McpTestRunning() => const SizedBox.shrink(),
-      McpTestUnavailable() => McpBanner(
-        tone: McpTone.error,
-        icon: AppIcons.error,
-        title: 'Could not test ${server.name}',
-        action: TextButton(
-          onPressed: () => controller.test(server),
-          child: const Text('Retry'),
-        ),
-      ),
-      McpTestFinished(:final result) when result.signInNeeded => McpBanner(
-        tone: McpTone.warning,
-        icon: AppIcons.lock,
-        title: 'Sign in needed',
-        detail:
-            'Hermes has no OAuth token for this server yet, so it cannot '
-            'list tools.',
-        action: _SignInButton(
-          controller: controller,
-          server: server,
-          inBanner: true,
-        ),
-      ),
-      McpTestFinished(:final result) when !result.ok => McpBanner(
-        tone: McpTone.error,
-        icon: AppIcons.error,
-        title: 'Could not connect',
-        detail: result.error,
-      ),
-      McpTestFinished(:final result) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          McpBanner(
-            tone: McpTone.success,
-            icon: AppIcons.checkCircle,
-            title: 'Connected',
-            detail:
-                '${mcpPlural(result.tools.length, 'tool')} · '
-                '${mcpPlural(result.prompts, 'prompt')} · '
-                '${mcpPlural(result.resources, 'resource')}',
+    final (banner, tools) = switch (controller.testOf(server.name)) {
+      null || McpTestRunning() => (null, const <HermesMcpTool>[]),
+      McpTestUnavailable() => (
+        McpBanner(
+          tone: McpTone.error,
+          icon: AppIcons.error,
+          title: 'Could not test ${server.name}',
+          action: TextButton(
+            onPressed: () => controller.test(server),
+            child: const Text('Retry'),
           ),
-          if (result.tools.isNotEmpty) _ToolList(tools: result.tools),
-        ],
+        ),
+        const <HermesMcpTool>[],
+      ),
+      McpTestFinished(:final result) when result.signInNeeded => (
+        McpBanner(
+          tone: McpTone.warning,
+          icon: AppIcons.lock,
+          title: 'Sign in needed',
+          detail:
+              'Hermes has no OAuth token for this server yet, so it cannot '
+              'list tools.',
+          action: _SignInButton(controller: controller, server: server),
+        ),
+        const <HermesMcpTool>[],
+      ),
+      McpTestFinished(:final result) when !result.ok => (
+        McpBanner(
+          tone: McpTone.error,
+          icon: AppIcons.error,
+          title: 'Could not connect',
+          detail: result.error,
+        ),
+        const <HermesMcpTool>[],
+      ),
+      McpTestFinished(:final result) => (
+        McpBanner(
+          tone: McpTone.success,
+          icon: AppIcons.checkCircle,
+          title: 'Connected',
+          detail:
+              '${mcpPlural(result.tools.length, 'tool')} · '
+              '${mcpPlural(result.prompts, 'prompt')} · '
+              '${mcpPlural(result.resources, 'resource')}',
+        ),
+        result.tools,
       ),
     };
-  }
-}
-
-class _ToolList extends StatelessWidget {
-  const _ToolList({required this.tools});
-
-  final List<HermesMcpTool> tools;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    if (banner == null) return const SizedBox.shrink();
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
-        Text(
-          'TOOLS · ${tools.length}',
-          style: theme.textTheme.labelSmall?.copyWith(letterSpacing: 0.6),
-        ),
-        const SizedBox(height: 8),
-        Card(
-          margin: EdgeInsets.zero,
-          child: Column(
+        Padding(padding: const EdgeInsets.only(top: 16), child: banner),
+        if (tools.isNotEmpty)
+          GroupedSection(
+            header: 'Tools · ${tools.length}',
+            footer:
+                'The size next to a tool is what its schema costs the model '
+                'in context. Hermes sends it with a test.',
             children: [
               for (final tool in tools)
-                ListTile(
-                  dense: true,
-                  title: Text(
-                    tool.name,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: tool.description.isEmpty
-                      ? null
-                      : Text(tool.description),
-                  trailing: tool.schemaChars == null
-                      ? null
-                      : Text(
-                          mcpSchemaSize(tool.schemaChars!),
-                          style: theme.textTheme.bodySmall,
-                        ),
+                GroupedRow(
+                  title: tool.name,
+                  subtitle: tool.description.isEmpty ? null : tool.description,
+                  value: switch (tool.schemaChars) {
+                    final chars? => mcpSchemaSize(chars),
+                    null => null,
+                  },
                 ),
             ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'The size next to a tool is what its schema costs the model in '
-          'context. Hermes sends it with a test.',
-          style: theme.textTheme.bodySmall,
-        ),
       ],
     );
   }
@@ -361,12 +366,10 @@ class McpServerPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'MCP servers'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: const Text('MCP servers'),
-      ),
+    return SettingsScaffold(
+      title: name,
+      subtitle: controller.profile,
+      previousTitle: 'MCP servers',
       body: ListenableBuilder(
         listenable: controller,
         builder: (context, _) {
@@ -379,7 +382,11 @@ class McpServerPage extends StatelessWidget {
               route.isCurrent ? navigator.pop() : navigator.removeRoute(route);
             });
           }
-          return McpServerDetail(controller: controller, name: name);
+          return McpServerDetail(
+            controller: controller,
+            name: name,
+            showName: false,
+          );
         },
       ),
     );
