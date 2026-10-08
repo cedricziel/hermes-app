@@ -99,8 +99,8 @@ void main() {
       await pumpSkills(tester);
 
       expect(find.text('Apple'), findsOneWidget);
-      expect(find.text('Devops'), findsOneWidget);
-      expect(find.text('Github'), findsOneWidget);
+      expect(find.text('DevOps'), findsOneWidget);
+      expect(find.text('GitHub'), findsOneWidget);
       expect(find.text('apple-notes'), findsOneWidget);
       expect(find.textContaining(' · Bundled'), findsWidgets);
       expect(find.textContaining(' · Hub'), findsWidgets);

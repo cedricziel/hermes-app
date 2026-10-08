@@ -70,9 +70,20 @@ class InstalledSkillsList extends StatelessWidget {
 }
 
 /// A category as a group's header: "apple" reads "Apple".
-String categoryLabel(String category) => category.isEmpty
-    ? category
-    : category[0].toUpperCase() + category.substring(1);
+String categoryLabel(String category) =>
+    _brandedCategories[category.toLowerCase()] ??
+    (category.isEmpty
+        ? category
+        : category[0].toUpperCase() + category.substring(1));
+
+const _brandedCategories = {
+  'devops': 'DevOps',
+  'github': 'GitHub',
+  'gitlab': 'GitLab',
+  'mlops': 'MLOps',
+  'macos': 'macOS',
+  'ios': 'iOS',
+};
 
 /// "Read Apple Notes · Bundled · used 14 times".
 String skillSubtitle(HermesSkill skill) => [
