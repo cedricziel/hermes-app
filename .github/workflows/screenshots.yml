@@ -1,0 +1,136 @@
+name: Screenshots
+
+# Retakes the README screenshots (docs/screenshots/) from the real app against
+# a throwaway Hermes seeded with invented chats, and opens a pull request with
+# them. Run it by hand after a visible UI change. A pull request that changes
+# the screenshot pipeline runs it too, without the pull request, so a broken
+# pipeline shows up before someone needs it; the images are kept as an
+# artifact either way.
+#
+# The store images (fastlane/screenshots/) come from the same run but are not
+# committed; the store-screenshots skill covers uploading them.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "integration_test/store_screenshots_test.dart"
+      - "test_driver/integration_test.dart"
+      - "scripts/store-screenshots.sh"
+      - "scripts/finish_screenshots.py"
+      - "scripts/seed_demo_sessions.py"
+      - "scripts/dev-backend.sh"
+      - ".github/workflows/screenshots.yml"
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # The Hermes the contract test runs against (real-backend-contract.yml).
+  HERMES_REF: 7b3c7aef31da73aabab0aa7fd15fdfe7c838834e
+  UV_NO_CONFIG: "1"
+
+jobs:
+  take:
+    name: Take screenshots
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      - name: Download Hermes Agent
+        run: |
+          mkdir -p "$HOME/hermes-agent"
+          curl -fsSL --retry 3 --retry-all-errors \
+            "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/$HERMES_REF" |
+            tar xz -C "$HOME/hermes-agent" --strip-components=1
+
+      - name: Restore the web UI build
+        id: web
+        uses: actions/cache@v6
+        with:
+          path: ~/hermes-agent/hermes_cli/web_dist
+          key: hermes-web-${{ env.HERMES_REF }}
+
+      - uses: actions/setup-node@v7
+        if: steps.web.outputs.cache-hit != 'true'
+        with:
+          node-version: "24"
+
+      - name: Build the web UI
+        if: steps.web.outputs.cache-hit != 'true'
+        run: |
+          cd "$HOME/hermes-agent"
+          npm ci --workspace web --include=dev --no-audit --no-fund
+          npm run build --workspace web
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: false
+
+      - name: Install Hermes Agent
+        run: |
+          uv venv --python 3.11 "$HOME/hermes-agent/.venv"
+          uv pip install --python "$HOME/hermes-agent/.venv/bin/python" -e "$HOME/hermes-agent"
+          echo "$HOME/hermes-agent/.venv/bin" >> "$GITHUB_PATH"
+          echo "HERMES_WEB_DIST=$HOME/hermes-agent/hermes_cli/web_dist" >> "$GITHUB_ENV"
+          echo "HERMES_PYTHON=$HOME/hermes-agent/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "HERMES_AGENT_DIR=$HOME/hermes-agent" >> "$GITHUB_ENV"
+
+      - name: Install Pillow
+        run: python3 -m pip install --break-system-packages Pillow
+
+      - name: iPhone and iPad
+        run: scripts/store-screenshots.sh ios
+
+      - name: Mac
+        run: scripts/store-screenshots.sh mac
+
+      - name: Finish
+        run: scripts/store-screenshots.sh finish
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots
+          path: |
+            build/screenshots/
+            fastlane/screenshots/
+            docs/screenshots/
+          if-no-files-found: ignore
+
+      - name: Show the backend log
+        if: failure()
+        run: cat .dart_tool/hermes-dev/dashboard.log || true
+
+      # A token other than GITHUB_TOKEN, so CI runs on the pull request.
+      - name: Open a pull request
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          if git diff --quiet -- docs/screenshots/; then
+            echo "The screenshots did not change."
+            exit 0
+          fi
+          branch="chore/retake-screenshots-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add docs/screenshots/
+          git commit -m "docs(screenshots): retake the README screenshots"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          gh pr create --head "$branch" --title "docs(screenshots): retake the README screenshots" \
+            --body "Taken by the [Screenshots workflow](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) from \`${GITHUB_SHA::7}\`. Look at each image before merging: no dev address, no seams where something was erased."
