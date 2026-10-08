@@ -52,9 +52,9 @@ class McpServerRow extends StatelessWidget {
       if (address.isNotEmpty) address,
       if (mac && meta.isNotEmpty) meta,
     ].join(' · ');
-    // The switch stays out of the row's merged node, so a screen reader
-    // reaches it by the server's name instead of opening the detail.
-    final row = GroupedRow(
+    // Beside a row that opens the detail, the switch is its own node, named
+    // by the server.
+    return GroupedRow(
       title: server.name,
       leading: ExcludeSemantics(
         child: GroupedTile(
@@ -65,26 +65,12 @@ class McpServerRow extends StatelessWidget {
       monospaceSubtitle: server.transport == McpTransport.command,
       caption: !mac && meta.isNotEmpty ? meta : null,
       warning: tested?.signInNeeded ?? false ? 'Sign in needed' : null,
+      selected: selected,
       onTap: onTap,
       chevron: false,
-    );
-    return Material(
-      color: selected
-          ? Theme.of(context).colorScheme.outline
-          : Colors.transparent,
-      child: Row(
-        children: [
-          Expanded(child: row),
-          Padding(
-            padding: EdgeInsets.only(
-              right: GroupedMetrics.of(context).rowPadding,
-            ),
-            child: mac
-                ? SizedBox(height: 22, child: FittedBox(child: control))
-                : control,
-          ),
-        ],
-      ),
+      trailing: mac
+          ? SizedBox(height: 22, child: FittedBox(child: control))
+          : control,
     );
   }
 }
