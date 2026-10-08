@@ -56,9 +56,9 @@ You need your own Hermes Agent dashboard to sign in (see [Getting started](#gett
   <img src="docs/screenshots/mac-chat.png" width="90%" alt="The Mac app window with the thread list and a chat">
 </p>
 
-They are taken from the real app against a demo Hermes dashboard that holds a
-few invented chats. [docs/screenshots](docs/screenshots/README.md) explains how
-to retake them.
+They are rendered from the app's own widgets in a test, against a stand-in
+dashboard that serves a few invented chats. [docs/screenshots](docs/screenshots/README.md)
+explains how to render them again.
 
 ## Getting started
 
@@ -109,6 +109,7 @@ on first, then enter the address the server has on the VPN.
   name. Hermes sees these requests as local, so it does not ask anyone to sign
   in: every device on your tailnet can open the dashboard. Limit that with
   Tailscale access rules, or use the next option.
+
 - **Tailscale or WireGuard address:** start the dashboard with `--host` set to
   the server's VPN address, for example `hermes dashboard --host 100.101.102.103`,
   and enter `http://100.101.102.103:9119`. Hermes refuses to bind to anything

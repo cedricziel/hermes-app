@@ -5,14 +5,25 @@ description: Use when the App Store or README screenshots need retaking or chang
 
 # Retake the store and README screenshots
 
-One script takes them from the real app, against a throwaway Hermes seeded with
-invented chats. `docs/screenshots/README.md` lists the files, sizes and what is
-erased. This is the procedure and the traps.
+The README images are rendered in a widget test, the App Store images are taken
+from the real app against a throwaway Hermes seeded with invented chats.
+`docs/screenshots/README.md` lists the files, sizes and what is erased. This is
+the procedure and the traps.
 
-## Steps
+## README images
 
-1. Change what the shots say in `scripts/seed_demo_sessions.py`. Invented chats
-   only.
+`README_SCREENSHOTS=1 flutter test test/readme_screenshots_test.dart`, then
+`python3 scripts/finish_screenshots.py --readme-only`. Or run the "README
+screenshots" workflow, which opens a PR. Look at every image in
+`docs/screenshots/`. `--readme-only` never writes `fastlane/screenshots/`, so a
+rendered image can't be uploaded to the App Store. Text that shows as black
+boxes has no font in the test: load one for its family in `_loadFonts`
+(`test/support/screenshot_recorder.dart`).
+
+## App Store steps
+
+1. Change what the shots say in `scripts/demo_sessions.json` (the render test
+   reads it too). Invented chats only.
 2. `scripts/store-screenshots.sh ios` takes the iPhone 17 Pro Max and iPad Pro
    13-inch simulators, light and dark (about 10 minutes cold). `ios iphone` or
    `ios ipad` takes one.
@@ -27,8 +38,8 @@ erased. This is the procedure and the traps.
 version>`. Check the editable version on App Store Connect first and pass
    it, or fastlane renames it to the `pubspec.yaml` version. Read the sets back
    from Apple before saying it worked; the lane's log is not proof.
-6. Commit the README-sized copies in `docs/screenshots/`. The store images are
-   git-ignored.
+6. The store images are git-ignored. Don't commit `docs/screenshots/` from this
+   run; the README copies come from the render test.
 
 ## Rules
 
