@@ -4,35 +4,41 @@ import 'package:flutter/widgets.dart';
 
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
+import '../live_activities/live_activities.dart';
 import 'attention_policy.dart';
 import 'notification_service.dart';
 import 'notification_settings.dart';
 
 /// Tells the user about a reply or request they would otherwise miss: it
 /// tracks whether the app is in front, posts what [attentionFor] asks for,
-/// asks for permission once, and reports which chat a notification was
-/// tapped for. Without a [service] it does nothing.
+/// asks for permission once, and reports which chat a notification or a Live
+/// Activity was tapped for. Without a [service] it does nothing.
 class AttentionNotifier with WidgetsBindingObserver {
   AttentionNotifier({
     required this.service,
     required this.settings,
     required this.onOpen,
+    this.activities,
   }) {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     _focused = lifecycle == null || lifecycle == AppLifecycleState.resumed;
     WidgetsBinding.instance.addObserver(this);
     _launch = service?.launchTarget();
     _taps = service?.taps.listen(onOpen);
+    _activityTaps = activities?.taps.listen(onOpen);
   }
 
   final NotificationService? service;
   final NotificationSettings? settings;
+  final LiveActivities? activities;
 
   /// Called with the chat of a notification the user tapped.
   final void Function(NotificationTarget target) onOpen;
 
   StreamSubscription<NotificationTarget>? _taps;
+  StreamSubscription<NotificationTarget>? _activityTaps;
   Future<NotificationTarget?>? _launch;
+  var _launchTaken = false;
   var _focused = true;
   var _askingPermission = false;
   Future<void>? _permissionRequest;
@@ -42,12 +48,15 @@ class AttentionNotifier with WidgetsBindingObserver {
     _focused = state == AppLifecycleState.resumed;
   }
 
-  /// The chat of the notification whose tap started the app. Only the first
-  /// call has it; later calls answer null.
-  Future<NotificationTarget?> takeLaunchTarget() {
-    final lookup = _launch;
+  /// The chat of the notification or Live Activity whose tap started the
+  /// app. Only the first call has it; later calls answer null.
+  Future<NotificationTarget?> takeLaunchTarget() async {
+    if (_launchTaken) return null;
+    _launchTaken = true;
+    final notification = await _launch;
     _launch = null;
-    return lookup ?? Future.value();
+    final activity = await activities?.takeLaunchTarget();
+    return notification ?? activity;
   }
 
   /// Posts the notification [event] on [thread] deserves, if any.
@@ -113,5 +122,7 @@ class AttentionNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _taps?.cancel();
     _taps = null;
+    _activityTaps?.cancel();
+    _activityTaps = null;
   }
 }

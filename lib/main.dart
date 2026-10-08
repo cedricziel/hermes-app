@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
+import 'src/live_activities/live_activities.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
@@ -104,6 +106,19 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider(
           lazy: false,
           create: (_) => AppLockController()..load(),
+        ),
+        Provider<LiveActivities?>(
+          lazy: false,
+          create: (context) {
+            if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+            return LiveActivities(
+              service: PluginLiveActivityService(),
+              settings: context.read<NotificationSettings>(),
+              signedOut: context.read<AuthController>().signedOut,
+              breadcrumbs: context.read<Breadcrumbs>(),
+            )..start();
+          },
+          dispose: (_, activities) => activities?.dispose(),
         ),
         Provider<NotificationService>(
           create: (_) => LocalNotificationService(),
