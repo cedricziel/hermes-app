@@ -19,17 +19,26 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.leading,
     this.actions = const [],
     this.border = false,
+    this.clearTrafficLights = false,
   });
 
   final String title;
   final String? subtitle;
+
+  /// A control before the title, such as a back button.
+  final Widget? leading;
   final List<Widget> actions;
 
   /// Draws a hairline under the bar, for a page whose content does not start
   /// with a surface of its own.
   final bool border;
+
+  /// Leaves room for the traffic lights on a page that covers the whole
+  /// window, such as one pushed over the sidebar.
+  final bool clearTrafficLights;
 
   @override
   Size get preferredSize => const Size.fromHeight(kMacToolbarHeight);
@@ -63,7 +72,17 @@ class MacToolbar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               const SizedBox(width: 8),
             ] else
-              const SizedBox(width: 20),
+              SizedBox(
+                width: clearTrafficLights
+                    ? kMacTrafficLightsWidth
+                    : leading == null
+                    ? 20
+                    : 12,
+              ),
+            if (leading case final leading?) ...[
+              leading,
+              const SizedBox(width: 8),
+            ],
             Expanded(
               child: MacToolbarTitle(title: title, subtitle: subtitle),
             ),
