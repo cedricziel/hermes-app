@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
-import 'package:hermes_app/src/widgets/busy_bar.dart';
-import 'package:hermes_app/src/widgets/state_message.dart';
-import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_add_action.dart';
-import '../widgets/adaptive_back_button.dart';
-import '../widgets/adaptive_tab_bar.dart';
 import '../api/hermes_repositories.dart';
-
 import '../profiles/hermes_profiles_repository.dart';
+import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/busy_bar.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/settings_search_field.dart';
+import '../widgets/state_message.dart';
 import 'discover_tab.dart';
 import 'hermes_skills_hub_repository.dart';
 import 'hermes_skills_repository.dart';
@@ -23,6 +20,7 @@ import 'skill_job.dart';
 import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
+import 'widgets/installed_skills_list.dart';
 
 /// The skills installed on a profile: switch them on and off, read and edit
 /// them, and create new ones. With a hub it has a second tab to find and
@@ -55,7 +53,6 @@ class _SkillsScreenState extends State<SkillsScreen>
   SkillsHubController? _hub;
   late final TabController _tabs;
   bool _hubLoaded = false;
-  final _search = TextEditingController();
 
   @override
   void initState() {
@@ -116,7 +113,6 @@ class _SkillsScreenState extends State<SkillsScreen>
     _hub?.dispose();
     _tabs.dispose();
     _controller.dispose();
-    _search.dispose();
     super.dispose();
   }
 
@@ -184,36 +180,30 @@ class _SkillsScreenState extends State<SkillsScreen>
       listenable: Listenable.merge([_controller, ?_hub, _tabs]),
       builder: (context, _) {
         final hub = _hub;
-        final installed = Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: kDetailContentMaxWidth),
-            child: _body(),
-          ),
-        );
-        final add = AdaptiveAddAction(label: 'New skill', onPressed: _create);
-        final canAdd =
-            _controller.status == SkillsStatus.ready && _tabs.index == 0;
-        return Scaffold(
-          appBar: AppBar(
-            leading: const AdaptiveBackButton(previousTitle: 'Chat'),
-            leadingWidth: adaptiveBackLeadingWidth(context),
-            title: const Text('Skills'),
-            actions: [
-              _ProfileChip(controller: _controller, onSelected: _selectProfile),
-              if (canAdd) ?add.toolbarButton(context),
-              const SizedBox(width: 12),
-            ],
-            bottom: hub == null
-                ? null
-                : AdaptiveTabBar(
-                    controller: _tabs,
-                    labels: const ['Installed', 'Discover'],
-                  ),
-          ),
-          floatingActionButton: canAdd ? add.floatingButton(context) : null,
+        final onDiscover = hub != null && _tabs.index == 1;
+        final ready = _controller.status == SkillsStatus.ready;
+        return SettingsScaffold(
+          title: 'Skills',
+          subtitle: _subtitle(context),
+          subtitleMenu: _profileMenu(),
+          actions: [
+            if (ready && !onDiscover)
+              SettingsBarAction(
+                key: const Key('skills-new'),
+                label: 'New skill',
+                icon: AppIcons.add,
+                onPressed: _create,
+              ),
+          ],
+          tabs: hub == null ? null : const ['Installed', 'Discover'],
+          tabController: _tabs,
+          search: onDiscover
+              ? _hubSearch(hub)
+              : ready && _controller.hasSkills
+              ? _skillsSearch()
+              : null,
           body: hub == null
-              ? installed
+              ? _body()
               : Column(
                   children: [
                     if (hub.busy) _JobBar(hub: hub),
@@ -222,16 +212,8 @@ class _SkillsScreenState extends State<SkillsScreen>
                         controller: _tabs,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          installed,
-                          Align(
-                            alignment: Alignment.topCenter,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: kDetailContentMaxWidth,
-                              ),
-                              child: DiscoverTab(hub: hub, onOpen: _openHub),
-                            ),
-                          ),
+                          _body(),
+                          DiscoverTab(hub: hub, onOpen: _openHub),
                         ],
                       ),
                     ),
@@ -239,6 +221,71 @@ class _SkillsScreenState extends State<SkillsScreen>
                 ),
         );
       },
+    );
+  }
+
+  /// The profile, and on a Mac how many skills it has.
+  String? _subtitle(BuildContext context) {
+    final profile = _controller.profile;
+    if (profile == null) return null;
+    final ready = _controller.status == SkillsStatus.ready;
+    if (!ready || platformChromeOf(context) != PlatformChrome.macos) {
+      return profile;
+    }
+    final count = _controller.skillCount;
+    return '$profile · $count skill${count == 1 ? '' : 's'}';
+  }
+
+  SettingsSubtitleMenu<String>? _profileMenu() {
+    final profile = _controller.profile;
+    final others = _controller.availableProfiles;
+    if (profile == null || others.isEmpty) return null;
+    return SettingsSubtitleMenu<String>(
+      label: 'Profile',
+      onSelected: _selectProfile,
+      itemBuilder: (_) => [
+        for (final p in others)
+          CheckedPopupMenuItem(
+            value: p.name,
+            checked: p.name == profile,
+            child: Text(p.label),
+          ),
+      ],
+    );
+  }
+
+  SettingsSearch _skillsSearch() => SettingsSearch(
+    query: _controller.query,
+    onChanged: _controller.setQuery,
+    hint: 'Search skills',
+    filters: [
+      for (final filter in SkillFilter.values)
+        SettingsFilter(
+          label: _filterLabel(filter),
+          selected: _controller.filter == filter,
+          onSelected: () => _controller.setFilter(filter),
+        ),
+    ],
+  );
+
+  SettingsSearch? _hubSearch(SkillsHubController hub) {
+    if (hub.status != HubStatus.ready) return null;
+    return SettingsSearch(
+      query: hub.query,
+      onChanged: hub.setQuery,
+      hint: 'Search the skills hub',
+      filters: [
+        if (hub.sources.isNotEmpty)
+          for (final (id, label) in [
+            (SkillsHubController.allSources, 'All sources'),
+            for (final s in hub.sources) (s.id, s.label),
+          ])
+            SettingsFilter(
+              label: label,
+              selected: hub.source == id,
+              onSelected: () => hub.setSource(id),
+            ),
+      ],
     );
   }
 
@@ -264,86 +311,16 @@ class _SkillsScreenState extends State<SkillsScreen>
     if (!_controller.hasSkills) {
       return const StateMessage(title: 'This profile has no skills yet.');
     }
-    final groups = _controller.groups;
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TextField(
-            controller: _search,
-            onChanged: _controller.setQuery,
-            decoration: InputDecoration(
-              prefixIcon: const AppIcon(AppIcons.search),
-              hintText: 'Search skills',
-              filled: true,
-              isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: [
-              for (final filter in SkillFilter.values)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(_filterLabel(filter)),
-                    selected: _controller.filter == filter,
-                    onSelected: (_) => _controller.setFilter(filter),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: groups.isEmpty
-              ? StateMessage(
-                  title: 'No skills match.',
-                  action: TextButton(
-                    onPressed: () {
-                      _search.clear();
-                      _controller.clearFilters();
-                    },
-                    child: const Text('Clear filters'),
-                  ),
-                )
-              : ListView(
-                  padding: const EdgeInsets.only(bottom: 88),
-                  children: [
-                    for (final group in groups) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                        child: Text(
-                          group.category.toUpperCase(),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ),
-                      for (final skill in group.skills)
-                        _SkillRow(
-                          skill: skill,
-                          onTap: () => _open(skill),
-                          onToggle: (v) => _toggle(skill, v),
-                        ),
-                    ],
-                    if (_hub != null && _controller.hasHubSkills)
-                      ListTile(
-                        leading: const AppIcon(AppIcons.install),
-                        title: const Text('Check for updates'),
-                        subtitle: const Text('Updates the skills from the hub'),
-                        enabled: !_hub!.busy,
-                        onTap: _update,
-                      ),
-                  ],
-                ),
-        ),
-      ],
+    final hub = _hub;
+    return InstalledSkillsList(
+      groups: _controller.groups,
+      onOpen: _open,
+      onToggle: _toggle,
+      onClearFilters: _controller.clearFilters,
+      onCheckForUpdates: hub != null && _controller.hasHubSkills
+          ? _update
+          : null,
+      updating: hub?.busy ?? false,
     );
   }
 
@@ -354,129 +331,6 @@ class _SkillsScreenState extends State<SkillsScreen>
     SkillFilter.bundled => 'Bundled',
     SkillFilter.agent => 'Agent',
   };
-}
-
-class _ProfileChip extends StatelessWidget {
-  const _ProfileChip({required this.controller, required this.onSelected});
-
-  final SkillsController controller;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final profile = controller.profile;
-    if (profile == null) return const SizedBox.shrink();
-    final others = controller.availableProfiles;
-    if (others.isEmpty) return Chip(label: Text(profile));
-    return MergeSemantics(
-      child: Semantics(
-        button: true,
-        label: 'Profile',
-        child: Tooltip(
-          message: 'Profile',
-          excludeFromSemantics: true,
-          child: AdaptivePopupMenuButton<String>(
-            tooltip: '',
-            onSelected: onSelected,
-            itemBuilder: (_) => [
-              for (final p in others)
-                CheckedPopupMenuItem(
-                  value: p.name,
-                  checked: p.name == profile,
-                  child: Text(p.label),
-                ),
-            ],
-            child: Chip(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [Text(profile), const AppIcon(AppIcons.dropDown)],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SkillRow extends StatelessWidget {
-  const _SkillRow({
-    required this.skill,
-    required this.onTap,
-    required this.onToggle,
-  });
-
-  final HermesSkill skill;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final muted = skill.enabled
-        ? scheme.onSurfaceVariant
-        : scheme.onSurface.withValues(alpha: 0.65);
-    return ListTile(
-      key: ValueKey('skill-${skill.name}'),
-      onTap: onTap,
-      title: Text(
-        skill.name,
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: skill.enabled ? null : muted,
-        ),
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (skill.description.isNotEmpty)
-            Text(
-              skill.description,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: muted),
-            ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SourceBadge(skill.source),
-              if (skill.usage > 0)
-                Text(
-                  'used ${skill.usage}×',
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
-            ],
-          ),
-        ],
-      ),
-      trailing: Switch.adaptive(value: skill.enabled, onChanged: onToggle),
-    );
-  }
-}
-
-class SourceBadge extends StatelessWidget {
-  const SourceBadge(this.source, {super.key});
-
-  final SkillSource source;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(switch (source) {
-        SkillSource.hub => 'Hub',
-        SkillSource.bundled => 'Bundled',
-        SkillSource.agent => 'Agent',
-      }, style: Theme.of(context).textTheme.labelSmall),
-    );
-  }
 }
 
 /// Shown while a job runs that the user has sent to the background.

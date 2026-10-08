@@ -13,7 +13,7 @@ import 'skill_editor_screen.dart';
 import 'skill_job_sheet.dart';
 import 'skills_controller.dart';
 import 'skills_hub_controller.dart';
-import 'skills_screen.dart' show SourceBadge;
+import 'widgets/skill_badges.dart';
 
 /// What the chat composer is given when the user asks the agent to delete a
 /// skill. The server has no delete route, so the agent does it.

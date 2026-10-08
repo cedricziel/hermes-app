@@ -98,26 +98,26 @@ void main() {
     ) async {
       await pumpSkills(tester);
 
-      expect(find.text('APPLE'), findsOneWidget);
-      expect(find.text('DEVOPS'), findsOneWidget);
-      expect(find.text('GITHUB'), findsOneWidget);
+      expect(find.text('Apple'), findsOneWidget);
+      expect(find.text('DevOps'), findsOneWidget);
+      expect(find.text('GitHub'), findsOneWidget);
       expect(find.text('apple-notes'), findsOneWidget);
-      expect(find.text('Bundled'), findsWidgets);
-      expect(find.text('Hub'), findsWidgets);
-      expect(find.text('Agent'), findsWidgets);
-      expect(find.text('used 14×'), findsOneWidget);
+      expect(find.textContaining(' · Bundled'), findsWidgets);
+      expect(find.textContaining(' · Hub'), findsWidgets);
+      expect(find.textContaining(' · Agent'), findsWidgets);
+      expect(find.textContaining('used 14 times'), findsOneWidget);
     });
 
     testWidgets('a disabled skill is still readable', (tester) async {
       await pumpSkills(tester);
 
       final color = tester
-          .widget<Text>(find.text('Compose stacks'))
+          .widget<Text>(find.textContaining('Compose stacks'))
           .style!
           .color!;
-      final surface = Theme.of(tester.element(find.text('Compose stacks')))
-          .colorScheme
-          .surface;
+      final surface = Theme.of(
+        tester.element(find.textContaining('Compose stacks')),
+      ).colorScheme.surface;
       final blended = Color.alphaBlend(color, surface);
       final lighter = blended.computeLuminance() > surface.computeLuminance()
           ? blended
@@ -181,7 +181,7 @@ void main() {
       await tester.pump();
       expect(find.text('pr-review'), findsOneWidget);
       expect(find.text('apple-notes'), findsNothing);
-      expect(find.text('APPLE'), findsNothing);
+      expect(find.text('Apple'), findsNothing);
 
       await tester.enterText(find.byType(TextField), 'zzz');
       await tester.pump();
@@ -192,11 +192,15 @@ void main() {
       expect(find.text('apple-notes'), findsOneWidget);
     });
 
-    testWidgets('a source chip narrows the list', (tester) async {
+    testWidgets('a source filter narrows the list', (tester) async {
       await pumpSkills(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Hub'));
-      await tester.pump();
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckedPopupMenuItem<VoidCallback>, 'Hub'),
+      );
+      await tester.pumpAndSettle();
 
       expect(find.text('compose'), findsOneWidget);
       expect(find.text('apple-notes'), findsNothing);
@@ -460,7 +464,7 @@ void main() {
   group('new skill', () {
     Future<void> openCreate(WidgetTester tester) async {
       await pumpSkills(tester);
-      await tester.tap(find.text('New skill'));
+      await tester.tap(find.byTooltip('New skill'));
       await tester.pumpAndSettle();
     }
 

@@ -50,6 +50,7 @@ class SkillsController extends ChangeNotifier with SafeNotifier {
   String get query => _query;
   SkillFilter get filter => _filter;
   bool get hasSkills => _skills.isNotEmpty;
+  int get skillCount => _skills.length;
   bool get hasHubSkills => _skills.any((s) => s.source == SkillSource.hub);
 
   /// The profiles to pick from; empty when they could not be loaded.
