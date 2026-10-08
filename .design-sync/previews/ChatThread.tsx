@@ -25,13 +25,14 @@ const turns: ChatTurn[] = [
       },
     ],
     text: "`restic` could not reach **nas-02** at 03:00: the NAS was still rebooting after its update. Moving the backup to 03:30 avoids the window.",
+    reviewNotes: ["Memory updated"],
   },
 ];
 
-/** A finished reply: reasoning, text before the tools, the folded tool run, the answer with its actions. */
+/** A finished reply: reasoning, text before the tools, the folded tool run, the answer with Copy, Try again and Edit prompt, and what the background review saved. */
 export const Reply = () => (
   <div style={box}>
-    <ChatThread turns={turns} onRetry={() => {}} />
+    <ChatThread turns={turns} onRetry={() => {}} onEdit={() => {}} />
   </div>
 );
 
@@ -81,7 +82,7 @@ export const AppleFailed = () => (
 export const Dark = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
     <div style={{ ...box, width: 680, height: 480 }}>
-      <ChatThread turns={turns} onRetry={() => {}} />
+      <ChatThread turns={turns} onRetry={() => {}} onEdit={() => {}} />
     </div>
   </HermesProvider>
 );

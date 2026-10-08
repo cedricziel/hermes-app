@@ -147,6 +147,22 @@
   color: var(--h-muted);
 }
 
+/* ReviewSummaryNote: 16px icon, 6px gap, 13px subtle text, 4px above and below. */
+.h-assistant-message__review {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  color: var(--h-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.h-assistant-message__review .h-icon {
+  flex: none;
+  margin-top: 1px;
+}
+
 .h-assistant-message__stopped {
   display: inline-flex;
   align-items: center;

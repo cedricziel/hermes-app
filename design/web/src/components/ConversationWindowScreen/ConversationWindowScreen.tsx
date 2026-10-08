@@ -76,6 +76,8 @@ export interface ConversationWindowScreenProps {
   onStop?: () => void;
   /** "Try again" under the latest reply. */
   onRetryReply?: () => void;
+  /** "Edit prompt" under the latest reply: the app drops that turn and puts its prompt back in the composer. */
+  onEditPrompt?: () => void;
   onAnswerApproval?: (turn: number, choice: ApprovalChoice) => void;
   onAnswerClarify?: (turn: number, answers: Record<string, string[]>) => void;
 }
@@ -118,6 +120,7 @@ export function ConversationWindowScreen({
   onRemoveAttachment,
   onStop,
   onRetryReply,
+  onEditPrompt,
   onAnswerApproval,
   onAnswerClarify,
 }: ConversationWindowScreenProps) {
@@ -204,6 +207,7 @@ export function ConversationWindowScreen({
             <ChatThread
               turns={turns}
               onRetry={onRetryReply}
+              onEdit={onEditPrompt}
               onAnswerApproval={onAnswerApproval}
               onAnswerClarify={onAnswerClarify}
             />
