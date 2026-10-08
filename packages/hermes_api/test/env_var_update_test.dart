@@ -26,5 +26,10 @@ void main() {
     test('to test the property `apiKey`', () async {
       // TODO
     });
+
+    // bool providerSetup (default value: false)
+    test('to test the property `providerSetup`', () async {
+      // TODO
+    });
   });
 }

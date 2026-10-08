@@ -17,6 +17,8 @@ abstract class _$CustomEndpointUpdateCWProxy {
 
   CustomEndpointUpdate apiKey(String? apiKey);
 
+  CustomEndpointUpdate apiMode(String? apiMode);
+
   CustomEndpointUpdate contextLength(int? contextLength);
 
   CustomEndpointUpdate discoverModels(bool? discoverModels);
@@ -24,6 +26,10 @@ abstract class _$CustomEndpointUpdateCWProxy {
   CustomEndpointUpdate makeDefault(bool? makeDefault);
 
   CustomEndpointUpdate models(List<String>? models);
+
+  CustomEndpointUpdate modelDetails(
+    List<CustomEndpointModelDetail>? modelDetails,
+  );
 
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
@@ -37,10 +43,12 @@ abstract class _$CustomEndpointUpdateCWProxy {
     String baseUrl,
     String model,
     String? apiKey,
+    String? apiMode,
     int? contextLength,
     bool? discoverModels,
     bool? makeDefault,
     List<String>? models,
+    List<CustomEndpointModelDetail>? modelDetails,
   });
 }
 
@@ -67,6 +75,9 @@ class _$CustomEndpointUpdateCWProxyImpl
   CustomEndpointUpdate apiKey(String? apiKey) => this(apiKey: apiKey);
 
   @override
+  CustomEndpointUpdate apiMode(String? apiMode) => this(apiMode: apiMode);
+
+  @override
   CustomEndpointUpdate contextLength(int? contextLength) =>
       this(contextLength: contextLength);
 
@@ -82,6 +93,11 @@ class _$CustomEndpointUpdateCWProxyImpl
   CustomEndpointUpdate models(List<String>? models) => this(models: models);
 
   @override
+  CustomEndpointUpdate modelDetails(
+    List<CustomEndpointModelDetail>? modelDetails,
+  ) => this(modelDetails: modelDetails);
+
+  @override
   /// This function **does support** nullification of nullable fields. All `null` values passed to `non-nullable` fields will be ignored. You can also use `CustomEndpointUpdate(...).copyWith.fieldName(...)` to override fields one at a time with nullification support.
   ///
   /// Usage
@@ -94,10 +110,12 @@ class _$CustomEndpointUpdateCWProxyImpl
     Object? baseUrl = const $CopyWithPlaceholder(),
     Object? model = const $CopyWithPlaceholder(),
     Object? apiKey = const $CopyWithPlaceholder(),
+    Object? apiMode = const $CopyWithPlaceholder(),
     Object? contextLength = const $CopyWithPlaceholder(),
     Object? discoverModels = const $CopyWithPlaceholder(),
     Object? makeDefault = const $CopyWithPlaceholder(),
     Object? models = const $CopyWithPlaceholder(),
+    Object? modelDetails = const $CopyWithPlaceholder(),
   }) {
     return CustomEndpointUpdate(
       id: id == const $CopyWithPlaceholder()
@@ -120,6 +138,10 @@ class _$CustomEndpointUpdateCWProxyImpl
           ? _value.apiKey
           // ignore: cast_nullable_to_non_nullable
           : apiKey as String?,
+      apiMode: apiMode == const $CopyWithPlaceholder()
+          ? _value.apiMode
+          // ignore: cast_nullable_to_non_nullable
+          : apiMode as String?,
       contextLength: contextLength == const $CopyWithPlaceholder()
           ? _value.contextLength
           // ignore: cast_nullable_to_non_nullable
@@ -136,6 +158,10 @@ class _$CustomEndpointUpdateCWProxyImpl
           ? _value.models
           // ignore: cast_nullable_to_non_nullable
           : models as List<String>?,
+      modelDetails: modelDetails == const $CopyWithPlaceholder()
+          ? _value.modelDetails
+          // ignore: cast_nullable_to_non_nullable
+          : modelDetails as List<CustomEndpointModelDetail>?,
     );
   }
 }
@@ -164,6 +190,7 @@ CustomEndpointUpdate _$CustomEndpointUpdateFromJson(
       baseUrl: $checkedConvert('base_url', (v) => v as String),
       model: $checkedConvert('model', (v) => v as String),
       apiKey: $checkedConvert('api_key', (v) => v as String?),
+      apiMode: $checkedConvert('api_mode', (v) => v as String?),
       contextLength: $checkedConvert(
         'context_length',
         (v) => (v as num?)?.toInt(),
@@ -177,15 +204,26 @@ CustomEndpointUpdate _$CustomEndpointUpdateFromJson(
         'models',
         (v) => (v as List<dynamic>?)?.map((e) => e as String).toList(),
       ),
+      modelDetails: $checkedConvert(
+        'model_details',
+        (v) => (v as List<dynamic>?)
+            ?.map(
+              (e) =>
+                  CustomEndpointModelDetail.fromJson(e as Map<String, dynamic>),
+            )
+            .toList(),
+      ),
     );
     return val;
   },
   fieldKeyMap: const {
     'baseUrl': 'base_url',
     'apiKey': 'api_key',
+    'apiMode': 'api_mode',
     'contextLength': 'context_length',
     'discoverModels': 'discover_models',
     'makeDefault': 'make_default',
+    'modelDetails': 'model_details',
   },
 );
 
@@ -197,8 +235,10 @@ Map<String, dynamic> _$CustomEndpointUpdateToJson(
   'base_url': instance.baseUrl,
   'model': instance.model,
   'api_key': ?instance.apiKey,
+  'api_mode': ?instance.apiMode,
   'context_length': ?instance.contextLength,
   'discover_models': ?instance.discoverModels,
   'make_default': ?instance.makeDefault,
   'models': ?instance.models,
+  'model_details': ?instance.modelDetails?.map((e) => e.toJson()).toList(),
 };

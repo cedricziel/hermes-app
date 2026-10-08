@@ -20,6 +20,7 @@ import 'package:hermes_api/src/model/bulk_task_body.dart';
 import 'package:hermes_api/src/model/chat_image_upload.dart';
 import 'package:hermes_api/src/model/comment_body.dart';
 import 'package:hermes_api/src/model/config_update.dart';
+import 'package:hermes_api/src/model/consent_answer.dart';
 import 'package:hermes_api/src/model/create_board_body.dart';
 import 'package:hermes_api/src/model/create_task_body.dart';
 import 'package:hermes_api/src/model/credential_pool_add.dart';
@@ -50,6 +51,7 @@ import 'package:hermes_api/src/model/hook_delete.dart';
 
 import 'package:hermes_api/src/model/import_board_body.dart';
 import 'package:hermes_api/src/model/import_request.dart';
+import 'package:hermes_api/src/model/job_id_body.dart';
 import 'package:hermes_api/src/model/learning_node_edit.dart';
 import 'package:hermes_api/src/model/learning_node_ref.dart';
 import 'package:hermes_api/src/model/link_body.dart';
@@ -107,6 +109,7 @@ import 'package:hermes_api/src/model/skill_toggle.dart';
 import 'package:hermes_api/src/model/skill_uninstall_request.dart';
 import 'package:hermes_api/src/model/skills_update_request.dart';
 import 'package:hermes_api/src/model/specify_body.dart';
+import 'package:hermes_api/src/model/stt_lease_request.dart';
 import 'package:hermes_api/src/model/telegram_onboarding_apply.dart';
 import 'package:hermes_api/src/model/telegram_onboarding_start.dart';
 import 'package:hermes_api/src/model/terminal_backend_select.dart';
@@ -135,6 +138,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -146,6 +150,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>>
   achievementsApiPluginsHermesAchievementsAchievementsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -161,9 +166,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -287,6 +297,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [commentBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -300,6 +311,7 @@ class DefaultApi {
     required String taskId,
     required CommentBody commentBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -323,6 +335,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -386,6 +399,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [credentialPoolAdd]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -397,6 +411,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> addCredentialPoolEntryApiCredentialsPoolPost({
     required CredentialPoolAdd credentialPoolAdd,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -413,13 +428,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(credentialPoolAdd);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -430,6 +453,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -470,6 +494,7 @@ class DefaultApi {
   /// Parameters:
   /// * [linkBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -482,6 +507,7 @@ class DefaultApi {
   Future<Response<Object>> addLinkApiPluginsKanbanLinksPost({
     required LinkBody linkBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -500,6 +526,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -1246,7 +1273,7 @@ class DefaultApi {
   }
 
   /// Auth Me
-  /// Return the verified session as JSON. Auth-required (gate enforces).
+  /// Return the verified session as JSON.  Gated mode: the auth middleware attached a verified Session — return it. Loopback mode (&#x60;&#x60;auth_required&#x60;&#x60; False): there is no OAuth Session, but the legacy &#x60;&#x60;_SESSION_TOKEN&#x60;&#x60; middleware has already validated the bearer token for non-public &#x60;&#x60;/api/&#x60;&#x60; routes. Report the loopback identity honestly instead of 401-ing (GH #66223). Belt-and-braces: re-verify the token so the handler stays safe even if this route were ever allowlisted.
   ///
   /// Parameters:
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -1784,6 +1811,7 @@ class DefaultApi {
   /// Parameters:
   /// * [profileName]
   /// * [describeAutoBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -1797,6 +1825,7 @@ class DefaultApi {
   autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost({
     required String profileName,
     required DescribeAutoBody describeAutoBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -1819,13 +1848,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(describeAutoBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -1836,6 +1873,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -1955,7 +1993,7 @@ class DefaultApi {
   }
 
   /// Bulk Delete Sessions Endpoint
-  /// Delete every session in &#x60;&#x60;body.ids&#x60;&#x60; in one transaction (POST: many clients refuse a DELETE body).  Per :meth:&#x60;SessionDB.delete_sessions&#x60;: unknown ids are skipped (&#x60;&#x60;deleted&#x60;&#x60; reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.
+  /// Delete every session in &#x60;&#x60;body.ids&#x60;&#x60; in one transaction (POST: many clients refuse a DELETE body).  Per :meth:&#x60;SessionDB.delete_sessions&#x60;: unknown ids are skipped (&#x60;&#x60;deleted&#x60;&#x60; reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.  Compression chains are deleted whole: the sessions list shows one row per logical conversation carrying the chain *tip&#39;s* id, so deleting only that row would leave the root to resurface as the previous chain link on the next reload (#57543). &#x60;&#x60;deleted&#x60;&#x60; still counts the selected rows, not the expanded chain links.
   ///
   /// Parameters:
   /// * [bulkDeleteSessions]
@@ -2043,6 +2081,7 @@ class DefaultApi {
   /// Parameters:
   /// * [bulkTaskBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -2055,6 +2094,7 @@ class DefaultApi {
   Future<Response<Object>> bulkUpdateApiPluginsKanbanTasksBulkPost({
     required BulkTaskBody bulkTaskBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2073,6 +2113,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -2438,6 +2479,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [force]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -2449,6 +2491,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> checkHermesUpdateApiHermesUpdateCheckGet({
     bool? force = false,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2466,6 +2509,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (force != null) r'force': force,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -2657,6 +2701,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [createBoardBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -2668,6 +2713,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> createBoardEndpointApiPluginsKanbanBoardsPost({
     required CreateBoardBody createBoardBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2684,13 +2730,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(createBoardBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -2701,6 +2755,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -2834,6 +2889,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [hookCreate]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -2845,6 +2901,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> createHookApiOpsHooksPost({
     required HookCreate hookCreate,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -2861,13 +2918,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(hookCreate);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -2878,6 +2943,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -3079,10 +3145,11 @@ class DefaultApi {
   }
 
   /// Create Skill
-  /// Create a skill via the agent&#39;s &#x60;&#x60;skill_manage&#x60;&#x60; write path, minus the write-approval gate — an authenticated dashboard write IS the user.
+  /// Create a skill via the agent&#39;s &#x60;&#x60;skill_manage&#x60;&#x60; write path, minus the write-approval gate — an authenticated dashboard write IS the user. Profile from the body or &#x60;&#x60;?profile&#x3D;&#x60;&#x60;, like the rest of &#x60;&#x60;/api/skills&#x60;&#x60;.
   ///
   /// Parameters:
   /// * [skillCreate]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3094,6 +3161,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> createSkillApiSkillsPost({
     required SkillCreate skillCreate,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3110,13 +3178,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(skillCreate);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -3127,6 +3203,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -3167,6 +3244,7 @@ class DefaultApi {
   /// Parameters:
   /// * [createTaskBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3179,6 +3257,7 @@ class DefaultApi {
   Future<Response<Object>> createTaskApiPluginsKanbanTasksPost({
     required CreateTaskBody createTaskBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3197,6 +3276,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -3354,6 +3434,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [webhookCreate]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3365,6 +3446,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> createWebhookApiWebhooksPost({
     required WebhookCreate webhookCreate,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3381,13 +3463,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(webhookCreate);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -3398,6 +3488,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -3505,6 +3596,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [decomposeBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3519,6 +3611,7 @@ class DefaultApi {
     required String taskId,
     required DecomposeBody decomposeBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3542,6 +3635,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -3679,6 +3773,7 @@ class DefaultApi {
   /// Parameters:
   /// * [slug]
   /// * [delete] - Hard-delete instead of archive
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -3691,6 +3786,7 @@ class DefaultApi {
   Future<Response<Object>> deleteBoardApiPluginsKanbanBoardsSlugDelete({
     required String slug,
     bool? delete = false,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -3713,6 +3809,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (delete != null) r'delete': delete,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -3992,6 +4089,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [hookDelete]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4003,6 +4101,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> deleteHookApiOpsHooksDelete({
     required HookDelete hookDelete,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4019,13 +4118,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(hookDelete);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -4036,6 +4143,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -4071,10 +4179,11 @@ class DefaultApi {
   }
 
   /// Delete Learning Node
-  /// Delete a journey node — skills are archived (restorable), memories removed.
+  /// Delete a journey node — skills are archived (restorable), memories removed.  &#x60;&#x60;?profile&#x3D;&#x60;&#x60; is honoured too: a shared-backend Desktop scopes this call by query only, and ignoring it archived the same-named skill of the launch profile instead.
   ///
   /// Parameters:
   /// * [learningNodeRef]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4086,6 +4195,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> deleteLearningNodeApiLearningNodeDelete({
     required LearningNodeRef learningNodeRef,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4102,13 +4212,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(learningNodeRef);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -4119,6 +4237,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -4160,6 +4279,7 @@ class DefaultApi {
   /// * [parentId]
   /// * [childId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4173,6 +4293,7 @@ class DefaultApi {
     required String parentId,
     required String childId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4192,6 +4313,7 @@ class DefaultApi {
       r'parent_id': parentId,
       r'child_id': childId,
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -4474,6 +4596,7 @@ class DefaultApi {
   /// Parameters:
   /// * [taskId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4486,6 +4609,7 @@ class DefaultApi {
   Future<Response<Object>> deleteTaskApiPluginsKanbanTasksTaskIdDelete({
     required String taskId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4508,6 +4632,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -4553,6 +4678,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [name]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4564,6 +4690,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> deleteWebhookApiWebhooksNameDelete({
     required String name,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4584,9 +4711,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -4800,6 +4932,7 @@ class DefaultApi {
   /// * [dryRun]
   /// * [max]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4813,6 +4946,7 @@ class DefaultApi {
     bool? dryRun = false,
     int? max = 8,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4832,6 +4966,7 @@ class DefaultApi {
       if (dryRun != null) r'dry_run': dryRun,
       if (max != null) r'max': max,
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -4878,6 +5013,7 @@ class DefaultApi {
   /// Parameters:
   /// * [attachmentId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4891,6 +5027,7 @@ class DefaultApi {
   downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet({
     required int attachmentId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4913,6 +5050,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -4958,6 +5096,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [archive]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -4969,6 +5108,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> downloadDashboardBackupApiOpsBackupDownloadGet({
     required String archive,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -4984,7 +5124,10 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
-    final _queryParameters = <String, dynamic>{r'archive': archive};
+    final _queryParameters = <String, dynamic>{
+      r'archive': archive,
+      if (profile != null) r'profile': profile,
+    };
 
     final _response = await _dio.request<Object>(
       _path,
@@ -5099,6 +5242,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5109,6 +5253,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> enableWebhooksApiWebhooksEnablePost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5124,9 +5269,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -5167,6 +5317,7 @@ class DefaultApi {
   /// Parameters:
   /// * [taskId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5180,6 +5331,7 @@ class DefaultApi {
   estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost({
     required String taskId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5202,6 +5354,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -5247,6 +5400,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [estimateBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5258,6 +5412,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> estimateTextEndpointApiPluginsKanbanEstimatePost({
     required EstimateBody estimateBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5274,13 +5429,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(estimateBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -5291,6 +5454,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -5331,6 +5495,7 @@ class DefaultApi {
   /// Parameters:
   /// * [slug]
   /// * [exportBoardBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5344,6 +5509,7 @@ class DefaultApi {
   exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost({
     required String slug,
     required ExportBoardBody exportBoardBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5365,13 +5531,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(exportBoardBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -5382,6 +5556,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -5590,6 +5765,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5600,6 +5776,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> fsDefaultCwdApiFsDefaultCwdGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5615,9 +5792,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -5736,6 +5918,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [path]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5747,6 +5930,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> fsGitRootApiFsGitRootGet({
     required String path,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5762,7 +5946,10 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
-    final _queryParameters = <String, dynamic>{r'path': path};
+    final _queryParameters = <String, dynamic>{
+      r'path': path,
+      if (profile != null) r'profile': profile,
+    };
 
     final _response = await _dio.request<Object>(
       _path,
@@ -5807,6 +5994,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [path]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5818,6 +6006,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> fsListApiFsListGet({
     required String path,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5833,7 +6022,10 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
-    final _queryParameters = <String, dynamic>{r'path': path};
+    final _queryParameters = <String, dynamic>{
+      r'path': path,
+      if (profile != null) r'profile': profile,
+    };
 
     final _response = await _dio.request<Object>(
       _path,
@@ -5957,6 +6149,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [path]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -5968,6 +6161,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> fsReadTextApiFsReadTextGet({
     required String path,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -5983,7 +6177,10 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
-    final _queryParameters = <String, dynamic>{r'path': path};
+    final _queryParameters = <String, dynamic>{
+      r'path': path,
+      if (profile != null) r'profile': profile,
+    };
 
     final _response = await _dio.request<Object>(
       _path,
@@ -6028,6 +6225,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [fsWriteText]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -6039,6 +6237,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> fsWriteTextApiFsWriteTextPost({
     required FsWriteText fsWriteText,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -6055,13 +6254,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(fsWriteText);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -6072,6 +6279,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -6455,6 +6663,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -6466,6 +6675,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getAssigneesApiPluginsKanbanAssigneesGet({
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -6483,6 +6693,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -6524,7 +6735,7 @@ class DefaultApi {
   }
 
   /// Get Auxiliary Models
-  /// Current auxiliary task assignments: &#x60;&#x60;{\&quot;tasks\&quot;: [{task, provider, model, base_url}, ...], \&quot;main\&quot;: {provider, model}}&#x60;&#x60;. &#x60;&#x60;profile&#x60;&#x60; scopes the read — without it the Models page would show the dashboard profile&#39;s pins while /api/model/set wrote the selected profile&#39;s.
+  /// Current auxiliary task assignments: &#x60;&#x60;{\&quot;tasks\&quot;: [{task, provider, model, base_url}, ...], \&quot;main\&quot;: {provider, model}}&#x60;&#x60;. &#x60;&#x60;profile&#x60;&#x60; scopes the read — without it the Models page would show the dashboard profile&#39;s pins while /api/model/set wrote the selected profile&#39;s.  Built-in slots come first; plugin-registered tasks follow, each carrying the &#x60;&#x60;label&#x60;&#x60;/&#x60;&#x60;hint&#x60;&#x60;/&#x60;&#x60;plugin&#x60;&#x60; the plugin declared (built-ins are labelled client-side) and &#x60;&#x60;inherit_from&#x60;&#x60; (base slot key or null). An inheriting row also carries &#x60;&#x60;effective&#x60;&#x60;: the route it resolves to right now, which is the base&#39;s while the row itself is unpinned. &#x60;&#x60;provider&#x60;&#x60;/&#x60;&#x60;model&#x60;&#x60;/&#x60;&#x60;base_url&#x60;&#x60; stay the slot&#39;s own stored values on every row.
   ///
   /// Parameters:
   /// * [profile]
@@ -6605,6 +6816,7 @@ class DefaultApi {
   /// * [board] - Kanban board slug (omit for current)
   /// * [workflowTemplateId] - Restrict to tasks using this workflow template id
   /// * [currentStepKey] - Restrict to tasks at this workflow step key
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -6620,6 +6832,7 @@ class DefaultApi {
     String? board,
     String? workflowTemplateId,
     String? currentStepKey,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -6642,6 +6855,83 @@ class DefaultApi {
       if (workflowTemplateId != null)
         r'workflow_template_id': workflowTemplateId,
       if (currentStepKey != null) r'current_step_key': currentStepKey,
+      if (profile != null) r'profile': profile,
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Get Chat Workspaces
+  /// Projects + discovered repos a fresh chat may start in; &#x60;&#x60;scan&#x3D;1&#x60;&#x60; rescans the configured discovery roots on the host first (headless installs have no Desktop to do it).
+  ///
+  /// Parameters:
+  /// * [profile]
+  /// * [scan]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> getChatWorkspacesApiChatWorkspacesGet({
+    String? profile,
+    bool? scan = false,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/chat/workspaces';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+      if (scan != null) r'scan': scan,
     };
 
     final _response = await _dio.request<Object>(
@@ -6908,6 +7198,7 @@ class DefaultApi {
   /// Kanban dashboard preferences from the &#x60;&#x60;dashboard.kanban&#x60;&#x60; config section.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -6918,6 +7209,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getConfigApiPluginsKanbanConfigGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -6933,9 +7225,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7044,9 +7341,10 @@ class DefaultApi {
   }
 
   /// Get Cron Delivery Targets
-  /// Delivery targets for the cron dropdown: implicit &#x60;&#x60;local&#x60;&#x60; plus the configured gateway platforms (a platform without a cron home channel is still listed with &#x60;&#x60;home_target_set: false&#x60;&#x60; so the UI can say so).
+  /// Delivery targets for the cron dropdown: implicit &#x60;&#x60;local&#x60;&#x60; plus the configured gateway platforms (a platform without a cron home channel is still listed with &#x60;&#x60;home_target_set: false&#x60;&#x60; so the UI can say so).  &#x60;&#x60;cron_delivery_targets()&#x60;&#x60; reads each platform&#39;s home channel through &#x60;&#x60;get_secret&#x60;&#x60;, which fails closed once this process hosts more than one profile home (the dashboard/desktop &#x60;&#x60;serve&#x60;&#x60; backend flips multi-profile hosting on the first &#x60;&#x60;?profile&#x3D;&#x60;&#x60; request). The read must therefore run inside the profile scope, exactly like the sibling cron routes — otherwise the poll raises &#x60;&#x60;UnscopedSecretError&#x60;&#x60; on every tick and the dropdown silently loses every configured platform.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7057,6 +7355,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getCronDeliveryTargetsApiCronDeliveryTargetsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7072,9 +7371,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7193,6 +7497,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7203,6 +7508,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getCuratorStatusApiCuratorGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7218,9 +7524,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7259,6 +7570,7 @@ class DefaultApi {
   /// Return the active font override (&#x60;&#x60;\&quot;theme\&quot;&#x60;&#x60; &#x3D; use the theme&#39;s font).
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7269,6 +7581,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getDashboardFontApiDashboardFontGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7284,9 +7597,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7325,6 +7643,7 @@ class DefaultApi {
   /// Return discovered dashboard plugins (excludes user-hidden and non-enabled ones).
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7335,6 +7654,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getDashboardPluginsApiDashboardPluginsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7350,9 +7670,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7391,6 +7716,7 @@ class DefaultApi {
   /// Available themes + the active one. Built-ins ship name/label/description only (the frontend owns their definitions in &#x60;web/src/themes/presets.ts&#x60;); user themes from &#x60;~/.hermes/dashboard-themes/_*.yaml&#x60; ship their normalised &#x60;definition&#x60;.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7401,6 +7727,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getDashboardThemesApiDashboardThemesGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7416,9 +7743,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7523,6 +7855,7 @@ class DefaultApi {
   /// Dashboard/Desktop-readable egress proxy status and remediation text.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7533,6 +7866,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getEgressStatusApiEgressStatusGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7548,9 +7882,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -7732,7 +8071,7 @@ class DefaultApi {
   }
 
   /// Get Health
-  /// Lightweight process liveness for desktop/backend readiness probes.
+  /// Lightweight process liveness for desktop/backend readiness probes.  &#x60;&#x60;commit&#x60;&#x60; is the code this process BOOTED from (&#x60;&#x60;get_version_info&#x60;&#x60; is cached at &#x60;&#x60;web_server&#x60;&#x60; import): Desktop refuses to attach to a backend whose commit differs from its checkout, so a serve that outlived &#x60;&#x60;hermes update&#x60;&#x60; is never re-adopted.
   ///
   /// Parameters:
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
@@ -7869,6 +8208,7 @@ class DefaultApi {
   /// Parameters:
   /// * [taskId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -7881,6 +8221,7 @@ class DefaultApi {
   Future<Response<Object>> getHomeChannelsApiPluginsKanbanHomeChannelsGet({
     String? taskId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -7899,12 +8240,79 @@ class DefaultApi {
     final _queryParameters = <String, dynamic>{
       if (taskId != null) r'task_id': taskId,
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
       queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Get Host Identity
+  /// Prove to an attaching &#x60;hermes serve&#x60;/&#x60;dashboard&#x60; WHO owns this port.  The host rendezvous record names a (pid, port) owner, but a record cannot say whether that owner still holds the port: a graceful-shutdown window or an unrelated listener that inherited the port both look identical on disk. The attaching side dials this endpoint with the owner&#39;s 0600 token and attaches only when pid+role match. &#x60;&#x60;servesSpa&#x60;&#x60; is false for headless &#x60;&#x60;serve&#x60;&#x60;, so a &#x60;hermes dashboard&#x60; user is never routed to a backend with no UI.
+  ///
+  /// Parameters:
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> getHostIdentityApiHostIdentityGet({
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/host/identity';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -8097,6 +8505,7 @@ class DefaultApi {
   /// * [level]
   /// * [component]
   /// * [search]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -8112,6 +8521,7 @@ class DefaultApi {
     String? level,
     String? component,
     String? search,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -8133,6 +8543,7 @@ class DefaultApi {
       if (level != null) r'level': level,
       if (component != null) r'component': component,
       if (search != null) r'search': search,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -8332,6 +8743,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -8342,6 +8754,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getMemoryStatusApiMemoryGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -8357,9 +8770,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -8776,6 +9194,7 @@ class DefaultApi {
   /// Current orchestration knobs from config.yaml plus the resolved effective values. An unset/unknown profile resolves to the active profile here; the decomposer prefers the root card&#39;s assignee in that case and uses the active profile only for cards with no assignee.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -8787,6 +9206,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>>
   getOrchestrationSettingsApiPluginsKanbanOrchestrationGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -8802,9 +9222,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -8909,6 +9334,7 @@ class DefaultApi {
   /// Unified agent plugins + dashboard extension metadata (session protected).
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -8919,6 +9345,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getPluginsHubApiDashboardPluginsHubGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -8934,9 +9361,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -8975,6 +9407,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -8985,6 +9418,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getPortalStatusApiPortalGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -9000,9 +9434,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -9528,6 +9967,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [provider]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -9540,6 +9980,7 @@ class DefaultApi {
   Future<Response<Object>>
   getRecommendedDefaultModelApiModelRecommendedDefaultGet({
     String? provider = '',
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -9557,6 +9998,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (provider != null) r'provider': provider,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -9603,6 +10045,7 @@ class DefaultApi {
   /// Parameters:
   /// * [runId]
   /// * [board] - Kanban board slug (omit for current)
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -9615,6 +10058,7 @@ class DefaultApi {
   Future<Response<Object>> getRunEndpointApiPluginsKanbanRunsRunIdGet({
     required int runId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -9637,6 +10081,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -9921,6 +10366,7 @@ class DefaultApi {
   /// * [offset]
   /// * [order]
   /// * [includeCompacted]
+  /// * [inlineImages]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -9937,6 +10383,7 @@ class DefaultApi {
     int? offset = 0,
     String? order,
     bool? includeCompacted = false,
+    bool? inlineImages = true,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -9963,6 +10410,7 @@ class DefaultApi {
       if (offset != null) r'offset': offset,
       if (order != null) r'order': order,
       if (includeCompacted != null) r'include_compacted': includeCompacted,
+      if (inlineImages != null) r'inline_images': inlineImages,
     };
 
     final _response = await _dio.request<Object>(
@@ -10352,6 +10800,79 @@ class DefaultApi {
     );
   }
 
+  /// Get Shared Metrics Consent
+  ///
+  ///
+  /// Parameters:
+  /// * [profile]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> getSharedMetricsConsentApiSharedMetricsConsentGet({
+    String? profile,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/shared-metrics/consent';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Get Skill Content
   /// Raw SKILL.md text for the dashboard editor.
   ///
@@ -10572,6 +11093,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -10583,6 +11105,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> getStatsApiPluginsKanbanStatsGet({
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -10600,6 +11123,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -10787,6 +11311,7 @@ class DefaultApi {
   /// * [board]
   /// * [runStateType] - With run_state_name: filter runs by column 'status' or 'outcome'
   /// * [runStateName] - With run_state_type: exact value for that run column
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -10801,6 +11326,7 @@ class DefaultApi {
     String? board,
     String? runStateType,
     String? runStateName,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -10825,6 +11351,7 @@ class DefaultApi {
       if (board != null) r'board': board,
       if (runStateType != null) r'run_state_type': runStateType,
       if (runStateName != null) r'run_state_name': runStateName,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -10872,6 +11399,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [tail]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -10885,6 +11413,7 @@ class DefaultApi {
     required String taskId,
     int? tail,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -10908,6 +11437,7 @@ class DefaultApi {
     final _queryParameters = <String, dynamic>{
       if (tail != null) r'tail': tail,
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -11586,6 +12116,79 @@ class DefaultApi {
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Get Workflow
+  /// Board columns (order, label, icon, drag target) and the manual move allow-list. Every board uses the default workflow today; per-board workflows (&#x60;&#x60;board.json&#x60;&#x60;) arrive in a later phase behind this same shape.
+  ///
+  /// Parameters:
+  /// * [profile]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> getWorkflowApiPluginsKanbanWorkflowGet({
+    String? profile,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/plugins/kanban/workflow';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -13341,6 +13944,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [importBoardBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -13352,6 +13956,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> importBoardEndpointApiPluginsKanbanBoardsImportPost({
     required ImportBoardBody importBoardBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -13368,13 +13973,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(importBoardBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -13385,6 +13998,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -13574,6 +14188,7 @@ class DefaultApi {
   /// Parameters:
   /// * [runId]
   /// * [board] - Kanban board slug (omit for current)
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -13587,6 +14202,7 @@ class DefaultApi {
   inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet({
     required int runId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -13609,6 +14225,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -13937,6 +14554,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [board] - Kanban board slug (omit for current)
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -13948,6 +14566,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listActiveWorkersApiPluginsKanbanWorkersActiveGet({
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -13965,6 +14584,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -14010,6 +14630,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [includeArchived]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14021,6 +14642,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listBoardsApiPluginsKanbanBoardsGet({
     bool? includeArchived = false,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14038,6 +14660,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (includeArchived != null) r'include_archived': includeArchived,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -14082,6 +14705,7 @@ class DefaultApi {
   /// /rollback shadow-store checkpoints (read-only): count + size per session so the UI can show what a prune reclaims; pruning itself is a spawned CLI action so the confirmation logic stays in one place.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14092,6 +14716,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listCheckpointsApiOpsCheckpointsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14107,9 +14732,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -14148,6 +14778,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14158,6 +14789,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listCredentialPoolApiCredentialsPoolGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14173,9 +14805,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -14211,9 +14848,10 @@ class DefaultApi {
   }
 
   /// List Cron Blueprints
-  /// Blueprint catalog as form schemas; the &#x60;&#x60;deliver&#x60;&#x60; slot&#39;s options are rewritten from the actually configured gateway platforms.
+  /// Blueprint catalog (built-ins + the profile&#39;s plugin blueprints) as form schemas.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14224,6 +14862,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listCronBlueprintsApiCronBlueprintsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14239,9 +14878,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -14511,6 +15155,7 @@ class DefaultApi {
   /// Parameters:
   /// * [board] - Kanban board slug (omit for current)
   /// * [severity] - Filter by severity: warning|error|critical
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14523,6 +15168,7 @@ class DefaultApi {
   Future<Response<Object>> listDiagnosticsApiPluginsKanbanDiagnosticsGet({
     String? board,
     String? severity,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14541,6 +15187,7 @@ class DefaultApi {
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
       if (severity != null) r'severity': severity,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -14585,6 +15232,7 @@ class DefaultApi {
   /// Configured shell hooks with consent (allowlist) status, whether the script is currently executable, and the valid hook events for the form.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14595,6 +15243,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listHooksApiOpsHooksGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14610,9 +15259,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -14651,6 +15305,7 @@ class DefaultApi {
   /// Live (non-archived) projects available for board scoping.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14661,6 +15316,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listKanbanProjectsApiPluginsKanbanProjectsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14676,9 +15332,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -14785,11 +15446,10 @@ class DefaultApi {
   }
 
   /// List Mcp Catalog
-  /// Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for &#x60;&#x60;profile&#x60;&#x60;. Opt-in app signals describe this backend machine, never the client or terminal sandbox.
+  /// Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for &#x60;&#x60;profile&#x60;&#x60;.
   ///
   /// Parameters:
   /// * [profile]
-  /// * [detectApps]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -14801,7 +15461,6 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listMcpCatalogApiMcpCatalogGet({
     String? profile,
-    bool? detectApps = false,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -14819,7 +15478,6 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (profile != null) r'profile': profile,
-      if (detectApps != null) r'detect_apps': detectApps,
     };
 
     final _response = await _dio.request<Object>(
@@ -15156,6 +15814,7 @@ class DefaultApi {
   /// Every installed profile with its description (profiles without one are still routable on name alone, just less precisely).
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -15166,6 +15825,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listProfileRosterApiPluginsKanbanProfilesGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -15181,9 +15841,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -15363,6 +16028,7 @@ class DefaultApi {
   /// Parameters:
   /// * [taskId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -15376,6 +16042,7 @@ class DefaultApi {
   listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet({
     required String taskId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -15398,6 +16065,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -15442,6 +16110,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -15452,6 +16121,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> listWebhooksApiWebhooksGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -15467,9 +16137,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -15509,6 +16184,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [modelActivateBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -15520,6 +16196,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> localModelsActivateApiLocalModelsActivatePost({
     required ModelActivateBody modelActivateBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -15536,13 +16213,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(modelActivateBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -15553,6 +16238,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -15893,6 +16579,174 @@ class DefaultApi {
     );
   }
 
+  /// Local Models Download Pause
+  /// Pause the download phase of a model, component or quickstart job.
+  ///
+  /// Parameters:
+  /// * [jobIdBody]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>>
+  localModelsDownloadPauseApiLocalModelsDownloadPausePost({
+    required JobIdBody jobIdBody,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/local-models/download/pause';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = jsonEncode(jobIdBody);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _options.compose(_dio.options, _path),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Local Models Download Resume
+  /// Restart the same job; PM reuses verified files and durable ranges.
+  ///
+  /// Parameters:
+  /// * [jobIdBody]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>>
+  localModelsDownloadResumeApiLocalModelsDownloadResumePost({
+    required JobIdBody jobIdBody,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/local-models/download/resume';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = jsonEncode(jobIdBody);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _options.compose(_dio.options, _path),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Local Models Eject
   /// Free a loaded model&#39;s GPU memory now; only demand (the next message) reloads it — residency v2 has no automatic loading anywhere. Sync def: the fallback path blocks on a 120s urlopen — threadpool, never the loop.
   ///
@@ -16186,6 +17040,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [quickstartBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -16197,6 +17052,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> localModelsQuickstartApiLocalModelsQuickstartPost({
     required QuickstartBody quickstartBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -16213,13 +17069,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(quickstartBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -16230,6 +17094,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -16269,6 +17134,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [runtimeInstallBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -16281,6 +17147,7 @@ class DefaultApi {
   Future<Response<Object>>
   localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost({
     required RuntimeInstallBody runtimeInstallBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -16297,13 +17164,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(runtimeInstallBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -16314,6 +17189,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -17040,6 +17916,7 @@ class DefaultApi {
   /// Providers + curated models for the override dropdown via &#x60;&#x60;inventory.build_models_payload&#x60;&#x60; (same substrate as the Models page) so it can&#39;t offer a pair Hermes rejects. Skips pricing and custom-provider probes: a slow/offline local endpoint must not hang the drawer.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -17050,6 +17927,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> modelOptionsApiPluginsKanbanModelOptionsGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -17065,9 +17943,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -17312,6 +18195,73 @@ class DefaultApi {
       _path,
       options: _options,
       queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Post Agent Plugin Activate
+  /// &#x60;&#x60;hermes plugins install&#x60;&#x60; / &#x60;&#x60;enable&#x60;&#x60; in another process asks this backend to load the plugin for &#x60;&#x60;home&#x60;&#x60; and hand its MCP servers and skills to that profile&#39;s open chats (&#x60;&#x60;hermes_cli.plugins_activation.load_and_go_live&#x60;&#x60;). &#x60;&#x60;home&#x60;&#x60; must be a profile this host serves.
+  ///
+  /// Parameters:
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>>
+  postAgentPluginActivateApiDashboardAgentPluginsActivatePost({
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/dashboard/agent-plugins/activate';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -17724,6 +18674,7 @@ class DefaultApi {
   /// Parameters:
   /// * [name]
   /// * [pluginVisibilityBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -17737,6 +18688,7 @@ class DefaultApi {
   postPluginVisibilityApiDashboardPluginsNameVisibilityPost({
     required String name,
     required PluginVisibilityBody pluginVisibilityBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -17758,13 +18710,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(pluginVisibilityBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -17775,6 +18735,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -17969,10 +18930,82 @@ class DefaultApi {
     );
   }
 
+  /// Proxy Remote Media
+  /// Fetch a remote image URL the gateway can reach but the client cannot (#74564), returning the same &#x60;&#x60;data_url&#x60;&#x60; shape as &#x60;&#x60;/api/media&#x60;&#x60;. Only allowlisted image CDNs; the bytes stay behind the size cap.
+  ///
+  /// Parameters:
+  /// * [url]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> proxyRemoteMediaApiMediaProxyGet({
+    required String url,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/media/proxy';
+    final _options = Options(
+      method: r'GET',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{r'url': url};
+
+    final _response = await _dio.request<Object>(
+      _path,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Prune Checkpoints
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -17983,6 +19016,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> pruneCheckpointsApiOpsCheckpointsPrunePost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -17998,9 +19032,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -18123,6 +19162,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [pluginProvidersPutBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18134,6 +19174,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> putPluginProvidersApiDashboardPluginProvidersPut({
     required PluginProvidersPutBody pluginProvidersPutBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18150,13 +19191,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(pluginProvidersPutBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -18167,6 +19216,101 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
+  /// Put Shared Metrics Consent
+  ///
+  ///
+  /// Parameters:
+  /// * [consentAnswer]
+  /// * [profile]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> putSharedMetricsConsentApiSharedMetricsConsentPut({
+    required ConsentAnswer consentAnswer,
+    String? profile,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/shared-metrics/consent';
+    final _options = Options(
+      method: r'PUT',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = jsonEncode(consentAnswer);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -18279,6 +19423,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [reassignBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18293,6 +19438,7 @@ class DefaultApi {
     required String taskId,
     required ReassignBody reassignBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18316,6 +19462,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -18378,6 +19525,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18389,6 +19537,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>>
   recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18404,9 +19553,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -18448,6 +19602,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [reclaimBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18462,6 +19617,7 @@ class DefaultApi {
     required String taskId,
     required ReclaimBody reclaimBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18485,6 +19641,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -18549,6 +19706,7 @@ class DefaultApi {
   /// Parameters:
   /// * [attachmentId]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18562,6 +19720,7 @@ class DefaultApi {
   removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete({
     required int attachmentId,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18584,6 +19743,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -18630,6 +19790,7 @@ class DefaultApi {
   /// Parameters:
   /// * [provider]
   /// * [index]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18643,6 +19804,7 @@ class DefaultApi {
   removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete({
     required String provider,
     required int index,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18670,9 +19832,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -18887,6 +20054,7 @@ class DefaultApi {
   /// Parameters:
   /// * [slug]
   /// * [renameBoardBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -18899,6 +20067,7 @@ class DefaultApi {
   Future<Response<Object>> renameBoardApiPluginsKanbanBoardsSlugPatch({
     required String slug,
     required RenameBoardBody renameBoardBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -18920,13 +20089,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(renameBoardBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -18937,6 +20114,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -19249,6 +20427,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -19259,6 +20438,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> rescanApiPluginsHermesAchievementsRescanPost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -19274,9 +20454,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -19382,6 +20567,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [memoryReset]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -19393,6 +20579,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> resetMemoryApiMemoryResetPost({
     required MemoryReset memoryReset,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -19409,13 +20596,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(memoryReset);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -19426,6 +20621,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -19464,6 +20660,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -19475,6 +20672,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>>
   resetStateApiPluginsHermesAchievementsResetStatePost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -19490,9 +20688,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -19862,6 +21065,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [backupRequest]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -19873,6 +21077,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runBackupApiOpsBackupPost({
     required BackupRequest backupRequest,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -19889,13 +21094,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(backupRequest);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -19906,6 +21119,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -19944,6 +21158,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -19954,6 +21169,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runConfigMigrateApiOpsConfigMigratePost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -19969,9 +21185,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20007,9 +21228,10 @@ class DefaultApi {
   }
 
   /// Run Curator
-  /// Trigger a curator review now (backgrounded; tail via action status).
+  /// Trigger a curator review now (backgrounded; tail via action status). The curator archives and rewrites skills, so an unnamed target is refused while this backend serves several profiles.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20020,6 +21242,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runCuratorApiCuratorRunPost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20035,9 +21258,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20076,6 +21304,7 @@ class DefaultApi {
   /// Upload a redacted debug report + full logs and return the paste URLs. Synchronous, unlike the other diagnostics actions: the point is the shareable URLs, returned as a structured payload the dashboard renders as copyable links.
   ///
   /// Parameters:
+  /// * [profile]
   /// * [debugShareRequest]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
@@ -20087,6 +21316,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runDebugShareEndpointApiOpsDebugSharePost({
+    String? profile,
     DebugShareRequest? debugShareRequest,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -20104,13 +21334,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(debugShareRequest);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -20121,6 +21359,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20159,6 +21398,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20169,6 +21409,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runDoctorApiOpsDoctorPost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20184,9 +21425,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20225,6 +21471,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20235,6 +21482,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runDumpApiOpsDumpPost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20250,9 +21498,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20292,6 +21545,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [importRequest]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20303,6 +21557,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runImportApiOpsImportPost({
     required ImportRequest importRequest,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20319,13 +21574,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(importRequest);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -20336,6 +21599,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20375,6 +21639,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [file]
+  /// * [profile]
   /// * [force]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
@@ -20387,6 +21652,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runImportUploadApiOpsImportUploadPost({
     required MultipartFile file,
+    String? profile,
     bool? force,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -20404,6 +21670,10 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
@@ -20413,7 +21683,11 @@ class DefaultApi {
       });
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -20424,6 +21698,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20462,6 +21737,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20472,6 +21748,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runPromptSizeApiOpsPromptSizePost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20487,9 +21764,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20528,6 +21810,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20538,6 +21821,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> runSecurityAuditApiOpsSecurityAuditPost({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20553,9 +21837,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -20873,6 +22162,7 @@ class DefaultApi {
   ///
   ///
   /// Parameters:
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -20883,6 +22173,7 @@ class DefaultApi {
   /// Returns a [Future] containing a [Response] with a [Object] as data
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> scanStatusApiPluginsHermesAchievementsScanStatusGet({
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -20898,9 +22189,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -21636,6 +22932,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [sessionId]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -21648,6 +22945,7 @@ class DefaultApi {
   Future<Response<Object>>
   sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet({
     required String sessionId,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -21670,9 +22968,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -21795,6 +23098,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [curatorPause]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -21806,6 +23110,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> setCuratorPausedApiCuratorPausedPut({
     required CuratorPause curatorPause,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -21822,13 +23127,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(curatorPause);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -21839,6 +23152,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -21878,6 +23192,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [fontSetBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -21889,6 +23204,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> setDashboardFontApiDashboardFontPut({
     required FontSetBody fontSetBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -21905,13 +23221,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(fontSetBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -21922,6 +23246,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -21961,6 +23286,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [themeSetBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -21972,6 +23298,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> setDashboardThemeApiDashboardThemePut({
     required ThemeSetBody themeSetBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -21988,13 +23315,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(themeSetBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -22005,6 +23340,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -22239,6 +23575,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [memoryProviderSelect]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -22250,6 +23587,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> setMemoryProviderApiMemoryProviderPut({
     required MemoryProviderSelect memoryProviderSelect,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -22266,13 +23604,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(memoryProviderSelect);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -22283,6 +23629,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -22510,6 +23857,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [orchestrationSettingsBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -22522,6 +23870,7 @@ class DefaultApi {
   Future<Response<Object>>
   setOrchestrationSettingsApiPluginsKanbanOrchestrationPut({
     required OrchestrationSettingsBody orchestrationSettingsBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -22538,13 +23887,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(orchestrationSettingsBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -22555,6 +23912,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -22595,6 +23953,7 @@ class DefaultApi {
   /// Parameters:
   /// * [name]
   /// * [webhookEnabledToggle]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -22607,6 +23966,7 @@ class DefaultApi {
   Future<Response<Object>> setWebhookEnabledApiWebhooksNameEnabledPut({
     required String name,
     required WebhookEnabledToggle webhookEnabledToggle,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -22628,13 +23988,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(webhookEnabledToggle);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -22645,6 +24013,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -22685,6 +24054,7 @@ class DefaultApi {
   /// Parameters:
   /// * [name]
   /// * [memoryProviderSetupRequest]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -22697,6 +24067,7 @@ class DefaultApi {
   Future<Response<Object>> setupMemoryProviderApiMemoryProvidersNameSetupPost({
     required String name,
     required MemoryProviderSetupRequest memoryProviderSetupRequest,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -22718,13 +24089,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(memoryProviderSetupRequest);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -22735,6 +24114,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -22870,6 +24250,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [specifyBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -22884,6 +24265,7 @@ class DefaultApi {
     required String taskId,
     required SpecifyBody specifyBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -22907,6 +24289,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -23582,6 +24965,100 @@ class DefaultApi {
     );
   }
 
+  /// Stt Lease
+  /// Desktop voice-input sessions as STT warm-up / release signals.  &#x60;&#x60;active: true&#x60;&#x60; registers a lease and pre-loads the configured local STT model (first-use download + load) so the transcription request doesn&#39;t pay the cold cost inside its timeout; &#x60;&#x60;active: false&#x60;&#x60; drops the lease. The model stays resident after the last release — it is shared with the gateway/CLI surfaces in this process, and &#x60;&#x60;stt.local.unload_after_idle_seconds&#x60;&#x60; still governs eviction. Blocking work runs off the event loop. Warm-up failures are reported in the body, never as an HTTP error — recording must start even when preload fails.
+  ///
+  /// Parameters:
+  /// * [sTTLeaseRequest]
+  /// * [profile]
+  /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
+  /// * [headers] - Can be used to add additional headers to the request
+  /// * [extras] - Can be used to add flags to the request
+  /// * [validateStatus] - A [ValidateStatus] callback that can be used to determine request success based on the HTTP status of the response
+  /// * [onSendProgress] - A [ProgressCallback] that can be used to get the send progress
+  /// * [onReceiveProgress] - A [ProgressCallback] that can be used to get the receive progress
+  ///
+  /// Returns a [Future] containing a [Response] with a [Object] as data
+  /// Throws [DioException] if API call or serialization fails
+  Future<Response<Object>> sttLeaseApiAudioSttLeasePost({
+    required STTLeaseRequest sTTLeaseRequest,
+    String? profile,
+    CancelToken? cancelToken,
+    Map<String, dynamic>? headers,
+    Map<String, dynamic>? extra,
+    ValidateStatus? validateStatus,
+    ProgressCallback? onSendProgress,
+    ProgressCallback? onReceiveProgress,
+  }) async {
+    final _path = r'/api/audio/stt-lease';
+    final _options = Options(
+      method: r'POST',
+      headers: <String, dynamic>{...?headers},
+      extra: <String, dynamic>{'secure': <Map<String, String>>[], ...?extra},
+      contentType: 'application/json',
+      validateStatus: validateStatus,
+    );
+
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
+    dynamic _bodyData;
+
+    try {
+      _bodyData = jsonEncode(sTTLeaseRequest);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final _response = await _dio.request<Object>(
+      _path,
+      data: _bodyData,
+      options: _options,
+      queryParameters: _queryParameters,
+      cancelToken: cancelToken,
+      onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+    );
+
+    Object? _responseData;
+
+    try {
+      final rawData = _response.data;
+      _responseData = rawData == null
+          ? null
+          : deserialize<Object, Object>(rawData, 'Object', growable: true);
+    } catch (error, stackTrace) {
+      throw DioException(
+        requestOptions: _response.requestOptions,
+        response: _response,
+        type: DioExceptionType.unknown,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    return Response<Object>(
+      data: _responseData,
+      headers: _response.headers,
+      isRedirect: _response.isRedirect,
+      requestOptions: _response.requestOptions,
+      redirects: _response.redirects,
+      statusCode: _response.statusCode,
+      statusMessage: _response.statusMessage,
+      extra: _response.extra,
+    );
+  }
+
   /// Submit Oauth Code
   /// Submit the auth code for PKCE flows. Token-protected.
   ///
@@ -23691,6 +25168,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [platform]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -23705,6 +25183,7 @@ class DefaultApi {
     required String taskId,
     required String platform,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -23735,6 +25214,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -23780,6 +25260,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [slug]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -23791,6 +25272,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> switchBoardApiPluginsKanbanBoardsSlugSwitchPost({
     required String slug,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -23811,9 +25293,14 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     final _response = await _dio.request<Object>(
       _path,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -23855,6 +25342,7 @@ class DefaultApi {
   /// * [runId]
   /// * [terminateRunBody]
   /// * [board] - Kanban board slug (omit for current)
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -23869,6 +25357,7 @@ class DefaultApi {
     required int runId,
     required TerminateRunBody terminateRunBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -23892,6 +25381,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -24675,6 +26165,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [platform]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -24689,6 +26180,7 @@ class DefaultApi {
     required String taskId,
     required String platform,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -24719,6 +26211,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     final _response = await _dio.request<Object>(
@@ -25118,10 +26611,11 @@ class DefaultApi {
   }
 
   /// Update Learning Node
-  /// Rewrite a journey node&#39;s content (SKILL.md or memory chunk).
+  /// Rewrite a journey node&#39;s content (SKILL.md or memory chunk); profile as for DELETE.
   ///
   /// Parameters:
   /// * [learningNodeEdit]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -25133,6 +26627,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> updateLearningNodeApiLearningNodePut({
     required LearningNodeEdit learningNodeEdit,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -25149,13 +26644,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(learningNodeEdit);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -25166,6 +26669,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -25413,6 +26917,7 @@ class DefaultApi {
   /// Parameters:
   /// * [profileName]
   /// * [describeBody]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -25426,6 +26931,7 @@ class DefaultApi {
   updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch({
     required String profileName,
     required DescribeBody describeBody,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -25447,13 +26953,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(describeBody);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -25464,6 +26978,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -25774,6 +27289,7 @@ class DefaultApi {
   ///
   /// Parameters:
   /// * [skillContentUpdate]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -25785,6 +27301,7 @@ class DefaultApi {
   /// Throws [DioException] if API call or serialization fails
   Future<Response<Object>> updateSkillContentApiSkillsContentPut({
     required SkillContentUpdate skillContentUpdate,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -25801,13 +27318,21 @@ class DefaultApi {
       validateStatus: validateStatus,
     );
 
+    final _queryParameters = <String, dynamic>{
+      if (profile != null) r'profile': profile,
+    };
+
     dynamic _bodyData;
 
     try {
       _bodyData = jsonEncode(skillContentUpdate);
     } catch (error, stackTrace) {
       throw DioException(
-        requestOptions: _options.compose(_dio.options, _path),
+        requestOptions: _options.compose(
+          _dio.options,
+          _path,
+          queryParameters: _queryParameters,
+        ),
         type: DioExceptionType.unknown,
         error: error,
         stackTrace: stackTrace,
@@ -25818,6 +27343,7 @@ class DefaultApi {
       _path,
       data: _bodyData,
       options: _options,
+      queryParameters: _queryParameters,
       cancelToken: cancelToken,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
@@ -25953,6 +27479,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [updateTaskBody]
   /// * [board]
+  /// * [profile]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
   /// * [extras] - Can be used to add flags to the request
@@ -25966,6 +27493,7 @@ class DefaultApi {
     required String taskId,
     required UpdateTaskBody updateTaskBody,
     String? board,
+    String? profile,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
     Map<String, dynamic>? extra,
@@ -25989,6 +27517,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;
@@ -26322,6 +27851,7 @@ class DefaultApi {
   /// * [taskId]
   /// * [file]
   /// * [board]
+  /// * [profile]
   /// * [uploadedBy]
   /// * [cancelToken] - A [CancelToken] that can be used to cancel the operation
   /// * [headers] - Can be used to add additional headers to the request
@@ -26337,6 +27867,7 @@ class DefaultApi {
     required String taskId,
     required MultipartFile file,
     String? board,
+    String? profile,
     String? uploadedBy,
     CancelToken? cancelToken,
     Map<String, dynamic>? headers,
@@ -26361,6 +27892,7 @@ class DefaultApi {
 
     final _queryParameters = <String, dynamic>{
       if (board != null) r'board': board,
+      if (profile != null) r'profile': profile,
     };
 
     dynamic _bodyData;

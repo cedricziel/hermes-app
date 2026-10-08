@@ -25,6 +25,8 @@ class EnvVarUpdate {
     this.profile,
 
     this.apiKey = '',
+
+    this.providerSetup = false,
   });
 
   @JsonKey(name: r'key', required: true, includeIfNull: false)
@@ -44,6 +46,14 @@ class EnvVarUpdate {
   )
   final String? apiKey;
 
+  @JsonKey(
+    defaultValue: false,
+    name: r'provider_setup',
+    required: false,
+    includeIfNull: false,
+  )
+  final bool? providerSetup;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -51,14 +61,16 @@ class EnvVarUpdate {
           other.key == key &&
           other.value == value &&
           other.profile == profile &&
-          other.apiKey == apiKey;
+          other.apiKey == apiKey &&
+          other.providerSetup == providerSetup;
 
   @override
   int get hashCode =>
       key.hashCode +
       value.hashCode +
       (profile == null ? 0 : profile.hashCode) +
-      apiKey.hashCode;
+      apiKey.hashCode +
+      providerSetup.hashCode;
 
   factory EnvVarUpdate.fromJson(Map<String, dynamic> json) =>
       _$EnvVarUpdateFromJson(json);

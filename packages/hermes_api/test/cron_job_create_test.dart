@@ -37,6 +37,11 @@ void main() {
       // TODO
     });
 
+    // Object repeat
+    test('to test the property `repeat`', () async {
+      // TODO
+    });
+
     // List<String> skills
     test('to test the property `skills`', () async {
       // TODO

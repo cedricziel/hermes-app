@@ -13,10 +13,12 @@ Name | Type | Description | Notes
 **baseUrl** | **String** |  | 
 **model** | **String** |  | 
 **apiKey** | **String** |  | [optional] 
+**apiMode** | **String** |  | [optional] 
 **contextLength** | **int** |  | [optional] 
 **discoverModels** | **bool** |  | [optional] [default to true]
 **makeDefault** | **bool** |  | [optional] [default to false]
 **models** | **List&lt;String&gt;** |  | [optional] 
+**modelDetails** | [**List&lt;CustomEndpointModelDetail&gt;**](CustomEndpointModelDetail.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

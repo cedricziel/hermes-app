@@ -91,6 +91,7 @@ Method | HTTP request | Description
 [**getAssigneesApiPluginsKanbanAssigneesGet**](DefaultApi.md#getassigneesapipluginskanbanassigneesget) | **GET** /api/plugins/kanban/assignees | Get Assignees
 [**getAuxiliaryModelsApiModelAuxiliaryGet**](DefaultApi.md#getauxiliarymodelsapimodelauxiliaryget) | **GET** /api/model/auxiliary | Get Auxiliary Models
 [**getBoardEndpointApiPluginsKanbanBoardGet**](DefaultApi.md#getboardendpointapipluginskanbanboardget) | **GET** /api/plugins/kanban/board | Get Board Endpoint
+[**getChatWorkspacesApiChatWorkspacesGet**](DefaultApi.md#getchatworkspacesapichatworkspacesget) | **GET** /api/chat/workspaces | Get Chat Workspaces
 [**getClientVoiceConfigApiAudioVoiceConfigGet**](DefaultApi.md#getclientvoiceconfigapiaudiovoiceconfigget) | **GET** /api/audio/voice-config | Get Client Voice Config
 [**getComputerUseStatusApiToolsComputerUseStatusGet**](DefaultApi.md#getcomputerusestatusapitoolscomputerusestatusget) | **GET** /api/tools/computer-use/status | Get Computer Use Status
 [**getConfigApiConfigGet**](DefaultApi.md#getconfigapiconfigget) | **GET** /api/config | Get Config
@@ -109,6 +110,7 @@ Method | HTTP request | Description
 [**getHealthApiHealthGet**](DefaultApi.md#gethealthapihealthget) | **GET** /api/health | Get Health
 [**getHealthIdleApiHealthIdleGet**](DefaultApi.md#gethealthidleapihealthidleget) | **GET** /api/health/idle | Get Health Idle
 [**getHomeChannelsApiPluginsKanbanHomeChannelsGet**](DefaultApi.md#gethomechannelsapipluginskanbanhomechannelsget) | **GET** /api/plugins/kanban/home-channels | Get Home Channels
+[**getHostIdentityApiHostIdentityGet**](DefaultApi.md#gethostidentityapihostidentityget) | **GET** /api/host/identity | Get Host Identity
 [**getLearningGraphApiLearningGraphGet**](DefaultApi.md#getlearninggraphapilearninggraphget) | **GET** /api/learning/graph | Get Learning Graph
 [**getLearningNodeApiLearningNodeGet**](DefaultApi.md#getlearningnodeapilearningnodeget) | **GET** /api/learning/node | Get Learning Node
 [**getLogsApiLogsGet**](DefaultApi.md#getlogsapilogsget) | **GET** /api/logs | Get Logs
@@ -140,6 +142,7 @@ Method | HTTP request | Description
 [**getSessionStatsApiSessionsStatsGet**](DefaultApi.md#getsessionstatsapisessionsstatsget) | **GET** /api/sessions/stats | Get Session Stats
 [**getSessionTimelineApiSessionsSessionIdTimelineGet**](DefaultApi.md#getsessiontimelineapisessionssessionidtimelineget) | **GET** /api/sessions/{session_id}/timeline | Get Session Timeline
 [**getSessionsApiSessionsGet**](DefaultApi.md#getsessionsapisessionsget) | **GET** /api/sessions | Get Sessions
+[**getSharedMetricsConsentApiSharedMetricsConsentGet**](DefaultApi.md#getsharedmetricsconsentapisharedmetricsconsentget) | **GET** /api/shared-metrics/consent | Get Shared Metrics Consent
 [**getSkillContentApiSkillsContentGet**](DefaultApi.md#getskillcontentapiskillscontentget) | **GET** /api/skills/content | Get Skill Content
 [**getSkillsApiSkillsGet**](DefaultApi.md#getskillsapiskillsget) | **GET** /api/skills | Get Skills
 [**getSshOwnershipApiSshOwnershipGet**](DefaultApi.md#getsshownershipapisshownershipget) | **GET** /api/ssh/ownership | Get Ssh Ownership
@@ -157,6 +160,7 @@ Method | HTTP request | Description
 [**getUsageAnalyticsApiAnalyticsUsageGet**](DefaultApi.md#getusageanalyticsapianalyticsusageget) | **GET** /api/analytics/usage | Get Usage Analytics
 [**getVoiceLiveStatusApiAudioVoiceLiveStatusGet**](DefaultApi.md#getvoicelivestatusapiaudiovoicelivestatusget) | **GET** /api/audio/voice-live/status | Get Voice Live Status
 [**getWhatsappOnboardingStatusApiMessagingWhatsappOnboardingPairingIdGet**](DefaultApi.md#getwhatsapponboardingstatusapimessagingwhatsapponboardingpairingidget) | **GET** /api/messaging/whatsapp/onboarding/{pairing_id} | Get Whatsapp Onboarding Status
+[**getWorkflowApiPluginsKanbanWorkflowGet**](DefaultApi.md#getworkflowapipluginskanbanworkflowget) | **GET** /api/plugins/kanban/workflow | Get Workflow
 [**ghAuthStatusRouteApiGitGhAuthGet**](DefaultApi.md#ghauthstatusrouteapigitghauthget) | **GET** /api/git/gh-auth | Gh Auth Status Route
 [**gitBaseBranchesRouteApiGitBaseBranchesGet**](DefaultApi.md#gitbasebranchesrouteapigitbasebranchesget) | **GET** /api/git/base-branches | Git Base Branches Route
 [**gitBranchSwitchRouteApiGitBranchSwitchPost**](DefaultApi.md#gitbranchswitchrouteapigitbranchswitchpost) | **POST** /api/git/branch/switch | Git Branch Switch Route
@@ -213,6 +217,8 @@ Method | HTTP request | Description
 [**localModelsDeleteApiLocalModelsModelsModelIdDelete**](DefaultApi.md#localmodelsdeleteapilocalmodelsmodelsmodeliddelete) | **DELETE** /api/local-models/models/{model_id} | Local Models Delete
 [**localModelsDownloadApiLocalModelsDownloadPost**](DefaultApi.md#localmodelsdownloadapilocalmodelsdownloadpost) | **POST** /api/local-models/download | Local Models Download
 [**localModelsDownloadBrowsedApiLocalModelsDownloadBrowsedPost**](DefaultApi.md#localmodelsdownloadbrowsedapilocalmodelsdownloadbrowsedpost) | **POST** /api/local-models/download-browsed | Local Models Download Browsed
+[**localModelsDownloadPauseApiLocalModelsDownloadPausePost**](DefaultApi.md#localmodelsdownloadpauseapilocalmodelsdownloadpausepost) | **POST** /api/local-models/download/pause | Local Models Download Pause
+[**localModelsDownloadResumeApiLocalModelsDownloadResumePost**](DefaultApi.md#localmodelsdownloadresumeapilocalmodelsdownloadresumepost) | **POST** /api/local-models/download/resume | Local Models Download Resume
 [**localModelsEjectApiLocalModelsEjectPost**](DefaultApi.md#localmodelsejectapilocalmodelsejectpost) | **POST** /api/local-models/eject | Local Models Eject
 [**localModelsHardwareApiLocalModelsHardwareGet**](DefaultApi.md#localmodelshardwareapilocalmodelshardwareget) | **GET** /api/local-models/hardware | Local Models Hardware
 [**localModelsJobApiLocalModelsJobsJobIdGet**](DefaultApi.md#localmodelsjobapilocalmodelsjobsjobidget) | **GET** /api/local-models/jobs/{job_id} | Local Models Job
@@ -232,6 +238,7 @@ Method | HTTP request | Description
 [**openProfileTerminalEndpointApiProfilesNameOpenTerminalPost**](DefaultApi.md#openprofileterminalendpointapiprofilesnameopenterminalpost) | **POST** /api/profiles/{name}/open-terminal | Open Profile Terminal Endpoint
 [**pauseCronJobApiCronJobsJobIdPausePost**](DefaultApi.md#pausecronjobapicronjobsjobidpausepost) | **POST** /api/cron/jobs/{job_id}/pause | Pause Cron Job
 [**pollOauthSessionApiProvidersOauthProviderIdPollSessionIdGet**](DefaultApi.md#polloauthsessionapiprovidersoauthprovideridpollsessionidget) | **GET** /api/providers/oauth/{provider_id}/poll/{session_id} | Poll Oauth Session
+[**postAgentPluginActivateApiDashboardAgentPluginsActivatePost**](DefaultApi.md#postagentpluginactivateapidashboardagentpluginsactivatepost) | **POST** /api/dashboard/agent-plugins/activate | Post Agent Plugin Activate
 [**postAgentPluginDisableApiDashboardAgentPluginsNameDisablePost**](DefaultApi.md#postagentplugindisableapidashboardagentpluginsnamedisablepost) | **POST** /api/dashboard/agent-plugins/{name}/disable | Post Agent Plugin Disable
 [**postAgentPluginEnableApiDashboardAgentPluginsNameEnablePost**](DefaultApi.md#postagentpluginenableapidashboardagentpluginsnameenablepost) | **POST** /api/dashboard/agent-plugins/{name}/enable | Post Agent Plugin Enable
 [**postAgentPluginInstallApiDashboardAgentPluginsInstallPost**](DefaultApi.md#postagentplugininstallapidashboardagentpluginsinstallpost) | **POST** /api/dashboard/agent-plugins/install | Post Agent Plugin Install
@@ -240,9 +247,11 @@ Method | HTTP request | Description
 [**postPluginVisibilityApiDashboardPluginsNameVisibilityPost**](DefaultApi.md#postpluginvisibilityapidashboardpluginsnamevisibilitypost) | **POST** /api/dashboard/plugins/{name}/visibility | Post Plugin Visibility
 [**postProfilesSessionsPullRequestsApiProfilesSessionsPullRequestsPost**](DefaultApi.md#postprofilessessionspullrequestsapiprofilessessionspullrequestspost) | **POST** /api/profiles/sessions/pull-requests | Post Profiles Sessions Pull Requests
 [**previewSkillHubApiSkillsHubPreviewGet**](DefaultApi.md#previewskillhubapiskillshubpreviewget) | **GET** /api/skills/hub/preview | Preview Skill Hub
+[**proxyRemoteMediaApiMediaProxyGet**](DefaultApi.md#proxyremotemediaapimediaproxyget) | **GET** /api/media/proxy | Proxy Remote Media
 [**pruneCheckpointsApiOpsCheckpointsPrunePost**](DefaultApi.md#prunecheckpointsapiopscheckpointsprunepost) | **POST** /api/ops/checkpoints/prune | Prune Checkpoints
 [**pruneSessionsEndpointApiSessionsPrunePost**](DefaultApi.md#prunesessionsendpointapisessionsprunepost) | **POST** /api/sessions/prune | Prune Sessions Endpoint
 [**putPluginProvidersApiDashboardPluginProvidersPut**](DefaultApi.md#putpluginprovidersapidashboardpluginprovidersput) | **PUT** /api/dashboard/plugin-providers | Put Plugin Providers
+[**putSharedMetricsConsentApiSharedMetricsConsentPut**](DefaultApi.md#putsharedmetricsconsentapisharedmetricsconsentput) | **PUT** /api/shared-metrics/consent | Put Shared Metrics Consent
 [**readManagedFileApiFilesReadGet**](DefaultApi.md#readmanagedfileapifilesreadget) | **GET** /api/files/read | Read Managed File
 [**reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost**](DefaultApi.md#reassigntaskendpointapipluginskanbantaskstaskidreassignpost) | **POST** /api/plugins/kanban/tasks/{task_id}/reassign | Reassign Task Endpoint
 [**recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet**](DefaultApi.md#recentunlocksapipluginshermesachievementsrecentunlocksget) | **GET** /api/plugins/hermes-achievements/recent-unlocks | Recent Unlocks
@@ -308,6 +317,7 @@ Method | HTTP request | Description
 [**stopGatewayApiGatewayStopPost**](DefaultApi.md#stopgatewayapigatewaystoppost) | **POST** /api/gateway/stop | Stop Gateway
 [**streamManagedFileApiFilesStreamGet**](DefaultApi.md#streammanagedfileapifilesstreamget) | **GET** /api/files/stream | Stream Managed File
 [**streamManagedFileApiFilesStreamHead**](DefaultApi.md#streammanagedfileapifilesstreamhead) | **HEAD** /api/files/stream | Stream Managed File
+[**sttLeaseApiAudioSttLeasePost**](DefaultApi.md#sttleaseapiaudiosttleasepost) | **POST** /api/audio/stt-lease | Stt Lease
 [**submitOauthCodeApiProvidersOauthProviderIdSubmitPost**](DefaultApi.md#submitoauthcodeapiprovidersoauthprovideridsubmitpost) | **POST** /api/providers/oauth/{provider_id}/submit | Submit Oauth Code
 [**subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost**](DefaultApi.md#subscribehomeapipluginskanbantaskstaskidhomesubscribeplatformpost) | **POST** /api/plugins/kanban/tasks/{task_id}/home-subscribe/{platform} | Subscribe Home
 [**switchBoardApiPluginsKanbanBoardsSlugSwitchPost**](DefaultApi.md#switchboardapipluginskanbanboardsslugswitchpost) | **POST** /api/plugins/kanban/boards/{slug}/switch | Switch Board
@@ -345,7 +355,7 @@ Method | HTTP request | Description
 
 
 # **achievementsApiPluginsHermesAchievementsAchievementsGet**
-> Object achievementsApiPluginsHermesAchievementsAchievementsGet()
+> Object achievementsApiPluginsHermesAchievementsAchievementsGet(profile)
 
 Achievements
 
@@ -354,9 +364,10 @@ Achievements
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.achievementsApiPluginsHermesAchievementsAchievementsGet();
+    final response = api.achievementsApiPluginsHermesAchievementsAchievementsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->achievementsApiPluginsHermesAchievementsAchievementsGet: $e\n');
@@ -364,7 +375,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -427,7 +441,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **addCommentApiPluginsKanbanTasksTaskIdCommentsPost**
-> Object addCommentApiPluginsKanbanTasksTaskIdCommentsPost(taskId, commentBody, board)
+> Object addCommentApiPluginsKanbanTasksTaskIdCommentsPost(taskId, commentBody, board, profile)
 
 Add Comment
 
@@ -439,9 +453,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final CommentBody commentBody = ; // CommentBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.addCommentApiPluginsKanbanTasksTaskIdCommentsPost(taskId, commentBody, board);
+    final response = api.addCommentApiPluginsKanbanTasksTaskIdCommentsPost(taskId, commentBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->addCommentApiPluginsKanbanTasksTaskIdCommentsPost: $e\n');
@@ -455,6 +470,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **commentBody** | [**CommentBody**](CommentBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -472,7 +488,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **addCredentialPoolEntryApiCredentialsPoolPost**
-> Object addCredentialPoolEntryApiCredentialsPoolPost(credentialPoolAdd)
+> Object addCredentialPoolEntryApiCredentialsPoolPost(credentialPoolAdd, profile)
 
 Add Credential Pool Entry
 
@@ -482,9 +498,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final CredentialPoolAdd credentialPoolAdd = ; // CredentialPoolAdd | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.addCredentialPoolEntryApiCredentialsPoolPost(credentialPoolAdd);
+    final response = api.addCredentialPoolEntryApiCredentialsPoolPost(credentialPoolAdd, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->addCredentialPoolEntryApiCredentialsPoolPost: $e\n');
@@ -496,6 +513,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **credentialPoolAdd** | [**CredentialPoolAdd**](CredentialPoolAdd.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -513,7 +531,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **addLinkApiPluginsKanbanLinksPost**
-> Object addLinkApiPluginsKanbanLinksPost(linkBody, board)
+> Object addLinkApiPluginsKanbanLinksPost(linkBody, board, profile)
 
 Add Link
 
@@ -524,9 +542,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final LinkBody linkBody = ; // LinkBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.addLinkApiPluginsKanbanLinksPost(linkBody, board);
+    final response = api.addLinkApiPluginsKanbanLinksPost(linkBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->addLinkApiPluginsKanbanLinksPost: $e\n');
@@ -539,6 +558,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **linkBody** | [**LinkBody**](LinkBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -906,7 +926,7 @@ No authorization required
 
 Auth Me
 
-Return the verified session as JSON. Auth-required (gate enforces).
+Return the verified session as JSON.  Gated mode: the auth middleware attached a verified Session — return it. Loopback mode (``auth_required`` False): there is no OAuth Session, but the legacy ``_SESSION_TOKEN`` middleware has already validated the bearer token for non-public ``/api/`` routes. Report the loopback identity honestly instead of 401-ing (GH #66223). Belt-and-braces: re-verify the token so the handler stays safe even if this route were ever allowlisted.
 
 ### Example
 ```dart
@@ -1197,7 +1217,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost**
-> Object autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(profileName, describeAutoBody)
+> Object autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(profileName, describeAutoBody, profile)
 
 Auto Describe Profile
 
@@ -1210,9 +1230,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String profileName = profileName_example; // String | 
 final DescribeAutoBody describeAutoBody = ; // DescribeAutoBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(profileName, describeAutoBody);
+    final response = api.autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost(profileName, describeAutoBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->autoDescribeProfileApiPluginsKanbanProfilesProfileNameDescribeAutoPost: $e\n');
@@ -1225,6 +1246,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **profileName** | **String**|  | 
  **describeAutoBody** | [**DescribeAutoBody**](DescribeAutoBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1289,7 +1311,7 @@ No authorization required
 
 Bulk Delete Sessions Endpoint
 
-Delete every session in ``body.ids`` in one transaction (POST: many clients refuse a DELETE body).  Per :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted`` reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.
+Delete every session in ``body.ids`` in one transaction (POST: many clients refuse a DELETE body).  Per :meth:`SessionDB.delete_sessions`: unknown ids are skipped (``deleted`` reports what really happened), children are orphaned, active/archived rows ARE deleted (hand-picked), on-disk cleanup is left to the next prune.  Compression chains are deleted whole: the sessions list shows one row per logical conversation carrying the chain *tip's* id, so deleting only that row would leave the root to resurface as the previous chain link on the next reload (#57543). ``deleted`` still counts the selected rows, not the expanded chain links.
 
 ### Example
 ```dart
@@ -1328,7 +1350,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **bulkUpdateApiPluginsKanbanTasksBulkPost**
-> Object bulkUpdateApiPluginsKanbanTasksBulkPost(bulkTaskBody, board)
+> Object bulkUpdateApiPluginsKanbanTasksBulkPost(bulkTaskBody, board, profile)
 
 Bulk Update
 
@@ -1341,9 +1363,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final BulkTaskBody bulkTaskBody = ; // BulkTaskBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.bulkUpdateApiPluginsKanbanTasksBulkPost(bulkTaskBody, board);
+    final response = api.bulkUpdateApiPluginsKanbanTasksBulkPost(bulkTaskBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->bulkUpdateApiPluginsKanbanTasksBulkPost: $e\n');
@@ -1356,6 +1379,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **bulkTaskBody** | [**BulkTaskBody**](BulkTaskBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1543,7 +1567,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **checkHermesUpdateApiHermesUpdateCheckGet**
-> Object checkHermesUpdateApiHermesUpdateCheckGet(force)
+> Object checkHermesUpdateApiHermesUpdateCheckGet(force, profile)
 
 Check Hermes Update
 
@@ -1555,9 +1579,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final bool force = true; // bool | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.checkHermesUpdateApiHermesUpdateCheckGet(force);
+    final response = api.checkHermesUpdateApiHermesUpdateCheckGet(force, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->checkHermesUpdateApiHermesUpdateCheckGet: $e\n');
@@ -1569,6 +1594,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **force** | **bool**|  | [optional] [default to false]
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1670,7 +1696,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **createBoardEndpointApiPluginsKanbanBoardsPost**
-> Object createBoardEndpointApiPluginsKanbanBoardsPost(createBoardBody)
+> Object createBoardEndpointApiPluginsKanbanBoardsPost(createBoardBody, profile)
 
 Create Board Endpoint
 
@@ -1682,9 +1708,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final CreateBoardBody createBoardBody = ; // CreateBoardBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.createBoardEndpointApiPluginsKanbanBoardsPost(createBoardBody);
+    final response = api.createBoardEndpointApiPluginsKanbanBoardsPost(createBoardBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->createBoardEndpointApiPluginsKanbanBoardsPost: $e\n');
@@ -1696,6 +1723,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **createBoardBody** | [**CreateBoardBody**](CreateBoardBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1756,7 +1784,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **createHookApiOpsHooksPost**
-> Object createHookApiOpsHooksPost(hookCreate)
+> Object createHookApiOpsHooksPost(hookCreate, profile)
 
 Create Hook
 
@@ -1768,9 +1796,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final HookCreate hookCreate = ; // HookCreate | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.createHookApiOpsHooksPost(hookCreate);
+    final response = api.createHookApiOpsHooksPost(hookCreate, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->createHookApiOpsHooksPost: $e\n');
@@ -1782,6 +1811,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **hookCreate** | [**HookCreate**](HookCreate.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1881,11 +1911,11 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **createSkillApiSkillsPost**
-> Object createSkillApiSkillsPost(skillCreate)
+> Object createSkillApiSkillsPost(skillCreate, profile)
 
 Create Skill
 
-Create a skill via the agent's ``skill_manage`` write path, minus the write-approval gate — an authenticated dashboard write IS the user.
+Create a skill via the agent's ``skill_manage`` write path, minus the write-approval gate — an authenticated dashboard write IS the user. Profile from the body or ``?profile=``, like the rest of ``/api/skills``.
 
 ### Example
 ```dart
@@ -1893,9 +1923,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final SkillCreate skillCreate = ; // SkillCreate | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.createSkillApiSkillsPost(skillCreate);
+    final response = api.createSkillApiSkillsPost(skillCreate, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->createSkillApiSkillsPost: $e\n');
@@ -1907,6 +1938,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **skillCreate** | [**SkillCreate**](SkillCreate.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -1924,7 +1956,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **createTaskApiPluginsKanbanTasksPost**
-> Object createTaskApiPluginsKanbanTasksPost(createTaskBody, board)
+> Object createTaskApiPluginsKanbanTasksPost(createTaskBody, board, profile)
 
 Create Task
 
@@ -1935,9 +1967,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final CreateTaskBody createTaskBody = ; // CreateTaskBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.createTaskApiPluginsKanbanTasksPost(createTaskBody, board);
+    final response = api.createTaskApiPluginsKanbanTasksPost(createTaskBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->createTaskApiPluginsKanbanTasksPost: $e\n');
@@ -1950,6 +1983,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **createTaskBody** | [**CreateTaskBody**](CreateTaskBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2012,7 +2046,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **createWebhookApiWebhooksPost**
-> Object createWebhookApiWebhooksPost(webhookCreate)
+> Object createWebhookApiWebhooksPost(webhookCreate, profile)
 
 Create Webhook
 
@@ -2022,9 +2056,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final WebhookCreate webhookCreate = ; // WebhookCreate | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.createWebhookApiWebhooksPost(webhookCreate);
+    final response = api.createWebhookApiWebhooksPost(webhookCreate, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->createWebhookApiWebhooksPost: $e\n');
@@ -2036,6 +2071,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **webhookCreate** | [**WebhookCreate**](WebhookCreate.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2092,7 +2128,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost**
-> Object decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(taskId, decomposeBody, board)
+> Object decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(taskId, decomposeBody, board, profile)
 
 Decompose Task Endpoint
 
@@ -2106,9 +2142,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final DecomposeBody decomposeBody = ; // DecomposeBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(taskId, decomposeBody, board);
+    final response = api.decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost(taskId, decomposeBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->decomposeTaskEndpointApiPluginsKanbanTasksTaskIdDecomposePost: $e\n');
@@ -2122,6 +2159,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **decomposeBody** | [**DecomposeBody**](DecomposeBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2180,7 +2218,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteBoardApiPluginsKanbanBoardsSlugDelete**
-> Object deleteBoardApiPluginsKanbanBoardsSlugDelete(slug, delete)
+> Object deleteBoardApiPluginsKanbanBoardsSlugDelete(slug, delete, profile)
 
 Delete Board
 
@@ -2193,9 +2231,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String slug = slug_example; // String | 
 final bool delete = true; // bool | Hard-delete instead of archive
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteBoardApiPluginsKanbanBoardsSlugDelete(slug, delete);
+    final response = api.deleteBoardApiPluginsKanbanBoardsSlugDelete(slug, delete, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteBoardApiPluginsKanbanBoardsSlugDelete: $e\n');
@@ -2208,6 +2247,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **slug** | **String**|  | 
  **delete** | **bool**| Hard-delete instead of archive | [optional] [default to false]
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2356,7 +2396,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteHookApiOpsHooksDelete**
-> Object deleteHookApiOpsHooksDelete(hookDelete)
+> Object deleteHookApiOpsHooksDelete(hookDelete, profile)
 
 Delete Hook
 
@@ -2368,9 +2408,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final HookDelete hookDelete = ; // HookDelete | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteHookApiOpsHooksDelete(hookDelete);
+    final response = api.deleteHookApiOpsHooksDelete(hookDelete, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteHookApiOpsHooksDelete: $e\n');
@@ -2382,6 +2423,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **hookDelete** | [**HookDelete**](HookDelete.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2399,11 +2441,11 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteLearningNodeApiLearningNodeDelete**
-> Object deleteLearningNodeApiLearningNodeDelete(learningNodeRef)
+> Object deleteLearningNodeApiLearningNodeDelete(learningNodeRef, profile)
 
 Delete Learning Node
 
-Delete a journey node — skills are archived (restorable), memories removed.
+Delete a journey node — skills are archived (restorable), memories removed.  ``?profile=`` is honoured too: a shared-backend Desktop scopes this call by query only, and ignoring it archived the same-named skill of the launch profile instead.
 
 ### Example
 ```dart
@@ -2411,9 +2453,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final LearningNodeRef learningNodeRef = ; // LearningNodeRef | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteLearningNodeApiLearningNodeDelete(learningNodeRef);
+    final response = api.deleteLearningNodeApiLearningNodeDelete(learningNodeRef, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteLearningNodeApiLearningNodeDelete: $e\n');
@@ -2425,6 +2468,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **learningNodeRef** | [**LearningNodeRef**](LearningNodeRef.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2442,7 +2486,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteLinkApiPluginsKanbanLinksDelete**
-> Object deleteLinkApiPluginsKanbanLinksDelete(parentId, childId, board)
+> Object deleteLinkApiPluginsKanbanLinksDelete(parentId, childId, board, profile)
 
 Delete Link
 
@@ -2454,9 +2498,10 @@ final api = HermesApi().getDefaultApi();
 final String parentId = parentId_example; // String | 
 final String childId = childId_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteLinkApiPluginsKanbanLinksDelete(parentId, childId, board);
+    final response = api.deleteLinkApiPluginsKanbanLinksDelete(parentId, childId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteLinkApiPluginsKanbanLinksDelete: $e\n');
@@ -2470,6 +2515,7 @@ Name | Type | Description  | Notes
  **parentId** | **String**|  | 
  **childId** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2614,7 +2660,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteTaskApiPluginsKanbanTasksTaskIdDelete**
-> Object deleteTaskApiPluginsKanbanTasksTaskIdDelete(taskId, board)
+> Object deleteTaskApiPluginsKanbanTasksTaskIdDelete(taskId, board, profile)
 
 Delete Task
 
@@ -2625,9 +2671,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteTaskApiPluginsKanbanTasksTaskIdDelete(taskId, board);
+    final response = api.deleteTaskApiPluginsKanbanTasksTaskIdDelete(taskId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteTaskApiPluginsKanbanTasksTaskIdDelete: $e\n');
@@ -2640,6 +2687,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **taskId** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2657,7 +2705,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **deleteWebhookApiWebhooksNameDelete**
-> Object deleteWebhookApiWebhooksNameDelete(name)
+> Object deleteWebhookApiWebhooksNameDelete(name, profile)
 
 Delete Webhook
 
@@ -2667,9 +2715,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String name = name_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.deleteWebhookApiWebhooksNameDelete(name);
+    final response = api.deleteWebhookApiWebhooksNameDelete(name, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->deleteWebhookApiWebhooksNameDelete: $e\n');
@@ -2681,6 +2730,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **name** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2788,7 +2838,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **dispatchApiPluginsKanbanDispatchPost**
-> Object dispatchApiPluginsKanbanDispatchPost(dryRun, max, board)
+> Object dispatchApiPluginsKanbanDispatchPost(dryRun, max, board, profile)
 
 Dispatch
 
@@ -2802,9 +2852,10 @@ final api = HermesApi().getDefaultApi();
 final bool dryRun = true; // bool | 
 final int max = 56; // int | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.dispatchApiPluginsKanbanDispatchPost(dryRun, max, board);
+    final response = api.dispatchApiPluginsKanbanDispatchPost(dryRun, max, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->dispatchApiPluginsKanbanDispatchPost: $e\n');
@@ -2818,6 +2869,7 @@ Name | Type | Description  | Notes
  **dryRun** | **bool**|  | [optional] [default to false]
  **max** | **int**|  | [optional] [default to 8]
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2835,7 +2887,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet**
-> Object downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(attachmentId, board)
+> Object downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(attachmentId, board, profile)
 
 Download Attachment
 
@@ -2846,9 +2898,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final int attachmentId = 56; // int | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(attachmentId, board);
+    final response = api.downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet(attachmentId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->downloadAttachmentApiPluginsKanbanAttachmentsAttachmentIdGet: $e\n');
@@ -2861,6 +2914,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **attachmentId** | **int**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2878,7 +2932,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **downloadDashboardBackupApiOpsBackupDownloadGet**
-> Object downloadDashboardBackupApiOpsBackupDownloadGet(archive)
+> Object downloadDashboardBackupApiOpsBackupDownloadGet(archive, profile)
 
 Download Dashboard Backup
 
@@ -2888,9 +2942,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String archive = archive_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.downloadDashboardBackupApiOpsBackupDownloadGet(archive);
+    final response = api.downloadDashboardBackupApiOpsBackupDownloadGet(archive, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->downloadDashboardBackupApiOpsBackupDownloadGet: $e\n');
@@ -2902,6 +2957,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **archive** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2962,7 +3018,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **enableWebhooksApiWebhooksEnablePost**
-> Object enableWebhooksApiWebhooksEnablePost()
+> Object enableWebhooksApiWebhooksEnablePost(profile)
 
 Enable Webhooks
 
@@ -2971,9 +3027,10 @@ Enable Webhooks
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.enableWebhooksApiWebhooksEnablePost();
+    final response = api.enableWebhooksApiWebhooksEnablePost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->enableWebhooksApiWebhooksEnablePost: $e\n');
@@ -2981,7 +3038,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -2999,7 +3059,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost**
-> Object estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(taskId, board)
+> Object estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(taskId, board, profile)
 
 Estimate Task Endpoint
 
@@ -3012,9 +3072,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(taskId, board);
+    final response = api.estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost(taskId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->estimateTaskEndpointApiPluginsKanbanTasksTaskIdEstimatePost: $e\n');
@@ -3027,6 +3088,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **taskId** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3044,7 +3106,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **estimateTextEndpointApiPluginsKanbanEstimatePost**
-> Object estimateTextEndpointApiPluginsKanbanEstimatePost(estimateBody)
+> Object estimateTextEndpointApiPluginsKanbanEstimatePost(estimateBody, profile)
 
 Estimate Text Endpoint
 
@@ -3056,9 +3118,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final EstimateBody estimateBody = ; // EstimateBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.estimateTextEndpointApiPluginsKanbanEstimatePost(estimateBody);
+    final response = api.estimateTextEndpointApiPluginsKanbanEstimatePost(estimateBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->estimateTextEndpointApiPluginsKanbanEstimatePost: $e\n');
@@ -3070,6 +3133,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **estimateBody** | [**EstimateBody**](EstimateBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3087,7 +3151,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost**
-> Object exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(slug, exportBoardBody)
+> Object exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(slug, exportBoardBody, profile)
 
 Export Board Endpoint
 
@@ -3100,9 +3164,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String slug = slug_example; // String | 
 final ExportBoardBody exportBoardBody = ; // ExportBoardBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(slug, exportBoardBody);
+    final response = api.exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost(slug, exportBoardBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->exportBoardEndpointApiPluginsKanbanBoardsSlugExportPost: $e\n');
@@ -3115,6 +3180,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **slug** | **String**|  | 
  **exportBoardBody** | [**ExportBoardBody**](ExportBoardBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3220,7 +3286,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **fsDefaultCwdApiFsDefaultCwdGet**
-> Object fsDefaultCwdApiFsDefaultCwdGet()
+> Object fsDefaultCwdApiFsDefaultCwdGet(profile)
 
 Fs Default Cwd
 
@@ -3229,9 +3295,10 @@ Fs Default Cwd
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.fsDefaultCwdApiFsDefaultCwdGet();
+    final response = api.fsDefaultCwdApiFsDefaultCwdGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->fsDefaultCwdApiFsDefaultCwdGet: $e\n');
@@ -3239,7 +3306,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3302,7 +3372,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **fsGitRootApiFsGitRootGet**
-> Object fsGitRootApiFsGitRootGet(path)
+> Object fsGitRootApiFsGitRootGet(path, profile)
 
 Fs Git Root
 
@@ -3312,9 +3382,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String path = path_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.fsGitRootApiFsGitRootGet(path);
+    final response = api.fsGitRootApiFsGitRootGet(path, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->fsGitRootApiFsGitRootGet: $e\n');
@@ -3326,6 +3397,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **path** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3343,7 +3415,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **fsListApiFsListGet**
-> Object fsListApiFsListGet(path)
+> Object fsListApiFsListGet(path, profile)
 
 Fs List
 
@@ -3353,9 +3425,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String path = path_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.fsListApiFsListGet(path);
+    final response = api.fsListApiFsListGet(path, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->fsListApiFsListGet: $e\n');
@@ -3367,6 +3440,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **path** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3429,7 +3503,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **fsReadTextApiFsReadTextGet**
-> Object fsReadTextApiFsReadTextGet(path)
+> Object fsReadTextApiFsReadTextGet(path, profile)
 
 Fs Read Text
 
@@ -3439,9 +3513,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String path = path_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.fsReadTextApiFsReadTextGet(path);
+    final response = api.fsReadTextApiFsReadTextGet(path, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->fsReadTextApiFsReadTextGet: $e\n');
@@ -3453,6 +3528,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **path** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3470,7 +3546,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **fsWriteTextApiFsWriteTextPost**
-> Object fsWriteTextApiFsWriteTextPost(fsWriteText)
+> Object fsWriteTextApiFsWriteTextPost(fsWriteText, profile)
 
 Fs Write Text
 
@@ -3482,9 +3558,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final FsWriteText fsWriteText = ; // FsWriteText | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.fsWriteTextApiFsWriteTextPost(fsWriteText);
+    final response = api.fsWriteTextApiFsWriteTextPost(fsWriteText, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->fsWriteTextApiFsWriteTextPost: $e\n');
@@ -3496,6 +3573,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **fsWriteText** | [**FsWriteText**](FsWriteText.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3714,7 +3792,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getAssigneesApiPluginsKanbanAssigneesGet**
-> Object getAssigneesApiPluginsKanbanAssigneesGet(board)
+> Object getAssigneesApiPluginsKanbanAssigneesGet(board, profile)
 
 Get Assignees
 
@@ -3726,9 +3804,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getAssigneesApiPluginsKanbanAssigneesGet(board);
+    final response = api.getAssigneesApiPluginsKanbanAssigneesGet(board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getAssigneesApiPluginsKanbanAssigneesGet: $e\n');
@@ -3740,6 +3819,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -3761,7 +3841,7 @@ No authorization required
 
 Get Auxiliary Models
 
-Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model, base_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read — without it the Models page would show the dashboard profile's pins while /api/model/set wrote the selected profile's.
+Current auxiliary task assignments: ``{\"tasks\": [{task, provider, model, base_url}, ...], \"main\": {provider, model}}``. ``profile`` scopes the read — without it the Models page would show the dashboard profile's pins while /api/model/set wrote the selected profile's.  Built-in slots come first; plugin-registered tasks follow, each carrying the ``label``/``hint``/``plugin`` the plugin declared (built-ins are labelled client-side) and ``inherit_from`` (base slot key or null). An inheriting row also carries ``effective``: the route it resolves to right now, which is the base's while the row itself is unpinned. ``provider``/``model``/``base_url`` stay the slot's own stored values on every row.
 
 ### Example
 ```dart
@@ -3800,7 +3880,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getBoardEndpointApiPluginsKanbanBoardGet**
-> Object getBoardEndpointApiPluginsKanbanBoardGet(tenant, includeArchived, board, workflowTemplateId, currentStepKey)
+> Object getBoardEndpointApiPluginsKanbanBoardGet(tenant, includeArchived, board, workflowTemplateId, currentStepKey, profile)
 
 Get Board Endpoint
 
@@ -3814,9 +3894,10 @@ final bool includeArchived = true; // bool |
 final String board = board_example; // String | Kanban board slug (omit for current)
 final String workflowTemplateId = workflowTemplateId_example; // String | Restrict to tasks using this workflow template id
 final String currentStepKey = currentStepKey_example; // String | Restrict to tasks at this workflow step key
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getBoardEndpointApiPluginsKanbanBoardGet(tenant, includeArchived, board, workflowTemplateId, currentStepKey);
+    final response = api.getBoardEndpointApiPluginsKanbanBoardGet(tenant, includeArchived, board, workflowTemplateId, currentStepKey, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getBoardEndpointApiPluginsKanbanBoardGet: $e\n');
@@ -3832,6 +3913,52 @@ Name | Type | Description  | Notes
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
  **workflowTemplateId** | **String**| Restrict to tasks using this workflow template id | [optional] 
  **currentStepKey** | **String**| Restrict to tasks at this workflow step key | [optional] 
+ **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getChatWorkspacesApiChatWorkspacesGet**
+> Object getChatWorkspacesApiChatWorkspacesGet(profile, scan)
+
+Get Chat Workspaces
+
+Projects + discovered repos a fresh chat may start in; ``scan=1`` rescans the configured discovery roots on the host first (headless installs have no Desktop to do it).
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
+final bool scan = true; // bool | 
+
+try {
+    final response = api.getChatWorkspacesApiChatWorkspacesGet(profile, scan);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->getChatWorkspacesApiChatWorkspacesGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
+ **scan** | **bool**|  | [optional] [default to false]
 
 ### Return type
 
@@ -3978,7 +4105,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getConfigApiPluginsKanbanConfigGet**
-> Object getConfigApiPluginsKanbanConfigGet()
+> Object getConfigApiPluginsKanbanConfigGet(profile)
 
 Get Config
 
@@ -3989,9 +4116,10 @@ Kanban dashboard preferences from the ``dashboard.kanban`` config section.
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getConfigApiPluginsKanbanConfigGet();
+    final response = api.getConfigApiPluginsKanbanConfigGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getConfigApiPluginsKanbanConfigGet: $e\n');
@@ -3999,7 +4127,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4060,20 +4191,21 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getCronDeliveryTargetsApiCronDeliveryTargetsGet**
-> Object getCronDeliveryTargetsApiCronDeliveryTargetsGet()
+> Object getCronDeliveryTargetsApiCronDeliveryTargetsGet(profile)
 
 Get Cron Delivery Targets
 
-Delivery targets for the cron dropdown: implicit ``local`` plus the configured gateway platforms (a platform without a cron home channel is still listed with ``home_target_set: false`` so the UI can say so).
+Delivery targets for the cron dropdown: implicit ``local`` plus the configured gateway platforms (a platform without a cron home channel is still listed with ``home_target_set: false`` so the UI can say so).  ``cron_delivery_targets()`` reads each platform's home channel through ``get_secret``, which fails closed once this process hosts more than one profile home (the dashboard/desktop ``serve`` backend flips multi-profile hosting on the first ``?profile=`` request). The read must therefore run inside the profile scope, exactly like the sibling cron routes — otherwise the poll raises ``UnscopedSecretError`` on every tick and the dropdown silently loses every configured platform.
 
 ### Example
 ```dart
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getCronDeliveryTargetsApiCronDeliveryTargetsGet();
+    final response = api.getCronDeliveryTargetsApiCronDeliveryTargetsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getCronDeliveryTargetsApiCronDeliveryTargetsGet: $e\n');
@@ -4081,7 +4213,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4142,7 +4277,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getCuratorStatusApiCuratorGet**
-> Object getCuratorStatusApiCuratorGet()
+> Object getCuratorStatusApiCuratorGet(profile)
 
 Get Curator Status
 
@@ -4151,9 +4286,10 @@ Get Curator Status
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getCuratorStatusApiCuratorGet();
+    final response = api.getCuratorStatusApiCuratorGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getCuratorStatusApiCuratorGet: $e\n');
@@ -4161,7 +4297,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4179,7 +4318,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getDashboardFontApiDashboardFontGet**
-> Object getDashboardFontApiDashboardFontGet()
+> Object getDashboardFontApiDashboardFontGet(profile)
 
 Get Dashboard Font
 
@@ -4190,9 +4329,10 @@ Return the active font override (``\"theme\"`` = use the theme's font).
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getDashboardFontApiDashboardFontGet();
+    final response = api.getDashboardFontApiDashboardFontGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getDashboardFontApiDashboardFontGet: $e\n');
@@ -4200,7 +4340,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4218,7 +4361,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getDashboardPluginsApiDashboardPluginsGet**
-> Object getDashboardPluginsApiDashboardPluginsGet()
+> Object getDashboardPluginsApiDashboardPluginsGet(profile)
 
 Get Dashboard Plugins
 
@@ -4229,9 +4372,10 @@ Return discovered dashboard plugins (excludes user-hidden and non-enabled ones).
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getDashboardPluginsApiDashboardPluginsGet();
+    final response = api.getDashboardPluginsApiDashboardPluginsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getDashboardPluginsApiDashboardPluginsGet: $e\n');
@@ -4239,7 +4383,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4257,7 +4404,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getDashboardThemesApiDashboardThemesGet**
-> Object getDashboardThemesApiDashboardThemesGet()
+> Object getDashboardThemesApiDashboardThemesGet(profile)
 
 Get Dashboard Themes
 
@@ -4268,9 +4415,10 @@ Available themes + the active one. Built-ins ship name/label/description only (t
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getDashboardThemesApiDashboardThemesGet();
+    final response = api.getDashboardThemesApiDashboardThemesGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getDashboardThemesApiDashboardThemesGet: $e\n');
@@ -4278,7 +4426,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4333,7 +4484,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getEgressStatusApiEgressStatusGet**
-> Object getEgressStatusApiEgressStatusGet()
+> Object getEgressStatusApiEgressStatusGet(profile)
 
 Get Egress Status
 
@@ -4344,9 +4495,10 @@ Dashboard/Desktop-readable egress proxy status and remediation text.
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getEgressStatusApiEgressStatusGet();
+    final response = api.getEgressStatusApiEgressStatusGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getEgressStatusApiEgressStatusGet: $e\n');
@@ -4354,7 +4506,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4460,7 +4615,7 @@ No authorization required
 
 Get Health
 
-Lightweight process liveness for desktop/backend readiness probes.
+Lightweight process liveness for desktop/backend readiness probes.  ``commit`` is the code this process BOOTED from (``get_version_info`` is cached at ``web_server`` import): Desktop refuses to attach to a backend whose commit differs from its checkout, so a serve that outlived ``hermes update`` is never re-adopted.
 
 ### Example
 ```dart
@@ -4534,7 +4689,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getHomeChannelsApiPluginsKanbanHomeChannelsGet**
-> Object getHomeChannelsApiPluginsKanbanHomeChannelsGet(taskId, board)
+> Object getHomeChannelsApiPluginsKanbanHomeChannelsGet(taskId, board, profile)
 
 Get Home Channels
 
@@ -4547,9 +4702,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getHomeChannelsApiPluginsKanbanHomeChannelsGet(taskId, board);
+    final response = api.getHomeChannelsApiPluginsKanbanHomeChannelsGet(taskId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getHomeChannelsApiPluginsKanbanHomeChannelsGet: $e\n');
@@ -4562,6 +4718,46 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **taskId** | **String**|  | [optional] 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getHostIdentityApiHostIdentityGet**
+> Object getHostIdentityApiHostIdentityGet()
+
+Get Host Identity
+
+Prove to an attaching `hermes serve`/`dashboard` WHO owns this port.  The host rendezvous record names a (pid, port) owner, but a record cannot say whether that owner still holds the port: a graceful-shutdown window or an unrelated listener that inherited the port both look identical on disk. The attaching side dials this endpoint with the owner's 0600 token and attaches only when pid+role match. ``servesSpa`` is false for headless ``serve``, so a `hermes dashboard` user is never routed to a backend with no UI.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+
+try {
+    final response = api.getHostIdentityApiHostIdentityGet();
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->getHostIdentityApiHostIdentityGet: $e\n');
+}
+```
+
+### Parameters
+This endpoint does not need any parameter.
 
 ### Return type
 
@@ -4667,7 +4863,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getLogsApiLogsGet**
-> Object getLogsApiLogsGet(file, lines, level, component, search)
+> Object getLogsApiLogsGet(file, lines, level, component, search, profile)
 
 Get Logs
 
@@ -4681,9 +4877,10 @@ final int lines = 56; // int |
 final String level = level_example; // String | 
 final String component = component_example; // String | 
 final String search = search_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getLogsApiLogsGet(file, lines, level, component, search);
+    final response = api.getLogsApiLogsGet(file, lines, level, component, search, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getLogsApiLogsGet: $e\n');
@@ -4699,6 +4896,7 @@ Name | Type | Description  | Notes
  **level** | **String**|  | [optional] 
  **component** | **String**|  | [optional] 
  **search** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -4804,7 +5002,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getMemoryStatusApiMemoryGet**
-> Object getMemoryStatusApiMemoryGet()
+> Object getMemoryStatusApiMemoryGet(profile)
 
 Get Memory Status
 
@@ -4813,9 +5011,10 @@ Get Memory Status
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getMemoryStatusApiMemoryGet();
+    final response = api.getMemoryStatusApiMemoryGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getMemoryStatusApiMemoryGet: $e\n');
@@ -4823,7 +5022,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5062,7 +5264,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getOrchestrationSettingsApiPluginsKanbanOrchestrationGet**
-> Object getOrchestrationSettingsApiPluginsKanbanOrchestrationGet()
+> Object getOrchestrationSettingsApiPluginsKanbanOrchestrationGet(profile)
 
 Get Orchestration Settings
 
@@ -5073,9 +5275,10 @@ Current orchestration knobs from config.yaml plus the resolved effective values.
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getOrchestrationSettingsApiPluginsKanbanOrchestrationGet();
+    final response = api.getOrchestrationSettingsApiPluginsKanbanOrchestrationGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getOrchestrationSettingsApiPluginsKanbanOrchestrationGet: $e\n');
@@ -5083,7 +5286,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5140,7 +5346,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getPluginsHubApiDashboardPluginsHubGet**
-> Object getPluginsHubApiDashboardPluginsHubGet()
+> Object getPluginsHubApiDashboardPluginsHubGet(profile)
 
 Get Plugins Hub
 
@@ -5151,9 +5357,10 @@ Unified agent plugins + dashboard extension metadata (session protected).
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getPluginsHubApiDashboardPluginsHubGet();
+    final response = api.getPluginsHubApiDashboardPluginsHubGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getPluginsHubApiDashboardPluginsHubGet: $e\n');
@@ -5161,7 +5368,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5179,7 +5389,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getPortalStatusApiPortalGet**
-> Object getPortalStatusApiPortalGet()
+> Object getPortalStatusApiPortalGet(profile)
 
 Get Portal Status
 
@@ -5188,9 +5398,10 @@ Get Portal Status
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getPortalStatusApiPortalGet();
+    final response = api.getPortalStatusApiPortalGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getPortalStatusApiPortalGet: $e\n');
@@ -5198,7 +5409,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5500,7 +5714,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getRecommendedDefaultModelApiModelRecommendedDefaultGet**
-> Object getRecommendedDefaultModelApiModelRecommendedDefaultGet(provider)
+> Object getRecommendedDefaultModelApiModelRecommendedDefaultGet(provider, profile)
 
 Get Recommended Default Model
 
@@ -5512,9 +5726,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String provider = provider_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getRecommendedDefaultModelApiModelRecommendedDefaultGet(provider);
+    final response = api.getRecommendedDefaultModelApiModelRecommendedDefaultGet(provider, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getRecommendedDefaultModelApiModelRecommendedDefaultGet: $e\n');
@@ -5526,6 +5741,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **provider** | **String**|  | [optional] [default to '']
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5543,7 +5759,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getRunEndpointApiPluginsKanbanRunsRunIdGet**
-> Object getRunEndpointApiPluginsKanbanRunsRunIdGet(runId, board)
+> Object getRunEndpointApiPluginsKanbanRunsRunIdGet(runId, board, profile)
 
 Get Run Endpoint
 
@@ -5556,9 +5772,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final int runId = 56; // int | 
 final String board = board_example; // String | Kanban board slug (omit for current)
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getRunEndpointApiPluginsKanbanRunsRunIdGet(runId, board);
+    final response = api.getRunEndpointApiPluginsKanbanRunsRunIdGet(runId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getRunEndpointApiPluginsKanbanRunsRunIdGet: $e\n');
@@ -5571,6 +5788,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **runId** | **int**|  | 
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -5715,7 +5933,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getSessionMessagesApiSessionsSessionIdMessagesGet**
-> Object getSessionMessagesApiSessionsSessionIdMessagesGet(sessionId, profile, limit, offset, order, includeCompacted)
+> Object getSessionMessagesApiSessionsSessionIdMessagesGet(sessionId, profile, limit, offset, order, includeCompacted, inlineImages)
 
 Get Session Messages
 
@@ -5730,9 +5948,10 @@ final int limit = 56; // int |
 final int offset = 56; // int | 
 final String order = order_example; // String | 
 final bool includeCompacted = true; // bool | 
+final bool inlineImages = true; // bool | 
 
 try {
-    final response = api.getSessionMessagesApiSessionsSessionIdMessagesGet(sessionId, profile, limit, offset, order, includeCompacted);
+    final response = api.getSessionMessagesApiSessionsSessionIdMessagesGet(sessionId, profile, limit, offset, order, includeCompacted, inlineImages);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getSessionMessagesApiSessionsSessionIdMessagesGet: $e\n');
@@ -5749,6 +5968,7 @@ Name | Type | Description  | Notes
  **offset** | **int**|  | [optional] [default to 0]
  **order** | **String**|  | [optional] 
  **includeCompacted** | **bool**|  | [optional] [default to false]
+ **inlineImages** | **bool**|  | [optional] [default to true]
 
 ### Return type
 
@@ -5969,6 +6189,47 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **getSharedMetricsConsentApiSharedMetricsConsentGet**
+> Object getSharedMetricsConsentApiSharedMetricsConsentGet(profile)
+
+Get Shared Metrics Consent
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
+
+try {
+    final response = api.getSharedMetricsConsentApiSharedMetricsConsentGet(profile);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->getSharedMetricsConsentApiSharedMetricsConsentGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **getSkillContentApiSkillsContentGet**
 > Object getSkillContentApiSkillsContentGet(name, profile)
 
@@ -6093,7 +6354,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getStatsApiPluginsKanbanStatsGet**
-> Object getStatsApiPluginsKanbanStatsGet(board)
+> Object getStatsApiPluginsKanbanStatsGet(board, profile)
 
 Get Stats
 
@@ -6105,9 +6366,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getStatsApiPluginsKanbanStatsGet(board);
+    final response = api.getStatsApiPluginsKanbanStatsGet(board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getStatsApiPluginsKanbanStatsGet: $e\n');
@@ -6119,6 +6381,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -6218,7 +6481,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getTaskApiPluginsKanbanTasksTaskIdGet**
-> Object getTaskApiPluginsKanbanTasksTaskIdGet(taskId, board, runStateType, runStateName)
+> Object getTaskApiPluginsKanbanTasksTaskIdGet(taskId, board, runStateType, runStateName, profile)
 
 Get Task
 
@@ -6231,9 +6494,10 @@ final String taskId = taskId_example; // String |
 final String board = board_example; // String | 
 final String runStateType = runStateType_example; // String | With run_state_name: filter runs by column 'status' or 'outcome'
 final String runStateName = runStateName_example; // String | With run_state_type: exact value for that run column
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getTaskApiPluginsKanbanTasksTaskIdGet(taskId, board, runStateType, runStateName);
+    final response = api.getTaskApiPluginsKanbanTasksTaskIdGet(taskId, board, runStateType, runStateName, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getTaskApiPluginsKanbanTasksTaskIdGet: $e\n');
@@ -6248,6 +6512,7 @@ Name | Type | Description  | Notes
  **board** | **String**|  | [optional] 
  **runStateType** | **String**| With run_state_name: filter runs by column 'status' or 'outcome' | [optional] 
  **runStateName** | **String**| With run_state_type: exact value for that run column | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -6265,7 +6530,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **getTaskLogApiPluginsKanbanTasksTaskIdLogGet**
-> Object getTaskLogApiPluginsKanbanTasksTaskIdLogGet(taskId, tail, board)
+> Object getTaskLogApiPluginsKanbanTasksTaskIdLogGet(taskId, tail, board, profile)
 
 Get Task Log
 
@@ -6279,9 +6544,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final int tail = 56; // int | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.getTaskLogApiPluginsKanbanTasksTaskIdLogGet(taskId, tail, board);
+    final response = api.getTaskLogApiPluginsKanbanTasksTaskIdLogGet(taskId, tail, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->getTaskLogApiPluginsKanbanTasksTaskIdLogGet: $e\n');
@@ -6295,6 +6561,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **tail** | **int**|  | [optional] 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -6680,6 +6947,49 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **pairingId** | **String**|  | 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **getWorkflowApiPluginsKanbanWorkflowGet**
+> Object getWorkflowApiPluginsKanbanWorkflowGet(profile)
+
+Get Workflow
+
+Board columns (order, label, icon, drag target) and the manual move allow-list. Every board uses the default workflow today; per-board workflows (``board.json``) arrive in a later phase behind this same shape.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
+
+try {
+    final response = api.getWorkflowApiPluginsKanbanWorkflowGet(profile);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->getWorkflowApiPluginsKanbanWorkflowGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -7619,7 +7929,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **importBoardEndpointApiPluginsKanbanBoardsImportPost**
-> Object importBoardEndpointApiPluginsKanbanBoardsImportPost(importBoardBody)
+> Object importBoardEndpointApiPluginsKanbanBoardsImportPost(importBoardBody, profile)
 
 Import Board Endpoint
 
@@ -7631,9 +7941,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final ImportBoardBody importBoardBody = ; // ImportBoardBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.importBoardEndpointApiPluginsKanbanBoardsImportPost(importBoardBody);
+    final response = api.importBoardEndpointApiPluginsKanbanBoardsImportPost(importBoardBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->importBoardEndpointApiPluginsKanbanBoardsImportPost: $e\n');
@@ -7645,6 +7956,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **importBoardBody** | [**ImportBoardBody**](ImportBoardBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -7742,7 +8054,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet**
-> Object inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(runId, board)
+> Object inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(runId, board, profile)
 
 Inspect Run Endpoint
 
@@ -7755,9 +8067,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final int runId = 56; // int | 
 final String board = board_example; // String | Kanban board slug (omit for current)
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(runId, board);
+    final response = api.inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet(runId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->inspectRunEndpointApiPluginsKanbanRunsRunIdInspectGet: $e\n');
@@ -7770,6 +8083,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **runId** | **int**|  | 
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -7920,7 +8234,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listActiveWorkersApiPluginsKanbanWorkersActiveGet**
-> Object listActiveWorkersApiPluginsKanbanWorkersActiveGet(board)
+> Object listActiveWorkersApiPluginsKanbanWorkersActiveGet(board, profile)
 
 List Active Workers
 
@@ -7932,9 +8246,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String board = board_example; // String | Kanban board slug (omit for current)
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listActiveWorkersApiPluginsKanbanWorkersActiveGet(board);
+    final response = api.listActiveWorkersApiPluginsKanbanWorkersActiveGet(board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listActiveWorkersApiPluginsKanbanWorkersActiveGet: $e\n');
@@ -7946,6 +8261,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -7963,7 +8279,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listBoardsApiPluginsKanbanBoardsGet**
-> Object listBoardsApiPluginsKanbanBoardsGet(includeArchived)
+> Object listBoardsApiPluginsKanbanBoardsGet(includeArchived, profile)
 
 List Boards
 
@@ -7975,9 +8291,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final bool includeArchived = true; // bool | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listBoardsApiPluginsKanbanBoardsGet(includeArchived);
+    final response = api.listBoardsApiPluginsKanbanBoardsGet(includeArchived, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listBoardsApiPluginsKanbanBoardsGet: $e\n');
@@ -7989,6 +8306,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **includeArchived** | **bool**|  | [optional] [default to false]
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8006,7 +8324,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listCheckpointsApiOpsCheckpointsGet**
-> Object listCheckpointsApiOpsCheckpointsGet()
+> Object listCheckpointsApiOpsCheckpointsGet(profile)
 
 List Checkpoints
 
@@ -8017,9 +8335,10 @@ List Checkpoints
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listCheckpointsApiOpsCheckpointsGet();
+    final response = api.listCheckpointsApiOpsCheckpointsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listCheckpointsApiOpsCheckpointsGet: $e\n');
@@ -8027,7 +8346,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8045,7 +8367,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listCredentialPoolApiCredentialsPoolGet**
-> Object listCredentialPoolApiCredentialsPoolGet()
+> Object listCredentialPoolApiCredentialsPoolGet(profile)
 
 List Credential Pool
 
@@ -8054,9 +8376,10 @@ List Credential Pool
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listCredentialPoolApiCredentialsPoolGet();
+    final response = api.listCredentialPoolApiCredentialsPoolGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listCredentialPoolApiCredentialsPoolGet: $e\n');
@@ -8064,7 +8387,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8082,20 +8408,21 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listCronBlueprintsApiCronBlueprintsGet**
-> Object listCronBlueprintsApiCronBlueprintsGet()
+> Object listCronBlueprintsApiCronBlueprintsGet(profile)
 
 List Cron Blueprints
 
-Blueprint catalog as form schemas; the ``deliver`` slot's options are rewritten from the actually configured gateway platforms.
+Blueprint catalog (built-ins + the profile's plugin blueprints) as form schemas.
 
 ### Example
 ```dart
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listCronBlueprintsApiCronBlueprintsGet();
+    final response = api.listCronBlueprintsApiCronBlueprintsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listCronBlueprintsApiCronBlueprintsGet: $e\n');
@@ -8103,7 +8430,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8250,7 +8580,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listDiagnosticsApiPluginsKanbanDiagnosticsGet**
-> Object listDiagnosticsApiPluginsKanbanDiagnosticsGet(board, severity)
+> Object listDiagnosticsApiPluginsKanbanDiagnosticsGet(board, severity, profile)
 
 List Diagnostics
 
@@ -8263,9 +8593,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String board = board_example; // String | Kanban board slug (omit for current)
 final String severity = severity_example; // String | Filter by severity: warning|error|critical
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listDiagnosticsApiPluginsKanbanDiagnosticsGet(board, severity);
+    final response = api.listDiagnosticsApiPluginsKanbanDiagnosticsGet(board, severity, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listDiagnosticsApiPluginsKanbanDiagnosticsGet: $e\n');
@@ -8278,6 +8609,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
  **severity** | **String**| Filter by severity: warning|error|critical | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8295,7 +8627,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listHooksApiOpsHooksGet**
-> Object listHooksApiOpsHooksGet()
+> Object listHooksApiOpsHooksGet(profile)
 
 List Hooks
 
@@ -8306,9 +8638,10 @@ Configured shell hooks with consent (allowlist) status, whether the script is cu
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listHooksApiOpsHooksGet();
+    final response = api.listHooksApiOpsHooksGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listHooksApiOpsHooksGet: $e\n');
@@ -8316,7 +8649,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8334,7 +8670,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listKanbanProjectsApiPluginsKanbanProjectsGet**
-> Object listKanbanProjectsApiPluginsKanbanProjectsGet()
+> Object listKanbanProjectsApiPluginsKanbanProjectsGet(profile)
 
 List Kanban Projects
 
@@ -8345,9 +8681,10 @@ Live (non-archived) projects available for board scoping.
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listKanbanProjectsApiPluginsKanbanProjectsGet();
+    final response = api.listKanbanProjectsApiPluginsKanbanProjectsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listKanbanProjectsApiPluginsKanbanProjectsGet: $e\n');
@@ -8355,7 +8692,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8414,11 +8754,11 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listMcpCatalogApiMcpCatalogGet**
-> Object listMcpCatalogApiMcpCatalogGet(profile, detectApps)
+> Object listMcpCatalogApiMcpCatalogGet(profile)
 
 List Mcp Catalog
 
-Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for ``profile``. Opt-in app signals describe this backend machine, never the client or terminal sandbox.
+Browse the Nous-approved MCP catalog (optional-mcps/ manifests), each entry annotated with installed/enabled state for ``profile``.
 
 ### Example
 ```dart
@@ -8426,10 +8766,9 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String profile = profile_example; // String | 
-final bool detectApps = true; // bool | 
 
 try {
-    final response = api.listMcpCatalogApiMcpCatalogGet(profile, detectApps);
+    final response = api.listMcpCatalogApiMcpCatalogGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listMcpCatalogApiMcpCatalogGet: $e\n');
@@ -8441,7 +8780,6 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **profile** | **String**|  | [optional] 
- **detectApps** | **bool**|  | [optional] [default to false]
 
 ### Return type
 
@@ -8627,7 +8965,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listProfileRosterApiPluginsKanbanProfilesGet**
-> Object listProfileRosterApiPluginsKanbanProfilesGet()
+> Object listProfileRosterApiPluginsKanbanProfilesGet(profile)
 
 List Profile Roster
 
@@ -8638,9 +8976,10 @@ Every installed profile with its description (profiles without one are still rou
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listProfileRosterApiPluginsKanbanProfilesGet();
+    final response = api.listProfileRosterApiPluginsKanbanProfilesGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listProfileRosterApiPluginsKanbanProfilesGet: $e\n');
@@ -8648,7 +8987,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8746,7 +9088,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet**
-> Object listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(taskId, board)
+> Object listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(taskId, board, profile)
 
 List Task Attachments
 
@@ -8757,9 +9099,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(taskId, board);
+    final response = api.listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet(taskId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listTaskAttachmentsApiPluginsKanbanTasksTaskIdAttachmentsGet: $e\n');
@@ -8772,6 +9115,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **taskId** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8789,7 +9133,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listWebhooksApiWebhooksGet**
-> Object listWebhooksApiWebhooksGet()
+> Object listWebhooksApiWebhooksGet(profile)
 
 List Webhooks
 
@@ -8798,9 +9142,10 @@ List Webhooks
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.listWebhooksApiWebhooksGet();
+    final response = api.listWebhooksApiWebhooksGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->listWebhooksApiWebhooksGet: $e\n');
@@ -8808,7 +9153,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -8826,7 +9174,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **localModelsActivateApiLocalModelsActivatePost**
-> Object localModelsActivateApiLocalModelsActivatePost(modelActivateBody)
+> Object localModelsActivateApiLocalModelsActivatePost(modelActivateBody, profile)
 
 Local Models Activate
 
@@ -8838,9 +9186,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final ModelActivateBody modelActivateBody = ; // ModelActivateBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.localModelsActivateApiLocalModelsActivatePost(modelActivateBody);
+    final response = api.localModelsActivateApiLocalModelsActivatePost(modelActivateBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->localModelsActivateApiLocalModelsActivatePost: $e\n');
@@ -8852,6 +9201,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **modelActivateBody** | [**ModelActivateBody**](ModelActivateBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -9036,6 +9386,92 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **localModelsDownloadPauseApiLocalModelsDownloadPausePost**
+> Object localModelsDownloadPauseApiLocalModelsDownloadPausePost(jobIdBody)
+
+Local Models Download Pause
+
+Pause the download phase of a model, component or quickstart job.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final JobIdBody jobIdBody = ; // JobIdBody | 
+
+try {
+    final response = api.localModelsDownloadPauseApiLocalModelsDownloadPausePost(jobIdBody);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->localModelsDownloadPauseApiLocalModelsDownloadPausePost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **jobIdBody** | [**JobIdBody**](JobIdBody.md)|  | 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **localModelsDownloadResumeApiLocalModelsDownloadResumePost**
+> Object localModelsDownloadResumeApiLocalModelsDownloadResumePost(jobIdBody)
+
+Local Models Download Resume
+
+Restart the same job; PM reuses verified files and durable ranges.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final JobIdBody jobIdBody = ; // JobIdBody | 
+
+try {
+    final response = api.localModelsDownloadResumeApiLocalModelsDownloadResumePost(jobIdBody);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->localModelsDownloadResumeApiLocalModelsDownloadResumePost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **jobIdBody** | [**JobIdBody**](JobIdBody.md)|  | 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **localModelsEjectApiLocalModelsEjectPost**
 > Object localModelsEjectApiLocalModelsEjectPost(modelEjectBody)
 
@@ -9199,7 +9635,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **localModelsQuickstartApiLocalModelsQuickstartPost**
-> Object localModelsQuickstartApiLocalModelsQuickstartPost(quickstartBody)
+> Object localModelsQuickstartApiLocalModelsQuickstartPost(quickstartBody, profile)
 
 Local Models Quickstart
 
@@ -9211,9 +9647,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final QuickstartBody quickstartBody = ; // QuickstartBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.localModelsQuickstartApiLocalModelsQuickstartPost(quickstartBody);
+    final response = api.localModelsQuickstartApiLocalModelsQuickstartPost(quickstartBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->localModelsQuickstartApiLocalModelsQuickstartPost: $e\n');
@@ -9225,6 +9662,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **quickstartBody** | [**QuickstartBody**](QuickstartBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -9242,7 +9680,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost**
-> Object localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(runtimeInstallBody)
+> Object localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(runtimeInstallBody, profile)
 
 Local Models Runtime Install
 
@@ -9252,9 +9690,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final RuntimeInstallBody runtimeInstallBody = ; // RuntimeInstallBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(runtimeInstallBody);
+    final response = api.localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost(runtimeInstallBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->localModelsRuntimeInstallApiLocalModelsRuntimeInstallPost: $e\n');
@@ -9266,6 +9705,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **runtimeInstallBody** | [**RuntimeInstallBody**](RuntimeInstallBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -9668,7 +10108,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **modelOptionsApiPluginsKanbanModelOptionsGet**
-> Object modelOptionsApiPluginsKanbanModelOptionsGet()
+> Object modelOptionsApiPluginsKanbanModelOptionsGet(profile)
 
 Model Options
 
@@ -9679,9 +10119,10 @@ Providers + curated models for the override dropdown via ``inventory.build_model
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.modelOptionsApiPluginsKanbanModelOptionsGet();
+    final response = api.modelOptionsApiPluginsKanbanModelOptionsGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->modelOptionsApiPluginsKanbanModelOptionsGet: $e\n');
@@ -9689,7 +10130,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -9821,6 +10265,45 @@ Name | Type | Description  | Notes
  **providerId** | **String**|  | 
  **sessionId** | **String**|  | 
  **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **postAgentPluginActivateApiDashboardAgentPluginsActivatePost**
+> Object postAgentPluginActivateApiDashboardAgentPluginsActivatePost()
+
+Post Agent Plugin Activate
+
+``hermes plugins install`` / ``enable`` in another process asks this backend to load the plugin for ``home`` and hand its MCP servers and skills to that profile's open chats (``hermes_cli.plugins_activation.load_and_go_live``). ``home`` must be a profile this host serves.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+
+try {
+    final response = api.postAgentPluginActivateApiDashboardAgentPluginsActivatePost();
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->postAgentPluginActivateApiDashboardAgentPluginsActivatePost: $e\n');
+}
+```
+
+### Parameters
+This endpoint does not need any parameter.
 
 ### Return type
 
@@ -10039,7 +10522,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **postPluginVisibilityApiDashboardPluginsNameVisibilityPost**
-> Object postPluginVisibilityApiDashboardPluginsNameVisibilityPost(name, pluginVisibilityBody)
+> Object postPluginVisibilityApiDashboardPluginsNameVisibilityPost(name, pluginVisibilityBody, profile)
 
 Post Plugin Visibility
 
@@ -10052,9 +10535,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String name = name_example; // String | 
 final PluginVisibilityBody pluginVisibilityBody = ; // PluginVisibilityBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.postPluginVisibilityApiDashboardPluginsNameVisibilityPost(name, pluginVisibilityBody);
+    final response = api.postPluginVisibilityApiDashboardPluginsNameVisibilityPost(name, pluginVisibilityBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->postPluginVisibilityApiDashboardPluginsNameVisibilityPost: $e\n');
@@ -10067,6 +10551,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **name** | **String**|  | 
  **pluginVisibilityBody** | [**PluginVisibilityBody**](PluginVisibilityBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10171,8 +10656,51 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **proxyRemoteMediaApiMediaProxyGet**
+> Object proxyRemoteMediaApiMediaProxyGet(url)
+
+Proxy Remote Media
+
+Fetch a remote image URL the gateway can reach but the client cannot (#74564), returning the same ``data_url`` shape as ``/api/media``. Only allowlisted image CDNs; the bytes stay behind the size cap.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final String url = url_example; // String | 
+
+try {
+    final response = api.proxyRemoteMediaApiMediaProxyGet(url);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->proxyRemoteMediaApiMediaProxyGet: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **url** | **String**|  | 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **pruneCheckpointsApiOpsCheckpointsPrunePost**
-> Object pruneCheckpointsApiOpsCheckpointsPrunePost()
+> Object pruneCheckpointsApiOpsCheckpointsPrunePost(profile)
 
 Prune Checkpoints
 
@@ -10181,9 +10709,10 @@ Prune Checkpoints
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.pruneCheckpointsApiOpsCheckpointsPrunePost();
+    final response = api.pruneCheckpointsApiOpsCheckpointsPrunePost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->pruneCheckpointsApiOpsCheckpointsPrunePost: $e\n');
@@ -10191,7 +10720,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10252,7 +10784,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **putPluginProvidersApiDashboardPluginProvidersPut**
-> Object putPluginProvidersApiDashboardPluginProvidersPut(pluginProvidersPutBody)
+> Object putPluginProvidersApiDashboardPluginProvidersPut(pluginProvidersPutBody, profile)
 
 Put Plugin Providers
 
@@ -10264,9 +10796,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final PluginProvidersPutBody pluginProvidersPutBody = ; // PluginProvidersPutBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.putPluginProvidersApiDashboardPluginProvidersPut(pluginProvidersPutBody);
+    final response = api.putPluginProvidersApiDashboardPluginProvidersPut(pluginProvidersPutBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->putPluginProvidersApiDashboardPluginProvidersPut: $e\n');
@@ -10278,6 +10811,50 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **pluginProvidersPutBody** | [**PluginProvidersPutBody**](PluginProvidersPutBody.md)|  | 
+ **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **putSharedMetricsConsentApiSharedMetricsConsentPut**
+> Object putSharedMetricsConsentApiSharedMetricsConsentPut(consentAnswer, profile)
+
+Put Shared Metrics Consent
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final ConsentAnswer consentAnswer = ; // ConsentAnswer | 
+final String profile = profile_example; // String | 
+
+try {
+    final response = api.putSharedMetricsConsentApiSharedMetricsConsentPut(consentAnswer, profile);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->putSharedMetricsConsentApiSharedMetricsConsentPut: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **consentAnswer** | [**ConsentAnswer**](ConsentAnswer.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10336,7 +10913,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost**
-> Object reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(taskId, reassignBody, board)
+> Object reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(taskId, reassignBody, board, profile)
 
 Reassign Task Endpoint
 
@@ -10350,9 +10927,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final ReassignBody reassignBody = ; // ReassignBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(taskId, reassignBody, board);
+    final response = api.reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost(taskId, reassignBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->reassignTaskEndpointApiPluginsKanbanTasksTaskIdReassignPost: $e\n');
@@ -10366,6 +10944,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **reassignBody** | [**ReassignBody**](ReassignBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10383,7 +10962,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet**
-> Object recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet()
+> Object recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet(profile)
 
 Recent Unlocks
 
@@ -10392,9 +10971,10 @@ Recent Unlocks
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet();
+    final response = api.recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->recentUnlocksApiPluginsHermesAchievementsRecentUnlocksGet: $e\n');
@@ -10402,7 +10982,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10420,7 +11003,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost**
-> Object reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(taskId, reclaimBody, board)
+> Object reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(taskId, reclaimBody, board, profile)
 
 Reclaim Task Endpoint
 
@@ -10434,9 +11017,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final ReclaimBody reclaimBody = ; // ReclaimBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(taskId, reclaimBody, board);
+    final response = api.reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost(taskId, reclaimBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->reclaimTaskEndpointApiPluginsKanbanTasksTaskIdReclaimPost: $e\n');
@@ -10450,6 +11034,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **reclaimBody** | [**ReclaimBody**](ReclaimBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10467,7 +11052,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete**
-> Object removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(attachmentId, board)
+> Object removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(attachmentId, board, profile)
 
 Remove Attachment
 
@@ -10478,9 +11063,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final int attachmentId = 56; // int | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(attachmentId, board);
+    final response = api.removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete(attachmentId, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->removeAttachmentApiPluginsKanbanAttachmentsAttachmentIdDelete: $e\n');
@@ -10493,6 +11079,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **attachmentId** | **int**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10510,7 +11097,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete**
-> Object removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(provider, index)
+> Object removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(provider, index, profile)
 
 Remove Credential Pool Entry
 
@@ -10523,9 +11110,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String provider = provider_example; // String | 
 final int index = 56; // int | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(provider, index);
+    final response = api.removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete(provider, index, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->removeCredentialPoolEntryApiCredentialsPoolProviderIndexDelete: $e\n');
@@ -10538,6 +11126,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **provider** | **String**|  | 
  **index** | **int**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10641,7 +11230,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **renameBoardApiPluginsKanbanBoardsSlugPatch**
-> Object renameBoardApiPluginsKanbanBoardsSlugPatch(slug, renameBoardBody)
+> Object renameBoardApiPluginsKanbanBoardsSlugPatch(slug, renameBoardBody, profile)
 
 Rename Board
 
@@ -10654,9 +11243,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String slug = slug_example; // String | 
 final RenameBoardBody renameBoardBody = ; // RenameBoardBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.renameBoardApiPluginsKanbanBoardsSlugPatch(slug, renameBoardBody);
+    final response = api.renameBoardApiPluginsKanbanBoardsSlugPatch(slug, renameBoardBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->renameBoardApiPluginsKanbanBoardsSlugPatch: $e\n');
@@ -10669,6 +11259,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **slug** | **String**|  | 
  **renameBoardBody** | [**RenameBoardBody**](RenameBoardBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10819,7 +11410,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **rescanApiPluginsHermesAchievementsRescanPost**
-> Object rescanApiPluginsHermesAchievementsRescanPost()
+> Object rescanApiPluginsHermesAchievementsRescanPost(profile)
 
 Rescan
 
@@ -10828,9 +11419,10 @@ Rescan
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.rescanApiPluginsHermesAchievementsRescanPost();
+    final response = api.rescanApiPluginsHermesAchievementsRescanPost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->rescanApiPluginsHermesAchievementsRescanPost: $e\n');
@@ -10838,7 +11430,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10895,7 +11490,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **resetMemoryApiMemoryResetPost**
-> Object resetMemoryApiMemoryResetPost(memoryReset)
+> Object resetMemoryApiMemoryResetPost(memoryReset, profile)
 
 Reset Memory
 
@@ -10905,9 +11500,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final MemoryReset memoryReset = ; // MemoryReset | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.resetMemoryApiMemoryResetPost(memoryReset);
+    final response = api.resetMemoryApiMemoryResetPost(memoryReset, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->resetMemoryApiMemoryResetPost: $e\n');
@@ -10919,6 +11515,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **memoryReset** | [**MemoryReset**](MemoryReset.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -10936,7 +11533,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **resetStateApiPluginsHermesAchievementsResetStatePost**
-> Object resetStateApiPluginsHermesAchievementsResetStatePost()
+> Object resetStateApiPluginsHermesAchievementsResetStatePost(profile)
 
 Reset State
 
@@ -10945,9 +11542,10 @@ Reset State
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.resetStateApiPluginsHermesAchievementsResetStatePost();
+    final response = api.resetStateApiPluginsHermesAchievementsResetStatePost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->resetStateApiPluginsHermesAchievementsResetStatePost: $e\n');
@@ -10955,7 +11553,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11145,7 +11746,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runBackupApiOpsBackupPost**
-> Object runBackupApiOpsBackupPost(backupRequest)
+> Object runBackupApiOpsBackupPost(backupRequest, profile)
 
 Run Backup
 
@@ -11155,9 +11756,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final BackupRequest backupRequest = ; // BackupRequest | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runBackupApiOpsBackupPost(backupRequest);
+    final response = api.runBackupApiOpsBackupPost(backupRequest, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runBackupApiOpsBackupPost: $e\n');
@@ -11169,6 +11771,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **backupRequest** | [**BackupRequest**](BackupRequest.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11186,7 +11789,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runConfigMigrateApiOpsConfigMigratePost**
-> Object runConfigMigrateApiOpsConfigMigratePost()
+> Object runConfigMigrateApiOpsConfigMigratePost(profile)
 
 Run Config Migrate
 
@@ -11195,9 +11798,10 @@ Run Config Migrate
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runConfigMigrateApiOpsConfigMigratePost();
+    final response = api.runConfigMigrateApiOpsConfigMigratePost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runConfigMigrateApiOpsConfigMigratePost: $e\n');
@@ -11205,7 +11809,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11223,20 +11830,21 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runCuratorApiCuratorRunPost**
-> Object runCuratorApiCuratorRunPost()
+> Object runCuratorApiCuratorRunPost(profile)
 
 Run Curator
 
-Trigger a curator review now (backgrounded; tail via action status).
+Trigger a curator review now (backgrounded; tail via action status). The curator archives and rewrites skills, so an unnamed target is refused while this backend serves several profiles.
 
 ### Example
 ```dart
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runCuratorApiCuratorRunPost();
+    final response = api.runCuratorApiCuratorRunPost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runCuratorApiCuratorRunPost: $e\n');
@@ -11244,7 +11852,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11262,7 +11873,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runDebugShareEndpointApiOpsDebugSharePost**
-> Object runDebugShareEndpointApiOpsDebugSharePost(debugShareRequest)
+> Object runDebugShareEndpointApiOpsDebugSharePost(profile, debugShareRequest)
 
 Run Debug Share Endpoint
 
@@ -11273,10 +11884,11 @@ Upload a redacted debug report + full logs and return the paste URLs. Synchronou
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 final DebugShareRequest debugShareRequest = ; // DebugShareRequest | 
 
 try {
-    final response = api.runDebugShareEndpointApiOpsDebugSharePost(debugShareRequest);
+    final response = api.runDebugShareEndpointApiOpsDebugSharePost(profile, debugShareRequest);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runDebugShareEndpointApiOpsDebugSharePost: $e\n');
@@ -11287,6 +11899,7 @@ try {
 
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
  **debugShareRequest** | [**DebugShareRequest**](DebugShareRequest.md)|  | [optional] 
 
 ### Return type
@@ -11305,7 +11918,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runDoctorApiOpsDoctorPost**
-> Object runDoctorApiOpsDoctorPost()
+> Object runDoctorApiOpsDoctorPost(profile)
 
 Run Doctor
 
@@ -11314,9 +11927,10 @@ Run Doctor
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runDoctorApiOpsDoctorPost();
+    final response = api.runDoctorApiOpsDoctorPost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runDoctorApiOpsDoctorPost: $e\n');
@@ -11324,7 +11938,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11342,7 +11959,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runDumpApiOpsDumpPost**
-> Object runDumpApiOpsDumpPost()
+> Object runDumpApiOpsDumpPost(profile)
 
 Run Dump
 
@@ -11351,9 +11968,10 @@ Run Dump
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runDumpApiOpsDumpPost();
+    final response = api.runDumpApiOpsDumpPost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runDumpApiOpsDumpPost: $e\n');
@@ -11361,7 +11979,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11379,7 +12000,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runImportApiOpsImportPost**
-> Object runImportApiOpsImportPost(importRequest)
+> Object runImportApiOpsImportPost(importRequest, profile)
 
 Run Import
 
@@ -11389,9 +12010,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final ImportRequest importRequest = ; // ImportRequest | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runImportApiOpsImportPost(importRequest);
+    final response = api.runImportApiOpsImportPost(importRequest, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runImportApiOpsImportPost: $e\n');
@@ -11403,6 +12025,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **importRequest** | [**ImportRequest**](ImportRequest.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11420,7 +12043,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runImportUploadApiOpsImportUploadPost**
-> Object runImportUploadApiOpsImportUploadPost(file, force)
+> Object runImportUploadApiOpsImportUploadPost(file, profile, force)
 
 Run Import Upload
 
@@ -11430,10 +12053,11 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
+final String profile = profile_example; // String | 
 final bool force = true; // bool | 
 
 try {
-    final response = api.runImportUploadApiOpsImportUploadPost(file, force);
+    final response = api.runImportUploadApiOpsImportUploadPost(file, profile, force);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runImportUploadApiOpsImportUploadPost: $e\n');
@@ -11445,6 +12069,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **file** | **MultipartFile**|  | 
+ **profile** | **String**|  | [optional] 
  **force** | **bool**|  | [optional] [default to false]
 
 ### Return type
@@ -11463,7 +12088,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runPromptSizeApiOpsPromptSizePost**
-> Object runPromptSizeApiOpsPromptSizePost()
+> Object runPromptSizeApiOpsPromptSizePost(profile)
 
 Run Prompt Size
 
@@ -11472,9 +12097,10 @@ Run Prompt Size
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runPromptSizeApiOpsPromptSizePost();
+    final response = api.runPromptSizeApiOpsPromptSizePost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runPromptSizeApiOpsPromptSizePost: $e\n');
@@ -11482,7 +12108,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11500,7 +12129,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **runSecurityAuditApiOpsSecurityAuditPost**
-> Object runSecurityAuditApiOpsSecurityAuditPost()
+> Object runSecurityAuditApiOpsSecurityAuditPost(profile)
 
 Run Security Audit
 
@@ -11509,9 +12138,10 @@ Run Security Audit
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.runSecurityAuditApiOpsSecurityAuditPost();
+    final response = api.runSecurityAuditApiOpsSecurityAuditPost(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->runSecurityAuditApiOpsSecurityAuditPost: $e\n');
@@ -11519,7 +12149,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -11676,7 +12309,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **scanStatusApiPluginsHermesAchievementsScanStatusGet**
-> Object scanStatusApiPluginsHermesAchievementsScanStatusGet()
+> Object scanStatusApiPluginsHermesAchievementsScanStatusGet(profile)
 
 Scan Status
 
@@ -11685,9 +12318,10 @@ Scan Status
 import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.scanStatusApiPluginsHermesAchievementsScanStatusGet();
+    final response = api.scanStatusApiPluginsHermesAchievementsScanStatusGet(profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->scanStatusApiPluginsHermesAchievementsScanStatusGet: $e\n');
@@ -11695,7 +12329,10 @@ try {
 ```
 
 ### Parameters
-This endpoint does not need any parameter.
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12081,7 +12718,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet**
-> Object sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(sessionId)
+> Object sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(sessionId, profile)
 
 Session Badges
 
@@ -12091,9 +12728,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String sessionId = sessionId_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(sessionId);
+    final response = api.sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet(sessionId, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->sessionBadgesApiPluginsHermesAchievementsSessionsSessionIdBadgesGet: $e\n');
@@ -12105,6 +12743,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **sessionId** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12165,7 +12804,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setCuratorPausedApiCuratorPausedPut**
-> Object setCuratorPausedApiCuratorPausedPut(curatorPause)
+> Object setCuratorPausedApiCuratorPausedPut(curatorPause, profile)
 
 Set Curator Paused
 
@@ -12175,9 +12814,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final CuratorPause curatorPause = ; // CuratorPause | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setCuratorPausedApiCuratorPausedPut(curatorPause);
+    final response = api.setCuratorPausedApiCuratorPausedPut(curatorPause, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setCuratorPausedApiCuratorPausedPut: $e\n');
@@ -12189,6 +12829,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **curatorPause** | [**CuratorPause**](CuratorPause.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12206,7 +12847,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setDashboardFontApiDashboardFontPut**
-> Object setDashboardFontApiDashboardFontPut(fontSetBody)
+> Object setDashboardFontApiDashboardFontPut(fontSetBody, profile)
 
 Set Dashboard Font
 
@@ -12218,9 +12859,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final FontSetBody fontSetBody = ; // FontSetBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setDashboardFontApiDashboardFontPut(fontSetBody);
+    final response = api.setDashboardFontApiDashboardFontPut(fontSetBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setDashboardFontApiDashboardFontPut: $e\n');
@@ -12232,6 +12874,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **fontSetBody** | [**FontSetBody**](FontSetBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12249,7 +12892,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setDashboardThemeApiDashboardThemePut**
-> Object setDashboardThemeApiDashboardThemePut(themeSetBody)
+> Object setDashboardThemeApiDashboardThemePut(themeSetBody, profile)
 
 Set Dashboard Theme
 
@@ -12261,9 +12904,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final ThemeSetBody themeSetBody = ; // ThemeSetBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setDashboardThemeApiDashboardThemePut(themeSetBody);
+    final response = api.setDashboardThemeApiDashboardThemePut(themeSetBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setDashboardThemeApiDashboardThemePut: $e\n');
@@ -12275,6 +12919,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **themeSetBody** | [**ThemeSetBody**](ThemeSetBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12382,7 +13027,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setMemoryProviderApiMemoryProviderPut**
-> Object setMemoryProviderApiMemoryProviderPut(memoryProviderSelect)
+> Object setMemoryProviderApiMemoryProviderPut(memoryProviderSelect, profile)
 
 Set Memory Provider
 
@@ -12392,9 +13037,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final MemoryProviderSelect memoryProviderSelect = ; // MemoryProviderSelect | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setMemoryProviderApiMemoryProviderPut(memoryProviderSelect);
+    final response = api.setMemoryProviderApiMemoryProviderPut(memoryProviderSelect, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setMemoryProviderApiMemoryProviderPut: $e\n');
@@ -12406,6 +13052,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **memoryProviderSelect** | [**MemoryProviderSelect**](MemoryProviderSelect.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12513,7 +13160,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setOrchestrationSettingsApiPluginsKanbanOrchestrationPut**
-> Object setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(orchestrationSettingsBody)
+> Object setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(orchestrationSettingsBody, profile)
 
 Set Orchestration Settings
 
@@ -12525,9 +13172,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final OrchestrationSettingsBody orchestrationSettingsBody = ; // OrchestrationSettingsBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(orchestrationSettingsBody);
+    final response = api.setOrchestrationSettingsApiPluginsKanbanOrchestrationPut(orchestrationSettingsBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setOrchestrationSettingsApiPluginsKanbanOrchestrationPut: $e\n');
@@ -12539,6 +13187,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **orchestrationSettingsBody** | [**OrchestrationSettingsBody**](OrchestrationSettingsBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12556,7 +13205,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setWebhookEnabledApiWebhooksNameEnabledPut**
-> Object setWebhookEnabledApiWebhooksNameEnabledPut(name, webhookEnabledToggle)
+> Object setWebhookEnabledApiWebhooksNameEnabledPut(name, webhookEnabledToggle, profile)
 
 Set Webhook Enabled
 
@@ -12569,9 +13218,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String name = name_example; // String | 
 final WebhookEnabledToggle webhookEnabledToggle = ; // WebhookEnabledToggle | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setWebhookEnabledApiWebhooksNameEnabledPut(name, webhookEnabledToggle);
+    final response = api.setWebhookEnabledApiWebhooksNameEnabledPut(name, webhookEnabledToggle, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setWebhookEnabledApiWebhooksNameEnabledPut: $e\n');
@@ -12584,6 +13234,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **name** | **String**|  | 
  **webhookEnabledToggle** | [**WebhookEnabledToggle**](WebhookEnabledToggle.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12601,7 +13252,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **setupMemoryProviderApiMemoryProvidersNameSetupPost**
-> Object setupMemoryProviderApiMemoryProvidersNameSetupPost(name, memoryProviderSetupRequest)
+> Object setupMemoryProviderApiMemoryProvidersNameSetupPost(name, memoryProviderSetupRequest, profile)
 
 Setup Memory Provider
 
@@ -12612,9 +13263,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String name = name_example; // String | 
 final MemoryProviderSetupRequest memoryProviderSetupRequest = ; // MemoryProviderSetupRequest | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.setupMemoryProviderApiMemoryProvidersNameSetupPost(name, memoryProviderSetupRequest);
+    final response = api.setupMemoryProviderApiMemoryProvidersNameSetupPost(name, memoryProviderSetupRequest, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->setupMemoryProviderApiMemoryProvidersNameSetupPost: $e\n');
@@ -12627,6 +13279,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **name** | **String**|  | 
  **memoryProviderSetupRequest** | [**MemoryProviderSetupRequest**](MemoryProviderSetupRequest.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -12689,7 +13342,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost**
-> Object specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(taskId, specifyBody, board)
+> Object specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(taskId, specifyBody, board, profile)
 
 Specify Task Endpoint
 
@@ -12703,9 +13356,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final SpecifyBody specifyBody = ; // SpecifyBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(taskId, specifyBody, board);
+    final response = api.specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost(taskId, specifyBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->specifyTaskEndpointApiPluginsKanbanTasksTaskIdSpecifyPost: $e\n');
@@ -12719,6 +13373,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **specifyBody** | [**SpecifyBody**](SpecifyBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13075,6 +13730,51 @@ No authorization required
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **sttLeaseApiAudioSttLeasePost**
+> Object sttLeaseApiAudioSttLeasePost(sTTLeaseRequest, profile)
+
+Stt Lease
+
+Desktop voice-input sessions as STT warm-up / release signals.  ``active: true`` registers a lease and pre-loads the configured local STT model (first-use download + load) so the transcription request doesn't pay the cold cost inside its timeout; ``active: false`` drops the lease. The model stays resident after the last release — it is shared with the gateway/CLI surfaces in this process, and ``stt.local.unload_after_idle_seconds`` still governs eviction. Blocking work runs off the event loop. Warm-up failures are reported in the body, never as an HTTP error — recording must start even when preload fails.
+
+### Example
+```dart
+import 'package:hermes_api/api.dart';
+
+final api = HermesApi().getDefaultApi();
+final STTLeaseRequest sTTLeaseRequest = ; // STTLeaseRequest | 
+final String profile = profile_example; // String | 
+
+try {
+    final response = api.sttLeaseApiAudioSttLeasePost(sTTLeaseRequest, profile);
+    print(response);
+} on DioException catch (e) {
+    print('Exception when calling DefaultApi->sttLeaseApiAudioSttLeasePost: $e\n');
+}
+```
+
+### Parameters
+
+Name | Type | Description  | Notes
+------------- | ------------- | ------------- | -------------
+ **sTTLeaseRequest** | [**STTLeaseRequest**](STTLeaseRequest.md)|  | 
+ **profile** | **String**|  | [optional] 
+
+### Return type
+
+**Object**
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **submitOauthCodeApiProvidersOauthProviderIdSubmitPost**
 > Object submitOauthCodeApiProvidersOauthProviderIdSubmitPost(providerId, oAuthSubmitBody, profile)
 
@@ -13123,7 +13823,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost**
-> Object subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(taskId, platform, board)
+> Object subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(taskId, platform, board, profile)
 
 Subscribe Home
 
@@ -13137,9 +13837,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String platform = platform_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(taskId, platform, board);
+    final response = api.subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost(taskId, platform, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->subscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformPost: $e\n');
@@ -13153,6 +13854,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **platform** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13170,7 +13872,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **switchBoardApiPluginsKanbanBoardsSlugSwitchPost**
-> Object switchBoardApiPluginsKanbanBoardsSlugSwitchPost(slug)
+> Object switchBoardApiPluginsKanbanBoardsSlugSwitchPost(slug, profile)
 
 Switch Board
 
@@ -13182,9 +13884,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final String slug = slug_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.switchBoardApiPluginsKanbanBoardsSlugSwitchPost(slug);
+    final response = api.switchBoardApiPluginsKanbanBoardsSlugSwitchPost(slug, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->switchBoardApiPluginsKanbanBoardsSlugSwitchPost: $e\n');
@@ -13196,6 +13899,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **slug** | **String**|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13213,7 +13917,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost**
-> Object terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(runId, terminateRunBody, board)
+> Object terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(runId, terminateRunBody, board, profile)
 
 Terminate Run Endpoint
 
@@ -13227,9 +13931,10 @@ final api = HermesApi().getDefaultApi();
 final int runId = 56; // int | 
 final TerminateRunBody terminateRunBody = ; // TerminateRunBody | 
 final String board = board_example; // String | Kanban board slug (omit for current)
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(runId, terminateRunBody, board);
+    final response = api.terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost(runId, terminateRunBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->terminateRunEndpointApiPluginsKanbanRunsRunIdTerminatePost: $e\n');
@@ -13243,6 +13948,7 @@ Name | Type | Description  | Notes
  **runId** | **int**|  | 
  **terminateRunBody** | [**TerminateRunBody**](TerminateRunBody.md)|  | 
  **board** | **String**| Kanban board slug (omit for current) | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13612,7 +14318,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete**
-> Object unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(taskId, platform, board)
+> Object unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(taskId, platform, board, profile)
 
 Unsubscribe Home
 
@@ -13626,9 +14332,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final String platform = platform_example; // String | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(taskId, platform, board);
+    final response = api.unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete(taskId, platform, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->unsubscribeHomeApiPluginsKanbanTasksTaskIdHomeSubscribePlatformDelete: $e\n');
@@ -13642,6 +14349,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **platform** | **String**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13831,11 +14539,11 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **updateLearningNodeApiLearningNodePut**
-> Object updateLearningNodeApiLearningNodePut(learningNodeEdit)
+> Object updateLearningNodeApiLearningNodePut(learningNodeEdit, profile)
 
 Update Learning Node
 
-Rewrite a journey node's content (SKILL.md or memory chunk).
+Rewrite a journey node's content (SKILL.md or memory chunk); profile as for DELETE.
 
 ### Example
 ```dart
@@ -13843,9 +14551,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final LearningNodeEdit learningNodeEdit = ; // LearningNodeEdit | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.updateLearningNodeApiLearningNodePut(learningNodeEdit);
+    final response = api.updateLearningNodeApiLearningNodePut(learningNodeEdit, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->updateLearningNodeApiLearningNodePut: $e\n');
@@ -13857,6 +14566,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **learningNodeEdit** | [**LearningNodeEdit**](LearningNodeEdit.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -13966,7 +14676,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch**
-> Object updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(profileName, describeBody)
+> Object updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(profileName, describeBody, profile)
 
 Update Profile Description
 
@@ -13979,9 +14689,10 @@ import 'package:hermes_api/api.dart';
 final api = HermesApi().getDefaultApi();
 final String profileName = profileName_example; // String | 
 final DescribeBody describeBody = ; // DescribeBody | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(profileName, describeBody);
+    final response = api.updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch(profileName, describeBody, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->updateProfileDescriptionApiPluginsKanbanProfilesProfileNamePatch: $e\n');
@@ -13994,6 +14705,7 @@ Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **profileName** | **String**|  | 
  **describeBody** | [**DescribeBody**](DescribeBody.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -14144,7 +14856,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **updateSkillContentApiSkillsContentPut**
-> Object updateSkillContentApiSkillsContentPut(skillContentUpdate)
+> Object updateSkillContentApiSkillsContentPut(skillContentUpdate, profile)
 
 Update Skill Content
 
@@ -14156,9 +14868,10 @@ import 'package:hermes_api/api.dart';
 
 final api = HermesApi().getDefaultApi();
 final SkillContentUpdate skillContentUpdate = ; // SkillContentUpdate | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.updateSkillContentApiSkillsContentPut(skillContentUpdate);
+    final response = api.updateSkillContentApiSkillsContentPut(skillContentUpdate, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->updateSkillContentApiSkillsContentPut: $e\n');
@@ -14170,6 +14883,7 @@ try {
 Name | Type | Description  | Notes
 ------------- | ------------- | ------------- | -------------
  **skillContentUpdate** | [**SkillContentUpdate**](SkillContentUpdate.md)|  | 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -14230,7 +14944,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **updateTaskApiPluginsKanbanTasksTaskIdPatch**
-> Object updateTaskApiPluginsKanbanTasksTaskIdPatch(taskId, updateTaskBody, board)
+> Object updateTaskApiPluginsKanbanTasksTaskIdPatch(taskId, updateTaskBody, board, profile)
 
 Update Task
 
@@ -14242,9 +14956,10 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final UpdateTaskBody updateTaskBody = ; // UpdateTaskBody | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 
 try {
-    final response = api.updateTaskApiPluginsKanbanTasksTaskIdPatch(taskId, updateTaskBody, board);
+    final response = api.updateTaskApiPluginsKanbanTasksTaskIdPatch(taskId, updateTaskBody, board, profile);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->updateTaskApiPluginsKanbanTasksTaskIdPatch: $e\n');
@@ -14258,6 +14973,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **updateTaskBody** | [**UpdateTaskBody**](UpdateTaskBody.md)|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
 
 ### Return type
 
@@ -14408,7 +15124,7 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost**
-> Object uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(taskId, file, board, uploadedBy)
+> Object uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(taskId, file, board, profile, uploadedBy)
 
 Upload Task Attachment
 
@@ -14422,10 +15138,11 @@ final api = HermesApi().getDefaultApi();
 final String taskId = taskId_example; // String | 
 final MultipartFile file = BINARY_DATA_HERE; // MultipartFile | 
 final String board = board_example; // String | 
+final String profile = profile_example; // String | 
 final String uploadedBy = uploadedBy_example; // String | 
 
 try {
-    final response = api.uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(taskId, file, board, uploadedBy);
+    final response = api.uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost(taskId, file, board, profile, uploadedBy);
     print(response);
 } on DioException catch (e) {
     print('Exception when calling DefaultApi->uploadTaskAttachmentApiPluginsKanbanTasksTaskIdAttachmentsPost: $e\n');
@@ -14439,6 +15156,7 @@ Name | Type | Description  | Notes
  **taskId** | **String**|  | 
  **file** | **MultipartFile**|  | 
  **board** | **String**|  | [optional] 
+ **profile** | **String**|  | [optional] 
  **uploadedBy** | **String**|  | [optional] 
 
 ### Return type
