@@ -244,12 +244,15 @@ class _Watch {
   }
 
   /// Whether nothing more will arrive and nothing is left to read: the watch
-  /// was closed, or the socket under it closed after everything it pushed was
-  /// read and no backlog is waiting. A closed watch that still holds frames is
-  /// not dead yet; the reader gets them first.
+  /// was closed, or the socket under it closed (the client may close before
+  /// the inbox does) after everything it pushed was read and no backlog is
+  /// waiting. A closed watch that still holds frames is not dead yet; the
+  /// reader gets them first.
   bool get isDead =>
       closedByUs ||
-      _inbox.isClosed && events.read == _pushed && _backlog.isEmpty;
+      (_inbox.isClosed || client.isClosed) &&
+          events.read == _pushed &&
+          _backlog.isEmpty;
 
   /// Set when the transport closed this watch itself, as opposed to the
   /// socket under it dropping. A reader that finds the watch ended has nothing
@@ -1694,21 +1697,33 @@ class HermesGatewayTransport implements ChatTransport {
     try {
       return await client.request(method, params).timeout(requestTimeout);
     } on TimeoutException {
-      await _drop(client);
+      _drop(client);
       throw const GatewayConnectionClosed();
     }
   }
 
-  Future<void> _drop(GatewayRpcClient client) async {
+  /// Forgets [client] and closes it. Not awaited: closing a channel whose peer
+  /// has left can wait forever, and a failure to close is of no use to anyone.
+  void _drop(GatewayRpcClient client) {
     if (_open == client) _open = null;
-    await client.close();
+    unawaited(client.close().catchError((Object _) {}));
   }
+
+  /// The connections being probed, so callers that arrive meanwhile wait for
+  /// the same answer instead of each waiting out a probe of their own.
+  final _probes = <GatewayRpcClient, Future<bool>>{};
+
+  Future<bool> _alive(GatewayRpcClient client) =>
+      _probes[client] ??= client.isResponsive(probeTimeout).whenComplete(() {
+        // A block body: returning the removed future would wait on itself.
+        _probes.remove(client);
+      });
 
   @override
   Future<void> checkConnection() async {
     final open = _connected();
-    if (open == null || await open.isResponsive(probeTimeout)) return;
-    await _drop(open);
+    if (open == null || await _alive(open)) return;
+    _drop(open);
   }
 
   @override
@@ -2375,14 +2390,10 @@ class HermesGatewayTransport implements ChatTransport {
 
   Future<GatewayRpcClient> _client() async {
     final open = _connected();
-    if (open != null &&
-        open.isStale &&
-        !await open.isResponsive(probeTimeout)) {
+    if (open != null && open.isStale && !await _alive(open)) {
       // Nothing was pinging it, so a socket the OS dropped meanwhile would
-      // fail the send after the request timeout. Not awaited: closing a
-      // channel whose peer has left can wait forever.
-      if (_open == open) _open = null;
-      unawaited(open.close());
+      // fail the send after the request timeout.
+      _drop(open);
     }
     final current = _connected();
     if (current != null) return current;
