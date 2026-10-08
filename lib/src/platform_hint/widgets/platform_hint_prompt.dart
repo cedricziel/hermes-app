@@ -5,8 +5,9 @@ import '../../widgets/disclosure_tile.dart';
 
 /// Asks whether to add the app's note to Hermes, which tells the agent this
 /// app renders formatting and files. It names the profiles the note goes to
-/// and can show the exact text. While [busy] the buttons are off; profiles in
-/// [failed] could not be saved and [onAdd] retries them.
+/// and can show the exact text. With several profiles each is a checkbox,
+/// and only the [selected] ones are saved. While [busy] the controls are off;
+/// profiles in [failed] could not be saved and [onAdd] retries them.
 class PlatformHintPrompt extends StatelessWidget {
   const PlatformHintPrompt({
     super.key,
@@ -15,9 +16,12 @@ class PlatformHintPrompt extends StatelessWidget {
     required this.onAdd,
     required this.onLater,
     required this.onNever,
+    this.selected,
+    this.onToggle,
     this.update = false,
     this.busy = false,
     this.failed = const [],
+    this.saved = const {},
   });
 
   /// The profiles the note would be written to.
@@ -26,10 +30,19 @@ class PlatformHintPrompt extends StatelessWidget {
   /// The note, shown on request.
   final String text;
 
+  /// The profiles ticked to receive it; all of [profiles] when null.
+  final Set<String>? selected;
+
+  /// Ticks or unticks a profile.
+  final void Function(String profile, bool selected)? onToggle;
+
   /// Every profile holds an older note this app wrote.
   final bool update;
   final bool busy;
   final List<String> failed;
+
+  /// Profiles already saved by an earlier try; they stay ticked and locked.
+  final Set<String> saved;
   final VoidCallback onAdd;
   final VoidCallback onLater;
   final VoidCallback onNever;
@@ -83,7 +96,7 @@ class PlatformHintPrompt extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             many
-                ? 'Saved to these profiles on your server:'
+                ? 'Choose the profiles on your server that get it:'
                 : 'Saved to the “${profiles.single}” profile on your server.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: scheme.onSurfaceVariant,
@@ -91,19 +104,12 @@ class PlatformHintPrompt extends StatelessWidget {
           ),
           if (many) ...[
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final profile in profiles)
-                  Chip(
-                    label: Text(profile),
-                    avatar: failed.contains(profile)
-                        ? AppIcon(AppIcons.warning, color: scheme.error)
-                        : null,
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
+            _ProfileChecklist(
+              profiles: profiles,
+              selected: _selected,
+              failed: failed,
+              saved: saved,
+              onToggle: busy ? null : onToggle,
             ),
           ],
           const SizedBox(height: 8),
@@ -124,7 +130,7 @@ class PlatformHintPrompt extends StatelessWidget {
           _Actions(
             busy: busy,
             addLabel: _addLabel,
-            onAdd: onAdd,
+            onAdd: _selected.isEmpty ? null : onAdd,
             onLater: onLater,
             onNever: onNever,
           ),
@@ -133,12 +139,16 @@ class PlatformHintPrompt extends StatelessWidget {
     );
   }
 
+  Set<String> get _selected => selected ?? profiles.toSet();
+
   String get _addLabel {
     if (failed.isNotEmpty) return 'Try again';
-    if (update) return 'Update note';
-    return profiles.length > 1
-        ? 'Add to ${profiles.length} profiles'
-        : 'Add note';
+    final count = _selected.length;
+    if (profiles.length == 1 || count == 0) {
+      return update ? 'Update note' : 'Add note';
+    }
+    final noun = count == 1 ? 'profile' : 'profiles';
+    return update ? 'Update $count $noun' : 'Add to $count $noun';
   }
 }
 
@@ -155,7 +165,7 @@ class _Actions extends StatelessWidget {
 
   final bool busy;
   final String addLabel;
-  final VoidCallback onAdd;
+  final VoidCallback? onAdd;
   final VoidCallback onLater;
   final VoidCallback onNever;
 
@@ -179,14 +189,14 @@ class _Actions extends StatelessWidget {
     final never = TextButton(
       key: const ValueKey('platform-hint-never'),
       onPressed: busy ? null : onNever,
-      child: const Text("Don't ask again"),
+      child: const Text("Don't ask again", overflow: TextOverflow.ellipsis),
     );
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= 420) {
           return Row(
             children: [
-              never,
+              Flexible(child: never),
               const Spacer(),
               later,
               const SizedBox(width: 8),
@@ -199,6 +209,57 @@ class _Actions extends StatelessWidget {
           children: [add, const SizedBox(height: 4), later, never],
         );
       },
+    );
+  }
+}
+
+/// One checkbox row per profile, grouped in a card so the ticked state reads
+/// at a glance; a profile that failed says so under its name.
+class _ProfileChecklist extends StatelessWidget {
+  const _ProfileChecklist({
+    required this.profiles,
+    required this.selected,
+    required this.failed,
+    required this.saved,
+    required this.onToggle,
+  });
+
+  final List<String> profiles;
+  final Set<String> selected;
+  final List<String> failed;
+  final Set<String> saved;
+  final void Function(String profile, bool selected)? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: scheme.outlineVariant),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          for (final (i, profile) in profiles.indexed) ...[
+            if (i > 0) Divider(height: 1, color: scheme.outlineVariant),
+            CheckboxListTile.adaptive(
+              key: ValueKey('platform-hint-profile-$profile'),
+              value: saved.contains(profile) || selected.contains(profile),
+              onChanged: onToggle == null || saved.contains(profile)
+                  ? null
+                  : (value) => onToggle!(profile, value ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              title: Text(profile),
+              subtitle: failed.contains(profile)
+                  ? Text("Couldn't save", style: TextStyle(color: scheme.error))
+                  : saved.contains(profile)
+                  ? const Text('Saved')
+                  : null,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

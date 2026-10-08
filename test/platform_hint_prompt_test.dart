@@ -13,6 +13,8 @@ void main() {
     bool update = false,
     bool busy = false,
     List<String> failed = const [],
+    Set<String>? selected,
+    Set<String> saved = const {},
   }) async {
     taps.clear();
     await tester.pumpWidget(
@@ -24,6 +26,9 @@ void main() {
             update: update,
             busy: busy,
             failed: failed,
+            selected: selected,
+            saved: saved,
+            onToggle: (p, on) => taps.add('${on ? 'tick' : 'untick'} $p'),
             onAdd: () => taps.add('add'),
             onLater: () => taps.add('later'),
             onNever: () => taps.add('never'),
@@ -50,11 +55,64 @@ void main() {
     expect(find.text('work'), findsOneWidget);
 
     await pump(tester, profiles: ['default', 'work'], update: true);
+    expect(find.text('Update 2 profiles'), findsOneWidget);
+
+    await pump(tester, update: true);
     expect(find.text('Update note'), findsOneWidget);
 
     await pump(tester, profiles: ['default', 'work'], failed: ['work']);
     expect(find.text('Try again'), findsOneWidget);
     expect(find.textContaining("Couldn't save to work"), findsOneWidget);
+  });
+
+  testWidgets('several profiles are a checklist', (tester) async {
+    await pump(tester, profiles: ['default', 'work'], selected: {'default'});
+
+    expect(find.text('Add to 1 profile'), findsOneWidget);
+    await tester.tap(find.text('work'));
+    await tester.tap(find.text('default'));
+    expect(taps, ['tick work', 'untick default']);
+  });
+
+  testWidgets('a saved profile is locked and says so', (tester) async {
+    await pump(
+      tester,
+      profiles: ['default', 'work'],
+      failed: ['work'],
+      saved: {'default'},
+    );
+
+    expect(find.text('Saved'), findsOneWidget);
+    expect(find.text("Couldn't save"), findsOneWidget);
+    await tester.tap(find.text('default'));
+    expect(taps, isEmpty);
+  });
+
+  testWidgets('nothing ticked leaves nothing to add', (tester) async {
+    await pump(tester, profiles: ['default', 'work'], selected: {});
+
+    await tester.tap(find.byKey(const ValueKey('platform-hint-add')));
+
+    expect(taps, isEmpty);
+  });
+
+  testWidgets('a checkbox says whether it is ticked', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await pump(tester, profiles: ['default', 'work'], selected: {'work'});
+
+    expect(
+      tester.getSemantics(
+        find.byKey(const ValueKey('platform-hint-profile-work')),
+      ),
+      isSemantics(label: 'work', isChecked: true, hasCheckedState: true),
+    );
+    expect(
+      tester.getSemantics(
+        find.byKey(const ValueKey('platform-hint-profile-default')),
+      ),
+      isSemantics(label: 'default', isChecked: false, hasCheckedState: true),
+    );
+    semantics.dispose();
   });
 
   testWidgets('a single profile is named in the sentence', (tester) async {

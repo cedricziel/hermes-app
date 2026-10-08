@@ -21,7 +21,7 @@ After sign-in and each time the app starts with a saved session, the system SHAL
 
 ### Requirement: The user is asked before anything is written
 
-When at least one profile needs the hint and the user has not turned the question off for this server, the system SHALL show one prompt that says what the hint does, names the profiles it would be written to, and can show the exact text. It SHALL be a dialog on a wide layout and a bottom sheet on a compact one. The prompt SHALL offer: add it, ask on the next start, and do not ask again for this server. Dismissing the prompt SHALL count as asking on the next start. The prompt SHALL be shown at most once per app start and only in the main window.
+When at least one profile needs the hint and the user has not turned the question off for this server, the system SHALL show one prompt that says what the hint does, names the profiles it would be written to, and can show the exact text. With more than one profile, each SHALL be a checkbox, ticked at first, whose state is visible and announced; only ticked profiles SHALL be written, and the add button SHALL say how many and be off while none is ticked. It SHALL be a dialog on a wide layout and a bottom sheet on a compact one. The prompt SHALL offer: add it, ask on the next start, and do not ask again for this server. Dismissing the prompt SHALL count as asking on the next start. The prompt SHALL be shown at most once per app start and only in the main window.
 
 #### Scenario: Not now
 
@@ -40,7 +40,12 @@ When at least one profile needs the hint and the user has not turned the questio
 
 ### Requirement: Adding writes only the app's hint key
 
-When the user adds the hint, the system SHALL send, for each profile that needs it, `PUT /api/config?profile=<name>` with a body that contains only `platform_hints.hermes_app.replace` set to the current text. While the writes run the prompt SHALL show progress and SHALL NOT be dismissed by its buttons. When every write succeeds the prompt SHALL close. When some fail, the prompt SHALL say which profiles failed and offer to retry them; the profiles that succeeded SHALL NOT be written again.
+When the user adds the hint, the system SHALL send, for each ticked profile that needs it, `PUT /api/config?profile=<name>` with a body that contains only `platform_hints.hermes_app.replace` set to the current text. While the writes run the prompt SHALL show progress and SHALL NOT be dismissed by its buttons. When every write succeeds the prompt SHALL close. When some fail, the prompt SHALL say which profiles failed and offer to retry them; the profiles that succeeded SHALL show as saved, SHALL NOT be untickable and SHALL NOT be written again.
+
+#### Scenario: One profile left out
+
+- **WHEN** the user unticks one of three profiles and adds
+- **THEN** only the two ticked profiles are written
 
 #### Scenario: Partial failure
 

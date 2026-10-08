@@ -10,6 +10,8 @@ Widget _prompt({
   bool update = false,
   bool busy = false,
   List<String> failed = const [],
+  Set<String>? selected,
+  Set<String> saved = const {},
 }) => frame(
   Card(
     margin: EdgeInsets.zero,
@@ -19,6 +21,9 @@ Widget _prompt({
       update: update,
       busy: busy,
       failed: failed,
+      selected: selected,
+      saved: saved,
+      onToggle: (_, _) {},
       onAdd: () {},
       onLater: () {},
       onNever: () {},
@@ -36,6 +41,18 @@ WidgetbookNode platformHintNode() => WidgetbookComponent(
       builder: (_) => _prompt(profiles: const ['default', 'work', 'research']),
     ),
     WidgetbookUseCase(
+      name: 'One left out',
+      builder: (_) => _prompt(
+        profiles: const ['default', 'work', 'research'],
+        selected: const {'default', 'research'},
+      ),
+    ),
+    WidgetbookUseCase(
+      name: 'None ticked',
+      builder: (_) =>
+          _prompt(profiles: const ['default', 'work'], selected: const {}),
+    ),
+    WidgetbookUseCase(
       name: 'Update',
       builder: (_) =>
           _prompt(profiles: const ['default', 'work'], update: true),
@@ -49,6 +66,7 @@ WidgetbookNode platformHintNode() => WidgetbookComponent(
       builder: (_) => _prompt(
         profiles: const ['default', 'work', 'research'],
         failed: const ['work'],
+        saved: const {'default', 'research'},
       ),
     ),
     WidgetbookUseCase(
