@@ -65,7 +65,7 @@ void main() {
           heartbeat: true,
           pingEvery: const Duration(seconds: 15),
           deadAfter: const Duration(seconds: 45),
-        );
+        )..hold();
 
         async.elapse(const Duration(seconds: 30));
         expect(client.isClosed, isFalse);
@@ -83,7 +83,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         async.elapse(const Duration(seconds: 14));
         expect(server.pingCount, 0);
@@ -103,7 +103,7 @@ void main() {
         fakeAsync((async) {
           final wire = StreamChannelController<String>();
           final server = _Server(wire, answerPings: false);
-          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
           Object? failure;
           unawaited(
@@ -131,7 +131,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         unawaited(client.close());
         async.flushMicrotasks();
@@ -147,7 +147,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire, pingUnknown: true);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         async.elapse(const Duration(seconds: 90));
         expect(client.isClosed, isFalse);
@@ -162,7 +162,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire, answerPings: false);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         async.elapse(const Duration(seconds: 30));
         server.send(_eventFrame('message.delta'));
@@ -180,7 +180,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire, answerPings: false);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         unawaited(
           client
@@ -206,7 +206,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire, answerPings: false);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         async.elapse(const Duration(seconds: 30));
         server.send({
@@ -229,7 +229,7 @@ void main() {
       fakeAsync((async) {
         final wire = StreamChannelController<String>();
         final server = _Server(wire, answerPings: false);
-        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
 
         async.elapse(const Duration(seconds: 30));
         server.sendRaw('not json at all');
@@ -364,7 +364,7 @@ void main() {
           final wire = StreamChannelController<String>();
           // Pings go unanswered: only the late event is a sign of life.
           final server = _Server(wire, answerPings: false);
-          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
           // Due at the same instant as the deadline but queued behind it, as a
           // frame that arrived while the app was suspended is.
           Timer(const Duration(seconds: 45), () {
@@ -391,7 +391,7 @@ void main() {
         withClock(Clock(() => start.add(async.elapsed + jump)), () {
           final wire = StreamChannelController<String>();
           final server = _Server(wire, answerPings: false);
-          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          final client = GatewayRpcClient(wire.local, heartbeat: true)..hold();
           jump = const Duration(minutes: 10);
           Timer(const Duration(seconds: 45, milliseconds: 100), () {
             server.send(_eventFrame('message.delta'));
@@ -405,6 +405,229 @@ void main() {
           unawaited(client.close());
           async.flushMicrotasks();
         });
+      });
+    });
+  });
+
+  group('late deadline probe', () {
+    // The wall clock jumps while the app is suspended; timers do not.
+    void late(
+      void Function(FakeAsync async, _Server server, GatewayRpcClient client)
+      body, {
+      Duration probeTimeout = const Duration(seconds: 5),
+    }) {
+      fakeAsync((async) {
+        final start = clock.now();
+        var jump = Duration.zero;
+        withClock(Clock(() => start.add(async.elapsed + jump)), () {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(
+            wire.local,
+            heartbeat: true,
+            pingEvery: const Duration(minutes: 10),
+            probeTimeout: probeTimeout,
+          )..hold();
+          jump = const Duration(minutes: 10);
+          body(async, server, client);
+        });
+      });
+    }
+
+    test('A late deadline pings and waits probeTimeout for any frame', () {
+      late((async, server, client) {
+        async.elapse(const Duration(seconds: 45));
+        expect(server.pingCount, 1);
+
+        // Past resumeGrace, and past a frame-less second: still open.
+        async.elapse(const Duration(seconds: 4));
+        expect(client.isClosed, isFalse);
+
+        // A waking radio delivers the frame a few seconds in.
+        server.send(_eventFrame('message.delta'));
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
+        expect(client.isClosed, isFalse);
+
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
+
+    test('A late deadline closes once probeTimeout passes with no frame', () {
+      late((async, server, client) {
+        async.elapse(const Duration(seconds: 45));
+        async.elapse(const Duration(milliseconds: 4999));
+        expect(client.isClosed, isFalse);
+
+        async.elapse(const Duration(milliseconds: 1));
+        async.flushMicrotasks();
+        expect(client.isClosed, isTrue);
+      });
+    });
+
+    test('The answer to the probe ping keeps the socket open', () {
+      fakeAsync((async) {
+        final start = clock.now();
+        var jump = Duration.zero;
+        withClock(Clock(() => start.add(async.elapsed + jump)), () {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(
+            wire.local,
+            heartbeat: true,
+            pingEvery: const Duration(minutes: 10),
+          )..hold();
+          jump = const Duration(minutes: 10);
+
+          async.elapse(const Duration(seconds: 45));
+          final id = server.frames.singleWhere(
+            (f) => f['method'] == 'gateway.ping',
+          )['id'];
+          async.elapse(const Duration(seconds: 3));
+          server.send({'jsonrpc': '2.0', 'id': id, 'result': {}});
+          async.elapse(const Duration(seconds: 10));
+          async.flushMicrotasks();
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      });
+    });
+
+    test('An on-time deadline still closes after one turn of the loop', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        final server = _Server(wire, answerPings: false);
+        final client = GatewayRpcClient(
+          wire.local,
+          heartbeat: true,
+          pingEvery: const Duration(minutes: 10),
+        )..hold();
+
+        async.elapse(const Duration(seconds: 45));
+        async.flushMicrotasks();
+        expect(client.isClosed, isTrue);
+        expect(server.pingCount, 0);
+      });
+    });
+  });
+
+  group('heartbeat holds', () {
+    test('Without a hold nothing is pinged and a silent socket stays open', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        final server = _Server(wire, answerPings: false);
+        final client = GatewayRpcClient(wire.local, heartbeat: true);
+
+        expect(async.pendingTimers, isEmpty);
+        async.elapse(const Duration(minutes: 5));
+        expect(client.isClosed, isFalse);
+        expect(server.pingCount, 0);
+
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
+
+    test(
+      'The first hold starts the heartbeat and the last release ends it',
+      () {
+        fakeAsync((async) {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+
+          final first = client.hold();
+          final second = client.hold();
+          async.elapse(const Duration(seconds: 15));
+          expect(server.pingCount, 1);
+
+          first();
+          async.elapse(const Duration(seconds: 15));
+          expect(server.pingCount, 2);
+
+          second();
+          async.elapse(const Duration(minutes: 5));
+          expect(server.pingCount, 2);
+          expect(async.pendingTimers, isEmpty);
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      },
+    );
+
+    test('Releasing twice does not drop another holder', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        final server = _Server(wire);
+        final client = GatewayRpcClient(wire.local, heartbeat: true);
+
+        final first = client.hold();
+        client.hold();
+        first();
+        first();
+        async.elapse(const Duration(seconds: 15));
+        expect(server.pingCount, 1);
+
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
+
+    test('A hold taken after a quiet spell gets a fresh deadline', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        _Server(wire, answerPings: false);
+        final client = GatewayRpcClient(wire.local, heartbeat: true);
+
+        async.elapse(const Duration(minutes: 5));
+        client.hold();
+        async.elapse(const Duration(seconds: 44));
+        expect(client.isClosed, isFalse);
+
+        unawaited(client.close());
+        async.flushMicrotasks();
+      });
+    });
+
+    test('Releasing during a probe keeps the socket open', () {
+      fakeAsync((async) {
+        final start = clock.now();
+        var jump = Duration.zero;
+        withClock(Clock(() => start.add(async.elapsed + jump)), () {
+          final wire = StreamChannelController<String>();
+          _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          final release = client.hold();
+          jump = const Duration(minutes: 10);
+
+          async.elapse(const Duration(seconds: 46));
+          release();
+          async.elapse(const Duration(seconds: 30));
+          async.flushMicrotasks();
+          expect(client.isClosed, isFalse);
+          expect(async.pendingTimers, isEmpty);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      });
+    });
+
+    test('Holding and releasing a closed client is harmless', () {
+      fakeAsync((async) {
+        final wire = StreamChannelController<String>();
+        _Server(wire);
+        final client = GatewayRpcClient(wire.local, heartbeat: true);
+        unawaited(client.close());
+        async.flushMicrotasks();
+
+        client.hold()();
+        expect(async.pendingTimers, isEmpty);
       });
     });
   });

@@ -309,6 +309,77 @@ void main() {
       },
     );
 
+    test('Heartbeat holds: pings run while a reply is in flight, and stop once it is cancelled', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        int pings() => gateway.methods.where((m) => m == 'gateway.ping').length;
+        late String runtimeId;
+        gateway.turn = (g, sid) {
+          runtimeId = sid;
+          g.event('message.start', sid);
+        };
+        final sub = transport.send(text: 'hi').listen((_) {});
+        async.flushMicrotasks();
+
+        async.elapse(const Duration(seconds: 15));
+        expect(pings(), 1);
+
+        // The reply notices the cancel when its next frame arrives.
+        unawaited(sub.cancel());
+        gateway.event('message.delta', runtimeId, {'text': 'x'});
+        async.flushMicrotasks();
+        async.elapse(const Duration(minutes: 5));
+        expect(pings(), 1);
+      });
+    });
+
+    test('Heartbeat holds: a failed send leaves the connection unpinged', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        int pings() => gateway.methods.where((m) => m == 'gateway.ping').length;
+        gateway.rejectSubmit = true;
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.error, isNotNull);
+
+        async.elapse(const Duration(minutes: 5));
+        expect(pings(), 0);
+      });
+    });
+
+    test('Heartbeat holds: a listened-to thread is pinged until its follow-ups end', () {
+      fakeAsync((async) {
+        final gateway = FakeGateway();
+        final transport = HermesGatewayTransport(
+          connect: () async => gateway.channel,
+        );
+        int pings() => gateway.methods.where((m) => m == 'gateway.ping').length;
+        gateway.turn = (g, sid) => g.event('message.complete', sid, {
+          'text': 'Hi',
+          'status': 'complete',
+        });
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.done, isTrue);
+
+        final follow = transport.followUps('stored-1').listen((_) {});
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 30));
+        expect(pings(), 2);
+
+        unawaited(follow.cancel());
+        async.flushMicrotasks();
+        async.elapse(const Duration(minutes: 5));
+        expect(pings(), 2);
+      });
+    });
+
     test('Dead socket: a socket silent for 45 s closes, and the reply in flight reconnects', () {
       fakeAsync((async) {
         final gateway = FakeGateway()

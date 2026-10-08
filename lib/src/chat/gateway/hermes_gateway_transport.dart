@@ -140,10 +140,17 @@ final class _Resumed {
 /// What one runtime session sends, buffered until the transport reads it. A
 /// null entry is a frame of the session that shows nothing. It still resets
 /// the silence probe, since the session is alive.
+///
+/// A watch holds its connection's heartbeat from creation until [close], so
+/// the connection is pinged while a reply is in flight or a thread is
+/// listened to, and not otherwise.
 class _Watch {
   _Watch(this.runtimeId, this.client, this._inbox, {bool record = false})
     : events = StreamIterator(_inbox.stream),
-      _arrivals = record ? [] : null;
+      _arrivals = record ? [] : null,
+      _release = client.hold();
+
+  final void Function() _release;
 
   final String runtimeId;
 
@@ -189,6 +196,7 @@ class _Watch {
   /// so awaiting it can hang the reply that is closing its watch.
   Future<void> close() async {
     closedByUs = true;
+    _release();
     for (final source in _sources) {
       unawaited(source.cancel());
     }
