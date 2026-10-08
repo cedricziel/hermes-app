@@ -1254,18 +1254,35 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // The queue waited for the session to settle after the turn before. This
     // one decides when it may go on.
     _settleTimers.remove(thread)?.cancel();
-    final placeholder = ChatMessage(
+    return _insertReply(thread);
+  }
+
+  /// Adds a thinking assistant message to [thread], at the end or, with
+  /// [before], in front of that message.
+  ChatMessage _insertReply(ChatThread thread, {ChatMessage? before}) {
+    final reply = ChatMessage(
       id: _newMessageId(thread),
       role: ChatRole.assistant,
       content: '',
       createdAt: DateTime.now(),
       status: MessageStatus.thinking,
     );
-    thread.messages.add(placeholder);
-    for (final flyer in chatMessageToFlyer(placeholder)) {
-      controllerFor(thread).insertMessage(flyer);
+    final at = before == null ? -1 : thread.messages.indexOf(before);
+    if (at < 0) {
+      thread.messages.add(reply);
+    } else {
+      thread.messages.insert(at, reply);
     }
-    return placeholder;
+    final chat = controllerFor(thread);
+    final slot = at < 0
+        ? -1
+        : chat.messages.indexWhere(
+            (m) => m.id == chatMessageToFlyer(before!).firstOrNull?.id,
+          );
+    for (final (i, flyer) in chatMessageToFlyer(reply).indexed) {
+      chat.insertMessage(flyer, index: slot < 0 ? null : slot + i);
+    }
+    return reply;
   }
 
   /// The size of each of [files], or null after telling the user which one
@@ -1304,8 +1321,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     var stopped = false;
     var folded = false;
     var settled = false;
+    final own = _OwnTurn();
     void end([Object? error]) {
       _replies.remove(subscription);
+      _closeOwnTurn(thread, own, failed: error != null);
       if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
@@ -1372,6 +1391,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             }
             if (event is PromptFolded) folded = true;
             if (event is SessionInfo && event.running == false) settled = true;
+            if (event is UnsolicitedEvent) {
+              _onOwnTurnEvent(thread, reply, own, event.event, profile);
+              return;
+            }
             _onReplyEvent(thread, reply, event, profile);
           },
           onError: end,
@@ -1379,6 +1402,67 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           cancelOnError: true,
         );
     _replies.add(subscription);
+  }
+
+  /// An event of the turn Hermes ran on its own ahead of the prompt [prompt]
+  /// answers. It streams into a reply of its own, in front of the prompt's
+  /// reply, which keeps waiting for its turn; the turn's end closes it.
+  void _onOwnTurnEvent(
+    ChatThread thread,
+    ChatMessage prompt,
+    _OwnTurn own,
+    ChatEvent event,
+    String? profile,
+  ) {
+    if (own.open == null &&
+        (opensTurn(event) ||
+            event is ApprovalRequested ||
+            event is ClarifyRequested ||
+            event is VaultRequested ||
+            event is UnsupportedRequested)) {
+      own.open = own.last = _insertReply(thread, before: prompt);
+    }
+    final open = own.open;
+    if (open == null) {
+      // Nothing of the turn is on screen to carry it: a withdrawal is for the
+      // reply that asked, the rest is about the thread.
+      switch (event) {
+        case InputRequestsCancelled() || InputRequestExpired():
+          if (own.last case final last?) {
+            _onReplyEvent(thread, last, event, profile, announce: false);
+          }
+        case SessionInfo(:final storedSessionId?) when storedSessionId != '':
+          _onSessionInfo(thread, SessionInfo(storedSessionId: storedSessionId));
+        case ThreadTitled(:final title):
+          if (!thread.isCanonicalBotChat) thread.title = title;
+          notifyListeners();
+        case ThreadNeedsRefetch():
+          _refetch.add(thread);
+        default:
+          break;
+      }
+      return;
+    }
+    _onReplyEvent(thread, open, event, profile);
+    if (event is ReplyCompleted ||
+        event is SessionInfo && event.running == false) {
+      own.open = null;
+    }
+  }
+
+  /// Ends the reply of the turn Hermes ran on its own when the send is over:
+  /// settled when the send ended well, failed when it gave up.
+  void _closeOwnTurn(ChatThread thread, _OwnTurn own, {required bool failed}) {
+    final open = own.open;
+    own.open = null;
+    if (open == null || !open.isPending) return;
+    _updateReply(
+      thread,
+      open,
+      () => failed
+          ? failReply(open, null)
+          : applyReplyEvent(open, const SessionInfo(running: false)),
+    );
   }
 
   void _stopFollowing() {
@@ -1537,7 +1621,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadTitled(:final title):
         if (!thread.isCanonicalBotChat) thread.title = title;
         notifyListeners();
-      case ReplyStarted():
+      case ReplyStarted() || UnsolicitedEvent():
         break;
       case PromptFolded():
         _removeReply(thread, reply);
@@ -1922,4 +2006,12 @@ enum _Hold {
 
   /// The turn ended stopped or failed while an interrupt was in flight.
   paused,
+}
+
+/// The reply a send opened for the turn Hermes ran on its own ahead of the
+/// prompt. [last] stays after the turn ended, so a withdrawal of its requests
+/// still finds it.
+class _OwnTurn {
+  ChatMessage? open;
+  ChatMessage? last;
 }

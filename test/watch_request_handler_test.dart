@@ -707,6 +707,21 @@ void main() {
       });
     }
 
+    test('ends the send on a request of the turn Hermes ran ahead of the '
+        'prompt, and announces it', () async {
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const UnsolicitedEvent(ReplyStarted()))
+        ..emit(UnsolicitedEvent(requests['approval']!));
+
+      final reply = await pending;
+
+      expect(reply['text'], contains("watch can't answer"));
+      expect(announced.map((n) => n.body), [kApprovalBody]);
+    });
+
     test('does not leak what was asked for', () async {
       final pending = handler.handle({'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();

@@ -631,15 +631,24 @@ void main() {
               });
             };
 
-          _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+          final sent = _listen(
+            transport.send(threadId: 'stored-2', text: 'hi'),
+          );
           async.flushMicrotasks();
           final seen = _listen(transport.followUps('stored-2'));
           async.flushMicrotasks();
 
-          expect(seen.events.whereType<ReplyCompleted>(), hasLength(1));
+          // The send shows the turn, so the follow-ups do not repeat it.
+          expect(
+            sent.events.whereType<UnsolicitedEvent>().where(
+              (e) => e.event is ReplyCompleted,
+            ),
+            hasLength(1),
+          );
+          expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
           expect(events.named('gateway.turn_settled'), [
-            {'via': 'session_info'},
             {'via': 'complete'},
+            {'via': 'session_info'},
           ]);
         });
       });

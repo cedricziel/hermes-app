@@ -1711,8 +1711,8 @@ void main() {
   });
 
   group('A closed watch with frames left in it', () {
-    test('the backlog a send left is delivered after the socket closed, and '
-        'the thread is picked up afresh after it', () {
+    test('a turn the send handed over is not on the follow-ups after the '
+        'socket closed, and the thread is picked up afresh', () {
       fake((async) {
         gateway.resumeResult = {
           'session_id': 'rt-2',
@@ -1739,24 +1739,20 @@ void main() {
         final sent = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
         async.flushMicrotasks();
         expect(sent.done, isTrue);
+        expect(
+          sent.events.whereType<UnsolicitedEvent>().map(
+            (e) => e.event.runtimeType,
+          ),
+          [ReplyStarted, ReplyDelta, ReplyCompleted],
+        );
         gateway.drop();
         async.flushMicrotasks();
         final before = resumes();
 
-        final follow = _listen(transport.followUps('stored-2'));
-        async.flushMicrotasks();
-
-        expect(follow.events.map((e) => e.runtimeType), [
-          ReplyStarted,
-          ReplyDelta,
-          ReplyCompleted,
-        ]);
-        expect(follow.done, isTrue);
-        expect(resumes(), before);
-
         final next = _listen(transport.followUps('stored-2'));
         async.elapse(const Duration(seconds: 1));
 
+        expect(next.events, isEmpty);
         expect(resumes(), before + 1);
         unawaited(next.subscription.cancel());
       });
