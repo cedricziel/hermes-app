@@ -13,7 +13,7 @@ The attributes and the status fields they come from are:
 - `hermes.auth.required` (bool) from `auth_required`
 - `hermes.auth.providers` (list of strings) from `auth_providers`
 - `hermes.gateway.mode` (string) from `gateway_mode` (`multiplex`, `single`, `multiple`, `none` or `unknown`)
-- `hermes.profile.count` (int): the number of names in `profiles`, which includes parked profiles. Left out when `gateway_mode` is `unknown`, because Hermes then sends an empty list.
+- `hermes.profile.count` (int): the number of names in `profiles` (Hermes lists parked profiles apart, in `parked_profiles`). Left out when `gateway_mode` is `unknown`, because Hermes then sends an empty list.
 - `hermes.gateway.state` (string) from `gateway_state`
 - `hermes.overall` (string) from `overall` (`ok` or `degraded`)
 

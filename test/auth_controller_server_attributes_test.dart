@@ -83,7 +83,7 @@ Map<String, Object> _status(String installId, {String version = '0.14.2'}) => {
   'auth_providers': ['basic'],
   'auth_flows': ['native_pkce'],
   'gateway_mode': 'multiplex',
-  'profiles': ['default', 'work', 'parked'],
+  'profiles': ['default', 'work', 'research'],
   'gateway_state': 'running',
   'overall': 'ok',
   'hermes_home': '/home/me/.hermes',

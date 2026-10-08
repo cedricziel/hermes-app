@@ -11,7 +11,7 @@ const _fullStatus = <String, dynamic>{
   'auth_providers': ['basic'],
   'auth_flows': ['native_pkce'],
   'gateway_mode': 'multiplex',
-  'profiles': ['default', 'work', 'parked'],
+  'profiles': ['default', 'work', 'research'],
   'gateway_state': 'running',
   'overall': 'ok',
 };
