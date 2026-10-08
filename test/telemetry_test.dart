@@ -1,5 +1,6 @@
 import 'dart:ui' show ErrorCallback;
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_otel/flutter_otel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -207,6 +208,39 @@ void main() {
         isNot(contains('nav.destination')),
       );
     });
+
+    test(
+      'exports an error that repeats every frame once, then its count',
+      () async {
+        final exporter = _RecordingExporter();
+        final telemetry = await Telemetry.initialize(
+          config(),
+          logExporter: exporter,
+        );
+        telemetry.logUncaughtErrors();
+        final details = FlutterErrorDetails(
+          exception: StateError('null check'),
+          stack: StackTrace.current,
+        );
+
+        fakeAsync((async) {
+          for (var i = 0; i < 50; i++) {
+            FlutterError.onError!(details);
+          }
+          async.elapse(const Duration(minutes: 1));
+        });
+        await telemetry.flush();
+
+        expect(
+          [
+            for (final r in exporter.records)
+              if (r.body == 'Uncaught Flutter error')
+                r.attributes['exception.repeat_count'],
+          ],
+          [null, 49],
+        );
+      },
+    );
 
     test('records no breadcrumb while telemetry is off', () async {
       final telemetry = await Telemetry.initialize(

@@ -195,7 +195,9 @@ class Telemetry {
 
   /// Logs uncaught Flutter and async errors, with their message, stack
   /// trace and recent breadcrumbs from [events]; does nothing when
-  /// disabled.
+  /// disabled. `installCrashReporting`'s defaults collapse an error that
+  /// recurs into one record plus a periodic repeat count, and trim the
+  /// message and stack to fit SignalDB's 4096-byte attribute limit.
   ///
   /// `flutter_otel`'s own `installUncaughtErrorLogging` records only the
   /// exception type, since messages and stack traces can carry user input
