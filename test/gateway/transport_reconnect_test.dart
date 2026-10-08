@@ -230,7 +230,7 @@ void main() {
         gateway.resumeResult = {
           'session_id': 'rt-1',
           'running': true,
-          'inflight': {'assistant': 'abc'},
+          'inflight': {'assistant': 'abcdefghij'},
         };
         gateway.turn = (g, sid) => _streamSevenThenDrop(
           g,
@@ -238,23 +238,23 @@ void main() {
           (g) => g.event('message.delta', sid, {'text': 'b'}),
         );
         gateway.beforeResumeAnswer = (g) =>
-            g.event('message.delta', 'rt-1', {'text': 'c'});
+            g.event('message.delta', 'rt-1', {'text': 'cdefghij'});
         gateway.beforeEventsAnswer = (g) =>
             g.event('message.delta', 'rt-1', {'text': 'd'});
 
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
         gateway.event('message.complete', 'rt-1', {
-          'text': 'abcd',
+          'text': 'abcdefghijd',
           'status': 'complete',
         });
         async.flushMicrotasks();
 
         expect(seen.error, isNull);
         expect(_fromRebuild(seen), [ReplyRebuilt, ReplyDelta, ReplyCompleted]);
-        expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abc');
+        expect(seen.events.whereType<ReplyRebuilt>().single.text, 'abcdefghij');
         expect(_deltas(seen).last, 'd');
-        expect(_deltas(seen).where((text) => text == 'c'), hasLength(0));
+        expect(_deltas(seen).where((text) => text == 'cdefghij'), hasLength(0));
       });
     });
 
@@ -452,6 +452,68 @@ void main() {
       });
     });
 
+    test('A short delta that happens to end the snapshot is delivered: the '
+        'snapshot cannot be told to hold it', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'The end.'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) =>
+            g.event('message.delta', 'rt-1', {'text': '.'});
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'The end..',
+          'status': 'complete',
+        });
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['.'],
+        );
+      });
+    });
+
+    test('Deltas parked before the snapshot that jointly reach the minimum '
+        'run are still recognised as held', () {
+      fake((async) {
+        gateway.truncateReplay = true;
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': true,
+          'inflight': {'assistant': 'It was a long road'},
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        gateway.beforeResumeAnswer = (g) {
+          g.event('message.delta', 'rt-1', {'text': ' long'});
+          g.event('message.delta', 'rt-1', {'text': ' road'});
+        };
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.event('message.delta', 'rt-1', {'text': '.'});
+        async.flushMicrotasks();
+
+        expect(
+          seen.events
+              .skipWhile((e) => e is! ReplyRebuilt)
+              .whereType<ReplyDelta>()
+              .map((e) => e.text),
+          ['.'],
+        );
+      });
+    });
+
     test('A delta that is only whitespace is delivered even when the snapshot '
         'ends with whitespace', () {
       fake((async) {
@@ -484,25 +546,25 @@ void main() {
       });
     });
 
-    test('Of two identical short deltas parked ahead of the snapshot only the '
+    test('Of two identical deltas parked ahead of the snapshot only the '
         'first can be dropped', () {
       fake((async) {
         gateway.truncateReplay = true;
         gateway.resumeResult = {
           'session_id': 'rt-1',
           'running': true,
-          'inflight': {'assistant': 'abb'},
+          'inflight': {'assistant': 'abbbbbbbb'},
         };
         gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
         gateway.beforeResumeAnswer = (g) {
-          g.event('message.delta', 'rt-1', {'text': 'b'});
-          g.event('message.delta', 'rt-1', {'text': 'b'});
+          g.event('message.delta', 'rt-1', {'text': 'bbbbbbbb'});
+          g.event('message.delta', 'rt-1', {'text': 'bbbbbbbb'});
         };
 
         final seen = _listen(transport.send(text: 'hi'));
         async.flushMicrotasks();
         gateway.event('message.complete', 'rt-1', {
-          'text': 'abbb',
+          'text': 'abbbbbbbbbbbbbbbb',
           'status': 'complete',
         });
         async.flushMicrotasks();
@@ -512,7 +574,7 @@ void main() {
               .skipWhile((e) => e is! ReplyRebuilt)
               .whereType<ReplyDelta>()
               .map((e) => e.text),
-          ['b'],
+          ['bbbbbbbb'],
         );
       });
     });
@@ -693,6 +755,87 @@ void main() {
         expect(
           gateway.methods.where((m) => m == 'session.resume'),
           hasLength(1),
+        );
+      });
+    });
+  });
+
+  group('A stored id that rotated while disconnected', () {
+    int resumes() => gateway.methods.where((m) => m == 'session.resume').length;
+
+    test('a send whose turn ended meanwhile parks its watch under the new '
+        'id', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+          g.event('session.info', sid, {
+            'running': true,
+            'stored_session_id': 'stored-2',
+          });
+          g.event('message.complete', sid, {
+            'text': 'Done',
+            'status': 'complete',
+          });
+        });
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        expect(seen.done, isTrue);
+        expect(
+          seen.events.whereType<SessionInfo>().map((e) => e.storedSessionId),
+          contains('stored-2'),
+        );
+
+        final follow = _listen(transport.followUps('stored-2'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'again'});
+        async.flushMicrotasks();
+
+        // Only the reconnect resumed: the follow-up found the parked watch
+        // under the new id instead of opening a second one.
+        expect(resumes(), 1);
+        expect(_deltas(follow), ['again']);
+      });
+    });
+
+    test('a follow-up stream whose turn ended meanwhile moves its idle watch '
+        'to the new id', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('message.delta', 'rt-1', {'text': 'b'});
+        async.flushMicrotasks();
+        gateway.drop();
+        gateway.event('session.info', 'rt-1', {
+          'running': true,
+          'stored_session_id': 'stored-2',
+        });
+        gateway.event('message.complete', 'rt-1', {
+          'text': 'b',
+          'status': 'complete',
+        });
+        async.elapse(const Duration(seconds: 1));
+        final before = resumes();
+        expect(before, 1);
+
+        unawaited(transport.undoLastTurn('stored-2'));
+        async.flushMicrotasks();
+
+        // The runtime session is found under the new id: no second resume.
+        expect(resumes(), before);
+        expect(
+          gateway.requestOf('session.undo')['params'],
+          containsPair('session_id', 'rt-1'),
         );
       });
     });
@@ -983,6 +1126,33 @@ void main() {
 
         expect(second.methods, contains('session.active_list'));
         expect(seen.error, isA<GatewayConnectionClosed>());
+      });
+    });
+
+    test('a reply that streams steadily between drops never runs out of '
+        'reconnects', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (_) {});
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        // Each reconnect is followed by 45 s of frames before the next drop.
+        for (var drop = 1; drop <= 7; drop++) {
+          for (final at in [20, 20, 5]) {
+            gateway.event('message.delta', 'rt-1', {'text': 'x'});
+            async.elapse(Duration(seconds: at));
+          }
+          gateway.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+
+        expect(seen.error, isNull);
+        expect(seen.done, isFalse);
+        // The turn's own drop, then seven more: past the cap of five.
+        expect(resumes(), 8);
       });
     });
 
@@ -1449,6 +1619,93 @@ void main() {
         expect(
           seen.events.last,
           isA<SessionInfo>().having((e) => e.running, 'running', false),
+        );
+      });
+    });
+  });
+
+  group('An idle watch whose socket closed', () {
+    test('a follow-up stream that ends idle on a closed socket leaves nothing '
+        'parked, so the next one picks the thread up afresh', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.flushMicrotasks();
+
+        expect(follow.done, isTrue);
+        expect(resumes(), 0);
+
+        final next = _listen(transport.followUps('stored-1'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
+  group('An idle watch whose socket closed before anyone followed', () {
+    test('a socket that closed after the turn leaves nothing parked, so the '
+        'next follow-up stream picks the thread up afresh', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+        gateway.drop();
+        async.flushMicrotasks();
+
+        final next = _listen(transport.followUps('stored-1'));
+        async.elapse(const Duration(seconds: 1));
+
+        expect(resumes(), 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+  });
+
+  group('A stored reply across a queued gate', () {
+    test('a queued prompt whose turns both ended while disconnected shows the '
+        'stored reply instead of swallowing it', () {
+      fake((async) {
+        gateway.submitStatus = 'queued';
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'the real reply'},
+          ],
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.delta', sid, {'text': 'old'});
+          g.drop();
+        };
+
+        final seen = _listen(transport.send(text: 'next', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
+        expect(
+          seen.events.whereType<ReplyCompleted>().single.text,
+          'the real reply',
         );
       });
     });
