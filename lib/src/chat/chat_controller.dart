@@ -437,9 +437,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (unchanged || _unloaded.contains(id)) return;
       final page = await repository.loadMessagePage(id, profile: _profile);
       if (stale()) return;
+      final failed = _failedTurn(thread, page.messages);
       thread.messages
         ..clear()
-        ..addAll(page.messages);
+        ..addAll(page.messages)
+        ..addAll(failed);
       if (page.hasMore) {
         _olderRows[id] = page.rows;
       } else {
@@ -450,6 +452,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     } on Object {
       // Keeps what it shows; the next refresh or open reads it again.
     }
+  }
+
+  /// The turn of [thread] that ended in a failed reply and is still its last,
+  /// to show after the [history] a read brought: the prompt, unless the history
+  /// already ends with it, and the failed reply with its error and Retry. It
+  /// is dropped once the history holds an answer to that prompt, and a later
+  /// send leaves it behind the thread's last message anyway.
+  List<ChatMessage> _failedTurn(ChatThread thread, List<ChatMessage> history) {
+    final messages = thread.messages;
+    final reply = messages.lastOrNull;
+    if (reply == null ||
+        reply.role != ChatRole.assistant ||
+        reply.status != MessageStatus.error) {
+      return const [];
+    }
+    final promptAt = messages.lastIndexWhere((m) => m.role == ChatRole.user);
+    final prompt = promptAt < 0 ? null : messages[promptAt];
+    final lastUser = history.lastIndexWhere((m) => m.role == ChatRole.user);
+    final stored =
+        prompt != null &&
+        lastUser >= 0 &&
+        history[lastUser].content == prompt.content;
+    // The prompt is in the history and something answered it.
+    if (stored && lastUser < history.length - 1) return const [];
+    return [if (prompt != null && !stored) prompt, reply];
   }
 
   /// Whether [target] names a chat on [profile]. A thread id is only unique
@@ -705,7 +732,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final load = repository != null ? _loadMessages(id) : Future<void>.value();
     final thread = _threads.where((t) => t.id == id).firstOrNull;
     if (thread != null) {
-      _refetchIfIdle(thread);
       final profile = _profile;
       unawaited(
         load.then((_) {
@@ -1283,10 +1309,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
-        // A refetch the send asked for just before failing waits for the next
-        // read: now it would replace the failed reply, its error and the
-        // prompt Hermes may never have stored. It stays in [_refetch] until
-        // the next reply ends or the thread is opened.
+        // A send that gave up asks for the thread to be read again: what
+        // Hermes ran meanwhile is in its history. The read keeps this failed
+        // turn after it (see [refreshThread]).
+        _refetchIfIdle(thread);
       } else if (error == null) {
         // The watch is parked whatever ended the reply, so the follow-ups
         // listen to it. Only a reply that ended well drains the queue; after a

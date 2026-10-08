@@ -142,6 +142,7 @@ The system SHALL select a thread when the user taps it and SHALL load that threa
 
 - **WHEN** the user opens a thread whose messages were already loaded, or that was created in this session
 - **THEN** its messages are shown from memory without another request
+- **AND** this holds after a send that gave up too: the read it asked for happens when the send fails, not when the thread is opened
 
 #### Scenario: Loading messages fails
 
@@ -1374,7 +1375,9 @@ The system SHALL show a turn Hermes runs on a thread without a prompt from this 
 #### Scenario: A send that gives up
 
 - **WHEN** a prompt sent behind such a turn fails because the connection could not be restored
-- **THEN** the thread is read again before the send fails, so that turn is shown once from the stored history, and the follow-ups do not replay it
+- **THEN** the thread is read again as soon as the send has failed, so that turn is shown once from the stored history, and the follow-ups do not replay it
+- **AND** after that history the failed reply stays with its error and Retry, preceded by the prompt unless the history already ends with it
+- **AND** the failed turn goes once the user retries or sends again, or a later read finds an answer to that prompt
 
 #### Scenario: Missed start of a chained turn
 

@@ -523,45 +523,133 @@ void main() {
       },
     );
 
-    test('ThreadNeedsRefetch just before the send fails keeps the failed reply '
-        'on screen and reads the thread at the next open', () async {
+    /// Makes the dashboard hold [rows] for `s1`, as of [lastActive].
+    void historyIs(List<Map<String, Object?>> rows, {double? lastActive}) {
+      server
+        ..on(
+          'GET',
+          '/api/sessions/s1',
+          sessionRow(
+            id: 's1',
+            title: 'Old title',
+            lastActive: lastActive ?? 1780000100,
+          ),
+        )
+        ..on('GET', '/api/sessions/s1/messages', messageListBody('s1', rows));
+    }
+
+    /// A send that held the turn Hermes ran on its own, then gave up.
+    Future<void> giveUpWithSetAsideTurn() async {
       rig.chat.submit('Plan', const []);
       rig.transport.sends.last
         ..emit(const ThreadNeedsRefetch())
         ..fail();
       await pumpEventQueue();
+    }
 
-      final shown = rig.chat.selectedThread!.messages;
-      expect(shown.where((m) => m.content == 'Plan'), hasLength(1));
-      expect(shown.last.status, MessageStatus.error);
-      expect(shown.last.error, isNotNull);
-      expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
+    List<String> shownTexts() => [
+      for (final m in rig.chat.selectedThread!.messages)
+        '${m.role.name}:${m.content}',
+    ];
 
-      rig.chat.select('s1');
-      await pumpEventQueue();
+    test(
+      'A send that gives up after setting a turn aside shows the history '
+      'with that turn, then the prompt, then the failed reply with Retry',
+      () async {
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        ], lastActive: 1780000300);
 
-      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+        await giveUpWithSetAsideTurn();
 
-      rig.chat.select('s1');
-      await pumpEventQueue();
+        final thread = rig.chat.selectedThread!;
+        expect(shownTexts().take(3), [
+          'user:Hi',
+          'assistant:Resumed work',
+          'user:Plan',
+        ]);
+        expect(thread.messages, hasLength(4));
+        expect(thread.messages.last.status, MessageStatus.error);
+        expect(thread.messages.last.error, isNotNull);
+        expect(rig.chat.lastPromptText(thread), 'Plan');
+        expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+      },
+    );
 
-      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+    test('A prompt the history already ends with is not shown twice', () async {
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        messageRow(id: 3, role: 'user', content: 'Plan'),
+      ], lastActive: 1780000300);
+
+      await giveUpWithSetAsideTurn();
+
+      final thread = rig.chat.selectedThread!;
+      expect(shownTexts().take(3), [
+        'user:Hi',
+        'assistant:Resumed work',
+        'user:Plan',
+      ]);
+      expect(thread.messages, hasLength(4));
+      expect(thread.messages.last.status, MessageStatus.error);
     });
 
-    test('ThreadNeedsRefetch just before the send fails is read when the next '
-        'reply ends', () async {
-      rig.chat.submit('Plan', const []);
-      rig.transport.sends.last
-        ..emit(const ThreadNeedsRefetch())
-        ..fail();
-      await pumpEventQueue();
-      expect(server.requestsTo('GET', '/api/sessions/s1'), isEmpty);
+    test(
+      'The kept failed turn goes once a re-read finds a newer reply',
+      () async {
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        ], lastActive: 1780000300);
+        await giveUpWithSetAsideTurn();
+        expect(
+          rig.chat.selectedThread!.messages.last.status,
+          MessageStatus.error,
+        );
+
+        historyIs([
+          messageRow(id: 1, role: 'user', content: 'Hi'),
+          messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+          messageRow(id: 3, role: 'user', content: 'Plan'),
+          messageRow(id: 4, role: 'assistant', content: 'Done'),
+        ], lastActive: 1780000400);
+        await rig.chat.refreshThread('s1');
+
+        expect(shownTexts(), [
+          'user:Hi',
+          'assistant:Resumed work',
+          'user:Plan',
+          'assistant:Done',
+        ]);
+      },
+    );
+
+    test('The kept failed turn goes once the user sends again', () async {
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+      ], lastActive: 1780000300);
+      await giveUpWithSetAsideTurn();
 
       rig.chat.submit('Again', const []);
-      rig.complete(rig.transport.sends.last);
+      rig.complete(rig.transport.sends.last, text: 'Fine.');
       await pumpEventQueue();
+      historyIs([
+        messageRow(id: 1, role: 'user', content: 'Hi'),
+        messageRow(id: 2, role: 'assistant', content: 'Resumed work'),
+        messageRow(id: 3, role: 'user', content: 'Again'),
+        messageRow(id: 4, role: 'assistant', content: 'Fine.'),
+      ], lastActive: 1780000500);
+      await rig.chat.refreshThread('s1');
 
-      expect(server.requestsTo('GET', '/api/sessions/s1'), hasLength(1));
+      expect(shownTexts(), [
+        'user:Hi',
+        'assistant:Resumed work',
+        'user:Again',
+        'assistant:Fine.',
+      ]);
     });
 
     test(
