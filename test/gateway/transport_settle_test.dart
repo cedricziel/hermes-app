@@ -172,9 +172,9 @@ void main() {
 
       final events = await reply();
 
+      // The stale report is held back: it carries nothing the thread needs.
       expect(events.map((e) => e.runtimeType), [
         ThreadBound,
-        SessionInfo,
         ReplyStarted,
         ReplyCompleted,
       ]);

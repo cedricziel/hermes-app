@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
@@ -119,7 +120,9 @@ void main() {
           async.flushMicrotasks();
           expect(client.isClosed, isTrue);
           expect(failure, isA<GatewayConnectionClosed>());
-          expect(server.pingCount, 2);
+          // The ping due at the deadline's own instant still goes out: the
+          // close waits a turn of the event loop for frames in flight.
+          expect(server.pingCount, 3);
         });
       },
     );
@@ -348,6 +351,60 @@ void main() {
         unawaited(sub.cancel());
         unawaited(client.close());
         async.flushMicrotasks();
+      });
+    });
+  });
+
+  group('heartbeat after a suspend', () {
+    test(
+      'Dead socket: a frame that was waiting when the deadline fired keeps the '
+      'socket open',
+      () {
+        fakeAsync((async) {
+          final wire = StreamChannelController<String>();
+          // Pings go unanswered: only the late event is a sign of life.
+          final server = _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          // Due at the same instant as the deadline but queued behind it, as a
+          // frame that arrived while the app was suspended is.
+          Timer(const Duration(seconds: 45), () {
+            server.send(_eventFrame('message.delta'));
+          });
+
+          async.elapse(const Duration(seconds: 45));
+          async.flushMicrotasks();
+
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
+      },
+    );
+
+    test('Dead socket: a deadline that fired long past due waits for the reads '
+        'the OS had not delivered yet', () {
+      fakeAsync((async) {
+        final start = clock.now();
+        var jump = Duration.zero;
+        // The wall clock jumps while the app is suspended; timers do not.
+        withClock(Clock(() => start.add(async.elapsed + jump)), () {
+          final wire = StreamChannelController<String>();
+          final server = _Server(wire, answerPings: false);
+          final client = GatewayRpcClient(wire.local, heartbeat: true);
+          jump = const Duration(minutes: 10);
+          Timer(const Duration(seconds: 45, milliseconds: 100), () {
+            server.send(_eventFrame('message.delta'));
+          });
+
+          async.elapse(const Duration(seconds: 46));
+          async.flushMicrotasks();
+
+          expect(client.isClosed, isFalse);
+
+          unawaited(client.close());
+          async.flushMicrotasks();
+        });
       });
     });
   });

@@ -260,6 +260,27 @@ final class ReplyCompleted extends ChatEvent {
   final String? error;
 }
 
+/// Whether [event] shows that a turn is under way, as opposed to a report
+/// about the session. The transport takes it for "the turn has begun", and the
+/// controller opens a reply for a turn it did not submit.
+bool beginsTurn(ChatEvent event) => switch (event) {
+  ReplyStarted() ||
+  ReplyDelta() ||
+  ReasoningUpdated() ||
+  ToolPreparing() ||
+  ToolStarted() ||
+  ToolFinished() ||
+  ReplyErrored() => true,
+  _ => false,
+};
+
+/// Whether [event] opens a turn nobody asked for, as on the follow-ups. A
+/// failure or a finished tool call alone is a stray tail of a turn that already
+/// ended, so they do not open one; [beginsTurn] counts them for a prompt the
+/// app sent itself.
+bool opensTurn(ChatEvent event) =>
+    beginsTurn(event) && event is! ReplyErrored && event is! ToolFinished;
+
 /// The profile a message was sent under no longer exists on the dashboard, so
 /// no session could be created or resumed in it. Sending again fails the same
 /// way until another profile is picked.
