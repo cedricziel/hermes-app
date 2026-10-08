@@ -17,8 +17,12 @@ import '../support/fake_hermes_server.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 
-Finder _tab(String name) =>
-    find.descendant(of: find.byType(AdaptiveTabBar), matching: find.text(name));
+Finder _tab(String name) => find.descendant(
+  of: find.byWidgetPredicate(
+    (widget) => widget is AdaptiveTabBar || widget is MacToolbarTabs,
+  ),
+  matching: find.text(name),
+);
 
 /// The Plugins screen: installed plugins and their details, the catalog and
 /// installing from it or from a Git URL, and the memory provider and context
@@ -145,7 +149,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder listRow(String name) => find.widgetWithText(ListTile, name);
+  Finder listRow(String name) => find.byWidgetPredicate(
+    (widget) =>
+        widget.key == ValueKey('plugin-row-$name') ||
+        widget.key == ValueKey('catalog-row-$name'),
+  );
 
   bool isWide(Size size) => size.width >= kWideLayoutBreakpoint;
 
@@ -184,7 +192,12 @@ void main() {
       server.on('GET', hub, {
         ...hubBody([hubRow('netbox', status: 'disabled', canUpdate: true)]),
       });
-      await tester.tap(find.byKey(const Key('plugin-enabled')));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('plugin-enabled')),
+          matching: find.byType(Switch),
+        ),
+      );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'switched-off');
 
@@ -226,7 +239,12 @@ void main() {
         {'detail': 'Plugin is locked.'},
         status: 400,
       );
-      await tester.tap(find.byKey(const Key('plugin-enabled')));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('plugin-enabled')),
+          matching: find.byType(Switch),
+        ),
+      );
       await tester.pumpAndSettle();
       await shots.capture(tester, 'switch-refused');
       await drain(tester);

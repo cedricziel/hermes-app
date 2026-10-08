@@ -167,18 +167,20 @@ FakeHermesServer pluginsServer({bool empty = false}) => FakeHermesServer()
     'generated_at': '2026-09-20T12:00:00Z',
   });
 
-HermesPluginManagerRepository _repository(FakeHermesServer server) =>
-    HermesPluginManagerRepository(server.client().raw);
+HermesPluginManagerRepository _repository(
+  FakeHermesServer server, {
+  String? profile,
+}) => HermesPluginManagerRepository(server.client().raw, profile: profile);
 
-WidgetbookUseCase _tab<T extends ChangeNotifier>(
+List<WidgetbookUseCase> _tab<T extends ChangeNotifier>(
   String name,
   FakeHermesServer Function() server,
   T Function(HermesPluginManagerRepository repository) create,
   Future<void> Function(T controller) load,
   Widget Function(T controller) tab,
-) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => Hosted<T>(
+) => onEachPlatform(
+  name,
+  (_) => Hosted<T>(
     create: () async {
       final controller = create(_repository(server()));
       await load(controller);
@@ -189,14 +191,18 @@ WidgetbookUseCase _tab<T extends ChangeNotifier>(
   ),
 );
 
-WidgetbookUseCase _screen(String name, FakeHermesServer Function() server) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (_) => PluginsScreen(
-        repository: _repository(server()),
-        openLink: (_) async => true,
-      ),
-    );
+List<WidgetbookUseCase> _screen(
+  String name,
+  FakeHermesServer Function() server,
+) => onEachPlatform(
+  name,
+  (_) => pushed(
+    PluginsScreen(
+      repository: _repository(server(), profile: 'work'),
+      openLink: (_) async => true,
+    ),
+  ),
+);
 
 WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
   name: 'Plugin screens',
@@ -204,9 +210,9 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'PluginsScreen',
       useCases: [
-        _screen('Installed', pluginsServer),
-        _screen('Nothing installed', () => pluginsServer(empty: true)),
-        _screen(
+        ..._screen('Installed', pluginsServer),
+        ..._screen('Nothing installed', () => pluginsServer(empty: true)),
+        ..._screen(
           'Load fails',
           () =>
               pluginsServer()..on('GET', _hub, {'detail': 'boom'}, status: 500),
@@ -216,7 +222,7 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'InstalledTab',
       useCases: [
-        _tab<PluginsController>(
+        ..._tab<PluginsController>(
           'Selected',
           pluginsServer,
           (repository) =>
@@ -232,7 +238,7 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'CatalogTab',
       useCases: [
-        _tab<CatalogController>(
+        ..._tab<CatalogController>(
           'Catalog',
           pluginsServer,
           (repository) =>
@@ -241,7 +247,7 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
           (controller) =>
               CatalogTab(controller: controller, openLink: (_) async => true),
         ),
-        _tab<CatalogController>(
+        ..._tab<CatalogController>(
           'Empty',
           () => pluginsServer()
             ..on('GET', _catalog, {
@@ -259,7 +265,7 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ProvidersTab',
       useCases: [
-        _tab<ProvidersController>(
+        ..._tab<ProvidersController>(
           'Providers',
           pluginsServer,
           (repository) =>
@@ -306,7 +312,7 @@ WidgetbookNode pluginsScreensNode() => WidgetbookFolder(
             ),
           ),
         ])
-          _tab<PluginsController>(
+          ..._tab<PluginsController>(
             name,
             pluginsServer,
             (repository) =>

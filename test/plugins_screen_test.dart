@@ -7,6 +7,7 @@ import 'package:hermes_app/src/api/hermes_repositories.dart';
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/telemetry/telemetry.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:provider/provider.dart';
 
 import 'hermes_plugin_manager_repository_test.dart' show hubBody, hubRow;
@@ -15,6 +16,11 @@ import 'support/fake_hermes_server.dart';
 
 const _hub = '/api/dashboard/plugins/hub';
 const _agent = '/api/dashboard/agent-plugins';
+
+Finder _row(String name) => find.byKey(ValueKey('plugin-row-$name'));
+
+Finder _switch(String key) =>
+    find.descendant(of: find.byKey(Key(key)), matching: find.byType(Switch));
 
 void main() {
   late FakeHermesServer server;
@@ -73,8 +79,8 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(
-        tester.getTopLeft(find.text('zeta')).dy,
-        lessThan(tester.getTopLeft(find.text('alpha')).dy),
+        tester.getTopLeft(_row('zeta')).dy,
+        lessThan(tester.getTopLeft(_row('alpha')).dy),
       );
     });
 
@@ -95,7 +101,7 @@ void main() {
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
 
-      expect(find.text('netbox'), findsOneWidget);
+      expect(_row('netbox'), findsOneWidget);
       expect(find.text('Could not load plugins'), findsNothing);
     });
 
@@ -131,10 +137,10 @@ void main() {
 
       await pump(tester);
 
-      expect(find.text('Enabled'), findsNWidgets(4));
-      expect(find.text('Disabled'), findsOneWidget);
+      expect(find.text('On'), findsNWidgets(4));
+      expect(find.text('Off'), findsOneWidget);
       expect(find.text('Inactive'), findsOneWidget);
-      expect(find.text('Bundled'), findsOneWidget);
+      expect(find.textContaining('Bundled'), findsOneWidget);
       expect(find.text('Needs login'), findsOneWidget);
       expect(find.text('Removed: unsafe network call'), findsOneWidget);
     });
@@ -146,9 +152,9 @@ void main() {
       server.on('GET', _hub, hubBody([hubRow('netbox', description: long)]));
 
       await pump(tester, width: 1000);
-      expect(tester.widget<Text>(find.text(long)).maxLines, 2);
+      expect(tester.widget<Text>(find.text(long)).maxLines, 1);
 
-      await tester.tap(find.text('netbox'));
+      await tester.tap(_row('netbox'));
       await tester.pumpAndSettle();
 
       expect(tester.widget<Text>(inDetail(find.text(long))).maxLines, isNull);
@@ -163,7 +169,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(server.requestsTo('GET', _hub), hasLength(2));
-      expect(find.text('netbox'), findsOneWidget);
+      expect(_row('netbox'), findsOneWidget);
     });
 
     testWidgets('tells the user when a refresh fails', (tester) async {
@@ -174,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Could not refresh plugins'), findsOneWidget);
-      expect(find.text('netbox'), findsOneWidget);
+      expect(_row('netbox'), findsOneWidget);
     });
   });
 
@@ -184,7 +190,7 @@ void main() {
     ) async {
       await pump(tester, width: 400);
 
-      await tester.tap(find.text('netbox'));
+      await tester.tap(_row('netbox'));
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsOneWidget);
@@ -195,14 +201,12 @@ void main() {
       await pump(tester, width: 1000);
       expect(find.byKey(const Key('plugin-detail')), findsNothing);
 
-      await tester.tap(find.text('netbox'));
+      await tester.tap(_row('netbox'));
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsNothing);
       expect(inDetail(find.text('Query NetBox')), findsOneWidget);
-      final row = tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'netbox'),
-      );
+      final row = tester.widget<GroupedRow>(_row('netbox'));
       expect(row.selected, isTrue);
     });
 
@@ -210,12 +214,12 @@ void main() {
       tester,
     ) async {
       await pump(tester, width: 400);
-      await tester.tap(find.text('netbox'));
+      await tester.tap(_row('netbox'));
       await tester.pumpAndSettle();
       server.on('GET', _hub, hubBody([hubRow('kanban')]));
       server.on('POST', '$_agent/netbox/disable', {'ok': true});
 
-      await tester.tap(find.byKey(const Key('plugin-enabled')));
+      await tester.tap(_switch('plugin-enabled'));
       await tester.pumpAndSettle();
 
       expect(find.byType(BottomSheet), findsNothing);
@@ -226,25 +230,20 @@ void main() {
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server
           ..on('POST', '$_agent/netbox/disable', {'ok': true})
           ..on('GET', _hub, hubBody([hubRow('netbox', status: 'disabled')]));
 
-        await tester.tap(find.byKey(const Key('plugin-enabled')));
+        await tester.tap(_switch('plugin-enabled'));
         await tester.pumpAndSettle();
 
         expect(
           server.requestsTo('POST', '$_agent/netbox/disable'),
           hasLength(1),
         );
-        expect(
-          tester
-              .widget<SwitchListTile>(find.byKey(const Key('plugin-enabled')))
-              .value,
-          isFalse,
-        );
+        expect(tester.widget<Switch>(_switch('plugin-enabled')).value, isFalse);
         expect(inDetail(find.text('Applies to new chats')), findsOneWidget);
       });
 
@@ -252,33 +251,28 @@ void main() {
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server.on('POST', '$_agent/netbox/disable', {
           'detail': 'Plugin is locked.',
         }, status: 400);
 
-        await tester.tap(find.byKey(const Key('plugin-enabled')));
+        await tester.tap(_switch('plugin-enabled'));
         await tester.pumpAndSettle();
 
         expect(find.text('Plugin is locked.'), findsOneWidget);
-        expect(
-          tester
-              .widget<SwitchListTile>(find.byKey(const Key('plugin-enabled')))
-              .value,
-          isTrue,
-        );
+        expect(tester.widget<Switch>(_switch('plugin-enabled')).value, isTrue);
       });
 
       testWidgets('falls back to a plain message without a reason', (
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server.on('POST', '$_agent/netbox/disable', {}, status: 500);
 
-        await tester.tap(find.byKey(const Key('plugin-enabled')));
+        await tester.tap(_switch('plugin-enabled'));
         await tester.pumpAndSettle();
 
         expect(find.text('Could not update this plugin'), findsOneWidget);
@@ -293,7 +287,7 @@ void main() {
           hubBody([hubRow('netbox', canUpdate: canUpdate)]),
         );
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
       }
 
@@ -344,7 +338,7 @@ void main() {
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('kanban'));
+        await tester.tap(_row('kanban'));
         await tester.pumpAndSettle();
 
         expect(find.byKey(const Key('plugin-remove')), findsNothing);
@@ -354,7 +348,7 @@ void main() {
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
 
         await tester.tap(find.byKey(const Key('plugin-remove')));
@@ -364,14 +358,14 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(server.requestsTo('DELETE', '$_agent/netbox'), isEmpty);
-        expect(find.text('netbox'), findsWidgets);
+        expect(_row('netbox'), findsWidgets);
       });
 
       testWidgets('deletes after confirmation and closes the details', (
         tester,
       ) async {
         await pump(tester, width: 400);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server
           ..on('DELETE', '$_agent/netbox', {'ok': true})
@@ -384,12 +378,12 @@ void main() {
 
         expect(server.requestsTo('DELETE', '$_agent/netbox'), hasLength(1));
         expect(find.byType(BottomSheet), findsNothing);
-        expect(find.text('netbox'), findsNothing);
+        expect(_row('netbox'), findsNothing);
       });
 
       testWidgets('keeps the plugin and says why when refused', (tester) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server.on('DELETE', '$_agent/netbox', {
           'detail': 'In use.',
@@ -401,32 +395,27 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('In use.'), findsOneWidget);
-        expect(find.text('netbox'), findsWidgets);
+        expect(_row('netbox'), findsWidgets);
       });
     });
 
     group('hiding', () {
       testWidgets('sends the flag and reflects the new state', (tester) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server
           ..on('POST', '/api/dashboard/plugins/netbox/visibility', {'ok': true})
           ..on('GET', _hub, hubBody([hubRow('netbox', hidden: true)]));
 
-        await tester.tap(find.byKey(const Key('plugin-hidden')));
+        await tester.tap(_switch('plugin-hidden'));
         await tester.pumpAndSettle();
 
         final request = server
             .requestsTo('POST', '/api/dashboard/plugins/netbox/visibility')
             .single;
         expect(jsonBody(request), {'hidden': true});
-        expect(
-          tester
-              .widget<SwitchListTile>(find.byKey(const Key('plugin-hidden')))
-              .value,
-          isTrue,
-        );
+        expect(tester.widget<Switch>(_switch('plugin-hidden')).value, isTrue);
         expect(
           inDetail(find.text('Only affects the web dashboard')),
           findsOneWidget,
@@ -437,7 +426,7 @@ void main() {
         tester,
       ) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
         server.on(
           'POST',
@@ -446,16 +435,11 @@ void main() {
           status: 500,
         );
 
-        await tester.tap(find.byKey(const Key('plugin-hidden')));
+        await tester.tap(_switch('plugin-hidden'));
         await tester.pumpAndSettle();
 
         expect(find.text('Could not update this plugin'), findsOneWidget);
-        expect(
-          tester
-              .widget<SwitchListTile>(find.byKey(const Key('plugin-hidden')))
-              .value,
-          isFalse,
-        );
+        expect(tester.widget<Switch>(_switch('plugin-hidden')).value, isFalse);
       });
     });
 
@@ -492,7 +476,7 @@ void main() {
           ]),
         );
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
 
         expect(inDetail(find.text('hermes auth netbox')), findsOneWidget);
@@ -507,7 +491,7 @@ void main() {
       testWidgets('has no copy button without a command', (tester) async {
         server.on('GET', _hub, hubBody([hubRow('netbox', authRequired: true)]));
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
 
         expect(inDetail(find.text('Needs login')), findsOneWidget);
@@ -516,7 +500,7 @@ void main() {
 
       testWidgets('is absent when no login is needed', (tester) async {
         await pump(tester, width: 1000);
-        await tester.tap(find.text('netbox'));
+        await tester.tap(_row('netbox'));
         await tester.pumpAndSettle();
 
         expect(inDetail(find.text('Needs login')), findsNothing);
@@ -549,9 +533,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('netbox'));
+      await tester.tap(_row('netbox'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('plugin-enabled')));
+      await tester.tap(_switch('plugin-enabled'));
       await tester.pumpAndSettle();
 
       expect(events.map((e) => e.$1), ['plugins.disable.ok']);
@@ -570,7 +554,7 @@ void main() {
       ]),
     );
     await pump(tester, width: 1000);
-    await tester.tap(find.text('netbox'));
+    await tester.tap(_row('netbox'));
     await tester.pumpAndSettle();
 
     expect(

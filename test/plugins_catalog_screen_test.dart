@@ -8,6 +8,7 @@ import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
 import 'package:hermes_app/src/plugins/plugins_screen.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 import 'hermes_plugin_manager_repository_test.dart'
     show catalogBody, catalogRow, hubBody, hubRow;
@@ -21,6 +22,13 @@ const catalogPath = '/api/dashboard/plugins/catalog';
 const _hub = '/api/dashboard/plugins/hub';
 
 /// The Plugins screen's Catalog tab against a fake dashboard.
+Finder _entry(String name) => find.byKey(ValueKey('catalog-row-$name'));
+
+final _enableSwitch = find.descendant(
+  of: find.byKey(const Key('catalog-enable-switch')),
+  matching: find.byType(Switch),
+);
+
 void main() {
   late FakeHermesServer server;
 
@@ -87,7 +95,7 @@ void main() {
 
       expect(_tab('Installed'), findsOneWidget);
       expect(_tab('Catalog'), findsOneWidget);
-      expect(find.text('netbox'), findsOneWidget);
+      expect(find.byKey(const ValueKey('plugin-row-netbox')), findsOneWidget);
       expect(server.requestsTo('GET', catalogPath), isEmpty);
     });
 
@@ -186,34 +194,23 @@ void main() {
     testWidgets('shows what each entry is and where it stands', (tester) async {
       await openCatalog(tester);
 
-      final chrome = find.widgetWithText(
-        ListTile,
-        'hermes-plugin-chrome-profiles',
-      );
-      expect(
-        find.descendant(of: chrome, matching: find.text('Acme')),
-        findsOneWidget,
-      );
+      final chrome = _entry('hermes-plugin-chrome-profiles');
       expect(
         find.descendant(
           of: chrome,
-          matching: find.text('Switch Chrome profiles from the agent'),
+          matching: find.text('Acme · Switch Chrome profiles from the agent'),
         ),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: chrome, matching: find.text('a3f9c21')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: chrome, matching: find.text('Official')),
+        find.descendant(of: chrome, matching: find.textContaining('Official')),
         findsOneWidget,
       );
       expect(
         find.byKey(const Key('catalog-install-hermes-plugin-chrome-profiles')),
         findsOneWidget,
       );
-      expect(find.text('Official'), findsOneWidget);
+      expect(find.textContaining('Official'), findsOneWidget);
     });
 
     testWidgets('marks installed entries and those with an update', (
@@ -221,7 +218,7 @@ void main() {
     ) async {
       await openCatalog(tester);
 
-      expect(find.text('Installed'), findsNWidgets(3));
+      expect(find.text('Installed'), findsNWidgets(2));
       expect(find.text('Update available'), findsOneWidget);
       expect(
         find.byKey(const Key('catalog-install-hermes-plugin-netbox')),
@@ -229,7 +226,7 @@ void main() {
       );
     });
 
-    testWidgets('cuts a long description to two lines', (tester) async {
+    testWidgets('cuts a long description to one line', (tester) async {
       final long = List.filled(40, 'word').join(' ');
       server.on(
         'GET',
@@ -239,7 +236,7 @@ void main() {
 
       await openCatalog(tester);
 
-      expect(tester.widget<Text>(find.text(long)).maxLines, 2);
+      expect(tester.widget<Text>(find.textContaining(long)).maxLines, 1);
     });
 
     testWidgets('pull to refresh loads again and keeps the rows', (
@@ -317,7 +314,7 @@ void main() {
     Future<void> openRich(WidgetTester tester, {double width = 400}) async {
       server.on('GET', catalogPath, catalogBody([rich, catalogRow('other')]));
       await openCatalog(tester, width: width);
-      await tester.tap(find.text('hermes-plugin-netbox'));
+      await tester.tap(_entry('hermes-plugin-netbox'));
       await tester.pumpAndSettle();
     }
 
@@ -337,20 +334,19 @@ void main() {
       await openRich(tester, width: 1000);
 
       expect(find.byType(BottomSheet), findsNothing);
-      expect(inDetail(find.text('Andrew')), findsOneWidget);
-      final row = tester.widget<ListTile>(
-        find.widgetWithText(ListTile, 'hermes-plugin-netbox'),
-      );
+      expect(inDetail(find.text('Official · Andrew')), findsOneWidget);
+      final row = tester.widget<GroupedRow>(_entry('hermes-plugin-netbox'));
       expect(row.selected, isTrue);
     });
 
     testWidgets('show what the entry needs and provides', (tester) async {
       await openRich(tester);
 
-      expect(inDetail(find.text('Official')), findsOneWidget);
+      expect(inDetail(find.text('Official · Andrew')), findsOneWidget);
       expect(inDetail(find.text('a3f9c21')), findsOneWidget);
-      expect(inDetail(find.text('Requires Hermes >=0.20')), findsOneWidget);
-      expect(inDetail(find.text('Platforms: linux, macos')), findsOneWidget);
+      expect(inDetail(find.text('Requires Hermes')), findsOneWidget);
+      expect(inDetail(find.text('>=0.20')), findsOneWidget);
+      expect(inDetail(find.text('linux, macos')), findsOneWidget);
       expect(inDetail(find.text('Tools')), findsOneWidget);
       expect(inDetail(find.text('netbox_query')), findsOneWidget);
       expect(inDetail(find.text('netbox_apply')), findsOneWidget);
@@ -369,7 +365,7 @@ void main() {
     testWidgets('leave out what an entry does not name', (tester) async {
       server.on('GET', catalogPath, catalogBody([catalogRow('plain')]));
       await openCatalog(tester);
-      await tester.tap(find.text('plain'));
+      await tester.tap(_entry('plain'));
       await tester.pumpAndSettle();
 
       expect(inDetail(find.textContaining('Requires Hermes')), findsNothing);
@@ -382,6 +378,8 @@ void main() {
     ) async {
       await openRich(tester);
 
+      await tester.ensureVisible(find.byKey(const Key('catalog-docs-link')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('catalog-docs-link')));
       await tester.pumpAndSettle();
 
@@ -399,12 +397,12 @@ void main() {
       );
       await openCatalog(tester);
 
-      await tester.tap(find.text('odd'));
+      await tester.tap(_entry('odd'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('catalog-docs-link')), findsNothing);
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('local'));
+      await tester.tap(_entry('local'));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('catalog-docs-link')), findsNothing);
     });
@@ -430,7 +428,7 @@ void main() {
 
     Future<void> openSheet(WidgetTester tester, String name) async {
       await openCatalog(tester);
-      await tester.tap(find.text(name));
+      await tester.tap(_entry(name));
       await tester.pumpAndSettle();
     }
 
@@ -458,14 +456,7 @@ void main() {
     ) async {
       server.on('POST', install, {'ok': true, 'plugin_name': 'chrome'});
       await openSheet(tester, 'hermes-plugin-chrome-profiles');
-      expect(
-        tester
-            .widget<SwitchListTile>(
-              find.byKey(const Key('catalog-enable-switch')),
-            )
-            .value,
-        isTrue,
-      );
+      expect(tester.widget<Switch>(_enableSwitch).value, isTrue);
 
       await tester.tap(find.byKey(const Key('catalog-detail-install')));
       await tester.pumpAndSettle();
@@ -477,7 +468,7 @@ void main() {
       server.on('POST', install, {'ok': true, 'plugin_name': 'chrome'});
       await openSheet(tester, 'hermes-plugin-chrome-profiles');
 
-      await tester.tap(find.byKey(const Key('catalog-enable-switch')));
+      await tester.tap(_enableSwitch);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('catalog-detail-install')));
       await tester.pumpAndSettle();

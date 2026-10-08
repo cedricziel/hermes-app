@@ -11,6 +11,8 @@ import 'support/fake_hermes_server.dart';
 const _hub = '/api/dashboard/plugins/hub';
 const _agent = '/api/dashboard/agent-plugins';
 
+Finder _row(String name) => find.byKey(ValueKey('plugin-row-$name'));
+
 void main() {
   late FakeHermesServer server;
 
@@ -48,7 +50,7 @@ void main() {
     server.on('DELETE', '$_agent/netbox', {'ok': true});
     await pumpScreen(tester, TargetPlatform.iOS);
 
-    await tester.drag(find.text('netbox'), const Offset(-300, 0));
+    await tester.drag(_row('netbox'), const Offset(-300, 0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Remove'));
     await tester.pumpAndSettle();
@@ -66,7 +68,7 @@ void main() {
     server.on('POST', '$_agent/netbox/disable', {'ok': true});
     await pumpScreen(tester, TargetPlatform.iOS);
 
-    await tester.longPress(find.text('netbox'));
+    await tester.longPress(_row('netbox'));
     await tester.pumpAndSettle();
     expect(find.text('Remove'), findsOneWidget);
     await tester.tap(find.text('Disable'));
@@ -80,7 +82,7 @@ void main() {
   ) async {
     await pumpScreen(tester, TargetPlatform.iOS);
 
-    await tester.longPress(find.text('kanban'));
+    await tester.longPress(_row('kanban'));
     await tester.pumpAndSettle();
 
     expect(find.text('Remove'), findsNothing);

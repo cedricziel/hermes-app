@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
-import 'plugin_tag.dart';
 import 'plugins_controller.dart' show PluginsFailure;
 import 'provider_settings.dart';
 import 'providers_controller.dart';
 
+import '../theme/platform_chrome.dart';
 import '../widgets/disclosure_tile.dart';
+import '../widgets/grouped_list.dart';
 import '../widgets/named_icon_button.dart';
 
 /// Where the agent keeps its memory and how it compresses long chats. It
@@ -102,9 +103,8 @@ class _ProvidersTabState extends State<ProvidersTab>
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refresh,
-                child: ListView(
+                child: GroupedListView(
                   key: const Key('providers-list'),
-                  padding: const EdgeInsets.only(bottom: 16),
                   children: [
                     _MemorySection(controller: _controller),
                     _ContextSection(controller: _controller),
@@ -120,29 +120,57 @@ class _ProvidersTabState extends State<ProvidersTab>
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.title, this.caption);
+/// The width of a shrink-wrapped Material radio button.
+const _radioSize = 40.0;
 
+/// Where the separators of a group of [_ChoiceRow]s start: past the radio
+/// button on Material.
+double? _choiceIndent(BuildContext context) {
+  if (platformChromeOf(context).isApple) return null;
+  final metrics = GroupedMetrics.of(context);
+  return metrics.rowPadding + _radioSize + metrics.leadingGap;
+}
+
+/// A provider the user can pick: a check mark at the trailing edge on Apple
+/// platforms, a radio button at the leading edge on Material.
+class _ChoiceRow extends StatelessWidget {
+  const _ChoiceRow({
+    super.key,
+    required this.value,
+    required this.title,
+    this.subtitle,
+    this.meta,
+    this.warning,
+    this.enabled = true,
+    required this.onSelect,
+  });
+
+  final String value;
   final String title;
-  final String caption;
+  final String? subtitle;
+  final String? meta;
+  final String? warning;
+  final bool enabled;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: theme.textTheme.titleMedium),
-          Text(
-            caption,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+    final apple = platformChromeOf(context).isApple;
+    final radio = Radio<String>.adaptive(
+      value: value,
+      enabled: enabled,
+      useCupertinoCheckmarkStyle: true,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+    return GroupedRow(
+      title: title,
+      subtitle: subtitle,
+      meta: meta,
+      warning: warning,
+      leading: apple ? null : radio,
+      trailing: apple ? radio : null,
+      chevron: false,
+      onTap: enabled ? () => onSelect(value) : null,
     );
   }
 }
@@ -152,78 +180,52 @@ class _MemorySection extends StatelessWidget {
 
   final ProvidersController controller;
 
+  void _choose(String? value) {
+    if (value != null && !controller.saving) controller.chooseMemory(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final inUse = controller.settings.memoryProvider;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          'Memory provider',
-          'Where the agent keeps long-term memory',
-        ),
-        RadioGroup<String>(
-          groupValue: controller.memoryChoice,
-          onChanged: (value) {
-            if (value != null && !controller.saving) {
-              controller.chooseMemory(value);
-            }
-          },
-          child: Column(
-            children: [
-              const RadioListTile<String>(
-                key: Key('memory-builtin'),
-                value: '',
-                title: Text('Built-in'),
-                subtitle: Text('No external memory'),
-              ),
-              for (final option in controller.memoryOptions) ...[
-                RadioListTile<String>(
-                  key: Key('memory-${option.name}'),
-                  value: option.name,
-                  enabled: option.ready || option.name == inUse,
-                  title: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          option.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _StatusChip(option.status),
-                    ],
-                  ),
-                  subtitle: option.description.isEmpty
-                      ? null
-                      : Text(
-                          option.description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                ),
-                if (!option.ready) _Needs(option: option),
-              ],
-            ],
+    return RadioGroup<String>(
+      groupValue: controller.memoryChoice,
+      onChanged: _choose,
+      child: GroupedSection(
+        header: 'Memory provider',
+        dividerIndent: _choiceIndent(context),
+        footer: 'Where the agent keeps long-term memory.',
+        children: [
+          _ChoiceRow(
+            key: const Key('memory-builtin'),
+            value: '',
+            title: 'Built-in',
+            subtitle: 'No external memory',
+            onSelect: _choose,
           ),
-        ),
-      ],
+          for (final option in controller.memoryOptions) ...[
+            _ChoiceRow(
+              key: Key('memory-${option.name}'),
+              value: option.name,
+              enabled: option.ready || option.name == inUse,
+              title: option.name,
+              meta: option.ready ? _statusText(option.status) : null,
+              warning: option.ready ? null : _statusText(option.status),
+              subtitle: option.description.isEmpty ? null : option.description,
+              onSelect: _choose,
+            ),
+            if (!option.ready) _Needs(option: option),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip(this.status);
-
-  final ProviderStatus status;
-
-  @override
-  Widget build(BuildContext context) => PluginTag(switch (status) {
-    ProviderStatus.ready => 'Ready',
-    ProviderStatus.needsSetup => 'Needs setup',
-    ProviderStatus.unavailable => 'Unavailable',
-  }, filled: status == ProviderStatus.ready);
-}
+String _statusText(ProviderStatus status) => switch (status) {
+  ProviderStatus.ready => 'Ready',
+  ProviderStatus.needsSetup => 'Needs setup',
+  ProviderStatus.unavailable => 'Unavailable',
+};
 
 /// What a provider that is not ready needs. It is done on the server: the app
 /// shows the names and commands and runs none of them.
@@ -235,9 +237,10 @@ class _Needs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final metrics = GroupedMetrics.of(context);
     const mono = TextStyle(fontFamily: 'monospace', fontSize: 13);
     return Padding(
-      padding: const EdgeInsets.only(left: 40, right: 16),
+      padding: EdgeInsets.symmetric(horizontal: metrics.rowPadding),
       child: DisclosureTile(
         key: Key('needs-${option.name}'),
         tilePadding: EdgeInsets.zero,
@@ -246,7 +249,10 @@ class _Needs extends StatelessWidget {
         title: Text(
           'What it needs',
           semanticsLabel: 'What ${option.name} needs',
-          style: theme.textTheme.bodyMedium,
+          style: TextStyle(
+            fontSize: metrics.titleSize,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
         children: [
           if (!option.namesRequirements)
@@ -326,52 +332,39 @@ class _ContextSection extends StatelessWidget {
 
   final ProvidersController controller;
 
+  void _choose(String? value) {
+    if (value != null && !controller.saving) controller.chooseContext(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final options = controller.contextOptions;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          'Context engine',
-          'How long conversations are compressed',
-        ),
-        if (!controller.hasContextChoice)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (options.isNotEmpty) Text(options.first.name),
-                const Text(
-                  'No other context engines are available on this server',
-                ),
-              ],
-            ),
-          )
-        else
-          RadioGroup<String>(
-            groupValue: controller.contextChoice,
-            onChanged: (value) {
-              if (value != null && !controller.saving) {
-                controller.chooseContext(value);
-              }
-            },
-            child: Column(
-              children: [
-                for (final option in options)
-                  RadioListTile<String>(
-                    key: Key('engine-${option.name}'),
-                    value: option.name,
-                    title: Text(option.name),
-                    subtitle: option.description.isEmpty
-                        ? null
-                        : Text(option.description),
-                  ),
-              ],
-            ),
-          ),
-      ],
+    return RadioGroup<String>(
+      groupValue: controller.contextChoice,
+      onChanged: _choose,
+      child: GroupedSection(
+        header: 'Context engine',
+        footer: 'How long conversations are compressed.',
+        dividerIndent: _choiceIndent(context),
+        children: [
+          if (!controller.hasContextChoice)
+            GroupedRow(
+              title: options.isEmpty ? 'None' : options.first.name,
+              subtitle: 'No other context engines are available on this server',
+            )
+          else
+            for (final option in options)
+              _ChoiceRow(
+                key: Key('engine-${option.name}'),
+                value: option.name,
+                title: option.name,
+                subtitle: option.description.isEmpty
+                    ? null
+                    : option.description,
+                onSelect: _choose,
+              ),
+        ],
+      ),
     );
   }
 }
@@ -388,7 +381,9 @@ class _SaveBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: theme.colorScheme.outline)),
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
       ),
       child: Row(
         children: [

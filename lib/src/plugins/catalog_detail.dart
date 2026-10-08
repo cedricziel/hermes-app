@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
+import '../widgets/grouped_list.dart';
 import 'catalog_entry.dart';
-import 'plugin_tag.dart';
+import 'widgets/detail_page.dart';
 
 /// Opens [uri] in the system browser; false when nothing could open it.
 typedef LinkOpener = Future<bool> Function(Uri uri);
@@ -20,7 +22,7 @@ class CatalogDetail extends StatelessWidget {
   final CatalogEntry entry;
   final LinkOpener openLink;
 
-  /// What the user can do with the entry, shown under its facts.
+  /// What the user can do with the entry, shown above its facts.
   final Widget? actions;
 
   /// The docs address as a link, or null when it is not a plain web address.
@@ -32,110 +34,61 @@ class CatalogDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurfaceVariant;
     final docs = webAddress(entry.docsUrl);
-    return SingleChildScrollView(
+    final facts = [
+      if (entry.installed)
+        GroupedRow(
+          title: 'Status',
+          value: entry.updateAvailable ? 'Update available' : 'Installed',
+        ),
+      if (entry.commit.isNotEmpty)
+        GroupedRow(title: 'Commit', value: entry.commit),
+      if (entry.requiresHermes.isNotEmpty)
+        GroupedRow(title: 'Requires Hermes', value: entry.requiresHermes),
+      if (entry.platforms.isNotEmpty)
+        GroupedRow(title: 'Platforms', value: entry.platforms.join(', ')),
+    ];
+    return DetailPage(
       key: const Key('catalog-detail'),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      title: entry.name,
+      meta: [
+        if (entry.official) 'Official',
+        if (entry.maintainer.isNotEmpty) entry.maintainer,
+      ].join(' · '),
+      description: entry.description,
+      sections: [
+        ?actions,
+        if (facts.isNotEmpty) GroupedSection(children: facts),
+        _names('Tools', entry.providesTools),
+        _names('Hooks', entry.providesHooks),
+        _names('Middleware', entry.providesMiddleware),
+        _names('Environment variables', entry.requiresEnv),
+        if (docs != null)
+          GroupedSection(
             children: [
-              Flexible(
-                child: Text(entry.name, style: theme.textTheme.titleLarge),
-              ),
-              if (entry.official) ...[
-                const SizedBox(width: 8),
-                const PluginTag('Official', filled: true),
-              ],
-            ],
-          ),
-          if (entry.maintainer.isNotEmpty)
-            Text(
-              entry.maintainer,
-              style: theme.textTheme.bodySmall?.copyWith(color: subtle),
-            ),
-          if (entry.description.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(entry.description),
-          ],
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              if (entry.commit.isNotEmpty) PluginTag(entry.commit, mono: true),
-              if (entry.installed) const PluginTag('Installed', filled: true),
-              if (entry.installed && entry.updateAvailable)
-                const PluginTag('Update available', strong: true),
-            ],
-          ),
-          if (entry.requiresHermes.isNotEmpty)
-            _Line('Requires Hermes ${entry.requiresHermes}'),
-          if (entry.platforms.isNotEmpty)
-            _Line('Platforms: ${entry.platforms.join(', ')}'),
-          _Group('Tools', entry.providesTools),
-          _Group('Hooks', entry.providesHooks),
-          _Group('Middleware', entry.providesMiddleware),
-          _Group('Environment variables', entry.requiresEnv),
-          if (docs != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
+              GroupedRow(
                 key: const Key('catalog-docs-link'),
-                icon: const AppIcon(AppIcons.openExternal, size: 16),
-                label: const Text('Documentation'),
-                onPressed: () => openLink(docs),
+                title: 'Documentation',
+                chevron: false,
+                trailing: AppIcon(
+                  AppIcons.openExternal,
+                  size: 16,
+                  color: context.hermesColors.subtleText,
+                ),
+                onTap: () => openLink(docs),
               ),
-            ),
-          ?actions,
-        ],
-      ),
-    );
-  }
-}
-
-class _Line extends StatelessWidget {
-  const _Line(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 8),
-    child: Text(
-      text,
-      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-    ),
-  );
-}
-
-/// A named list of what an entry provides or needs; nothing when it has none.
-class _Group extends StatelessWidget {
-  const _Group(this.title, this.names);
-
-  final String title;
-  final List<String> names;
-
-  @override
-  Widget build(BuildContext context) {
-    if (names.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [for (final name in names) PluginTag(name, mono: true)],
+            ],
           ),
-        ],
-      ),
+      ],
     );
   }
+
+  /// A named list of what the entry provides or needs; nothing when it has
+  /// none.
+  static Widget _names(String header, List<String> names) => names.isEmpty
+      ? const SizedBox.shrink()
+      : GroupedSection(
+          header: header,
+          children: [for (final name in names) GroupedRow(title: name)],
+        );
 }

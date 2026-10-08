@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/named_icon_button.dart';
 import 'installed_plugin.dart';
 import 'plugin_actions.dart';
-import 'plugin_tag.dart';
 import 'plugins_controller.dart';
-
-import '../widgets/named_icon_button.dart';
+import 'widgets/detail_page.dart';
 
 /// One plugin's details and the changes the user can make to it. Shown in a
 /// bottom sheet or in a pane; it does not know which.
@@ -23,134 +24,128 @@ class PluginDetail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final subtle = theme.colorScheme.onSurfaceVariant;
     final busy = controller.isBusy(plugin.name);
-    final meta = [
-      if (plugin.version.isNotEmpty) 'v${plugin.version}',
-      if (plugin.source.isNotEmpty) plugin.source,
-    ].join(' · ');
-    return SingleChildScrollView(
+    final removedReason = plugin.removedReason;
+    return DetailPage(
       key: const Key('plugin-detail'),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(plugin.name, style: theme.textTheme.titleLarge),
-          if (meta.isNotEmpty)
-            Text(
-              meta,
-              style: theme.textTheme.bodySmall?.copyWith(color: subtle),
-            ),
-          if (plugin.description.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(plugin.description),
-          ],
-          if (plugin.removedReason case final reason?) ...[
-            const SizedBox(height: 12),
-            PluginTag('Removed: $reason', strong: true),
-          ],
-          const SizedBox(height: 8),
-          SwitchListTile.adaptive(
-            key: const Key('plugin-enabled'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Enabled'),
-            subtitle: const Text('Applies to new chats'),
-            value: plugin.status == PluginStatus.enabled,
-            onChanged: busy
-                ? null
-                : (value) => runPluginChange(
-                    context,
-                    () => controller.setEnabled(plugin.name, value),
-                  ),
+      title: plugin.name,
+      meta: [
+        if (plugin.version.isNotEmpty) 'v${plugin.version}',
+        if (plugin.source.isNotEmpty) plugin.source,
+      ].join(' · '),
+      description: plugin.description,
+      sections: [
+        if (removedReason != null)
+          GroupedSection(
+            children: [GroupedRow(title: 'Removed', warning: removedReason)],
           ),
-          SwitchListTile.adaptive(
-            key: const Key('plugin-hidden'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Hide from dashboard sidebar'),
-            subtitle: const Text('Only affects the web dashboard'),
-            value: plugin.hidden,
-            onChanged: busy
-                ? null
-                : (value) => runPluginChange(
-                    context,
-                    () => controller.setHidden(plugin.name, value),
-                  ),
-          ),
-          if (plugin.canUpdate) ...[
-            const SizedBox(height: 8),
-            FilledButton.tonal(
-              key: const Key('plugin-update'),
-              onPressed: busy
+        GroupedSection(
+          children: [
+            GroupedSwitchRow(
+              key: const Key('plugin-enabled'),
+              title: 'Enabled',
+              subtitle: 'Applies to new chats',
+              value: plugin.status == PluginStatus.enabled,
+              onChanged: busy
                   ? null
-                  : () => runPluginChange(
+                  : (value) => runPluginChange(
                       context,
-                      () => controller.update(plugin.name),
-                      success: (result) => result.unchanged
-                          ? 'Already up to date'
-                          : 'Updated ${plugin.name}',
+                      () => controller.setEnabled(plugin.name, value),
                     ),
-              child: busy
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                    )
-                  : const Text('Update'),
             ),
-          ],
-          if (plugin.authRequired) ...[
-            const SizedBox(height: 16),
-            _LoginBlock(command: plugin.authCommand),
-          ],
-          if (plugin.canRemove) ...[
-            const SizedBox(height: 24),
-            OutlinedButton(
-              key: const Key('plugin-remove'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-                side: BorderSide(color: theme.colorScheme.error),
-              ),
-              onPressed: busy
+            GroupedSwitchRow(
+              key: const Key('plugin-hidden'),
+              title: 'Hide from dashboard sidebar',
+              subtitle: 'Only affects the web dashboard',
+              value: plugin.hidden,
+              onChanged: busy
                   ? null
-                  : () => removePlugin(context, controller, plugin),
-              child: const Text('Remove plugin'),
+                  : (value) => runPluginChange(
+                      context,
+                      () => controller.setHidden(plugin.name, value),
+                    ),
             ),
           ],
-        ],
-      ),
+        ),
+        if (plugin.authRequired) _LoginSection(command: plugin.authCommand),
+        if (plugin.canUpdate || plugin.canRemove)
+          GroupedSection(
+            children: [
+              if (plugin.canUpdate)
+                GroupedRow(
+                  key: const Key('plugin-update'),
+                  title: 'Update',
+                  chevron: false,
+                  trailing: busy
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : null,
+                  onTap: busy
+                      ? null
+                      : () => runPluginChange(
+                          context,
+                          () => controller.update(plugin.name),
+                          success: (result) => result.unchanged
+                              ? 'Already up to date'
+                              : 'Updated ${plugin.name}',
+                        ),
+                ),
+              if (plugin.canRemove)
+                GroupedRow(
+                  key: const Key('plugin-remove'),
+                  title: 'Remove plugin',
+                  destructive: true,
+                  chevron: false,
+                  onTap: busy
+                      ? null
+                      : () => removePlugin(context, controller, plugin),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
 
-class _LoginBlock extends StatelessWidget {
-  const _LoginBlock({required this.command});
+class _LoginSection extends StatelessWidget {
+  const _LoginSection({required this.command});
 
   final String? command;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final command = this.command;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    if (command == null) {
+      return const GroupedSection(
+        header: 'Needs login',
         children: [
-          Text('Needs login', style: theme.textTheme.labelLarge),
-          if (command == null)
-            const Text('This plugin needs a login on the server.')
-          else
-            Row(
+          GroupedRow(title: 'This plugin needs a login on the server.'),
+        ],
+      );
+    }
+    final metrics = GroupedMetrics.of(context);
+    return GroupedSection(
+      header: 'Needs login',
+      footer: 'Run this on the server.',
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: metrics.rowPadding, right: 4),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: metrics.rowMinHeight),
+            child: Row(
               children: [
                 Expanded(
                   child: SelectableText(
                     command,
-                    style: const TextStyle(fontFamily: 'monospace'),
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: metrics.subtitleSize,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
                 NamedIconButton(
@@ -158,6 +153,7 @@ class _LoginBlock extends StatelessWidget {
                   label: 'Copy command',
                   icon: AppIcons.copy,
                   iconSize: 18,
+                  color: context.hermesColors.subtleText,
                   onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
                     await Clipboard.setData(ClipboardData(text: command));
@@ -168,14 +164,9 @@ class _LoginBlock extends StatelessWidget {
                 ),
               ],
             ),
-          Text(
-            'Run this on the server.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

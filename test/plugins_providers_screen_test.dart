@@ -82,14 +82,19 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  RadioListTile<String> radio(WidgetTester tester, String key) =>
-      tester.widget<RadioListTile<String>>(find.byKey(Key(key)));
+  Finder radioOf(String key) => find.descendant(
+    of: find.byKey(Key(key)),
+    matching: find.byType(Radio<String>),
+  );
+
+  Radio<String> radio(WidgetTester tester, String key) =>
+      tester.widget<Radio<String>>(radioOf(key));
 
   bool selected(WidgetTester tester, String key) {
-    final tile = radio(tester, key);
-    return RadioGroup.maybeOf<String>(tester.element(find.byKey(Key(key))))
+    final button = radio(tester, key);
+    return RadioGroup.maybeOf<String>(tester.element(radioOf(key)))
             ?.groupValue ==
-        tile.value;
+        button.value;
   }
 
   FilledButton saveButton(WidgetTester tester) =>
@@ -200,7 +205,7 @@ void main() {
     ) async {
       await openProviders(tester);
 
-      expect(find.text('Ready'), findsNWidgets(2));
+      expect(find.textContaining('Ready'), findsNWidgets(2));
       expect(find.text('Needs setup'), findsOneWidget);
       expect(find.text('Unavailable'), findsNWidgets(2));
     });
