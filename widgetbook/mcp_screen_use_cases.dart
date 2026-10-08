@@ -130,6 +130,20 @@ Future<McpServersController> _servers(FakeHermesServer server) async {
   return controller;
 }
 
+Widget _hosted(
+  Widget Function(McpServersController servers) build, {
+  FakeHermesServer Function()? server,
+  Future<void> Function(McpServersController servers)? prepare,
+}) => Hosted<McpServersController>(
+  create: () async {
+    final servers = await _servers((server ?? mcpServer)());
+    await prepare?.call(servers);
+    return servers;
+  },
+  dispose: (servers) => servers.dispose(),
+  builder: (_, servers) => build(servers),
+);
+
 WidgetbookUseCase mcpServersUseCase(
   String name,
   Widget Function(McpServersController servers) build, {
@@ -137,16 +151,15 @@ WidgetbookUseCase mcpServersUseCase(
   Future<void> Function(McpServersController servers)? prepare,
 }) => WidgetbookUseCase(
   name: name,
-  builder: (_) => Hosted<McpServersController>(
-    create: () async {
-      final servers = await _servers((server ?? mcpServer)());
-      await prepare?.call(servers);
-      return servers;
-    },
-    dispose: (servers) => servers.dispose(),
-    builder: (_, servers) => build(servers),
-  ),
+  builder: (_) => _hosted(build, server: server, prepare: prepare),
 );
+
+/// [mcpServersUseCase] once per platform.
+List<WidgetbookUseCase> _onEach(
+  String name,
+  Widget Function(McpServersController servers) build, {
+  Future<void> Function(McpServersController servers)? prepare,
+}) => onEachPlatform(name, (_) => _hosted(build, prepare: prepare));
 
 List<WidgetbookUseCase> _list(
   String name,
@@ -180,49 +193,50 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpServerDetail',
       useCases: [
-        mcpServersUseCase(
+        ..._onEach(
           'Tested OAuth server',
           (servers) => Scaffold(
             body: McpServerDetail(controller: servers, name: 'grafana'),
           ),
           prepare: (servers) => servers.test(servers.serverNamed('grafana')!),
         ),
-        mcpServersUseCase(
+        ..._onEach(
           'Command server, switched off',
           (servers) => Scaffold(
             body: McpServerDetail(controller: servers, name: 'filesystem'),
           ),
         ),
-        mcpServersUseCase(
+        ..._onEach(
           'Page',
-          (servers) => McpServerPage(controller: servers, name: 'grafana'),
+          (servers) =>
+              pushed(McpServerPage(controller: servers, name: 'grafana')),
         ),
       ],
     ),
     WidgetbookComponent(
       name: 'McpAddServerScreen',
       useCases: [
-        mcpServersUseCase(
+        ..._onEach(
           'Form',
-          (servers) => McpAddServerScreen(servers: servers),
+          (servers) => pushed(McpAddServerScreen(servers: servers)),
         ),
       ],
     ),
     WidgetbookComponent(
       name: 'McpJsonEditorScreen',
       useCases: [
-        mcpServersUseCase(
+        ..._onEach(
           'Editor',
-          (servers) => McpJsonEditorScreen(servers: servers),
+          (servers) => pushed(McpJsonEditorScreen(servers: servers)),
         ),
       ],
     ),
     WidgetbookComponent(
       name: 'McpCatalogScreen',
       useCases: [
-        mcpServersUseCase(
+        ..._onEach(
           'Catalog',
-          (servers) => McpCatalogScreen(servers: servers),
+          (servers) => pushed(McpCatalogScreen(servers: servers)),
         ),
       ],
     ),
@@ -264,17 +278,19 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'McpSignInScreen',
       useCases: [
-        mcpServersUseCase(
+        ..._onEach(
           'Waiting for approval',
-          (servers) => McpSignInScreen(
-            controller: servers,
-            server: servers.serverNamed('grafana')!,
-            flow: const HermesMcpFlow(
-              flowId: 'flow-1',
-              status: McpFlowStatus.authorizationRequired,
-              authorizationUrl: 'https://auth.example/authorize?state=s1',
+          (servers) => pushed(
+            McpSignInScreen(
+              controller: servers,
+              server: servers.serverNamed('grafana')!,
+              flow: const HermesMcpFlow(
+                flowId: 'flow-1',
+                status: McpFlowStatus.authorizationRequired,
+                authorizationUrl: 'https://auth.example/authorize?state=s1',
+              ),
+              pollInterval: const Duration(days: 1),
             ),
-            pollInterval: const Duration(days: 1),
           ),
         ),
       ],
