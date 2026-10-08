@@ -5,6 +5,7 @@ opt_out_usage
 APP_IDENTIFIER       = "com.cedricziel.hermesApp"
 EXTENSION_IDENTIFIER = "#{APP_IDENTIFIER}.ShareExtension"
 WATCH_IDENTIFIER     = "#{APP_IDENTIFIER}.watchkitapp"
+LIVE_ACTIVITY_IDENTIFIER = "#{APP_IDENTIFIER}.LiveActivity"
 APP_NAME             = "Hermes App"
 TEAM_ID        = "WPW3QSLZ2F"
 OUTPUT_DIR     = "build/fastlane"
@@ -20,8 +21,12 @@ TARGETS = {
     workspace: "ios/Runner.xcworkspace",
     destination: "generic/platform=iOS",
     artifact: "#{OUTPUT_DIR}/#{OUTPUT_NAME}.ipa",
-    extension_targets: { "ShareExtension" => EXTENSION_IDENTIFIER, "HermesWatch" => WATCH_IDENTIFIER },
-    match_identifiers: [APP_IDENTIFIER, EXTENSION_IDENTIFIER, WATCH_IDENTIFIER],
+    extension_targets: {
+      "ShareExtension" => EXTENSION_IDENTIFIER,
+      "HermesWatch" => WATCH_IDENTIFIER,
+      "HermesLiveActivity" => LIVE_ACTIVITY_IDENTIFIER,
+    },
+    match_identifiers: [APP_IDENTIFIER, EXTENSION_IDENTIFIER, WATCH_IDENTIFIER, LIVE_ACTIVITY_IDENTIFIER],
   },
   mac: {
     flutter_platform: "macos",
