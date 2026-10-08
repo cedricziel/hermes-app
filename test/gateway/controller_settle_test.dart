@@ -443,12 +443,99 @@ void main() {
       });
     });
 
+    /// Answers of the stops that follow, one per call, in call order.
+    List<Completer<bool>> answers(int count) {
+      final list = [for (var i = 0; i < count; i++) Completer<bool>()];
+      final next = [...list];
+      rig.transport.onStop = (_) => next.removeAt(0).future;
+      return list;
+    }
+
+    test('a stop that happened keeps the queue paused when a second stop '
+        'answers false', () async {
+      final thread = await replyingWithQueue();
+      final a = answers(2);
+
+      final first = rig.chat.stopReply(thread);
+      final second = rig.chat.stopReply(thread);
+      a[0].complete(true);
+      await first;
+      rig.followUp().emit(const ReplyCompleted('Next.', stopped: true));
+      await pumpEventQueue();
+      a[1].complete(false);
+      await second;
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One']);
+    });
+
+    test('a failure keeps the queue paused when the interrupt answers '
+        'false', () async {
+      final thread = await replyingWithQueue();
+      final a = answers(1);
+
+      final stopping = rig.chat.stopReply(thread);
+      rig.followUp().emit(const ReplyCompleted('', failed: true));
+      await pumpEventQueue();
+      a[0].complete(false);
+      await stopping;
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One']);
+    });
+
+    test('a folded send whose interrupt fails restarts the settle wait', () {
+      fakeAsync((async) {
+        final rig = Rig();
+        final (thread, send) = rig.start('One');
+        async.flushMicrotasks();
+        rig.chat.submit('Two', const []);
+        final answer = Completer<bool>();
+        rig.transport.onStop = (_) => answer.future;
+        unawaited(rig.chat.stopReply(thread));
+        async.flushMicrotasks();
+        send
+          ..emit(const PromptFolded())
+          ..finish();
+        async.flushMicrotasks();
+
+        answer.completeError(Exception('timeout'));
+        async.flushMicrotasks();
+        rig.followUp().emit(const SessionInfo(running: false));
+        async.flushMicrotasks();
+
+        expect(rig.sentTexts, ['One', 'Two']);
+        rig.dispose();
+      });
+    });
+
+    test('a stop answered true before the folded turn shows events keeps '
+        'the queue paused when it ends', () async {
+      final (thread, send) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      final a = answers(1);
+      final stopping = rig.chat.stopReply(thread);
+      send
+        ..emit(const PromptFolded())
+        ..finish();
+      await pumpEventQueue();
+
+      a[0].complete(true);
+      await stopping;
+      rig.followUp()
+        ..emit(const ReplyDelta('Running'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One']);
+    });
+
     test('a normal completion then an idle report on the send, with the '
-        'interrupt answering false, is a normal finish', () async {
+        'interrupt answering true, is a normal finish', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
       rig.chat.submit('Two', const []);
-      rig.transport.stopsRunning = false;
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -458,18 +545,18 @@ void main() {
         ..emit(const SessionInfo(running: false))
         ..finish();
       await pumpEventQueue();
+      expect(rig.sentTexts, ['One', 'Two']);
+
       gate.complete();
       await stopping;
-
       expect(rig.sentTexts, ['One', 'Two']);
     });
 
     test('an idle report then a normal completion on the send, with the '
-        'interrupt answering false, is a normal finish', () async {
+        'interrupt answering true, is a normal finish', () async {
       final (thread, first) = rig.start('One');
       await pumpEventQueue();
       rig.chat.submit('Two', const []);
-      rig.transport.stopsRunning = false;
       final gate = rig.transport.stopGate = Completer<void>();
       final stopping = rig.chat.stopReply(thread);
       await pumpEventQueue();
@@ -479,9 +566,10 @@ void main() {
         ..emit(const ReplyCompleted('Done.'))
         ..finish();
       await pumpEventQueue();
+      expect(rig.sentTexts, ['One', 'Two']);
+
       gate.complete();
       await stopping;
-
       expect(rig.sentTexts, ['One', 'Two']);
     });
 

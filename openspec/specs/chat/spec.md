@@ -1075,6 +1075,16 @@ The system SHALL hold the messages queued on a thread, text and attachments, in 
 
 - **WHEN** a message is queued and the reply fails
 - **THEN** the message is not sent and the queue offers "Send now"
+- **AND WHEN** a stop of that reply is still unanswered and the gateway then answers that nothing was running
+- **THEN** the queue stays paused
+
+#### Scenario: A stop that finds nothing running
+
+- **WHEN** a message is queued, the user stops the reply, and the turn ends on its own before the stop is answered
+- **AND** the gateway answers that nothing was running
+- **THEN** the queued message is sent as after a normal settle
+- **AND WHEN** an earlier stop of the same reply was confirmed, or the reply failed
+- **THEN** the queue stays paused
 
 #### Scenario: Send on a paused queue
 
