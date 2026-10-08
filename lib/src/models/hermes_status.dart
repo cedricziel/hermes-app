@@ -1,3 +1,4 @@
+import '../telemetry/hermes_server_attributes.dart';
 import 'json_fields.dart';
 
 /// `GET /api/status` — public, unauthenticated. Tells the app whether the
@@ -9,6 +10,7 @@ class HermesStatus {
     required this.authProviders,
     required this.authFlows,
     this.version,
+    this.serverAttributes = const {},
   });
 
   /// Throws [FormatException] when a field has the wrong type.
@@ -18,6 +20,7 @@ class HermesStatus {
       authProviders: jsonStringList(json, 'auth_providers'),
       authFlows: jsonStringList(json, 'auth_flows'),
       version: jsonFieldOrNull<String>(json, 'version'),
+      serverAttributes: hermesServerAttributes(json),
     );
   }
 
@@ -33,6 +36,10 @@ class HermesStatus {
   final List<String> authFlows;
 
   final String? version;
+
+  /// The `hermes.*` telemetry attributes this answer describes the server
+  /// with.
+  final Map<String, Object> serverAttributes;
 
   bool get supportsNativePkce => authFlows.contains('native_pkce');
 

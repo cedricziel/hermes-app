@@ -86,7 +86,7 @@ void main() {
       final telemetry = await Telemetry.initialize(config(''));
 
       expect(telemetry.enabled, isFalse);
-      expect(telemetry.dioInterceptor(), isNull);
+      expect(telemetry.forConnection(const {}).interceptor, isNull);
     });
 
     test('leaves the error handlers alone when disabled', () async {
@@ -104,7 +104,7 @@ void main() {
       final telemetry = await Telemetry.initialize(config('not a url'));
 
       expect(telemetry.enabled, isFalse);
-      expect(telemetry.dioInterceptor(), isNull);
+      expect(telemetry.forConnection(const {}).interceptor, isNull);
     });
 
     for (final endpoint in [
@@ -116,7 +116,7 @@ void main() {
         final telemetry = await Telemetry.initialize(config(endpoint));
 
         expect(telemetry.enabled, isFalse);
-        expect(telemetry.dioInterceptor(), isNull);
+        expect(telemetry.forConnection(const {}).interceptor, isNull);
       });
     }
   });
@@ -279,6 +279,77 @@ void main() {
       expect(crash.attributes['exception.message'], contains('bad input'));
       expect(crash.attributes['exception.stacktrace'], stackTrace.toString());
       expect(crash.attributes['breadcrumbs'], [contains('auth.signed_in')]);
+    });
+  });
+
+  group('Telemetry.forConnection', () {
+    TelemetryConfig config(String endpoint) => TelemetryConfig(
+      otlpEndpoint: endpoint,
+      otlpHeaders: const {},
+      serviceName: 'hermes-app',
+      serviceVersion: '',
+      deploymentEnvironment: 'test',
+    );
+
+    late FlutterExceptionHandler? previousFlutterHandler;
+    late ErrorCallback? previousPlatformHandler;
+
+    setUp(() {
+      previousFlutterHandler = FlutterError.onError;
+      previousPlatformHandler = PlatformDispatcher.instance.onError;
+    });
+
+    tearDown(() {
+      FlutterError.onError = previousFlutterHandler;
+      PlatformDispatcher.instance.onError = previousPlatformHandler;
+    });
+
+    test('is nothing when disabled', () async {
+      final telemetry = await Telemetry.initialize(config(''));
+      final connection = telemetry.forConnection(const {
+        'hermes.version': '0.14.2',
+      });
+
+      expect(connection.interceptor, isNull);
+      expect(connection.events, same(noopAppEventLogger));
+    });
+
+    test('logs events with the server attributes, under their own, and keeps '
+        'breadcrumbs without them', () async {
+      final exporter = _RecordingExporter();
+      final telemetry = await Telemetry.initialize(
+        config('https://collector.example.com'),
+        logExporter: exporter,
+      );
+      telemetry.logUncaughtErrors();
+      final connection = telemetry.forConnection(const {
+        'hermes.version': '0.14.2',
+        'hermes.install_id': 'inst_42',
+        'state': 'shadowed',
+      });
+
+      connection.events('auth.state', {'state': 'ready'});
+      FlutterError.onError!(FlutterErrorDetails(exception: StateError('boom')));
+      await telemetry.flush();
+
+      final event = exporter.records.singleWhere((r) => r.body == 'auth.state');
+      expect(event.attributes['hermes.install_id'], 'inst_42');
+      expect(event.attributes['state'], 'ready');
+      final crash = exporter.records.singleWhere(
+        (r) => r.body == 'Uncaught Flutter error',
+      );
+      final breadcrumbs = crash.attributes['breadcrumbs']! as List;
+      expect(breadcrumbs.single, contains('auth.state'));
+      expect(breadcrumbs.single, isNot(contains('inst_42')));
+    });
+
+    test('adds an interceptor that describes requests', () async {
+      final telemetry = await Telemetry.initialize(
+        config('https://collector.example.com'),
+        logExporter: _RecordingExporter(),
+      );
+
+      expect(telemetry.forConnection(const {}).interceptor, isNotNull);
     });
   });
 }

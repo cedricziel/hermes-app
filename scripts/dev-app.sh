@@ -10,6 +10,9 @@
 #   scripts/dev-app.sh logs [lines]
 #   scripts/dev-app.sh stop
 #
+# HERMES_DEV_DART_DEFINES adds build flags to start, space-separated, e.g.
+# HERMES_DEV_DART_DEFINES="OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318".
+#
 # Safe alongside other checkouts/worktrees: state lives in this checkout's
 # .dart_tool/hermes-dev/, the app is told its server with a build flag (never
 # the shared saved address), and screenshots target this app's own window.
@@ -78,10 +81,16 @@ cmd_start() {
   sleep 2147483647 <>"$FIFO" >/dev/null 2>&1 &
   echo $! >"$HOLDER_PID_FILE"
 
+  local extra_defines=()
+  for define in ${HERMES_DEV_DART_DEFINES:-}; do
+    extra_defines+=("--dart-define=$define")
+  done
+
   # exec so the recorded pid is flutter itself, not a wrapper subshell that
   # would hold the caller's stdout open (and hang `start | tail`) until exit.
   (cd "$ROOT_DIR" && exec nohup flutter run -d macos \
-    --dart-define=HERMES_SERVER_URL="$url" <"$FIFO" >>"$LOG_FILE" 2>&1) &
+    --dart-define=HERMES_SERVER_URL="$url" ${extra_defines[@]+"${extra_defines[@]}"} \
+    <"$FIFO" >>"$LOG_FILE" 2>&1) &
   echo $! >"$FLUTTER_PID_FILE"
 
   local waited=0

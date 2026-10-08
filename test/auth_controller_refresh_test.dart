@@ -157,7 +157,7 @@ void main() {
           },
         ),
       ],
-      events: events.call,
+      telemetry: events.connection,
     );
     await controller.bootstrap();
   }
@@ -339,7 +339,7 @@ void main() {
       controller = AuthController(
         tokenStore: slowStore,
         devServerUrl: dashboard.url,
-        events: events.call,
+        telemetry: events.connection,
       );
       await controller.bootstrap();
       dashboard

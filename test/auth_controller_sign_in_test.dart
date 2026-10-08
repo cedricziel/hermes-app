@@ -85,7 +85,7 @@ void main() {
       tokenStore: MemoryTokenStore(),
       devServerUrl: 'http://127.0.0.1:${dashboard.port}',
       login: login,
-      events: events.call,
+      telemetry: events.connection,
     );
     await controller.bootstrap();
     expect(controller.state, HermesConnectionState.needsLogin);
@@ -131,7 +131,7 @@ void main() {
           userId: 'u1',
         );
       },
-      events: events.call,
+      telemetry: events.connection,
     );
     await controller.bootstrap();
 
@@ -202,7 +202,7 @@ void main() {
             userId: 'u1',
           );
         },
-        events: events.call,
+        telemetry: events.connection,
       );
       await controller.bootstrap();
 
@@ -245,7 +245,7 @@ void main() {
         tokenStore: store,
         devServerUrl: 'http://127.0.0.1:${dashboard.port}',
         login: (url, {provider, httpClient, cancelled}) async => session,
-        events: events.call,
+        telemetry: events.connection,
       );
       await controller.bootstrap();
       return controller;
@@ -404,7 +404,7 @@ void main() {
           signedInAt = url;
           throw const NativeLoginCancelled();
         },
-        events: events.call,
+        telemetry: events.connection,
       );
 
       await controller.connect('127.0.0.1:${redirector.port}');

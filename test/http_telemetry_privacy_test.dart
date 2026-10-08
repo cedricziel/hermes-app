@@ -45,6 +45,30 @@ void main() {
     await dio.get<Object?>(path, options: Options(validateStatus: (_) => true));
   }
 
+  test('describes every span and log record with the server attributes, '
+      'under the request\'s own', () async {
+    dio.interceptors
+      ..clear()
+      ..add(
+        httpInterceptor(
+          logger,
+          tracer,
+          serverAttributes: const {
+            'hermes.version': '0.14.2',
+            'http.request.method': 'shadowed',
+          },
+        ),
+      );
+
+    await get('/api/sessions');
+
+    final span = tracer.spans.single;
+    expect(span.attributes['hermes.version'], '0.14.2');
+    expect(span.attributes['http.request.method'], 'GET');
+    expect(span.attributes['peer.service'], 'hermes-agent');
+    expect(logger.records.single.attributes['hermes.version'], '0.14.2');
+  });
+
   test('records only the first two path segments as the route', () async {
     await get('/api/sessions/abc123/messages');
     await get('/api/profiles/work-laptop');

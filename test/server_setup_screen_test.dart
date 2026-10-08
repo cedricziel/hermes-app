@@ -190,7 +190,7 @@ void main() {
     final events = RecordedEvents();
     final auth = AuthController(
       tokenStore: MemoryTokenStore(),
-      events: events.call,
+      telemetry: events.connection,
     );
     await tester.runAsync(auth.bootstrap);
     await pumpSetup(tester, auth);

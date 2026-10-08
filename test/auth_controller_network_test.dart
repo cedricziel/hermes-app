@@ -77,7 +77,7 @@ void main() {
 
   AuthController controller() => AuthController(
     tokenStore: MemoryTokenStore(),
-    events: events.call,
+    telemetry: events.connection,
     networkSignals: signals,
   );
 
