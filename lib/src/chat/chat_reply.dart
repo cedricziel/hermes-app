@@ -46,7 +46,9 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
       _seal(
         reply,
         text,
-        streamed: reply.content == text ? null : reply.content,
+        streamed: reply.content.isEmpty || reply.content == text
+            ? null
+            : reply.content,
       );
       reply.content = '';
     case ReasoningUpdated(:final text, fallback: false):
@@ -231,8 +233,8 @@ void applyReplyEvent(ChatMessage reply, ChatEvent event) {
 /// snapshot, in order. A segment the snapshot does not hold (a checkpoint
 /// that never streamed) is left out of the search, and when none is found the
 /// snapshot is kept whole: a repeat is better than a loss. A segment a
-/// checkpoint rewrote is searched as it streamed first, since that is what the
-/// snapshot holds.
+/// checkpoint rewrote is searched in both forms, as it streamed and as it was
+/// rewritten, and the earlier match is the one skipped.
 String _unsealed(ChatMessage reply, String rebuilt) {
   var from = 0;
   for (final segment in reply.sealedProse) {
