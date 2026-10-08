@@ -542,6 +542,11 @@ class HermesGatewayTransport implements ChatTransport {
   /// The sessions still listened to after their reply ended, by thread.
   final _idle = <_ThreadOwner, _Watch>{};
 
+  /// The threads whose reply a send settled on a stand-in idle report while
+  /// the prompt's own turn was still to come. That turn's end, when it is
+  /// seen on the follow-ups, is the same reply and is not logged again.
+  final _settledEarly = <_ThreadOwner>{};
+
   /// What a send that gave up left of the turn it set aside, for the next
   /// follow-up stream of the thread: no watch survived to carry it.
   final _stranded = <_ThreadOwner, List<_Incoming>>{};
@@ -744,6 +749,7 @@ class HermesGatewayTransport implements ChatTransport {
       storedId = threadId ?? session['stored_session_id'] as String;
       owner = (profile, storedId);
       _stranded.remove(owner);
+      _settledEarly.remove(owner);
       await _idle.remove(owner)?.close();
       // A relay may have re-keyed its watch after compression before the
       // caller knew the new id: the runtime session is the same all the same.
@@ -1054,17 +1060,15 @@ class HermesGatewayTransport implements ChatTransport {
           if (holding && !completed && !resumed.giveUp) {
             yielded.add(const SessionInfo(running: false));
             yield const SessionInfo(running: false);
+            // The prompt's own turn is still to come on the follow-ups; it
+            // is the reply settled here, so its end is not counted again.
+            _settledEarly.add(owner);
           }
           if (resumed.giveUp) {
             if (resumed.idle == null) _strand(owner, setAside);
             throw const GatewayConnectionClosed();
           }
-          _reportSettled(
-            yielded,
-            errored: errored,
-            started: started || setAside.isNotEmpty,
-            submittedAt: submittedAt,
-          );
+          _reportSettled(yielded, errored: errored);
           return;
         }
         watch = live;
@@ -1111,31 +1115,17 @@ class HermesGatewayTransport implements ChatTransport {
   /// the [events] the reconnect handed over: its completion, or the idle report
   /// that stands in for one. Nothing is logged when they hold neither.
   ///
-  /// [errored] is set when the reply saw an `error` event before the drop. An
-  /// idle report only counts as the ending under the rule of [settles], with
-  /// [started] saying the turn was seen to begin: the events handed over count
-  /// as having begun it too.
-  void _reportSettled(
-    Iterable<ChatEvent> events, {
-    required DateTime submittedAt,
-    bool errored = false,
-    bool started = false,
-  }) {
-    final list = events.toList();
-    final begun = started || list.any(beginsTurn);
+  /// [events] are what the reply was shown, and the reply settles on either
+  /// kind whatever the grace of [settles] says: that grace only guards a
+  /// stale report on a live connection, before the reply is shown anything.
+  /// [errored] is set when the reply saw an `error` event before the drop.
+  void _reportSettled(Iterable<ChatEvent> events, {bool errored = false}) {
     ChatEvent? ending;
-    for (final event in list) {
+    for (final event in events) {
       errored = errored || event is ReplyErrored;
-      if (event is ReplyCompleted) {
+      if (event is ReplyCompleted ||
+          event is SessionInfo && event.running == false) {
         ending = event;
-      } else if (event is SessionInfo && event.running == false) {
-        if (settles(
-          started: begun,
-          submittedAt: submittedAt,
-          now: clock.now(),
-        )) {
-          ending = event;
-        }
       }
     }
     if (ending != null) _turnSettled(ending, errored: errored);
@@ -1212,6 +1202,7 @@ class HermesGatewayTransport implements ChatTransport {
     }
     if (_modelOf.remove(from) case final model?) _modelOf[to] = model;
     if (_stranded.remove(from) case final events?) _stranded[to] = events;
+    if (_settledEarly.remove(from)) _settledEarly.add(to);
     if (_idle.remove(from) case final watch?) {
       final displaced = _idle[to];
       _idle[to] = watch;
@@ -1950,6 +1941,8 @@ class HermesGatewayTransport implements ChatTransport {
     final mine = <String>{};
     final drops = _Reconnects();
     var errored = false;
+    // Whether the turn set aside by a send, which comes first, is over.
+    var fromBacklog = true;
     void forward(_Incoming incoming) {
       final (event, serverRequest) = incoming;
       if (event is SessionInfo) {
@@ -1978,7 +1971,9 @@ class HermesGatewayTransport implements ChatTransport {
       if (replying &&
           (event is ReplyCompleted ||
               event is SessionInfo && event.running == false)) {
-        _turnSettled(event, errored: errored);
+        if (fromBacklog || !_settledEarly.remove(key)) {
+          _turnSettled(event, errored: errored);
+        }
         errored = false;
         replying = false;
         drops.reset();
@@ -1993,6 +1988,7 @@ class HermesGatewayTransport implements ChatTransport {
         forward(incoming);
         if (out.isClosed) return;
       }
+      fromBacklog = false;
       while (true) {
         while (true) {
           final bool more;
@@ -2476,6 +2472,7 @@ class HermesGatewayTransport implements ChatTransport {
     final idle = _idle.values.toList();
     _idle.clear();
     _stranded.clear();
+    _settledEarly.clear();
     for (final watch in idle) {
       await watch.close();
     }
