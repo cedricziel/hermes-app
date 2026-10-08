@@ -1180,6 +1180,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // A reply of its own: no stop asked before it is about it, and the answer
     // to one is no longer about this thread's current reply.
     _holds.remove(thread);
+    _interrupts.remove(thread);
     _generations.update(thread, (n) => n + 1, ifAbsent: () => 1);
     final placeholder = _addPlaceholder(thread);
     thread.updatedAt = DateTime.now();
@@ -1623,7 +1624,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// only matters until the interrupts asked for are answered.
   final _holds = <ChatThread, _Hold>{};
 
-  /// The interrupts sent per thread that have not been answered.
+  /// The interrupts sent for the current reply of a thread that have not been
+  /// answered. A send of its own forgets the ones before it.
   final _interrupts = <ChatThread, int>{};
 
   /// Bumped when the user sends in a thread. An interrupt's answer is about
@@ -1700,8 +1702,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     try {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
       if (disposed) return;
-      final others = _endInterrupt(thread);
       if ((_generations[thread] ?? 0) != generation) return;
+      final others = _endInterrupt(thread);
       final hold = _holdOf(thread);
       if (stopped == true) {
         // The turn is going to end stopped. If it ended already, this answer
@@ -1754,8 +1756,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           break;
       }
     } on Object {
+      // The stop of an earlier reply failing is of no use to say.
+      if ((_generations[thread] ?? 0) != generation) return;
       final others = _endInterrupt(thread);
-      if (!others && (_generations[thread] ?? 0) == generation) {
+      if (!others) {
         // The interrupt did not get through, so it decides nothing: the queue
         // goes on with the turn's own end.
         switch (_holdOf(thread)) {

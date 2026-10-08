@@ -394,7 +394,8 @@ void main() {
     });
 
     test('a stop before the folded answer keeps the queue paused when the '
-        'running turn settles with no reply open', () {
+        'running turn settles with no reply open, and its answer sends '
+        'nothing', () {
       fakeAsync((async) {
         final rig = Rig();
         final (thread, send) = rig.start('One');
@@ -634,6 +635,35 @@ void main() {
       await pumpEventQueue();
 
       expect(rig.sentTexts, ['One']);
+    });
+
+    test('an unanswered stop of an earlier reply does not hold the queue of '
+        'a later one that failed', () async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      final a = answers(1);
+      final stopFirst = rig.chat.stopReply(thread);
+      first
+        ..emit(const ReplyCompleted('Done.', stopped: true))
+        ..finish();
+      await pumpEventQueue();
+
+      rig.chat.sendQueued(thread);
+      final second = rig.transport.sends.last;
+      rig.chat.submit('Three', const []);
+      second.fail();
+      await pumpEventQueue();
+      a[0].complete(true);
+      await stopFirst;
+
+      rig.followUp()
+        ..emit(const ReplyDelta('Chained'))
+        ..emit(const ReplyCompleted('Chained.'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One', 'Two', 'Three']);
     });
 
     test('a late answer to the stop of an earlier reply does not mark the '
