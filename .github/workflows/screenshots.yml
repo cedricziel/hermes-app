@@ -89,8 +89,9 @@ jobs:
           echo "HERMES_PYTHON=$HOME/hermes-agent/.venv/bin/python" >> "$GITHUB_ENV"
           echo "HERMES_AGENT_DIR=$HOME/hermes-agent" >> "$GITHUB_ENV"
 
+      # python3 is the Hermes venv's from here on, which has no pip.
       - name: Install Pillow
-        run: python3 -m pip install --break-system-packages Pillow
+        run: uv pip install --python "$HERMES_PYTHON" Pillow
 
       - name: iPhone and iPad
         run: scripts/store-screenshots.sh ios
