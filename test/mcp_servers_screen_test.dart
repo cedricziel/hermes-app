@@ -83,7 +83,7 @@ void main() {
     ) async {
       await pumpScreen(tester);
 
-      expect(find.text('Profile: work'), findsOneWidget);
+      expect(find.text('work'), findsOneWidget);
       expect(
         server
             .requestsTo('GET', '/api/mcp/servers')
@@ -102,7 +102,7 @@ void main() {
 
       await pumpScreen(tester);
 
-      expect(find.textContaining('Profile:'), findsNothing);
+      expect(find.text('work'), findsNothing);
       expect(
         server
             .requestsTo('GET', '/api/mcp/servers')
@@ -134,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(row('grafana'), findsOneWidget);
-      expect(find.text('Profile: work'), findsOneWidget);
+      expect(find.text('work'), findsOneWidget);
     });
   });
 
@@ -147,16 +147,14 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
-    testWidgets('shows each server with its address and chips', (tester) async {
+    testWidgets('shows each server with its address and facts', (tester) async {
       await pumpScreen(tester);
 
       expect(
         inRow('grafana', find.text('https://mcp.grafana.com/mcp')),
         findsOne,
       );
-      expect(inRow('grafana', find.text('Remote')), findsOneWidget);
-      expect(inRow('grafana', find.text('OAuth')), findsOneWidget);
-      expect(inRow('grafana', find.text('Off')), findsNothing);
+      expect(inRow('grafana', find.text('Remote · OAuth')), findsOneWidget);
       expect(switchOf(tester, 'grafana').value, isTrue);
 
       expect(
@@ -166,8 +164,7 @@ void main() {
         ),
         findsOne,
       );
-      expect(inRow('filesystem', find.text('Command')), findsOneWidget);
-      expect(inRow('filesystem', find.text('Off')), findsOneWidget);
+      expect(inRow('filesystem', find.text('Command · Off')), findsOneWidget);
       expect(switchOf(tester, 'filesystem').value, isFalse);
     });
 
@@ -178,7 +175,7 @@ void main() {
 
       await pumpScreen(tester);
 
-      expect(inRow('docs', find.text('No auth')), findsOneWidget);
+      expect(inRow('docs', find.text('Remote · No auth')), findsOneWidget);
     });
 
     testWidgets('leaves out rows without a name', (tester) async {
@@ -302,7 +299,10 @@ void main() {
       expect(request.queryParameters['profile'], 'work');
       expect(switchOf(tester, 'grafana').value, isFalse);
       expect(switchOf(tester, 'grafana').onChanged, isNotNull);
-      expect(inRow('grafana', find.text('Off')), findsOneWidget);
+      expect(
+        inRow('grafana', find.text('Remote · OAuth · Off')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('turns a server on', (tester) async {
@@ -321,7 +321,7 @@ void main() {
         {'enabled': true},
       );
       expect(switchOf(tester, 'filesystem').value, isTrue);
-      expect(inRow('filesystem', find.text('Off')), findsNothing);
+      expect(inRow('filesystem', find.text('Command')), findsOneWidget);
     });
 
     testWidgets('keeps its state and says so when the request fails', (
@@ -407,7 +407,10 @@ void main() {
 
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(inRow('grafana', find.text('3 tools')), findsOneWidget);
+      expect(
+        inRow('grafana', find.text('Remote · OAuth · 3 tools')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows progress and refuses a second tap while testing', (
@@ -796,7 +799,7 @@ void main() {
 
   group('adding', () {
     Future<void> tapAdd(WidgetTester tester) async {
-      await tester.tap(find.text('Add'));
+      await tester.tap(find.byTooltip('Add server'));
       await tester.pumpAndSettle();
     }
 
@@ -1005,7 +1008,7 @@ void main() {
       isSemantics(label: 'grafana', hasToggledState: true, isToggled: true),
     );
     expect(
-      tester.getSemantics(find.byIcon(Icons.adaptive.more)),
+      tester.getSemantics(find.byIcon(Icons.more_horiz)),
       namedButton('More'),
     );
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));

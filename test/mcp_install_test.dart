@@ -116,7 +116,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add'));
+    await tester.tap(find.byTooltip('Add server'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Browse the catalog'));
     await tester.pumpAndSettle();

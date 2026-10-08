@@ -14,6 +14,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
 import 'host.dart';
+import 'platforms.dart';
 
 /// A profile with an OAuth server, a switched-off command server and a catalog
 /// of a few entries, for every MCP screen.
@@ -147,12 +148,17 @@ WidgetbookUseCase mcpServersUseCase(
   ),
 );
 
-WidgetbookUseCase _list(String name, {bool empty = false}) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => McpServersScreen(
-    repository: HermesMcpRepository(mcpServer(empty: empty).client().raw),
-    profiles: HermesProfilesRepository(mcpServer().client().raw),
-    launchLink: (_) async => true,
+List<WidgetbookUseCase> _list(
+  String name,
+  FakeHermesServer Function() server,
+) => onEachPlatform(
+  name,
+  (_) => PushedPage(
+    McpServersScreen(
+      repository: HermesMcpRepository(server().client().raw),
+      profiles: HermesProfilesRepository(mcpServer().client().raw),
+      launchLink: (_) async => true,
+    ),
   ),
 );
 
@@ -161,7 +167,15 @@ WidgetbookNode mcpScreensNode() => WidgetbookFolder(
   children: [
     WidgetbookComponent(
       name: 'McpServersScreen',
-      useCases: [_list('Servers'), _list('No servers', empty: true)],
+      useCases: [
+        ..._list('Servers', mcpServer),
+        ..._list('No servers', () => mcpServer(empty: true)),
+        ..._list(
+          'Failed',
+          () => mcpServer()
+            ..on('GET', '/api/mcp/servers', {'detail': 'boom'}, status: 500),
+        ),
+      ],
     ),
     WidgetbookComponent(
       name: 'McpServerDetail',
