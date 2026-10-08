@@ -1543,6 +1543,37 @@ void main() {
     });
   });
 
+  group('A stored reply across a queued gate', () {
+    test('a queued prompt whose turns both ended while disconnected shows the '
+        'stored reply instead of swallowing it', () {
+      fake((async) {
+        gateway.submitStatus = 'queued';
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'the real reply'},
+          ],
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.delta', sid, {'text': 'old'});
+          g.drop();
+        };
+
+        final seen = _listen(transport.send(text: 'next', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
+        expect(
+          seen.events.whereType<ReplyCompleted>().single.text,
+          'the real reply',
+        );
+      });
+    });
+  });
+
   group('Cancelling during a reconnect', () {
     test('a reply whose consumer cancelled makes no further attempt', () {
       fake((async) {

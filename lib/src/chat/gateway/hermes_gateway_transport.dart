@@ -95,6 +95,7 @@ final class _Resumed {
     this.watch,
     this.idle,
     this.ended = const [],
+    this.stored,
     this.giveUp = false,
     this.outcome = 'replayed',
     this.replayedCount = 0,
@@ -114,6 +115,11 @@ final class _Resumed {
 
   /// The events of a turn that ended while disconnected, in order.
   final List<_Incoming> ended;
+
+  /// The reply read from the stored thread, when [ended] ends in it (the
+  /// replay held no completion). It is the thread's real last reply, so a
+  /// queued prompt's gate lets it through.
+  final ReplyCompleted? stored;
 
   /// Set when the reply cannot end cleanly: no connection could be made, or the
   /// turn ended without a reply to show, so the reply fails after [ended].
@@ -914,7 +920,10 @@ class HermesGatewayTransport implements ChatTransport {
           final yielded = <ChatEvent>[];
           for (final (event, serverRequest) in own) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
-            for (final admitted in gating ? gate.admit(event) : [event]) {
+            // The stored reply is what the thread holds now, whichever turn
+            // it was: held back, it would be turned into one more refetch.
+            final gated = gating && !identical(event, resumed.stored);
+            for (final admitted in gated ? gate.admit(event) : [event]) {
               completed = completed || admitted is ReplyCompleted;
               yielded.add(admitted);
               yield admitted;
@@ -1287,6 +1296,7 @@ class HermesGatewayTransport implements ChatTransport {
           }
         }
       }
+      ReplyCompleted? stored;
       if (!completed) {
         // No completion was replayed, so the stored reply ends the turn. A
         // reply on screen is refetched; a turn picked up with none has nothing
@@ -1294,7 +1304,7 @@ class HermesGatewayTransport implements ChatTransport {
         // refetch comes first: the completion must stay the reply's last
         // event. A replayed error is the reason the turn failed, so it is
         // shown, and the settle that follows lets the reply fail with it.
-        final stored = _storedReply(resumed);
+        stored = _storedReply(resumed);
         final onScreen = previous != null;
         final errored = ended.any((incoming) => incoming.$1 is ReplyErrored);
         // After the events: a request binds to the tool call it was raised
@@ -1329,6 +1339,7 @@ class HermesGatewayTransport implements ChatTransport {
       return _Resumed(
         runtimeId: runtimeId,
         ended: ended,
+        stored: stored,
         idle: _watch(client, runtimeId, injected: next, shown: shown),
         outcome: outcome,
         replayedCount: replayedCount,
