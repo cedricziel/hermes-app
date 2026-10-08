@@ -580,6 +580,70 @@ void main() {
     });
   });
 
+  group('requests of a turn nobody submitted, across a re-key (476)', () {
+    const approval = {
+      'command': 'rm -rf build',
+      'description': 'delete files',
+      'choices': ['once', 'deny'],
+      'tool_name': 'terminal',
+    };
+
+    /// A prompt queued behind an auto-continue turn that asked for approval
+    /// and then lost its connection; the resume moved the reply from `rt-2`
+    /// to `rt-3`.
+    Future<_Seen> rekeyedBehindApproval() async {
+      transport = HermesGatewayTransport(connect: gateway.connect);
+      gateway
+        ..resumeResult = {
+          'session_id': 'rt-2',
+          'session_key': 'stored-2',
+          'auto_continue': {'attempt': 1},
+        }
+        ..submitStatus = 'queued'
+        ..beforeSubmitAnswer = (g) {
+          g.event('message.start', 'rt-2');
+          g.serverRequest('srq-1', 'approval', 'rt-2', approval);
+        }
+        ..turn = (g, sid) {
+          g.resumeResult = {'session_id': 'rt-3', 'running': true};
+          g.drop();
+        };
+      final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      await pumpEventQueue();
+      expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+      expect(gateway.methods.where((m) => m == 'session.resume'), hasLength(2));
+      return seen;
+    }
+
+    test('Auto-continue after resume: a turn that ends after a re-key still '
+        'withdraws the requests it passed through', () async {
+      final seen = await rekeyedBehindApproval();
+
+      gateway.event('message.complete', 'rt-3', {
+        'text': 'resumed work',
+        'status': 'complete',
+      });
+      await pumpEventQueue();
+
+      expect(
+        seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+        ['srq-1'],
+      );
+      expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+    });
+
+    test('Withdrawn approvals: a broadcast for the session after a re-key '
+        'withdraws the open request', () async {
+      final seen = await rekeyedBehindApproval();
+
+      gateway.event('approval.cancelled', '', {'session_id': 'rt-3'});
+      await pumpEventQueue();
+
+      expect(seen.events.whereType<InputRequestsCancelled>(), hasLength(1));
+      expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+    });
+  });
+
   group('status lines (9.4)', () {
     test('Compacting: a status.update reaches the reply as a status', () async {
       gateway.turn = (g, sid) {

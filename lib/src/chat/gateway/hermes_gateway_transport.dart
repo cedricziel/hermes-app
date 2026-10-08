@@ -72,6 +72,14 @@ class _OpenRequest {
 
   final String sessionId;
 
+  /// The same request on the runtime session [sessionId] after a reconnect
+  /// moved the reply there.
+  _OpenRequest movedTo(String sessionId) => _OpenRequest(
+    sessionId: sessionId,
+    serverRequest: serverRequest,
+    batch: batch,
+  );
+
   /// It arrived as a server-to-client request, not as an event.
   final bool serverRequest;
 
@@ -950,6 +958,7 @@ class HermesGatewayTransport implements ChatTransport {
           return;
         }
         _endReply(runtimeId, owner);
+        _moveRequests(mine, runtimeId, resumed.runtimeId);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, owner);
         final live = resumed.watch;
@@ -1984,6 +1993,7 @@ class HermesGatewayTransport implements ChatTransport {
           return;
         }
         _endReply(runtimeId, key);
+        _moveRequests(mine, runtimeId, resumed.runtimeId);
         runtimeId = resumed.runtimeId;
         _beginReply(runtimeId, key);
         final live = resumed.watch;
@@ -2105,6 +2115,19 @@ class HermesGatewayTransport implements ChatTransport {
     if (_replying[runtimeId] == 0) {
       _replying.remove(runtimeId);
       if (_runtimeOf[owner] == runtimeId) _runtimeOf.remove(owner);
+    }
+  }
+
+  /// Points the open requests [mine] at the runtime session [to], after a
+  /// reconnect moved the reply there from [from], so that withdrawing or
+  /// answering them still finds them.
+  void _moveRequests(Set<String> mine, String from, String to) {
+    if (from == to) return;
+    for (final id in mine) {
+      final open = _awaiting[id];
+      if (open != null && open.sessionId == from) {
+        _awaiting[id] = open.movedTo(to);
+      }
     }
   }
 

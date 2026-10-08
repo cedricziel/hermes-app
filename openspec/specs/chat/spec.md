@@ -1399,6 +1399,11 @@ The system SHALL lock an approval card as expired when an `approval.cancelled` b
 - **WHEN** `approval.cancelled` names another session
 - **THEN** no card changes
 
+#### Scenario: A reconnect moved the reply to another session
+
+- **WHEN** a reconnect resumes the reply on a new runtime session and a request opened before it is then withdrawn, by the broadcast or by the end of the turn that raised it
+- **THEN** that card is locked as expired and can no longer be answered
+
 ### Requirement: Reply status line
 
 The system SHALL show what a thinking reply waits on in place of "Thinking…": "Compacting the conversation…" for `status.update` of kind `compacting`, and the text of a `thinking.delta` that is an explained provider wait (it starts with ⏳, ⚠, ↻ or ⚙ followed by a phrase such as "waiting on", "loading", "no output", "rate limited" or "provider overloaded"). The next delta, tool event, completion or error SHALL clear it.
