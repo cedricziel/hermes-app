@@ -524,10 +524,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_otel
-      sha256: "76a14ece569d30244ea706eb0ebf64efd198fe7569a7436256031af149e4a405"
+      sha256: dd6ea9a701c3168da811559fa8ba645769e7a4969b74d56adbe33abc3a66834d
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.6"
+    version: "0.1.7"
   flutter_otel_device_info:
     dependency: "direct main"
     description:
