@@ -1333,6 +1333,85 @@ void main() {
     });
   });
 
+  group('Reconnecting with the settle, gate and re-key rules of main', () {
+    test('a follow-up stream re-keyed by compression reconnects under the new '
+        'id and is cleaned up under it', () {
+      fake((async) {
+        gateway.resumeResult = {'session_id': 'rt-1', 'running': true};
+        gateway.turn = (g, sid) {
+          g.event('message.start', sid);
+          g.event('message.complete', sid, {'text': 'a', 'status': 'complete'});
+        };
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        final follow = _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+        gateway.event('message.start', 'rt-1');
+        gateway.event('session.info', 'rt-1', {
+          'running': true,
+          'stored_session_id': 'stored-2',
+        });
+        async.flushMicrotasks();
+        gateway.drop();
+        async.elapse(const Duration(seconds: 1));
+
+        expect(
+          gateway.requestOf('session.resume')['params'],
+          containsPair('session_id', 'stored-2'),
+        );
+
+        int resumes() =>
+            gateway.methods.where((m) => m == 'session.resume').length;
+        final before = resumes();
+        unawaited(follow.subscription.cancel());
+        async.flushMicrotasks();
+        final next = _listen(transport.followUps('stored-2'));
+        async.flushMicrotasks();
+
+        // The reconnected watch was taken out of _idle under the new key, so
+        // the thread is picked up afresh rather than read from a stale watch.
+        expect(resumes(), before + 1);
+        unawaited(next.subscription.cancel());
+      });
+    });
+
+    test('a prompt queued behind a running turn keeps its gate across a drop '
+        'that ended both turns', () {
+      fake((async) {
+        gateway.submitStatus = 'queued';
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'new done'},
+          ],
+        };
+        gateway.turn = (g, sid) {
+          g.event('message.delta', sid, {'text': 'old'});
+          g.drop();
+          g.event('message.complete', sid, {
+            'text': 'old done',
+            'status': 'complete',
+          });
+          g.event('session.info', sid, {'running': false});
+        };
+
+        final seen = _listen(transport.send(text: 'next', queued: true));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ReplyCompleted>(), isEmpty);
+        expect(seen.events.whereType<ThreadNeedsRefetch>(), isNotEmpty);
+        expect(
+          seen.events.last,
+          isA<SessionInfo>().having((e) => e.running, 'running', false),
+        );
+      });
+    });
+  });
+
   group('Cancelling during a reconnect', () {
     test('a reply whose consumer cancelled makes no further attempt', () {
       fake((async) {

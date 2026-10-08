@@ -1207,6 +1207,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Appends the assistant message a reply that is about to stream fills in.
   ChatMessage _addPlaceholder(ChatThread thread) {
+    // A new turn starts: a completion that comes now is its, not the settled
+    // reply's before it.
+    _settledReply(thread)?.settledWithoutCompletion = false;
+    // The queue waited for the session to settle after the turn before. This
+    // one decides when it may go on.
+    _settleTimers.remove(thread)?.cancel();
+    _stopRequested.remove(thread);
     final placeholder = ChatMessage(
       id: _newMessageId(thread),
       role: ChatRole.assistant,
@@ -1264,6 +1271,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // on the thread's follow-ups.
         if (error == null) {
           _followUps(transport, thread, profile);
+          _awaitSettle(thread);
           unawaited(refreshActive());
         } else {
           notifyListeners();
@@ -1271,9 +1279,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       } else if (reply.isPending) {
         _updateReply(thread, reply, () => failReply(reply, error));
         _announce(thread, const ReplyCompleted('', failed: true), profile);
-      } else if (error == null && !failed) {
+      } else if (error == null) {
+        // The watch is parked whatever ended the reply, so the follow-ups
+        // listen to it. Only a reply that ended well drains the queue; after a
+        // failure or a stop it stays paused for the user.
+        final stopRequested = _stopRequested.remove(thread);
+        final halted =
+            failed ||
+            stopped ||
+            stopRequested ||
+            reply.status == MessageStatus.error;
         _followUps(transport, thread, profile);
-        if (!stopped) {
+        if (!halted) {
           if (settled) {
             sendQueued(thread);
           } else {
@@ -1282,6 +1299,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         }
         _refetchIfIdle(thread);
         unawaited(refreshActive());
+        if (halted) notifyListeners();
       } else {
         // The queue is left paused; the screen shows it.
         notifyListeners();
@@ -1332,7 +1350,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     late final StreamSubscription<ChatEvent> subscription;
     void end([Object? error]) {
       _following.remove(subscription);
-      _followingIds.remove(threadId);
+      _followingIds.remove(thread.id);
       final pending = reply;
       if (pending != null && pending.isPending) {
         _updateReply(thread, pending, () => failReply(pending, error));
@@ -1344,7 +1362,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         .followUps(threadId, profile: profile)
         .listen(
           (event) {
-            if (reply == null && _opensTurn(event)) {
+            if (reply == null && opensTurn(event)) {
               reply = _addPlaceholder(thread);
             }
             final current = reply;
@@ -1357,6 +1375,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
               reply = null;
               if (!event.failed && !event.stopped) _awaitSettle(thread);
               unawaited(refreshActive());
+            } else if (event is SessionInfo && event.running == false) {
+              // The session reports the turn over without a completion. It is
+              // closed all the same, so the next chained turn gets a reply of
+              // its own, and the queue goes on now that the session settled.
+              reply = null;
+              if (!_stopRequested.remove(thread) &&
+                  current.status != MessageStatus.error) {
+                sendQueued(thread);
+              }
+              unawaited(refreshActive());
             }
           },
           onError: end,
@@ -1365,17 +1393,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         );
     _following.add(subscription);
   }
-
-  /// Whether [event] starts a turn Hermes runs on its own, so a reply opens
-  /// for it when none is open.
-  bool _opensTurn(ChatEvent event) => switch (event) {
-    ReplyStarted() ||
-    ReplyDelta() ||
-    ReasoningUpdated() ||
-    ToolPreparing() ||
-    ToolStarted() => true,
-    _ => false,
-  };
 
   /// An event on the follow-ups while no reply is open. It is about the
   /// thread, or a completion for the reply a turn ended without.
@@ -1389,21 +1406,29 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case ThreadNeedsRefetch():
         _refetch.add(thread);
         _refetchIfIdle(thread);
+      case ReplyErrored(:final message):
+        // A failure with no reply open to show it, from a turn that never
+        // began. It pauses the queue like any failure, and says so.
+        _settleTimers.remove(thread)?.cancel();
+        if (message.isNotEmpty) report(message);
       case ReplyCompleted():
         final settled = _settledReply(thread);
         if (settled == null) return;
-        _onReplyEvent(thread, settled, event, profile);
+        // The settle announced this reply already; a failure is news.
+        _onReplyEvent(thread, settled, event, profile, announce: event.failed);
         settled.settledWithoutCompletion = false;
       default:
         break;
     }
   }
 
-  /// The last reply a turn ended without its completion, which a completion
-  /// arriving later belongs to.
+  /// The reply a turn ended without its completion, which a completion
+  /// arriving later belongs to. Only the thread's last assistant message can
+  /// be it: once another turn started, a completion is not its.
   ChatMessage? _settledReply(ChatThread thread) {
     for (final message in thread.messages.reversed) {
-      if (message.settledWithoutCompletion) return message;
+      if (message.role != ChatRole.assistant) continue;
+      return message.settledWithoutCompletion ? message : null;
     }
     return null;
   }
@@ -1441,8 +1466,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatThread thread,
     ChatMessage reply,
     ChatEvent event,
-    String? profile,
-  ) {
+    String? profile, {
+    bool announce = true,
+  }) {
+    var announced = event;
     switch (event) {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
@@ -1454,8 +1481,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       case PromptFolded():
         _removeReply(thread, reply);
       case SessionInfo():
+        final wasPending = reply.isPending;
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
         _onSessionInfo(thread, event);
+        if (wasPending && !reply.isPending) {
+          // The turn ended without a completion, which the notifications wait
+          // for: tell them how it ended.
+          announced = ReplyCompleted(
+            reply.content,
+            failed: reply.status == MessageStatus.error,
+            stopped: _stopRequested.contains(thread),
+          );
+        }
       case ThreadNeedsRefetch():
         _refetch.add(thread);
       case ReplyErrored() ||
@@ -1479,7 +1516,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
     _refetchIfIdle(thread);
-    _announce(thread, event, profile);
+    if (announce) _announce(thread, announced, profile);
   }
 
   /// [profile] is the one the turn was sent under: the thread on screen only
@@ -1512,6 +1549,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (_selectedId == previousId) _selectedId = id;
     _unloaded.remove(previousId);
     _olderRows.remove(previousId);
+    if (_followingIds.remove(previousId)) _followingIds.add(id);
+    if (_active.remove(previousId)) _active.add(id);
     thread.id = id;
     if (controller != null) _chatControllers[id] = controller;
     notifyListeners();
@@ -1556,6 +1595,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     );
   }
 
+  /// The threads the user asked to stop. A stop the server answers with only
+  /// an idle report, no interrupted completion, still pauses the queue.
+  final _stopRequested = <ChatThread>{};
+
   Future<void> stopReply(ChatThread thread) async {
     final pending = [
       for (final reply in thread.messages)
@@ -1563,7 +1606,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ];
     try {
       final stopped = await transport?.stopReply(thread.id, profile: _profile);
-      if (disposed || stopped != false) return;
+      if (disposed) return;
+      if (stopped == true && thread.isReplying) _stopRequested.add(thread);
+      if (stopped != false) return;
       // The server has no turn left to interrupt. A completion was missed by
       // this listener, so release the stale pending reply and composer.
       for (final reply in pending.where((reply) => reply.isPending)) {

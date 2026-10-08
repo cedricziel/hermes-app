@@ -190,6 +190,62 @@ class _Follow {
   bool cancelled = false;
 }
 
+/// Keeps the frames of a turn that was already running out of the reply of a
+/// prompt the server queued behind it. Until that turn is seen to end (its
+/// completion, or the session reporting idle) its text, tools and completion
+/// are dropped, and a [ThreadNeedsRefetch] asks for the thread to be read
+/// again so its reply is not lost. From then on everything is the queued
+/// prompt's and passes unchanged, with or without a `message.start`. What the
+/// user must answer, and the thread's own news, pass through at any time.
+class _QueuedGate {
+  /// The running turn has ended, so the rest is the queued prompt's.
+  var _ended = false;
+
+  bool get ended => _ended;
+
+  /// The running turn has been seen at work, so a `message.start` is one of
+  /// its own (a goal continuation's second start, or a replayed one), not the
+  /// queued prompt's.
+  var _sawRunning = false;
+
+  List<ChatEvent> admit(ChatEvent event) {
+    if (_ended) return [event];
+    switch (event) {
+      case SessionInfo(:final running, :final storedSessionId):
+        // Idle after the submit: the running turn is over, or already was.
+        final over = running == false;
+        if (over) _ended = true;
+        return [
+          if (over && _sawRunning) const ThreadNeedsRefetch(),
+          if (storedSessionId != null)
+            SessionInfo(storedSessionId: storedSessionId),
+        ];
+      case ReplyCompleted():
+        _ended = true;
+        return const [ThreadNeedsRefetch()];
+      case ApprovalRequested() ||
+          ClarifyRequested() ||
+          VaultRequested() ||
+          UnsupportedRequested() ||
+          InputRequestExpired() ||
+          InputRequestsCancelled() ||
+          ThreadTitled() ||
+          ThreadNeedsRefetch():
+        return [event];
+      default:
+        if (!beginsTurn(event)) return const [];
+        // A turn that began before this prompt was sent has been seen at work
+        // by now; without that, a start can only be the queued turn's.
+        if (event is ReplyStarted && !_sawRunning) {
+          _ended = true;
+          return [event];
+        }
+        _sawRunning = true;
+        return const [];
+    }
+  }
+}
+
 /// [ChatTransport] over the dashboard's JSON-RPC gateway: `session.create` or
 /// `session.resume`, then `prompt.submit`, whose reply arrives as events.
 class HermesGatewayTransport implements ChatTransport {
@@ -422,28 +478,41 @@ class HermesGatewayTransport implements ChatTransport {
       tap.close();
       rethrow;
     }
-    var runtimeId = session['session_id'] as String;
-    final storedId = threadId ?? session['stored_session_id'] as String;
-    final owner = (profile, storedId);
+    var runtimeId = '';
+    var storedId = '';
+    var owner = (profile, '');
+    late _Watch watch;
+    var released = false;
     try {
+      runtimeId = session['session_id'] as String;
+      storedId = threadId ?? session['stored_session_id'] as String;
+      owner = (profile, storedId);
       await _idle.remove(owner)?.close();
+      // A relay may have re-keyed its watch after compression before the
+      // caller knew the new id: the runtime session is the same all the same.
+      for (final key in [
+        for (final e in _idle.entries)
+          if (e.value.runtimeId == runtimeId) e.key,
+      ]) {
+        await _idle.remove(key)?.close();
+      }
       if (model != null) {
         if (threadId != null) {
           await _switchModel(client, runtimeId, _modelOf[owner], model);
         }
         _modelOf[owner] = model;
       }
-    } on Object {
-      tap.close();
-      rethrow;
+      _beginReply(runtimeId, owner);
+      watch = _watch(
+        client,
+        runtimeId,
+        buffered: tap.release(),
+        startAt: before.resumeFrom(runtimeId, client.epoch),
+      );
+      released = true;
+    } finally {
+      if (!released) tap.close();
     }
-    _beginReply(runtimeId, owner);
-    var watch = _watch(
-      client,
-      runtimeId,
-      buffered: tap.release(),
-      startAt: before.resumeFrom(runtimeId, client.epoch),
-    );
     final mine = <String>{};
     var parked = false;
     var drops = 0;
@@ -451,9 +520,11 @@ class HermesGatewayTransport implements ChatTransport {
     // the reply once it has, or once the grace has passed (see [settles]).
     var started = false;
     var submittedAt = clock.now();
+    // Set when the server queued the prompt behind a turn that was running.
+    _QueuedGate? gate;
     try {
       if (threadId == null) {
-        yield ThreadBound(session['stored_session_id'] as String);
+        yield ThreadBound(storedId);
       }
       // Images queue on the session and the next prompt takes them, so a send
       // that fails after queuing one must take them off again.
@@ -478,10 +549,17 @@ class HermesGatewayTransport implements ChatTransport {
       }
       if (const {'redirected', 'steered'}.contains(submit['status'])) {
         // The server folded the prompt into the turn already running, whose
-        // reply streams on in its own send. This one has nothing to wait for.
+        // reply streams on in its own send. This one has nothing to wait for,
+        // but the running turn's frames go on arriving: the watch is parked
+        // for the follow-ups, which carry them.
+        final displaced = _idle.remove(owner);
+        _idle[owner] = watch;
+        parked = true;
+        await displaced?.close();
         yield const PromptFolded();
         return;
       }
+      if (submit['status'] == 'queued') gate = _QueuedGate();
       while (true) {
         var pending = watch.events.moveNext();
         var window = silenceProbe;
@@ -503,23 +581,53 @@ class HermesGatewayTransport implements ChatTransport {
           if (incoming != null) {
             final (event, serverRequest) = incoming;
             _track(event, runtimeId, mine, serverRequest: serverRequest);
-            started = started || _beginsTurn(event);
-            yield event;
-            final settled =
-                event is SessionInfo &&
-                event.running == false &&
-                settles(
-                  started: started,
-                  submittedAt: submittedAt,
-                  now: clock.now(),
-                );
-            if (event is ReplyCompleted || settled) {
-              // The session goes on listening: Hermes may chain another turn.
-              final displaced = _idle.remove(owner);
-              _idle[owner] = watch;
-              parked = true;
-              await displaced?.close();
-              return;
+            if (event is SessionInfo) {
+              final rotated = event.storedSessionId;
+              if (rotated != null &&
+                  rotated.isNotEmpty &&
+                  rotated != storedId) {
+                // Compression moved the thread to a new stored session.
+                final next = (profile, rotated);
+                _rekey(owner, next);
+                owner = next;
+                storedId = rotated;
+              }
+            }
+            final wasEnded = gate?.ended ?? true;
+            final admittedNow = gate == null ? [event] : gate.admit(event);
+            // The running turn's end starts the queued turn's clock: an idle
+            // report right after it is stale, however long that turn took.
+            if (!wasEnded && gate!.ended) submittedAt = clock.now();
+            for (final admitted in admittedNow) {
+              started = started || beginsTurn(admitted);
+              final idle = admitted is SessionInfo && admitted.running == false;
+              final settled =
+                  idle &&
+                  settles(
+                    started: started,
+                    submittedAt: submittedAt,
+                    now: clock.now(),
+                  );
+              // A report that does not settle the reply may still carry the
+              // thread's new stored id, which the controller follows.
+              final ChatEvent? shown;
+              if (idle && !settled) {
+                final stored = admitted.storedSessionId;
+                shown = stored == null
+                    ? null
+                    : SessionInfo(storedSessionId: stored);
+              } else {
+                shown = admitted;
+              }
+              if (shown != null) yield shown;
+              if (shown is ReplyCompleted || settled) {
+                // The session goes on listening: Hermes may chain another turn.
+                final displaced = _idle.remove(owner);
+                _idle[owner] = watch;
+                parked = true;
+                await displaced?.close();
+                return;
+              }
             }
           }
           pending = watch.events.moveNext();
@@ -548,9 +656,22 @@ class HermesGatewayTransport implements ChatTransport {
         final live = resumed.watch;
         if (live == null) {
           if (resumed.idle case final idle?) await _park(owner, idle);
+          // A prompt queued behind a running turn keeps the gate across the
+          // drop: what the replay holds of the turn ahead of it is not this
+          // reply's. When the replay ends the reply with nothing of its own,
+          // the idle report settles it and the refetch the gate asks for
+          // reads the thread.
+          final gating = gate != null && !gate.ended;
+          var completed = false;
           for (final (event, serverRequest) in resumed.ended) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
-            yield event;
+            for (final admitted in gating ? gate.admit(event) : [event]) {
+              completed = completed || admitted is ReplyCompleted;
+              yield admitted;
+            }
+          }
+          if (gating && !completed && !resumed.giveUp) {
+            yield const SessionInfo(running: false);
           }
           if (resumed.giveUp) throw const GatewayConnectionClosed();
           return;
@@ -596,16 +717,21 @@ class HermesGatewayTransport implements ChatTransport {
     }
   }
 
-  /// Whether [event] shows that a turn has begun, as opposed to a report about
-  /// the session.
-  bool _beginsTurn(ChatEvent event) => switch (event) {
-    ReplyStarted() ||
-    ReplyDelta() ||
-    ToolPreparing() ||
-    ToolStarted() ||
-    ToolFinished() => true,
-    _ => false,
-  };
+  /// Moves what is kept for the thread [from] to [to], after compression gave
+  /// the thread a new stored id: the runtime session of its reply, its model,
+  /// and the watch parked for its follow-ups.
+  void _rekey(_ThreadOwner from, _ThreadOwner to) {
+    if (from == to) return;
+    if (_runtimeOf.remove(from) case final runtimeId?) {
+      _runtimeOf[to] = runtimeId;
+    }
+    if (_modelOf.remove(from) case final model?) _modelOf[to] = model;
+    if (_idle.remove(from) case final watch?) {
+      final displaced = _idle[to];
+      _idle[to] = watch;
+      if (displaced != null) unawaited(displaced.close());
+    }
+  }
 
   /// Whether the server still lists [storedId] as running. An answer that
   /// cannot be read counts as running: a refused `session.active_list` says
@@ -1099,7 +1225,7 @@ class HermesGatewayTransport implements ChatTransport {
       final follow = _Follow(watch);
       final out = StreamController<ChatEvent>();
       out.onListen = () => unawaited(_relay(follow, owner, out));
-      out.onCancel = () => _stopFollowing(follow, owner);
+      out.onCancel = () => _stopFollowing(follow);
       return out.stream;
     }
     // A turn may have started in another client without a local watcher.
@@ -1116,10 +1242,11 @@ class HermesGatewayTransport implements ChatTransport {
   }
 
   /// Ends [follow]: a reconnect under way stops, and the watch that is current
-  /// now, which may not be the one the stream began with, is closed.
-  Future<void> _stopFollowing(_Follow follow, _ThreadOwner owner) {
+  /// now, which may not be the one the stream began with, is closed. It is
+  /// found by identity, since compression may have re-keyed the thread.
+  Future<void> _stopFollowing(_Follow follow) {
     follow.cancelled = true;
-    if (_idle[owner] == follow.watch) _idle.remove(owner);
+    _idle.removeWhere((_, parked) => parked == follow.watch);
     return follow.watch.close();
   }
 
@@ -1162,7 +1289,7 @@ class HermesGatewayTransport implements ChatTransport {
       // reaches this stream through the idle watch. A thread with no turn to
       // report has nothing to follow yet.
       final follow = _Follow(idle);
-      out.onCancel = () => _stopFollowing(follow, owner);
+      out.onCancel = () => _stopFollowing(follow);
       await _relay(follow, owner, out);
       return;
     }
@@ -1175,7 +1302,7 @@ class HermesGatewayTransport implements ChatTransport {
     }
     _idle[owner] = watch;
     final follow = _Follow(watch);
-    out.onCancel = () => _stopFollowing(follow, owner);
+    out.onCancel = () => _stopFollowing(follow);
     out.add(const ReplyStarted());
     await _relay(follow, owner, out, initiallyReplying: true);
   }
@@ -1217,9 +1344,10 @@ class HermesGatewayTransport implements ChatTransport {
     StreamController<ChatEvent> out, {
     bool initiallyReplying = false,
   }) async {
+    var key = owner;
     var runtimeId = follow.watch.runtimeId;
     var replying = initiallyReplying;
-    if (replying) _beginReply(runtimeId, owner);
+    if (replying) _beginReply(runtimeId, key);
     final mine = <String>{};
     var drops = 0;
     try {
@@ -1228,21 +1356,35 @@ class HermesGatewayTransport implements ChatTransport {
           final incoming = follow.watch.events.current;
           if (incoming == null) continue;
           final (event, serverRequest) = incoming;
-          if (event is ReplyStarted) {
+          if (event is SessionInfo) {
+            final rotated = event.storedSessionId;
+            if (rotated != null && rotated.isNotEmpty && rotated != key.$2) {
+              final next = (key.$1, rotated);
+              _rekey(key, next);
+              key = next;
+            }
+          }
+          if (event is ReplyStarted && replying) {
             // A resumed running turn can replay its start. Forwarding that
             // would create a second pending bubble with no completion.
-            if (replying) continue;
+            continue;
+          }
+          if (!replying && opensTurn(event)) {
             replying = true;
-            _beginReply(runtimeId, owner);
+            _beginReply(runtimeId, key);
           }
           _track(event, runtimeId, mine, serverRequest: serverRequest);
           if (out.isClosed) return;
           out.add(event);
-          if (event is ReplyCompleted && replying) {
+          // A turn that settles without a completion is over all the same: the
+          // next turn's start must not be taken for a replay of this one.
+          if (replying &&
+              (event is ReplyCompleted ||
+                  event is SessionInfo && event.running == false)) {
             replying = false;
             drops = 0;
             _forgetRequests(mine);
-            _endReply(runtimeId, owner);
+            _endReply(runtimeId, key);
           }
         }
         // Idle between turns: nothing is running to pick back up, so the
@@ -1255,7 +1397,7 @@ class HermesGatewayTransport implements ChatTransport {
           return;
         }
         final resumed = await _reattach(
-          owner,
+          key,
           runtimeId: runtimeId,
           shown: mine,
           drops: drops++,
@@ -1267,13 +1409,13 @@ class HermesGatewayTransport implements ChatTransport {
           resumed.discard();
           return;
         }
-        _endReply(runtimeId, owner);
+        _endReply(runtimeId, key);
         runtimeId = resumed.runtimeId;
-        _beginReply(runtimeId, owner);
+        _beginReply(runtimeId, key);
         final live = resumed.watch;
         if (live == null) {
           final idle = resumed.idle;
-          if (idle != null) await _park(owner, idle);
+          if (idle != null) await _park(key, idle);
           for (final (event, serverRequest) in resumed.ended) {
             if (out.isClosed) return;
             _track(event, runtimeId, mine, serverRequest: serverRequest);
@@ -1288,16 +1430,16 @@ class HermesGatewayTransport implements ChatTransport {
           replying = false;
           drops = 0;
           _forgetRequests(mine);
-          _endReply(runtimeId, owner);
+          _endReply(runtimeId, key);
           follow.watch = idle;
           continue;
         }
-        if (_idle[owner] == previous) _idle[owner] = live;
+        _idle.updateAll((_, parked) => parked == previous ? live : parked);
         follow.watch = live;
       }
     } finally {
       _forgetRequests(mine);
-      if (replying) _endReply(runtimeId, owner);
+      if (replying) _endReply(runtimeId, key);
       if (!out.isClosed) unawaited(out.close());
       await follow.watch.close();
     }

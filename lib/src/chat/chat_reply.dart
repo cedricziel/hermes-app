@@ -246,12 +246,17 @@ bool _isSealedOrStreamed(ChatMessage reply, String text) {
 }
 
 /// Ends [reply] after the stream broke, keeping whatever had streamed. [error]
-/// is what broke it, when known: it decides the explanation shown.
+/// is what broke it, when known: it decides the explanation shown. An error
+/// the server reported before the stream broke explains it better than the
+/// generic message.
 void failReply(ChatMessage reply, [Object? error]) {
+  final held = reply.pendingError;
+  reply.pendingError = null;
+  reply.errorEventSeen = false;
   _markFailed(reply, switch (error) {
     ProfileUnavailableException() => kProfileUnavailableMessage,
     AttachmentException(:final message) => message,
-    _ => kReplyFailedMessage,
+    _ => held == null || held.isEmpty ? kReplyFailedMessage : held,
   });
 }
 
