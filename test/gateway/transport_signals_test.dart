@@ -245,8 +245,14 @@ void main() {
       final sent = await reply(threadId: 'stored-2');
       final later = await followed(3);
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((sent[1] as ReplyDelta).text, 'mine');
+      expect(_types(sent), [
+        ReplyStatus,
+        ReplyStatus,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect((sent[3] as ReplyDelta).text, 'mine');
       expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
       expect((later[1] as ReplyDelta).text, 'resumed work');
     });
@@ -264,7 +270,13 @@ void main() {
       final sent = await reply(threadId: 'stored-2');
       final later = await followed(4);
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+      expect(_types(sent), [
+        ReplyStatus,
+        ReplyStatus,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
       expect((sent.last as ReplyCompleted).failed, isFalse);
       expect(_types(later), [
         ReplyStarted,
@@ -286,8 +298,14 @@ void main() {
       final sent = await reply(threadId: 'stored-2');
       final later = await followed(3);
 
-      expect(_types(sent), [ReplyStarted, ReplyDelta, ReplyCompleted]);
-      expect((sent[1] as ReplyDelta).text, 'mine');
+      expect(_types(sent), [
+        ReplyStatus,
+        ReplyStatus,
+        ReplyStarted,
+        ReplyDelta,
+        ReplyCompleted,
+      ]);
+      expect((sent[3] as ReplyDelta).text, 'mine');
       expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
       expect((later[1] as ReplyDelta).text, 'resumed work');
     });
@@ -341,6 +359,72 @@ void main() {
         ReplyDelta,
         ReplyCompleted,
       ]);
+    });
+
+    group('while the turn nobody submitted still runs', () {
+      const approval = {
+        'command': 'rm -rf build',
+        'description': 'delete files',
+        'choices': ['once', 'deny'],
+        'tool_name': 'terminal',
+      };
+
+      /// A prompt queued behind a turn that has begun and asks for approval.
+      _Seen queuedBehindApproval() {
+        gateway.submitStatus = 'queued';
+        gateway.beforeSubmitAnswer = (g) {
+          unsolicitedTurn(g);
+          g.serverRequest('srq-1', 'approval', 'rt-2', approval);
+        };
+        return _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+      }
+
+      test('Auto-continue after resume: an approval the turn raises reaches '
+          'the send while the turn runs, and can be answered', () async {
+        final seen = queuedBehindApproval();
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<ApprovalRequested>(), hasLength(1));
+        expect(seen.done, isFalse);
+        expect(await transport.answerApproval('srq-1', 'once'), isTrue);
+        await pumpEventQueue();
+        expect(gateway.responses.single['id'], 'srq-1');
+        expect(gateway.responses.single['result'], {'choice': 'once'});
+      });
+
+      test('Auto-continue after resume: the send says Hermes is finishing the '
+          'turn, and clears it when the turn ends', () async {
+        final seen = queuedBehindApproval();
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+        ]);
+
+        unsolicitedEnd(gateway);
+        await pumpEventQueue();
+
+        expect(seen.events.whereType<ReplyStatus>().map((e) => e.text), [
+          'Hermes is finishing the interrupted turn…',
+          '',
+        ]);
+      });
+
+      test('Auto-continue after resume: the follow-ups do not repeat a request '
+          'the send showed', () async {
+        final seen = queuedBehindApproval();
+        await pumpEventQueue();
+        expect(await transport.answerApproval('srq-1', 'once'), isTrue);
+        unsolicitedEnd(gateway);
+        submittedTurn(gateway, 'rt-2');
+        await pumpEventQueue();
+        expect(seen.done, isTrue);
+
+        final later = await followed(3);
+
+        expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+        expect(await transport.answerApproval('srq-1', 'once'), isFalse);
+      });
     });
 
     test('Auto-continue after resume: a reply that has begun when the submit '

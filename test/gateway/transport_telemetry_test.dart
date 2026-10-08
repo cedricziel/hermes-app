@@ -313,6 +313,68 @@ void main() {
       });
     });
 
+    test(
+      'a turn that ended while disconnected is also reported as settled',
+      () {
+        fake((async) {
+          gateway.resumeResult = {'session_id': 'rt-1', 'running': false};
+          gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid, (g) {
+            g.event('message.complete', sid, {
+              'text': 'Done',
+              'status': 'complete',
+            });
+          });
+
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'complete'},
+          ]);
+        });
+      },
+    );
+
+    test('a turn that ended while disconnected with only its stored reply is '
+        'settled as complete', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+        gateway.turn = (g, sid) => _streamSevenThenDrop(g, sid);
+
+        _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(events.named('gateway.turn_settled'), [
+          {'via': 'complete'},
+        ]);
+      });
+    });
+
+    test('a thread picked up after its turn ended is reported as settled', () {
+      fake((async) {
+        gateway.resumeResult = {
+          'session_id': 'rt-1',
+          'running': false,
+          'messages': [
+            {'role': 'assistant', 'text': 'Done'},
+          ],
+        };
+
+        _listen(transport.followUps('stored-1'));
+        async.flushMicrotasks();
+
+        expect(events.named('gateway.turn_settled'), [
+          {'via': 'complete'},
+        ]);
+      });
+    });
+
     test('a gateway that cannot be reached is reported as failed after the '
         'attempts made', () {
       fake((async) {

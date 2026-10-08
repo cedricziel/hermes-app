@@ -51,6 +51,10 @@ const _maxReplyReconnects = 5;
 
 Future<void> _delay(Duration delay) => Future<void>.delayed(delay);
 
+/// What a send shows while Hermes finishes the turn it began before the app
+/// came back, ahead of the prompt the user sent.
+const _finishingInterruptedTurn = 'Hermes is finishing the interrupted turn…';
+
 /// The `session.active_list` statuses of a session that still runs a turn.
 const _liveStatuses = {'working', 'waiting', 'starting'};
 
@@ -305,7 +309,9 @@ class _QueuedGate {
 /// turn goes to the follow-ups, where any turn nobody here submitted is shown.
 ///
 /// Everything up to the turn's end is its, and so are the idle reports that
-/// trail it; the next frame that opens a turn is the prompt's.
+/// trail it; the next frame that opens a turn is the prompt's. What the user
+/// must answer is not held back: [isInputRequest] frames go on to the send,
+/// where the request can be answered while the turn runs.
 class _Unsolicited {
   var _began = false;
   var _ended = false;
@@ -313,6 +319,15 @@ class _Unsolicited {
 
   /// The turn has been seen to end.
   bool get ended => _ended;
+
+  /// Whether [event] asks the user something, or withdraws such a request.
+  static bool isInputRequest(ChatEvent event) =>
+      event is ApprovalRequested ||
+      event is ClarifyRequested ||
+      event is VaultRequested ||
+      event is UnsupportedRequested ||
+      event is InputRequestExpired ||
+      event is InputRequestsCancelled;
 
   /// Whether [event] belongs to the turn nobody here submitted.
   bool claims(ChatEvent event) {
@@ -620,6 +635,8 @@ class HermesGatewayTransport implements ChatTransport {
     // the reply once it has, or once the grace has passed (see [settles]).
     var started = false;
     var errored = false;
+    // Whether the send shows that Hermes is finishing a turn of its own.
+    var finishing = false;
     var submittedAt = clock.now();
     // Set when the server queued the prompt behind a turn that was running.
     _QueuedGate? gate;
@@ -700,7 +717,20 @@ class HermesGatewayTransport implements ChatTransport {
             }
           }
           if (unsolicited != null && unsolicited.claims(event)) {
-            setAside.add(incoming);
+            if (_Unsolicited.isInputRequest(event)) {
+              // Held back, the request could not be answered while the turn
+              // waits on it, and the queued prompt would wait behind that.
+              yield event;
+            } else {
+              setAside.add(incoming);
+            }
+            if (!finishing && !unsolicited.ended) {
+              finishing = true;
+              yield const ReplyStatus(_finishingInterruptedTurn);
+            } else if (finishing && unsolicited.ended) {
+              finishing = false;
+              yield const ReplyStatus('');
+            }
             // The turn's end starts the prompt's clock, as a running turn's
             // does for a queued one.
             if (unsolicited.ended) submittedAt = clock.now();
@@ -776,7 +806,9 @@ class HermesGatewayTransport implements ChatTransport {
           final own = <_Incoming>[];
           for (final incoming in resumed.ended) {
             if (unsolicited != null && unsolicited.claims(incoming.$1)) {
-              setAside.add(incoming);
+              (_Unsolicited.isInputRequest(incoming.$1) ? own : setAside).add(
+                incoming,
+              );
             } else {
               own.add(incoming);
             }
@@ -790,17 +822,21 @@ class HermesGatewayTransport implements ChatTransport {
           // thread.
           final holding = gating || setAside.isNotEmpty;
           var completed = false;
+          final yielded = <ChatEvent>[];
           for (final (event, serverRequest) in own) {
             _track(event, runtimeId, mine, serverRequest: serverRequest);
             for (final admitted in gating ? gate.admit(event) : [event]) {
               completed = completed || admitted is ReplyCompleted;
+              yielded.add(admitted);
               yield admitted;
             }
           }
           if (holding && !completed && !resumed.giveUp) {
+            yielded.add(const SessionInfo(running: false));
             yield const SessionInfo(running: false);
           }
           if (resumed.giveUp) throw const GatewayConnectionClosed();
+          _reportSettled(yielded);
           return;
         }
         watch = live;
@@ -835,6 +871,22 @@ class HermesGatewayTransport implements ChatTransport {
             ? 'error_event'
             : 'session_info',
       });
+
+  /// Logs the end of a turn that finished while the app was disconnected, from
+  /// the [events] the reconnect handed over: its completion, or the idle report
+  /// that stands in for one. Nothing is logged when they hold neither.
+  void _reportSettled(Iterable<ChatEvent> events) {
+    ChatEvent? ending;
+    var errored = false;
+    for (final event in events) {
+      errored = errored || event is ReplyErrored;
+      if (event is ReplyCompleted ||
+          event is SessionInfo && event.running == false) {
+        ending = event;
+      }
+    }
+    if (ending != null) _turnSettled(ending, errored: errored);
+  }
 
   /// Logs that Hermes sent a frame of type [type] that the app shows nothing
   /// for, once per type on the connection. Only the type is logged. [on] is
@@ -1517,6 +1569,9 @@ class HermesGatewayTransport implements ChatTransport {
       for (final (event, serverRequest) in resumed.ended) {
         _track(event, resumed.runtimeId, mine, serverRequest: serverRequest);
         out.add(event);
+      }
+      if (!resumed.giveUp) {
+        _reportSettled([for (final e in resumed.ended) e.$1]);
       }
       _forgetRequests(mine);
       if (idle == null || resumed.ended.isEmpty || canceled || out.isClosed) {
