@@ -486,6 +486,30 @@ void main() {
         expect(await transport.answerApproval('srq-1', 'once'), isFalse);
       });
 
+      test('Auto-continue after resume: when the turn ends, the send withdraws '
+          'a clarify question that arrived as an event', () async {
+        gateway.submitStatus = 'queued';
+        gateway.beforeSubmitAnswer = (g) {
+          unsolicitedTurn(g);
+          g.event('clarify.request', 'rt-2', {
+            'request_id': 'clar-1',
+            'question': 'Which colour?',
+            'choices': ['red', 'blue'],
+          });
+        };
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        await pumpEventQueue();
+        expect(seen.events.whereType<ClarifyRequested>(), hasLength(1));
+
+        unsolicitedEnd(gateway);
+        await pumpEventQueue();
+
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['clar-1'],
+        );
+      });
+
       test('Auto-continue after resume: a request already withdrawn is not '
           'withdrawn again when the turn ends', () async {
         final seen = queuedBehindApproval();

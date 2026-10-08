@@ -783,6 +783,9 @@ class HermesGatewayTransport implements ChatTransport {
     // The requests of that turn the send passed on, which are withdrawn when
     // the turn ends.
     final passed = <String>{};
+    // The same for a clarify question that arrived as an event: it is not a
+    // request the transport answers, so [mine] does not hold it.
+    final passedAsked = <String>{};
     var submittedAt = clock.now();
     // Set when the server queued the prompt behind a turn that was running.
     _QueuedGate? gate;
@@ -891,10 +894,21 @@ class HermesGatewayTransport implements ChatTransport {
               // Held back, the request could not be answered while the turn
               // waits on it, and the queued prompt would wait behind that.
               yield event;
-              if (_requestIdOf(event) case final id? when mine.contains(id)) {
-                passed.add(id);
+              if (_requestIdOf(event) case final id?) {
+                if (mine.contains(id)) {
+                  passed.add(id);
+                } else if (event is ClarifyRequested) {
+                  passedAsked.add(id);
+                }
               }
               passed.retainAll(mine);
+              if (event is InputRequestExpired) {
+                passedAsked.remove(event.requestId);
+              } else if (event is InputRequestsCancelled) {
+                event.requestIds.isEmpty
+                    ? passedAsked.clear()
+                    : passedAsked.removeAll(event.requestIds);
+              }
             } else {
               setAside.add(incoming);
             }
@@ -907,11 +921,16 @@ class HermesGatewayTransport implements ChatTransport {
                 yield const ReplyStatus('');
               }
             }
-            if (claimant.ended && passed.isNotEmpty) {
+            if (claimant.ended &&
+                (passed.isNotEmpty || passedAsked.isNotEmpty)) {
               // Nobody can answer what the turn asked once it is over.
-              final withdrawn = InputRequestsCancelled(passed.toList());
+              final withdrawn = InputRequestsCancelled([
+                ...passed,
+                ...passedAsked,
+              ]);
               _track(withdrawn, runtimeId, mine, serverRequest: false);
               passed.clear();
+              passedAsked.clear();
               yield withdrawn;
             }
             // The turn's end starts the prompt's clock, as a running turn's
