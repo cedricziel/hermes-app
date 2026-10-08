@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import '../chat/gateway/hermes_gateway_transport.dart'
+    show gatewaySessionSource;
+
 import 'bot_mode_roster_repository.dart';
 
 /// Durable Bot Chat root and its current compression tip. REST and resume
@@ -91,6 +94,7 @@ class BotModeChatRepository {
           'title': title,
           'hidden': true,
           'follow_profile_config': true,
+          'source': gatewaySessionSource,
         });
         final runtime = created['session_id'];
         final stored = created['stored_session_id'];

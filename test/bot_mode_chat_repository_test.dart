@@ -98,6 +98,7 @@ void main() {
         'title': 'Bot Chat',
         'hidden': true,
         'follow_profile_config': true,
+        'source': 'hermes_app',
       });
       expect(calls.firstWhere((c) => c.$1 == 'session.title').$2, {
         'session_id': 'runtime',
