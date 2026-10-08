@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.54](https://github.com/cedricziel/hermes-app/compare/v0.1.53...v0.1.54) (2026-10-08)
+
+
+### Features
+
+* **chat:** ask before adding the app's prompt hint to Hermes ([#522](https://github.com/cedricziel/hermes-app/issues/522)) ([3d533c9](https://github.com/cedricziel/hermes-app/commit/3d533c9cae9c84ed0e7c018f89a7787b7630d997))
+* **chat:** dictate into the composer ([#521](https://github.com/cedricziel/hermes-app/issues/521)) ([a3f0444](https://github.com/cedricziel/hermes-app/commit/a3f0444c53e933c16d14e535fc67bb6ed7a221f3))
+* **ios:** show a running reply as a Live Activity ([#513](https://github.com/cedricziel/hermes-app/issues/513)) ([bd0eccc](https://github.com/cedricziel/hermes-app/commit/bd0eccc7aa5b36a112b9384566e49ccbc2f76811))
+* **messaging:** list platforms in an inset group with a Set Up control ([#516](https://github.com/cedricziel/hermes-app/issues/516)) ([f42e1f1](https://github.com/cedricziel/hermes-app/commit/f42e1f1183e3432fa0baa8c81845fac290b4652c))
+* **plugins:** restyle the Plugins screen as grouped settings lists ([#520](https://github.com/cedricziel/hermes-app/issues/520)) ([42ffaff](https://github.com/cedricziel/hermes-app/commit/42ffaff278312aa063c3b4a8b41e4fc83c92d163))
+* **settings:** restyle Helper models to the clean design ([#515](https://github.com/cedricziel/hermes-app/issues/515)) ([db8d7a8](https://github.com/cedricziel/hermes-app/commit/db8d7a88f76bfdc6c3cc38af9e7f462673ed980a))
+* **skills:** restyle the Skills screen to the clean settings design ([#517](https://github.com/cedricziel/hermes-app/issues/517)) ([a374b65](https://github.com/cedricziel/hermes-app/commit/a374b65db156668902fca8d6b884e15bd02fc016))
+* **telemetry:** describe the Hermes server on HTTP and auth telemetry ([#507](https://github.com/cedricziel/hermes-app/issues/507)) ([9ce8e1a](https://github.com/cedricziel/hermes-app/commit/9ce8e1a4ad400fa2d3dcd47f4cc2e9b485a301d6))
+* **telemetry:** describe the Hermes server on socket and feature telemetry ([#509](https://github.com/cedricziel/hermes-app/issues/509)) ([9a91da7](https://github.com/cedricziel/hermes-app/commit/9a91da7a5b8523c1b9c803fec5d5c35ddef54305))
+* **ui:** add a leading tile, caption and error line to grouped rows ([#512](https://github.com/cedricziel/hermes-app/issues/512)) ([ef9d6cb](https://github.com/cedricziel/hermes-app/commit/ef9d6cbdc4a23520864326ae15cff24157dd316c))
+* **ui:** add shared widgets for clean settings pages ([#511](https://github.com/cedricziel/hermes-app/issues/511)) ([3621042](https://github.com/cedricziel/hermes-app/commit/362104271d6708e6a6eb17e3798b8acead5c4b4b))
+* **voice:** transcribe dictation through Hermes ([#514](https://github.com/cedricziel/hermes-app/issues/514)) ([685390a](https://github.com/cedricziel/hermes-app/commit/685390a1ab5f715dba1c8dd5ada49f9d6344fc6e))
+
+
+### Bug Fixes
+
+* **chat:** finish a background subagent that completes after its reply ([#504](https://github.com/cedricziel/hermes-app/issues/504)) ([76ac903](https://github.com/cedricziel/hermes-app/commit/76ac903c8ee0b77a762afb7fadb18075c68b223e))
+* **chat:** name the app as the session source instead of the TUI ([#508](https://github.com/cedricziel/hermes-app/issues/508)) ([9b1d3e0](https://github.com/cedricziel/hermes-app/commit/9b1d3e07ff04ca470c45dc33c94ebe1e655fbefa))
+* get main green after the settings restyle merges ([#523](https://github.com/cedricziel/hermes-app/issues/523)) ([6887c7e](https://github.com/cedricziel/hermes-app/commit/6887c7ec8794dafab65c25c6f99be337ff5c523b))
+* **macos:** stop the menu bar from rebuilding during the first build ([#510](https://github.com/cedricziel/hermes-app/issues/510)) ([745fb9d](https://github.com/cedricziel/hermes-app/commit/745fb9d79d9c798d3d4578abab163dbd4171671b))
+* **ui:** keep a grouped row's switch reachable when the row opens details ([#518](https://github.com/cedricziel/hermes-app/issues/518)) ([574d784](https://github.com/cedricziel/hermes-app/commit/574d78451571f540c69ce2da7ec53e386818cd53))
+
+
+### Documentation
+
+* **openspec:** archive voice-dictation ([#524](https://github.com/cedricziel/hermes-app/issues/524)) ([18d23db](https://github.com/cedricziel/hermes-app/commit/18d23db5bb5712b12f1623eda95e94df6549c204))
+
 ## [0.1.53](https://github.com/cedricziel/hermes-app/compare/v0.1.52...v0.1.53) (2026-10-08)
 
 
