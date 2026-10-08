@@ -1,14 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:hermes_api/hermes_api.dart';
 
-import '../api/hermes_api_client.dart';
-import '../api/request_timeout.dart';
 import '../chat/gateway/gateway_connection.dart';
+import '../chat/hermes_chat_repository.dart';
 import '../telemetry/breadcrumbs.dart';
 import 'transcribe_stream.dart';
 import 'voice_recorder.dart';
@@ -43,7 +40,7 @@ enum DictationPhase {
 /// never sent.
 class DictationController extends ChangeNotifier {
   DictationController({
-    required this._api,
+    required this._repository,
     required this._connect,
     required this._recorder,
     required this.onTranscript,
@@ -54,7 +51,7 @@ class DictationController extends ChangeNotifier {
   static const sampleRate = 16000;
   static const _tick = Duration(milliseconds: 100);
 
-  final HermesApiClient _api;
+  final HermesChatRepository _repository;
   final MixedSocketConnect _connect;
   final VoiceRecorder _recorder;
   final Breadcrumbs _breadcrumbs;
@@ -81,7 +78,7 @@ class DictationController extends ChangeNotifier {
 
   DictationPhase get phase => _phase;
 
-  /// The input level of the latest chunk, from 0 (silence) to 1.
+  /// The input level, from 0 (silence) to 1, updated every tick.
   double get level => _level;
 
   Duration get elapsed => _elapsed;
@@ -104,39 +101,33 @@ class DictationController extends ChangeNotifier {
   }
 
   Future<void> start() async {
-    if (_phase case DictationPhase.recording || DictationPhase.settling) {
-      return;
-    }
+    if (_busy) return;
     final run = ++_run;
     _keptClip = null;
     if (!await _recorder.requestPermission()) {
-      if (run != _run) return;
-      _breadcrumbs('voice.dictation.ended', {'outcome': 'denied'});
-      _setPhase(DictationPhase.denied);
+      if (run == _run) _end(DictationPhase.denied, 'denied');
       return;
     }
     if (run != _run) return;
     _acquireLease();
-    final query = {'profile': ?_profile};
-    _stream = _support.liveTranscription
-        ? TranscribeStream.start(
-            connect: _connect,
-            sampleRate: sampleRate,
-            query: query,
-          )
-        : null;
-    _stream?.partials.listen((text) {
-      _liveTranscript = text;
-      notifyListeners();
-    });
+    if (_support.liveTranscription) {
+      final stream = _stream = TranscribeStream.start(
+        connect: _connect,
+        sampleRate: sampleRate,
+        query: {'profile': ?_profile},
+      );
+      stream.partials.listen((text) {
+        _liveTranscript = text;
+        notifyListeners();
+      });
+    }
     final Stream<Uint8List> pcm;
     try {
       pcm = await _recorder.start(sampleRate: sampleRate);
     } on Object {
       _stream?.cancel();
-      _releaseLease();
-      _breadcrumbs('voice.dictation.ended', {'outcome': 'failed'});
-      _setPhase(DictationPhase.failed);
+      _stream = null;
+      _end(DictationPhase.failed, 'failed');
       return;
     }
     _clip = BytesBuilder(copy: false);
@@ -154,11 +145,14 @@ class DictationController extends ChangeNotifier {
     _setPhase(DictationPhase.recording);
   }
 
+  bool get _busy =>
+      _phase == DictationPhase.recording || _phase == DictationPhase.settling;
+
+  /// Listeners hear of a new level on the next tick, not on every chunk.
   void _onPcm(Uint8List chunk) {
     _clip?.add(chunk);
     _stream?.add(chunk);
     _level = _levelOf(chunk);
-    notifyListeners();
   }
 
   /// Ends the recording and inserts its transcript.
@@ -182,11 +176,10 @@ class DictationController extends ChangeNotifier {
 
   /// Tries the recording of a failed transcription again.
   Future<void> retry() async {
-    final clip = _keptClip;
-    if (!canRetry || clip == null) return;
+    if (!canRetry) return;
     final run = ++_run;
     _setPhase(DictationPhase.settling);
-    await _transcribeClip(clip, run);
+    await _transcribeClip(_keptClip!, run);
   }
 
   Future<void> _transcribeClip(Uint8List clip, int run) async {
@@ -194,12 +187,7 @@ class DictationController extends ChangeNotifier {
     if (run != _run) return;
     if (text == null) {
       _keptClip = clip;
-      _releaseLease();
-      _breadcrumbs('voice.dictation.ended', {
-        'outcome': 'failed',
-        'path': 'upload',
-      });
-      _setPhase(DictationPhase.failed);
+      _end(DictationPhase.failed, 'failed', path: 'upload');
     } else {
       _settle(text, path: 'upload');
     }
@@ -208,55 +196,37 @@ class DictationController extends ChangeNotifier {
   void _settle(String text, {required String path}) {
     _keptClip = null;
     _liveTranscript = '';
-    _releaseLease();
-    _breadcrumbs('voice.dictation.ended', {
-      'outcome': text.isEmpty ? 'empty' : 'inserted',
-      'path': path,
-    });
     if (text.isEmpty) {
-      _setPhase(DictationPhase.noSpeech);
+      _end(DictationPhase.noSpeech, 'empty', path: path);
       return;
     }
-    _setPhase(DictationPhase.idle);
+    _end(DictationPhase.idle, 'inserted', path: path);
     onTranscript(text);
   }
 
   /// Uploads [clip] as WAV; the transcript, or null when that failed.
   Future<String?> _upload(Uint8List clip) async {
-    final wav = wavFromPcm16(clip, sampleRate: sampleRate);
-    final dataUrl = 'data:audio/wav;base64,${base64Encode(wav)}';
     try {
-      final response = await _api.raw
-          .transcribeAudioUploadApiAudioTranscribePost(
-            audioTranscriptionRequest: AudioTranscriptionRequest(
-              dataUrl: dataUrl,
-              mimeType: 'audio/wav',
-            ),
-            profile: _profile,
-            extra: receiveTimeoutExtra(_uploadTimeout(dataUrl.length)),
-          );
-      final data = response.data;
-      return data is Map && data['transcript'] is String
-          ? (data['transcript'] as String).trim()
-          : null;
+      return await _repository.transcribe(
+        wavFromPcm16(clip, sampleRate: sampleRate),
+        mimeType: 'audio/wav',
+        profile: _profile,
+        timeout: _uploadTimeout(clip.length),
+      );
     } on Object {
       return null;
     }
   }
 
   /// At least three minutes, and longer for a long recording, as Hermes'
-  /// desktop allows.
-  static Duration _uploadTimeout(int dataUrlLength) => Duration(
-    milliseconds: math.min(
-      600000,
-      math.max(180000, (dataUrlLength * 0.1).round()),
-    ),
+  /// desktop allows: 0.1 ms per character of the base64 upload.
+  static Duration _uploadTimeout(int clipBytes) => Duration(
+    milliseconds: (clipBytes * 4 / 3 * 0.1).round().clamp(180000, 600000),
   );
 
   /// Drops the recording, or the transcript on its way.
   Future<void> cancel() async {
-    final wasActive =
-        _phase == DictationPhase.recording || _phase == DictationPhase.settling;
+    final wasBusy = _busy;
     _run++;
     _stream?.cancel();
     _stream = null;
@@ -264,20 +234,26 @@ class DictationController extends ChangeNotifier {
     _keptClip = null;
     _liveTranscript = '';
     await _closeMicrophone();
-    _releaseLease();
-    if (wasActive) {
-      _breadcrumbs('voice.dictation.ended', {'outcome': 'cancelled'});
+    if (wasBusy) {
+      _end(DictationPhase.idle, 'cancelled');
+    } else {
+      _setPhase(DictationPhase.idle);
     }
-    _setPhase(DictationPhase.idle);
   }
 
   /// Clears a notice (failed, no speech, denied).
   void dismiss() {
-    if (_phase case DictationPhase.recording || DictationPhase.settling) {
-      return;
-    }
+    if (_busy) return;
     _keptClip = null;
     _setPhase(DictationPhase.idle);
+  }
+
+  /// Releases the lease, records how the dictation ended and moves to
+  /// [phase].
+  void _end(DictationPhase phase, String outcome, {String? path}) {
+    _releaseLease();
+    _breadcrumbs('voice.dictation.ended', {'outcome': outcome, 'path': ?path});
+    _setPhase(phase);
   }
 
   Future<void> _closeMicrophone() async {
@@ -294,25 +270,26 @@ class DictationController extends ChangeNotifier {
 
   void _acquireLease() {
     _leased = true;
-    unawaited(_sendLease(active: true));
+    unawaited(_holdLease(active: true));
   }
 
   void _releaseLease() {
     if (!_leased) return;
     _leased = false;
-    unawaited(_sendLease(active: false));
+    unawaited(_holdLease(active: false));
   }
 
   /// Warms (or releases) the profile's speech-to-text model; a failure only
   /// means the first transcript may be slower.
-  Future<void> _sendLease({required bool active}) async {
+  Future<void> _holdLease({required bool active}) async {
     try {
-      await _api.raw.sttLeaseApiAudioSttLeasePost(
-        sTTLeaseRequest: STTLeaseRequest(lease: _lease, active: active),
+      await _repository.holdSpeechToText(
+        _lease,
+        active: active,
         profile: _profile,
       );
     } on Object {
-      // Warm-up only.
+      // Recording goes on without the warm-up.
     }
   }
 
@@ -329,19 +306,19 @@ class DictationController extends ChangeNotifier {
   }
 
   /// The loudness of a chunk of 16-bit PCM, mapped from -50 dBFS (0) to
-  /// full scale (1).
+  /// full scale (1). Every fourth sample is enough for a meter.
   static double _levelOf(Uint8List chunk) {
-    final samples = chunk.lengthInBytes ~/ 2;
-    if (samples == 0) return 0;
     final data = ByteData.sublistView(chunk);
+    final samples = chunk.lengthInBytes ~/ 2;
     var sum = 0.0;
-    for (var i = 0; i < samples; i++) {
+    var counted = 0;
+    for (var i = 0; i < samples; i += 4) {
       final s = data.getInt16(i * 2, Endian.little) / 32768;
       sum += s * s;
+      counted++;
     }
-    final rms = math.sqrt(sum / samples);
-    if (rms == 0) return 0;
-    final db = 20 * math.log(rms) / math.ln10;
+    if (counted == 0 || sum == 0) return 0;
+    final db = 10 * math.log(sum / counted) / math.ln10;
     return ((db + 50) / 50).clamp(0, 1).toDouble();
   }
 

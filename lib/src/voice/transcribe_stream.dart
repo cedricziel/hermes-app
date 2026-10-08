@@ -19,13 +19,13 @@ class TranscribeStream {
     required int sampleRate,
     Map<String, String> query = const {},
     Duration openTimeout = const Duration(seconds: 5),
-    this.finalTimeout = const Duration(seconds: 30),
+    this._finalTimeout = const Duration(seconds: 30),
   }) {
     _open(connect, sampleRate, query, openTimeout);
   }
 
   /// How long [finish] waits for the final transcript.
-  final Duration finalTimeout;
+  final Duration _finalTimeout;
 
   final _partials = StreamController<String>.broadcast();
   final _result = Completer<String?>();
@@ -61,9 +61,7 @@ class TranscribeStream {
     _frames = channel.stream.listen(
       _onFrame,
       onDone: _fail,
-      onError: (_) {
-        _fail();
-      },
+      onError: (_) => _fail(),
     );
     channel.sink.add(jsonEncode({'sample_rate': sampleRate}));
     _pending.forEach(channel.sink.add);
@@ -103,13 +101,14 @@ class TranscribeStream {
   /// Ends the recording and waits for the final transcript; null when live
   /// transcription failed.
   Future<String?> finish() {
-    if (_channel case final channel? when !_result.isCompleted) {
-      channel.sink.add(jsonEncode({'eos': true}));
-    } else if (_channel == null) {
+    final channel = _channel;
+    if (channel == null) {
       _fail();
+    } else if (!_result.isCompleted) {
+      channel.sink.add(jsonEncode({'eos': true}));
     }
     return _result.future.timeout(
-      finalTimeout,
+      _finalTimeout,
       onTimeout: () {
         _fail();
         return null;

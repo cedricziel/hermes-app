@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/voice/dictation_controller.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
@@ -39,7 +40,7 @@ void main() {
     VoiceSupport support = _live,
     String? profile = 'work',
   }) => DictationController(
-    api: server.client(),
+    repository: HermesChatRepository(server.client().raw),
     connect: ([query = const {}]) async {
       final socket = StreamChannelController<Object?>();
       sockets.add(socket);

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
+import '../api/request_timeout.dart';
 import 'chat_models.dart';
 import 'thread_sections.dart';
 import 'stored_content.dart';
@@ -157,11 +158,13 @@ class HermesChatRepository {
   }
 
   /// What the dashboard's speech-to-text heard in [audio], empty when it
-  /// heard no speech.
+  /// heard no speech. A long recording can take longer to transcribe than a
+  /// request normally waits; [timeout] allows for that.
   Future<String> transcribe(
     Uint8List audio, {
     required String mimeType,
     String? profile,
+    Duration? timeout,
   }) async {
     final response = await _api.transcribeAudioUploadApiAudioTranscribePost(
       audioTranscriptionRequest: AudioTranscriptionRequest(
@@ -169,12 +172,24 @@ class HermesChatRepository {
         mimeType: mimeType,
       ),
       profile: profile,
+      extra: timeout == null ? null : receiveTimeoutExtra(timeout),
     );
     return switch (response.data) {
       {'transcript': final String transcript} => transcript.trim(),
       _ => '',
     };
   }
+
+  /// Asks the dashboard to load (or lets it unload) the profile's
+  /// speech-to-text model ahead of a recording, under the name [lease].
+  Future<void> holdSpeechToText(
+    String lease, {
+    required bool active,
+    String? profile,
+  }) => _api.sttLeaseApiAudioSttLeasePost(
+    sTTLeaseRequest: STTLeaseRequest(lease: lease, active: active),
+    profile: profile,
+  );
 
   static ChatThread? _thread(Map<String, dynamic> row) {
     final id = row['id'];

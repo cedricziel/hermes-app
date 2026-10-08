@@ -47,15 +47,18 @@ typedef MixedSocketConnect = Future<StreamChannel<Object?>> Function([
   Map<String, String> query,
 ]);
 
-/// Builds the URL of a dashboard WebSocket at [path] with a fresh credential:
-/// a single-use ticket when the dashboard is gated ([authRequired]), else the
+/// Connects to a dashboard WebSocket at [path] with a fresh credential: a
+/// single-use ticket when the dashboard is gated ([authRequired]), else the
 /// page's session token. Credentials are fetched per connection, since a
 /// ticket works only once.
-Future<Uri> Function([Map<String, String> query]) _dashboardSocketUri({
+Future<StreamChannel<T>> Function([Map<String, String> query])
+_dashboardSocketConnect<T>({
   required String baseUrl,
   required bool authRequired,
   required HermesApiClient api,
   required String path,
+  required MessagingConnectionTracer? telemetry,
+  required Future<StreamChannel<T>> Function(Uri uri) open,
 }) {
   Future<Map<String, String>> credential() async {
     if (authRequired) {
@@ -69,8 +72,15 @@ Future<Uri> Function([Map<String, String> query]) _dashboardSocketUri({
     return {'token': token};
   }
 
-  return ([query = const {}]) async =>
-      gatewayUri(baseUrl, {...query, ...await credential()}, path: path);
+  return ([query = const {}]) async {
+    final uri = gatewayUri(baseUrl, {
+      ...query,
+      ...await credential(),
+    }, path: path);
+    return telemetry == null
+        ? open(uri)
+        : telemetry.connecting(() => open(uri), route: path);
+  };
 }
 
 /// Connects to a dashboard WebSocket of text frames.
@@ -81,20 +91,14 @@ SocketConnect hermesSocketConnect({
   String path = '/api/ws',
   MessagingConnectionTracer? telemetry,
   Future<StreamChannel<String>> Function(Uri uri) open = openWebSocket,
-}) {
-  final socketUri = _dashboardSocketUri(
-    baseUrl: baseUrl,
-    authRequired: authRequired,
-    api: api,
-    path: path,
-  );
-  return ([query = const {}]) async {
-    final uri = await socketUri(query);
-    return telemetry == null
-        ? open(uri)
-        : telemetry.connecting(() => open(uri), route: path);
-  };
-}
+}) => _dashboardSocketConnect(
+  baseUrl: baseUrl,
+  authRequired: authRequired,
+  api: api,
+  path: path,
+  telemetry: telemetry,
+  open: open,
+);
 
 /// Connects to a dashboard WebSocket of text and binary frames, such as
 /// `/api/audio/transcribe-stream`.
@@ -103,16 +107,16 @@ MixedSocketConnect hermesMixedSocketConnect({
   required bool authRequired,
   required HermesApiClient api,
   required String path,
+  MessagingConnectionTracer? telemetry,
   Future<StreamChannel<Object?>> Function(Uri uri) open = openMixedWebSocket,
-}) {
-  final socketUri = _dashboardSocketUri(
-    baseUrl: baseUrl,
-    authRequired: authRequired,
-    api: api,
-    path: path,
-  );
-  return ([query = const {}]) async => open(await socketUri(query));
-}
+}) => _dashboardSocketConnect(
+  baseUrl: baseUrl,
+  authRequired: authRequired,
+  api: api,
+  path: path,
+  telemetry: telemetry,
+  open: open,
+);
 
 /// Connects to the dashboard's chat gateway (`/api/ws`).
 GatewayConnect hermesGatewayConnect({
