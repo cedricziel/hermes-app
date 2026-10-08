@@ -1265,16 +1265,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     var stopped = false;
     var folded = false;
     var settled = false;
+    var completed = false;
     void end([Object? error]) {
       _replies.remove(subscription);
-      // The reply a stop in flight aimed at is over.
-      final stopping = _stopPending.remove(thread) != null;
+      // The reply a stop in flight aimed at is over. A folded send is not that
+      // reply: the stop is aimed at the turn it went into.
+      final stopping = !folded && _stopPending.remove(thread) != null;
       if (folded) {
         // The prompt went into the turn already running, whose events follow
         // on the thread's follow-ups.
         if (error == null) {
           _followUps(transport, thread, profile);
-          _awaitSettle(thread);
+          // The queue stays paused while a stop of that turn is in flight.
+          if (!_stopPending.containsKey(thread)) _awaitSettle(thread);
           unawaited(refreshActive());
         } else {
           notifyListeners();
@@ -1287,7 +1290,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         // listen to it. Only a reply that ended well drains the queue; after a
         // failure or a stop it stays paused for the user.
         final stopRequested =
-            _stopRequested.remove(thread) || (settled && stopping);
+            _stopRequested.remove(thread) ||
+            (settled && stopping && !completed);
         final halted =
             failed ||
             stopped ||
@@ -1324,6 +1328,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             if (event is ReplyCompleted) {
               failed = event.failed;
               stopped = event.stopped;
+              completed = !failed && !stopped;
             }
             if (event is PromptFolded) folded = true;
             if (event is SessionInfo && event.running == false) settled = true;
@@ -1367,7 +1372,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         .listen(
           (event) {
             if (reply == null && opensTurn(event)) {
+              // A stop in flight may be aimed at the turn this opens a reply
+              // for (a folded prompt's), so its mark survives the new reply.
+              final stopping = _stopPending[thread];
               reply = _addPlaceholder(thread);
+              if (stopping != null) _stopPending[thread] = stopping;
             }
             final current = reply;
             if (current == null) {

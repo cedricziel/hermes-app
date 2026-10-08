@@ -364,6 +364,198 @@ void main() {
       expect(rig.sentTexts, ['One', 'Two', 'Three']);
     });
 
+    test('a stop before the folded answer keeps the queue paused when the '
+        'running turn settles', () {
+      fakeAsync((async) {
+        final rig = Rig();
+        final (thread, send) = rig.start('One');
+        async.flushMicrotasks();
+        rig.chat.submit('Two', const []);
+        final gate = rig.transport.stopGate = Completer<void>();
+        unawaited(rig.chat.stopReply(thread));
+        async.flushMicrotasks();
+
+        send
+          ..emit(const PromptFolded())
+          ..finish();
+        async.flushMicrotasks();
+        rig.followUp()
+          ..emit(const ReplyDelta('Running'))
+          ..emit(const SessionInfo(running: false));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+        expect(rig.sentTexts, ['One']);
+
+        gate.complete();
+        async.flushMicrotasks();
+        expect(rig.sentTexts, ['One']);
+        rig.dispose();
+      });
+    });
+
+    test('a stop before the folded answer keeps the queue paused when the '
+        'running turn settles with no reply open', () {
+      fakeAsync((async) {
+        final rig = Rig();
+        final (thread, send) = rig.start('One');
+        async.flushMicrotasks();
+        rig.chat.submit('Two', const []);
+        rig.transport.stopGate = Completer<void>();
+        unawaited(rig.chat.stopReply(thread));
+        async.flushMicrotasks();
+
+        send
+          ..emit(const PromptFolded())
+          ..finish();
+        async.flushMicrotasks();
+        rig.followUp().emit(const SessionInfo(running: false));
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 3));
+
+        expect(rig.sentTexts, ['One']);
+        rig.dispose();
+      });
+    });
+
+    test('a normal completion then an idle report on the send, with the '
+        'interrupt answering false, is a normal finish', () async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      rig.transport.stopsRunning = false;
+      final gate = rig.transport.stopGate = Completer<void>();
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+
+      first
+        ..emit(const ReplyCompleted('Done.'))
+        ..emit(const SessionInfo(running: false))
+        ..finish();
+      await pumpEventQueue();
+      gate.complete();
+      await stopping;
+
+      expect(rig.sentTexts, ['One', 'Two']);
+    });
+
+    test('an idle report then a normal completion on the send, with the '
+        'interrupt answering false, is a normal finish', () async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      rig.transport.stopsRunning = false;
+      final gate = rig.transport.stopGate = Completer<void>();
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+
+      first
+        ..emit(const SessionInfo(running: false))
+        ..emit(const ReplyCompleted('Done.'))
+        ..finish();
+      await pumpEventQueue();
+      gate.complete();
+      await stopping;
+
+      expect(rig.sentTexts, ['One', 'Two']);
+    });
+
+    test('a normal completion then an idle report on follow-ups, with the '
+        'interrupt answering false, sends the queue', () async {
+      final thread = await replyingWithQueue();
+      rig.transport.stopsRunning = false;
+      final gate = rig.transport.stopGate = Completer<void>();
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+
+      rig.followUp()
+        ..emit(const ReplyCompleted('Next.'))
+        ..emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      gate.complete();
+      await stopping;
+
+      expect(rig.sentTexts, ['One', 'Two']);
+    });
+
+    test('a reply that ended on its completion does not take a late stop '
+        'answer onto the next reply', () async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      final gate = rig.transport.stopGate = Completer<void>();
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+
+      rig.complete(first);
+      await pumpEventQueue();
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+      expect(rig.sentTexts, ['One', 'Two']);
+      final second = rig.transport.sends.last;
+      rig.chat.submit('Three', const []);
+
+      gate.complete();
+      await stopping;
+      rig.complete(second);
+      await pumpEventQueue();
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One', 'Two', 'Three']);
+    });
+
+    test('a reply that ended on its completion does not take a late stop '
+        'answer onto the chained turn that follows', () async {
+      final (thread, first) = rig.start('One');
+      await pumpEventQueue();
+      rig.chat.submit('Two', const []);
+      final gate = rig.transport.stopGate = Completer<void>();
+      final stopping = rig.chat.stopReply(thread);
+      await pumpEventQueue();
+
+      rig.complete(first);
+      await pumpEventQueue();
+      rig.followUp().emit(const ReplyDelta('Chained'));
+      await pumpEventQueue();
+      gate.complete();
+      await stopping;
+      rig.followUp().emit(const SessionInfo(running: false));
+      await pumpEventQueue();
+
+      expect(rig.sentTexts, ['One', 'Two']);
+    });
+
+    test(
+      'a new reply starting clears a mark a folded send left behind',
+      () async {
+        final (thread, send) = rig.start('One');
+        await pumpEventQueue();
+        rig.chat.submit('Two', const []);
+        final gate = rig.transport.stopGate = Completer<void>();
+        final stopping = rig.chat.stopReply(thread);
+        await pumpEventQueue();
+        send
+          ..emit(const PromptFolded())
+          ..finish();
+        await pumpEventQueue();
+        rig.followUp().emit(const SessionInfo(running: false));
+        await pumpEventQueue();
+        expect(rig.sentTexts, ['One']);
+
+        rig.chat.sendQueued(thread);
+        final second = rig.transport.sends.last;
+        rig.chat.submit('Three', const []);
+        gate.complete();
+        await stopping;
+        rig.complete(second);
+        await pumpEventQueue();
+        rig.followUp().emit(const SessionInfo(running: false));
+        await pumpEventQueue();
+
+        expect(rig.sentTexts, ['One', 'Two', 'Three']);
+      },
+    );
+
     test('a stop that fails clears the mark: the next settle sends the '
         'queue', () async {
       final thread = await replyingWithQueue();
