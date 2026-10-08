@@ -484,99 +484,93 @@ void main() {
         });
       }
 
-      test(
-        'a truncated replay settles the queued prompt\'s reply once, and its '
-        'turn on the follow-ups is counted as well',
-        () {
-          fake((async) {
-            gateway
-              ..resumeResult = {
-                'session_id': 'rt-1',
-                'running': false,
-                'messages': [
-                  {'role': 'assistant', 'text': 'old'},
-                ],
-              }
-              ..truncateReplay = true
-              ..submitStatus = 'queued'
-              ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+      test('a truncated replay settles the queued prompt\'s reply once, and a separate '
+          'turn on the follow-ups is counted too', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'old'},
+              ],
+            }
+            ..truncateReplay = true
+            ..submitStatus = 'queued'
+            ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
 
-            _listen(transport.send(text: 'hi'));
-            async.flushMicrotasks();
-            gateway.drop();
-            gateway.event('message.complete', 'rt-1', {
-              'text': 'old',
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          gateway.drop();
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'old',
+            'status': 'complete',
+          });
+          async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
+
+          _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
               'status': 'complete',
             });
-            async.flushMicrotasks();
-            expect(events.named('gateway.turn_settled'), [
-              {'via': 'session_info'},
-            ]);
+          async.flushMicrotasks();
 
-            _listen(transport.followUps('stored-1'));
-            async.flushMicrotasks();
-            gateway
-              ..event('message.start', 'rt-1')
-              ..event('message.complete', 'rt-1', {
-                'text': 'goal',
-                'status': 'complete',
-              });
-            async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
 
-            expect(events.named('gateway.turn_settled'), [
-              {'via': 'session_info'},
-              {'via': 'complete'},
-            ]);
+      test('a restarted server settles the queued prompt\'s reply once, and a separate '
+          'turn on the follow-ups is counted too', () {
+        fake((async) {
+          gateway
+            ..resumeResult = {
+              'session_id': 'rt-1',
+              'running': false,
+              'messages': [
+                {'role': 'assistant', 'text': 'old'},
+              ],
+            }
+            ..submitStatus = 'queued'
+            ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
+
+          _listen(transport.send(text: 'hi'));
+          async.flushMicrotasks();
+          gateway.drop();
+          gateway.epoch = 'epoch-2';
+          gateway.event('message.complete', 'rt-1', {
+            'text': 'old',
+            'status': 'complete',
           });
-        },
-      );
+          async.flushMicrotasks();
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+          ]);
 
-      test(
-        'a restarted server settles the queued prompt\'s reply once, and its '
-        'turn on the follow-ups is counted as well',
-        () {
-          fake((async) {
-            gateway
-              ..resumeResult = {
-                'session_id': 'rt-1',
-                'running': false,
-                'messages': [
-                  {'role': 'assistant', 'text': 'old'},
-                ],
-              }
-              ..submitStatus = 'queued'
-              ..turn = (g, sid) => g.event('message.delta', sid, {'text': '1'});
-
-            _listen(transport.send(text: 'hi'));
-            async.flushMicrotasks();
-            gateway.drop();
-            gateway.epoch = 'epoch-2';
-            gateway.event('message.complete', 'rt-1', {
-              'text': 'old',
+          _listen(transport.followUps('stored-1'));
+          async.flushMicrotasks();
+          gateway
+            ..event('message.start', 'rt-1')
+            ..event('message.complete', 'rt-1', {
+              'text': 'goal',
               'status': 'complete',
             });
-            async.flushMicrotasks();
-            expect(events.named('gateway.turn_settled'), [
-              {'via': 'session_info'},
-            ]);
+          async.flushMicrotasks();
 
-            _listen(transport.followUps('stored-1'));
-            async.flushMicrotasks();
-            gateway
-              ..event('message.start', 'rt-1')
-              ..event('message.complete', 'rt-1', {
-                'text': 'goal',
-                'status': 'complete',
-              });
-            async.flushMicrotasks();
-
-            expect(events.named('gateway.turn_settled'), [
-              {'via': 'session_info'},
-              {'via': 'complete'},
-            ]);
-          });
-        },
-      );
+          expect(events.named('gateway.turn_settled'), [
+            {'via': 'session_info'},
+            {'via': 'complete'},
+          ]);
+        });
+      });
 
       test('a prompt\'s completion delivered by a pick-up leaves nothing to '
           'skip: the next turn on the follow-ups is counted', () {

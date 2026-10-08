@@ -415,6 +415,48 @@ void main() {
       });
     }
 
+    test('Auto-continue after resume: a socket that keeps dropping withdraws '
+        'the requests the send had passed through when it gives up', () {
+      fakeAsync((async) {
+        final server = FakeGateway()
+          ..stampSeq = true
+          ..sendReady = true
+          ..resumeResult = autoContinue
+          ..submitStatus = 'queued'
+          ..beforeSubmitAnswer = (g) {
+            unsolicitedTurn(g);
+            g.serverRequest('srq-1', 'approval', 'rt-2', {
+              'command': 'ls build',
+              'description': 'list files',
+              'choices': ['once', 'deny'],
+              'tool_name': 'terminal',
+            });
+          };
+        final dropping = HermesGatewayTransport(connect: server.connect);
+        server.turn = (g, sid) {
+          g.resumeResult = {'session_id': 'rt-2', 'running': true};
+          g.drop();
+        };
+        final seen = _listen(dropping.send(threadId: 'stored-2', text: 'hi'));
+        async.elapse(const Duration(seconds: 10));
+        for (var again = 2; again <= 5; again++) {
+          server.drop();
+          async.elapse(const Duration(seconds: 10));
+        }
+        expect(seen.error, isNull);
+        expect(seen.events.whereType<InputRequestsCancelled>(), isEmpty);
+
+        server.drop();
+        async.elapse(const Duration(seconds: 10));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          seen.events.whereType<InputRequestsCancelled>().single.requestIds,
+          ['srq-1'],
+        );
+      });
+    });
+
     test('Auto-continue after resume: a send the silence probe ends as broken '
         'withdraws the requests it had passed through', () {
       fakeAsync((async) {
