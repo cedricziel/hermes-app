@@ -1653,6 +1653,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         notifyListeners();
       case ReviewSummarized():
         _onReviewSummary(thread, event);
+      case SubagentUpdated():
+        final owner = _subagentOwner(thread, event);
+        if (owner == null) return;
+        _updateReply(thread, owner, () => applyReplyEvent(owner, event));
       case ThreadNeedsRefetch():
         _refetch.add(thread);
         _refetchIfIdle(thread);
@@ -1687,6 +1691,18 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _updateReply(thread, message, () => applyReplyEvent(message, event));
       return;
     }
+  }
+
+  /// The reply that spawned the subagent [event] names. A child delegated
+  /// in the background outlives that reply, so its later frames arrive on
+  /// the follow-ups, between turns or during another one.
+  ChatMessage? _subagentOwner(ChatThread thread, SubagentUpdated event) {
+    for (final message in thread.messages.reversed) {
+      if (message.subagents.any((s) => s.id == event.subagent.id)) {
+        return message;
+      }
+    }
+    return null;
   }
 
   /// The reply a turn ended without its completion, which a completion
@@ -1772,6 +1788,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _refetch.add(thread);
       case ReviewSummarized():
         _onReviewSummary(thread, event, open: reply);
+      case SubagentUpdated():
+        final owner = _subagentOwner(thread, event) ?? reply;
+        _updateReply(thread, owner, () => applyReplyEvent(owner, event));
       case ReplyErrored() ||
           ReplyStatus() ||
           InputRequestsCancelled() ||
@@ -1783,7 +1802,6 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           ToolPreparing() ||
           ToolStarted() ||
           ToolFinished() ||
-          SubagentUpdated() ||
           ReplyCompleted() ||
           ApprovalRequested() ||
           ClarifyRequested() ||
