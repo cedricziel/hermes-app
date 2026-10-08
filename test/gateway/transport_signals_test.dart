@@ -319,6 +319,26 @@ void main() {
       expect(gateway.responses, isEmpty);
     });
 
+    test('Auto-continue after resume: a request of a turn that was already '
+        'over does not come back on the follow-ups', () async {
+      gateway.beforeSubmitAnswer = (g) {
+        unsolicitedTurn(g);
+        g.serverRequest('srq-old', 'approval', 'rt-2', {
+          'command': 'ls build',
+          'description': 'list files',
+          'choices': ['once', 'deny'],
+          'tool_name': 'terminal',
+        });
+        unsolicitedEnd(g);
+      };
+      gateway.turn = submittedTurn;
+
+      await reply(threadId: 'stored-2');
+      final later = await followed(3);
+
+      expect(_types(later), [ReplyStarted, ReplyDelta, ReplyCompleted]);
+    });
+
     test('Auto-continue after resume: a drop that ends the turn withdraws the '
         'requests the send had passed through', () async {
       final dropping = FakeGateway()

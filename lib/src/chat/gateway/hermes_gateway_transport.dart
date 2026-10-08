@@ -912,7 +912,9 @@ class HermesGatewayTransport implements ChatTransport {
                     ? passedAsked.clear()
                     : passedAsked.removeAll(event.requestIds);
               }
-            } else {
+            } else if (!_Unsolicited.isInputRequest(event)) {
+              // What a turn that is over asked is not replayed on the
+              // follow-ups: nobody can answer it any more.
               setAside.add(incoming);
             }
             if (claimant.live) {
