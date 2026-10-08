@@ -440,14 +440,15 @@ or the scripted one under "Scripted tool calls" with "slow" in the prompt) and
    ```bash
    BACKEND=$(scripts/dev-backend.sh url | sed 's|.*://||')
    socat TCP-LISTEN:18777,fork,reuseaddr TCP:$BACKEND &
-   PROXY=$!
+   echo $! > .dart_tool/hermes-dev/proxy.pid
    flutter run -d macos --dart-define=HERMES_SERVER_URL=http://127.0.0.1:18777
    ```
 
 2. Send a prompt that makes a long reply, such as "Count from 1 to 60, one
    number per line", and wait for the first lines to stream.
-3. Drop the connections, not the server: `kill $(pgrep -P $PROXY)` ends every
-   connection the proxy holds (each `socat` child is one) and leaves the
+3. Drop the connections, not the server. From a second terminal (`flutter run`
+   holds the first), `kill $(pgrep -P "$(cat .dart_tool/hermes-dev/proxy.pid)")`
+   ends every connection the proxy holds (each `socat` child is one) and leaves the
    listener, so the app can reconnect through it. Never kill the backend or run
    `hermes dashboard --stop`.
 4. The reply must finish on its own. Screenshot it: it completes once, with no
@@ -455,7 +456,7 @@ or the scripted one under "Scripted tool calls" with "slow" in the prompt) and
    marked failed, and the `flutter run` console shows no uncaught errors.
 5. Repeat once between turns, with the reply already finished: nothing should
    appear or repeat.
-6. Stop the proxy (`kill $PROXY`) with the app and the backend.
+6. Stop the proxy (`kill "$(cat .dart_tool/hermes-dev/proxy.pid)"`) with the app and the backend.
 
 If a drop loses or repeats text, reproduce it first in
 `test/gateway/transport_reconnect_test.dart`, which drives the same path with a
