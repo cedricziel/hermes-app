@@ -212,7 +212,7 @@ When telemetry is enabled the system SHALL trace the dashboard's chat gateway so
 - Reply deltas (`message.delta`) SHALL NOT produce a span, so that streaming a reply does not emit one span per chunk.
 - Request and event spans SHALL be linked to the span of the connection and SHALL NOT be its children, so that no trace stays open for as long as the connection lives. A request or event recorded before any connection span has ended has no link.
 
-The Kanban events socket (`/api/plugins/kanban/events`) is not traced.
+The Kanban events socket (`/api/plugins/kanban/events`) SHALL be traced the same way, with `messaging.system` = `hermes.kanban`: its upgrade is a client span with `http.route` = `/api/plugins/kanban/events`, and each event in a received batch is an instant consumer span named after its `kind`. Only the kinds the Kanban plugin writes to its task events (`archived`, `assigned`, `attached`, `blocked`, `changes_requested`, `claim_rejected`, `claimed`, `commented`, `completed`, `created`, `decomposed`, `dependency_wait`, `edited`, `gave_up`, `linked`, `promoted`, `reclaimed`, `reconciled`, `reprioritized`, `review_requested`, `scheduled`, `spawned`, `stale`, `status`, `timed_out`, `unblocked`, `unlinked`) SHALL be named after their kind; any other kind SHALL be recorded as `other`. `heartbeat` events SHALL NOT produce a span. A frame that cannot be decoded SHALL be passed on to the board unchanged and record nothing.
 
 #### Scenario: Socket opens
 
@@ -259,8 +259,10 @@ The Kanban events socket (`/api/plugins/kanban/events`) is not traced.
 
 #### Scenario: Kanban events socket
 
-- **WHEN** the Kanban tab opens its events socket
-- **THEN** no gateway span is recorded for it
+- **WHEN** the Kanban tab opens its events socket and receives a batch with a `claimed` event, a `heartbeat` and an event of an unknown kind
+- **THEN** an upgrade span with `http.route` = `/api/plugins/kanban/events` is recorded
+- **AND** consumer spans `claimed receive` and `other receive` with `messaging.system` = `hermes.kanban` are recorded, and none for the heartbeat
+- **AND** the board receives the frame unchanged
 
 ### Requirement: Gateway telemetry never records what is sent or received
 
