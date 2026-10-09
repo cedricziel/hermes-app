@@ -54,10 +54,6 @@
 
 .h-group-chat__event {
   margin: 6px 16px;
-  padding: 16px;
-  border: 1px solid var(--h-border);
-  border-radius: var(--h-radius);
-  background: var(--h-surface);
 }
 
 .h-group-chat__event-head {

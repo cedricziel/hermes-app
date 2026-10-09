@@ -15,6 +15,7 @@ import {
   useGroupedChrome,
   type AppleDevice,
 } from "../../platform";
+import "../GroupedChoiceRow/GroupedChoiceRow.css";
 import "./CreateGroupDialog.css";
 
 /** A bot that can join a group. */
@@ -147,7 +148,7 @@ export function CreateGroupDialog({
                 const checked = selected.includes(m.name);
                 const enabled = !pending && (checked || selected.length < 6);
                 const mark = apple ? (
-                  <span className="h-create-group__check" aria-hidden="true">
+                  <span className="h-choice-check" aria-hidden="true">
                     {checked ? (
                       <Icon
                         name="check"

@@ -1,4 +1,5 @@
 import { Button } from "../Button/Button";
+import { Card } from "../Card/Card";
 import { groupInteractionLimitation } from "../CreateGroupDialog/CreateGroupDialog";
 import { Icon } from "../Icon/Icon";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
@@ -81,7 +82,7 @@ function EventCard({
   onReply?: () => void;
 }) {
   return (
-    <article className="h-group-chat__event">
+    <Card className="h-group-chat__event">
       <header className="h-group-chat__event-head">
         <span className="h-group-chat__avatar" aria-hidden="true">
           {event.author.charAt(0).toUpperCase()}
@@ -106,7 +107,7 @@ function EventCard({
           {event.activity}
         </div>
       )}
-    </article>
+    </Card>
   );
 }
 

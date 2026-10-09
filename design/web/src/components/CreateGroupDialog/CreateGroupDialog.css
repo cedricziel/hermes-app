@@ -8,15 +8,6 @@
   padding-top: 0;
 }
 
-/* Apple: the blue check at the trailing edge, reserved space when off. */
-.h-create-group__check {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  color: var(--h-apple-blue);
-}
-
 /* Material: a compact 18px checkbox at the leading edge. */
 .h-create-group__box {
   display: inline-flex;
