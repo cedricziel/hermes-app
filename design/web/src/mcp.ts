@@ -18,3 +18,10 @@ export function mcpFacts(server: {
     (f): f is string => Boolean(f),
   );
 }
+
+/** A tool schema's size: "840 chars", "2.4k chars". */
+export function mcpSchemaSize(chars: number) {
+  return chars < 1000
+    ? `${chars} chars`
+    : `${(chars / 1000).toFixed(1)}k chars`;
+}

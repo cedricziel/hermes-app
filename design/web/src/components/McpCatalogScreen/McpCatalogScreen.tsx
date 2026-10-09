@@ -170,17 +170,16 @@ export function McpCatalogScreen({
   );
 
   const picked = entries.find((e) => e.name === selected);
-  const pane = !picked ? (
-    <div className="h-mcp-catalog__placeholder">
-      Pick a server to see what Hermes would run.
-    </div>
-  ) : picked.installed ? (
-    installedServer ? (
+  const pane =
+    picked && !picked.installed ? (
+      <div className="h-mcp-catalog__panel">{panelFor(picked)}</div>
+    ) : picked && installedServer ? (
       <McpServerDetail server={installedServer} test={installedServer.test} />
-    ) : null
-  ) : (
-    <div className="h-mcp-catalog__panel">{panelFor(picked)}</div>
-  );
+    ) : (
+      <div className="h-mcp-catalog__placeholder">
+        Pick a server to see what Hermes would run.
+      </div>
+    );
   const sheet = !desktop
     ? entries.find((e) => e.name === sheetEntry && !e.installed)
     : undefined;

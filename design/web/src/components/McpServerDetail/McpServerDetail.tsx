@@ -14,7 +14,7 @@ import {
   type Platform,
 } from "../../platform";
 import { groupedMetrics } from "../../grouped";
-import { mcpFacts, mcpPlural } from "../../mcp";
+import { mcpFacts, mcpPlural, mcpSchemaSize } from "../../mcp";
 import "./McpServerDetail.css";
 
 /** A tool an MCP server listed in its last connection test. */
@@ -72,12 +72,6 @@ export interface McpServerDetailProps {
   platform?: Platform;
   /** Under `apple`: `mac` or `touch`; inherited from the enclosing `SettingsScaffold`. */
   device?: AppleDevice;
-}
-
-function schemaSize(chars: number) {
-  return chars < 1000
-    ? `${chars} chars`
-    : `${(chars / 1000).toFixed(1)}k chars`;
 }
 
 /**
@@ -248,7 +242,7 @@ export function McpServerDetail({
               value={
                 tool.schemaChars === undefined
                   ? undefined
-                  : schemaSize(tool.schemaChars)
+                  : mcpSchemaSize(tool.schemaChars)
               }
             />
           ))}
