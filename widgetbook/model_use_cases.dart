@@ -63,9 +63,9 @@ WidgetbookNode modelNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ModelPicker',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Model with effort levels',
-          builder: (_) => fill(
+        ...onEachPlatform(
+          'Model with effort levels',
+          (_) => _picker(
             ModelPicker(
               options: modelOptions,
               selected: const ModelChoice(
@@ -75,23 +75,21 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               ),
               onChanged: (_) {},
             ),
-            width: 420,
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Model without effort',
-          builder: (_) => fill(
+        ...onEachPlatform(
+          'Model without effort',
+          (_) => _picker(
             ModelPicker(
               options: modelOptions,
               selected: _longModel,
               onChanged: (_) {},
             ),
-            width: 420,
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Profile default, no effort',
-          builder: (_) => fill(
+        ...onEachPlatform(
+          'Profile default, no effort',
+          (_) => _picker(
             ModelPicker(
               options: modelOptions,
               selected: modelOptions.current,
@@ -102,12 +100,11 @@ WidgetbookNode modelNode() => WidgetbookFolder(
                   'New chats in Work assistant start with this model. '
                   'Open chats keep theirs.',
             ),
-            width: 420,
           ),
         ),
-        WidgetbookUseCase(
-          name: 'With a default entry',
-          builder: (_) => fill(
+        ...onEachPlatform(
+          'With a default entry',
+          (_) => _picker(
             ModelPicker(
               options: modelOptions,
               selected: null,
@@ -115,12 +112,11 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               onUseDefault: () {},
               withEffort: false,
             ),
-            width: 420,
           ),
         ),
-        WidgetbookUseCase(
-          name: 'Kanban task: default entry and effort',
-          builder: (_) => fill(
+        ...onEachPlatform(
+          'Kanban task: default entry and effort',
+          (_) => _picker(
             ModelPicker(
               options: kanbanModelOptions,
               selected: const ModelChoice(
@@ -131,7 +127,16 @@ WidgetbookNode modelNode() => WidgetbookFolder(
               onChanged: (_) {},
               onUseDefault: () {},
             ),
-            width: 420,
+          ),
+        ),
+        ...onEachPlatform(
+          'Long list with search',
+          (_) => _picker(
+            ModelPicker(
+              options: _manyModels,
+              selected: const ModelChoice('openrouter', 'openai/gpt-5.1'),
+              onChanged: (_) {},
+            ),
           ),
         ),
       ],
@@ -188,6 +193,43 @@ WidgetbookNode modelNode() => WidgetbookFolder(
             onTap: (_) {},
           ),
         ),
+      ],
+    ),
+  ],
+);
+
+/// A picker in a sheet's width and colour.
+Widget _picker(ModelPicker picker) => Builder(
+  builder: (context) => fill(
+    Material(
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
+      child: picker,
+    ),
+    width: 420,
+  ),
+);
+
+const _manyModels = ModelOptions(
+  providers: [
+    ModelProviderOption(
+      id: 'anthropic',
+      label: 'Anthropic',
+      models: [
+        ModelOption(id: 'claude-opus-4'),
+        ModelOption(id: 'claude-sonnet-4-5'),
+        ModelOption(id: 'claude-haiku-4-5', reasoning: false),
+      ],
+    ),
+    ModelProviderOption(
+      id: 'openrouter',
+      label: 'OpenRouter',
+      models: [
+        ModelOption(id: 'openai/gpt-5.1'),
+        ModelOption(id: 'openai/gpt-5.1-mini'),
+        ModelOption(id: 'google/gemini-2.5-pro'),
+        ModelOption(id: 'deepseek/deepseek-v4-pro'),
+        ModelOption(id: 'qwen/qwen3-coder', reasoning: false),
+        ModelOption(id: 'x-ai/grok-4'),
       ],
     ),
   ],
