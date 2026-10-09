@@ -51,6 +51,7 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/dictation_controller.dart';
+import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
 import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
@@ -270,6 +271,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         recorder: widget.voiceRecorder ?? RecordVoiceRecorder(),
         onTranscript: _insertTranscript,
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+        onDevice: _maybeRead<OnDeviceSpeech>(),
       );
       _refreshVoice();
     }

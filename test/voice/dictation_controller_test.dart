@@ -6,10 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/voice/dictation_controller.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
+import 'package:hermes_app/src/voice/on_device_speech.dart';
 import 'package:hermes_app/src/voice/voice_support.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../support/fake_hermes_server.dart';
+import '../support/fake_speech_channel.dart';
 import '../support/fake_voice_recorder.dart';
 
 const _live = VoiceSupport(speechToText: true, liveTranscription: true);
@@ -39,17 +42,27 @@ void main() {
   DictationController controller({
     VoiceSupport support = _live,
     String? profile = 'work',
-  }) => DictationController(
-    repository: HermesChatRepository(server.client().raw),
-    connect: ([query = const {}]) async {
-      final socket = StreamChannelController<Object?>();
-      sockets.add(socket);
-      return socket.local;
-    },
-    recorder: recorder,
-    onTranscript: inserted.add,
-    breadcrumbs: Breadcrumbs.of(trail),
-  )..configure(profile: profile, support: support);
+    DictationEngine engine = DictationEngine.hermes,
+    OnDeviceModel model = OnDeviceModel.unsupported,
+  }) =>
+      DictationController(
+        repository: HermesChatRepository(server.client().raw),
+        connect: ([query = const {}]) async {
+          final socket = StreamChannelController<Object?>();
+          sockets.add(socket);
+          return socket.local;
+        },
+        recorder: recorder,
+        onTranscript: inserted.add,
+        breadcrumbs: Breadcrumbs.of(trail),
+        onDevice: OnDeviceSpeech(),
+        locale: () => 'de-DE',
+      )..configure(
+        profile: profile,
+        support: support,
+        engine: engine,
+        model: model,
+      );
 
   void serverSends(Map<String, Object?> frame) =>
       sockets.last.foreign.sink.add(jsonEncode(frame));
@@ -284,10 +297,220 @@ void main() {
 
     final names = trail.recent.map((c) => c.name).toList();
     expect(names, ['voice.dictation.started', 'voice.dictation.ended']);
+    expect(trail.recent.first.attributes, {'engine': 'hermes'});
     expect(trail.recent.last.attributes, {
+      'engine': 'hermes',
       'outcome': 'inserted',
       'path': 'stream',
     });
     expect(trail.recent.toString(), isNot(contains('secret')));
+  });
+
+  group('on the device', () {
+    late FakeSpeechChannel speech;
+
+    setUp(() => speech = FakeSpeechChannel());
+    tearDown(() => speech.dispose());
+
+    DictationController onDevice({
+      OnDeviceModel model = OnDeviceModel.installed,
+      VoiceSupport support = VoiceSupport.none,
+    }) => controller(
+      engine: DictationEngine.device,
+      model: model,
+      support: support,
+    );
+
+    test('shows what it hears and inserts the transcript', () async {
+      speech.transcript = 'book a table';
+      final dictation = onDevice();
+
+      await dictation.start();
+      expect(dictation.phase, DictationPhase.recording);
+      recorder.speak([1000, -1000]);
+      await pumpEventQueue();
+      speech.hears('book a');
+      await pumpEventQueue();
+      expect(dictation.liveTranscript, 'book a');
+
+      await dictation.stop();
+
+      expect(inserted, ['book a table']);
+      expect(dictation.phase, DictationPhase.idle);
+      expect(dictation.liveTranscript, '');
+      expect(speech.audio, hasLength(4));
+      expect(speech.methods, ['start', 'append', 'finish']);
+      expect(speech.calls.first.arguments, {
+        'locale': 'de-DE',
+        'sampleRate': 16000,
+      });
+    });
+
+    test('sends nothing to the Hermes server', () async {
+      speech.transcript = 'private words';
+      final dictation = onDevice();
+
+      await dictation.start();
+      recorder.speak([5]);
+      await pumpEventQueue();
+      await dictation.stop();
+
+      expect(sockets, isEmpty);
+      expect(
+        server.requests.where((r) => r.path.startsWith('/api/audio/')),
+        isEmpty,
+      );
+    });
+
+    test(
+      'silence reports that no speech was heard, without an upload',
+      () async {
+        final dictation = onDevice();
+        await dictation.start();
+        recorder.speak([0]);
+        await pumpEventQueue();
+
+        await dictation.stop();
+
+        expect(dictation.phase, DictationPhase.noSpeech);
+        expect(inserted, isEmpty);
+        expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+      },
+    );
+
+    test('a recognizer failure keeps nothing to retry', () async {
+      speech.transcript = 'too late';
+      final dictation = onDevice();
+      await dictation.start();
+      recorder.speak([5]);
+      await pumpEventQueue();
+      speech.fails('failed');
+      await pumpEventQueue();
+
+      await dictation.stop();
+
+      expect(dictation.phase, DictationPhase.failed);
+      expect(dictation.canRetry, isFalse);
+      expect(inserted, isEmpty);
+      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+    });
+
+    test(
+      'a model removed since the last check stops before recording',
+      () async {
+        speech.status = 'missing';
+        final dictation = onDevice();
+
+        await dictation.start();
+
+        expect(dictation.phase, DictationPhase.modelMissing);
+        expect(recorder.starts, 0);
+        expect(speech.methods, ['start']);
+      },
+    );
+
+    test('cancel discards what it heard', () async {
+      final dictation = onDevice();
+      await dictation.start();
+      speech.hears('never mind');
+      await pumpEventQueue();
+
+      await dictation.cancel();
+      await pumpEventQueue();
+
+      expect(dictation.phase, DictationPhase.idle);
+      expect(dictation.liveTranscript, '');
+      expect(speech.methods.last, 'cancel');
+      expect(inserted, isEmpty);
+    });
+
+    test('breadcrumbs name the engine, never the text or language', () async {
+      speech.transcript = 'secret words';
+      final dictation = onDevice();
+      await dictation.start();
+      speech.hears('secret');
+      await pumpEventQueue();
+      await dictation.stop();
+
+      expect(trail.recent.map((c) => c.name), [
+        'voice.dictation.started',
+        'voice.dictation.ended',
+      ]);
+      expect(trail.recent.first.attributes, {'engine': 'device'});
+      expect(trail.recent.last.attributes, {
+        'engine': 'device',
+        'outcome': 'inserted',
+        'path': 'device',
+      });
+      expect(trail.recent.toString(), isNot(contains('secret')));
+      expect(trail.recent.toString(), isNot(contains('de-DE')));
+    });
+
+    test('a missing model is recorded as such', () async {
+      speech.status = 'missing';
+      await onDevice().start();
+
+      expect(trail.recent.single.attributes, {
+        'engine': 'device',
+        'outcome': 'model_missing',
+      });
+    });
+
+    test(
+      'is offered while the model is installed, whatever the server says',
+      () {
+        expect(onDevice().available, isTrue);
+        expect(onDevice(model: OnDeviceModel.missing).available, isFalse);
+        expect(onDevice(model: OnDeviceModel.downloading).available, isFalse);
+        expect(controller(support: VoiceSupport.none).available, isFalse);
+      },
+    );
+  });
+
+  group('changing the engine', () {
+    late FakeSpeechChannel speech;
+
+    setUp(() => speech = FakeSpeechChannel());
+    tearDown(() => speech.dispose());
+
+    test('drops a recording without sending it to Hermes', () async {
+      final dictation = controller(
+        engine: DictationEngine.device,
+        model: OnDeviceModel.installed,
+      );
+      await dictation.start();
+      recorder.speak([5]);
+      await pumpEventQueue();
+
+      dictation.configure(profile: 'work', support: _live);
+      await pumpEventQueue();
+
+      expect(dictation.phase, DictationPhase.idle);
+      expect(recorder.recording, isFalse);
+      expect(speech.methods.last, 'cancel');
+      expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
+      expect(inserted, isEmpty);
+    });
+
+    test('drops a failed Hermes recording kept for a retry', () async {
+      server.on('POST', '/api/audio/transcribe', {'detail': 'x'}, status: 500);
+      final dictation = controller(support: _uploadOnly);
+      await dictation.start();
+      recorder.speak([5]);
+      await pumpEventQueue();
+      await dictation.stop();
+      expect(dictation.canRetry, isTrue);
+
+      dictation.configure(
+        profile: 'work',
+        support: _uploadOnly,
+        engine: DictationEngine.device,
+        model: OnDeviceModel.installed,
+      );
+      await pumpEventQueue();
+
+      expect(dictation.phase, DictationPhase.idle);
+      expect(dictation.canRetry, isFalse);
+    });
   });
 }

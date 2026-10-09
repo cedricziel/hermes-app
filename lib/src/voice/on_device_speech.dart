@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/services.dart';
 
 import 'live_transcriber.dart';
@@ -37,6 +39,11 @@ class OnDeviceSpeech {
 
   static const methods = MethodChannel('hermes_app/speech');
   static const events = EventChannel('hermes_app/speech/events');
+
+  /// The language the device's settings prefer, with its region (`de-DE`):
+  /// without one the recognizer may pick another country's variant.
+  static String deviceLocale() =>
+      PlatformDispatcher.instance.locale.toLanguageTag();
 
   final _sessions = <int, OnDeviceSession>{};
   final _progress = StreamController<double>.broadcast();
