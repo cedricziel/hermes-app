@@ -416,11 +416,14 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
   }
 }
 
-/// Why a form could not be saved, in the error colour under its groups.
-class GroupedFormError extends StatelessWidget {
-  const GroupedFormError(this.message, {super.key});
+/// A note under a group drawn apart from its [GroupedSection], such as a
+/// preview that needs its own key, or with [error] why a form could not be
+/// saved.
+class GroupedFooter extends StatelessWidget {
+  const GroupedFooter(this.text, {super.key, this.error = false});
 
-  final String message;
+  final String text;
+  final bool error;
 
   @override
   Widget build(BuildContext context) {
@@ -428,15 +431,17 @@ class GroupedFormError extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.fromLTRB(
         metrics.rowPadding,
-        12,
+        error ? 12 : 6,
         metrics.rowPadding,
         0,
       ),
       child: Text(
-        message,
+        text,
         style: TextStyle(
           fontSize: metrics.footerSize,
-          color: Theme.of(context).colorScheme.error,
+          color: error
+              ? Theme.of(context).colorScheme.error
+              : context.hermesColors.subtleText,
         ),
       ),
     );

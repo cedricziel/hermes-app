@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/grouped_list.dart';
@@ -227,17 +226,19 @@ class _SchedulePickerState extends State<SchedulePicker> {
           ],
         ),
         if (_spec is CronSpec)
-          const _Footer(
+          const GroupedFooter(
             'A five-field cron expression, for example 0 9 * * 1-5, or a '
             'phrase like every monday 9am.',
           ),
         if (hasRuns)
-          _Footer(
+          GroupedFooter(
             'Next runs: ${runs.map((t) => formatTime(context, t)).join(', ')}',
             key: const Key('when-preview'),
           )
         else if (_spec is CronSpec)
-          const _Footer('The server works out the next run when you save.'),
+          const GroupedFooter(
+            'The server works out the next run when you save.',
+          ),
       ],
     );
   }
@@ -248,33 +249,6 @@ class _SchedulePickerState extends State<SchedulePicker> {
     value: time,
     onTap: _pickTime,
   );
-}
-
-/// A note under the "When" group, set as a group footer.
-class _Footer extends StatelessWidget {
-  const _Footer(this.text, {super.key});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final metrics = GroupedMetrics.of(context);
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        metrics.rowPadding,
-        6,
-        metrics.rowPadding,
-        0,
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: metrics.footerSize,
-          color: context.hermesColors.subtleText,
-        ),
-      ),
-    );
-  }
 }
 
 /// The days of a weekly schedule, Monday first as a week reads, each a
@@ -309,36 +283,32 @@ class _DayToggles extends StatelessWidget {
         spacing: 4,
         children: [
           for (final (label, day) in _week)
-            Expanded(
-              child: Semantics(
-                button: true,
-                toggled: days.contains(day),
-                child: Material(
-                  color: days.contains(day)
-                      ? scheme.primary
-                      : scheme.surfaceContainerHighest,
-                  shape: const StadiumBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: () => onChanged(
-                      days.contains(day)
-                          ? ({...days}..remove(day))
-                          : {...days, day},
-                    ),
-                    child: SizedBox(
-                      height: mac ? 24 : 32,
-                      child: Center(
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: mac ? 11 : 13,
-                            fontWeight: days.contains(day)
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: days.contains(day)
-                                ? scheme.onPrimary
-                                : scheme.onSurface,
+            if (days.contains(day) case final on)
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  toggled: on,
+                  child: Material(
+                    color: on ? scheme.primary : scheme.surfaceContainerHighest,
+                    shape: const StadiumBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => onChanged(
+                        on ? ({...days}..remove(day)) : {...days, day},
+                      ),
+                      child: SizedBox(
+                        height: mac ? 24 : 32,
+                        child: Center(
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontSize: mac ? 11 : 13,
+                              fontWeight: on
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                              color: on ? scheme.onPrimary : scheme.onSurface,
+                            ),
                           ),
                         ),
                       ),
@@ -346,7 +316,6 @@ class _DayToggles extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
         ],
       ),
     );

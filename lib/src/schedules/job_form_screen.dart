@@ -118,7 +118,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
       listenable: _form,
       builder: (context, _) {
         final target = _form.selectedTarget;
-        final targets = _form.targets;
+        final targetNames = {for (final t in _form.targets) t.id: t.name};
         final profile = _draft.profile;
         return PopScope(
           canPop: !_form.isDirty,
@@ -126,7 +126,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
           child: SettingsScaffold(
             title: _form.isEditing ? 'Edit task' : 'New task',
             subtitle: profile,
-            previousTitle: null,
             cancel: true,
             formAction: SettingsFormAction(
               label: 'Save',
@@ -176,14 +175,8 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     GroupedMenuRow<String>(
                       key: const Key('job-deliver'),
                       title: 'Deliver results to',
-                      options: [for (final t in targets) t.id],
-                      labelOf: (id) => target?.id == id
-                          ? target!.name
-                          : targets
-                                    .where((t) => t.id == id)
-                                    .firstOrNull
-                                    ?.name ??
-                                id,
+                      options: targetNames.keys.toList(),
+                      labelOf: (id) => targetNames[id] ?? id,
                       selected: _draft.deliver,
                       warning: target != null && !target.homeTargetSet
                           ? 'No home channel is set on the server for this '
@@ -278,7 +271,11 @@ class _JobFormScreenState extends State<JobFormScreen> {
                   ],
                 ),
                 if (_form.error case final error?)
-                  GroupedFormError(error, key: const Key('job-error')),
+                  GroupedFooter(
+                    error,
+                    error: true,
+                    key: const Key('job-error'),
+                  ),
               ],
             ),
           ),

@@ -83,20 +83,33 @@ class SettingsFormAction {
     child: busy ? _progress(12) : Text(label),
   );
 
-  Widget _phone(BuildContext context, {required bool ios}) {
-    final color = Theme.of(context).colorScheme.primary;
-    return TextButton(
-      key: key,
-      onPressed: _onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: color,
-        minimumSize: const Size(kAppleMinTapTarget, kAppleMinTapTarget),
-        textStyle: Theme.of(context).textTheme.labelLarge
-            ?.copyWith(fontSize: ios ? 17 : 16, fontWeight: FontWeight.w600),
-      ),
-      child: busy ? _progress(18) : Text(label),
-    );
-  }
+  Widget _phone(BuildContext context, {required bool ios}) => TextButton(
+    key: key,
+    onPressed: _onPressed,
+    style: _barTextButtonStyle(
+      context,
+      fontSize: ios ? 17 : 16,
+      fontWeight: FontWeight.w600,
+    ),
+    child: busy ? _progress(18) : Text(label),
+  );
+}
+
+/// A text button in a phone's bar, such as Cancel or Save.
+ButtonStyle _barTextButtonStyle(
+  BuildContext context, {
+  required double fontSize,
+  required FontWeight fontWeight,
+}) {
+  final theme = Theme.of(context);
+  return TextButton.styleFrom(
+    foregroundColor: theme.colorScheme.primary,
+    minimumSize: const Size(kAppleMinTapTarget, kAppleMinTapTarget),
+    textStyle: theme.textTheme.labelLarge?.copyWith(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+    ),
+  );
 }
 
 /// A menu that a settings page's subtitle opens, such as the profiles a page
@@ -350,10 +363,10 @@ class SettingsScaffold extends StatelessWidget {
     if (!ios) return const CloseButton();
     return TextButton(
       onPressed: () => Navigator.maybePop(context),
-      style: TextButton.styleFrom(
-        foregroundColor: Theme.of(context).colorScheme.primary,
-        textStyle: Theme.of(context).textTheme.labelLarge
-            ?.copyWith(fontSize: 17, fontWeight: FontWeight.w400),
+      style: _barTextButtonStyle(
+        context,
+        fontSize: 17,
+        fontWeight: FontWeight.w400,
       ),
       child: const Text('Cancel'),
     );

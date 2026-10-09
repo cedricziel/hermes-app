@@ -138,7 +138,7 @@ class _FormPageState extends State<_FormPage> {
             ),
           ],
         ),
-        if (widget.error case final error?) GroupedFormError(error),
+        if (widget.error case final error?) GroupedFooter(error, error: true),
       ],
     ),
   );
