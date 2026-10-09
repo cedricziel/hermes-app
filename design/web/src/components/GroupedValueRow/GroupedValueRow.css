@@ -35,14 +35,16 @@
   text-overflow: ellipsis;
 }
 
-/* The label keeps its width and the value gives way first, cut with an
-   ellipsis (iOS at most 45% of the row, the Mac pop-up at most 260px). */
+/* Apple: the label keeps its width up to 60% of the row and the value gives
+   way first, cut with an ellipsis (iOS at most 45% of the row, the Mac
+   pop-up at most 260px), so neither one squeezes the other away. */
 .h-grouped-value-row {
   border-radius: inherit;
 }
 
-.h-grouped-value-row .h-grouped-row__text {
+.h-grouped-value-row .h-grouped-row:not(.h-gm--material) .h-grouped-row__text {
   flex: 1 1 auto;
+  max-width: 60%;
 }
 
 .h-grouped-value-row .h-grouped-row__caption,
@@ -52,6 +54,12 @@
 
 .h-grouped-value-row .h-grouped-row__value,
 .h-grouped-value-row .h-grouped-row__trailing {
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.h-grouped-value-row .h-grouped-row__value,
+.h-grouped-value-row .h-grouped-row__trailing:has(> .h-mac-popup) {
   flex: 0 1000 auto;
   min-width: 0;
 }

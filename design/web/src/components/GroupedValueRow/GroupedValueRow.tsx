@@ -26,8 +26,9 @@ export interface GroupedValueRowProps {
    * most 45% of the row) and a chevron, the whole row one button. `apple` +
    * `mac`: a 40px row with the label left and the value in a bordered
    * pop-up button on the right (12px, 6px corners, a small chevron down,
-   * at most 260px). On both the label keeps its width and a long value is
-   * cut with an ellipsis; a warning wraps to two lines under the label.
+   * at most 260px). On both the label keeps its width (up to 60% of the
+   * row) and a long value is cut with an ellipsis; a warning wraps to two
+   * lines under the label.
    * `material`: two lines, the label over the value (muted, 14px), no
    * chevron. Inherits the provider's platform.
    */
