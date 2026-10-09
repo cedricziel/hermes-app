@@ -111,3 +111,8 @@ export * from "./components/GroupedValueRow/GroupedValueRow";
 export * from "./components/PillSegmentedControl/PillSegmentedControl";
 export * from "./components/SettingsScaffold/SettingsScaffold";
 export * from "./components/SettingsSearchField/SettingsSearchField";
+export * from "./components/AboutDialog/AboutDialog";
+export * from "./components/AppearanceDialog/AppearanceDialog";
+export * from "./components/AppLockDialog/AppLockDialog";
+export * from "./components/NotificationsDialog/NotificationsDialog";
+export * from "./components/SettingsDialog/SettingsDialog";

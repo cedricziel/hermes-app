@@ -46,11 +46,8 @@ import "./ThreadSidebar.css";
 
 export type { ThreadGrouping, ThreadSection } from "./MacSourceList";
 export type { ThreadSearchHit, ThreadSidebarSearch } from "./SidebarSearch";
-export type {
-  MacProfileScope,
-  SettingsEntry,
-  SwitcherProfile,
-} from "./MacAccount";
+export type { MacProfileScope, SwitcherProfile } from "./MacAccount";
+export type { SettingsEntry } from "../SettingsDialog/SettingsDialog";
 
 /**
  * Which device a component is laid out for. `phone` is touch (iPhone, iPad

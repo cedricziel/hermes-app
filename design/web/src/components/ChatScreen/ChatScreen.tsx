@@ -1,6 +1,7 @@
 import {
   AppShell,
   ShellNavigation,
+  type AppShellProps,
   type ShellDestination,
 } from "../AppShell/AppShell";
 import type { ApprovalChoice } from "../ApprovalCard/ApprovalCard";
@@ -109,6 +110,8 @@ export interface ChatScreenProps {
   accountMenuOpen?: boolean;
   /** Mac: the Settings list (Settings… ⌘,) is open over the window. */
   settingsOpen?: boolean;
+  /** Mac: the values the Settings list shows; see `AppShell`. */
+  settingsValues?: AppShellProps["settingsValues"];
   /** Mac, `authRequired`: Sign Out's question "Sign out of the dashboard?" is open over the window; see `AppShell`. */
   signOutConfirmOpen?: boolean;
   /** Mac: the day the sidebar's recency sections count back from (ISO date); see `ThreadSidebar`. */
@@ -210,6 +213,7 @@ export function ChatScreen({
   authRequired,
   accountMenuOpen,
   settingsOpen,
+  settingsValues,
   signOutConfirmOpen,
   now,
   layout = "desktop",
@@ -336,6 +340,7 @@ export function ChatScreen({
       compact={windowSize === "compact"}
       sidebarOverlayOpen={sidebarOverlayOpen}
       settingsOpen={settingsOpen}
+      settingsValues={settingsValues}
       onSettingsPick={onSettingsPick}
       signOutConfirmOpen={signOutConfirmOpen}
       onConfirmSignOut={onConfirmSignOut}

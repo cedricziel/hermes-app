@@ -8,11 +8,14 @@ import {
 import { MacSourceListRow } from "../ThreadSidebar/MacSourceList";
 import {
   MacProfileSwitcher,
-  SettingsSheet,
   SignOutAlert,
   type MacProfileScope,
-  type SettingsEntry,
 } from "../ThreadSidebar/MacAccount";
+import {
+  SettingsDialog,
+  type SettingsDialogProps,
+  type SettingsEntry,
+} from "../SettingsDialog/SettingsDialog";
 import { IconButton } from "../IconButton/IconButton";
 import {
   AccountFooter,
@@ -250,11 +253,16 @@ export interface AppShellProps {
   /** An entry of the default `ShellSidebar`'s account menu was picked. */
   onAccountAction?: (action: AccountAction) => void;
   /**
-   * Mac only: show the Settings list (the account menu's Settings…, ⌘,): a
-   * dialog titled "Settings" with Appearance…, Notifications…, App Lock…,
-   * About Hermes and Change Server…, each opening its own dialog.
+   * Mac only: show the Settings list (the account menu's Settings…, ⌘,), a
+   * `SettingsDialog` over the window: Appearance, Notifications and App Lock
+   * with their values, then About Hermes and Change Server.
    */
   settingsOpen?: boolean;
+  /** The values the Settings list shows: the theme ("Follow system") and whether notifications and app lock are on. */
+  settingsValues?: Pick<
+    SettingsDialogProps,
+    "appearance" | "notifications" | "appLock"
+  >;
   /** An entry of the Settings list was picked. */
   onSettingsPick?: (entry: SettingsEntry) => void;
   /** The Settings list was dismissed. */
@@ -304,6 +312,7 @@ export function AppShell({
   defaultAccountMenuOpen,
   onAccountAction,
   settingsOpen = false,
+  settingsValues,
   onSettingsPick,
   onDismissSettings,
   signOutConfirmOpen = false,
@@ -448,9 +457,11 @@ export function AppShell({
             </>
           ) : null}
           {mac && settingsOpen ? (
-            <SettingsSheet
+            <SettingsDialog
+              {...settingsValues}
+              device="mac"
               onPick={onSettingsPick}
-              onDismiss={onDismissSettings}
+              onDone={onDismissSettings}
             />
           ) : null}
           {mac && signOutConfirmOpen ? (

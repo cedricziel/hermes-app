@@ -103,31 +103,3 @@
   bottom: calc(100% - 4px);
   z-index: 10;
 }
-
-/* Settings… on a Mac: the app's SimpleDialog of settings. */
-.h-settings-list {
-  display: flex;
-  flex-direction: column;
-  padding: 0 0 16px;
-}
-
-.h-settings-list__title {
-  margin: 0;
-  padding: 24px 24px 12px;
-}
-
-.h-settings-list__option {
-  padding: 8px 24px;
-  border: 0;
-  background: transparent;
-  color: var(--h-fg);
-  font: inherit;
-  font-size: 16px;
-  line-height: 24px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.h-settings-list__option:hover {
-  background: var(--h-hover);
-}

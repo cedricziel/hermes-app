@@ -1,14 +1,12 @@
 import { AlertDialog } from "../AlertDialog/AlertDialog";
 import { Icon } from "../Icon/Icon";
 import { Menu, useMenuState, type MenuItem } from "../Menu/Menu";
-import { Sheet } from "../Sheet/Sheet";
 import "./MacAccount.css";
 
 /**
  * The Mac sidebar's profile switcher and account footer (the app's
- * `MacProfileSwitcher` and `MacAccountFooter`, #402), and the Settings list
- * its "Settings…" opens (`showSettingsDialog`). Internal to ThreadSidebar
- * and AppShell.
+ * `MacProfileSwitcher` and `MacAccountFooter`, #402). Internal to
+ * ThreadSidebar and AppShell.
  */
 
 /** The first letters of up to two words of `label`, upper case; "?" without any (the app's `initialsOf`). */
@@ -246,50 +244,5 @@ export function SignOutAlert({
       ]}
       onDismiss={onCancel}
     />
-  );
-}
-
-/** An entry of the Mac Settings list. */
-export type SettingsEntry =
-  "appearance" | "notifications" | "app-lock" | "about" | "change-server";
-
-const settingsEntries: { value: SettingsEntry; label: string }[] = [
-  { value: "appearance", label: "Appearance…" },
-  { value: "notifications", label: "Notifications…" },
-  { value: "app-lock", label: "App Lock…" },
-  { value: "about", label: "About Hermes" },
-  { value: "change-server", label: "Change Server…" },
-];
-
-/** The Settings list a Mac window opens from Settings… (⌘,): a dialog titled "Settings" whose entries each open their own dialog. */
-export function SettingsSheet({
-  onPick,
-  onDismiss,
-}: {
-  onPick?: (entry: SettingsEntry) => void;
-  onDismiss?: () => void;
-}) {
-  return (
-    <Sheet
-      presentation="dialog"
-      label="Settings"
-      width={320}
-      padding={0}
-      onDismiss={onDismiss}
-    >
-      <div className="h-settings-list">
-        <h2 className="h-sheet__title h-settings-list__title">Settings</h2>
-        {settingsEntries.map((e) => (
-          <button
-            key={e.value}
-            type="button"
-            className="h-settings-list__option"
-            onClick={() => onPick?.(e.value)}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-    </Sheet>
   );
 }
