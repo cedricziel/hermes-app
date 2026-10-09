@@ -75,6 +75,9 @@ export * from "./components/SchedulePicker/SchedulePicker";
 export * from "./components/JobFormScreen/JobFormScreen";
 export * from "./components/ScheduleJobDetail/ScheduleJobDetail";
 export * from "./components/SchedulesScreen/SchedulesScreen";
+export * from "./components/BotGroupChatScreen/BotGroupChatScreen";
+export * from "./components/BotsScreen/BotsScreen";
+export * from "./components/CreateGroupDialog/CreateGroupDialog";
 
 export type { AppleDevice, GroupedChrome, Platform } from "./platform";
 export * from "./components/Tag/Tag";
