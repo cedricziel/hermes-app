@@ -40,7 +40,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.macOS,
+    TargetPlatform.android,
+  ]) {
     testWidgets('$platform puts New in the bar, not in a floating button', (
       tester,
     ) async {
@@ -56,13 +60,6 @@ void main() {
       expect(tester.getSize(add).shortestSide, greaterThanOrEqualTo(44));
     });
   }
-
-  testWidgets('Android keeps the floating button', (tester) async {
-    await pumpSchedules(tester, TargetPlatform.android);
-    expect(find.byType(FloatingActionButton), findsOneWidget);
-    expect(find.text('New'), findsOneWidget);
-    expect(find.byTooltip('New scheduled task'), findsNothing);
-  });
 
   testWidgets('the floating button clears the bottom inset', (tester) async {
     tester.view.physicalSize = const Size(400, 800);

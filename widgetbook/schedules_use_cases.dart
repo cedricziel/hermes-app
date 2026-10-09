@@ -4,34 +4,42 @@ import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/schedules/schedule_widgets.dart';
-import 'package:hermes_app/src/schedules/schedules_list.dart';
+import 'package:hermes_app/src/schedules/widgets/job_group.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
 import 'package:hermes_app/src/schedules/widgets/run_history_empty.dart';
-import 'package:hermes_app/src/schedules/widgets/schedule_filter_bar.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_filter_menu.dart';
+import 'package:hermes_app/src/theme/app_icons.dart';
+import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
 import 'frame.dart';
 
-WidgetbookUseCase _tile(
-  String name,
-  CronJob job, {
-  bool showProfile = false,
-  bool selected = false,
-}) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => frame(
-    JobTile(
-      job: job,
-      now: DateTime.now(),
-      showProfile: showProfile,
-      selected: selected,
-      onTap: () {},
-      onPausedChanged: (_) {},
+Widget _group(List<CronJob> jobs, {bool showProfile = false}) {
+  String? selected = jobs.first.key;
+  return StatefulBuilder(
+    builder: (context, setState) => frame(
+      JobGroup(
+        jobs: jobs,
+        now: DateTime.now(),
+        showProfile: showProfile,
+        selectedKey: selected,
+        onSelect: (job) => setState(() => selected = job.key),
+        onPausedChanged: (_, _) {},
+        actionsFor: (job) => [
+          RowAction(label: 'Run now', icon: AppIcons.play, onPressed: () {}),
+          RowAction(
+            label: 'Delete',
+            icon: AppIcons.delete,
+            destructive: true,
+            onPressed: () {},
+          ),
+        ],
+      ),
     ),
-  ),
-);
+  );
+}
 
 List<WidgetbookUseCase> _picker(String name, ScheduleSpec initial) =>
     onEachPlatform(name, (_) {
@@ -71,88 +79,55 @@ List<WidgetbookUseCase> _modelField(
   );
 });
 
-WidgetbookUseCase _filterBar(
+List<WidgetbookUseCase> _filterMenu(
   String name, {
-  String? activeProfile = 'work',
   int failingCount = 2,
   ScheduleFilter filter = ScheduleFilter.all,
-  double maxWidth = 400,
-}) => WidgetbookUseCase(
-  name: name,
-  builder: (_) {
-    var all = false;
-    var current = filter;
-    return StatefulBuilder(
-      builder: (context, setState) => frame(
-        ScheduleFilterBar(
-          activeProfile: activeProfile,
-          allProfiles: all,
+}) => onEachPlatform(name, (_) {
+  var current = filter;
+  return StatefulBuilder(
+    builder: (context, setState) => frame(
+      Align(
+        alignment: Alignment.topLeft,
+        child: ScheduleFilterMenu(
           filter: current,
           failingCount: failingCount,
-          onAllProfilesChanged: (value) => setState(() => all = value),
-          onFilterChanged: (value) => setState(() => current = value),
+          onChanged: (value) => setState(() => current = value),
         ),
-        maxWidth: maxWidth,
       ),
-    );
-  },
-);
+    ),
+  );
+});
 
 WidgetbookNode schedulesNode() => WidgetbookFolder(
   name: 'Schedules',
   children: [
     WidgetbookComponent(
-      name: 'JobTile',
+      name: 'JobGroup',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Inset grouped rows (Apple)',
-          builder: (_) => frame(
-            InsetGroupedJobs(
-              children: [
-                for (final (job, selected) in [
-                  (nightlyJob, false),
-                  (failingJob, true),
-                  (pausedJob, false),
-                ])
-                  JobTile(
-                    job: job,
-                    now: DateTime.now(),
-                    selected: selected,
-                    grouped: true,
-                    onTap: () {},
-                    onPausedChanged: (_) {},
-                  ),
-              ],
-            ),
-          ),
+        ...onEachPlatform(
+          'Every state',
+          (_) => _group([
+            nightlyJob,
+            failingJob,
+            deliveryFailedJob,
+            blockedJob,
+            pausedJob,
+            neverRunJob,
+          ]),
         ),
-        _tile('Succeeded', nightlyJob),
-        _tile('Failed, with profile', failingJob, showProfile: true),
-        _tile('Blocked', blockedJob),
-        _tile('Paused', pausedJob),
-        _tile('Never run, no name', neverRunJob),
-        _tile('Selected', nightlyJob, selected: true),
+        ...onEachPlatform(
+          'All profiles, with profiles',
+          (_) => _group([nightlyJob, failingJob], showProfile: true),
+        ),
       ],
     ),
     WidgetbookComponent(
-      name: 'ScheduleFilterBar',
+      name: 'ScheduleFilterMenu',
       useCases: [
-        _filterBar('Active profile'),
-        _filterBar('No active profile', activeProfile: null),
-        _filterBar(
-          'Paused selected, nothing failing',
-          failingCount: 0,
-          filter: ScheduleFilter.paused,
-        ),
-        _filterBar(
-          'Long profile name, list column',
-          activeProfile: 'research-assistant-staging',
-        ),
-        _filterBar(
-          'Long profile name, narrow',
-          activeProfile: 'research-assistant-staging-with-a-very-long-name',
-          maxWidth: 280,
-        ),
+        ..._filterMenu('Every task'),
+        ..._filterMenu('Failing selected', filter: ScheduleFilter.failing),
+        ..._filterMenu('Nothing failing', failingCount: 0),
       ],
     ),
     WidgetbookComponent(

@@ -7,7 +7,7 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
-import 'package:hermes_app/src/schedules/widgets/mac_job_list.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'support/cron_fixtures.dart';
@@ -59,34 +59,27 @@ void main() {
   }
 
   group('row layout', () {
-    testWidgets('jobs are rows of one inset grouped list on iOS', (
-      tester,
-    ) async {
-      await pumpList(tester, TargetPlatform.iOS);
+    for (final (platform, macLayout) in [
+      (TargetPlatform.iOS, false),
+      (TargetPlatform.macOS, true),
+      (TargetPlatform.android, false),
+    ]) {
+      testWidgets('jobs are rows of one inset group on $platform', (
+        tester,
+      ) async {
+        await pumpList(tester, platform, macLayout: macLayout);
 
-      expect(find.byType(CupertinoListSection), findsOneWidget);
-      expect(find.text('Morning brief'), findsOneWidget);
-      expect(find.text('Price watch'), findsOneWidget);
-      expect(find.text('Weekdays at 08:00'), findsNWidgets(2));
-    });
-
-    testWidgets('jobs are rounded rows of their own in a Mac layout', (
-      tester,
-    ) async {
-      await pumpList(tester, TargetPlatform.macOS, macLayout: true);
-
-      expect(find.byType(MacJobList), findsOneWidget);
-      expect(find.byType(CupertinoListSection), findsNothing);
-      expect(find.text('Morning brief'), findsOneWidget);
-      expect(find.text('Price watch'), findsOneWidget);
-    });
-
-    testWidgets('jobs stay separate cards on Android', (tester) async {
-      await pumpList(tester, TargetPlatform.android);
-
-      expect(find.byType(CupertinoListSection), findsNothing);
-      expect(find.text('Morning brief'), findsOneWidget);
-    });
+        expect(find.byType(GroupedSection), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(GroupedSection),
+            matching: find.byType(JobTile),
+          ),
+          findsNWidgets(2),
+        );
+        expect(find.text('Weekdays at 08:00 · Local'), findsNWidgets(2));
+      });
+    }
   });
 
   group('row actions', () {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_add_action.dart';
 import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -16,6 +15,8 @@ import '../shell/shell_navigation.dart';
 import 'schedules_list.dart';
 
 import '../widgets/named_icon_button.dart';
+import '../widgets/settings_scaffold.dart';
+import 'widgets/schedule_filter_menu.dart';
 import 'widgets/schedules_mac_toolbar.dart';
 
 /// From this content width the Mac list column is 340 points wide, below it
@@ -114,6 +115,34 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
     if (!wide) _openNarrow(job);
   }
 
+  Widget _filterMenu() => ScheduleFilterMenu(
+    filter: _controller.filter,
+    failingCount: _controller.failingCount,
+    onChanged: (filter) => _controller.filter = filter,
+  );
+
+  /// The subtitle's menu between the active profile's jobs and every
+  /// profile's; none while the active profile is unknown.
+  SettingsSubtitleMenu<bool>? _scopeMenu() {
+    final profile = _controller.activeProfile;
+    if (profile == null) return null;
+    return SettingsSubtitleMenu<bool>(
+      label: 'Profiles',
+      onSelected: (all) => _controller.allProfiles = all,
+      itemBuilder: (_) => [
+        for (final (all, label) in [
+          (false, '$profile (active)'),
+          (true, 'All profiles'),
+        ])
+          CheckedPopupMenuItem(
+            value: all,
+            checked: _controller.allProfiles == all,
+            child: Text(label),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => MacCommandScope(
     commands: {
@@ -159,28 +188,44 @@ class _SchedulesScreenState extends State<SchedulesScreen> {
                 listWidth: box.maxWidth >= _macWideListWidth ? 340 : 250,
                 list: list,
                 detail: detail,
+                filterMenu: _filterMenu(),
                 onNew: () => _new(wide: true),
               );
             }
-            final add = AdaptiveAddAction(
-              label: 'New',
-              toolbarLabel: 'New scheduled task',
-              onPressed: () => _new(wide: wide),
-            );
+            final ios = platformChromeOf(context) == PlatformChrome.ios;
+            final barButton = ios ? SettingsScaffold.appleBarButtonStyle : null;
+            final profile = _controller.activeProfile;
             return Scaffold(
               appBar: AppBar(
+                toolbarHeight: ios ? kAppleNavBarHeight : 56,
+                centerTitle: ios,
                 leading: ShellMenu.button(context),
-                title: const Text('Schedules'),
+                title: SettingsBarTitle(
+                  title: 'Schedules',
+                  subtitle: _controller.allProfiles || profile == null
+                      ? 'All profiles'
+                      : profile,
+                  subtitleMenu: _scopeMenu(),
+                  ios: ios,
+                ),
                 actions: [
+                  _filterMenu(),
                   NamedIconButton(
                     label: 'Refresh',
                     icon: AppIcons.refresh,
+                    style: barButton,
                     onPressed: _controller.refresh,
                   ),
-                  ?add.toolbarButton(context),
+                  NamedIconButton(
+                    key: const Key('schedules-new'),
+                    label: 'New scheduled task',
+                    icon: AppIcons.add,
+                    style: barButton,
+                    onPressed: () => _new(wide: wide),
+                  ),
+                  SizedBox(width: ios ? 4 : 8),
                 ],
               ),
-              floatingActionButton: add.floatingButton(context),
               body: wide
                   ? Row(
                       children: [
@@ -207,6 +252,7 @@ class _MacLayout extends StatelessWidget {
     required this.listWidth,
     required this.list,
     required this.detail,
+    required this.filterMenu,
     required this.onNew,
   });
 
@@ -215,6 +261,7 @@ class _MacLayout extends StatelessWidget {
   final double listWidth;
   final Widget list;
   final Widget detail;
+  final Widget filterMenu;
   final VoidCallback onNew;
 
   @override
@@ -225,6 +272,7 @@ class _MacLayout extends StatelessWidget {
           jobCount: jobCount,
           allProfiles: controller.allProfiles,
           onScopeChanged: (all) => controller.allProfiles = all,
+          filterMenu: filterMenu,
           onRefresh: controller.refresh,
           onNew: onNew,
         ),

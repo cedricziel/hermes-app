@@ -19,41 +19,50 @@ String _ago(Duration d) => DateTime.now().subtract(d).toUtc().toIso8601String();
 
 String _in(Duration d) => DateTime.now().add(d).toUtc().toIso8601String();
 
+int _secondsAgo(Duration d) =>
+    DateTime.now().subtract(d).millisecondsSinceEpoch ~/ 1000;
+
+List<Map<String, Object?>> _jobRows() => [
+  cronJobRow(
+    id: 'job1',
+    name: 'Morning brief',
+    lastRunAt: _ago(const Duration(hours: 3)),
+    lastStatus: 'ok',
+    nextRunAt: _in(const Duration(hours: 21)),
+    skills: ['news', 'calendar'],
+  ),
+  cronJobRow(
+    id: 'job2',
+    name: 'Check the status page',
+    display: 'Every 30 minutes',
+    schedule: {'kind': 'interval', 'minutes': 30},
+    lastRunAt: _ago(const Duration(minutes: 20)),
+    lastStatus: 'error',
+    lastError: 'Request timed out',
+    nextRunAt: _in(const Duration(minutes: 10)),
+  ),
+  cronJobRow(id: 'job3', name: 'Weekly digest', state: 'paused'),
+];
+
 /// A profile with a healthy, a failing and a paused job, plus blueprints.
-FakeHermesServer schedulesServer({bool empty = false}) => FakeHermesServer()
-  ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
-  ..on(
-    'GET',
-    '/api/profiles',
-    profileListBody([profileRow(name: 'work'), profileRow(name: 'home')]),
-  )
-  ..on(
-    'GET',
-    '/api/cron/jobs',
-    empty
-        ? <Object?>[]
-        : [
-            cronJobRow(
-              id: 'job1',
-              name: 'Morning brief',
-              lastRunAt: _ago(const Duration(hours: 3)),
-              lastStatus: 'ok',
-              nextRunAt: _in(const Duration(hours: 21)),
-              skills: ['news', 'calendar'],
-            ),
-            cronJobRow(
-              id: 'job2',
-              name: 'Check the status page',
-              display: 'Every 30 minutes',
-              schedule: {'kind': 'interval', 'minutes': 30},
-              lastRunAt: _ago(const Duration(minutes: 20)),
-              lastStatus: 'error',
-              lastError: 'Request timed out',
-              nextRunAt: _in(const Duration(minutes: 10)),
-            ),
-            cronJobRow(id: 'job3', name: 'Weekly digest', state: 'paused'),
-          ],
-  )
+/// Each job is also served on its own, which an opened detail reloads.
+FakeHermesServer schedulesServer({bool empty = false}) {
+  final jobs = empty ? const <Map<String, Object?>>[] : _jobRows();
+  final server = FakeHermesServer();
+  for (final job in jobs) {
+    server.on('GET', '/api/cron/jobs/${job['id']}', job);
+  }
+  return _withRunsAndBlueprints(server)
+    ..on('GET', '/api/profiles/active', activeProfileBody(active: 'work'))
+    ..on(
+      'GET',
+      '/api/profiles',
+      profileListBody([profileRow(name: 'work'), profileRow(name: 'home')]),
+    )
+    ..on('GET', '/api/cron/jobs', jobs);
+}
+
+FakeHermesServer _withRunsAndBlueprints(FakeHermesServer server) => server
   ..on('GET', '/api/cron/jobs/job1/runs', [
     cronRunRow(
       id: 'run-2',
@@ -68,6 +77,14 @@ FakeHermesServer schedulesServer({bool empty = false}) => FakeHermesServer()
               .millisecondsSinceEpoch ~/
           1000,
     ),
+  ])
+  ..on('GET', '/api/cron/jobs/job2/runs', [
+    for (final (i, minutes) in [20, 50, 80].indexed)
+      cronRunRow(
+        id: 'run-status-$i',
+        startedAt: _secondsAgo(Duration(minutes: minutes)),
+        endedAt: _secondsAgo(Duration(minutes: minutes - 1)),
+      ),
   ])
   ..on('GET', '/api/cron/delivery-targets', {
     'targets': [
@@ -125,18 +142,25 @@ Future<SchedulesController> _controller(FakeHermesServer server) async {
   return controller;
 }
 
+Widget _hosted(
+  Widget Function(SchedulesController controller) build, {
+  bool empty = false,
+}) => Hosted<SchedulesController>(
+  create: () => _controller(schedulesServer(empty: empty)),
+  dispose: (controller) => controller.dispose(),
+  builder: (_, controller) => build(controller),
+);
+
 WidgetbookUseCase _withController(
+  String name,
+  Widget Function(SchedulesController controller) build,
+) => WidgetbookUseCase(name: name, builder: (_) => _hosted(build));
+
+List<WidgetbookUseCase> _onEachPlatform(
   String name,
   Widget Function(SchedulesController controller) build, {
   bool empty = false,
-}) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => Hosted<SchedulesController>(
-    create: () => _controller(schedulesServer(empty: empty)),
-    dispose: (controller) => controller.dispose(),
-    builder: (_, controller) => build(controller),
-  ),
-);
+}) => onEachPlatform(name, (_) => _hosted(build, empty: empty));
 
 WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
   name: 'Schedule screens',
@@ -144,12 +168,12 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SchedulesScreen',
       useCases: [
-        _withController(
+        ..._onEachPlatform(
           'Jobs',
           (controller) =>
               SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
         ),
-        _withController(
+        ..._onEachPlatform(
           'No jobs',
           (controller) =>
               SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
@@ -159,14 +183,12 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
     ),
     WidgetbookComponent(
       name: 'SchedulesList',
-      useCases: [
-        _withController(
-          'Jobs',
-          (controller) => Scaffold(
-            body: SchedulesList(controller: controller, onSelect: (_) {}),
-          ),
+      useCases: _onEachPlatform(
+        'Jobs',
+        (controller) => Scaffold(
+          body: SchedulesList(controller: controller, onSelect: (_) {}),
         ),
-      ],
+      ),
     ),
     WidgetbookComponent(
       name: 'ScheduleDetail',

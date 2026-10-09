@@ -512,6 +512,7 @@ class GroupedSwitchRow extends StatelessWidget {
     this.error,
     this.leading,
     this.onTap,
+    this.selected = false,
   });
 
   final String title;
@@ -529,6 +530,9 @@ class GroupedSwitchRow extends StatelessWidget {
 
   /// Opens the row's details; the switch alone changes [value].
   final VoidCallback? onTap;
+
+  /// Highlights the row whose details show beside the list.
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -554,6 +558,7 @@ class GroupedSwitchRow extends StatelessWidget {
       error: error,
       leading: leading,
       onTap: onTap,
+      selected: selected,
       chevron: false,
       // A Mac settings row holds the small switch.
       trailing: platformChromeOf(context) == PlatformChrome.macos

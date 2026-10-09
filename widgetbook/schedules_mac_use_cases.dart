@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
-import 'package:hermes_app/src/schedules/widgets/mac_job_list.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_filter_menu.dart';
 import 'package:hermes_app/src/schedules/widgets/mac_schedule_detail.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -32,8 +32,6 @@ final _healthyJob = CronJob(
   skills: const ['backups'],
 );
 
-final _jobs = [_healthyJob, failingJob, deliveryFailedJob, pausedJob];
-
 Widget _toolbar({required bool allProfiles}) {
   var all = allProfiles;
   return StatefulBuilder(
@@ -43,28 +41,13 @@ Widget _toolbar({required bool allProfiles}) {
         jobCount: all ? 4 : 2,
         allProfiles: all,
         onScopeChanged: (value) => setState(() => all = value),
+        filterMenu: ScheduleFilterMenu(
+          filter: ScheduleFilter.all,
+          failingCount: 1,
+          onChanged: (_) {},
+        ),
         onRefresh: () {},
         onNew: () {},
-      ),
-    ),
-  );
-}
-
-Widget _list({required bool showProfile, required double width}) {
-  String? selected = _jobs.first.key;
-  return StatefulBuilder(
-    builder: (context, setState) => Align(
-      alignment: Alignment.topLeft,
-      child: SizedBox(
-        width: width,
-        child: MacJobList(
-          jobs: _jobs,
-          now: DateTime.now(),
-          showProfile: showProfile,
-          selectedKey: selected,
-          onSelect: (job) => setState(() => selected = job.key),
-          onPausedChanged: (_, _) {},
-        ),
       ),
     ),
   );
@@ -104,17 +87,6 @@ WidgetbookNode schedulesMacNode() => WidgetbookFolder(
       useCases: [
         _use('This profile', () => _toolbar(allProfiles: false)),
         _use('All profiles', () => _toolbar(allProfiles: true)),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'MacJobList',
-      useCases: [
-        _use('This profile', () => _list(showProfile: false, width: 340)),
-        _use(
-          'All profiles, with profile chips',
-          () => _list(showProfile: true, width: 340),
-        ),
-        _use('Compact window', () => _list(showProfile: true, width: 250)),
       ],
     ),
     WidgetbookComponent(

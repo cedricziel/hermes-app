@@ -98,7 +98,7 @@ void main() {
 
   Future<void> openGallery(WidgetTester tester) async {
     await pumpScreen(tester);
-    await tester.tap(find.text('New'));
+    await tester.tap(find.byKey(const Key('schedules-new')));
     await tester.pumpAndSettle();
   }
 
@@ -491,7 +491,7 @@ void main() {
       namedButton('Refresh'),
     );
 
-    await tester.tap(find.text('New'));
+    await tester.tap(find.byKey(const Key('schedules-new')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('custom-task')));
     await tester.pumpAndSettle();
