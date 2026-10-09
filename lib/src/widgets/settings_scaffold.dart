@@ -321,7 +321,7 @@ class SettingsScaffold extends StatelessWidget {
             : back
             ? adaptiveBackLeadingWidth(context)
             : null,
-        title: _BarTitle(
+        title: SettingsBarTitle(
           title: title,
           subtitle: subtitle,
           subtitleMenu: subtitleMenu,
@@ -372,20 +372,21 @@ class SettingsScaffold extends StatelessWidget {
     );
   }
 
+  /// The 44 point icon button of an iOS bar.
+  static final appleBarButtonStyle = IconButton.styleFrom(
+    fixedSize: const Size.square(kAppleMinTapTarget),
+    minimumSize: const Size.square(kAppleMinTapTarget),
+    padding: EdgeInsets.zero,
+    iconSize: 22,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   Widget _phoneAction(
     BuildContext context,
     SettingsBarAction action,
     bool ios,
   ) {
-    final style = ios
-        ? IconButton.styleFrom(
-            fixedSize: const Size.square(kAppleMinTapTarget),
-            minimumSize: const Size.square(kAppleMinTapTarget),
-            padding: EdgeInsets.zero,
-            iconSize: 22,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          )
-        : null;
+    final style = ios ? appleBarButtonStyle : null;
     final menu = action.menu;
     if (menu == null) {
       return NamedIconButton(
@@ -408,11 +409,14 @@ class SettingsScaffold extends StatelessWidget {
 
 const double _searchBottomGap = 8;
 
-class _BarTitle extends StatelessWidget {
-  const _BarTitle({
+/// A settings bar's title over its muted subtitle, centered on iOS; for a
+/// page that builds its own bar, such as a shell destination.
+class SettingsBarTitle extends StatelessWidget {
+  const SettingsBarTitle({
+    super.key,
     required this.title,
-    required this.subtitle,
-    required this.subtitleMenu,
+    this.subtitle,
+    this.subtitleMenu,
     required this.ios,
   });
 
