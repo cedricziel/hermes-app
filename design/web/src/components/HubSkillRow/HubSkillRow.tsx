@@ -1,7 +1,5 @@
-import { Badge } from "../Badge/Badge";
-import { Icon } from "../Icon/Icon";
-import type { Platform } from "../../platform";
-import { SkillRowShell } from "../SkillRow/SkillRowShell";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import type { AppleDevice, Platform } from "../../platform";
 
 /** How far the skills hub vouches for a skill. */
 export type HubTrust = "builtin" | "trusted" | "community";
@@ -10,11 +8,11 @@ export type HubTrust = "builtin" | "trusted" | "community";
 export interface HubSkill {
   /** Skill name: "web-scraper". */
   name: string;
-  /** What it does: "Scrape pages into markdown." Two lines at most. */
+  /** What it does, after the trust label in the subtitle: "Scrape pages into markdown." */
   description?: string;
-  /** `builtin` "Official" (a filled badge), `trusted` "Trusted", `community` "Community". */
+  /** `builtin` "Official", `trusted` "Trusted", `community` "Community"; first in the subtitle. */
   trust: HubTrust;
-  /** Hub tags; the first three show as "#web". */
+  /** Hub tags: "web". Shown on the skill's own screen, not the row. */
   tags?: string[];
 }
 
@@ -27,57 +25,40 @@ export const hubTrustLabels: Record<HubTrust, string> = {
 export interface HubSkillRowProps {
   /** The hub skill to show. */
   skill: HubSkill;
-  /** It is installed on the profile: a check instead of the chevron, and the row opens the installed skill. */
+  /** It is installed on the profile: "Installed" in muted text before the chevron, and the row opens the installed skill. */
   installed?: boolean;
   /** The row was pressed: open the hub skill (preview and scan) or the installed skill. */
   onClick?: () => void;
-  /** `apple`: the iOS type ramp and CupertinoIcons. Inherits the provider's platform. */
+  /** `apple`: the iOS or Mac grouped row with a disclosure chevron. `material`: the Material row (with a chevron too, as the app draws it). Inherits the provider's platform. */
   platform?: Platform;
+  /** Under `apple`: `mac` or `touch`; inherited from `SettingsScaffold` or `GroupedSection`, else touch. */
+  device?: AppleDevice;
 }
 
 /**
- * One skill in the Skills screen's Discover tab: the name in semibold, up to
- * two lines of description, a trust badge and up to three #tags, with a
- * check when it is installed and a chevron otherwise. Stack rows under a
- * `SectionHeader` ("Featured", "Official").
+ * One skill in the Skills screen's Discover tab: a `GroupedRow` with the
+ * name over "Community · Scrape pages into markdown." and a chevron, with
+ * "Installed" before it when the profile has it. Stack rows in a
+ * `GroupedSection` ("Featured", "Official", "Results").
  */
 export function HubSkillRow({
   skill,
   installed = false,
   onClick,
   platform,
+  device,
 }: HubSkillRowProps) {
   return (
-    <SkillRowShell
-      name={skill.name}
-      description={skill.description}
-      twoLines
-      platform={platform}
+    <GroupedRow
+      title={skill.name}
+      subtitle={[hubTrustLabels[skill.trust], skill.description]
+        .filter(Boolean)
+        .join(" · ")}
+      value={installed ? "Installed" : undefined}
+      chevron
       onClick={onClick}
-      meta={
-        <>
-          <Badge tone={skill.trust === "builtin" ? "strong" : "neutral"}>
-            {hubTrustLabels[skill.trust]}
-          </Badge>
-          {(skill.tags ?? []).slice(0, 3).map((tag) => (
-            <span key={tag} className="h-label-sm h-muted">
-              #{tag}
-            </span>
-          ))}
-        </>
-      }
-      trailing={
-        installed ? (
-          <Icon
-            name="check_circle"
-            size={24}
-            label="Installed"
-            className="h-skill-row__installed"
-          />
-        ) : (
-          <Icon name="chevron_right" size={24} className="h-muted" />
-        )
-      }
+      platform={platform}
+      device={device}
     />
   );
 }

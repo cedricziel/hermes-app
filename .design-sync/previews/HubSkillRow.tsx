@@ -1,19 +1,30 @@
-import { HermesProvider, HubSkillRow } from "@hermes-app/ui";
+import {
+  GroupedListView,
+  GroupedSection,
+  HermesProvider,
+  HubSkillRow,
+  type Platform,
+} from "@hermes-app/ui";
 
-const pane = { width: 480 } as const;
+const noop = () => {};
+const row = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
+const looks: Array<{ name: string; platform: Platform; device?: "mac" }> = [
+  { name: "iPhone", platform: "apple" },
+  { name: "Mac", platform: "apple", device: "mac" },
+  { name: "Material", platform: "material" },
+];
 
 const scraper = {
   name: "web-scraper",
   description: "Scrape pages into markdown.",
   trust: "community" as const,
-  tags: ["web", "scraping", "markdown", "extra"],
+  tags: ["web"],
 };
 const research = {
   name: "web-research",
   description:
     "Search the web and cite sources. Keeps a list of what it read and quotes the passages it relied on.",
   trust: "builtin" as const,
-  tags: ["search"],
 };
 const compose = {
   name: "compose",
@@ -21,26 +32,45 @@ const compose = {
   trust: "trusted" as const,
 };
 
-export const Discover = () => (
-  <div style={pane}>
-    <HubSkillRow skill={research} />
-    <HubSkillRow skill={scraper} />
-    <HubSkillRow skill={compose} installed />
-  </div>
-);
-
-export const Apple = () => (
-  <HermesProvider platform="apple" style={{ width: 390 }}>
-    <HubSkillRow skill={scraper} />
-    <HubSkillRow skill={compose} installed />
-  </HermesProvider>
-);
-
-export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: "8px 0", borderRadius: 14 }}>
-    <div style={pane}>
-      <HubSkillRow skill={research} />
-      <HubSkillRow skill={compose} installed />
+function Looks({ theme }: { theme?: "dark" }) {
+  return (
+    <div style={row}>
+      {looks.map((look) => (
+        <HermesProvider
+          key={look.name}
+          platform={look.platform}
+          typeRamp={look.device ? "default" : undefined}
+          theme={theme}
+          style={{ width: 360, paddingTop: 8 }}
+        >
+          <GroupedListView device={look.device}>
+            <GroupedSection header="Featured">
+              <HubSkillRow skill={scraper} onClick={noop} />
+              <HubSkillRow skill={compose} installed onClick={noop} />
+            </GroupedSection>
+            <GroupedSection header="Official">
+              <HubSkillRow skill={research} onClick={noop} />
+            </GroupedSection>
+          </GroupedListView>
+        </HermesProvider>
+      ))}
     </div>
+  );
+}
+
+/** Hub skills on iPhone, Mac and Material: the trust label leads the subtitle, "Installed" before the chevron of a skill the profile has. */
+export const Discover = () => <Looks />;
+
+/** A single iPhone group. */
+export const Apple = () => (
+  <HermesProvider platform="apple" style={{ width: 390, paddingTop: 8 }}>
+    <GroupedListView>
+      <GroupedSection header="Results">
+        <HubSkillRow skill={research} onClick={noop} />
+        <HubSkillRow skill={compose} installed onClick={noop} />
+      </GroupedSection>
+    </GroupedListView>
   </HermesProvider>
 );
+
+export const Dark = () => <Looks theme="dark" />;
