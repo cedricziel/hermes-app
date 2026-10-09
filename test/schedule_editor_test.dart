@@ -6,9 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
+import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_form.dart';
 
 import 'support/accessibility.dart';
 import 'support/cron_fixtures.dart';
@@ -103,6 +105,25 @@ void main() {
   Future<void> openCustom(WidgetTester tester) async {
     await openGallery(tester);
     await tester.tap(find.byKey(const Key('custom-task')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> pickMode(WidgetTester tester, String label) async {
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('when-mode')),
+        matching: find.text(label),
+      ),
+    );
+    await tester.pump();
+  }
+
+  WhenMode shownMode(WidgetTester tester) => tester
+      .widget<GroupedSegmentedRow<WhenMode>>(find.byKey(const Key('when-mode')))
+      .value;
+
+  Future<void> save(WidgetTester tester) async {
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
   }
 
@@ -257,17 +278,14 @@ void main() {
 
       await type(tester, 'job-name', 'GPU');
       await type(tester, 'job-prompt', 'Check the price');
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Every'));
-      await tester.pump();
+      await pickMode(tester, 'Every');
       await type(tester, 'when-amount', '6');
       await tester.tap(find.byKey(const Key('when-unit')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('hours').last);
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('when-preview')), findsOneWidget);
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
+      await save(tester);
 
       final post = server.requests.lastWhere(
         (r) => r.method == 'POST' && r.path == '/api/cron/jobs',
@@ -289,16 +307,13 @@ void main() {
       await openCustom(tester);
       await type(tester, 'job-prompt', 'Weekly thing');
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Weekly'));
-      await tester.pump();
+      await pickMode(tester, 'Weekly');
       // Weekdays are chosen to begin with: drop Tue, Wed and Fri.
       for (final day in ['Tue', 'Wed', 'Fri']) {
-        await tester.tap(find.widgetWithText(FilterChip, day));
+        await tester.tap(find.text(day));
         await tester.pump();
       }
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
+      await save(tester);
 
       final post = server.requests.lastWhere(
         (r) => r.method == 'POST' && r.path == '/api/cron/jobs',
@@ -312,8 +327,7 @@ void main() {
     testWidgets('a raw expression has no preview', (tester) async {
       await openCustom(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Cron'));
-      await tester.pump();
+      await pickMode(tester, 'Cron');
       await type(tester, 'when-cron', '*/7 9-17 * * 1-5');
 
       expect(find.byKey(const Key('when-preview')), findsNothing);
@@ -326,8 +340,7 @@ void main() {
     testWidgets('refuses a task with nothing to run', (tester) async {
       await openCustom(tester);
 
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
+      await tester.tap(find.widgetWithText(TextButton, 'Save'));
       await tester.pump();
 
       expect(
@@ -350,9 +363,7 @@ void main() {
       await tester.pumpAndSettle();
       await type(tester, 'job-script', '../evil.sh');
 
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
+      await save(tester);
 
       expect(find.text('script must be inside /x/scripts'), findsOneWidget);
       expect(find.text('../evil.sh'), findsOneWidget);
@@ -437,18 +448,11 @@ void main() {
         ),
       );
       expect(find.text('Old prompt'), findsOneWidget);
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Every'))
-            .selected,
-        isTrue,
-      );
+      expect(shownMode(tester), WhenMode.every);
       expect(find.text('6'), findsOneWidget);
 
       await type(tester, 'job-prompt', 'New prompt');
-      await tester.ensureVisible(find.text('Save task'));
-      await tester.tap(find.text('Save task'));
-      await tester.pumpAndSettle();
+      await save(tester);
 
       final put = server.requests.lastWhere((r) => r.method == 'PUT');
       expect(jsonDecode(put.data as String), {
@@ -465,12 +469,7 @@ void main() {
         cronJobRow(schedule: {'kind': 'cron', 'expr': '*/7 9-17 * * 1-5'}),
       );
 
-      expect(
-        tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Cron'))
-            .selected,
-        isTrue,
-      );
+      expect(shownMode(tester), WhenMode.cron);
       expect(find.text('*/7 9-17 * * 1-5'), findsOneWidget);
     });
 

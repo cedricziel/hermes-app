@@ -12,6 +12,7 @@ import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/cron_fixtures.dart';
 import '../test/support/fake_hermes_server.dart';
+import 'frame.dart';
 import 'host.dart';
 
 String _ago(Duration d) => DateTime.now().subtract(d).toUtc().toIso8601String();
@@ -190,25 +191,33 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'JobFormScreen',
       useCases: [
-        WidgetbookUseCase(
-          name: 'New task',
-          builder: (_) => Hosted<JobFormController>(
-            create: () => JobFormController(
-              repository: _cron(schedulesServer()),
-              profile: 'work',
-            ),
-            builder: (_, controller) => JobFormScreen(
-              controller: controller,
-              profileNames: const ['work', 'home'],
+        ...onEachPlatform(
+          'New task',
+          (_) => pushed(
+            Hosted<JobFormController>(
+              create: () => JobFormController(
+                repository: _cron(schedulesServer()),
+                profile: 'work',
+              ),
+              builder: (_, controller) => JobFormScreen(
+                controller: controller,
+                profileNames: const ['work', 'home'],
+              ),
             ),
           ),
         ),
-        _withController(
+        ...onEachPlatform(
           'Editing a task',
-          (controller) => JobFormScreen(
-            controller: JobFormController(
-              repository: controller.repository,
-              editing: controller.jobs.first,
+          (_) => pushed(
+            Hosted<SchedulesController>(
+              create: () => _controller(schedulesServer()),
+              dispose: (controller) => controller.dispose(),
+              builder: (_, controller) => JobFormScreen(
+                controller: JobFormController(
+                  repository: controller.repository,
+                  editing: controller.jobs.first,
+                ),
+              ),
             ),
           ),
         ),

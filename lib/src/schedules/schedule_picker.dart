@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 import 'package:flutter/services.dart';
 
-import '../theme/app_icons.dart';
+import '../theme/hermes_theme.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
 import 'schedule_spec.dart';
 import 'schedule_widgets.dart';
 
@@ -26,8 +29,8 @@ enum WhenMode {
   };
 }
 
-/// "When": the five ways to say it, the inputs of the chosen one and, where
-/// the phone can work it out, the next runs.
+/// "When" as a group: the five ways to say it, the rows of the chosen one
+/// and, where the phone can work it out, the next runs as its footer.
 class SchedulePicker extends StatefulWidget {
   const SchedulePicker({
     super.key,
@@ -45,17 +48,6 @@ class SchedulePicker extends StatefulWidget {
 }
 
 class _SchedulePickerState extends State<SchedulePicker> {
-  // Monday first, as a week reads; the numbers are cron's, Sunday 0.
-  static const _week = [
-    ('Mon', 1),
-    ('Tue', 2),
-    ('Wed', 3),
-    ('Thu', 4),
-    ('Fri', 5),
-    ('Sat', 6),
-    ('Sun', 0),
-  ];
-
   late final TextEditingController _amount;
   late final TextEditingController _cron;
 
@@ -161,134 +153,202 @@ class _SchedulePickerState extends State<SchedulePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final mode = WhenMode.of(_spec);
     final (hour, minute) = _time;
     final runs = _spec.validate(widget.now) == null
         ? _spec.nextRuns(widget.now, 3)
         : null;
+    final hasRuns = runs != null && runs.isNotEmpty;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 12,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
+        GroupedSection(
+          header: 'When',
           children: [
-            for (final m in WhenMode.values)
-              ChoiceChip(
-                label: Text(m.label),
-                selected: m == mode,
-                onSelected: (_) => _mode(m),
-              ),
-          ],
-        ),
-        switch (_spec) {
-          EverySpec(:final unit) => Row(
-            spacing: 12,
-            children: [
-              SizedBox(
-                width: 90,
-                child: TextField(
+            GroupedSegmentedRow<WhenMode>(
+              key: const Key('when-mode'),
+              value: mode,
+              segments: {for (final m in WhenMode.values) m: m.label},
+              onChanged: _mode,
+            ),
+            ...switch (_spec) {
+              EverySpec(:final unit) => [
+                GroupedTextFieldRow(
                   key: const Key('when-amount'),
+                  label: 'Every',
                   controller: _amount,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Every'),
                   onChanged: (text) => widget.onChanged(
                     EverySpec(int.tryParse(text) ?? 0, unit),
                   ),
                 ),
-              ),
-              DropdownButton<EveryUnit>(
-                key: const Key('when-unit'),
-                value: unit,
-                items: [
-                  for (final u in EveryUnit.values)
-                    DropdownMenuItem(value: u, child: Text(u.label)),
-                ],
-                onChanged: (u) => widget.onChanged(
-                  EverySpec(int.tryParse(_amount.text) ?? 0, u ?? unit),
+                GroupedMenuRow<EveryUnit>(
+                  key: const Key('when-unit'),
+                  title: 'Unit',
+                  options: EveryUnit.values,
+                  labelOf: (u) => u.label,
+                  selected: unit,
+                  onSelected: (u) => widget.onChanged(
+                    EverySpec(int.tryParse(_amount.text) ?? 0, u),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          DailySpec() => _timeButton('${_two(hour)}:${_two(minute)}'),
-          WeeklySpec(:final days) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 8,
-            children: [
-              Wrap(
-                spacing: 6,
-                children: [
-                  for (final (label, day) in _week)
-                    FilterChip(
-                      label: Text(label),
-                      selected: days.contains(day),
-                      onSelected: (on) => widget.onChanged(
-                        WeeklySpec(
-                          on ? {...days, day} : ({...days}..remove(day)),
-                          hour,
-                          minute,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              _timeButton('${_two(hour)}:${_two(minute)}'),
-            ],
-          ),
-          OnceSpec(:final at) => Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton.icon(
-                key: const Key('when-date'),
-                onPressed: _pickDate,
-                icon: const AppIcon(AppIcons.calendar, size: 18),
-                label: Text(
-                  MaterialLocalizations.of(context).formatShortDate(at),
+              ],
+              DailySpec() => [_timeRow('${_two(hour)}:${_two(minute)}')],
+              WeeklySpec(:final days) => [
+                _DayToggles(
+                  days: days,
+                  onChanged: (days) =>
+                      widget.onChanged(WeeklySpec(days, hour, minute)),
                 ),
-              ),
-              _timeButton('${_two(at.hour)}:${_two(at.minute)}'),
-            ],
+                _timeRow('${_two(hour)}:${_two(minute)}'),
+              ],
+              OnceSpec(:final at) => [
+                GroupedValueRow(
+                  key: const Key('when-date'),
+                  title: 'Date',
+                  value: MaterialLocalizations.of(context).formatShortDate(at),
+                  onTap: _pickDate,
+                ),
+                _timeRow('${_two(at.hour)}:${_two(at.minute)}'),
+              ],
+              CronSpec() => [
+                GroupedTextFieldRow(
+                  key: const Key('when-cron'),
+                  label: 'Schedule',
+                  hint: '0 9 * * 1-5',
+                  controller: _cron,
+                  autocorrect: false,
+                  monospace: true,
+                  onChanged: (text) => widget.onChanged(CronSpec(text)),
+                ),
+              ],
+            },
+          ],
+        ),
+        if (_spec is CronSpec)
+          const _Footer(
+            'A five-field cron expression, for example 0 9 * * 1-5, or a '
+            'phrase like every monday 9am.',
           ),
-          CronSpec() => TextField(
-            key: const Key('when-cron'),
-            controller: _cron,
-            style: const TextStyle(fontFamily: 'monospace'),
-            decoration: const InputDecoration(
-              labelText: 'Schedule',
-              helperText: 'A five-field cron expression, for example 0 9 * * 1-5, or a phrase like every monday 9am',
-              helperMaxLines: 2,
-            ),
-            onChanged: (text) => widget.onChanged(CronSpec(text)),
-          ),
-        },
-        if (runs != null && runs.isNotEmpty)
-          Text(
+        if (hasRuns)
+          _Footer(
             'Next runs: ${runs.map((t) => formatTime(context, t)).join(', ')}',
             key: const Key('when-preview'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
           )
         else if (_spec is CronSpec)
-          Text(
-            'The server works out the next run when you save.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+          const _Footer('The server works out the next run when you save.'),
       ],
     );
   }
 
-  Widget _timeButton(String label) => Align(
-    alignment: Alignment.centerLeft,
-    child: OutlinedButton.icon(
-      key: const Key('when-time'),
-      onPressed: _pickTime,
-      icon: const AppIcon(AppIcons.time, size: 18),
-      label: Text(label),
-    ),
+  Widget _timeRow(String time) => GroupedValueRow(
+    key: const Key('when-time'),
+    title: 'Time',
+    value: time,
+    onTap: _pickTime,
   );
+}
+
+/// A note under the "When" group, set as a group footer.
+class _Footer extends StatelessWidget {
+  const _Footer(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        metrics.rowPadding,
+        6,
+        metrics.rowPadding,
+        0,
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: metrics.footerSize,
+          color: context.hermesColors.subtleText,
+        ),
+      ),
+    );
+  }
+}
+
+/// The days of a weekly schedule, Monday first as a week reads, each a
+/// toggle; the numbers are cron's, Sunday 0.
+class _DayToggles extends StatelessWidget {
+  const _DayToggles({required this.days, required this.onChanged});
+
+  static const _week = [
+    ('Mon', 1),
+    ('Tue', 2),
+    ('Wed', 3),
+    ('Thu', 4),
+    ('Fri', 5),
+    ('Sat', 6),
+    ('Sun', 0),
+  ];
+
+  final Set<int> days;
+  final ValueChanged<Set<int>> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = GroupedMetrics.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: metrics.rowPadding,
+        vertical: 8,
+      ),
+      child: Row(
+        spacing: 4,
+        children: [
+          for (final (label, day) in _week)
+            Expanded(
+              child: Semantics(
+                button: true,
+                toggled: days.contains(day),
+                child: Material(
+                  color: days.contains(day)
+                      ? scheme.primary
+                      : scheme.surfaceContainerHighest,
+                  shape: const StadiumBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => onChanged(
+                      days.contains(day)
+                          ? ({...days}..remove(day))
+                          : {...days, day},
+                    ),
+                    child: SizedBox(
+                      height: mac ? 24 : 32,
+                      child: Center(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: mac ? 11 : 13,
+                            fontWeight: days.contains(day)
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: days.contains(day)
+                                ? scheme.onPrimary
+                                : scheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
