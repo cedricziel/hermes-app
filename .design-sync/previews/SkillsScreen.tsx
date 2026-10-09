@@ -75,25 +75,9 @@ const hub = {
   ],
   installed: ["compose"],
 };
-
+/** iPhone: "Chat" back, the title over the profile (a menu of profiles), "+", segmented tabs, the search field with its filter button, one group per category and "Check for updates". */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <SkillsScreen
-        profile="default"
-        profiles={["work"]}
-        groups={groups}
-        hub={hub}
-        canCheckUpdates
-        onNewSkill={noop}
-        onBack={noop}
-      />
-    </div>
-  </HermesProvider>
-);
-
-export const MaterialPhone = () => (
-  <div style={phone}>
+  <HermesProvider platform="apple" style={phone}>
     <SkillsScreen
       profile="default"
       profiles={["work"]}
@@ -103,11 +87,27 @@ export const MaterialPhone = () => (
       onNewSkill={noop}
       onBack={noop}
     />
-  </div>
+  </HermesProvider>
 );
 
+/** Material phone: the pill tabs and search, category groups and the refresh row. */
+export const MaterialPhone = () => (
+  <HermesProvider style={phone}>
+    <SkillsScreen
+      profile="default"
+      profiles={["work"]}
+      groups={groups}
+      hub={hub}
+      canCheckUpdates
+      onNewSkill={noop}
+      onBack={noop}
+    />
+  </HermesProvider>
+);
+
+/** Discover on iPhone with a hub job running in the background: the job strip, Featured and Official, "Installed" on a skill the profile has. */
 export const DiscoverWithJob = () => (
-  <div style={phone}>
+  <HermesProvider platform="apple" style={phone}>
     <SkillsScreen
       tab="discover"
       profile="default"
@@ -115,68 +115,72 @@ export const DiscoverWithJob = () => (
       job={{ title: "Installing web-scraper" }}
       onBack={noop}
     />
-  </div>
-);
-
-export const AppleMacSearch = () => (
-  <HermesProvider platform="apple" typeRamp="default">
-    <div style={desktop}>
-      <SkillsScreen
-        layout="desktop"
-        tab="discover"
-        profile="work"
-        hub={{
-          ...hub,
-          query: "web",
-          results: [hub.featured[0], hub.official[0]],
-          timedOut: 1,
-        }}
-        onBack={noop}
-      />
-    </div>
   </HermesProvider>
 );
 
+/** Mac: the hub search in the toolbar, its Results group and a source that timed out. */
+export const AppleMacSearch = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
+    <SkillsScreen
+      layout="desktop"
+      tab="discover"
+      profile="work"
+      groups={groups}
+      hub={{
+        ...hub,
+        query: "web",
+        results: [hub.featured[0], hub.official[0]],
+        timedOut: 1,
+      }}
+      onBack={noop}
+    />
+  </HermesProvider>
+);
+
+/** Material, no hub: a search and filter that match nothing, with the filter menu open. */
 export const NoMatchesWithoutHub = () => (
-  <div style={phone}>
+  <HermesProvider style={phone}>
     <SkillsScreen
       profile="scratch"
       query="kubernetes"
       filter="agent"
+      filterMenuOpen
       groups={[]}
       onNewSkill={noop}
       onBack={noop}
     />
-  </div>
-);
-
-export const Failed = () => (
-  <div style={phone}>
-    <SkillsScreen state="failed" profile="default" hub={hub} onBack={noop} />
-  </div>
-);
-
-export const Loading = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <SkillsScreen state="loading" hub={hub} onBack={noop} />
-    </div>
   </HermesProvider>
 );
 
+export const Failed = () => (
+  <HermesProvider style={phone}>
+    <SkillsScreen state="failed" profile="default" hub={hub} onBack={noop} />
+  </HermesProvider>
+);
+
+export const Loading = () => (
+  <HermesProvider platform="apple" style={phone}>
+    <SkillsScreen state="loading" hub={hub} onBack={noop} />
+  </HermesProvider>
+);
+
+/** Mac, dark: "default · 3 skills ⌄" in the toolbar with tabs, search, filter and "+"; the groups in the 600px column and the "Hub skills" row's Check for Updates button. */
 export const Dark = () => (
   <HermesProvider
+    platform="apple"
+    typeRamp="default"
     theme="dark"
-    style={{ width: "fit-content", borderRadius: 14 }}
+    style={desktop}
   >
-    <div style={phone}>
-      <SkillsScreen
-        profile="default"
-        groups={groups}
-        hub={hub}
-        onNewSkill={noop}
-        onBack={noop}
-      />
-    </div>
+    <SkillsScreen
+      layout="desktop"
+      profile="default"
+      profiles={["work"]}
+      groups={groups}
+      hub={hub}
+      canCheckUpdates
+      onNewSkill={noop}
+      onBack={noop}
+    />
   </HermesProvider>
 );
