@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.1.56](https://github.com/cedricziel/hermes-app/compare/v0.1.55...v0.1.56) (2026-10-09)
+
+
+### Features
+
+* **design:** add the Bots screens to Claude Design ([#550](https://github.com/cedricziel/hermes-app/issues/550)) ([0de65ef](https://github.com/cedricziel/hermes-app/commit/0de65ef46efafbcb31267e044448e9261729246e))
+* **design:** add the grouped settings components to Claude Design ([#540](https://github.com/cedricziel/hermes-app/issues/540)) ([957f6f6](https://github.com/cedricziel/hermes-app/commit/957f6f6ad210914ace4eb3ec4387fabf19882725))
+* **design:** add the model picker to Claude Design ([#548](https://github.com/cedricziel/hermes-app/issues/548)) ([9cd9aa7](https://github.com/cedricziel/hermes-app/commit/9cd9aa759ee75e5b4eb9ddeb6a05eaa7c6b3b70f))
+* **design:** add the settings dialogs to Claude Design ([#543](https://github.com/cedricziel/hermes-app/issues/543)) ([6d8ef33](https://github.com/cedricziel/hermes-app/commit/6d8ef3385531d1f0d97ff3fdae870c59effe9e47))
+* **design:** port the clean MCP screens to Claude Design ([#546](https://github.com/cedricziel/hermes-app/issues/546)) ([327f9fd](https://github.com/cedricziel/hermes-app/commit/327f9fdeb9914c88dc75188666f70941dea9e1d1))
+* **design:** port the clean Messaging screen to Claude Design ([#542](https://github.com/cedricziel/hermes-app/issues/542)) ([0aa38b1](https://github.com/cedricziel/hermes-app/commit/0aa38b1a1405109e47d95d605393f2fbc20edfa0))
+* **design:** port the clean Plugins, Skills and Helper models screens to Claude Design ([#547](https://github.com/cedricziel/hermes-app/issues/547)) ([164ec1f](https://github.com/cedricziel/hermes-app/commit/164ec1fe188d791b1e61366193277c9dd1ae7b76))
+* **design:** port the clean Profiles and Kanban lists to Claude Design ([#545](https://github.com/cedricziel/hermes-app/issues/545)) ([2a4586e](https://github.com/cedricziel/hermes-app/commit/2a4586ee3f1c148340aa14a8dbee1e956e8058cf))
+* **design:** port the clean Schedules restyle to Claude Design ([#549](https://github.com/cedricziel/hermes-app/issues/549)) ([7db046c](https://github.com/cedricziel/hermes-app/commit/7db046c66bd5989715d3a9f1e64ea3b005092c3a))
+* **voice:** add an on-device speech recognizer plugin ([#552](https://github.com/cedricziel/hermes-app/issues/552)) ([08677ea](https://github.com/cedricziel/hermes-app/commit/08677eaafbfdebb098265d368b160f1731d79c4f))
+* **voice:** choose on-device dictation ([#554](https://github.com/cedricziel/hermes-app/issues/554)) ([3a4f573](https://github.com/cedricziel/hermes-app/commit/3a4f573b33beffd57434b0dbc3143df7ef72e85e))
+* **voice:** on-device dictation engine ([#553](https://github.com/cedricziel/hermes-app/issues/553)) ([0258068](https://github.com/cedricziel/hermes-app/commit/025806888e52ae736cca888f0e224e0eb6649d10))
+
+
+### Documentation
+
+* **openspec:** propose on-device dictation ([#551](https://github.com/cedricziel/hermes-app/issues/551)) ([71953aa](https://github.com/cedricziel/hermes-app/commit/71953aa4e89a35608f57d5ed408b2b39ac879920))
+* **skills:** record how to roll out a UI change with parallel agents ([#544](https://github.com/cedricziel/hermes-app/issues/544)) ([d509c26](https://github.com/cedricziel/hermes-app/commit/d509c260773288df7b083b09a61d3fbcf0b8860c))
+
 ## [0.1.55](https://github.com/cedricziel/hermes-app/compare/v0.1.54...v0.1.55) (2026-10-09)
 
 
