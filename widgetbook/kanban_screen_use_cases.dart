@@ -218,13 +218,13 @@ List<WidgetbookNode> kanbanScreenComponents() => [
   WidgetbookComponent(
     name: 'KanbanCreateScreen',
     useCases: [
-      _screen(
+      ..._pushedOnEachPlatform(
         'Form',
         kanbanServer,
         (repository) =>
             KanbanCreateScreen(repository: repository, tenant: 'mobile'),
       ),
-      _screen(
+      ..._pushedOnEachPlatform(
         'Form, no model list',
         () =>
             kanbanServer()
