@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../models/model_provider_option.dart';
-import '../models/widgets/composer_model_pill.dart';
+import '../models/widgets/model_picker.dart';
 import '../theme/app_icons.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
 
-/// The quick-create form. Pops `true` once the task exists.
+/// The quick-create form in grouped sections, with Create in the bar. Pops
+/// `true` once the task exists.
 class KanbanCreateScreen extends StatefulWidget {
   const KanbanCreateScreen({
     super.key,
@@ -110,135 +114,136 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
     }
   }
 
-  /// The model picker, or a free-text model name when the plugin lists no
-  /// models; nothing while the list loads.
-  List<Widget> _modelField(BuildContext context) {
+  /// The model as a value row that opens the picker, or a free-text model
+  /// name when the plugin lists no models; nothing while the list loads.
+  Widget? _modelRow(BuildContext context) {
     final options = _modelOptions;
-    if (options == null) return const [];
+    if (options == null) return null;
     if (options.providers.isEmpty) {
-      return [
-        const SizedBox(height: 8),
-        TextField(
-          controller: _modelName,
-          autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'Model',
-            helperText: 'Leave empty for the profile default',
-          ),
-        ),
-      ];
+      return GroupedTextFieldRow(
+        label: 'Model',
+        controller: _modelName,
+        autocorrect: false,
+      );
     }
-    return [
-      const SizedBox(height: 16),
-      Text('Model', style: Theme.of(context).textTheme.labelLarge),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: ComposerModelPill(
-          options: options,
-          choice: _model,
-          onChanged: (choice) => setState(() => _model = choice),
-          onUseDefault: () => setState(() => _model = null),
-        ),
+    final model = _model;
+    final effort = model?.effort;
+    return GroupedValueRow(
+      key: const Key('kanban-create-model'),
+      title: 'Model',
+      value: model == null
+          ? 'Profile default'
+          : [
+              model.modelId,
+              if (effort != null) effortLabel(effort),
+            ].join(' · '),
+      onTap: () => showModelPicker(
+        context,
+        options: options,
+        selected: model,
+        onChanged: (choice) => setState(() => _model = choice),
+        onUseDefault: () => setState(() => _model = null),
       ),
-    ];
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New task'),
-        actions: [
-          TextButton(
-            onPressed: _saving ? null : _create,
-            child: const Text('Create'),
-          ),
-        ],
+    final model = _modelRow(context);
+    final estimate = _estimate;
+    final canEstimate = !_estimating && _title.text.trim().isNotEmpty;
+    return SettingsScaffold(
+      title: 'New task',
+      subtitle: widget.board,
+      cancel: true,
+      formAction: SettingsFormAction(
+        label: 'Create',
+        busy: _saving,
+        onPressed: _create,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+      body: GroupedListView(
+        children: [
+          GroupedSection(
             children: [
-              TextField(
+              GroupedTextFieldRow(
+                label: 'Title',
                 controller: _title,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Title'),
+                textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setState(() => _estimate = null),
               ),
-              const SizedBox(height: 12),
-              TextField(
+              GroupedTextFieldRow(
+                label: 'Description',
                 controller: _body,
                 minLines: 3,
                 maxLines: 8,
-                decoration: const InputDecoration(labelText: 'Description'),
+                textCapitalization: TextCapitalization.sentences,
                 onChanged: (_) => setState(() => _estimate = null),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _estimating || _title.text.trim().isEmpty
-                      ? null
-                      : _estimateDraft,
-                  icon: const AppIcon(AppIcons.speed, size: 18),
-                  label: const Text('Estimate the work'),
-                ),
-              ),
-              if (_estimate != null)
-                Padding(
-                  padding: const EdgeInsets.only(left: 12),
-                  child: Text(_estimate!.summary),
-                ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String?>(
-                isExpanded: true,
-                initialValue: _assignee,
-                decoration: const InputDecoration(labelText: 'Assignee'),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('Auto (triage picks)'),
-                  ),
-                  for (final a in _assignees)
-                    DropdownMenuItem(value: a, child: Text(a)),
-                ],
-                onChanged: (v) => setState(() => _assignee = v),
-              ),
-              ..._modelField(context),
-              const SizedBox(height: 16),
-              Text('Priority', style: Theme.of(context).textTheme.labelLarge),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final p in [0, 1, 2, 3])
-                    ChoiceChip(
-                      label: Text(p == 0 ? 'Normal' : 'P$p'),
-                      selected: _priority == p,
-                      onSelected: (_) => setState(() => _priority = p),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text('Start as', style: Theme.of(context).textTheme.labelLarge),
-              Wrap(
-                spacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Triage'),
-                    selected: _triage,
-                    onSelected: (_) => setState(() => _triage = true),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Todo'),
-                    selected: !_triage,
-                    onSelected: (_) => setState(() => _triage = false),
-                  ),
-                ],
               ),
             ],
           ),
-        ),
+          GroupedSection(
+            children: [
+              // Greyed out like a disabled button until there is a title.
+              Opacity(
+                opacity: canEstimate || _estimating ? 1 : 0.45,
+                child: GroupedRow(
+                  key: const Key('kanban-create-estimate'),
+                  leading: const AppIcon(AppIcons.speed),
+                  title: 'Estimate the work',
+                  subtitle: estimate?.summary,
+                  trailing: _estimating
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator.adaptive(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : null,
+                  chevron: false,
+                  onTap: canEstimate ? _estimateDraft : null,
+                ),
+              ),
+            ],
+          ),
+          GroupedSection(
+            header: 'Assignment',
+            footer: model is GroupedTextFieldRow
+                ? 'Leave the model empty for the profile default.'
+                : null,
+            children: [
+              GroupedMenuRow<String>(
+                title: 'Assignee',
+                options: ['', ..._assignees],
+                labelOf: (a) => a.isEmpty ? 'Auto (triage picks)' : a,
+                selected: _assignee ?? '',
+                onSelected: (a) =>
+                    setState(() => _assignee = a.isEmpty ? null : a),
+              ),
+              ?model,
+            ],
+          ),
+          GroupedSection(
+            header: 'Priority',
+            children: [
+              GroupedSegmentedRow<int>(
+                value: _priority,
+                segments: const {0: 'Normal', 1: 'P1', 2: 'P2', 3: 'P3'},
+                onChanged: (p) => setState(() => _priority = p),
+              ),
+            ],
+          ),
+          GroupedSection(
+            header: 'Start as',
+            children: [
+              GroupedSegmentedRow<bool>(
+                value: _triage,
+                segments: const {true: 'Triage', false: 'Todo'},
+                onChanged: (triage) => setState(() => _triage = triage),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
