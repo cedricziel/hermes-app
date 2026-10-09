@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../api/hermes_repositories.dart';
+import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_list.dart';
 import '../widgets/settings_scaffold.dart';
+import '../widgets/state_message.dart';
 import 'hermes_messaging_repository.dart';
 import 'messaging_setup_screen.dart';
 import 'widgets/messaging_platform_row.dart';
@@ -94,30 +96,27 @@ class _MessagingScreenState extends State<MessagingScreen> {
     );
   }
 
+  static const _intro =
+      'Connect Hermes to Telegram, Discord, and other messaging platforms.';
+
   Widget _body() {
     if (_loading && _platforms == null) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
     final platforms = _platforms;
     if (_failed || platforms == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Could not load messaging platforms'),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: _load, child: const Text('Retry')),
-          ],
-        ),
+      return StateMessage(
+        icon: AppIcons.bot,
+        title: 'Could not load messaging platforms',
+        detail: _intro,
+        action: FilledButton(onPressed: _load, child: const Text('Retry')),
       );
     }
     return GroupedListView(
       children: [
         GroupedSection(
           dividerIndent: GroupedMetrics.of(context).indentAfterTile,
-          footer:
-              'Connect Hermes to Telegram, Discord, and other messaging '
-              'platforms.',
+          footer: _intro,
           children: [
             for (final platform in platforms)
               MessagingPlatformRow(

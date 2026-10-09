@@ -254,6 +254,10 @@ void main() {
     }, status: 500);
     await pumpMessaging(tester);
     expect(find.text('Could not load messaging platforms'), findsOneWidget);
+    expect(
+      find.textContaining('Connect Hermes to Telegram, Discord'),
+      findsOneWidget,
+    );
 
     server.on(
       'GET',
