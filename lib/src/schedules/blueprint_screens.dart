@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_pickers.dart';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
+import '../widgets/grouped_choice_row.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/settings_search_field.dart';
 import 'hermes_cron_repository.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_models.dart';
 
-/// "New task": a card for a custom task and one for each blueprint the
-/// server offers. Pops with the job that was created.
+/// "New task": a custom task, then the blueprints the server offers grouped
+/// by category, which the search field and its category filter narrow. Pops
+/// with the job that was created.
 class BlueprintGalleryScreen extends StatefulWidget {
   const BlueprintGalleryScreen({
     super.key,
@@ -79,160 +84,97 @@ class _BlueprintGalleryScreenState extends State<BlueprintGalleryScreen> {
     ),
   );
 
+  static String _capitalized(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final blueprints = _blueprints ?? const <Blueprint>[];
+    final blueprints = _blueprints;
     final categories = {
-      for (final b in blueprints)
+      for (final b in blueprints ?? const <Blueprint>[])
         if (b.category.isNotEmpty) b.category,
     }.toList();
-    final shown = [
-      for (final b in blueprints)
-        if (b.matches(_query) && (_category == null || b.category == _category))
-          b,
-    ];
-    return Scaffold(
-      appBar: AppBar(
-        leading: const CloseButton(),
-        title: const Text('New scheduled task'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+    final shown = <String, List<Blueprint>>{};
+    for (final b in blueprints ?? const <Blueprint>[]) {
+      if (b.matches(_query) && (_category == null || b.category == _category)) {
+        (shown[b.category] ??= []).add(b);
+      }
+    }
+    return SettingsScaffold(
+      title: 'New scheduled task',
+      subtitle: widget.profile,
+      cancel: true,
+      search: blueprints == null
+          ? null
+          : SettingsSearch(
+              query: _query,
+              hint: 'Search templates',
+              onChanged: (v) => setState(() => _query = v),
+              filters: categories.isEmpty
+                  ? const []
+                  : [
+                      SettingsFilter(
+                        label: 'All',
+                        selected: _category == null,
+                        onSelected: () => setState(() => _category = null),
+                      ),
+                      for (final c in categories)
+                        SettingsFilter(
+                          label: _capitalized(c),
+                          selected: _category == c,
+                          onSelected: () => setState(() => _category = c),
+                        ),
+                    ],
+            ),
+      body: GroupedListView(
         children: [
-          Material(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: theme.colorScheme.outline),
-            ),
-            child: ListTile(
-              key: const Key('custom-task'),
-              leading: const AppIcon(AppIcons.add),
-              title: const Text('Custom task'),
-              subtitle: const Text('Start from scratch'),
-              onTap: _custom,
-            ),
+          GroupedSection(
+            dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+            children: [
+              GroupedRow(
+                key: const Key('custom-task'),
+                leading: const GroupedTile(child: AppIcon(AppIcons.add)),
+                title: 'Custom task',
+                subtitle: 'Start from scratch',
+                onTap: _custom,
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
           if (_failed)
-            Row(
-              children: [
-                const Expanded(
-                  child: Text('The templates could not be loaded.'),
-                ),
-                TextButton(onPressed: _load, child: const Text('Retry')),
-              ],
+            GroupedSection(
+              header: 'Templates',
+              footer: 'The templates could not be loaded.',
+              children: [GroupedRow(title: 'Retry', onTap: _load)],
             )
-          else if (_blueprints == null)
+          else if (blueprints == null)
             const Padding(
               padding: EdgeInsets.all(24),
               child: Center(child: CircularProgressIndicator.adaptive()),
             )
-          else ...[
-            TextField(
-              key: const Key('blueprint-search'),
-              decoration: const InputDecoration(
-                hintText: 'Search templates',
-                prefixIcon: AppIcon(AppIcons.search),
-              ),
-              onChanged: (v) => setState(() => _query = v),
-            ),
-            if (categories.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
+          else if (shown.isEmpty)
+            const GroupedFooter('No templates match')
+          else
+            for (final MapEntry(key: category, value: rows) in shown.entries)
+              GroupedSection(
+                header: category.isEmpty ? 'Templates' : _capitalized(category),
                 children: [
-                  ChoiceChip(
-                    label: const Text('All'),
-                    selected: _category == null,
-                    onSelected: (_) => setState(() => _category = null),
-                  ),
-                  for (final c in categories)
-                    ChoiceChip(
-                      label: Text(c[0].toUpperCase() + c.substring(1)),
-                      selected: _category == c,
-                      onSelected: (_) => setState(() => _category = c),
+                  for (final b in rows)
+                    GroupedRow(
+                      title: b.title,
+                      subtitle: b.description.isEmpty ? null : b.description,
+                      caption: b.scheduleHuman.isEmpty ? null : b.scheduleHuman,
+                      onTap: () => _blueprint(b),
                     ),
                 ],
               ),
-            ],
-            const SizedBox(height: 16),
-            if (shown.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: Text('No templates match')),
-              )
-            else
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final b in shown)
-                    SizedBox(
-                      width: 260,
-                      child: _BlueprintCard(
-                        blueprint: b,
-                        onTap: () => _blueprint(b),
-                      ),
-                    ),
-                ],
-              ),
-          ],
         ],
       ),
     );
   }
 }
 
-class _BlueprintCard extends StatelessWidget {
-  const _BlueprintCard({required this.blueprint, required this.onTap});
-
-  final Blueprint blueprint;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outline),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 6,
-            children: [
-              Text(blueprint.title, style: theme.textTheme.titleSmall),
-              if (blueprint.description.isNotEmpty)
-                Text(
-                  blueprint.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall,
-                ),
-              if (blueprint.scheduleHuman.isNotEmpty)
-                Text(
-                  blueprint.scheduleHuman,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A blueprint's form, built from the slots the server describes. Pops with
-/// the job that was created.
+/// A blueprint's form, built from the slots the server describes: one group
+/// per slot with its help as the footer. Pops with the job that was created.
 class BlueprintFormScreen extends StatefulWidget {
   const BlueprintFormScreen({super.key, required this.controller});
 
@@ -270,72 +212,61 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
     );
   }
 
-  Widget _input(BlueprintField field) {
+  List<Widget> _slot(BlueprintField field) {
     final error = _form.fieldErrors[field.name];
     final value = '${_form.values[field.name] ?? ''}';
-    final Widget input;
+    final label = field.optional ? '${field.label} (optional)' : field.label;
+    final help = field.help.isEmpty ? null : field.help;
+    final Widget section;
     if (field.type == 'time') {
-      input = Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          key: Key('slot-${field.name}'),
-          onPressed: () => _pickTime(field),
-          icon: const AppIcon(AppIcons.time, size: 18),
-          label: Text(value.isEmpty ? 'Choose a time' : value),
-        ),
+      section = GroupedSection(
+        footer: help,
+        children: [
+          GroupedValueRow(
+            key: Key('slot-${field.name}'),
+            title: label,
+            value: value.isEmpty ? 'Choose a time' : value,
+            onTap: () => _pickTime(field),
+          ),
+        ],
       );
     } else if (field.options.isNotEmpty) {
-      input = Wrap(
+      section = RadioGroup<String>(
         key: Key('slot-${field.name}'),
-        spacing: 8,
-        runSpacing: 4,
-        children: [
-          for (final option in field.options)
-            ChoiceChip(
-              label: Text(option),
-              selected: value == option,
-              onSelected: (_) => _form.set(field.name, option),
-            ),
-        ],
+        groupValue: value,
+        onChanged: (option) {
+          if (option != null) _form.set(field.name, option);
+        },
+        child: GroupedSection(
+          header: label,
+          footer: help,
+          dividerIndent: GroupedChoiceRow.dividerIndent(context),
+          children: [
+            for (final option in field.options)
+              GroupedChoiceRow<String>(value: option, title: option),
+          ],
+        ),
       );
     } else {
-      input = TextFormField(
-        key: Key('slot-${field.name}'),
-        initialValue: value,
-        decoration: const InputDecoration(),
-        minLines: 1,
-        maxLines: 3,
-        onChanged: (v) => _form.set(field.name, v),
+      section = GroupedSection(
+        footer: help,
+        children: [
+          GroupedTextFieldRow(
+            key: Key('slot-${field.name}'),
+            label: label,
+            initialValue: value,
+            minLines: 1,
+            maxLines: 3,
+            onChanged: (v) => _form.set(field.name, v),
+          ),
+        ],
       );
     }
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 6,
-        children: [
-          Text(
-            field.optional ? '${field.label} (optional)' : field.label,
-            style: theme.textTheme.titleSmall,
-          ),
-          input,
-          if (field.help.isNotEmpty)
-            Text(
-              field.help,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          if (error != null)
-            Text(
-              error,
-              key: Key('slot-error-${field.name}'),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
-        ],
-      ),
-    );
+    return [
+      section,
+      if (error != null)
+        GroupedFooter(error, key: Key('slot-error-${field.name}'), error: true),
+    ];
   }
 
   @override
@@ -344,43 +275,26 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
       listenable: _form,
       builder: (context, _) {
         final blueprint = _form.blueprint;
-        return Scaffold(
-          appBar: AppBar(
-            leading: const AdaptiveBackButton(),
-            leadingWidth: adaptiveBackLeadingWidth(context),
-            title: Text(blueprint.title),
+        return SettingsScaffold(
+          title: blueprint.title,
+          subtitle: _form.profile,
+          previousTitle: null,
+          formAction: SettingsFormAction(
+            label: 'Create',
+            busy: _form.saving,
+            onPressed: _save,
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
+          body: GroupedListView(
             children: [
-              if (blueprint.description.isNotEmpty) ...[
-                Text(blueprint.description),
-                const SizedBox(height: 20),
-              ],
-              for (final field in blueprint.fields) _input(field),
-              if (_form.error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    _form.error!,
-                    key: const Key('blueprint-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
+              if (blueprint.description.isNotEmpty)
+                GroupedFooter(blueprint.description),
+              for (final field in blueprint.fields) ..._slot(field),
+              if (_form.error case final error?)
+                GroupedFooter(
+                  error,
+                  key: const Key('blueprint-error'),
+                  error: true,
                 ),
-              FilledButton(
-                onPressed: _form.saving ? null : _save,
-                child: _form.saving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator.adaptive(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text('Create task'),
-              ),
             ],
           ),
         );
