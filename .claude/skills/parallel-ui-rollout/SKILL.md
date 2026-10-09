@@ -49,13 +49,22 @@ the rework.
   through Chrome: attach the files to the PR's new-comment box, read the
   `user-attachments` URLs out of the textarea, clear it with
   `textarea.select(); document.execCommand('delete')` (setting `.value`
-  desyncs GitHub's editor), and put the images in the PR body with
-  `gh pr edit --body-file`. GitHub returns 429 silently after roughly 60–90
-  uploads an hour; upload in batches of up to about eight per call.
+  desyncs GitHub's editor), save them as `<file name> <URL>` lines in
+  `uploaded.txt` next to `READY`, and put the images in a `## Screenshots`
+  section of the PR body with `gh pr edit --body-file`. GitHub returns 429
+  silently after roughly 60–90 uploads an hour; upload in batches of up to
+  about eight per call.
+- **The PR body is shared.** The agent owns the text it opened the PR with, the
+  orchestrator owns `## Screenshots` and the reviewer owns `## Review`. Whoever
+  edits it re-reads the current body right before writing, changes only their
+  own section and writes it back; an agent that regenerates the whole body from
+  its own notes deletes the screenshots. If that happens, rebuild
+  `## Screenshots` from `uploaded.txt`.
 - **Review before merge.** CodeRabbit when it reviews. When it is rate-limited
   or capped, an isolated reviewer agent with fresh context reviews
   `gh pr diff <n>` for correctness, accessibility and unintended behaviour or
-  API changes; fix what it confirms, then arm `gh pr merge --auto --squash`.
+  API changes, and appends its findings as `## Review`; fix what it confirms,
+  then arm `gh pr merge --auto --squash`.
   Never merge unreviewed.
 - **Rebase right before pushing**, and again after any merge that touched a
   shared file the branch uses; push the rewritten branch with
