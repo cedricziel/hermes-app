@@ -25,57 +25,65 @@ const platforms = [
     enabled: false,
     configured: true,
   },
-  { id: "whatsapp", name: "WhatsApp", enabled: false, configured: false },
+  {
+    id: "whatsapp",
+    name: "WhatsApp",
+    description: "Message Hermes on WhatsApp.",
+    enabled: false,
+    configured: false,
+  },
   {
     id: "slack",
     name: "Slack",
+    description: "Bring Hermes into a Slack workspace.",
     enabled: true,
     configured: true,
     errorMessage: "Invalid bot token",
   },
 ];
 
+/** iPhone: "Chat" back chevron, the platforms in one inset group with bot tiles, WhatsApp's "Set Up" value and chevron, Slack's error line, the introduction as the group's footer. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <MessagingScreen platforms={platforms} onBack={noop} />
-    </div>
-  </HermesProvider>
-);
-
-export const MaterialPhone = () => (
-  <div style={phone}>
+  <HermesProvider platform="apple" style={phone}>
     <MessagingScreen platforms={platforms} onBack={noop} />
-  </div>
+  </HermesProvider>
 );
 
-export const MaterialDesktop = () => (
-  <div style={desktop}>
+/** Material phone: 56px bar, the Material group with 32px tiles and WhatsApp's outlined "Set up" pill. */
+export const MaterialPhone = () => (
+  <HermesProvider platform="material" style={phone}>
+    <MessagingScreen platforms={platforms} onBack={noop} />
+  </HermesProvider>
+);
+
+/** Mac window: the toolbar with "Messaging" over "2 of 4 on", the 600px column, small switches and a bordered "Set Up…" button. */
+export const MacDesktop = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
     <MessagingScreen layout="desktop" platforms={platforms} onBack={noop} />
-  </div>
+  </HermesProvider>
 );
 
+/** Loading: the spinner under the Material bar. */
 export const Loading = () => (
-  <div style={phone}>
+  <HermesProvider platform="material" style={phone}>
     <MessagingScreen state="loading" onBack={noop} />
-  </div>
+  </HermesProvider>
 );
 
+/** Failed on iPhone: "Could not load messaging platforms" with Retry. */
 export const Failed = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <MessagingScreen state="failed" onBack={noop} />
-    </div>
+  <HermesProvider platform="apple" style={phone}>
+    <MessagingScreen state="failed" onBack={noop} />
   </HermesProvider>
 );
 
+/** Dark: iPhone and Material phone. */
 export const Dark = () => (
-  <HermesProvider
-    theme="dark"
-    style={{ width: "fit-content", borderRadius: 14 }}
-  >
-    <div style={phone}>
-      <MessagingScreen platforms={platforms} onBack={noop} />
-    </div>
-  </HermesProvider>
+  <div style={{ display: "flex", gap: 12 }}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider key={platform} theme="dark" platform={platform} style={phone}>
+        <MessagingScreen platforms={platforms} onBack={noop} />
+      </HermesProvider>
+    ))}
+  </div>
 );
