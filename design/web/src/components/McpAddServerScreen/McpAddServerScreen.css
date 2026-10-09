@@ -34,6 +34,8 @@
   margin-left: -12px;
 }
 
-.h-mcp-add__submit {
-  margin-right: 8px;
+.h-mcp-add__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }

@@ -1,6 +1,5 @@
-import { Tag } from "../Tag/Tag";
-import { cx } from "../../platform";
-import "./McpCatalogRow.css";
+import { GroupedRow, GroupedTile } from "../GroupedRow/GroupedRow";
+import type { AppleDevice, Platform } from "../../platform";
 
 /** A credential a catalog entry asks for before it can be installed. */
 export interface McpCredential {
@@ -14,9 +13,9 @@ export interface McpCredential {
 
 /** An entry of Hermes' approved MCP catalog. */
 export interface McpCatalogEntry {
-  /** Server name, e.g. "airtable". Its first letter fills the avatar. */
+  /** Server name, e.g. "airtable". Its first letter fills the leading tile. */
   name: string;
-  /** What it does. Two lines in the row, then ellipsis. */
+  /** What it does: the row's one-line subtitle. */
   description?: string;
   /** Where the entry comes from, a small line in the install panel: "github.com/airtable/mcp". */
   source?: string;
@@ -30,7 +29,7 @@ export interface McpCatalogEntry {
   command?: string;
   /** Its arguments, in order. */
   args?: string[];
-  /** For an entry Hermes builds on the server: the repository it clones. Adds a "Builds locally" tag. */
+  /** For an entry Hermes builds on the server: the repository it clones. Adds "Builds locally" to the facts line. */
   repository?: string;
   /** The git reference it checks out: "v1.2.0". */
   ref?: string;
@@ -38,35 +37,41 @@ export interface McpCatalogEntry {
   buildSteps?: string[];
   /** Credentials the entry declares; the install panel draws a secret field for each. */
   credentials?: McpCredential[];
-  /** Already on the profile: an "Installed" tag, and it opens the server's detail instead of the install panel. */
+  /** Already on the profile: "Installed" in the facts line, and it opens the server's detail instead of the install panel. */
   installed?: boolean;
 }
 
 export interface McpCatalogRowProps {
   /** The catalog entry to show. */
   entry: McpCatalogEntry;
-  /** Hermes is building this entry on the server: adds a "Building" tag. */
+  /** Hermes is building this entry on the server: adds "Building" to the facts line. */
   building?: boolean;
   /** Highlighted as the entry open in the pane beside the list (wide layout). */
   selected?: boolean;
   /** The row was clicked: open the install panel (or the server, when installed). */
   onClick?: () => void;
+  /** iOS: 17px name, 15px description, 13px facts, 29px tile. Mac: 13 / 11 / 11px, 24px tile. Material: 16 / 14 / 13px, 32px tile. Inherits the provider's platform. */
+  platform?: Platform;
+  /** Under `apple`: `mac` or `touch`; inherited from the enclosing `SettingsScaffold` or `GroupedListView`. */
+  device?: AppleDevice;
 }
 
 /**
- * One entry in the MCP catalog list: a letter avatar, the name, a two-line
- * description and tinted tags for transport, auth, "Builds locally",
- * "Installed" and "Building". Full-width and borderless like `McpServerRow`;
- * stack rows directly under the catalog's search field and filter chips.
- * The same on every platform.
+ * One entry in the MCP catalog's group (a `GroupedSection` with
+ * `dividerIndent="tile"`): its initial in a `GroupedTile`, the name, the
+ * description on one line and a muted facts line such as "Remote · OAuth ·
+ * Installed" (transport, auth, "Builds locally", "Installed", "Building"),
+ * with a disclosure chevron.
  */
 export function McpCatalogRow({
   entry,
   building = false,
   selected = false,
   onClick,
+  platform,
+  device,
 }: McpCatalogRowProps) {
-  const tags = [
+  const facts = [
     entry.transport === "remote"
       ? "Remote"
       : entry.transport === "command"
@@ -76,44 +81,23 @@ export function McpCatalogRow({
     entry.repository ? "Builds locally" : null,
     entry.installed ? "Installed" : null,
     building ? "Building" : null,
-  ].filter((t): t is string => Boolean(t));
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <div
-      className={cx(
-        "h-mcp-catalog-row",
-        selected && "h-mcp-catalog-row--selected",
-      )}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      <span className="h-mcp-catalog-row__avatar" aria-hidden>
-        {entry.name.charAt(0).toUpperCase()}
-      </span>
-      <div className="h-mcp-catalog-row__body">
-        <div className="h-mcp-catalog-row__name">{entry.name}</div>
-        {entry.description ? (
-          <div className="h-mcp-catalog-row__description">
-            {entry.description}
-          </div>
-        ) : null}
-        {tags.length > 0 ? (
-          <div className="h-mcp-catalog-row__tags">
-            {tags.map((t) => (
-              <Tag key={t} variant="tinted">
-                {t}
-              </Tag>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
+    <GroupedRow
+      title={entry.name}
+      leading={
+        <GroupedTile platform={platform} device={device}>
+          {entry.name.charAt(0).toUpperCase()}
+        </GroupedTile>
+      }
+      subtitle={entry.description || undefined}
+      caption={facts || undefined}
+      selected={selected}
+      onClick={onClick ?? (() => {})}
+      platform={platform}
+      device={device}
+    />
   );
 }

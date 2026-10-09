@@ -1,25 +1,26 @@
-import { Switch } from "../Switch/Switch";
-import { Tag } from "../Tag/Tag";
+import { GroupedTile } from "../GroupedRow/GroupedRow";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
 import { RowActions } from "../SwipeActions/RowActions";
 import {
   PlatformScope,
+  useGroupedChrome,
   usePlatform,
   type AppleDevice,
   type Platform,
 } from "../../platform";
-import "./McpServerRow.css";
+import { mcpFacts, mcpPlural } from "../../mcp";
 
 /** An MCP server configured on the active Hermes profile. */
 export interface McpServer {
-  /** Server name from the profile's config, e.g. "grafana". Its first letter fills the avatar. */
+  /** Server name from the profile's config, e.g. "grafana". Its first letter fills the leading tile. */
   name: string;
   /** `remote`: an HTTP/SSE endpoint. `command`: a program the Hermes host runs (address shown in monospace). */
   transport: "remote" | "command";
   /** The URL of a remote server, or the command line of a command server: "npx -y @modelcontextprotocol/server-filesystem /srv/notes". */
   address?: string;
-  /** How it signs in, already labelled: "OAuth", "Header". A remote server without one shows "No auth". */
+  /** How it signs in, already labelled: "OAuth", "Header". A remote server without one reads "No auth". */
   auth?: string;
-  /** Switched on for new chats. Off adds an "Off" chip. */
+  /** Switched on for new chats. Off adds "Off" to the facts line. */
   enabled: boolean;
 }
 
@@ -27,16 +28,16 @@ export interface McpServer {
 export interface McpServerTest {
   /** The server answered and listed its tools. */
   ok?: boolean;
-  /** Number of tools it listed; shown as "4 tools" when `ok`. */
+  /** Number of tools it listed; "2 tools" joins the facts line when `ok`. */
   toolCount?: number;
-  /** It needs an OAuth sign-in first; shown as an orange "Sign in needed" chip. */
+  /** It needs an OAuth sign-in first: a "Sign in needed" line in the warning color. */
   signInNeeded?: boolean;
 }
 
 export interface McpServerRowProps {
   /** The server to show. */
   server: McpServer;
-  /** Result of the last connection test, which adds a tool count or a "Sign in needed" chip. */
+  /** Result of the last connection test, which adds a tool count or "Sign in needed". */
   test?: McpServerTest;
   /** Highlighted as the server open in the detail pane (wide layout). */
   selected?: boolean;
@@ -47,14 +48,17 @@ export interface McpServerRowProps {
   /** The switch was flipped to this value. */
   onEnabledChange?: (enabled: boolean) => void;
   /**
-   * `apple`: the enabled switch is the iOS and macOS toggle (51x31, a thumb
-   * that keeps its size, a zinc primary track). On touch the row swipes from
-   * the trailing edge to Remove and a long press opens an action sheet with
-   * Turn on or Turn off, and Remove (see `swipeRevealed`, `actionSheetOpen`);
-   * a Mac right-clicks for them. Inherits the provider's platform.
+   * `apple` + `touch`: 17px name, the address (15px; a command in 13px
+   * monospace), the facts in a 13px muted line, the 51x31 toggle; the row
+   * swipes from the trailing edge to Remove and a long press opens an
+   * action sheet with Turn on or Turn off, and Remove (see `swipeRevealed`,
+   * `actionSheetOpen`). `apple` + `mac`: 13px name over one 11px line
+   * "address · facts" and the small 36x22 toggle. `material`: 16px name,
+   * 14px address, 13px facts, the Material switch. Inherits the provider's
+   * platform.
    */
   platform?: Platform;
-  /** Under `apple`, `touch` (default) or `mac`; only touch swipes. Inherited from the enclosing `AppShell`. */
+  /** Under `apple`, `touch` or `mac`; only touch swipes. Inherited from the enclosing `SettingsScaffold`, `GroupedListView` or `AppShell`. */
   device?: AppleDevice;
   /** Apple touch: draw the row swiped open, Remove showing in red. A static preview state. */
   swipeRevealed?: boolean;
@@ -65,9 +69,11 @@ export interface McpServerRowProps {
 }
 
 /**
- * One server in the MCP servers list: a letter avatar, the name, its URL or
- * command, chips for transport, auth and test result, and an enabled switch.
- * Full-width and borderless; stack rows directly in a list pane.
+ * One server in the MCP servers group (a `GroupedSection` with
+ * `dividerIndent="tile"`): its initial in a `GroupedTile`, the name, its
+ * URL or command, one muted facts line ("Remote · OAuth · 2 tools", plus
+ * "Off" when switched off), "Sign in needed" in the warning color, and its
+ * switch. The row opens the detail; the switch stays its own control.
  */
 export function McpServerRow({
   server,
@@ -82,22 +88,16 @@ export function McpServerRow({
   actionSheetOpen,
   onRemove,
 }: McpServerRowProps) {
-  const resolvedPlatform = usePlatform(platform);
-  const auth =
-    server.auth || (server.transport === "remote" ? "No auth" : undefined);
-  const chips: { label: string; warning?: boolean }[] = [
-    { label: server.transport === "remote" ? "Remote" : "Command" },
-    ...(auth ? [{ label: auth }] : []),
-    ...(!server.enabled ? [{ label: "Off" }] : []),
-    ...(test?.signInNeeded ? [{ label: "Sign in needed", warning: true }] : []),
-    ...(test?.ok
-      ? [
-          {
-            label: `${test.toolCount ?? 0} ${test.toolCount === 1 ? "tool" : "tools"}`,
-          },
-        ]
-      : []),
-  ];
+  const resolved = usePlatform(platform);
+  const mac = useGroupedChrome(resolved, device) === "mac";
+  const meta = [
+    ...mcpFacts(server),
+    ...(test?.ok ? [mcpPlural(test.toolCount ?? 0, "tool")] : []),
+    ...(server.enabled ? [] : ["Off"]),
+  ].join(" · ");
+  const subtitle = [server.address, mac ? meta : undefined]
+    .filter(Boolean)
+    .join(" · ");
   const actions = [
     ...(switching
       ? []
@@ -111,7 +111,7 @@ export function McpServerRow({
     { label: "Remove", icon: "delete", destructive: true, onPress: onRemove },
   ];
   return (
-    <PlatformScope platform={resolvedPlatform}>
+    <PlatformScope platform={resolved}>
       <RowActions
         title={server.name}
         actions={actions}
@@ -119,59 +119,24 @@ export function McpServerRow({
         actionSheetOpen={actionSheetOpen}
         device={device}
       >
-        <div
-          className={[
-            "h-mcp-server-row",
-            selected ? "h-mcp-server-row--selected" : null,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          role="button"
-          tabIndex={0}
-          aria-pressed={selected}
-          onClick={onClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onClick?.();
-            }
-          }}
-        >
-          <span className="h-mcp-server-row__avatar" aria-hidden>
-            {server.name.charAt(0).toUpperCase()}
-          </span>
-          <div className="h-mcp-server-row__body">
-            <div className="h-mcp-server-row__name">{server.name}</div>
-            {server.address ? (
-              <div
-                className={[
-                  "h-mcp-server-row__address",
-                  server.transport === "command"
-                    ? "h-mcp-server-row__address--mono"
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {server.address}
-              </div>
-            ) : null}
-            <div className="h-mcp-server-row__chips">
-              {chips.map((c) => (
-                <Tag key={c.label} variant={c.warning ? "warning" : "tinted"}>
-                  {c.label}
-                </Tag>
-              ))}
-            </div>
-          </div>
-          <Switch
-            checked={server.enabled}
-            label={`${server.name} enabled`}
-            disabled={switching}
-            onClick={(e) => e.stopPropagation()}
-            onChange={onEnabledChange}
-          />
-        </div>
+        <GroupedSwitchRow
+          title={server.name}
+          leading={
+            <GroupedTile device={device}>
+              {server.name.charAt(0).toUpperCase()}
+            </GroupedTile>
+          }
+          subtitle={subtitle || undefined}
+          monospaceSubtitle={server.transport === "command"}
+          caption={!mac && meta ? meta : undefined}
+          warning={test?.signInNeeded ? "Sign in needed" : undefined}
+          selected={selected}
+          checked={server.enabled}
+          disabled={switching}
+          onChange={onEnabledChange ?? (() => {})}
+          onClick={onClick ?? (() => {})}
+          device={device}
+        />
       </RowActions>
     </PlatformScope>
   );

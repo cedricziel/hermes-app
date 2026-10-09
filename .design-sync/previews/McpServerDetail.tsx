@@ -2,6 +2,7 @@ import { HermesProvider, McpServerDetail } from "@hermes-app/ui";
 
 const pane = {
   width: 420,
+  height: 600,
   border: "1px solid var(--h-border)",
   borderRadius: 14,
   overflow: "hidden",
@@ -15,9 +16,9 @@ const grafana = {
   enabled: true,
 };
 
-/** A tested OAuth server: Connected with its tools and their schema sizes. */
+/** iPhone: a tested OAuth server, Connected with its tools and their schema sizes. */
 export const TestedOAuthServer = () => (
-  <div style={pane}>
+  <HermesProvider platform="apple" style={pane}>
     <McpServerDetail
       server={grafana}
       test={{
@@ -37,12 +38,12 @@ export const TestedOAuthServer = () => (
         prompts: 1,
       }}
     />
-  </div>
+  </HermesProvider>
 );
 
-/** A command server switched off, its test running. */
+/** Material: a command server switched off, its test running (a spinner in place of the check). */
 export const CommandServerOff = () => (
-  <div style={pane}>
+  <div style={{ ...pane, height: 420 }}>
     <McpServerDetail
       server={{
         name: "filesystem",
@@ -55,11 +56,12 @@ export const CommandServerOff = () => (
   </div>
 );
 
-/** Apple: sign in needed, the banner's Sign in replaces the outlined one. */
+/** Mac: sign in needed; the banner's Sign in replaces the Sign in row. */
 export const AppleSignInNeeded = () => (
-  <HermesProvider platform="apple">
-    <div style={pane}>
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...pane, height: 420 }}>
       <McpServerDetail
+        device="mac"
         server={{
           ...grafana,
           name: "asana",
@@ -71,9 +73,10 @@ export const AppleSignInNeeded = () => (
   </HermesProvider>
 );
 
+/** Material, dark: a sign-in that could not start and a failed test. */
 export const DarkFailed = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={pane}>
+    <div style={{ ...pane, height: 480 }}>
       <McpServerDetail
         server={{
           name: "flaky",

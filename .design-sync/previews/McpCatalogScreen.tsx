@@ -50,10 +50,20 @@ const entries = [
   },
 ];
 
+/** iPhone, dark: the search field with its filter button inside, the filter menu open. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
+  <HermesProvider
+    platform="apple"
+    theme="dark"
+    style={{ width: "fit-content", borderRadius: 14 }}
+  >
     <div style={phone}>
-      <McpCatalogScreen layout="phone" profile="work" entries={entries} />
+      <McpCatalogScreen
+        layout="phone"
+        profile="work"
+        entries={entries}
+        filterMenuOpen
+      />
     </div>
   </HermesProvider>
 );
@@ -70,9 +80,9 @@ export const MaterialPhoneSheet = () => (
   </div>
 );
 
-/** Desktop: the install panel of an entry built on the server, building. */
+/** Mac: search and filter in the toolbar, the install panel of an entry built on the server, building. */
 export const DesktopBuilding = () => (
-  <div style={desktop}>
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
     <McpCatalogScreen
       layout="desktop"
       profile="work"
@@ -81,10 +91,10 @@ export const DesktopBuilding = () => (
       building={["buildkite"]}
       install={{ state: "building" }}
     />
-  </div>
+  </HermesProvider>
 );
 
-/** Filtered to Command with a search that matches nothing. */
+/** Material: filtered to Command (the filter button marked) with a search that matches nothing. */
 export const NoMatch = () => (
   <div style={phone}>
     <McpCatalogScreen
@@ -103,6 +113,7 @@ export const Failed = () => (
   </div>
 );
 
+/** Material desktop, dark: airtable's install panel beside the list, a diagnostics footer. */
 export const DarkDesktop = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
     <div style={{ ...desktop, width: 768, height: 520 }}>

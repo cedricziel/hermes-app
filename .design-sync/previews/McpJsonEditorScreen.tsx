@@ -28,6 +28,7 @@ const json = `{
   }
 }`;
 
+/** iPhone: Save is the bar's trailing text button. */
 export const AppleEditor = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
@@ -48,7 +49,7 @@ export const MaterialInvalid = () => (
   </div>
 );
 
-/** Desktop: the review dialog of a changed command server. */
+/** Material desktop: the review dialog of a changed command server, Save spinning in the bar. */
 export const DesktopReview = () => (
   <div style={desktop}>
     <McpJsonEditorScreen
@@ -75,10 +76,17 @@ export const LoadFailed = () => (
   </div>
 );
 
+/** Mac, dark: Save in the toolbar, Hermes' problem under the editor. */
 export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={phone}>
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    theme="dark"
+    style={{ padding: 16, borderRadius: 14 }}
+  >
+    <div style={{ ...desktop, width: 768, height: 520 }}>
       <McpJsonEditorScreen
+        layout="desktop"
         profile="work"
         text={json}
         dirty

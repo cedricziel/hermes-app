@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Button } from "./components/Button/Button";
 import { Spinner } from "./components/Spinner/Spinner";
 import { StateMessage } from "./components/StateMessage/StateMessage";
-import { PlatformScope, type Platform } from "./platform";
+import { PlatformScope, type AppleDevice, type Platform } from "./platform";
 import "./screen.css";
 
 /**
@@ -70,3 +70,27 @@ export function ScreenState({
 
 /** Screens pushed over the chat always draw a back button, even in a preview without a handler. */
 export const noop = () => {};
+
+/** The device a screen's settings bar and groups follow: a phone is touch, a desktop a Mac unless told otherwise. */
+export function screenDevice(
+  layout: "phone" | "desktop",
+  device?: AppleDevice,
+): AppleDevice {
+  return layout === "phone" ? "touch" : (device ?? "mac");
+}
+
+/** From 900px: a 380px list, a 1px divider and the pane beside it, as the app's list-detail `Row`. */
+export function ScreenSplit({
+  list,
+  pane,
+}: {
+  list: ReactNode;
+  pane: ReactNode;
+}) {
+  return (
+    <div className="h-screen__split">
+      <div className="h-screen__split-list">{list}</div>
+      <div className="h-screen__split-pane">{pane}</div>
+    </div>
+  );
+}

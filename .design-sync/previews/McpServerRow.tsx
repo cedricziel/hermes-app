@@ -1,65 +1,115 @@
-import { HermesProvider, McpServerRow } from "@hermes-app/ui";
+import {
+  GroupedListView,
+  GroupedSection,
+  HermesProvider,
+  McpServerRow,
+} from "@hermes-app/ui";
+import type { ReactNode } from "react";
 
-const pane = { width: 380 } as const;
+type Look = "iphone" | "mac" | "material";
 
-export const List = () => (
-  <div style={pane}>
-    <McpServerRow
-      server={{
-        name: "grafana",
-        transport: "remote",
-        address: "https://mcp.grafana.com/mcp",
-        auth: "OAuth",
-        enabled: true,
-      }}
-      test={{ ok: true, toolCount: 4 }}
-    />
-    <McpServerRow
-      selected
-      server={{
-        name: "asana",
-        transport: "remote",
-        address: "https://mcp.asana.com/sse",
-        auth: "OAuth",
-        enabled: true,
-      }}
-      test={{ signInNeeded: true }}
-    />
-    <McpServerRow
-      server={{
-        name: "flaky",
-        transport: "remote",
-        address: "https://flaky.example/mcp",
-        enabled: true,
-      }}
-    />
-  </div>
+const looks: Array<[Look, string]> = [
+  ["iphone", "iPhone"],
+  ["mac", "Mac"],
+  ["material", "Material"],
+];
+
+const grafana = {
+  name: "grafana",
+  transport: "remote" as const,
+  address: "https://mcp.grafana.com/mcp",
+  auth: "OAuth",
+  enabled: true,
+};
+const asana = {
+  name: "asana",
+  transport: "remote" as const,
+  address: "https://mcp.asana.com/sse",
+  auth: "OAuth",
+  enabled: true,
+};
+const notes = {
+  name: "notes-fs",
+  transport: "command" as const,
+  address: "npx -y @modelcontextprotocol/server-filesystem /srv/notes",
+  enabled: false,
+};
+
+/** One look's frame: the provider, a 360px settings column and one inset group. */
+const Group = ({
+  look,
+  theme = "light",
+  width = 360,
+  children,
+}: {
+  look: Look;
+  theme?: "light" | "dark";
+  width?: number;
+  children: ReactNode;
+}) => (
+  <HermesProvider
+    theme={theme}
+    platform={look === "material" ? "material" : "apple"}
+    typeRamp={look === "mac" ? "default" : undefined}
+    style={{
+      position: "relative",
+      width,
+      border: "1px solid var(--h-border)",
+      borderRadius: 14,
+      overflow: "hidden",
+    }}
+  >
+    <GroupedListView device={look === "mac" ? "mac" : "touch"}>
+      <GroupedSection
+        dividerIndent="tile"
+        footer="Changes apply from the next chat, not to one that is already running."
+      >
+        {children}
+      </GroupedSection>
+    </GroupedListView>
+  </HermesProvider>
 );
 
-export const CommandServers = () => (
-  <div style={pane}>
-    <McpServerRow
-      server={{
-        name: "notes-fs",
-        transport: "command",
-        address: "npx -y @modelcontextprotocol/server-filesystem /srv/my notes",
-        enabled: true,
-      }}
-      test={{ ok: true, toolCount: 1 }}
-    />
-    <McpServerRow
-      server={{
-        name: "filesystem",
-        transport: "command",
-        address: "uvx mcp-server-filesystem",
-        enabled: false,
-      }}
-    />
-  </div>
+const Compare = ({
+  theme,
+  children,
+}: {
+  theme?: "light" | "dark";
+  children: ReactNode;
+}) => (
+  <HermesProvider
+    theme={theme}
+    style={{ display: "flex", gap: 12, padding: 12, alignItems: "flex-start" }}
+  >
+    {looks.map(([look, label]) => (
+      <div key={look}>
+        <div className="h-label-sm h-muted" style={{ padding: "0 4px 6px" }}>
+          {label}
+        </div>
+        <Group look={look} theme={theme} width={300}>
+          {children}
+        </Group>
+      </div>
+    ))}
+  </HermesProvider>
 );
 
+const rows = (
+  <>
+    <McpServerRow server={grafana} test={{ ok: true, toolCount: 2 }} selected />
+    <McpServerRow server={asana} test={{ signInNeeded: true }} />
+    <McpServerRow server={notes} />
+  </>
+);
+
+/** Tested with tools (selected), sign in needed, a command server switched off, on iPhone, Mac and Material. */
+export const List = () => <Compare>{rows}</Compare>;
+
+export const Dark = () => <Compare theme="dark">{rows}</Compare>;
+
+/** A long name and address cut with an ellipsis, the switch disabled while the change is on its way. */
 export const LongNameAndSwitching = () => (
-  <div style={pane}>
+  <Group look="iphone">
     <McpServerRow
       switching
       server={{
@@ -71,104 +121,20 @@ export const LongNameAndSwitching = () => (
         enabled: true,
       }}
     />
-  </div>
+    <McpServerRow server={grafana} />
+  </Group>
 );
 
-export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={pane}>
-      <McpServerRow
-        server={{
-          name: "grafana",
-          transport: "remote",
-          address: "https://mcp.grafana.com/mcp",
-          auth: "OAuth",
-          enabled: true,
-        }}
-        test={{ ok: true, toolCount: 4 }}
-      />
-      <McpServerRow
-        selected
-        server={{
-          name: "asana",
-          transport: "remote",
-          address: "https://mcp.asana.com/sse",
-          auth: "OAuth",
-          enabled: true,
-        }}
-        test={{ signInNeeded: true }}
-      />
-      <McpServerRow
-        server={{
-          name: "filesystem",
-          transport: "command",
-          address: "uvx mcp-server-filesystem",
-          enabled: false,
-        }}
-      />
-    </div>
-  </HermesProvider>
-);
-
-const platformLabel = { padding: "8px 16px 0" } as const;
-
-/** Material (top) and Apple (bottom) switches, on and off: 52x32 with a growing thumb vs the 51x31 toggle. */
-export const PlatformSwitch = () => {
-  const grafana = {
-    name: "grafana",
-    transport: "remote" as const,
-    address: "https://mcp.grafana.com/mcp",
-    auth: "OAuth",
-    enabled: true,
-  };
-  const asana = {
-    ...grafana,
-    name: "asana",
-    address: "https://mcp.asana.com/sse",
-    enabled: false,
-  };
-  return (
-    <div style={pane}>
-      <div className="h-label-sm h-muted" style={platformLabel}>
-        Material
-      </div>
-      <McpServerRow server={grafana} />
-      <McpServerRow server={asana} />
-      <HermesProvider platform="apple">
-        <div className="h-label-sm h-muted" style={platformLabel}>
-          Apple
-        </div>
-        <McpServerRow server={grafana} />
-        <McpServerRow server={asana} />
-      </HermesProvider>
-    </div>
-  );
-};
-
-const grafana = {
-  name: "grafana",
-  transport: "remote" as const,
-  address: "https://mcp.grafana.com/mcp",
-  auth: "OAuth",
-  enabled: true,
-};
-const notes = {
-  name: "notes-fs",
-  transport: "command" as const,
-  address: "npx -y @modelcontextprotocol/server-filesystem /srv/notes",
-  enabled: false,
-};
-
-/** iPhone: grafana swiped from the trailing edge shows Remove in red. */
+/** iPhone: grafana swiped from the trailing edge shows Remove in red, clipped with the group. */
 export const AppleSwipe = () => (
-  <HermesProvider platform="apple" style={{ width: 390 }}>
+  <Group look="iphone">
     <McpServerRow
       server={grafana}
       test={{ ok: true, toolCount: 4 }}
       swipeRevealed
     />
     <McpServerRow server={notes} />
-  </HermesProvider>
+  </Group>
 );
 
 /** iPhone: a long press opens Turn off and Remove in an action sheet. */
@@ -181,16 +147,21 @@ export const AppleActionSheet = () => (
       height: 400,
       overflow: "hidden",
       borderRadius: 14,
+      border: "1px solid var(--h-border)",
     }}
   >
-    <McpServerRow server={grafana} actionSheetOpen />
-    <McpServerRow server={notes} />
+    <GroupedListView>
+      <GroupedSection dividerIndent="tile">
+        <McpServerRow server={grafana} actionSheetOpen />
+        <McpServerRow server={notes} />
+      </GroupedSection>
+    </GroupedListView>
   </HermesProvider>
 );
 
 export const AppleSwipeDark = () => (
-  <HermesProvider platform="apple" theme="dark" style={{ width: 390 }}>
+  <Group look="iphone" theme="dark">
     <McpServerRow server={grafana} />
     <McpServerRow server={notes} swipeRevealed />
-  </HermesProvider>
+  </Group>
 );

@@ -10,7 +10,7 @@ const phone = {
 
 const desktop = { ...phone, width: 800, height: 560 } as const;
 
-/** Apple phone: a remote server with a bearer token. */
+/** iPhone: a remote server with a bearer token; Add is the bar's trailing text button. */
 export const AppleRemote = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
@@ -25,7 +25,7 @@ export const AppleRemote = () => (
   </HermesProvider>
 );
 
-/** Material phone: a command server with an invalid variable name. */
+/** Material phone: a command server with an invalid variable name, so Add in the bar is greyed out. */
 export const MaterialCommand = () => (
   <div style={phone}>
     <McpAddServerScreen
@@ -68,9 +68,9 @@ export const PhoneReview = () => (
   </div>
 );
 
-/** Desktop: the 560px form, OAuth picked, name taken and Hermes' refusal. */
+/** Mac: Add as a small push button in the toolbar; the 560px form, OAuth picked, name taken and Hermes' refusal. */
 export const Desktop = () => (
-  <div style={desktop}>
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
     <McpAddServerScreen
       layout="desktop"
       profile="work"
@@ -80,9 +80,10 @@ export const Desktop = () => (
       auth="oauth"
       error="Could not add grafana"
     />
-  </div>
+  </HermesProvider>
 );
 
+/** Material, dark: an address that is not http(s); Add stays disabled. */
 export const Dark = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
     <div style={phone}>
