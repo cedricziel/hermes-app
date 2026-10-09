@@ -79,7 +79,7 @@ export function SettingsSearchField({
   const [open, setOpen] = useMenuState(filterMenuOpen);
   const active = filters.some((f, i) => i > 0 && f.selected);
   const filterLabel = active
-    ? `Filter: ${filters.find((f) => f.selected)?.label}`
+    ? `Filter: ${filters.find((f, i) => i > 0 && f.selected)?.label}`
     : "Filter";
   const menu = open ? (
     <Menu
