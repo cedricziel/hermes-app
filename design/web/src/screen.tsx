@@ -40,18 +40,21 @@ export function ScreenState({
   failedTitle,
   unsupportedTitle,
   retryVariant = "filled",
+  loadingLabel,
   onRetry,
 }: {
   state: "loading" | "failed" | "unsupported";
   failedTitle: string;
   unsupportedTitle?: string;
   retryVariant?: "filled" | "outlined";
+  /** The spinner's accessible name: "Loading skills". */
+  loadingLabel?: string;
   onRetry?: () => void;
 }) {
   return (
     <ScreenCenter>
       {state === "loading" ? (
-        <Spinner size={36} />
+        <Spinner size={36} label={loadingLabel} />
       ) : state === "unsupported" ? (
         <StateMessage title={unsupportedTitle ?? failedTitle} />
       ) : (

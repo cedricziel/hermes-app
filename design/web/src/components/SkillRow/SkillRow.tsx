@@ -1,7 +1,5 @@
-import { Badge } from "../Badge/Badge";
-import { Switch } from "../Switch/Switch";
-import type { Platform } from "../../platform";
-import { SkillRowShell } from "./SkillRowShell";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
+import type { AppleDevice, Platform } from "../../platform";
 
 /** Where an installed skill came from. */
 export type SkillSource = "hub" | "bundled" | "agent";
@@ -18,7 +16,7 @@ export interface Skill {
   source: SkillSource;
   /** The agent may load it. */
   enabled: boolean;
-  /** How often the agent used it; shown as "used 14×" when above 0. */
+  /** How often the agent used it: "used once", "used 14 times" in the subtitle when above 0. */
   usage?: number;
 }
 
@@ -28,52 +26,53 @@ export const skillSourceLabels: Record<SkillSource, string> = {
   agent: "Agent",
 };
 
+/** "Read Apple Notes · Bundled · used 14 times", as the app's `skillSubtitle`. */
+function skillSubtitle(skill: Skill) {
+  const usage = skill.usage ?? 0;
+  return [
+    skill.description,
+    skillSourceLabels[skill.source],
+    usage === 1 ? "used once" : usage > 1 ? `used ${usage} times` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export interface SkillRowProps {
   /** The skill to show. */
   skill: Skill;
-  /** The row was pressed: open the skill. */
+  /** The row was pressed: open the skill. The switch stays its own control. */
   onClick?: () => void;
   /** The switch was flipped to this value. */
   onEnabledChange?: (enabled: boolean) => void;
-  /** `apple`: the iOS type ramp and the 51x31 toggle. Inherits the provider's platform. */
+  /** `apple`: the iOS row (17px title, 15px subtitle, the 51x31 toggle), or on a Mac the 13px row and small 36x22 toggle. `material`: a 16px row with the Material switch. Inherits the provider's platform. */
   platform?: Platform;
+  /** Under `apple`: `mac` or `touch`; inherited from `SettingsScaffold` or `GroupedSection`, else touch. */
+  device?: AppleDevice;
 }
 
 /**
- * One installed skill on the Skills screen: the name in semibold, its
- * description on one line, a source badge (Hub, Bundled, Agent) with the
- * usage count, and an enabled switch. A switched-off skill dims its text.
- * Stack rows under a category `SectionHeader`.
+ * One installed skill on the Skills screen: a `GroupedSwitchRow` with the
+ * name over "description · source · used N times" (one line, cut with an
+ * ellipsis) and its enabled switch. Stack a category's rows in one
+ * `GroupedSection` headed by the category.
  */
 export function SkillRow({
   skill,
   onClick,
   onEnabledChange,
   platform,
+  device,
 }: SkillRowProps) {
   return (
-    <SkillRowShell
-      name={skill.name}
-      description={skill.description}
-      off={!skill.enabled}
-      platform={platform}
+    <GroupedSwitchRow
+      title={skill.name}
+      subtitle={skillSubtitle(skill)}
+      checked={skill.enabled}
+      onChange={onEnabledChange}
       onClick={onClick}
-      meta={
-        <>
-          <Badge>{skillSourceLabels[skill.source]}</Badge>
-          {skill.usage ? (
-            <span className="h-label-sm h-muted">used {skill.usage}×</span>
-          ) : null}
-        </>
-      }
-      trailing={
-        <Switch
-          checked={skill.enabled}
-          label={`${skill.name} enabled`}
-          onClick={(e) => e.stopPropagation()}
-          onChange={onEnabledChange}
-        />
-      }
+      platform={platform}
+      device={device}
     />
   );
 }

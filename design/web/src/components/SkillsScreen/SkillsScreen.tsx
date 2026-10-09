@@ -1,20 +1,29 @@
 import type { ReactNode } from "react";
 import { BusyBar } from "../BusyBar/BusyBar";
 import { Button } from "../Button/Button";
-import { Chip } from "../Chip/Chip";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { HubSkillRow, type HubSkill } from "../HubSkillRow/HubSkillRow";
-import { ListRow } from "../ListRow/ListRow";
-import { SectionHeader } from "../SectionHeader/SectionHeader";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
+import type { SettingsSearch } from "../SettingsSearchField/SettingsSearchField";
 import { SkillRow, type Skill } from "../SkillRow/SkillRow";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
-import { TextField } from "../TextField/TextField";
-import { ScreenFrame, type ScreenLayout } from "../../screenFrame";
-import type { AppleDevice, Platform } from "../../platform";
+import {
+  useGroupedChrome,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
+import { RowButton } from "../../rowButton";
+import { noop, ScreenCenter, ScreenFrame, ScreenState } from "../../screen";
 import "./SkillsScreen.css";
 
-/** The Installed tab's filter chips. */
+/** The Installed tab's filters, in the search field's filter menu. */
 export type SkillFilter = "all" | "enabled" | "hub" | "bundled" | "agent";
+
+const FILTERS: SkillFilter[] = ["all", "enabled", "hub", "bundled", "agent"];
 
 const filterLabels: Record<SkillFilter, string> = {
   all: "All",
@@ -24,9 +33,26 @@ const filterLabels: Record<SkillFilter, string> = {
   agent: "Agent",
 };
 
-/** Installed skills under one category heading. */
+const brandedCategories: Record<string, string> = {
+  devops: "DevOps",
+  github: "GitHub",
+  gitlab: "GitLab",
+  mlops: "MLOps",
+  macos: "macOS",
+  ios: "iOS",
+};
+
+/** A category as a group's header: "apple" reads "Apple", "github" "GitHub". */
+function categoryLabel(category: string) {
+  return (
+    brandedCategories[category.toLowerCase()] ??
+    category.charAt(0).toUpperCase() + category.slice(1)
+  );
+}
+
+/** Installed skills under one category header. */
 export interface SkillGroup {
-  /** Category, shown upper-case: "github". */
+  /** Category, shown capitalised as the group's header (brand casing kept: "GitHub", "DevOps"): "github". */
   category: string;
   skills: Skill[];
 }
@@ -35,15 +61,15 @@ export interface SkillGroup {
 export interface SkillsHubView {
   /** `loaded` (default), `loading`, `failed` ("Could not load the hub" with Retry) or `unsupported`. */
   state?: "loaded" | "loading" | "failed" | "unsupported";
-  /** The hub search field's text. With text the tab shows `results` instead of Featured and Official. */
+  /** The hub search field's text ("Search the skills hub"). With text the tab shows `results` instead of Featured and Official. */
   query?: string;
-  /** The hub's sources, as filter chips after "All": `{ id: "github", label: "GitHub" }`. */
+  /** The hub's sources, in the search's filter menu after "All sources": `{ id: "github", label: "GitHub" }`. */
   sources?: { id: string; label: string }[];
-  /** Id of the selected source chip; leave out for "All". */
+  /** Id of the picked source; leave out for "All sources". */
   source?: string;
   featured?: HubSkill[];
   official?: HubSkill[];
-  /** Search results while `query` has text. */
+  /** Search results while `query` has text, a "Results" group. */
   results?: HubSkill[];
   /** The search is running and has nothing yet: a spinner. */
   searching?: boolean;
@@ -51,7 +77,7 @@ export interface SkillsHubView {
   searchFailed?: boolean;
   /** Number of sources that timed out on this search: a row with Retry. */
   timedOut?: number;
-  /** Names of hub skills already installed: a check instead of the chevron. */
+  /** Names of hub skills already installed: "Installed" before the chevron. */
   installed?: string[];
 }
 
@@ -60,31 +86,38 @@ export interface SkillsScreenProps {
   tab?: "installed" | "discover";
   /** The Installed tab: `loaded` (default), `loading`, `failed` ("Could not load skills" with Retry), `unsupported`, or `empty` ("This profile has no skills yet."). */
   state?: "loaded" | "loading" | "failed" | "unsupported" | "empty";
-  /** The profile whose skills are shown, as a chip in the bar. */
+  /** The profile whose skills are shown, under the title: "default". On a Mac with the count: "default · 3 skills". */
   profile?: string;
-  /** Other profiles to look at: the chip opens a menu of them. */
+  /** How many skills the profile has, for the Mac subtitle; defaults to the skills in `groups` (which a search or filter narrows). */
+  skillCount?: number;
+  /** Other profiles to look at: the subtitle becomes a button ("default ⌄") opening a menu of them, the current one checked. */
   profiles?: string[];
-  /** The search field's text. */
+  /** Draws the profile menu open, for previews. */
+  profileMenuOpen?: boolean;
+  /** The search field's text ("Search skills"). */
   query?: string;
-  /** The selected filter chip. Default `all`. */
+  /** The picked filter of the search's filter menu. Default `all`; any other marks the filter button. */
   filter?: SkillFilter;
+  /** Draws the search's filter menu open, for previews. */
+  filterMenuOpen?: boolean;
   /** The installed skills by category, already searched and filtered. Empty: "No skills match." with Clear filters. */
   groups?: SkillGroup[];
-  /** Hub skills are installed: a "Check for updates" row ends the list (needs `hub`). */
+  /** Hub skills are installed: a "Check for updates" group ends the list (needs `hub`). */
   canCheckUpdates?: boolean;
   /** A skills hub is connected: the Installed and Discover tabs. */
   hub?: SkillsHubView;
-  /** A hub job runs in the background: a bar under the tabs with its title and a busy bar. Pressing it reopens the job sheet. */
+  /** A hub job runs in the background: a tinted strip under the bar with its title and a busy bar. Pressing it reopens the job sheet. */
   job?: { title: string };
   onBack?: () => void;
   onTabChange?: (tab: "installed" | "discover") => void;
-  onProfileClick?: () => void;
+  /** A profile was picked from the subtitle's menu. */
+  onProfileChange?: (profile: string) => void;
   onQueryChange?: (query: string) => void;
   onFilterChange?: (filter: SkillFilter) => void;
   onClearFilters?: () => void;
   onOpenSkill?: (name: string) => void;
   onSkillEnabledChange?: (name: string, enabled: boolean) => void;
-  /** "New skill": the Material floating button, or the "+" in the bar under `apple`. Shown on the Installed tab once it has loaded. */
+  /** "New skill": the "+" in the bar, on the Installed tab once it has loaded. */
   onNewSkill?: () => void;
   onCheckUpdates?: () => void;
   onOpenJob?: () => void;
@@ -93,56 +126,93 @@ export interface SkillsScreenProps {
   onHubSourceChange?: (source: string | undefined) => void;
   onOpenHubSkill?: (skill: HubSkill) => void;
   onHubRetry?: () => void;
-  /** `phone` or `desktop`; the lists stay in a 720px column. */
-  layout?: ScreenLayout;
-  /** `apple`: chevron back with "Chat", a segmented control for the tabs, "+" in the bar instead of the floating button, iOS rows and toggles. Inherits the provider's platform. */
+  /** `phone` or `desktop`. Under `apple`, `desktop` is a Mac window: the toolbar holds the tabs, the search with its filter button and "+". */
+  layout?: "phone" | "desktop";
+  /**
+   * `apple`: the iOS bar ("Chat" back, the title centred over the profile,
+   * "+"), segmented tabs and the iOS search field; on a Mac the toolbar.
+   * `material`: the 56px bar, a pill segmented control and pill search.
+   * The lists are inset `GroupedSection`s on every platform. Inherits the
+   * provider's platform.
+   */
   platform?: Platform;
   /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
   device?: AppleDevice;
 }
 
-/** A centred spinner (`loading`, its accessible name) or a message with an optional action. */
-function Note({
-  text,
-  action,
-  loading,
+/** The group that checks the hub skills for updates: a "Hub skills" row with a bordered button on a Mac, a "Check for updates" row elsewhere (with a refresh glyph on Material). */
+function UpdatesSection({
+  busy,
+  onCheck,
 }: {
-  text?: string;
-  action?: ReactNode;
-  loading?: string;
+  busy: boolean;
+  onCheck?: () => void;
 }) {
+  const chrome = useGroupedChrome();
+  const onClick = busy ? undefined : (onCheck ?? noop);
   return (
-    <div className="h-skills__note">
-      {loading ? (
-        <Spinner size={36} label={loading} />
+    <GroupedSection
+      footer="Updates the skills installed from the hub."
+      dividerIndent={chrome === "material" ? "leading" : undefined}
+    >
+      {chrome === "mac" ? (
+        <GroupedRow
+          title="Hub skills"
+          trailing={
+            <RowButton
+              label="Check for Updates"
+              disabled={busy}
+              onClick={onCheck}
+            />
+          }
+        />
       ) : (
-        <StateMessage title={text ?? ""} action={action} />
+        <GroupedRow
+          title="Check for updates"
+          icon={chrome === "material" ? "refresh" : undefined}
+          chevron={false}
+          disabled={busy}
+          onClick={onClick}
+        />
       )}
-    </div>
+    </GroupedSection>
+  );
+}
+
+/** A message centred in the body, with an optional action. */
+function Note({ text, action }: { text: string; action?: ReactNode }) {
+  return (
+    <ScreenCenter>
+      <StateMessage title={text} action={action} />
+    </ScreenCenter>
   );
 }
 
 /**
- * The Skills screen, pushed from the chat sidebar: the skills of a profile
- * with a search field, filter `Chip`s and `SkillRow`s under category
- * headings, and, with a hub, a Discover tab of `HubSkillRow`s (Featured,
- * Official, or search results). A background hub job shows as a `BusyBar`
- * strip under the tabs.
+ * The Skills screen on `SettingsScaffold`, pushed from the chat sidebar:
+ * the profile's skills as `SkillRow`s in one `GroupedSection` per
+ * category, searched and filtered from the bar's search field, a "Check
+ * for updates" group, and with a hub a Discover tab of `HubSkillRow`s
+ * (Featured, Official, or search Results). The profile under the title
+ * switches profiles; a background hub job shows as a `BusyBar` strip.
  */
 export function SkillsScreen({
   tab = "installed",
   state = "loaded",
   profile,
+  skillCount: totalSkills,
   profiles = [],
+  profileMenuOpen,
   query = "",
   filter = "all",
+  filterMenuOpen,
   groups = [],
   canCheckUpdates = false,
   hub,
   job,
   onBack,
   onTabChange,
-  onProfileClick,
+  onProfileChange,
   onQueryChange,
   onFilterChange,
   onClearFilters,
@@ -160,229 +230,217 @@ export function SkillsScreen({
   platform,
   device,
 }: SkillsScreenProps) {
+  const resolved = usePlatform(platform);
+  const mac =
+    resolved === "apple" && layout === "desktop" && device !== "touch";
   const discover = !!hub && tab === "discover";
-  const canAdd = !discover && state === "loaded" && !!onNewSkill;
-  // A loading, failed or unsupported tab is a note centred on the screen.
-  const noteOnly = discover
-    ? !!hub?.state && hub.state !== "loaded"
-    : state !== "loaded";
-  const installedBody = () => {
-    switch (state) {
-      case "loading":
-        return <Note loading="Loading skills" />;
-      case "unsupported":
-        return <Note text="The connected Hermes does not support skills." />;
-      case "failed":
-        return (
-          <Note
-            text="Could not load skills"
-            action={<Button onClick={onRetry}>Retry</Button>}
-          />
-        );
-      case "empty":
-        return <Note text="This profile has no skills yet." />;
-    }
-    return (
-      <>
-        <div className="h-skills__search">
-          <TextField
-            variant="search"
-            leadingIcon="search"
-            placeholder="Search skills"
-            value={query}
-            onChange={(e) => onQueryChange?.(e.target.value)}
-          />
-        </div>
-        <div className="h-skills__chips">
-          {(Object.keys(filterLabels) as SkillFilter[]).map((f) => (
-            <Chip
-              key={f}
-              label={filterLabels[f]}
-              selected={f === filter}
-              onClick={() => onFilterChange?.(f)}
-            />
-          ))}
-        </div>
-        {groups.length === 0 ? (
-          <Note
-            text="No skills match."
-            action={
-              <Button variant="text" onClick={onClearFilters}>
-                Clear filters
-              </Button>
-            }
-          />
-        ) : (
-          <div className="h-skills__list">
-            {groups.map((g) => (
-              <div key={g.category}>
-                <div className="h-skills__heading">
-                  <SectionHeader title={g.category} variant="overline" />
-                </div>
-                {g.skills.map((s) => (
-                  <SkillRow
-                    key={s.name}
-                    skill={s}
-                    onClick={() => onOpenSkill?.(s.name)}
-                    onEnabledChange={(v) => onSkillEnabledChange?.(s.name, v)}
-                  />
-                ))}
-              </div>
-            ))}
-            {hub && canCheckUpdates ? (
-              <ListRow
-                grouped={false}
-                icon="system_update_alt"
-                title="Check for updates"
-                subtitle="Updates the skills from the hub"
-                disabled={!!job}
-                onClick={onCheckUpdates}
-              />
-            ) : null}
-          </div>
-        )}
-      </>
-    );
+  const ready = state === "loaded";
+  const skillCount =
+    totalSkills ?? groups.reduce((n, g) => n + g.skills.length, 0);
+  const menuProfiles = profile
+    ? [profile, ...profiles.filter((p) => p !== profile)]
+    : [];
+
+  const skillsSearch: SettingsSearch = {
+    query,
+    onChange: onQueryChange,
+    hint: "Search skills",
+    filters: FILTERS.map((f) => ({
+      label: filterLabels[f],
+      selected: f === filter,
+    })),
+    onFilter: (i) => onFilterChange?.(FILTERS[i]),
+    filterMenuOpen,
   };
-  const discoverBody = () => {
-    const h = hub!;
-    switch (h.state) {
-      case "loading":
-        return <Note loading="Loading the hub" />;
-      case "unsupported":
-        return (
-          <Note text="The connected Hermes does not support the skills hub." />
-        );
-      case "failed":
-        return (
-          <Note
-            text="Could not load the hub"
-            action={<Button onClick={onHubRetry}>Retry</Button>}
-          />
-        );
-    }
-    const installed = new Set(h.installed ?? []);
-    const row = (s: HubSkill) => (
-      <HubSkillRow
-        key={s.name}
-        skill={s}
-        installed={installed.has(s.name)}
-        onClick={() => onOpenHubSkill?.(s)}
-      />
-    );
-    const searching = !!h.query;
-    let list: ReactNode;
-    if (searching && h.searchFailed) {
-      list = (
-        <Note
-          text="Could not search the hub"
-          action={<Button onClick={onHubRetry}>Retry</Button>}
+  const hubSources = hub?.sources ?? [];
+  const hubSearch: SettingsSearch | undefined =
+    hub && (hub.state ?? "loaded") === "loaded"
+      ? {
+          query: hub.query,
+          onChange: onHubQueryChange,
+          hint: "Search the skills hub",
+          filters: hubSources.length
+            ? [
+                { label: "All sources", selected: !hub.source },
+                ...hubSources.map((s) => ({
+                  label: s.label,
+                  selected: hub.source === s.id,
+                })),
+              ]
+            : undefined,
+          onFilter: (i) =>
+            onHubSourceChange?.(i === 0 ? undefined : hubSources[i - 1].id),
+          filterMenuOpen,
+        }
+      : undefined;
+
+  const installedBody = () => {
+    if (state === "loading" || state === "failed" || state === "unsupported") {
+      return (
+        <ScreenState
+          state={state}
+          loadingLabel="Loading skills"
+          failedTitle="Could not load skills"
+          unsupportedTitle="The connected Hermes does not support skills."
+          onRetry={onRetry}
         />
       );
-    } else if (searching && h.searching && !(h.results ?? []).length) {
-      list = <Note loading="Searching" />;
-    } else if (searching) {
-      const results = h.results ?? [];
-      list = (
-        <div className="h-skills__list">
-          {results.length === 0 ? <Note text="No skills found." /> : null}
-          {results.map(row)}
-          {h.timedOut ? (
-            <ListRow
-              grouped={false}
-              icon="hourglass_empty"
-              title={`${h.timedOut} source${h.timedOut === 1 ? "" : "s"} timed out`}
-              trailing={
-                <Button variant="text" onClick={onHubRetry}>
-                  Retry
-                </Button>
-              }
-            />
-          ) : null}
-        </div>
-      );
-    } else {
-      const sections = (
-        [
-          ["Featured", h.featured ?? []],
-          ["Official", h.official ?? []],
-        ] as const
-      ).filter(([, skills]) => skills.length > 0);
-      list = sections.length ? (
-        <div className="h-skills__list">
-          {sections.map(([title, skills]) => (
-            <div key={title}>
-              <div className="h-skills__heading">
-                <SectionHeader title={title} variant="overline" />
-              </div>
-              {skills.map(row)}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Note text="No skills to show." />
+    }
+    if (state === "empty")
+      return <Note text="This profile has no skills yet." />;
+    if (groups.length === 0) {
+      return (
+        <Note
+          text="No skills match."
+          action={
+            <Button variant="text" onClick={onClearFilters}>
+              Clear filters
+            </Button>
+          }
+        />
       );
     }
     return (
-      <>
-        <div className="h-skills__search">
-          <TextField
-            variant="search"
-            leadingIcon="search"
-            placeholder="Search the skills hub"
-            value={h.query ?? ""}
-            onChange={(e) => onHubQueryChange?.(e.target.value)}
-          />
-        </div>
-        {(h.sources ?? []).length ? (
-          <div className="h-skills__chips">
-            <Chip
-              label="All"
-              selected={!h.source}
-              onClick={() => onHubSourceChange?.(undefined)}
-            />
-            {h.sources!.map((s) => (
-              <Chip
-                key={s.id}
-                label={s.label}
-                selected={h.source === s.id}
-                onClick={() => onHubSourceChange?.(s.id)}
+      <GroupedListView>
+        {groups.map((g) => (
+          <GroupedSection key={g.category} header={categoryLabel(g.category)}>
+            {g.skills.map((s) => (
+              <SkillRow
+                key={s.name}
+                skill={s}
+                onClick={() => onOpenSkill?.(s.name)}
+                onEnabledChange={(v) => onSkillEnabledChange?.(s.name, v)}
               />
             ))}
-          </div>
+          </GroupedSection>
+        ))}
+        {hub && canCheckUpdates ? (
+          <UpdatesSection busy={!!job} onCheck={onCheckUpdates} />
         ) : null}
-        {list}
-      </>
+      </GroupedListView>
     );
   };
-  return (
-    <ScreenFrame
-      title="Skills"
-      onBack={onBack}
-      backLabel="Chat"
-      actions={
-        profile ? (
-          <span className="h-skills__profile">
-            <Chip
-              label={profile}
-              icon={profiles.length ? "arrow_drop_down" : undefined}
-              onClick={profiles.length ? onProfileClick : undefined}
-            />
-          </span>
-        ) : undefined
+
+  const discoverBody = (h: SkillsHubView) => {
+    const hubState = h.state ?? "loaded";
+    if (hubState !== "loaded") {
+      return (
+        <ScreenState
+          state={hubState}
+          loadingLabel="Loading the hub"
+          failedTitle="Could not load the hub"
+          unsupportedTitle="The connected Hermes does not support the skills hub."
+          onRetry={onHubRetry}
+        />
+      );
+    }
+    const installed = new Set(h.installed ?? []);
+    const section = (header: string, skills: HubSkill[]) => (
+      <GroupedSection key={header} header={header}>
+        {skills.map((s) => (
+          <HubSkillRow
+            key={s.name}
+            skill={s}
+            installed={installed.has(s.name)}
+            onClick={() => onOpenHubSkill?.(s)}
+          />
+        ))}
+      </GroupedSection>
+    );
+    if (h.query) {
+      const results = h.results ?? [];
+      if (h.searchFailed) {
+        return (
+          <ScreenState
+            state="failed"
+            failedTitle="Could not search the hub"
+            onRetry={onHubRetry}
+          />
+        );
       }
-      tabs={hub ? ["Installed", "Discover"] : undefined}
-      activeTab={discover ? 1 : 0}
-      onTabChange={(i) => onTabChange?.(i === 1 ? "discover" : "installed")}
-      onAdd={canAdd ? onNewSkill : undefined}
-      addLabel="New skill"
-      layout={layout}
-      platform={platform}
-      device={device}
-      maxWidth={720}
-      centered={noteOnly}
-      banner={
-        hub && job ? (
+      if (h.searching && !results.length) {
+        return (
+          <ScreenCenter>
+            <Spinner size={36} label="Searching" />
+          </ScreenCenter>
+        );
+      }
+      if (!results.length && !h.timedOut) {
+        return <Note text="No skills found." />;
+      }
+      return (
+        <GroupedListView>
+          {results.length ? section("Results", results) : null}
+          {h.timedOut ? (
+            <GroupedSection>
+              <GroupedRow
+                icon="hourglass_empty"
+                title={`${h.timedOut} source${h.timedOut === 1 ? "" : "s"} timed out`}
+                trailing={
+                  <Button variant="text" compact onClick={onHubRetry}>
+                    Retry
+                  </Button>
+                }
+              />
+            </GroupedSection>
+          ) : null}
+        </GroupedListView>
+      );
+    }
+    const featured = h.featured ?? [];
+    const official = h.official ?? [];
+    if (!featured.length && !official.length) {
+      return <Note text="No skills to show." />;
+    }
+    return (
+      <GroupedListView>
+        {featured.length ? section("Featured", featured) : null}
+        {official.length ? section("Official", official) : null}
+      </GroupedListView>
+    );
+  };
+
+  return (
+    <ScreenFrame platform={resolved}>
+      <SettingsScaffold
+        device={mac ? "mac" : "touch"}
+        title="Skills"
+        subtitle={
+          profile && mac && ready
+            ? `${profile} · ${skillCount} skill${skillCount === 1 ? "" : "s"}`
+            : profile
+        }
+        subtitleMenu={
+          profile && profiles.length
+            ? {
+                label: "Profile",
+                items: menuProfiles.map((p) => ({
+                  label: p,
+                  checked: p === profile,
+                })),
+                onSelect: (i) => onProfileChange?.(menuProfiles[i]),
+                open: profileMenuOpen,
+              }
+            : undefined
+        }
+        onBack={onBack ?? noop}
+        actions={
+          !discover && ready && onNewSkill
+            ? [
+                {
+                  icon: "add",
+                  label: "New skill",
+                  onClick: onNewSkill,
+                },
+              ]
+            : []
+        }
+        tabs={hub ? ["Installed", "Discover"] : undefined}
+        activeTab={discover ? 1 : 0}
+        onTabChange={(i) => onTabChange?.(i === 1 ? "discover" : "installed")}
+        search={discover ? hubSearch : ready ? skillsSearch : undefined}
+      >
+        {hub && job ? (
           <div
             className="h-skills__job"
             role="button"
@@ -395,13 +453,12 @@ export function SkillsScreen({
               }
             }}
           >
-            <div className="h-body-md">{job.title}…</div>
+            <div className="h-skills__job-title">{job.title}…</div>
             <BusyBar label={job.title} />
           </div>
-        ) : undefined
-      }
-    >
-      {discover ? discoverBody() : installedBody()}
+        ) : null}
+        {discover ? discoverBody(hub) : installedBody()}
+      </SettingsScaffold>
     </ScreenFrame>
   );
 }

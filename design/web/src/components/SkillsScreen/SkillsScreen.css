@@ -1,44 +1,20 @@
-.h-skills__search {
-  padding: 8px 16px;
-}
-
-.h-skills__chips {
-  display: flex;
-  gap: 8px;
-  padding: 0 16px 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.h-skills__chips > * {
-  flex: none;
-}
-
-/* Clear of the floating "New skill" button. */
-.h-skills__list {
-  padding-bottom: 88px;
-}
-
-.h-skills__heading {
-  padding: 16px 16px 4px;
-}
-
-.h-skills__note {
-  display: flex;
-  justify-content: center;
-  padding: 48px 24px;
-}
-
-.h-skills__profile {
-  padding-right: 8px;
-}
-
-/* A background hub job, as a dense tile on a tinted strip. */
+/* A background hub job: a dense ListTile on the tinted strip, the busy bar as its subtitle. */
 .h-skills__job {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 16px 10px;
   background: var(--h-surface-high);
   cursor: pointer;
+}
+
+.h-skills__job-title {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-skills__job:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
 }
