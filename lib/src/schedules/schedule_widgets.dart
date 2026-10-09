@@ -1,20 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/theme/hermes_theme.dart';
 
 import 'schedule_models.dart';
-
-Color outcomeColor(BuildContext context, CronJob job) {
-  final scheme = Theme.of(context).colorScheme;
-  if (job.isPaused || job.state == CronJobState.completed) {
-    return scheme.onSurfaceVariant;
-  }
-  return switch (job.outcome) {
-    CronOutcome.failed => scheme.error,
-    CronOutcome.deliveryFailed => context.hermesColors.warning,
-    CronOutcome.ok => context.hermesColors.success,
-    CronOutcome.none => scheme.onSurfaceVariant,
-  };
-}
 
 /// The one line a row and the detail say about how the job is doing.
 String statusText(CronJob job, DateTime now) {
@@ -58,6 +44,17 @@ List<(String, String)> jobSettings(CronJob job) => [
     ('Takes context from', job.contextFrom.join(', ')),
 ];
 
+/// What a job's row and detail flag about its last run.
+enum JobAlert { failed, undelivered }
+
+/// The alert [job] calls for; none while it is paused or finished, whose
+/// last failure is told rather than flagged.
+JobAlert? jobAlert(CronJob job) {
+  if (job.isPaused || job.state == CronJobState.completed) return null;
+  if (job.outcome == CronOutcome.deliveryFailed) return JobAlert.undelivered;
+  return job.isFailing ? JobAlert.failed : null;
+}
+
 /// The short reason a run failed, for the list: the first line, trimmed.
 String? failureReason(CronJob job) {
   final text = job.outcome == CronOutcome.deliveryFailed
@@ -66,39 +63,6 @@ String? failureReason(CronJob job) {
   if (text == null) return null;
   final line = text.split('\n').first.trim();
   return line.isEmpty ? null : line;
-}
-
-class StatusDot extends StatelessWidget {
-  const StatusDot({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 8,
-    height: 8,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-  );
-}
-
-/// A small outlined label, used for the delivery target and profile.
-class InfoChip extends StatelessWidget {
-  const InfoChip(this.label, {super.key});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(label, style: Theme.of(context).textTheme.labelSmall),
-    );
-  }
 }
 
 String deliveryLabel(String? deliver) => switch (deliver) {

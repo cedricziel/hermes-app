@@ -3,8 +3,8 @@ import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
-import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/widgets/job_group.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
 import 'package:hermes_app/src/schedules/widgets/run_history_empty.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_filter_menu.dart';
@@ -99,6 +99,46 @@ List<WidgetbookUseCase> _filterMenu(
   );
 });
 
+final _healthyJob = CronJob(
+  id: 'job-1',
+  name: 'Nightly backup summary',
+  prompt: 'Check last night’s backups and tell me which ones failed.',
+  scheduleKind: 'cron',
+  scheduleExpr: '0 3 * * *',
+  nextRunAt: DateTime.now().add(const Duration(hours: 9)),
+  lastRunAt: DateTime.now().subtract(const Duration(hours: 2)),
+  lastStatus: 'ok',
+  deliver: 'telegram',
+  profile: 'work',
+  skills: const ['backups'],
+);
+
+Widget _detail(
+  CronJob job, {
+  List<CronRun>? runs,
+  bool runsFailed = false,
+  bool muted = false,
+}) {
+  var mute = muted;
+  return StatefulBuilder(
+    builder: (context, setState) => ScheduleDetailView(
+      job: job,
+      now: DateTime.now(),
+      runs: runs,
+      runsFailed: runsFailed,
+      muted: mute,
+      onMutedChanged: (value) => setState(() => mute = value),
+      onRunNow: () {},
+      onEdit: () {},
+      onTogglePaused: () {},
+      onDelete: () {},
+      onOpenRun: (_) {},
+      onRetryRuns: () {},
+      onShowMoreRuns: runs != null && runs.length > 3 ? () {} : null,
+    ),
+  );
+}
+
 WidgetbookNode schedulesNode() => WidgetbookFolder(
   name: 'Schedules',
   children: [
@@ -131,6 +171,30 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'ScheduleDetailView',
+      useCases: [
+        ...onEachPlatform('Ok', (_) => _detail(_healthyJob, runs: cronRuns)),
+        ...onEachPlatform('Failed', (_) => _detail(failingJob, runs: cronRuns)),
+        ...onEachPlatform(
+          'Delivery failed',
+          (_) => _detail(deliveryFailedJob, runs: cronRuns.take(1).toList()),
+        ),
+        ...onEachPlatform(
+          'Paused, muted',
+          (_) => _detail(pausedJob, runs: const [], muted: true),
+        ),
+        ...onEachPlatform(
+          'Blocked before it ran',
+          (_) => _detail(blockedJob, runs: const []),
+        ),
+        ...onEachPlatform('Runs loading', (_) => _detail(_healthyJob)),
+        ...onEachPlatform(
+          'Runs failed to load',
+          (_) => _detail(_healthyJob, runsFailed: true),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
       name: 'RunHistoryEmpty',
       useCases: [
         WidgetbookUseCase(
@@ -155,26 +219,6 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
         ),
         ..._picker('Cron expression', const CronSpec('*/15 9-17 * * 1-5')),
         ..._picker('Invalid cron', const CronSpec('nonsense')),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'Chips',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'InfoChip and StatusDot',
-          builder: (_) => frame(
-            const Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                StatusDot(color: Colors.green),
-                StatusDot(color: Colors.red),
-                InfoChip('telegram'),
-                InfoChip('work'),
-              ],
-            ),
-          ),
-        ),
       ],
     ),
     WidgetbookComponent(

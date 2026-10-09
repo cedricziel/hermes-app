@@ -2,17 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../notifications/notification_settings.dart';
-import '../theme/app_icons.dart';
-import '../theme/platform_chrome.dart';
 import 'job_form_controller.dart';
 import 'job_form_screen.dart';
 import 'schedule_actions.dart';
 import 'schedule_models.dart';
-import 'schedule_widgets.dart';
 import 'schedules_controller.dart';
-import 'widgets/mac_schedule_detail.dart';
-import 'widgets/run_history_empty.dart';
-import 'widgets/run_history_pending.dart';
+import 'widgets/schedule_detail_view.dart';
 
 /// Asks the chat to show the session of a run.
 typedef OpenRun = void Function(CronRun run, CronJob job);
@@ -24,11 +19,15 @@ class ScheduleDetail extends StatefulWidget {
     required this.controller,
     required this.job,
     required this.onOpenRun,
+    this.showTitle = true,
   });
 
   final SchedulesController controller;
   final CronJob job;
   final OpenRun onOpenRun;
+
+  /// Names the job above its sections; off where the bar already does.
+  final bool showTitle;
 
   @override
   State<ScheduleDetail> createState() => _ScheduleDetailState();
@@ -141,243 +140,30 @@ class _ScheduleDetailState extends State<ScheduleDetail> {
   @override
   Widget build(BuildContext context) {
     final job = widget.job;
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final now = _controller.now;
-    final color = outcomeColor(context, job);
-    final next = nextRunText(job, now);
     NotificationSettings? notifications;
     try {
       notifications = context.watch<NotificationSettings>();
     } on ProviderNotFoundException {
       notifications = null;
     }
-    if (platformChromeOf(context) == PlatformChrome.macos) {
-      return MacScheduleDetail(
-        job: job,
-        now: now,
-        runs: _runs,
-        runsFailed: _runsFailed,
-        muted: notifications?.isMuted(job.key),
-        onMutedChanged: notifications == null
-            ? null
-            : (muted) => notifications!.setMuted(job.key, muted),
-        onRunNow: _runNow,
-        onEdit: _edit,
-        onTogglePaused: _togglePaused,
-        onDelete: _delete,
-        onOpenRun: (run) => widget.onOpenRun(run, job),
-        onRetryRuns: () => _loadRuns(++_load),
-        onShowMoreRuns: _canShowMore ? _showMore : null,
-      );
-    }
-    final settings = <(String, String)>[
-      ...jobSettings(job),
-      ('Deliver to', deliveryLabel(job.deliver)),
-      if (job.profile != null) ('Profile', job.profile!),
-    ];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(job.title, style: theme.textTheme.headlineSmall),
-        const SizedBox(height: 12),
-        _Section(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 6,
-            children: [
-              Row(
-                spacing: 8,
-                children: [
-                  StatusDot(color: color),
-                  Expanded(
-                    child: Text(
-                      statusText(job, now),
-                      style: theme.textTheme.titleSmall?.copyWith(color: color),
-                    ),
-                  ),
-                ],
-              ),
-              if (job.outcome == CronOutcome.failed &&
-                  failureReason(job) != null)
-                Text(
-                  failureReason(job)!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.error,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              if (job.lastDeliveryError != null &&
-                  job.outcome != CronOutcome.deliveryFailed)
-                Text('Delivery failed: ${job.lastDeliveryError}'),
-              if (job.outcome == CronOutcome.deliveryFailed &&
-                  job.lastDeliveryError != null)
-                Text(
-                  job.lastDeliveryError!,
-                  style: theme.textTheme.bodySmall?.copyWith(color: color),
-                ),
-              if (next != null)
-                Text(
-                  next,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: _runNow,
-              icon: const AppIcon(AppIcons.play),
-              label: const Text('Run now'),
-            ),
-            OutlinedButton.icon(
-              onPressed: job.state == CronJobState.completed
-                  ? null
-                  : _togglePaused,
-              icon: AppIcon(job.isPaused ? AppIcons.resume : AppIcons.pause),
-              label: Text(job.isPaused ? 'Resume' : 'Pause'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _edit,
-              icon: const AppIcon(AppIcons.edit),
-              label: const Text('Edit'),
-            ),
-          ],
-        ),
-        if (notifications != null)
-          SwitchListTile.adaptive(
-            key: const Key('job-mute'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Mute notifications'),
-            subtitle: const Text('No alert when this task runs'),
-            value: notifications.isMuted(job.key),
-            onChanged: (muted) => notifications!.setMuted(job.key, muted),
-          ),
-        const SizedBox(height: 20),
-        _Heading('Schedule'),
-        Text(
-          job.scheduleWords.isEmpty ? 'Unknown' : job.scheduleWords,
-          style: theme.textTheme.bodyLarge,
-        ),
-        if (job.scheduleKind == 'cron' && job.scheduleExpr != null) ...[
-          const SizedBox(height: 6),
-          InfoChip(job.scheduleExpr!),
-        ],
-        if (job.prompt.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          _Heading('Task'),
-          _Section(child: SelectableText(job.prompt)),
-        ],
-        const SizedBox(height: 20),
-        _Heading('Settings'),
-        for (final (label, value) in settings)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 130,
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                Expanded(child: Text(value)),
-              ],
-            ),
-          ),
-        const SizedBox(height: 20),
-        _Heading('Run history'),
-        ..._history(context),
-        const SizedBox(height: 24),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: _delete,
-            style: TextButton.styleFrom(foregroundColor: scheme.error),
-            icon: const AppIcon(AppIcons.delete),
-            label: const Text('Delete task'),
-          ),
-        ),
-      ],
+    return ScheduleDetailView(
+      job: job,
+      now: now,
+      runs: _runs,
+      runsFailed: _runsFailed,
+      showTitle: widget.showTitle,
+      muted: notifications?.isMuted(job.key),
+      onMutedChanged: notifications == null
+          ? null
+          : (muted) => notifications!.setMuted(job.key, muted),
+      onRunNow: _runNow,
+      onEdit: _edit,
+      onTogglePaused: _togglePaused,
+      onDelete: _delete,
+      onOpenRun: (run) => widget.onOpenRun(run, job),
+      onRetryRuns: () => _loadRuns(++_load),
+      onShowMoreRuns: _canShowMore ? _showMore : null,
     );
   }
-
-  List<Widget> _history(BuildContext context) {
-    final runs = _runs;
-    if (runs == null) {
-      return [
-        RunHistoryPending(
-          failed: _runsFailed,
-          onRetry: () => _loadRuns(++_load),
-        ),
-      ];
-    }
-    if (runs.isEmpty) return [RunHistoryEmpty(job: widget.job)];
-    final scheme = Theme.of(context).colorScheme;
-    return [
-      for (final run in runs)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          dense: true,
-          leading: run.isActive
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-                )
-              : AppIcon(AppIcons.chat, size: 18, color: scheme.outline),
-          title: Text(formatTime(context, run.startedAt)),
-          subtitle: Text(runOutcomeText(run)),
-          trailing: const AppIcon(AppIcons.chevronRight),
-          onTap: () => widget.onOpenRun(run, widget.job),
-        ),
-      if (_canShowMore)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton(
-            onPressed: _showMore,
-            child: const Text('Show more'),
-          ),
-        ),
-    ];
-  }
-}
-
-class _Heading extends StatelessWidget {
-  const _Heading(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
-  );
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      border: Border.all(color: Theme.of(context).colorScheme.outline),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: child,
-  );
 }

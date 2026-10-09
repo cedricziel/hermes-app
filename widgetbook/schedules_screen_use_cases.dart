@@ -63,29 +63,25 @@ FakeHermesServer schedulesServer({bool empty = false}) {
 }
 
 FakeHermesServer _withRunsAndBlueprints(FakeHermesServer server) => server
-  ..on('GET', '/api/cron/jobs/job1/runs', [
-    cronRunRow(
-      id: 'run-2',
-      startedAt:
-          DateTime.now()
-              .subtract(const Duration(hours: 3))
-              .millisecondsSinceEpoch ~/
-          1000,
-      endedAt:
-          DateTime.now()
-              .subtract(const Duration(hours: 3))
-              .millisecondsSinceEpoch ~/
-          1000,
-    ),
-  ])
-  ..on('GET', '/api/cron/jobs/job2/runs', [
-    for (final (i, minutes) in [20, 50, 80].indexed)
+  ..on('GET', '/api/cron/jobs/job1/runs', {
+    'runs': [
       cronRunRow(
-        id: 'run-status-$i',
-        startedAt: _secondsAgo(Duration(minutes: minutes)),
-        endedAt: _secondsAgo(Duration(minutes: minutes - 1)),
+        id: 'run-2',
+        startedAt: _secondsAgo(const Duration(hours: 3)),
+        endedAt: _secondsAgo(const Duration(hours: 3)),
       ),
-  ])
+    ],
+  })
+  ..on('GET', '/api/cron/jobs/job2/runs', {
+    'runs': [
+      for (final (i, minutes) in [20, 50, 80].indexed)
+        cronRunRow(
+          id: 'run-status-$i',
+          startedAt: _secondsAgo(Duration(minutes: minutes)),
+          endedAt: _secondsAgo(Duration(minutes: minutes - 1)),
+        ),
+    ],
+  })
   ..on('GET', '/api/cron/delivery-targets', {
     'targets': [
       {'id': 'local', 'name': 'Local (save only)', 'home_target_set': true},

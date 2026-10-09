@@ -156,14 +156,13 @@ class JobTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final completed = job.state == CronJobState.completed;
-    // A paused or finished job's last failure is told, not flagged.
-    final quiet = job.isPaused || completed;
-    final undelivered = job.outcome == CronOutcome.deliveryFailed;
-    final warning = !quiet && undelivered;
-    final error = !quiet && job.isFailing && !warning;
+    final alert = jobAlert(job);
+    final warning = alert == JobAlert.undelivered;
+    final error = alert == JobAlert.failed;
     final status = [
       statusText(job, now),
-      if (job.isFailing || undelivered) ?failureReason(job),
+      if (job.isFailing || job.outcome == CronOutcome.deliveryFailed)
+        ?failureReason(job),
     ].join(' · ');
     final next = nextRunText(job, now);
     return GroupedSwitchRow(
@@ -177,7 +176,7 @@ class JobTile extends StatelessWidget {
       error: error ? status : null,
       warning: warning ? status : null,
       selected: selected,
-      value: !quiet,
+      value: !job.isPaused && !completed,
       onChanged: completed ? null : (on) => onPausedChanged(!on),
       onTap: onTap,
     );
