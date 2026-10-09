@@ -11,11 +11,12 @@ const phone = {
 } as const;
 const mac = { ...phone, width: 640, height: 420 } as const;
 const row = { display: "flex", gap: 16, alignItems: "flex-start" } as const;
+const column = { ...row, flexDirection: "column" } as const;
 const noop = () => {};
 
-/** iPhone: Follow system checked with the trailing blue check; Mac: the compact rows and Done in a 44px bar. */
+/** iPhone: Follow system checked with the trailing blue check; under it the Mac: the compact rows and Done in a 44px bar. */
 export const Apple = () => (
-  <div style={row}>
+  <div style={column}>
     <HermesProvider platform="apple">
       <div style={phone}>
         <AppearanceDialog mode="system" onChange={noop} onDone={noop} />

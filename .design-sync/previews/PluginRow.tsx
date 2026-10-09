@@ -7,8 +7,14 @@ import {
   type Platform,
 } from "@hermes-app/ui";
 
-const cell = { width: 380, paddingTop: 8 } as const;
-const row = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
+const cell = { width: 390, paddingTop: 8 } as const;
+const row = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 12,
+  width: 792,
+  alignItems: "flex-start",
+} as const;
 
 const looks: Array<{
   name: string;
@@ -16,8 +22,8 @@ const looks: Array<{
   device?: "mac";
 }> = [
   { name: "iPhone", platform: "apple" },
-  { name: "Mac", platform: "apple", device: "mac" },
   { name: "Material", platform: "material" },
+  { name: "Mac", platform: "apple", device: "mac" },
 ];
 
 function Look({
@@ -34,7 +40,7 @@ function Look({
       platform={look.platform}
       typeRamp={look.device ? "default" : undefined}
       theme={theme}
-      style={cell}
+      style={look.device ? { ...cell, width: 480 } : cell}
     >
       <GroupedListView device={look.device}>{children}</GroupedListView>
     </HermesProvider>
@@ -138,7 +144,7 @@ export const Catalog = () => (
 
 /** A name that does not fit is cut with an ellipsis; a removed plugin warns why. */
 export const LongName = () => (
-  <Look look={looks[2]}>
+  <Look look={looks[1]}>
     <GroupedSection>
       <PluginRow
         plugin={{
