@@ -7,8 +7,10 @@ import 'package:hermes_app/src/kanban/widgets/kanban_card.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_card_drag.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_drop_strip.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_inspector_layout.dart';
+import 'package:hermes_app/src/kanban/widgets/kanban_list_rows.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_mac_toolbar.dart';
 import 'package:hermes_app/src/kanban/widgets/kanban_status_chips.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -301,6 +303,20 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
+      name: 'KanbanBoardRow',
+      useCases: [
+        ...onEachPlatform('Boards', (_) => frame(_boardRows(removable: true))),
+        ...onEachPlatform(
+          'Only board',
+          (_) => frame(_boardRows(removable: false)),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'KanbanWorkerRow',
+      useCases: [...onEachPlatform('Workers', (_) => frame(_workerRows()))],
+    ),
+    WidgetbookComponent(
       name: 'KanbanLiveDot',
       useCases: [
         _use('Live', const KanbanLiveDot(live: true)),
@@ -309,5 +325,47 @@ WidgetbookNode kanbanNode() => WidgetbookFolder(
     ),
     ...kanbanTaskComponents(),
     ...kanbanScreenComponents(),
+  ],
+);
+
+Widget _boardRows({required bool removable}) => GroupedSection(
+  children: [
+    for (final board in removable ? _boards : _boards.take(1))
+      KanbanBoardRow(
+        board: board,
+        current: board.slug == 'default',
+        onOpen: () {},
+        onRename: () {},
+        onExport: () {},
+        removable: removable,
+        onArchive: () {},
+        onDelete: () {},
+      ),
+  ],
+);
+
+Widget _workerRows() => GroupedSection(
+  children: [
+    for (final worker in [
+      KanbanWorker(
+        runId: 7,
+        taskId: 't_run',
+        taskTitle: 'Migrate webhooks to v2 signing',
+        profile: 'coder',
+        startedAt: DateTime.now().subtract(const Duration(minutes: 12)),
+        lastHeartbeatAt: DateTime.now().subtract(const Duration(seconds: 20)),
+      ),
+      const KanbanWorker(
+        runId: 8,
+        taskId: 't_review',
+        taskTitle: 'Review the settings layout',
+      ),
+    ])
+      KanbanWorkerRow(
+        worker: worker,
+        onOpen: () {},
+        onInspect: () {},
+        onTerminate: () {},
+      ),
   ],
 );

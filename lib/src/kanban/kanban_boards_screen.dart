@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
 import '../theme/app_icons.dart';
 import 'kanban_board_controller.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
-
-import '../widgets/named_icon_button.dart';
+import 'widgets/kanban_list_rows.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 
 /// Lists the plugin's boards; opens, creates, renames, archives or deletes them.
 class KanbanBoardsScreen extends StatelessWidget {
@@ -172,71 +172,52 @@ class KanbanBoardsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Boards'),
+      builder: (context, _) {
+        final boards = controller.boards;
+        final removable = boards.length > 1;
+        return SettingsScaffold(
+          title: 'Boards',
+          subtitle: boards.length == 1 ? '1 board' : '${boards.length} boards',
+          previousTitle: 'Kanban',
           actions: [
-            NamedIconButton(
+            SettingsBarAction(
               label: 'Import a board',
               icon: AppIcons.openFile,
               onPressed: () => _import(context),
             ),
+            SettingsBarAction(
+              label: 'New board',
+              icon: AppIcons.add,
+              onPressed: () => _create(context),
+            ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _create(context),
-          icon: const AppIcon(AppIcons.add),
-          label: const Text('New board'),
-        ),
-        body: ListView(
-          children: [
-            for (final b in controller.boards)
-              ContextMenuRow(
-                builder: (context, menu) => ListTile(
-                  leading: AppIcon(
-                    b.slug == controller.boardSlug
-                        ? AppIcons.checkCircleFilled
-                        : AppIcons.radioOff,
-                  ),
-                  title: Text(b.name),
-                  subtitle: Text('${b.slug} · ${b.total} tasks'),
-                  onTap: () {
-                    controller.selectBoard(b.slug);
-                    Navigator.pop(context);
-                  },
-                  trailing: AdaptivePopupMenuButton<String>(
-                    controller: menu,
-                    onSelected: (action) => switch (action) {
-                      'rename' => _rename(context, b.slug, b.name),
-                      'export' => _export(context, b.slug, b.name),
-                      'archive' => _remove(
-                        context,
-                        b.slug,
-                        b.name,
-                        hard: false,
+          body: GroupedListView(
+            children: [
+              if (boards.isNotEmpty)
+                GroupedSection(
+                  children: [
+                    for (final b in boards)
+                      KanbanBoardRow(
+                        board: b,
+                        current: b.slug == controller.boardSlug,
+                        onOpen: () {
+                          controller.selectBoard(b.slug);
+                          Navigator.pop(context);
+                        },
+                        onRename: () => _rename(context, b.slug, b.name),
+                        onExport: () => _export(context, b.slug, b.name),
+                        removable: removable,
+                        onArchive: () =>
+                            _remove(context, b.slug, b.name, hard: false),
+                        onDelete: () =>
+                            _remove(context, b.slug, b.name, hard: true),
                       ),
-                      _ => _remove(context, b.slug, b.name, hard: true),
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'export',
-                        child: Text('Export…'),
-                      ),
-                      if (controller.boards.length > 1) ...const [
-                        PopupMenuItem(value: 'archive', child: Text('Archive')),
-                        PopupMenuItem(value: 'delete', child: Text('Delete')),
-                      ],
-                    ],
-                  ),
+                  ],
                 ),
-              ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

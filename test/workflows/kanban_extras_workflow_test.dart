@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_screen.dart';
@@ -613,7 +614,7 @@ void main() {
       await openMoreMenu(tester, 'Active workers…');
       await shots.capture(tester, 'running');
 
-      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.tap(find.byType(PopupMenuButton<RowAction>).first);
       await tester.pumpAndSettle();
       await shots.capture(tester, 'row-menu');
       await tester.tap(find.text('Inspect process'));
@@ -621,14 +622,14 @@ void main() {
       await shots.capture(tester, 'inspect-figures');
       await popRoute(tester);
 
-      await tester.tap(find.byType(PopupMenuButton<String>).at(1));
+      await tester.tap(find.byType(PopupMenuButton<RowAction>).at(1));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Inspect process'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'inspect-gone');
       await popRoute(tester);
 
-      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.tap(find.byType(PopupMenuButton<RowAction>).first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Terminate'));
       await tester.pumpAndSettle();
@@ -792,7 +793,7 @@ void main() {
           find
               .descendant(
                 of: screen,
-                matching: find.byType(PopupMenuButton<String>),
+                matching: find.byType(PopupMenuButton<RowAction>),
               )
               .first,
         );
@@ -805,7 +806,7 @@ void main() {
         find
             .descendant(
               of: screen,
-              matching: find.byType(PopupMenuButton<String>),
+              matching: find.byType(PopupMenuButton<RowAction>),
             )
             .first,
       );
@@ -813,7 +814,7 @@ void main() {
       await shots.capture(tester, 'row-menu');
       await popRoute(tester);
 
-      await tester.tap(find.text('New board'));
+      await tester.tap(find.byTooltip('New board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'new-board');
       await tester.enterText(

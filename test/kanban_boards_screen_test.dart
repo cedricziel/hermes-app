@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -79,7 +80,7 @@ void main() {
     server.on('POST', '/api/plugins/kanban/boards', {'board': {}});
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Q3 Launch');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -95,7 +96,7 @@ void main() {
   testWidgets('will not send a name that leaves no slug', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '日本語');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -114,7 +115,7 @@ void main() {
     }, status: 400);
     await pump(tester);
 
-    await tester.tap(find.text('New board'));
+    await tester.tap(find.byTooltip('New board'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Ops');
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -127,7 +128,7 @@ void main() {
     server.on('DELETE', '/api/plugins/kanban/boards/ops', {'result': {}});
     await pump(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.tap(find.byType(PopupMenuButton<RowAction>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Archive'));
     await tester.pumpAndSettle();
@@ -157,7 +158,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.tap(find.byType(PopupMenuButton<RowAction>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();

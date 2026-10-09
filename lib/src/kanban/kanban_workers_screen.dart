@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
-import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 
-import '../chat/widgets/relative_time.dart';
 import '../theme/app_icons.dart';
-import '../widgets/named_icon_button.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/state_message.dart';
 import 'kanban_errors.dart';
 import 'kanban_models.dart';
 import 'kanban_repository.dart';
+import 'widgets/kanban_list_rows.dart';
 import 'widgets/kanban_task_panel.dart';
 
 /// The workers the dispatcher has running tasks right now, with a look at
@@ -130,91 +131,63 @@ class _KanbanWorkersScreenState extends State<KanbanWorkersScreen> {
   @override
   Widget build(BuildContext context) {
     final workers = _workers;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Active workers'),
-        actions: [
-          NamedIconButton(
-            label: 'Refresh',
-            icon: AppIcons.refresh,
-            onPressed: _load,
-          ),
-        ],
-      ),
+    final failure = _failure;
+    return SettingsScaffold(
+      title: 'Active workers',
+      subtitle: workers == null ? null : '${workers.length} running',
+      previousTitle: 'Kanban',
+      actions: [
+        SettingsBarAction(
+          label: 'Refresh',
+          icon: AppIcons.refresh,
+          onPressed: _load,
+        ),
+      ],
       body: workers == null
-          ? Center(
-              child: _failure != null
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_failure!),
-                        const SizedBox(height: 8),
-                        FilledButton(
-                          onPressed: () {
-                            setState(() => _failure = null);
-                            _load();
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    )
-                  : const CircularProgressIndicator.adaptive(),
-            )
+          ? failure != null
+                ? StateMessage(
+                    title: failure,
+                    action: FilledButton(
+                      onPressed: () {
+                        setState(() => _failure = null);
+                        _load();
+                      },
+                      child: const Text('Retry'),
+                    ),
+                  )
+                : const Center(child: CircularProgressIndicator.adaptive())
           : RefreshIndicator(
               onRefresh: _load,
               child: workers.isEmpty
                   ? ListView(
                       children: const [
                         SizedBox(height: 120),
-                        Center(child: Text('No workers are running')),
+                        StateMessage(title: 'No workers are running'),
                       ],
                     )
-                  : ListView.separated(
-                      itemCount: workers.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, i) {
-                        final w = workers[i];
-                        return ContextMenuRow(
-                          builder: (context, menu) => ListTile(
-                            title: Text(w.taskTitle),
-                            subtitle: Text(
-                              [
-                                '${w.taskId} · run #${w.runId}',
-                                if (w.profile != null) w.profile!,
-                                if (w.startedAt != null)
-                                  'started ${relativeTime(w.startedAt!)}',
-                                if (w.lastHeartbeatAt != null)
-                                  'heartbeat ${relativeTime(w.lastHeartbeatAt!)}',
-                              ].join(' · '),
-                            ),
-                            // The task's own panel can stop this very run, so the
-                            // list is read again once it closes.
-                            onTap: () => showKanbanTask(
-                              context,
-                              repository: widget.repository,
-                              taskId: w.taskId,
-                              board: widget.board,
-                              onChanged: widget.onChanged,
-                            ).then((_) => _load()),
-                            trailing: AdaptivePopupMenuButton<String>(
-                              controller: menu,
-                              onSelected: (action) => action == 'inspect'
-                                  ? _inspect(w)
-                                  : _terminate(w),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: 'inspect',
-                                  child: Text('Inspect process'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'terminate',
-                                  child: Text('Terminate'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                  : GroupedListView(
+                      children: [
+                        GroupedSection(
+                          children: [
+                            for (final w in workers)
+                              KanbanWorkerRow(
+                                worker: w,
+                                // The task's own panel can stop this very
+                                // run, so the list is read again once it
+                                // closes.
+                                onOpen: () => showKanbanTask(
+                                  context,
+                                  repository: widget.repository,
+                                  taskId: w.taskId,
+                                  board: widget.board,
+                                  onChanged: widget.onChanged,
+                                ).then((_) => _load()),
+                                onInspect: () => _inspect(w),
+                                onTerminate: () => _terminate(w),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
             ),
     );
