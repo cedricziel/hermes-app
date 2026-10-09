@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_toolbar.dart';
 import 'package:hermes_app/src/macos/mac_toolbar_search_field.dart';
+import 'package:hermes_app/src/shell/shell_navigation.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
@@ -75,6 +76,21 @@ void main() {
     expect(bar.toolbarHeight, 56);
     expect(bar.centerTitle, isFalse);
     expect(find.byType(BackButton), findsOneWidget);
+  });
+
+  testWidgets('a top-level page opens the shell menu instead of going back', (
+    tester,
+  ) async {
+    var opened = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesLightTheme(platform: TargetPlatform.android),
+        home: ShellMenu(onOpen: () => opened = true, child: _page()),
+      ),
+    );
+    expect(find.byType(BackButton), findsNothing);
+    await tester.tap(find.byKey(const Key('shell-menu')));
+    expect(opened, isTrue);
   });
 
   testWidgets('macOS puts the title, tabs and search in the toolbar', (

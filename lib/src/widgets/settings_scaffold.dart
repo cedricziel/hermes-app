@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
+import '../shell/shell_navigation.dart';
 import '../theme/app_icons.dart';
 import '../theme/hermes_theme.dart';
 import '../theme/platform_chrome.dart';
@@ -222,12 +223,18 @@ class SettingsScaffold extends StatelessWidget {
         (search == null
             ? 0
             : SettingsSearchField.heightFor(ios: ios) + _searchBottomGap);
+    // A page the shell shows at the top level opens the shell's drawer.
+    final back = Navigator.canPop(context);
+    final leading = back
+        ? AdaptiveBackButton(previousTitle: previousTitle)
+        : ShellMenu.button(context);
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: ios ? kAppleNavBarHeight : 56,
         centerTitle: ios,
-        leading: AdaptiveBackButton(previousTitle: previousTitle),
-        leadingWidth: adaptiveBackLeadingWidth(context),
+        automaticallyImplyLeading: false,
+        leading: leading,
+        leadingWidth: back ? adaptiveBackLeadingWidth(context) : null,
         title: _BarTitle(
           title: title,
           subtitle: subtitle,
