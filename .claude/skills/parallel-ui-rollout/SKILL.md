@@ -52,6 +52,11 @@ the rework.
   desyncs GitHub's editor), and put the images in the PR body with
   `gh pr edit --body-file`. GitHub returns 429 silently after roughly 60–90
   uploads an hour; upload in batches of up to about eight per call.
+- **The PR body is shared.** The agent, the orchestrator's screenshots and the
+  reviewer each own a section. Whoever edits it reads the current body, changes
+  only their own section and writes it back; an agent that regenerates the
+  whole body from its own notes deletes the screenshots. Keep the uploaded URLs
+  in the shots folder so a wiped section can be restored.
 - **Review before merge.** CodeRabbit when it reviews. When it is rate-limited
   or capped, an isolated reviewer agent with fresh context reviews
   `gh pr diff <n>` for correctness, accessibility and unintended behaviour or
