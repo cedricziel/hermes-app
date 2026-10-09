@@ -14,6 +14,7 @@ import '../../settings/widgets/mac_account_footer.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../voice/dictation_dialog.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
@@ -726,6 +727,7 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'change-server') auth.changeServer();
                 if (value == 'appearance') showAppearanceDialog(context);
                 if (value == 'notifications') showNotificationsDialog(context);
+                if (value == 'dictation') showDictationDialog(context);
                 if (value == 'app-lock') showAppLockDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
               },
@@ -746,6 +748,11 @@ class AccountFooter extends StatelessWidget {
                   value: 'notifications',
                   child: Text('Notifications'),
                 ),
+                if (dictationEngineOffered)
+                  const PopupMenuItem(
+                    value: 'dictation',
+                    child: Text('Dictation'),
+                  ),
                 const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
                 const PopupMenuItem(value: 'about', child: Text('About')),
                 if (auth.status?.authRequired ?? false)
