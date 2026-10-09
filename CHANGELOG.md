@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.1.55](https://github.com/cedricziel/hermes-app/compare/v0.1.54...v0.1.55) (2026-10-09)
+
+
+### Features
+
+* **bots:** restyle the Bots screens to the clean design ([#531](https://github.com/cedricziel/hermes-app/issues/531)) ([5e5612d](https://github.com/cedricziel/hermes-app/commit/5e5612d8cb3d0760efca4b8901c744573f35c2d6))
+* **kanban:** restyle the boards and workers lists to the clean design ([#530](https://github.com/cedricziel/hermes-app/issues/530)) ([22b8742](https://github.com/cedricziel/hermes-app/commit/22b874249ebe165c3c94b86f8c96fdbe93f8c5ca))
+* **kanban:** restyle the new task form to the clean design ([#537](https://github.com/cedricziel/hermes-app/issues/537)) ([3fd520b](https://github.com/cedricziel/hermes-app/commit/3fd520b85559bbdbbe014b14c2979f2c005db3d4))
+* **mcp:** give the MCP sub-screens the clean settings design ([#527](https://github.com/cedricziel/hermes-app/issues/527)) ([18e635f](https://github.com/cedricziel/hermes-app/commit/18e635fbcec69e585bf9cdfa6b91e679fcf0147e))
+* **mcp:** list servers in an inset group under the settings bar ([#519](https://github.com/cedricziel/hermes-app/issues/519)) ([8548b3d](https://github.com/cedricziel/hermes-app/commit/8548b3d0d481bdd532d208026290520c95b9ca16))
+* **models:** give the model picker the clean grouped design ([#533](https://github.com/cedricziel/hermes-app/issues/533)) ([528870a](https://github.com/cedricziel/hermes-app/commit/528870ac63310d9aa66720acea9f917a23078c6e))
+* **profiles:** restyle the Profiles screens to the clean design ([#529](https://github.com/cedricziel/hermes-app/issues/529)) ([e1a0557](https://github.com/cedricziel/hermes-app/commit/e1a0557d4244c7dc91612592778e47849e0e50a4))
+* **schedules:** list jobs in an inset group with the filter in the bar ([#535](https://github.com/cedricziel/hermes-app/issues/535)) ([4d3d78a](https://github.com/cedricziel/hermes-app/commit/4d3d78ab674449399689fedd0c05c75577f7c229))
+* **schedules:** restyle the blueprint gallery and form to the clean design ([#536](https://github.com/cedricziel/hermes-app/issues/536)) ([309cf61](https://github.com/cedricziel/hermes-app/commit/309cf6193cbbf0812a527dc081e4c177645f6652))
+* **schedules:** restyle the job form to the clean design ([#534](https://github.com/cedricziel/hermes-app/issues/534)) ([469d7d8](https://github.com/cedricziel/hermes-app/commit/469d7d8dd813e24a522c18e1d03baca6dd1d4156))
+* **schedules:** show a job's detail as grouped sections ([#539](https://github.com/cedricziel/hermes-app/issues/539)) ([3698708](https://github.com/cedricziel/hermes-app/commit/3698708b99c7c3ec0a22e168ad1482e9cfb3bfe2))
+* **settings:** group the settings dialogs in the clean design ([#532](https://github.com/cedricziel/hermes-app/issues/532)) ([7dd0607](https://github.com/cedricziel/hermes-app/commit/7dd0607a820e05a29e41f6ceb8cfa6c2754396d5))
+
+
+### Documentation
+
+* **openspec:** archive finished changes ([#525](https://github.com/cedricziel/hermes-app/issues/525)) ([8bc2b6b](https://github.com/cedricziel/hermes-app/commit/8bc2b6bc98de75482c817362aa52e259c67b3768))
+
 ## [0.1.54](https://github.com/cedricziel/hermes-app/compare/v0.1.53...v0.1.54) (2026-10-08)
 
 
