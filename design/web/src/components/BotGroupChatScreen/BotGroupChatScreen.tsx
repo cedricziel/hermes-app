@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { AlertDialog } from "../AlertDialog/AlertDialog";
 import {
   ApprovalCard,
   type ApprovalChoice,
@@ -45,6 +47,33 @@ export interface BotGroupPendingAction {
   description?: string;
 }
 
+/** What the room asks before it acts, as the app's `GroupConfirmation`. */
+export type BotGroupConfirmation = "disband" | "retryTask" | "retryMessage";
+
+const confirmations: Record<
+  BotGroupConfirmation,
+  { title: (name: string) => string; detail: string; action: string }
+> = {
+  disband: {
+    title: (name) => `Disband ${name}?`,
+    detail:
+      "This stops group work and removes the room from the roster. Membership cannot be changed.",
+    action: "Disband group",
+  },
+  retryTask: {
+    title: () => "Retry task?",
+    detail:
+      "The selected task is indeterminate or deferred. Review the room history before repeating its work.",
+    action: "Retry task",
+  },
+  retryMessage: {
+    title: () => "Retry message?",
+    detail:
+      "The app will check the durable log before retrying this exact message with its original identity.",
+    action: "Retry message",
+  },
+};
+
 export interface BotGroupChatScreenProps {
   /** The room's name: "Launch plan". */
   name: string;
@@ -74,17 +103,29 @@ export interface BotGroupChatScreenProps {
   state?: "loaded" | "loading" | "disbanded";
   /** Draw the "…" menu (Rename, Disband) open, for previews. */
   menuOpen?: boolean;
+  /**
+   * Draw a confirmation open, for previews: `disband` ("Disband Launch
+   * plan?"), `retryTask` ("Retry task?", for the first `retry` action) or
+   * `retryMessage` ("Retry message?"). Disband, Review retry and Review
+   * message retry always ask first, in the app's Material alert on every
+   * platform (Cancel, then the filled action); the callbacks run only on
+   * confirm.
+   */
+  confirm?: BotGroupConfirmation;
   /** Back to Bots; the bar always draws it, as the room is pushed. */
   onBack?: () => void;
   onRename?: () => void;
+  /** Disband was confirmed. */
   onDisband?: () => void;
   onStop?: () => void;
   onApprove?: (actionId: string, choice: ApprovalChoice) => void;
+  /** A `retry` action's retry was confirmed. */
   onRetryAction?: (actionId: string) => void;
   onRetryLoad?: () => void;
   onReply?: (eventId: string) => void;
   onNewTopic?: () => void;
   onDraftChange?: (draft: string) => void;
+  /** Send, or with `retrySend` the confirmed message retry. */
   onSend?: () => void;
   /** `phone` or `desktop`. Under `apple`, `desktop` draws the Mac window's 52px toolbar (back button, name over "3 members", "…"). */
   layout?: ScreenLayout;
@@ -163,6 +204,7 @@ export function BotGroupChatScreen({
   pending = false,
   state = "loaded",
   menuOpen = false,
+  confirm,
   onBack = noop,
   onRename,
   onDisband,
@@ -181,6 +223,25 @@ export function BotGroupChatScreen({
   const appleDevice = useAppleDevice(layout, device);
   const actionable = !pending && state !== "disbanded";
   const running = working || blocked;
+  const [asking, setAsking] = useState<{
+    kind: BotGroupConfirmation;
+    actionId?: string;
+  } | null>(() =>
+    confirm
+      ? {
+          kind: confirm,
+          actionId: pendingActions.find((a) => a.kind === "retry")?.id,
+        }
+      : null,
+  );
+  const confirmation = asking ? confirmations[asking.kind] : undefined;
+  const confirmed = () => {
+    setAsking(null);
+    if (!asking) return;
+    if (asking.kind === "disband") onDisband?.();
+    else if (asking.kind === "retryMessage") onSend?.();
+    else if (asking.actionId !== undefined) onRetryAction?.(asking.actionId);
+  };
   return (
     <SettingsScaffold
       title={name}
@@ -196,7 +257,8 @@ export function BotGroupChatScreen({
             { label: "Disband", disabled: !actionable },
           ],
           menuOpen,
-          onSelect: (i) => (i === 0 ? onRename : onDisband)?.(),
+          onSelect: (i) =>
+            i === 0 ? onRename?.() : setAsking({ kind: "disband" }),
         },
       ]}
       platform={platform}
@@ -289,7 +351,9 @@ export function BotGroupChatScreen({
                       variant="text"
                       compact
                       disabled={pending || !!unavailableReason}
-                      onClick={() => onRetryAction?.(action.id)}
+                      onClick={() =>
+                        setAsking({ kind: "retryTask", actionId: action.id })
+                      }
                     >
                       Review retry
                     </Button>
@@ -330,7 +394,9 @@ export function BotGroupChatScreen({
               <Button
                 icon="arrow_upward"
                 disabled={!!unavailableReason || pending || draft.trim() === ""}
-                onClick={onSend}
+                onClick={() =>
+                  retrySend ? setAsking({ kind: "retryMessage" }) : onSend?.()
+                }
               >
                 {pending
                   ? "Sending…"
@@ -342,6 +408,22 @@ export function BotGroupChatScreen({
           </div>
         </div>
       )}
+      {confirmation ? (
+        <AlertDialog
+          platform="material"
+          title={confirmation.title(name)}
+          message={confirmation.detail}
+          actions={[
+            { label: "Cancel", onClick: () => setAsking(null) },
+            {
+              label: confirmation.action,
+              isDefault: true,
+              onClick: confirmed,
+            },
+          ]}
+          onDismiss={() => setAsking(null)}
+        />
+      ) : null}
     </SettingsScaffold>
   );
 }

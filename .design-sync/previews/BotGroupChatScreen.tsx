@@ -105,3 +105,31 @@ export const States = () => (
     </HermesProvider>
   </div>
 );
+
+/** What Disband and a task retry ask first: the app's Material alert on every platform, Cancel and the filled action (iPhone "Disband Launch plan?", Material "Retry task?"). */
+export const Confirmations = () => (
+  <div style={row}>
+    <HermesProvider platform="apple">
+      <div style={phone}>
+        <BotGroupChatScreen {...room} confirm="disband" />
+      </div>
+    </HermesProvider>
+    <HermesProvider>
+      <div style={phone}>
+        <BotGroupChatScreen
+          {...room}
+          working={false}
+          pendingActions={[
+            {
+              id: "r1",
+              member: "Analyst",
+              kind: "retry",
+              description: "The turn ended without a result.",
+            },
+          ]}
+          confirm="retryTask"
+        />
+      </div>
+    </HermesProvider>
+  </div>
+);
