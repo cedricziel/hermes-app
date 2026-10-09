@@ -1,0 +1,22 @@
+name: hermes_speech
+description: The operating system's on-device speech recognizer for the Hermes app (iOS and macOS, SpeechAnalyzer). The Dart side lives in the app, lib/src/voice/on_device_speech.dart.
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ^3.13.4
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: HermesSpeechPlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: HermesSpeechPlugin
+        sharedDarwinSource: true

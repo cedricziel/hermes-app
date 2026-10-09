@@ -686,6 +686,13 @@ packages:
       relative: true
     source: path
     version: "1.0.0"
+  hermes_speech:
+    dependency: "direct main"
+    description:
+      path: "packages/hermes_speech"
+      relative: true
+    source: path
+    version: "0.0.1"
   highlight:
     dependency: transitive
     description:

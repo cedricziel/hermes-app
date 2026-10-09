@@ -2,7 +2,7 @@
 
 ## 1. PR 1: `feat(voice): on-device speech recognizer plugin`
 
-- [ ] 1.1 Spike on an iOS 26 device and macOS 26 (Release sandbox included) and record the answers in design.md's risks:
+- [x] 1.1 Spike on an iOS 26 device and macOS 26 (Release sandbox included) and record the answers in design.md's risks:
   - Does `SpeechTranscriber` need speech-recognition authorization?
   - Does `PlatformDispatcher.instance.locale` resolve through `supportedLocale(equivalentTo:)` on a non-English device?
   - Does the model download work under the sandbox?
@@ -10,9 +10,9 @@
 
   If authorization is needed, add `NSSpeechRecognitionUsageDescription` to both `Info.plist`s.
 
-- [ ] 1.2 Create the local plugin `packages/hermes_speech`: iOS and macOS only, `sharedDarwinSource: true`, `darwin/hermes_speech/Package.swift` with iOS 26 and macOS 26 platforms. Add it to `pubspec.yaml` as a path dependency. Verify that `flutter build macos --debug` and the iOS simulator build register it. Commit the regenerated `GeneratedPluginRegistrant` files and restore the other tracked `ios/` and `macos/` files the build rewrites.
-- [ ] 1.3 Extract a `LiveTranscriber` interface (`add`, `partials`, `finish`, `cancel`) from `TranscribeStream`. Pure refactor, so verify by running `test/voice/` unchanged.
-- [ ] 1.4 Write failing tests in `test/voice/on_device_speech_test.dart` for `OnDeviceSpeech` (in `lib/src/voice/`) against a mocked `hermes_app/speech` method and event channel:
+- [x] 1.2 Create the local plugin `packages/hermes_speech`: iOS and macOS only, `sharedDarwinSource: true`, `darwin/hermes_speech/Package.swift` with iOS 26 and macOS 26 platforms. Add it to `pubspec.yaml` as a path dependency. Verify that `flutter build macos --debug` and the iOS simulator build register it. Commit the regenerated `GeneratedPluginRegistrant` files and restore the other tracked `ios/` and `macos/` files the build rewrites.
+- [x] 1.3 Extract a `LiveTranscriber` interface (`add`, `partials`, `finish`, `cancel`) from `TranscribeStream`. Pure refactor, so verify by running `test/voice/` unchanged.
+- [x] 1.4 Write failing tests in `test/voice/on_device_speech_test.dart` for `OnDeviceSpeech` (in `lib/src/voice/`) against a mocked `hermes_app/speech` method and event channel:
   - the four statuses;
   - `install` progress and failure codes;
   - a session's `add`, `partials`, `finish`, `cancel` and error code;
@@ -21,7 +21,7 @@
 
   Implement it as a `LiveTranscriber` until they pass.
 
-- [ ] 1.5 Implement the Swift side as in design.md, "Native recognition and session lifecycle":
+- [x] 1.5 Implement the Swift side as in design.md, "Native recognition and session lifecycle":
   - availability and the `AssetInventory` status mapping;
   - install with progress;
   - conversion to `bestAvailableAudioFormat(compatibleWith:)`;
@@ -75,6 +75,7 @@
     - screenshot the live transcript and the inserted draft;
     - confirm the dev backend's log shows no `/api/audio/` request.
   - On an iOS device:
+    - whether `SpeechTranscriber` asks for speech-recognition authorization (carried over from 1.1; the simulator has no on-device recognizer). If it does, add `NSSpeechRecognitionUsageDescription` to `ios/Runner/Info.plist`, request authorization in `start` and report a denial like a denied microphone;
     - the permission prompts;
     - backgrounding during a recording cancels it;
     - backgrounding during a download resumes its progress when the dialog reopens.

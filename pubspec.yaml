@@ -41,6 +41,10 @@ dependencies:
   # openapi/hermes-agent.openapi.json and scripts/generate_hermes_api_client.sh).
   hermes_api:
     path: packages/hermes_api
+  # The OS's on-device speech recognizer (iOS and macOS); see
+  # lib/src/voice/on_device_speech.dart.
+  hermes_speech:
+    path: packages/hermes_speech
   # OS keychain / keystore for the native OAuth token set.
   flutter_secure_storage: ^11.2.0
   # Opens the system browser for the RFC 8252 native login flow.
