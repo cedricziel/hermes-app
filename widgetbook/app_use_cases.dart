@@ -31,6 +31,7 @@ import 'package:hermes_app/src/screens/server_setup_screen.dart';
 import 'package:hermes_app/src/settings/about_dialog.dart';
 import 'package:hermes_app/src/settings/appearance_dialog.dart';
 import 'package:hermes_app/src/settings/report_bug_link.dart';
+import 'package:hermes_app/src/settings/settings_dialog.dart';
 import 'package:hermes_app/src/shell/app_shell.dart';
 import 'package:hermes_app/src/theme/app_icons.dart';
 import 'package:hermes_app/src/widgets/content_column.dart';
@@ -69,6 +70,36 @@ Widget _withLiveActivities({required bool allowed}) {
     liveActivities: activities,
   );
 }
+
+/// The notifications dialog after the system refused to show alerts.
+Widget _notificationsDenied() => Hosted<NotificationSettings>(
+  create: () async {
+    final settings = NotificationSettings();
+    await settings.recordPermission(granted: false);
+    return settings;
+  },
+  dispose: (settings) => settings.dispose(),
+  builder: (_, settings) => withAppProviders(
+    CatalogAuth(),
+    _dialog(showNotificationsDialog),
+    notificationSettings: settings,
+  ),
+);
+
+/// The app lock dialog on a device that does or does not offer Face ID,
+/// Touch ID or a passcode.
+Widget _appLock({required bool available}) => Hosted<AppLockController>(
+  create: () async {
+    final lock = AppLockController(
+      authenticator: FakeDeviceAuthenticator(available: available),
+    );
+    await lock.load();
+    return lock;
+  },
+  dispose: (lock) => lock.dispose(),
+  builder: (_, lock) =>
+      withAppProviders(CatalogAuth(), _dialog(showAppLockDialog), lock: lock),
+);
 
 WidgetbookUseCase _screen(
   String name,
@@ -384,32 +415,39 @@ WidgetbookNode appNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'Dialogs',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Appearance',
-          builder: (_) =>
-              withAppProviders(CatalogAuth(), _dialog(showAppearanceDialog)),
+        ...onEachPlatform(
+          'Settings',
+          (_) => withAppProviders(CatalogAuth(), _dialog(showSettingsDialog)),
         ),
-        WidgetbookUseCase(
-          name: 'Notifications',
-          builder: (_) =>
+        ...onEachPlatform(
+          'Appearance',
+          (_) => withAppProviders(CatalogAuth(), _dialog(showAppearanceDialog)),
+        ),
+        ...onEachPlatform(
+          'Notifications',
+          (_) =>
               withAppProviders(CatalogAuth(), _dialog(showNotificationsDialog)),
         ),
-        WidgetbookUseCase(
-          name: 'Notifications · Live Activities',
-          builder: (_) => _withLiveActivities(allowed: true),
+        ...onEachPlatform(
+          'Notifications · permission denied',
+          (_) => _notificationsDenied(),
         ),
-        WidgetbookUseCase(
-          name: 'Notifications · Live Activities off in iOS',
-          builder: (_) => _withLiveActivities(allowed: false),
+        ...onEachPlatform(
+          'Notifications · Live Activities',
+          (_) => _withLiveActivities(allowed: true),
         ),
-        WidgetbookUseCase(
-          name: 'App lock',
-          builder: (_) =>
-              withAppProviders(CatalogAuth(), _dialog(showAppLockDialog)),
+        ...onEachPlatform(
+          'Notifications · Live Activities off in iOS',
+          (_) => _withLiveActivities(allowed: false),
         ),
-        WidgetbookUseCase(
-          name: 'About',
-          builder: (_) => withAppProviders(
+        ...onEachPlatform('App lock', (_) => _appLock(available: true)),
+        ...onEachPlatform(
+          'App lock · no Face ID or passcode',
+          (_) => _appLock(available: false),
+        ),
+        ...onEachPlatform(
+          'About',
+          (_) => withAppProviders(
             CatalogAuth(),
             _dialog(
               (context) => showDialog<void>(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/settings/about_dialog.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
@@ -19,7 +20,8 @@ void main() {
       const MaterialApp(home: AppAboutDialog(version: '0.1.31')),
     );
 
-    expect(find.text('Version 0.1.31'), findsOneWidget);
+    expect(find.widgetWithText(GroupedRow, 'Version'), findsOneWidget);
+    expect(find.text('0.1.31'), findsOneWidget);
     expect(find.text('Report a bug'), findsOneWidget);
   });
 
@@ -64,6 +66,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About'), findsOneWidget);
-    expect(find.text('Version 0.1.31'), findsOneWidget);
+    expect(find.text('0.1.31'), findsOneWidget);
   });
 }

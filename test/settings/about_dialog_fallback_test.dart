@@ -34,7 +34,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('About'), findsOneWidget);
-      expect(find.text('Version Unavailable'), findsOneWidget);
+      expect(find.text('Unavailable'), findsOneWidget);
     },
   );
 }

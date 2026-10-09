@@ -15,19 +15,20 @@ class ReportBugLink extends StatelessWidget {
   final LinkOpener? openLink;
 
   @override
-  Widget build(BuildContext context) {
-    final open =
-        openLink ??
-        (uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
-    return TextButton(
-      onPressed: () async {
-        try {
-          await open(_issuesUrl);
-        } on Object catch (_) {
-          // The link failing to open is not fatal; the button stays put.
-        }
-      },
-      child: const Text('Report a bug'),
-    );
+  Widget build(BuildContext context) => TextButton(
+    onPressed: () => openIssueTracker(openLink),
+    child: const Text('Report a bug'),
+  );
+}
+
+/// Opens the project's issue tracker with [openLink], or in the system
+/// browser when null.
+Future<void> openIssueTracker([LinkOpener? openLink]) async {
+  final open =
+      openLink ?? (uri) => launchUrl(uri, mode: LaunchMode.externalApplication);
+  try {
+    await open(_issuesUrl);
+  } on Object catch (_) {
+    // The link failing to open is not fatal.
   }
 }

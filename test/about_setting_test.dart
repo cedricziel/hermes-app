@@ -56,7 +56,7 @@ void main() {
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Version 0.1.31'), findsOneWidget);
+    expect(find.text('0.1.31'), findsOneWidget);
     expect(find.text('Report a bug'), findsOneWidget);
   });
 }

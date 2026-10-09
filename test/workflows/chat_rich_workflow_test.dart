@@ -797,7 +797,7 @@ void main() {
       await shots.capture(tester, 'off');
 
       await tester.runAsync(() async {
-        await tester.tap(find.byType(SwitchListTile));
+        await tester.tap(find.byType(Switch));
         await Future<void>.delayed(const Duration(milliseconds: 50));
       });
       await tester.pumpAndSettle();
