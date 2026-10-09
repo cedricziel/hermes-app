@@ -27,7 +27,7 @@ export const skillSourceLabels: Record<SkillSource, string> = {
 };
 
 /** "Read Apple Notes · Bundled · used 14 times", as the app's `skillSubtitle`. */
-export function skillSubtitle(skill: Skill) {
+function skillSubtitle(skill: Skill) {
   const usage = skill.usage ?? 0;
   return [
     skill.description,
