@@ -144,7 +144,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
 
   Future<void> _create() => createProfile(context, (name, {description}) async {
     await _repository.create(name, description: description);
-    await _load();
+    if (mounted) await _load();
   });
 
   @override
