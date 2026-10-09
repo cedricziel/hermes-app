@@ -119,21 +119,22 @@ void main() {
         ),
       ),
     );
-    bool isSelected(String id) => tester
-        .widget<ListTile>(find.byKey(Key('model-anthropic-$id')))
-        .selected;
+    void expectChecked(String id, bool checked) => expect(
+      tester.getSemantics(find.byKey(Key('model-anthropic-$id'))),
+      isSemantics(hasCheckedState: true, isChecked: checked),
+    );
 
     await tester.pumpWidget(
       picker(const ModelChoice('anthropic', 'claude-opus-4')),
     );
-    expect(isSelected('claude-opus-4'), isTrue);
-    expect(isSelected('claude-haiku-4-5'), isFalse);
+    expectChecked('claude-opus-4', true);
+    expectChecked('claude-haiku-4-5', false);
 
     await tester.pumpWidget(
       picker(const ModelChoice('anthropic', 'claude-haiku-4-5')),
     );
-    expect(isSelected('claude-opus-4'), isFalse);
-    expect(isSelected('claude-haiku-4-5'), isTrue);
+    expectChecked('claude-opus-4', false);
+    expectChecked('claude-haiku-4-5', true);
   });
 
   testWidgets('offers "Profile default" when the caller can clear a pick', (
