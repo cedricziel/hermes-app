@@ -14,3 +14,20 @@
   height: 100%;
   padding: 24px;
 }
+
+.h-screen__split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.h-screen__split-list {
+  flex: none;
+  width: 380px;
+  border-right: 1px solid var(--h-border);
+}
+
+.h-screen__split-pane {
+  flex: 1;
+  min-width: 0;
+}
