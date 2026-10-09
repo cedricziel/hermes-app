@@ -20,18 +20,15 @@ class ScheduleStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quiet = job.isPaused || job.state == CronJobState.completed;
-    final undelivered = job.outcome == CronOutcome.deliveryFailed;
+    final alert = jobAlert(job);
     final deliveryError = job.lastDeliveryError;
     return GroupedRow(
       title: statusText(job, now),
       subtitle: nextRunText(job, now),
-      error: !quiet && job.isFailing && !undelivered
-          ? failureReason(job)
-          : null,
-      warning: deliveryError == null
+      error: alert == JobAlert.failed ? failureReason(job) : null,
+      warning: alert == null || deliveryError == null
           ? null
-          : undelivered
+          : alert == JobAlert.undelivered
           ? deliveryError
           : 'Delivery failed: $deliveryError',
     );
@@ -137,10 +134,11 @@ List<Widget> scheduleFactSections(CronJob job) => [
   ),
 ];
 
-class _Prompt extends StatelessWidget {
-  const _Prompt(this.prompt);
+/// Free content in a group, such as a prompt or a note, padded like a row.
+class _Padded extends StatelessWidget {
+  const _Padded(this.child);
 
-  final String prompt;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -150,12 +148,23 @@ class _Prompt extends StatelessWidget {
         horizontal: metrics.rowPadding,
         vertical: metrics.rowVerticalPadding + 4,
       ),
-      child: SelectableText(
-        prompt,
-        style: TextStyle(fontSize: metrics.titleSize),
-      ),
+      child: child,
     );
   }
+}
+
+class _Prompt extends StatelessWidget {
+  const _Prompt(this.prompt);
+
+  final String prompt;
+
+  @override
+  Widget build(BuildContext context) => _Padded(
+    SelectableText(
+      prompt,
+      style: TextStyle(fontSize: GroupedMetrics.of(context).titleSize),
+    ),
+  );
 }
 
 /// The runs of [job], each opening its chat. [runs] is null while they load;
@@ -186,22 +195,15 @@ class ScheduleRunsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final runs = this.runs;
     final metrics = GroupedMetrics.of(context);
-    Widget padded(Widget child) => Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: metrics.rowPadding,
-        vertical: metrics.rowVerticalPadding + 4,
-      ),
-      child: child,
-    );
     final onShowMore = this.onShowMore;
     return GroupedSection(
       header: header,
       dividerIndent: metrics.indentAfterLeading,
       children: [
         if (runs == null)
-          padded(RunHistoryPending(failed: runsFailed, onRetry: onRetry))
+          _Padded(RunHistoryPending(failed: runsFailed, onRetry: onRetry))
         else if (runs.isEmpty)
-          padded(RunHistoryEmpty(job: job))
+          _Padded(RunHistoryEmpty(job: job))
         else
           for (final (i, run) in runs.indexed)
             _RunRow(

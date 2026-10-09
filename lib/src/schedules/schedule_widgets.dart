@@ -44,6 +44,17 @@ List<(String, String)> jobSettings(CronJob job) => [
     ('Takes context from', job.contextFrom.join(', ')),
 ];
 
+/// What a job's row and detail flag about its last run.
+enum JobAlert { failed, undelivered }
+
+/// The alert [job] calls for; none while it is paused or finished, whose
+/// last failure is told rather than flagged.
+JobAlert? jobAlert(CronJob job) {
+  if (job.isPaused || job.state == CronJobState.completed) return null;
+  if (job.outcome == CronOutcome.deliveryFailed) return JobAlert.undelivered;
+  return job.isFailing ? JobAlert.failed : null;
+}
+
 /// The short reason a run failed, for the list: the first line, trimmed.
 String? failureReason(CronJob job) {
   final text = job.outcome == CronOutcome.deliveryFailed

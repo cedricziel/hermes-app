@@ -55,13 +55,27 @@ class ScheduleDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (platformChromeOf(context) == PlatformChrome.macos) return _mac();
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
     final metrics = GroupedMetrics.of(context);
     final muted = this.muted;
     final onMutedChanged = this.onMutedChanged;
     return GroupedListView(
       children: [
-        if (showTitle)
+        if (mac)
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: MacScheduleHeader(
+              job: job,
+              now: now,
+              muted: muted,
+              onMutedChanged: onMutedChanged,
+              onRunNow: onRunNow,
+              onEdit: onEdit,
+              onTogglePaused: onTogglePaused,
+              onDelete: onDelete,
+            ),
+          )
+        else if (showTitle)
           Padding(
             padding: EdgeInsets.fromLTRB(
               metrics.rowPadding,
@@ -77,45 +91,45 @@ class ScheduleDetailView extends StatelessWidget {
         GroupedSection(
           children: [
             ScheduleStatusRow(job: job, now: now),
-            if (muted != null && onMutedChanged != null)
+            if (!mac && muted != null && onMutedChanged != null)
               GroupedSwitchRow(
                 key: const Key('job-mute'),
                 title: 'Mute notifications',
                 subtitle: 'No alert when this task runs',
                 value: muted,
                 onChanged: onMutedChanged,
-                onTap: () => onMutedChanged(!muted),
               ),
           ],
         ),
-        GroupedSection(
-          dividerIndent: metrics.indentAfterLeading,
-          children: [
-            GroupedRow(
-              leading: const AppIcon(AppIcons.play),
-              title: 'Run now',
-              onTap: onRunNow,
-              chevron: false,
-            ),
-            if (job.state != CronJobState.completed)
+        if (!mac)
+          GroupedSection(
+            dividerIndent: metrics.indentAfterLeading,
+            children: [
               GroupedRow(
-                leading: AppIcon(
-                  job.isPaused ? AppIcons.resume : AppIcons.pause,
-                ),
-                title: job.isPaused ? 'Resume' : 'Pause',
-                onTap: onTogglePaused,
+                leading: const AppIcon(AppIcons.play),
+                title: 'Run now',
+                onTap: onRunNow,
                 chevron: false,
               ),
-            GroupedRow(
-              leading: const AppIcon(AppIcons.edit),
-              title: 'Edit',
-              onTap: onEdit,
-            ),
-          ],
-        ),
+              if (job.state != CronJobState.completed)
+                GroupedRow(
+                  leading: AppIcon(
+                    job.isPaused ? AppIcons.resume : AppIcons.pause,
+                  ),
+                  title: job.isPaused ? 'Resume' : 'Pause',
+                  onTap: onTogglePaused,
+                  chevron: false,
+                ),
+              GroupedRow(
+                leading: const AppIcon(AppIcons.edit),
+                title: 'Edit',
+                onTap: onEdit,
+              ),
+            ],
+          ),
         ...scheduleFactSections(job),
         ScheduleRunsSection(
-          header: 'Run history',
+          header: mac ? 'Recent runs' : 'Run history',
           job: job,
           runs: runs,
           runsFailed: runsFailed,
@@ -123,50 +137,20 @@ class ScheduleDetailView extends StatelessWidget {
           onRetry: onRetryRuns,
           onShowMore: onShowMoreRuns,
         ),
-        GroupedSection(
-          children: [
-            GroupedRow(
-              title: 'Delete task',
-              destructive: true,
-              onTap: onDelete,
-              chevron: false,
-            ),
-          ],
-        ),
+        if (!mac)
+          GroupedSection(
+            children: [
+              GroupedRow(
+                title: 'Delete task',
+                destructive: true,
+                onTap: onDelete,
+                chevron: false,
+              ),
+            ],
+          ),
       ],
     );
   }
-
-  Widget _mac() => GroupedListView(
-    children: [
-      Padding(
-        padding: const EdgeInsets.only(top: 20),
-        child: MacScheduleHeader(
-          job: job,
-          now: now,
-          muted: muted,
-          onMutedChanged: onMutedChanged,
-          onRunNow: onRunNow,
-          onEdit: onEdit,
-          onTogglePaused: onTogglePaused,
-          onDelete: onDelete,
-        ),
-      ),
-      GroupedSection(
-        children: [ScheduleStatusRow(job: job, now: now)],
-      ),
-      ...scheduleFactSections(job),
-      ScheduleRunsSection(
-        header: 'Recent runs',
-        job: job,
-        runs: runs,
-        runsFailed: runsFailed,
-        onOpenRun: onOpenRun,
-        onRetry: onRetryRuns,
-        onShowMore: onShowMoreRuns,
-      ),
-    ],
-  );
 }
 
 /// The top of a job's Mac pane: its title over when it runs, a More menu,

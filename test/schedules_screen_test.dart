@@ -489,8 +489,12 @@ void main() {
       await pumpScreen(tester, size: const Size(400, 800), settings: settings);
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
+      final muteSwitch = find.descendant(
+        of: find.byKey(const Key('job-mute')),
+        matching: find.byType(Switch),
+      );
 
-      await tester.tap(find.byKey(const Key('job-mute')));
+      await tester.tap(muteSwitch);
       await tester.pumpAndSettle();
       expect(settings.isMuted('work/job1'), isTrue);
       expect(
@@ -500,7 +504,7 @@ void main() {
         isTrue,
       );
 
-      await tester.tap(find.byKey(const Key('job-mute')));
+      await tester.tap(muteSwitch);
       await tester.pumpAndSettle();
       expect(settings.isMuted('work/job1'), isFalse);
     });
