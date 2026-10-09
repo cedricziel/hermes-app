@@ -298,16 +298,22 @@ class _DayToggles extends StatelessWidget {
                       ),
                       child: SizedBox(
                         height: mac ? 24 : 32,
-                        child: Center(
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontSize: mac ? 11 : 13,
-                              fontWeight: on
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: on ? scheme.onPrimary : scheme.onSurface,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          // Seven across 320 points or a large text size
+                          // shrink the label rather than cut it.
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: mac ? 11 : 13,
+                                fontWeight: on
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: on ? scheme.onPrimary : scheme.onSurface,
+                              ),
                             ),
                           ),
                         ),

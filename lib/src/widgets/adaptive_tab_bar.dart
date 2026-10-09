@@ -169,17 +169,21 @@ class _PillSegment extends StatelessWidget {
         ),
         child: InkWell(
           onTap: onTap,
-          child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.7),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            // A label too wide for its share shrinks rather than being cut.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
           ),

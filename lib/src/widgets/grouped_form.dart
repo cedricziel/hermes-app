@@ -386,12 +386,17 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
                   selected: segment == value,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: chrome == PlatformChrome.macos ? 12 : 13,
-                        color: scheme.onSurface,
+                    // Five segments at 320 points or a large text size
+                    // would cut a label; it shrinks to fit instead.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: chrome == PlatformChrome.macos ? 12 : 13,
+                          color: scheme.onSurface,
+                        ),
                       ),
                     ),
                   ),
