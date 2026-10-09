@@ -814,7 +814,7 @@ void main() {
       await shots.capture(tester, 'row-menu');
       await popRoute(tester);
 
-      await tester.tap(find.text('New board'));
+      await tester.tap(find.byTooltip('New board'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'new-board');
       await tester.enterText(
