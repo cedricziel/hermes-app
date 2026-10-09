@@ -9,7 +9,7 @@ import 'package:hermes_app/src/schedules/job_form_screen.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
-import 'package:hermes_app/src/schedules/widgets/mac_schedule_detail.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -202,21 +202,21 @@ void main() {
     ) async {
       await pumpScreen(tester, size: const Size(680, 640));
 
-      expect(find.byType(MacScheduleDetail), findsOneWidget);
+      expect(find.byType(MacScheduleHeader), findsOneWidget);
       expect(find.text('Morning brief'), findsWidgets);
     });
 
-    testWidgets('shows a failure card only for a failed job', (tester) async {
+    testWidgets('shows a failure line only for a failed job', (tester) async {
       await pumpScreen(tester);
-      final badge = find.descendant(
-        of: find.byType(MacScheduleDetail),
-        matching: find.text('Failed'),
+      final reason = find.descendant(
+        of: find.byType(ScheduleDetailView),
+        matching: find.text('Provider timeout'),
       );
-      expect(badge, findsOneWidget);
+      expect(reason, findsOneWidget);
       expect(
         find.descendant(
-          of: find.byType(MacScheduleDetail),
-          matching: find.text('Provider timeout · 40 min ago'),
+          of: find.byType(ScheduleDetailView),
+          matching: find.text('Failed 40 min ago'),
         ),
         findsOneWidget,
       );
@@ -224,7 +224,7 @@ void main() {
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
 
-      expect(badge, findsNothing);
+      expect(reason, findsNothing);
     });
 
     testWidgets('Run now asks the server for a run', (tester) async {
@@ -280,7 +280,7 @@ void main() {
         await pumpScreen(tester, platform: platform);
 
         expect(find.byType(SchedulesMacToolbar), findsNothing);
-        expect(find.byType(MacScheduleDetail), findsNothing);
+        expect(find.byType(MacScheduleHeader), findsNothing);
         expect(find.byType(AppBar), findsOneWidget);
         expect(find.byKey(const Key('schedule-filter')), findsOneWidget);
         await tester.tap(find.byKey(const Key('settings-subtitle-menu')));

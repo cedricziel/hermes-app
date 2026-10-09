@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_filter_menu.dart';
-import 'package:hermes_app/src/schedules/widgets/mac_schedule_detail.dart';
+import 'package:hermes_app/src/schedules/widgets/schedule_detail_view.dart';
 import 'package:hermes_app/src/schedules/widgets/schedules_mac_toolbar.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
+import 'frame.dart';
 
 /// Shown on macOS in either viewport, as these only appear in a Mac window.
 Widget _mac(Widget child) => Builder(
@@ -61,7 +62,7 @@ Widget _detail(
 }) {
   var mute = muted;
   return StatefulBuilder(
-    builder: (context, setState) => MacScheduleDetail(
+    builder: (context, setState) => ScheduleDetailView(
       job: job,
       now: DateTime.now(),
       runs: runs,
@@ -90,26 +91,26 @@ WidgetbookNode schedulesMacNode() => WidgetbookFolder(
       ],
     ),
     WidgetbookComponent(
-      name: 'MacScheduleDetail',
+      name: 'ScheduleDetailView',
       useCases: [
-        _use('Ok', () => _detail(_healthyJob, runs: cronRuns)),
-        _use('Failed', () => _detail(failingJob, runs: cronRuns)),
-        _use(
+        ...onEachPlatform('Ok', (_) => _detail(_healthyJob, runs: cronRuns)),
+        ...onEachPlatform('Failed', (_) => _detail(failingJob, runs: cronRuns)),
+        ...onEachPlatform(
           'Delivery failed',
-          () => _detail(deliveryFailedJob, runs: cronRuns.take(1).toList()),
+          (_) => _detail(deliveryFailedJob, runs: cronRuns.take(1).toList()),
         ),
-        _use(
+        ...onEachPlatform(
           'Paused, muted',
-          () => _detail(pausedJob, runs: const [], muted: true),
+          (_) => _detail(pausedJob, runs: const [], muted: true),
         ),
-        _use(
+        ...onEachPlatform(
           'Blocked before it ran',
-          () => _detail(blockedJob, runs: const []),
+          (_) => _detail(blockedJob, runs: const []),
         ),
-        _use('Runs loading', () => _detail(_healthyJob)),
-        _use(
+        ...onEachPlatform('Runs loading', (_) => _detail(_healthyJob)),
+        ...onEachPlatform(
           'Runs failed to load',
-          () => _detail(_healthyJob, runsFailed: true),
+          (_) => _detail(_healthyJob, runsFailed: true),
         ),
       ],
     ),

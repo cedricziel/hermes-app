@@ -3,7 +3,6 @@ import 'package:hermes_app/src/models/model_provider_option.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
-import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/widgets/job_group.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
 import 'package:hermes_app/src/schedules/widgets/run_history_empty.dart';
@@ -155,26 +154,6 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
         ),
         ..._picker('Cron expression', const CronSpec('*/15 9-17 * * 1-5')),
         ..._picker('Invalid cron', const CronSpec('nonsense')),
-      ],
-    ),
-    WidgetbookComponent(
-      name: 'Chips',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'InfoChip and StatusDot',
-          builder: (_) => frame(
-            const Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                StatusDot(color: Colors.green),
-                StatusDot(color: Colors.red),
-                InfoChip('telegram'),
-                InfoChip('work'),
-              ],
-            ),
-          ),
-        ),
       ],
     ),
     WidgetbookComponent(

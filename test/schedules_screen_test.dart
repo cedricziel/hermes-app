@@ -7,6 +7,7 @@ import 'package:hermes_app/src/schedules/schedule_detail.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -241,7 +242,8 @@ void main() {
     ) async {
       jobs([healthy()]);
       detailRoutes(active: true);
-      await pumpScreen(tester, size: const Size(400, 800));
+      // Tall enough to show every section at once.
+      await pumpScreen(tester, size: const Size(400, 1600));
 
       await tester.tap(find.text('Morning brief'));
       // A run in progress shows a spinner that never settles.
@@ -290,7 +292,7 @@ void main() {
       jobs([healthy()]);
       detailRoutes();
       server.on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
-      await pumpScreen(tester, size: const Size(400, 800));
+      await pumpScreen(tester, size: const Size(400, 1600));
 
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
@@ -492,7 +494,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(settings.isMuted('work/job1'), isTrue);
       expect(
-        tester.widget<SwitchListTile>(find.byKey(const Key('job-mute'))).value,
+        tester
+            .widget<GroupedSwitchRow>(find.byKey(const Key('job-mute')))
+            .value,
         isTrue,
       );
 

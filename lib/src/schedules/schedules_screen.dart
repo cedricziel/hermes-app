@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
 
 import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:hermes_app/src/theme/platform_chrome.dart';
@@ -315,16 +314,14 @@ class _PushedDetail extends StatelessWidget {
           });
           return const Scaffold(body: SizedBox.shrink());
         }
-        return Scaffold(
-          appBar: AppBar(
-            leading: const AdaptiveBackButton(previousTitle: 'Schedules'),
-            leadingWidth: adaptiveBackLeadingWidth(context),
-            title: Text(job.title),
-          ),
+        return SettingsScaffold(
+          title: job.title,
+          previousTitle: 'Schedules',
           body: ScheduleDetail(
             controller: controller,
             job: job,
             onOpenRun: onOpenRun,
+            showTitle: false,
           ),
         );
       },

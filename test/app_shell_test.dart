@@ -13,6 +13,7 @@ import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
+import 'package:hermes_app/src/schedules/schedule_detail.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
@@ -776,6 +777,17 @@ void main() {
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(
+        find.text('42 s'),
+        300,
+        scrollable: find
+            .descendant(
+              of: find.byType(ScheduleDetail),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('42 s'));
       await tester.pumpAndSettle();
 
