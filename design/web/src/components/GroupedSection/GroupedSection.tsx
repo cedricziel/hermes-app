@@ -30,6 +30,8 @@ export interface GroupedSectionProps {
    * 72px; the text on Apple), or a number of px.
    */
   dividerIndent?: DividerIndent;
+  /** The accessible name of a choice group (`dividerIndent="choice"`, read out as a radio group) that has no `header`: "Theme". */
+  label?: string;
   /** The rows: `GroupedRow`, `GroupedSwitchRow`, `GroupedChoiceRow`, `GroupedValueRow`, `GroupedMenuRow`, `GroupedTextFieldRow`, `GroupedSegmentedRow`. A separator goes between each two. */
   children?: ReactNode;
   /**
@@ -52,6 +54,7 @@ export function GroupedSection({
   header,
   footer,
   dividerIndent,
+  label,
   children,
   platform,
   device,
@@ -61,7 +64,9 @@ export function GroupedSection({
   const chrome = useGroupedChrome(resolved, device);
   const rows = Children.toArray(children);
   const indentStyle =
-    typeof dividerIndent === "number" ? { marginLeft: dividerIndent } : undefined;
+    typeof dividerIndent === "number"
+      ? { marginLeft: dividerIndent }
+      : undefined;
   return (
     <PlatformScope platform={resolved}>
       <DeviceScope device={device}>
@@ -78,7 +83,13 @@ export function GroupedSection({
           {header !== undefined ? (
             <h3 className="h-grouped-section__header">{header}</h3>
           ) : null}
-          <div className="h-grouped-section__card">
+          <div
+            className="h-grouped-section__card"
+            role={dividerIndent === "choice" ? "radiogroup" : undefined}
+            aria-label={
+              dividerIndent === "choice" ? (label ?? header) : undefined
+            }
+          >
             {rows.map((row, i) => (
               <Fragment key={i}>
                 {i > 0 ? (

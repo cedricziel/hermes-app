@@ -294,7 +294,7 @@ export const AppleMacAccountMenu = () => (
   </HermesProvider>
 );
 
-/** Mac, Settings… (⌘,): the Settings list over the window, each entry opening its own dialog. */
+/** Mac, Settings… (⌘,): the Settings list (`SettingsDialog`) over the window, each entry opening its own dialog. */
 export const AppleMacSettings = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={macWindow}>
@@ -303,6 +303,11 @@ export const AppleMacSettings = () => (
         destinations={[...mac.destinations]}
         windowSize="medium"
         settingsOpen
+        settingsValues={{
+          appearance: "system",
+          notifications: true,
+          appLock: false,
+        }}
       />
     </div>
   </HermesProvider>

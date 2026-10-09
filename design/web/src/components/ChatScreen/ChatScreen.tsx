@@ -1,6 +1,7 @@
 import {
   AppShell,
   ShellNavigation,
+  type AppShellProps,
   type ShellDestination,
 } from "../AppShell/AppShell";
 import type { ApprovalChoice } from "../ApprovalCard/ApprovalCard";
@@ -13,13 +14,13 @@ import {
 import { ChatHeader } from "../ChatHeader/ChatHeader";
 import { ChatThread, type ChatTurn } from "../ChatThread/ChatThread";
 import { ModelPill } from "../ModelPill/ModelPill";
+import type { SettingsEntry } from "../SettingsDialog/SettingsDialog";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import {
   ThreadSidebar,
   type AccountAction,
   type MacProfileScope,
-  type SettingsEntry,
   type ThreadAction,
   type ThreadGrouping,
   type ThreadItem,
@@ -109,6 +110,8 @@ export interface ChatScreenProps {
   accountMenuOpen?: boolean;
   /** Mac: the Settings list (Settings… ⌘,) is open over the window. */
   settingsOpen?: boolean;
+  /** Mac: the values the Settings list shows; see `AppShell`. */
+  settingsValues?: AppShellProps["settingsValues"];
   /** Mac, `authRequired`: Sign Out's question "Sign out of the dashboard?" is open over the window; see `AppShell`. */
   signOutConfirmOpen?: boolean;
   /** Mac: the day the sidebar's recency sections count back from (ISO date); see `ThreadSidebar`. */
@@ -139,6 +142,8 @@ export interface ChatScreenProps {
   onThreadAction?: (id: string, action: ThreadAction) => void;
   onAccountAction?: (action: AccountAction) => void;
   onSettingsPick?: (entry: SettingsEntry) => void;
+  /** Mac: the Settings list's Done, its barrier or Escape. */
+  onDismissSettings?: () => void;
   onConfirmSignOut?: () => void;
   onCancelSignOut?: () => void;
   onGroupingChange?: (grouping: ThreadGrouping) => void;
@@ -210,6 +215,7 @@ export function ChatScreen({
   authRequired,
   accountMenuOpen,
   settingsOpen,
+  settingsValues,
   signOutConfirmOpen,
   now,
   layout = "desktop",
@@ -223,6 +229,7 @@ export function ChatScreen({
   onThreadAction,
   onAccountAction,
   onSettingsPick,
+  onDismissSettings,
   onConfirmSignOut,
   onCancelSignOut,
   onGroupingChange,
@@ -336,7 +343,9 @@ export function ChatScreen({
       compact={windowSize === "compact"}
       sidebarOverlayOpen={sidebarOverlayOpen}
       settingsOpen={settingsOpen}
+      settingsValues={settingsValues}
       onSettingsPick={onSettingsPick}
+      onDismissSettings={onDismissSettings}
       signOutConfirmOpen={signOutConfirmOpen}
       onConfirmSignOut={onConfirmSignOut}
       onCancelSignOut={onCancelSignOut}
