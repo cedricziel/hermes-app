@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
+import '../../widgets/grouped_list.dart';
 import '../bot_mode_roster_repository.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
@@ -153,13 +155,14 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
                       decoration: const InputDecoration(labelText: 'Room name'),
                       onChanged: (_) => update(() {}),
                     ),
+                    const SizedBox(height: 16),
                     GroupMemberChecklist(
                       members: members,
                       selected: selected,
                       enabled: !pending && !attempted,
+                      note: groupInteractionLimitation,
                       onChanged: (value) => update(() => selected = value),
                     ),
-                    const GroupInteractionNotice(),
                     if (error != null) Text(error!),
                   ],
                 ),
@@ -234,43 +237,58 @@ class GroupRoomsPanelState extends State<GroupRoomsPanel> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      ListTile(
-        title: const Text('Hosted groups'),
-        trailing: TextButton(
-          onPressed: refresh,
-          child: const Text('Refresh groups'),
+  Widget build(BuildContext context) {
+    final unavailable = widget.repository.executionUnavailableReason;
+    final canCreate = unavailable == null && widget.bots.length >= 2;
+    final error = _error;
+    return GroupedSection(
+      header: 'Groups',
+      dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+      footer:
+          unavailable ??
+          'Bots in a group work on a task together on the server. A group '
+              'has 2–6 bots, fixed when it is created.',
+      children: [
+        if (_loading && _rooms.isEmpty)
+          const GroupedRow(
+            title: 'Loading groups',
+            trailing: SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+            ),
+          ),
+        if (error != null)
+          GroupedRow(
+            title: 'Could not load groups',
+            warning: error,
+            trailing: TextButton(
+              onPressed: refresh,
+              child: const Text('Retry'),
+            ),
+          ),
+        if (!_loading && error == null && _rooms.isEmpty)
+          const GroupedRow(
+            title: 'No groups yet',
+            subtitle: 'Create a room with 2–6 bots.',
+          ),
+        for (final room in _rooms)
+          if (_states[room.roomId] case final state)
+            GroupRoomRow(
+              room: state?.room ?? room,
+              needsAttention: state?.pendingActions.isNotEmpty == true,
+              activity: state?.driverStatus?.working == true ? 'Working' : null,
+              onOpen: () => widget.onOpen(room),
+            ),
+        Opacity(
+          opacity: canCreate ? 1 : 0.45,
+          child: GroupedRow(
+            leading: const GroupedTile(child: AppIcon(AppIcons.add)),
+            title: 'Create group',
+            chevron: false,
+            onTap: canCreate ? _create : null,
+          ),
         ),
-      ),
-      if (_loading && _rooms.isEmpty)
-        const GroupNotice(message: 'Loading groups', loading: true),
-      if (_error != null) GroupNotice(message: _error!, onRetry: refresh),
-      if (!_loading && _error == null && _rooms.isEmpty)
-        const GroupNotice(
-          message: 'No hosted groups yet. Create a room with 2–6 bots.',
-        ),
-      for (final room in _rooms)
-        GroupRoomRow(
-          room: _states[room.roomId]?.room ?? room,
-          needsAttention:
-              _states[room.roomId]?.pendingActions.isNotEmpty == true,
-          activity: _states[room.roomId]?.driverStatus?.working == true
-              ? 'Working'
-              : null,
-          onOpen: () => widget.onOpen(room),
-        ),
-      if (widget.repository.executionUnavailableReason != null)
-        GroupNotice(message: widget.repository.executionUnavailableReason!),
-      TextButton(
-        onPressed:
-            widget.repository.executionUnavailableReason == null &&
-                widget.bots.length >= 2
-            ? _create
-            : null,
-        child: const Text('Create group'),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }

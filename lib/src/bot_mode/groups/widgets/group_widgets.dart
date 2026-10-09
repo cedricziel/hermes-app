@@ -5,8 +5,12 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../../chat/chat_models.dart' show ApprovalRequest;
 import '../../../chat/widgets/approval_card.dart';
+import '../../../theme/app_icons.dart';
+import '../../../theme/platform_chrome.dart';
 import '../../../widgets/disclosure_tile.dart';
+import '../../../widgets/grouped_list.dart';
 import '../../../widgets/markdown_links.dart';
+import '../../../widgets/settings_search_field.dart';
 import '../../group_protocol/hermes_groups_repository.dart';
 
 String groupMemberName(List<GroupMember> members, String id) {
@@ -16,27 +20,30 @@ String groupMemberName(List<GroupMember> members, String id) {
   return id;
 }
 
+/// Why a member of a hosted group can stall: the room has no way to answer
+/// its clarify, sudo or secret requests.
+const groupInteractionLimitation =
+    'Interactive requests cannot be answered in hosted groups. A member may wait for a response; use Stop if the task stalls.';
+
 class GroupInteractionNotice extends StatelessWidget {
   const GroupInteractionNotice({super.key});
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 8),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.info_outline, size: 18),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text(
-            'Interactive requests cannot be answered in hosted groups. A member may wait for a response; use Stop if the task stalls.',
-          ),
-        ),
+        Icon(Icons.info_outline, size: 18),
+        SizedBox(width: 8),
+        Expanded(child: Text(groupInteractionLimitation)),
       ],
     ),
   );
 }
 
+/// A hosted room in the Groups section: its members under the name, what
+/// it is doing as a muted value, and a warning while it waits for the user.
 class GroupRoomRow extends StatelessWidget {
   const GroupRoomRow({
     super.key,
@@ -50,16 +57,22 @@ class GroupRoomRow extends StatelessWidget {
   final bool needsAttention;
   final String? activity;
   @override
-  Widget build(BuildContext context) => ListTile(
-    leading: const Icon(Icons.groups_outlined),
-    title: Text(room.name, maxLines: 2, overflow: TextOverflow.ellipsis),
-    subtitle: Text(
-      '${room.members.length} members · ${needsAttention ? 'Needs your attention' : activity ?? 'Hosted conversation'}',
-    ),
+  Widget build(BuildContext context) => GroupedRow(
+    leading: const GroupedTile(child: AppIcon(AppIcons.group)),
+    title: room.name,
+    subtitle: [
+      '${room.members.length} members',
+      room.members.map((m) => m.displayName ?? m.profile).join(', '),
+    ].join(' · '),
+    warning: needsAttention ? 'Needs your attention' : null,
+    value: activity,
     onTap: onOpen,
   );
 }
 
+/// The bots a new group can hold, as a grouped list: a check mark at the
+/// trailing edge on Apple platforms, a checkbox at the leading edge on
+/// Material. [note] joins the footer.
 class GroupMemberChecklist extends StatefulWidget {
   const GroupMemberChecklist({
     super.key,
@@ -67,51 +80,129 @@ class GroupMemberChecklist extends StatefulWidget {
     required this.selected,
     required this.onChanged,
     this.enabled = true,
+    this.note,
   });
   final List<GroupMember> members;
   final Set<String> selected;
   final ValueChanged<Set<String>> onChanged;
   final bool enabled;
+  final String? note;
   @override
   State<GroupMemberChecklist> createState() => _GroupMemberChecklistState();
 }
 
 class _GroupMemberChecklistState extends State<GroupMemberChecklist> {
   var _query = '';
+
+  void _toggle(GroupMember member, bool on) => widget.onChanged(
+    on
+        ? {...widget.selected, member.memberId}
+        : ({...widget.selected}..remove(member.memberId)),
+  );
+
   @override
-  Widget build(BuildContext context) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      TextField(
-        decoration: const InputDecoration(labelText: 'Search members'),
-        onChanged: (query) => setState(() => _query = query.toLowerCase()),
-      ),
+  Widget build(BuildContext context) {
+    final apple = platformChromeOf(context).isApple;
+    final metrics = GroupedMetrics.of(context);
+    final shown = [
       for (final member in widget.members)
         if ('${member.displayName ?? ''} ${member.profile} ${member.handle}'
             .toLowerCase()
             .contains(_query))
-          CheckboxListTile(
-            title: Text(member.displayName ?? member.profile),
-            subtitle: Text('@${member.handle}'),
-            value: widget.selected.contains(member.memberId),
-            onChanged:
-                !widget.enabled ||
-                    (!widget.selected.contains(member.memberId) &&
-                        widget.selected.length >= 6)
-                ? null
-                : (value) => widget.onChanged(
-                    {...widget.selected, if (value == true) member.memberId}
-                      ..removeWhere(
-                        (id) => value == false && id == member.memberId,
-                      ),
-                  ),
+          member,
+    ];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingsSearchField(
+          search: SettingsSearch(
+            query: _query,
+            hint: 'Search members',
+            onChanged: (query) => setState(() => _query = query.toLowerCase()),
           ),
-      const Padding(
-        padding: EdgeInsets.symmetric(vertical: 8),
-        child: Text('Choose 2–6 bots. Membership is fixed for this room.'),
+        ),
+        GroupedSection(
+          dividerIndent: apple
+              ? null
+              : metrics.rowPadding + _checkboxSize + metrics.leadingGap,
+          footer: [
+            'Choose 2–6 bots. Membership is fixed for this room.',
+            ?widget.note,
+          ].join('\n\n'),
+          children: [
+            for (final member in shown)
+              if (widget.selected.contains(member.memberId) case final checked)
+                _MemberRow(
+                  member: member,
+                  checked: checked,
+                  enabled:
+                      widget.enabled && (checked || widget.selected.length < 6),
+                  apple: apple,
+                  onChanged: (on) => _toggle(member, on),
+                ),
+            if (shown.isEmpty) const GroupedRow(title: 'No matching bots'),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+const double _checkboxSize = 18;
+
+class _MemberRow extends StatelessWidget {
+  const _MemberRow({
+    required this.member,
+    required this.checked,
+    required this.enabled,
+    required this.apple,
+    required this.onChanged,
+  });
+
+  final GroupMember member;
+  final bool checked, enabled, apple;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = ExcludeSemantics(
+      child: apple
+          ? AppIcon(
+              AppIcons.check,
+              size: 17,
+              color: checked
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.transparent,
+            )
+          : SizedBox.square(
+              dimension: _checkboxSize,
+              child: Checkbox(
+                value: checked,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+                onChanged: enabled
+                    ? (value) => onChanged(value ?? false)
+                    : null,
+              ),
+            ),
+    );
+    return Semantics(
+      checked: checked,
+      enabled: enabled,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: GroupedRow(
+          title: member.displayName ?? member.profile,
+          subtitle: '@${member.handle}',
+          leading: apple ? null : mark,
+          trailing: apple ? mark : null,
+          chevron: false,
+          onTap: enabled ? () => onChanged(!checked) : null,
+        ),
       ),
-    ],
-  );
+    );
+  }
 }
 
 /// Durable prose retains the recorded actor and thread. Other event kinds
