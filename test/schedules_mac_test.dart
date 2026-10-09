@@ -168,8 +168,14 @@ void main() {
       await tester.tap(find.byKey(const Key('schedule-filter')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Paused'), findsWidgets);
-      expect(find.textContaining('(active)'), findsNothing);
+      final entries = find.byWidgetPredicate((w) => w is PopupMenuEntry);
+      expect(
+        [
+          for (final entry in tester.widgetList<PopupMenuEntry>(entries))
+            ((entry as CheckedPopupMenuItem).child! as Text).data,
+        ],
+        ['All tasks', 'Failing (1)', 'Paused'],
+      );
     });
 
     testWidgets('an empty profile says so', (tester) async {
