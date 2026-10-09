@@ -1,0 +1,18 @@
+/* Set Up on Material: an outlined pill (messaging_platform_row.dart _SetUpButton). */
+.h-messaging-row__setup {
+  height: auto;
+  padding: 6px 12px;
+  border-radius: var(--h-radius-pill);
+  font-weight: 600;
+}
+
+/* Set Up… on a Mac: a small bordered push button. */
+.h-messaging-row__setup--mac {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--h-surface);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  cursor: default;
+}
