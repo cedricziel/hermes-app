@@ -1,18 +1,17 @@
-import { Icon } from "../Icon/Icon";
-import { cx } from "../../platform";
-import "./BlueprintCard.css";
+import { GroupedRow, GroupedTile } from "../GroupedRow/GroupedRow";
+import { type AppleDevice, type Platform } from "../../platform";
 
 /** A template for a scheduled task that the server offers ("blueprint"). */
 export interface BlueprintItem {
   /** Stable key, e.g. `morning-brief`. */
   key: string;
-  /** Card title: "Morning briefing". */
+  /** Row title: "Morning briefing". */
   title: string;
-  /** What it does, cut after three lines: "A short daily briefing". */
+  /** What it does, the muted subtitle: "A short daily briefing". */
   description?: string;
-  /** Category the gallery filters by, lowercase: `daily`, `email`. */
+  /** Category the gallery groups and filters by, lowercase: `daily`, `email`. */
   category?: string;
-  /** The schedule in words, muted at the bottom: "daily at 08:00". */
+  /** The schedule in words, the smaller caption: "daily at 08:00". */
   schedule?: string;
 }
 
@@ -20,51 +19,46 @@ export interface BlueprintCardProps {
   /** The blueprint to show. */
   blueprint: BlueprintItem;
   /**
-   * `template` (default): the gallery's 260px card with title, description
-   * and schedule. `custom`: the full-width "Custom task · Start from scratch"
-   * row with a leading "+", which opens the empty job form.
+   * `template` (default): a gallery row with the title, the description as
+   * subtitle and the schedule as caption. `custom`: "Custom task · Start
+   * from scratch" with a "+" in a leading `GroupedTile`, which opens the
+   * empty job form; give its section `dividerIndent="tile"`.
    */
   variant?: "template" | "custom";
-  /** The card was pressed: open the blueprint's form. */
+  /** The row was pressed: open the blueprint's form. */
   onClick?: () => void;
+  /** iOS 17/15/13px, Mac 13/11/11px, Material 16/14/13px, with the disclosure chevron. Inherits the provider's platform. */
+  platform?: Platform;
+  device?: AppleDevice;
 }
 
 /**
- * A card in the "New scheduled task" gallery: an outlined 14px-radius card
- * per blueprint, laid out in a wrapping row of 260px cards, under one
- * full-width `custom` card. Same on every platform, as in the app.
+ * A row of the "New scheduled task" gallery, a `GroupedRow` with a
+ * chevron: one per blueprint inside its category's `GroupedSection`, and
+ * the `custom` row in a group of its own on top. (It was a card before the
+ * gallery became grouped sections; the name stays.)
  */
 export function BlueprintCard({
   blueprint,
   variant = "template",
   onClick,
+  platform,
+  device,
 }: BlueprintCardProps) {
   const custom = variant === "custom";
   return (
-    <div
-      className={cx("h-blueprint-card", custom && "h-blueprint-card--custom")}
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        }
-      }}
-    >
-      {custom ? <Icon name="add" size={24} /> : null}
-      <div className="h-blueprint-card__text">
-        <div className="h-blueprint-card__title">{blueprint.title}</div>
-        {blueprint.description ? (
-          <div className="h-blueprint-card__description">
-            {blueprint.description}
-          </div>
-        ) : null}
-        {blueprint.schedule && !custom ? (
-          <div className="h-blueprint-card__schedule">{blueprint.schedule}</div>
-        ) : null}
-      </div>
-    </div>
+    <GroupedRow
+      leading={
+        custom ? (
+          <GroupedTile icon="add" platform={platform} device={device} />
+        ) : undefined
+      }
+      title={blueprint.title}
+      subtitle={blueprint.description || undefined}
+      caption={custom ? undefined : blueprint.schedule || undefined}
+      onClick={onClick ?? (() => {})}
+      platform={platform}
+      device={device}
+    />
   );
 }
