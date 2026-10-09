@@ -3,6 +3,9 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'package:hermes_app/src/bot_mode/group_protocol/hermes_groups_repository.dart';
 import 'package:hermes_app/src/bot_mode/groups/widgets/group_widgets.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
+
+import 'frame.dart';
 
 GroupMember _member(int n) => GroupMember.fromJson({
   'member_id': 'member-$n',
@@ -73,22 +76,31 @@ WidgetbookNode groupUiNode() => WidgetbookComponent(
         ),
       ),
     for (final count in [2, 6]) ...[
-      WidgetbookUseCase(
-        name: '$count members',
-        builder: (_) => _frame(
-          GroupRoomRow(
-            room: _room(count),
-            needsAttention: count == 6,
-            onOpen: () {},
+      ...onEachPlatform(
+        '$count members',
+        (_) => _frame(
+          GroupedSection(
+            header: 'Groups',
+            children: [
+              GroupRoomRow(
+                room: _room(count),
+                needsAttention: count == 6,
+                activity: count == 2 ? 'Working' : null,
+                onOpen: () {},
+              ),
+            ],
           ),
         ),
       ),
-      WidgetbookUseCase(
-        name: '$count member checklist',
-        builder: (_) => _frame(
+      ...onEachPlatform(
+        '$count member checklist',
+        (_) => _frame(
           GroupMemberChecklist(
             members: _room(count).members,
-            selected: const {},
+            selected: {
+              for (final m in _room(count).members.take(2)) m.memberId,
+            },
+            note: groupInteractionLimitation,
             onChanged: (_) {},
           ),
         ),

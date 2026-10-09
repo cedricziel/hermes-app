@@ -32,10 +32,47 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Editor'), findsOneWidget);
-    expect(find.text('Add profile'), findsOneWidget);
+    expect(find.text('Add an existing profile'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'nobody');
     await tester.pump();
     expect(find.text('Editor'), findsNothing);
+  });
+
+  testWidgets('adds an existing profile from its row', (tester) async {
+    final saved = <Map<String, Object?>>[];
+    var added = false;
+    final repository = BotModeRosterRepository((method, params) async {
+      if (method == 'profiles.list') {
+        return {
+          'bot_mode_protocol': true,
+          'profiles': [
+            {
+              'name': 'plain',
+              'ui_meta_revisions': {'hermes-bots': added ? 1 : 0},
+              if (added)
+                'ui_meta': {
+                  'hermes-bots': {'title': 'plain'},
+                },
+            },
+          ],
+        };
+      }
+      saved.add({'method': method, ...params});
+      added = true;
+      return {
+        'applied': {'ui_meta': true},
+      };
+    }, serverId: 'local');
+    await tester.pumpWidget(
+      MaterialApp(home: BotModeRosterScreen(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(saved, isNotEmpty);
+    expect(find.text('Add an existing profile'), findsNothing);
+    expect(find.text('plain'), findsWidgets);
   });
 
   testWidgets('older gateway explains unavailable state', (tester) async {

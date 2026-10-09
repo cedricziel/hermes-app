@@ -173,6 +173,10 @@ abstract final class AppIcons {
     Icons.smart_toy_outlined,
     CupertinoIcons.person_crop_square,
   );
+  static const group = AppIconSet(
+    Icons.groups_outlined,
+    CupertinoIcons.person_3,
+  );
   static const shield = AppIconSet(
     Icons.shield_outlined,
     CupertinoIcons.shield,
@@ -424,6 +428,7 @@ abstract final class AppIcons {
     'stopRecording': stopRecording,
     'speed': speed,
     'bot': bot,
+    'group': group,
     'shield': shield,
     'send': send,
     'sendOutlined': sendOutlined,

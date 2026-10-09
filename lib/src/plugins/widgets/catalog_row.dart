@@ -55,17 +55,22 @@ class CatalogRow extends StatelessWidget {
   }
 }
 
-/// A row's small Install button: a tinted pill on iOS, a bordered push
-/// button on macOS, an outlined pill on Material. It spins while [installing].
+/// A row's small Install (or [label]) button: a tinted pill on iOS, a
+/// bordered push button on macOS, an outlined pill on Material. It spins
+/// while [installing].
 class InstallButton extends StatelessWidget {
   const InstallButton({
     super.key,
     required this.installing,
     required this.onPressed,
+    this.label = 'Install',
   });
 
   final bool installing;
   final VoidCallback onPressed;
+
+  /// What the button does, such as "Add".
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +81,7 @@ class InstallButton extends StatelessWidget {
             dimension: mac ? 12 : 16,
             child: const CircularProgressIndicator.adaptive(strokeWidth: 2),
           )
-        : const Text('Install');
+        : Text(this.label);
     final onPressed = installing ? null : this.onPressed;
     final text = Theme.of(context).textTheme.labelLarge;
     if (chrome == PlatformChrome.ios) {
