@@ -340,6 +340,7 @@ class _TestOutcome extends StatelessWidget {
                 GroupedRow(
                   title: tool.name,
                   subtitle: tool.description.isEmpty ? null : tool.description,
+                  subtitleMaxLines: null,
                   value: switch (tool.schemaChars) {
                     final chars? => mcpSchemaSize(chars),
                     null => null,

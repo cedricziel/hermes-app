@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
@@ -410,6 +411,33 @@ void main() {
       expect(
         inRow('grafana', find.text('Remote · OAuth · 3 tools')),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('shows a tool description in full', (tester) async {
+      const description =
+          'Run a PromQL query against the Prometheus data source and return '
+          'the series it matched, with their labels and the sampled values '
+          'for the whole range that was asked for';
+      server.on(
+        'POST',
+        '/api/mcp/servers/grafana/test',
+        mcpTestBody(
+          tools: [
+            mcpToolRow(name: 'query_prometheus', description: description),
+          ],
+        ),
+      );
+      await pumpScreen(tester);
+      await openDetail(tester, 'grafana');
+
+      await tapTest(tester);
+
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text(description))
+            .didExceedMaxLines,
+        isFalse,
       );
     });
 

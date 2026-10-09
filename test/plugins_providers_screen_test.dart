@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
@@ -366,6 +367,29 @@ void main() {
       );
       expect(find.text('compressor'), findsOneWidget);
       expect(find.byKey(const Key('engine-compressor')), findsNothing);
+    });
+
+    testWidgets('says in full on a phone that there is no other engine', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(375, 800)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      server.on('GET', _hub, hub(engines: []));
+
+      await openProviders(tester);
+
+      expect(
+        tester
+            .renderObject<RenderParagraph>(
+              find.text(
+                'No other context engines are available on this server',
+              ),
+            )
+            .didExceedMaxLines,
+        isFalse,
+      );
     });
   });
 

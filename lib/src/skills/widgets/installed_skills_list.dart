@@ -56,6 +56,7 @@ class InstalledSkillsList extends StatelessWidget {
                   key: ValueKey('skill-${skill.name}'),
                   title: skill.name,
                   subtitle: skillSubtitle(skill),
+                  subtitleMaxLines: 2,
                   value: skill.enabled,
                   onChanged: (v) => onToggle(skill, v),
                   onTap: () => onOpen(skill),
