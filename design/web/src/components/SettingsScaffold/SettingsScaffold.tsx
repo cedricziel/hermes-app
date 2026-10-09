@@ -408,6 +408,7 @@ function BarAction({
         label={action.label}
         shortcut={action.shortcut}
         selected={open}
+        menuOpen={action.menu ? open : undefined}
         disabled={action.disabled}
         onClick={onClick}
       />

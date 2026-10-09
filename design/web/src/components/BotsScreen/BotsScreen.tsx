@@ -116,10 +116,12 @@ const initial = (title: string) => (
 
 /** The small Add button of a profile row (the app's `InstallButton`): a filled pill on iOS, a bordered push button on a Mac, an outlined pill on Material; a spinner while adding. */
 function AddButton({
+  name,
   chrome,
   busy,
   onClick,
 }: {
+  name: string;
   chrome: GroupedChrome;
   busy: boolean;
   onClick?: () => void;
@@ -130,9 +132,14 @@ function AddButton({
       compact
       disabled={busy}
       className={cx("h-bots-add", `h-bots-add--${chrome}`)}
+      aria-label={busy ? `Adding ${name}` : `Add ${name}`}
       onClick={onClick}
     >
-      {busy ? <Spinner size={chrome === "mac" ? 12 : 16} /> : "Add"}
+      {busy ? (
+        <Spinner size={chrome === "mac" ? 12 : 16} label={`Adding ${name}`} />
+      ) : (
+        "Add"
+      )}
     </Button>
   );
 }
@@ -273,6 +280,7 @@ export function BotsScreen({
                       subtitle={title === p.name ? undefined : p.name}
                       trailing={
                         <AddButton
+                          name={title}
                           chrome={chrome}
                           busy={adding.includes(p.name)}
                           onClick={() => onAddProfile?.(p.name)}

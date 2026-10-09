@@ -26,7 +26,10 @@
 }
 
 .h-settings__bar--ios {
-  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  /* The back button and the actions keep their width; the title gives way,
+     off centre once it would run into them, as NavigationToolbar does. */
+  grid-template-columns:
+    minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   height: 44px;
   padding-right: 4px;
 }

@@ -15,6 +15,8 @@ export interface MacToolbarButtonProps {
   shortcut?: string;
   /** A toggle that is on (an inspector shown, a filter in effect): the button stays filled. */
   selected?: boolean;
+  /** The button opens a menu, open while true: it is announced as a menu button, collapsed or expanded, instead of a toggle. */
+  menuOpen?: boolean;
   disabled?: boolean;
   onClick?: () => void;
 }
@@ -26,9 +28,11 @@ export function MacToolbarButton({
   label,
   shortcut,
   selected,
+  menuOpen,
   disabled,
   onClick,
 }: MacToolbarButtonProps) {
+  const menu = menuOpen !== undefined;
   return (
     <button
       type="button"
@@ -37,7 +41,9 @@ export function MacToolbarButton({
         selected && "h-mac-toolbar__button--selected",
       )}
       aria-label={label}
-      aria-pressed={selected}
+      aria-pressed={menu ? undefined : selected}
+      aria-haspopup={menu ? "menu" : undefined}
+      aria-expanded={menuOpen}
       title={shortcut ? `${label} ${shortcut}` : label}
       disabled={disabled}
       onClick={onClick}

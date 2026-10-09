@@ -80,7 +80,12 @@ export function GroupedValueRow({
         warning={warning}
         trailing={
           progress ?? (
-            <MacPopUpValue value={value} onClick={open} enabled={!!open} />
+            <MacPopUpValue
+              title={title}
+              value={value}
+              onClick={open}
+              enabled={!!open}
+            />
           )
         }
         platform={platform}
@@ -107,10 +112,12 @@ export function GroupedValueRow({
 
 /** The Mac pop-up button showing a value. */
 function MacPopUpValue({
+  title,
   value,
   enabled,
   onClick,
 }: {
+  title: string;
   value: string;
   enabled: boolean;
   onClick?: () => void;
@@ -120,6 +127,7 @@ function MacPopUpValue({
       type="button"
       className="h-mac-popup"
       disabled={!enabled}
+      aria-label={`${title}: ${value}`}
       aria-haspopup="menu"
       onClick={onClick}
     >
