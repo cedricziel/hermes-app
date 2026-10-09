@@ -1,0 +1,211 @@
+.h-settings {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--h-bg);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-settings__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* iOS and Material bars: no divider. */
+.h-settings__bar {
+  flex: none;
+  display: grid;
+  align-items: center;
+}
+
+.h-settings__bar--ios {
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  height: 44px;
+  padding-right: 4px;
+}
+
+.h-settings__bar--material {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  height: 56px;
+  padding: 0 8px 0 16px;
+}
+
+.h-settings__bar--material.h-settings__bar--leading {
+  padding-left: 8px;
+}
+
+.h-settings__leading,
+.h-settings__actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.h-settings__bar--material.h-settings__bar--leading .h-settings__leading {
+  width: 56px;
+  margin-right: 8px;
+}
+
+.h-settings__actions {
+  justify-content: flex-end;
+  gap: 0;
+}
+
+.h-settings__bar--material .h-settings__actions {
+  gap: 4px;
+}
+
+.h-settings__titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.h-settings__bar--ios .h-settings__titles {
+  align-items: center;
+  padding: 0 8px;
+  text-align: center;
+}
+
+.h-settings__title,
+.h-settings__subtitle,
+.h-settings__subtitle-text {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-settings__title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.h-settings__bar--ios .h-settings__title {
+  font-size: 17px;
+}
+
+.h-settings__subtitle {
+  color: var(--h-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.h-settings__subtitle:has(.h-settings__subtitle-anchor) {
+  overflow: visible;
+}
+
+.h-settings__subtitle-anchor .h-menu {
+  z-index: 20;
+}
+
+.h-settings__subtitle-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.h-settings__back {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 8px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.h-settings__back-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.h-settings__text-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--h-radius-sm);
+  background: transparent;
+  color: var(--h-primary);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.h-settings__bar--ios .h-settings__text-button {
+  font-size: 17px;
+}
+
+.h-settings__bar--ios .h-settings__text-button--cancel {
+  margin-left: 8px;
+  font-weight: 400;
+}
+
+.h-settings__text-button:hover:not(:disabled) {
+  background: var(--h-hover);
+}
+
+.h-settings__text-button:disabled {
+  color: var(--h-muted);
+  cursor: default;
+}
+
+.h-settings__menu-button {
+  display: inline-flex;
+}
+
+.h-settings__pill-tabs {
+  flex: none;
+  padding: 4px 16px 8px;
+}
+
+.h-settings__search {
+  flex: none;
+  padding: 0 16px 8px;
+}
+
+/* The Mac toolbar's Save or Create: a small filled push button. */
+.h-settings__mac-form-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  margin-left: 4px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--h-primary);
+  color: var(--h-on-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: default;
+}
+
+.h-settings__mac-form-action:disabled {
+  background: var(--h-hover);
+  color: var(--h-muted);
+}

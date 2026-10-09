@@ -1,0 +1,41 @@
+.h-pill-segmented {
+  display: flex;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 3px;
+  border-radius: var(--h-radius-pill);
+  background: var(--h-surface-high);
+  font-family: var(--h-font);
+}
+
+.h-pill-segmented__segment {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--h-radius-pill);
+  background: transparent;
+  color: color-mix(in srgb, var(--h-fg) 70%, transparent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.h-pill-segmented__segment:hover:not(.h-pill-segmented__segment--selected) {
+  background: var(--h-hover);
+}
+
+.h-pill-segmented__segment--selected {
+  border-color: var(--h-border);
+  background: var(--h-surface);
+  color: var(--h-fg);
+  font-weight: 600;
+}
+
+.h-pill-segmented__segment:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}

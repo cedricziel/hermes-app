@@ -1,0 +1,36 @@
+/* The Mac pop-up button of a value row (grouped_form.dart _PopUpValue). */
+.h-mac-popup {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 260px;
+  padding: 2px 6px 2px 9px;
+  border: 1px solid var(--h-border);
+  border-radius: 6px;
+  background: var(--h-surface);
+  color: var(--h-fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: default;
+}
+
+.h-mac-popup:hover:not(:disabled) {
+  background: var(--h-hover);
+}
+
+.h-mac-popup:disabled {
+  color: var(--h-muted);
+}
+
+.h-mac-popup:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-mac-popup__value {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

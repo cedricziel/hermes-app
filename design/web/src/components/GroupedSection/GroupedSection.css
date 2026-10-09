@@ -1,0 +1,58 @@
+.h-grouped-section {
+  margin: 0;
+  padding-top: 8px;
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-grouped-section--header {
+  padding-top: var(--hg-gap);
+}
+
+.h-grouped-section__header {
+  margin: 0;
+  padding: 0 var(--hg-row-pad) 6px;
+  color: var(--h-muted);
+  font-size: var(--hg-header);
+  font-weight: var(--hg-header-weight);
+  line-height: 1.3;
+  text-transform: var(--hg-header-case);
+}
+
+.h-grouped-section__card {
+  border: 1px solid var(--h-border);
+  border-radius: var(--hg-radius);
+  background: var(--h-surface);
+}
+
+/* No overflow clip, so a row's open menu can leave the card: the first and
+   last rows round their own fills instead. */
+.h-grouped-section__card > :first-child {
+  border-top-left-radius: calc(var(--hg-radius) - 1px);
+  border-top-right-radius: calc(var(--hg-radius) - 1px);
+}
+
+.h-grouped-section__card > :last-child {
+  border-bottom-left-radius: calc(var(--hg-radius) - 1px);
+  border-bottom-right-radius: calc(var(--hg-radius) - 1px);
+}
+
+.h-grouped-section__divider {
+  height: 1px;
+  background: var(--h-border-subtle);
+}
+
+.h-grouped-section__footer,
+.h-grouped-footer {
+  margin: 0;
+  padding: 6px var(--hg-row-pad) 0;
+  color: var(--h-muted);
+  font-family: var(--h-font);
+  font-size: var(--hg-footer);
+  line-height: 1.35;
+}
+
+.h-grouped-footer--error {
+  padding-top: 12px;
+  color: var(--h-error);
+}

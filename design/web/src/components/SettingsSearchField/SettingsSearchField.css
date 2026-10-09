@@ -1,0 +1,118 @@
+.h-settings-search {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  font-family: var(--h-font);
+}
+
+.h-settings-search--mac {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.h-settings-search--ios,
+.h-settings-search--material {
+  position: relative;
+  width: 100%;
+  background: var(--h-surface-high);
+  color: var(--h-fg);
+}
+
+.h-settings-search--ios {
+  height: 36px;
+  padding-left: 8px;
+  border-radius: 10px;
+  gap: 6px;
+}
+
+.h-settings-search--material {
+  height: 44px;
+  padding-left: 16px;
+  border-radius: var(--h-radius-pill);
+  gap: 12px;
+}
+
+.h-settings-search__glyph {
+  flex: none;
+  color: var(--h-muted);
+}
+
+.h-settings-search__input {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+}
+
+.h-settings-search--ios .h-settings-search__input {
+  font-size: 17px;
+}
+
+.h-settings-search--material .h-settings-search__input {
+  font-size: 16px;
+}
+
+.h-settings-search__input::placeholder {
+  color: var(--h-muted);
+}
+
+.h-settings-search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.h-settings-search__clear {
+  flex: none;
+  display: inline-flex;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: pointer;
+}
+
+.h-settings-search__filter-anchor {
+  flex: none;
+  align-self: stretch;
+  display: inline-flex;
+}
+
+.h-settings-search__filter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-muted);
+  cursor: pointer;
+}
+
+.h-settings-search--ios .h-settings-search__filter {
+  width: 36px;
+  border-radius: 10px;
+}
+
+.h-settings-search--material .h-settings-search__filter {
+  width: 44px;
+  border-radius: 50%;
+}
+
+.h-settings-search__filter--active {
+  background: color-mix(in srgb, var(--h-fg) 8%, transparent);
+  color: var(--h-fg);
+}
+
+.h-settings-search__filter:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
+.h-settings-search__end {
+  flex: none;
+  width: 8px;
+}

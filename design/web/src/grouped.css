@@ -1,0 +1,65 @@
+/* GroupedMetrics (lib/src/widgets/grouped_list.dart): iOS inset grouped
+   lists, the Mac's 600px column and Material cards. Each grouped component
+   puts one of these classes on its own root. */
+.h-gm--ios {
+  --hg-gutter: 16px;
+  --hg-max: 640px;
+  --hg-radius: 12px;
+  --hg-row-min: 44px;
+  --hg-row-pad: 16px;
+  --hg-row-vpad: 6px;
+  --hg-title: 17px;
+  --hg-sub: 15px;
+  --hg-header: 13px;
+  --hg-header-weight: 400;
+  --hg-header-case: uppercase;
+  --hg-footer: 13px;
+  --hg-gap: 24px;
+  --hg-leading: 22px;
+  --hg-leading-gap: 12px;
+  --hg-tile: 29px;
+  --hg-tile-radius: 7px;
+  --hg-tile-icon: 18px;
+}
+
+.h-gm--mac {
+  --hg-gutter: 20px;
+  --hg-max: 600px;
+  --hg-radius: 10px;
+  --hg-row-min: 40px;
+  --hg-row-pad: 12px;
+  --hg-row-vpad: 6px;
+  --hg-title: 13px;
+  --hg-sub: 11px;
+  --hg-header: 11px;
+  --hg-header-weight: 600;
+  --hg-header-case: none;
+  --hg-footer: 11px;
+  --hg-gap: 20px;
+  --hg-leading: 18px;
+  --hg-leading-gap: 10px;
+  --hg-tile: 24px;
+  --hg-tile-radius: 6px;
+  --hg-tile-icon: 14px;
+}
+
+.h-gm--material {
+  --hg-gutter: 16px;
+  --hg-max: 640px;
+  --hg-radius: 14px;
+  --hg-row-min: 56px;
+  --hg-row-pad: 16px;
+  --hg-row-vpad: 10px;
+  --hg-title: 16px;
+  --hg-sub: 14px;
+  --hg-header: 13px;
+  --hg-header-weight: 600;
+  --hg-header-case: none;
+  --hg-footer: 13px;
+  --hg-gap: 20px;
+  --hg-leading: 21px;
+  --hg-leading-gap: 16px;
+  --hg-tile: 32px;
+  --hg-tile-radius: 10px;
+  --hg-tile-icon: 20px;
+}
