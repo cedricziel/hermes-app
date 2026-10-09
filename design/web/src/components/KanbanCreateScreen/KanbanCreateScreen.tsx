@@ -1,34 +1,31 @@
-import { Button } from "../Button/Button";
-import { Chip } from "../Chip/Chip";
-import { FormSection } from "../FormSection/FormSection";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
-import { ModelPill } from "../ModelPill/ModelPill";
-import { SelectField } from "../SelectField/SelectField";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedMenuRow } from "../GroupedMenuRow/GroupedMenuRow";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedSegmentedRow } from "../GroupedSegmentedRow/GroupedSegmentedRow";
+import { GroupedTextFieldRow } from "../GroupedTextFieldRow/GroupedTextFieldRow";
+import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Spinner } from "../Spinner/Spinner";
-import { TextField } from "../TextField/TextField";
-import {
-  PlatformScope,
-  usePlatform,
-  type AppleDevice,
-  type Platform,
-} from "../../platform";
-import "../../styles/form-screen.css";
+import type { AppleDevice, Platform } from "../../platform";
 
 export interface KanbanCreateScreenProps {
   /** Title typed so far; Create and "Estimate the work" need one. */
   title?: string;
   /** Description typed so far. */
   description?: string;
+  /** The board the task goes on, the bar's subtitle: "default". */
+  board?: string;
   /** Profiles the task can be assigned to, offered after "Auto (triage picks)". */
   assignees?: string[];
   /** The assignee picked; omitted means "Auto (triage picks)". */
   assignee?: string;
   /**
-   * The model field. `list`: a `ModelPill` under a "Model" label, opening
-   * the picker with the plugin's models (`model`, `effort`; "Profile
+   * The Assignment group's Model row. `list`: a value row opening the
+   * picker with the plugin's models ("claude-opus-4 · High", or "Profile
    * default" when none is picked). `freeText`: the plugin lists no models,
-   * so a "Model" text field (`modelName`) with "Leave empty for the profile
-   * default". `loading`: nothing yet.
+   * so a "Model" text field row (`modelName`) and the footer "Leave the
+   * model empty for the profile default." `loading`: no row yet.
    */
   modelField?: "list" | "freeText" | "loading";
   /** `list`: the model picked; omitted shows "Profile default". */
@@ -41,23 +38,26 @@ export interface KanbanCreateScreenProps {
   priority?: number;
   /** Start in Triage (default) rather than Todo. */
   triage?: boolean;
-  /** The estimate's summary, shown under "Estimate the work": "About 2 hours of work". */
+  /** The estimate's summary, the subtitle of "Estimate the work": "About 2 hours of work". */
   estimate?: string;
-  /** The estimate is being worked out: "Estimate the work" disabled. */
+  /** The estimate is being worked out: a spinner at the end of "Estimate the work", which ignores clicks. */
   estimating?: boolean;
-  /** The task is being created: Create disabled. */
+  /** The task is being created: a spinner in Create's place. */
   saving?: boolean;
-  /** Which dropdown starts open, for previews. */
+  /** Which menu starts open, for previews. */
   defaultOpen?: "assignee";
-  /** `phone` shows the parent's title ("Kanban") beside the Apple back chevron. */
-  layout?: "phone" | "desktop";
   /**
-   * `apple`: the chevron back button and the iOS type ramp; the form itself
-   * is Material on every platform, as in the app, and its menus follow
-   * `device`. Inherits the provider's platform.
+   * A grouped form on a `SettingsScaffold`, Create last in the bar.
+   * `apple` + `touch` (iPhone): Cancel leading, "Create" as a semibold text
+   * button; Title and Description borderless in one group, Assignee and
+   * Model as value rows with chevrons under "ASSIGNMENT", Priority and
+   * Start as sliding segmented controls. `apple` + `mac`: back button, a
+   * small filled Create, 13px rows with pop-up buttons in a centred 600px
+   * column. `material`: a close X, floating-label fields, label-over-value
+   * rows and pill segmented controls. Inherits the provider's platform.
    */
   platform?: Platform;
-  /** Under `apple`, `touch` or `mac` for the assignee menu. */
+  /** Under `apple`: `mac` or `touch`. Defaults to the enclosing `AppShell`'s, else `touch`. */
   device?: AppleDevice;
   /** The title was edited. */
   onTitleChange?: (title: string) => void;
@@ -65,11 +65,11 @@ export interface KanbanCreateScreenProps {
   onDescriptionChange?: (description: string) => void;
   /** An assignee was picked; `undefined` for "Auto (triage picks)". */
   onAssigneeChange?: (assignee: string | undefined) => void;
-  /** The model pill was pressed (the app opens the model picker with a "Use the default" entry). */
+  /** The Model row was pressed (the app opens the model picker with a "Use the profile's default" entry). */
   onPickModel?: () => void;
   /** The free-text model name was edited. */
   onModelNameChange?: (name: string) => void;
-  /** A priority chip was pressed. */
+  /** A priority was picked. */
   onPriorityChange?: (priority: number) => void;
   /** Triage or Todo was picked. */
   onTriageChange?: (triage: boolean) => void;
@@ -77,22 +77,23 @@ export interface KanbanCreateScreenProps {
   onEstimate?: () => void;
   /** Create pressed. */
   onCreate?: () => void;
-  /** Back pressed (the app asks before throwing a typed task away). */
+  /** Cancel, close or back pressed (the app asks before throwing a typed task away). */
   onBack?: () => void;
 }
 
 const auto = "Auto (triage picks)";
 
 /**
- * "New task" on the Kanban board: title, description, "Estimate the work",
- * assignee, model, priority and the column it starts in, with Create in the
- * bar. A column of `FormSection`s with `TextField`, `SelectField`,
- * `ModelPill` and `Chip`s, at most 560px wide and centred, on
- * `ListDetailLayout`'s `list` layout. Fills its parent.
+ * "New task" on the Kanban board, a grouped form: Title and Description,
+ * "Estimate the work" (greyed out until there is a title), the Assignment
+ * group (Assignee menu, Model), Priority (Normal, P1 to P3) and Start as
+ * (Triage, Todo), with Create in the bar and the board as the subtitle.
+ * Fills its parent.
  */
 export function KanbanCreateScreen({
   title = "",
   description = "",
+  board,
   assignees = [],
   assignee,
   modelField = "list",
@@ -105,7 +106,6 @@ export function KanbanCreateScreen({
   estimating = false,
   saving = false,
   defaultOpen,
-  layout = "phone",
   platform,
   device,
   onTitleChange,
@@ -119,109 +119,97 @@ export function KanbanCreateScreen({
   onCreate,
   onBack,
 }: KanbanCreateScreenProps) {
-  const resolvedPlatform = usePlatform(platform);
+  const back = onBack ?? (() => {});
+  const canEstimate = !estimating && title.trim() !== "";
   return (
-    <PlatformScope platform={resolvedPlatform}>
-      <ListDetailLayout
-        layout="list"
-        title="New task"
-        onBack={onBack ?? (() => {})}
-        backLabel={layout === "phone" ? "Kanban" : undefined}
-        actions={
-          <Button variant="text" disabled={saving} onClick={onCreate}>
-            Create
-          </Button>
-        }
-        list={
-          <div className="h-form-screen h-form-screen--narrow">
-            <FormSection gap={12}>
-              <TextField
-                label="Title"
-                value={title}
-                onChange={(e) => onTitleChange?.(e.target.value)}
-                readOnly={!onTitleChange}
-              />
-              <TextField
-                label="Description"
-                rows={3}
-                value={description}
-                onChange={(e) => onDescriptionChange?.(e.target.value)}
-                readOnly={!onDescriptionChange}
-              />
-            </FormSection>
-            <FormSection gap={4}>
-              <div>
-                <Button
-                  variant="text"
-                  icon={estimating ? undefined : "speed"}
-                  disabled={estimating || !title.trim()}
-                  onClick={onEstimate}
-                >
-                  {estimating ? <Spinner size={18} label="Estimating" /> : null}
-                  Estimate the work
-                </Button>
-              </div>
-              {estimate ? (
-                <div className="h-form-screen__note">{estimate}</div>
-              ) : null}
-            </FormSection>
-            <SelectField
-              label="Assignee"
-              value={assignee ?? auto}
-              options={[auto, ...assignees]}
-              defaultOpen={defaultOpen === "assignee"}
-              device={device}
-              onChange={(v) => onAssigneeChange?.(v === auto ? undefined : v)}
+    <SettingsScaffold
+      title="New task"
+      subtitle={board}
+      onBack={back}
+      onCancel={back}
+      formAction={{ label: "Create", busy: saving, onClick: onCreate }}
+      platform={platform}
+      device={device}
+    >
+      <GroupedListView>
+        <GroupedSection>
+          <GroupedTextFieldRow
+            label="Title"
+            value={title}
+            onChange={onTitleChange}
+          />
+          <GroupedTextFieldRow
+            label="Description"
+            rows={3}
+            value={description}
+            onChange={onDescriptionChange}
+          />
+        </GroupedSection>
+        <GroupedSection>
+          <GroupedRow
+            icon="speed"
+            title="Estimate the work"
+            subtitle={estimate}
+            trailing={
+              estimating ? <Spinner size={18} label="Estimating" /> : undefined
+            }
+            chevron={false}
+            disabled={!canEstimate && !estimating}
+            onClick={canEstimate ? onEstimate : undefined}
+          />
+        </GroupedSection>
+        <GroupedSection
+          header="Assignment"
+          footer={
+            modelField === "freeText"
+              ? "Leave the model empty for the profile default."
+              : undefined
+          }
+        >
+          <GroupedMenuRow
+            title="Assignee"
+            options={[auto, ...assignees]}
+            selected={assignee ? assignees.indexOf(assignee) + 1 : 0}
+            open={defaultOpen === "assignee"}
+            onSelect={(i) =>
+              onAssigneeChange?.(i === 0 ? undefined : assignees[i - 1])
+            }
+          />
+          {modelField === "list" ? (
+            <GroupedValueRow
+              title="Model"
+              value={
+                model
+                  ? [model, effort].filter(Boolean).join(" · ")
+                  : "Profile default"
+              }
+              onClick={onPickModel ?? (() => {})}
             />
-            {modelField === "list" ? (
-              <FormSection title="Model" titleStyle="label" gap={4}>
-                <div>
-                  <ModelPill
-                    model={model}
-                    effort={model ? effort : undefined}
-                    placeholder="Profile default"
-                    onClick={onPickModel}
-                  />
-                </div>
-              </FormSection>
-            ) : modelField === "freeText" ? (
-              <TextField
-                label="Model"
-                helper="Leave empty for the profile default"
-                value={modelName}
-                onChange={(e) => onModelNameChange?.(e.target.value)}
-                readOnly={!onModelNameChange}
-              />
-            ) : null}
-            <FormSection title="Priority" titleStyle="label">
-              <div className="h-form-screen__chips">
-                {[0, 1, 2, 3].map((p) => (
-                  <Chip
-                    key={p}
-                    label={p === 0 ? "Normal" : `P${p}`}
-                    selected={priority === p}
-                    onClick={() => onPriorityChange?.(p)}
-                  />
-                ))}
-              </div>
-            </FormSection>
-            <FormSection title="Start as" titleStyle="label">
-              <div className="h-form-screen__chips">
-                <Chip
-                  label="Triage"
-                  selected={triage}
-                  onClick={() => onTriageChange?.(true)}
-                />
-                <Chip
-                  label="Todo"
-                  selected={!triage}
-                  onClick={() => onTriageChange?.(false)}
-                />
-              </div>
-            </FormSection>
-          </div>
-        }
-      />
-    </PlatformScope>
+          ) : modelField === "freeText" ? (
+            <GroupedTextFieldRow
+              label="Model"
+              value={modelName}
+              onChange={onModelNameChange}
+            />
+          ) : null}
+        </GroupedSection>
+        <GroupedSection header="Priority">
+          <GroupedSegmentedRow
+            label="Priority"
+            labels={["Normal", "P1", "P2", "P3"]}
+            value={priority}
+            onChange={onPriorityChange}
+          />
+        </GroupedSection>
+        <GroupedSection header="Start as">
+          <GroupedSegmentedRow
+            label="Start as"
+            labels={["Triage", "Todo"]}
+            value={triage ? 0 : 1}
+            onChange={(i) => onTriageChange?.(i === 0)}
+          />
+        </GroupedSection>
+      </GroupedListView>
+    </SettingsScaffold>
   );
 }
