@@ -87,6 +87,7 @@ void main() {
     expect(find.text('Main model'), findsOneWidget);
     expect(find.text('Chat titles'), findsOneWidget);
     expect(find.text('gemini-flash'), findsOneWidget);
+    expect(find.text('openrouter · Low'), findsOneWidget);
     expect(
       find.text(
         'Hermes runs side jobs on these models. Main model is '
@@ -278,10 +279,19 @@ void main() {
       expect(find.text('Mixture of agents'), findsOneWidget);
       expect(find.text('gpt-5.5'), findsOneWidget);
       expect(find.text('Advisor 2'), findsOneWidget);
-      expect(find.text('Off'), findsOneWidget);
+      expect(find.text('openai-codex'), findsOneWidget);
       expect(find.text('Preset'), findsOneWidget);
       expect(find.text('Default'), findsOneWidget);
-      expect(find.text('deepseek-v4-pro'), findsNothing);
+      expect(find.text('deepseek-v4-pro'), findsOneWidget);
+      expect(
+        find.text('Off · deepseek/deepseek-v4-pro · openrouter · High'),
+        findsOneWidget,
+      );
+      expect(find.text('claude-opus-4.8'), findsOneWidget);
+      expect(
+        find.text('anthropic/claude-opus-4.8 · openrouter'),
+        findsOneWidget,
+      );
       expect(
         server.requestsTo('GET', '/api/model/moa').single.queryParameters,
         {'profile': 'work'},
