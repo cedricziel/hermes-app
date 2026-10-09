@@ -48,15 +48,19 @@ export interface CreateGroupDialogProps {
   onQueryChange?: (query: string) => void;
   onCancel?: () => void;
   onCreate?: () => void;
-  /** Under `apple`: `mac` (the toolbar search field and compact rows) or `touch`; inherited from the screen, else `touch`. */
+  /**
+   * Accepted from the screen but does not change the look: the app shows
+   * this Material dialog on every platform, so on a Mac the title, field,
+   * search, member rows and buttons all keep their phone size.
+   */
   device?: AppleDevice;
 }
 
 /**
  * Create group, from the Bots screen's Groups section: the Material dialog
  * the app shows on every platform (28px corners, "Create group", Cancel and
- * a filled Create). Inside: "Room name", a "Search members" field (the
- * toolbar's search field on a Mac), then the bots as one inset group whose
+ * a filled Create), the same size on a Mac. Inside: "Room name", a "Search
+ * members" field, then the bots as one inset group whose
  * rows are "Editor" over "@writer", with a blue check at the trailing edge
  * on Apple and a checkbox at the leading edge on Material. The footer says
  * "Choose 2–6 bots. Membership is fixed for this room." and that hosted
@@ -76,9 +80,8 @@ export function CreateGroupDialog({
   onQueryChange,
   onCancel,
   onCreate,
-  device,
 }: CreateGroupDialogProps) {
-  const chrome = useGroupedChrome(undefined, device);
+  const chrome = useGroupedChrome(undefined, "touch");
   const apple = chrome !== "material";
   const [name, setName] = useState(nameProp);
   const [selected, setSelected] = useState(selectedProp);
@@ -106,7 +109,7 @@ export function CreateGroupDialog({
     selected.length <= 6;
 
   return (
-    <DeviceScope device={device}>
+    <DeviceScope device="touch">
       <Sheet
         presentation="dialog"
         title="Create group"
@@ -152,11 +155,7 @@ export function CreateGroupDialog({
                 const mark = apple ? (
                   <span className="h-choice-check" aria-hidden="true">
                     {checked ? (
-                      <Icon
-                        name="check"
-                        apple="checkmark"
-                        size={chrome === "mac" ? 14 : 17}
-                      />
+                      <Icon name="check" apple="checkmark" size={17} />
                     ) : null}
                   </span>
                 ) : (
