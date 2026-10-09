@@ -1,20 +1,18 @@
 import { Banner } from "../Banner/Banner";
-import { Button } from "../Button/Button";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
 import {
   McpCommandReview,
   type McpCommandReviewItem,
 } from "../McpCommandReview/McpCommandReview";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Sheet } from "../Sheet/Sheet";
-import { Spinner } from "../Spinner/Spinner";
-import { usePlatform, type Platform } from "../../platform";
-import { noop, ScreenFrame, ScreenState } from "../../screen";
+import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import { noop, screenDevice, ScreenFrame, ScreenState } from "../../screen";
 import "./McpJsonEditorScreen.css";
 
 export interface McpJsonEditorScreenProps {
   /** The profile's whole `mcp_servers` map as indented JSON, secrets included. */
   text?: string;
-  /** The profile, in the subtitle "Profile: work · mcp_servers". */
+  /** The profile, in the bar's subtitle "work · mcp_servers". */
   profile?: string;
   /** `loading`: a centred spinner. `failed`: "Could not load the configuration" with Retry. */
   state?: "loaded" | "loading" | "failed";
@@ -26,7 +24,7 @@ export interface McpJsonEditorScreenProps {
   problems?: string[];
   /** The save failed: "Could not save". */
   failure?: string;
-  /** The save is out: Save spins and the text is read-only. */
+  /** The save is out: the bar's Save shows a spinner and the text is read-only. */
   saving?: boolean;
   /** Draw the review of new or changed command servers before saving. */
   review?: McpCommandReviewItem[];
@@ -38,8 +36,16 @@ export interface McpJsonEditorScreenProps {
   onRetry?: () => void;
   onConfirmReview?: () => void;
   onCancelReview?: () => void;
-  /** Chevron back labelled "MCP servers" on an Apple phone, Apple spinners. Inherits the provider's platform. */
+  /**
+   * The settings bar with Save last in it (left out while loading).
+   * `apple` on a phone: "‹ MCP servers" and Save as a 17px semibold text
+   * button. `apple` + `desktop`: the Mac toolbar with a small filled Save
+   * push button. `material`: the 56px bar with Save as a 16px semibold
+   * text button. Inherits the provider's platform.
+   */
   platform?: Platform;
+  /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
+  device?: AppleDevice;
 }
 
 /**
@@ -67,6 +73,7 @@ export function McpJsonEditorScreen({
   onConfirmReview,
   onCancelReview,
   platform,
+  device,
 }: McpJsonEditorScreenProps) {
   const resolved = usePlatform(platform);
   const loaded = state === "loaded";
@@ -103,28 +110,25 @@ export function McpJsonEditorScreen({
     );
   return (
     <ScreenFrame platform={resolved}>
-      <ListDetailLayout
-        layout="list"
+      <SettingsScaffold
         title="Edit as JSON"
-        subtitle={profile ? `Profile: ${profile} · mcp_servers` : "mcp_servers"}
+        subtitle={[profile, "mcp_servers"].filter(Boolean).join(" · ")}
         onBack={onBack ?? noop}
         backLabel="MCP servers"
-        actions={
-          <Button
-            compact
-            disabled={!canSave}
-            onClick={onSave}
-            className="h-mcp-json__save"
-          >
-            {saving && !review ? (
-              <Spinner size={18} color="var(--h-muted)" label="Saving" />
-            ) : (
-              "Save"
-            )}
-          </Button>
+        device={screenDevice(layout, device)}
+        formAction={
+          state === "loading"
+            ? undefined
+            : {
+                label: "Save",
+                onClick: onSave,
+                busy: saving && !review,
+                disabled: !canSave,
+              }
         }
-        list={body}
-      />
+      >
+        {body}
+      </SettingsScaffold>
       {review ? (
         <Sheet
           presentation={layout === "desktop" ? "dialog" : "bottom"}

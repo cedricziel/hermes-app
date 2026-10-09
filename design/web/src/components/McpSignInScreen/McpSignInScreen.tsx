@@ -1,14 +1,16 @@
 import { Button } from "../Button/Button";
 import { Icon } from "../Icon/Icon";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Spinner } from "../Spinner/Spinner";
-import { usePlatform, type Platform } from "../../platform";
-import { noop, ScreenFrame } from "../../screen";
+import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import { noop, screenDevice, ScreenFrame } from "../../screen";
 import "./McpSignInScreen.css";
 
 export interface McpSignInScreenProps {
   /** The OAuth server being signed in to; the title reads "Sign in to grafana". */
   server: string;
+  /** The profile, the bar's subtitle: "work". */
+  profile?: string;
   /**
    * `waiting`: a spinner, "Waiting for you to approve", Open the browser
    * again and Cancel; the screen closes by itself once Hermes reports the
@@ -32,18 +34,28 @@ export interface McpSignInScreenProps {
   onCancel?: () => void;
   onTryAgain?: () => void;
   onClose?: () => void;
-  /** The spinner is the activity indicator under `apple`, with a chevron back labelled "MCP servers" on a phone. Inherits the provider's platform. */
+  /**
+   * The settings bar: "‹ MCP servers" and the centred title on an Apple
+   * phone, the Mac toolbar under `apple` + `desktop`, the 56px Material
+   * bar. The spinner is the activity indicator under `apple`. Inherits the
+   * provider's platform.
+   */
   platform?: Platform;
+  /** `phone` (default) or `desktop` (a Mac window under `apple`). The column is 420px either way. */
+  layout?: "phone" | "desktop";
+  /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
+  device?: AppleDevice;
 }
 
 /**
  * Waits while the user approves a sign-in to an OAuth MCP server in the
  * browser. Hermes runs the flow and keeps the token; the app only opens the
- * authorization address and watches. A centred 420px column under the app
- * bar; the same on phone and desktop. Fills its parent; give it a size.
+ * authorization address and watches. A centred 420px column under the
+ * settings bar; the same on phone and desktop. Fills its parent; give it a size.
  */
 export function McpSignInScreen({
   server,
+  profile,
   phase = "waiting",
   failure,
   authorizationUrl,
@@ -57,6 +69,8 @@ export function McpSignInScreen({
   onTryAgain,
   onClose,
   platform,
+  layout = "phone",
+  device,
 }: McpSignInScreenProps) {
   const resolved = usePlatform(platform);
   const body =
@@ -126,17 +140,17 @@ export function McpSignInScreen({
     );
   return (
     <ScreenFrame platform={resolved}>
-      <ListDetailLayout
-        layout="list"
+      <SettingsScaffold
         title={`Sign in to ${server}`}
+        subtitle={profile}
         onBack={onBack ?? noop}
         backLabel="MCP servers"
-        list={
-          <div className="h-screen__center">
-            <div className="h-mcp-signin">{body}</div>
-          </div>
-        }
-      />
+        device={screenDevice(layout, device)}
+      >
+        <div className="h-screen__center">
+          <div className="h-mcp-signin">{body}</div>
+        </div>
+      </SettingsScaffold>
     </ScreenFrame>
   );
 }

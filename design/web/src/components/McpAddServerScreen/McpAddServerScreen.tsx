@@ -1,18 +1,17 @@
 import { Banner } from "../Banner/Banner";
 import { Button } from "../Button/Button";
 import { IconButton } from "../IconButton/IconButton";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
 import {
   McpCommandReview,
   type McpCommandReviewItem,
 } from "../McpCommandReview/McpCommandReview";
 import { FormSection } from "../FormSection/FormSection";
 import { SegmentedButton } from "../SegmentedButton/SegmentedButton";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Sheet } from "../Sheet/Sheet";
-import { Spinner } from "../Spinner/Spinner";
 import { TextField } from "../TextField/TextField";
-import { usePlatform, type Platform } from "../../platform";
-import { noop, ScreenFrame } from "../../screen";
+import { usePlatform, type AppleDevice, type Platform } from "../../platform";
+import { noop, screenDevice, ScreenFrame } from "../../screen";
 import "./McpAddServerScreen.css";
 
 /** One environment variable row of a command server. The value is drawn masked. */
@@ -43,11 +42,11 @@ export interface McpAddServerScreenProps {
   args?: string;
   /** Command: environment variables. */
   env?: McpEnvRow[];
-  /** The request is out: fields are read-only and Add spins. */
+  /** The request is out: fields are read-only and the bar's Add shows a spinner. */
   saving?: boolean;
   /** Hermes refused or the request failed: a red banner at the bottom. */
   error?: string;
-  /** The profile it adds to, under the title. */
+  /** The profile it adds to, the bar's subtitle: "work". */
   profile?: string;
   /** Draw the command review before saving: a bottom sheet on a phone, a dialog on desktop. */
   review?: McpCommandReviewItem;
@@ -61,8 +60,16 @@ export interface McpAddServerScreenProps {
   onRemoveVariable?: (index: number) => void;
   onConfirmReview?: () => void;
   onCancelReview?: () => void;
-  /** Chevron back labelled "MCP servers" on an Apple phone, Apple spinners. Inherits the provider's platform. */
+  /**
+   * The settings bar with Add last in it. `apple` on a phone: "‹ MCP
+   * servers", the title centred over the profile, Add as a 17px semibold
+   * text button. `apple` + `desktop`: the Mac toolbar with a small filled
+   * Add push button. `material`: the 56px bar with Add as a 16px semibold
+   * text button. Inherits the provider's platform.
+   */
   platform?: Platform;
+  /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
+  device?: AppleDevice;
 }
 
 function validUrl(url: string) {
@@ -77,8 +84,8 @@ function validUrl(url: string) {
 /**
  * The "Add server" form for a custom MCP server: a segmented choice between a
  * remote server (URL, then None / Bearer token / OAuth) and a command server
- * (command, arguments one per line, environment variables), with a filled Add
- * in the bar that stays disabled until the form is complete. A command server
+ * (command, arguments one per line, environment variables), with Add in the
+ * settings bar that stays disabled until the form is complete. A command server
  * goes through `McpCommandReview` before anything is sent (`review`). Fills
  * its parent; give it a size.
  */
@@ -106,6 +113,7 @@ export function McpAddServerScreen({
   onConfirmReview,
   onCancelReview,
   platform,
+  device,
 }: McpAddServerScreenProps) {
   const resolved = usePlatform(platform);
   const remote = kind === "remote";
@@ -234,28 +242,21 @@ export function McpAddServerScreen({
 
   return (
     <ScreenFrame platform={resolved}>
-      <ListDetailLayout
-        layout="list"
+      <SettingsScaffold
         title="Add server"
-        subtitle={profile ? `Profile: ${profile}` : undefined}
+        subtitle={profile}
         onBack={onBack ?? noop}
         backLabel="MCP servers"
-        actions={
-          <Button
-            compact
-            disabled={!canAdd}
-            onClick={onAdd}
-            className="h-mcp-add__submit"
-          >
-            {saving && !review ? (
-              <Spinner size={18} color="var(--h-muted)" label="Adding" />
-            ) : (
-              "Add"
-            )}
-          </Button>
-        }
-        list={form}
-      />
+        device={screenDevice(layout, device)}
+        formAction={{
+          label: "Add",
+          onClick: onAdd,
+          busy: saving && !review,
+          disabled: !canAdd,
+        }}
+      >
+        <div className="h-mcp-add__scroll">{form}</div>
+      </SettingsScaffold>
       {review ? (
         <Sheet
           presentation={layout === "desktop" ? "dialog" : "bottom"}
