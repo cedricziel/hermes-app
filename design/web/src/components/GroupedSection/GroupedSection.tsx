@@ -30,7 +30,7 @@ export interface GroupedSectionProps {
    * 72px; the text on Apple), or a number of px.
    */
   dividerIndent?: DividerIndent;
-  /** The accessible name of a choice group (`dividerIndent="choice"`, read out as a radio group) that has no `header`: "Theme". */
+  /** The accessible name of the group's rows: a choice group (`dividerIndent="choice"`, a radio group) without a `header` ("Theme"), or any other group of rows read out as a group ("Members"). */
   label?: string;
   /** The rows: `GroupedRow`, `GroupedSwitchRow`, `GroupedChoiceRow`, `GroupedValueRow`, `GroupedMenuRow`, `GroupedTextFieldRow`, `GroupedSegmentedRow`. A separator goes between each two. */
   children?: ReactNode;
@@ -85,10 +85,14 @@ export function GroupedSection({
           ) : null}
           <div
             className="h-grouped-section__card"
-            role={dividerIndent === "choice" ? "radiogroup" : undefined}
-            aria-label={
-              dividerIndent === "choice" ? (label ?? header) : undefined
+            role={
+              dividerIndent === "choice"
+                ? "radiogroup"
+                : label
+                  ? "group"
+                  : undefined
             }
+            aria-label={dividerIndent === "choice" ? (label ?? header) : label}
           >
             {rows.map((row, i) => (
               <Fragment key={i}>

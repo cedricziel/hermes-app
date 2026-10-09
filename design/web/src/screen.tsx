@@ -38,6 +38,7 @@ export function ScreenCenter({ children }: { children: ReactNode }) {
 export function ScreenState({
   state,
   failedTitle,
+  failedDetail,
   unsupportedTitle,
   retryVariant = "filled",
   loadingLabel,
@@ -45,6 +46,7 @@ export function ScreenState({
 }: {
   state: "loading" | "failed" | "unsupported";
   failedTitle: string;
+  failedDetail?: string;
   unsupportedTitle?: string;
   retryVariant?: "filled" | "outlined";
   /** The spinner's accessible name: "Loading skills". */
@@ -60,6 +62,7 @@ export function ScreenState({
       ) : (
         <StateMessage
           title={failedTitle}
+          detail={failedDetail}
           action={
             <Button variant={retryVariant} onClick={onRetry}>
               Retry

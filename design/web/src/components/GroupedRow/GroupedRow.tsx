@@ -46,6 +46,8 @@ export interface GroupedRowProps {
   disabled?: boolean;
   /** Makes the clickable row a radio option for assistive technology, checked or not (`GroupedChoiceRow` sets it). */
   radioChecked?: boolean;
+  /** Makes the clickable row a checkbox for assistive technology, checked or not (the Create group member picker sets it). */
+  checkboxChecked?: boolean;
   /**
    * `apple` + `touch`: rows at least 44px, 16px padding. `apple` + `mac`:
    * 40px rows, 12px padding, 13px titles. `material`: 56px rows, 16px
@@ -82,6 +84,7 @@ export function GroupedRow({
   destructive = false,
   disabled = false,
   radioChecked,
+  checkboxChecked,
   platform,
   device,
 }: GroupedRowProps) {
@@ -165,8 +168,14 @@ export function GroupedRow({
       <button
         type="button"
         className="h-grouped-row__main h-grouped-row__main--button"
-        role={radioChecked === undefined ? undefined : "radio"}
-        aria-checked={radioChecked}
+        role={
+          radioChecked !== undefined
+            ? "radio"
+            : checkboxChecked !== undefined
+              ? "checkbox"
+              : undefined
+        }
+        aria-checked={radioChecked ?? checkboxChecked}
         aria-current={selected || undefined}
         aria-expanded={expanded}
         disabled={disabled}

@@ -1,0 +1,27 @@
+.h-create-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.h-create-group__members > .h-grouped-section {
+  padding-top: 0;
+}
+
+/* Material: a compact 18px checkbox at the leading edge. */
+.h-create-group__box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--h-muted);
+  border-radius: 2px;
+  color: var(--h-on-primary);
+}
+
+.h-create-group__box--on {
+  border-color: var(--h-primary);
+  background: var(--h-primary);
+}
