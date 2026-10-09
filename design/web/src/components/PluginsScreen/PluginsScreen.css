@@ -22,8 +22,6 @@
 }
 
 .h-plugins__pane--empty {
-  color: var(--h-fg);
-  font-family: var(--h-font);
   font-size: 14px;
 }
 
@@ -60,8 +58,8 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--h-fg);
-  font-family: var(--h-font);
+  color: inherit;
+  font: inherit;
   font-size: var(--hg-title);
   text-align: left;
   cursor: pointer;
@@ -83,7 +81,6 @@
 }
 
 .h-plugins__needs-label {
-  font-size: 14px;
   font-weight: 500;
 }
 
@@ -117,7 +114,6 @@
   padding: 10px 16px;
   border-top: 1px solid var(--h-border);
   color: var(--h-muted);
-  font-family: var(--h-font);
   font-size: 12px;
 }
 

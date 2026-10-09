@@ -4,8 +4,6 @@
   flex-direction: column;
   box-sizing: border-box;
   padding: 16px var(--hg-gutter) 32px;
-  color: var(--h-fg);
-  font-family: var(--h-font);
 }
 
 .h-plugin-detail__header {
@@ -32,32 +30,11 @@
   line-height: 1.35;
 }
 
-/* InstallActions: a full-width filled button a section gap under the switch, row-high, with the group's corners. */
+/* InstallActions: the filled button a section gap under the switch, row-high, with the group's corners. */
 .h-plugin-detail__install {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
   min-height: var(--hg-row-min);
   margin-top: var(--hg-gap);
-  border: 0;
   border-radius: var(--hg-radius);
-  background: var(--h-primary);
-  color: var(--h-on-primary);
-  font-family: var(--h-font);
-  font-size: var(--hg-title);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.h-plugin-detail__install:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.h-plugin-detail__install:focus-visible {
-  outline: 2px solid var(--h-fg);
-  outline-offset: 2px;
 }
 
 .h-plugin-detail__external {

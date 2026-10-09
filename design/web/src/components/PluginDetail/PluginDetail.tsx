@@ -1,3 +1,4 @@
+import { Button } from "../Button/Button";
 import { GroupedRow } from "../GroupedRow/GroupedRow";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
@@ -182,22 +183,18 @@ export function PluginDetail({
                       onChange={onEnableAfterInstallChange}
                     />
                   </GroupedSection>
-                  <button
-                    type="button"
+                  <Button
+                    fullWidth
                     className="h-plugin-detail__install"
                     disabled={busy}
                     onClick={onInstall}
                   >
                     {busy ? (
-                      <Spinner
-                        size={16}
-                        color="currentColor"
-                        label="Installing"
-                      />
+                      <Spinner size={16} color="var(--h-muted)" label="Installing" />
                     ) : (
                       "Install"
                     )}
-                  </button>
+                  </Button>
                 </>
               ) : null}
               {facts.length ? <GroupedSection>{facts}</GroupedSection> : null}

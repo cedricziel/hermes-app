@@ -344,9 +344,10 @@ export function SkillsScreen({
       const results = h.results ?? [];
       if (h.searchFailed) {
         return (
-          <Note
-            text="Could not search the hub"
-            action={<Button onClick={onHubRetry}>Retry</Button>}
+          <ScreenState
+            state="failed"
+            failedTitle="Could not search the hub"
+            onRetry={onHubRetry}
           />
         );
       }

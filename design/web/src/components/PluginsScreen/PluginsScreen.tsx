@@ -16,7 +16,12 @@ import { Sheet } from "../Sheet/Sheet";
 import { Spinner } from "../Spinner/Spinner";
 import { SwitchRow } from "../SwitchRow/SwitchRow";
 import { TextField } from "../TextField/TextField";
-import { cx, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 import { noop, ScreenCenter, ScreenFrame, ScreenState } from "../../screen";
 import "./PluginsScreen.css";
 
@@ -132,6 +137,8 @@ export interface PluginsScreenProps {
    * provider's platform.
    */
   platform?: Platform;
+  /** Under `apple` + `desktop`: `mac` (default) or `touch` for a full-screen iPad. */
+  device?: AppleDevice;
 }
 
 const TABS = ["installed", "catalog", "providers"] as const;
@@ -288,11 +295,11 @@ export function PluginsScreen({
   onSaveProviders,
   onRetry,
   platform,
+  device,
 }: PluginsScreenProps) {
   const resolved = usePlatform(platform);
   const desktop = layout === "desktop";
-  const mac = desktop && resolved === "apple";
-  const device = mac ? "mac" : "touch";
+  const mac = desktop && resolved === "apple" && device !== "touch";
 
   const q = query.trim().toLowerCase();
   const visibleCatalog = catalog.filter(
@@ -502,7 +509,7 @@ export function PluginsScreen({
   return (
     <ScreenFrame platform={resolved}>
       <SettingsScaffold
-        device={device}
+        device={mac ? "mac" : "touch"}
         title="Plugins"
         subtitle={subtitle}
         onBack={onBack ?? noop}
