@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
 import {
@@ -6,7 +6,7 @@ import {
   MacToolbarButton,
   MacToolbarSeparator,
 } from "../MacToolbar/MacToolbar";
-import { Menu, MenuAnchor, useDismiss, type MenuItem } from "../Menu/Menu";
+import { Menu, MenuAnchor, useMenuState, type MenuItem } from "../Menu/Menu";
 import { PillSegmentedControl } from "../PillSegmentedControl/PillSegmentedControl";
 import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 import {
@@ -400,8 +400,7 @@ function BarAction({
   action: SettingsBarAction;
   chrome: GroupedChrome;
 }) {
-  const [open, setOpen] = useState(action.menuOpen ?? false);
-  useDismiss(open, () => setOpen(false));
+  const [open, setOpen] = useMenuState(action.menuOpen ?? false);
   const onClick = action.menu ? () => setOpen((o) => !o) : action.onClick;
   const button =
     chrome === "mac" ? (
@@ -458,8 +457,7 @@ function SubtitleMenuButton({
   menu: SettingsSubtitleMenu;
   chrome: GroupedChrome;
 }) {
-  const [open, setOpen] = useState(menu.open ?? false);
-  useDismiss(open, () => setOpen(false));
+  const [open, setOpen] = useMenuState(menu.open ?? false);
   return (
     <MenuAnchor className="h-settings__subtitle-anchor">
       <button

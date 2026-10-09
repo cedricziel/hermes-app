@@ -1,10 +1,9 @@
-import { useState } from "react";
 import { Icon } from "../Icon/Icon";
 import {
   MacToolbarButton,
   MacToolbarSearchField,
 } from "../MacToolbar/MacToolbar";
-import { Menu, MenuAnchor, useDismiss } from "../Menu/Menu";
+import { Menu, MenuAnchor, useMenuState } from "../Menu/Menu";
 import {
   cx,
   PlatformScope,
@@ -77,8 +76,7 @@ export function SettingsSearchField({
 }: SettingsSearchFieldProps) {
   const resolved = usePlatform(platform);
   const chrome = useGroupedChrome(resolved, device);
-  const [open, setOpen] = useState(filterMenuOpen);
-  useDismiss(open, () => setOpen(false));
+  const [open, setOpen] = useMenuState(filterMenuOpen);
   const active = filters.length > 0 && !filters[0].selected;
   const menu = open ? (
     <Menu

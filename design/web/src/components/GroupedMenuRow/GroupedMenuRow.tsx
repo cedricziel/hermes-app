@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
-import { Menu, useDismiss } from "../Menu/Menu";
+import { Menu, useMenuState } from "../Menu/Menu";
 import {
   useGroupedChrome,
   usePlatform,
@@ -53,8 +52,7 @@ export function GroupedMenuRow({
 }: GroupedMenuRowProps) {
   const resolved = usePlatform(platform);
   const chrome = useGroupedChrome(resolved, device);
-  const [open, setOpen] = useState(openProp);
-  useDismiss(open, () => setOpen(false));
+  const [open, setOpen] = useMenuState(openProp);
   const value = selected === undefined ? placeholder : options[selected];
   return (
     <div
