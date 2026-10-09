@@ -53,7 +53,7 @@ export function GroupedMenuRow({
   const resolved = usePlatform(platform);
   const chrome = useGroupedChrome(resolved, device);
   const [open, setOpen] = useMenuState(openProp);
-  const value = selected === undefined ? placeholder : options[selected];
+  const value = (selected === undefined ? undefined : options[selected]) ?? placeholder;
   return (
     <div
       className="h-grouped-menu-row"
@@ -61,7 +61,7 @@ export function GroupedMenuRow({
     >
       <GroupedValueRow
         title={title}
-        value={value ?? placeholder}
+        value={value}
         warning={warning}
         onClick={() => setOpen((o) => !o)}
         platform={resolved}

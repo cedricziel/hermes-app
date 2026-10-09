@@ -3,7 +3,6 @@ import { SegmentedControl } from "../SegmentedControl/SegmentedControl";
 import {
   cx,
   useGroupedChrome,
-  usePlatform,
   type AppleDevice,
   type Platform,
 } from "../../platform";
@@ -43,8 +42,7 @@ export function GroupedSegmentedRow({
   platform,
   device,
 }: GroupedSegmentedRowProps) {
-  const resolved = usePlatform(platform);
-  const chrome = useGroupedChrome(resolved, device);
+  const chrome = useGroupedChrome(platform, device);
   return (
     <div className={cx("h-grouped-segmented", metricsClass(chrome))}>
       {chrome === "material" ? (
@@ -61,8 +59,7 @@ export function GroupedSegmentedRow({
           onChange={onChange}
           label={label}
           platform="apple"
-          size="inline"
-          className={cx(chrome === "mac" && "h-grouped-segmented__mac")}
+          size={chrome === "mac" ? "compact" : "inline"}
         />
       )}
     </div>

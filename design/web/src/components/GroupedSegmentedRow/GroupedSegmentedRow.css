@@ -1,8 +1,3 @@
 .h-grouped-segmented {
   padding: 8px var(--hg-row-pad);
 }
-
-.h-grouped-segmented__mac .h-segmented__segment {
-  height: 24px;
-  font-size: 12px;
-}

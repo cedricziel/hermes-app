@@ -8,11 +8,7 @@ import {
   type AppleDevice,
   type Platform,
 } from "../../platform";
-import {
-  dividerIndentPx,
-  metricsClass,
-  type DividerIndent,
-} from "../../grouped";
+import { metricsClass, type DividerIndent } from "../../grouped";
 import "./GroupedSection.css";
 
 export interface GroupedSectionProps {
@@ -64,7 +60,8 @@ export function GroupedSection({
   const resolved = usePlatform(platform);
   const chrome = useGroupedChrome(resolved, device);
   const rows = Children.toArray(children);
-  const indent = dividerIndentPx(chrome, dividerIndent);
+  const indentStyle =
+    typeof dividerIndent === "number" ? { marginLeft: dividerIndent } : undefined;
   return (
     <PlatformScope platform={resolved}>
       <DeviceScope device={device}>
@@ -73,6 +70,8 @@ export function GroupedSection({
             "h-grouped-section",
             metricsClass(chrome),
             header !== undefined && "h-grouped-section--header",
+            typeof dividerIndent === "string" &&
+              `h-grouped-section--indent-${dividerIndent}`,
             className,
           )}
         >
@@ -85,7 +84,7 @@ export function GroupedSection({
                 {i > 0 ? (
                   <div
                     className="h-grouped-section__divider"
-                    style={{ marginLeft: indent }}
+                    style={indentStyle}
                     role="presentation"
                   />
                 ) : null}

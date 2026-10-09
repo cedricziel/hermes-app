@@ -95,12 +95,8 @@
   padding: 0;
 }
 
-.h-segmented--apple.h-segmented--compact {
-  display: inline-flex;
-}
-
 .h-segmented--apple.h-segmented--compact .h-segmented__track {
-  display: inline-grid;
+  display: grid;
   grid-auto-columns: 1fr;
   grid-auto-flow: column;
 }

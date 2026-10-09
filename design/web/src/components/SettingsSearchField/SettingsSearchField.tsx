@@ -105,14 +105,12 @@ export function SettingsSearchField({
           />
           {filters.length > 0 ? (
             <MenuAnchor>
-              <span onMouseDown={(e) => e.stopPropagation()}>
-                <MacToolbarButton
-                  icon="filter_list"
-                  label="Filter"
-                  selected={active}
-                  onClick={toggle}
-                />
-              </span>
+              <MacToolbarButton
+                icon="filter_list"
+                label="Filter"
+                selected={active}
+                onClick={toggle}
+              />
               {menu}
             </MenuAnchor>
           ) : null}
@@ -163,7 +161,6 @@ export function SettingsSearchField({
               aria-label="Filter"
               aria-haspopup="menu"
               aria-expanded={open}
-              onMouseDown={(e) => e.stopPropagation()}
               onClick={toggle}
             >
               <Icon name="filter_list" size={ios ? 18 : 22} />

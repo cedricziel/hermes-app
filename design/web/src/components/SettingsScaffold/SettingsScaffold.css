@@ -103,10 +103,6 @@
   overflow: visible;
 }
 
-.h-settings__subtitle-anchor .h-menu {
-  z-index: 20;
-}
-
 .h-settings__subtitle-button {
   display: inline-flex;
   align-items: center;
@@ -170,10 +166,6 @@
 .h-settings__text-button:disabled {
   color: var(--h-muted);
   cursor: default;
-}
-
-.h-settings__menu-button {
-  display: inline-flex;
 }
 
 .h-settings__pill-tabs {

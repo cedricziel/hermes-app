@@ -39,7 +39,23 @@
 
 .h-grouped-section__divider {
   height: 1px;
+  margin-left: var(--hg-row-pad);
   background: var(--h-border-subtle);
+}
+
+.h-grouped-section--indent-leading .h-grouped-section__divider {
+  margin-left: calc(
+    var(--hg-row-pad) + var(--hg-leading) + var(--hg-leading-gap)
+  );
+}
+
+.h-grouped-section--indent-tile .h-grouped-section__divider {
+  margin-left: calc(var(--hg-row-pad) + var(--hg-tile) + var(--hg-leading-gap));
+}
+
+/* Past Material's 40px radio button; at the text on Apple. */
+.h-grouped-section--indent-choice.h-gm--material .h-grouped-section__divider {
+  margin-left: calc(var(--hg-row-pad) + 40px + var(--hg-leading-gap));
 }
 
 .h-grouped-section__footer,

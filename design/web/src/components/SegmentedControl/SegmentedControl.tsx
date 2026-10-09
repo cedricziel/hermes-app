@@ -23,8 +23,8 @@ export interface SegmentedControlProps {
    * `inline`: the control alone with no band, as wide as its parent, 13px
    * labels (an iOS `GroupedSegmentedRow`). `compact`: a Mac toolbar's or
    * Mac row's small control, 12px labels on 24px segments, every segment as
-   * wide as the widest and the control only as wide as they need
-   * (`SettingsScaffold`'s Mac tabs).
+   * wide as the widest; as wide as its segments need in a toolbar
+   * (`SettingsScaffold`'s Mac tabs), as wide as its parent in a block.
    */
   size?: "bar" | "inline" | "compact";
   className?: string;

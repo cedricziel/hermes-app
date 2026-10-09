@@ -231,10 +231,14 @@ export interface MenuAnchorProps {
   style?: CSSProperties;
 }
 
-/** Wraps a button and its open `Menu` so the menu's `align` places it against the button. Inline; adds no space of its own. */
+/** Wraps a button and its open `Menu` so the menu's `align` places it against the button; a press inside it does not dismiss the menu. Inline; adds no space of its own. */
 export function MenuAnchor({ children, className, style }: MenuAnchorProps) {
   return (
-    <span className={cx("h-menu-anchor", className)} style={style}>
+    <span
+      className={cx("h-menu-anchor", className)}
+      style={style}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {children}
     </span>
   );

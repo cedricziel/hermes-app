@@ -278,20 +278,7 @@ function macActions({
       {actions.map((action) => (
         <BarAction key={action.label} action={action} chrome="mac" />
       ))}
-      {formAction ? (
-        <button
-          type="button"
-          className="h-settings__mac-form-action"
-          disabled={formAction.disabled || formAction.busy}
-          onClick={formAction.onClick}
-        >
-          {formAction.busy ? (
-            <Spinner size={12} label={formAction.label} />
-          ) : (
-            formAction.label
-          )}
-        </button>
-      ) : null}
+      {formAction ? <FormActionButton action={formAction} mac /> : null}
     </>
   );
 }
@@ -374,22 +361,32 @@ function PhoneBar({
             chrome={ios ? "ios" : "material"}
           />
         ))}
-        {formAction ? (
-          <button
-            type="button"
-            className="h-settings__text-button"
-            disabled={formAction.disabled || formAction.busy}
-            onClick={formAction.onClick}
-          >
-            {formAction.busy ? (
-              <Spinner size={18} label={formAction.label} />
-            ) : (
-              formAction.label
-            )}
-          </button>
-        ) : null}
+        {formAction ? <FormActionButton action={formAction} /> : null}
       </div>
     </header>
+  );
+}
+
+function FormActionButton({
+  action,
+  mac = false,
+}: {
+  action: SettingsFormAction;
+  mac?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={mac ? "h-settings__mac-form-action" : "h-settings__text-button"}
+      disabled={action.disabled || action.busy}
+      onClick={action.onClick}
+    >
+      {action.busy ? (
+        <Spinner size={mac ? 12 : 18} label={action.label} />
+      ) : (
+        action.label
+      )}
+    </button>
   );
 }
 
@@ -426,12 +423,7 @@ function BarAction({
   if (!action.menu) return button;
   return (
     <MenuAnchor>
-      <span
-        className="h-settings__menu-button"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {button}
-      </span>
+      {button}
       {open ? (
         <Menu
           align="end"
@@ -466,7 +458,6 @@ function SubtitleMenuButton({
         aria-label={`${menu.label}: ${subtitle}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onMouseDown={(e) => e.stopPropagation()}
         onClick={() => setOpen((o) => !o)}
       >
         <span className="h-settings__subtitle-text">{subtitle}</span>
