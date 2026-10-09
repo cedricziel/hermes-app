@@ -1,74 +1,109 @@
-import { HermesProvider, SchedulePicker } from "@hermes-app/ui";
+import {
+  GroupedListView,
+  HermesProvider,
+  SchedulePicker,
+} from "@hermes-app/ui";
+import type { SchedulePickerProps } from "@hermes-app/ui";
 
-const box = {
-  width: 380,
-  padding: 16,
-  border: "1px solid var(--h-border)",
-  borderRadius: 14,
-  background: "var(--h-bg)",
-} as const;
+const pair = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
+const touch = { width: 390, paddingBottom: 12 } as const;
+const mac = { width: 400, paddingBottom: 12 } as const;
 
-/** Daily at a time, with the next three runs. */
-export const Daily = () => (
-  <div style={box}>
-    <SchedulePicker
-      mode="daily"
-      time="08:00"
-      nextRuns="tomorrow 08:00, Thu 08:00, Fri 08:00"
-    />
+const both = (props: SchedulePickerProps, theme?: "dark") => (
+  <div style={pair}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider
+        key={platform}
+        platform={platform}
+        theme={theme}
+        style={touch}
+      >
+        <GroupedListView>
+          <SchedulePicker {...props} />
+        </GroupedListView>
+      </HermesProvider>
+    ))}
   </div>
 );
 
-/** Every 30 minutes: a number and a unit. */
+/** Daily: the segmented control and a Time value row, the next runs as the footer. iPhone and Material. */
+export const Daily = () =>
+  both({
+    mode: "daily",
+    time: "08:00",
+    nextRuns:
+      "Oct 10, 2026 8:00 AM, Oct 11, 2026 8:00 AM, Oct 12, 2026 8:00 AM",
+  });
+
+/** Every: a number field and a Unit menu row (open on the Mac). iPhone and Mac. */
 export const Every = () => (
-  <div style={box}>
-    <SchedulePicker
-      mode="every"
-      amount="30"
-      unit="minutes"
-      nextRuns="12:30, 13:00, 13:30"
-    />
+  <div style={pair}>
+    <HermesProvider platform="apple" style={touch}>
+      <GroupedListView>
+        <SchedulePicker
+          mode="every"
+          amount="1"
+          unit="hours"
+          nextRuns="Oct 9, 2026 3:45 AM, Oct 9, 2026 4:45 AM, Oct 9, 2026 5:45 AM"
+        />
+      </GroupedListView>
+    </HermesProvider>
+    <HermesProvider
+      platform="apple"
+      typeRamp="default"
+      style={{ ...mac, height: 260 }}
+    >
+      <GroupedListView device="mac">
+        <SchedulePicker
+          mode="every"
+          amount="1"
+          unit="hours"
+          unitMenuOpen
+          nextRuns="Oct 9, 2026 3:45 AM, Oct 9, 2026 4:45 AM, Oct 9, 2026 5:45 AM"
+        />
+      </GroupedListView>
+    </HermesProvider>
   </div>
 );
 
-/** Weekly on weekdays, with the time. */
-export const Weekly = () => (
-  <div style={box}>
-    <SchedulePicker
-      mode="weekly"
-      days={["Mon", "Tue", "Wed", "Thu", "Fri"]}
-      time="09:15"
-      nextRuns="Mon 09:15, Tue 09:15, Wed 09:15"
-    />
-  </div>
-);
+/** Weekly: the seven day pills (Mon–Fri filled) and Time. iPhone and Material. */
+export const Weekly = () =>
+  both({
+    mode: "weekly",
+    days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    time: "08:00",
+    nextRuns: "Oct 9, 2026 8:00 AM, Oct 12, 2026 8:00 AM, Oct 13, 2026 8:00 AM",
+  });
 
-/** Once on a date, and a cron expression the server works out on save. */
+/** Once (Date and Time) on iPhone, and Cron (a monospace field, the hint and "the server works it out") on Material. */
 export const OnceAndCron = () => (
-  <div style={{ display: "flex", gap: 16 }}>
-    <div style={box}>
-      <SchedulePicker
-        mode="once"
-        date="Sep 18, 2026"
-        time="09:00"
-        nextRuns="Sep 18, 2026 09:00"
-      />
-    </div>
-    <div style={box}>
-      <SchedulePicker mode="cron" cron="0 9 * * 1-5" />
-    </div>
+  <div style={pair}>
+    <HermesProvider platform="apple" style={touch}>
+      <GroupedListView>
+        <SchedulePicker
+          mode="once"
+          date="Oct 10, 2026"
+          time="09:00"
+          nextRuns="Oct 10, 2026 9:00 AM"
+        />
+      </GroupedListView>
+    </HermesProvider>
+    <HermesProvider platform="material" style={touch}>
+      <GroupedListView>
+        <SchedulePicker mode="cron" cron="0 9 * * 1-5" />
+      </GroupedListView>
+    </HermesProvider>
   </div>
 );
 
-export const Dark = () => (
-  <HermesProvider theme="dark" style={{ width: "fit-content", padding: 16 }}>
-    <div style={box}>
-      <SchedulePicker
-        mode="weekly"
-        days={["Mon", "Thu"]}
-        time="07:30"
-        nextRuns="Mon 07:30, Thu 07:30, Mon 07:30"
-      />
-    </div>
-  </HermesProvider>
-);
+/** Dark: Weekly on iPhone and Material. */
+export const Dark = () =>
+  both(
+    {
+      mode: "weekly",
+      days: ["Sat", "Sun"],
+      time: "10:30",
+      nextRuns: "Oct 10, 2026 10:30 AM, Oct 11, 2026 10:30 AM",
+    },
+    "dark",
+  );

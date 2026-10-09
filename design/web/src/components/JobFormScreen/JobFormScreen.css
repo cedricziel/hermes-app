@@ -1,7 +1,23 @@
-.h-job-form__warning {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--h-ramp-body-md-size, 14px);
-  line-height: 20px;
+/* The Advanced row's chevron turns down while its fields show. */
+.h-job-form__advanced
+  .h-grouped-section__card
+  > :first-child
+  .h-grouped-row__chevron {
+  transition: transform 150ms ease;
+}
+
+.h-job-form__advanced--open
+  .h-grouped-section__card
+  > :first-child
+  .h-grouped-row__chevron {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-job-form__advanced
+    .h-grouped-section__card
+    > :first-child
+    .h-grouped-row__chevron {
+    transition: none;
+  }
 }
