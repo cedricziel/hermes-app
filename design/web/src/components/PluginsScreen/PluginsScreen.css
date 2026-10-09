@@ -1,58 +1,100 @@
-.h-plugins__divider {
-  height: 1px;
-  background: var(--h-border);
+/* ListWithDetail: the 400px list, a 1px divider, the detail or its placeholder. */
+.h-plugins__split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.h-plugins__list {
+  flex: none;
+  width: 400px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--h-border);
+}
+
+.h-plugins__pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.h-plugins__pane--empty {
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: 14px;
+}
+
+.h-plugins__column {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.h-plugins__search {
+  flex: none;
+  padding: 8px 16px 0;
 }
 
 .h-plugins__empty {
   padding: 48px;
   text-align: center;
+  font-size: 14px;
 }
 
-.h-plugins__pane {
-  padding-top: 16px;
+/* The padded DisclosureTile under a provider that is not ready. */
+.h-plugins__disclosure {
+  padding: 0 var(--hg-row-pad);
 }
 
-.h-plugins__catalog {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.h-plugins__search {
+.h-plugins__disclosure-button {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px 8px;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--hg-row-min);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font-family: var(--h-font);
+  font-size: var(--hg-title);
+  text-align: left;
+  cursor: pointer;
 }
 
-.h-plugins__search-field {
-  flex: 1;
-  min-width: 0;
-}
-
-.h-plugins__catalog-body {
-  flex: 1;
-  min-height: 0;
-}
-
-.h-plugins__providers {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.h-plugins__providers-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding-bottom: 16px;
+.h-plugins__disclosure-button:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
 }
 
 .h-plugins__needs {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-bottom: 4px;
+  padding-bottom: 12px;
+  color: var(--h-fg);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.h-plugins__needs-label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.h-plugins__mono {
+  font-family: var(--h-font-mono);
+  font-size: 13px;
+}
+
+.h-plugins__needs-note {
+  color: var(--h-muted);
+  font-size: 12px;
 }
 
 .h-plugins__command {
@@ -61,14 +103,10 @@
   gap: 4px;
 }
 
-.h-plugins__command > .h-mono {
+.h-plugins__command > .h-plugins__mono {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.h-plugins__single-engine {
-  padding: 8px 16px;
 }
 
 .h-plugins__save-bar {
@@ -78,6 +116,9 @@
   gap: 12px;
   padding: 10px 16px;
   border-top: 1px solid var(--h-border);
+  color: var(--h-muted);
+  font-family: var(--h-font);
+  font-size: 12px;
 }
 
 .h-plugins__save-bar > span {

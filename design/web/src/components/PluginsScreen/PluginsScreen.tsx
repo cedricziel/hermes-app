@@ -1,20 +1,23 @@
+import type { ReactNode } from "react";
 import { Button } from "../Button/Button";
 import { FormSection } from "../FormSection/FormSection";
+import { GroupedChoiceRow } from "../GroupedChoiceRow/GroupedChoiceRow";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
 import { ListRow } from "../ListRow/ListRow";
 import { PluginDetail, type PluginDetails } from "../PluginDetail/PluginDetail";
 import { PluginRow } from "../PluginRow/PluginRow";
-import { RadioGroup, RadioRow } from "../RadioRow/RadioRow";
-import { SectionHeader } from "../SectionHeader/SectionHeader";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
+import { SettingsSearchField } from "../SettingsSearchField/SettingsSearchField";
 import { Sheet } from "../Sheet/Sheet";
 import { Spinner } from "../Spinner/Spinner";
 import { SwitchRow } from "../SwitchRow/SwitchRow";
-import { Tag } from "../Tag/Tag";
 import { TextField } from "../TextField/TextField";
-import { usePlatform, type Platform } from "../../platform";
-import { noop, ScreenFrame, ScreenState } from "../../screen";
+import { cx, usePlatform, type Platform } from "../../platform";
+import { noop, ScreenCenter, ScreenFrame, ScreenState } from "../../screen";
 import "./PluginsScreen.css";
 
 /** How a tab's content loaded. `unsupported`: the server has no such endpoint ("not available on this server"). */
@@ -25,7 +28,7 @@ export interface MemoryProviderOption {
   /** "honcho", "mem0". */
   name: string;
   description?: string;
-  /** `ready` can be picked; `needsSetup` and `unavailable` cannot (unless already in use) and list what they need. */
+  /** `ready` can be picked ("Ready" muted after the name); `needsSetup` and `unavailable` cannot (unless already in use): a warning line says why, and a "What it needs" row follows. */
   status: "ready" | "needsSetup" | "unavailable";
   /** What it needs on the server, shown under "What it needs" when not ready. All empty: "The server did not say what it needs." */
   needs?: {
@@ -59,8 +62,10 @@ export interface GitInstallState {
 export interface PluginsScreenProps {
   /** The open tab. */
   tab?: "installed" | "catalog" | "providers";
-  /** `desktop` (900px and wider): the list (400px) and the detail pane side by side. `phone`: the list alone; a plugin opens in a bottom sheet (`detailOpen`). */
+  /** `desktop` (900px and wider): the list (400px) and the detail pane side by side, "Select a plugin" until one is picked; under `apple` a Mac window. `phone`: the list alone; a plugin opens in a bottom sheet (`detailOpen`). */
   layout?: "phone" | "desktop";
+  /** The profile the screen shows, under the title: "work". On a Mac with the counts of the loaded list: "work · 4 installed · 2 on". */
+  profile?: string;
 
   /** Installed tab: the dashboard's agent plugins. */
   plugins?: PluginDetails[];
@@ -68,7 +73,7 @@ export interface PluginsScreenProps {
   /** Catalog tab: the curated catalog. */
   catalog?: PluginDetails[];
   catalogState?: PluginsTabState;
-  /** Catalog tab: the search field's text; filters names, maintainers and descriptions. */
+  /** Catalog tab: the search field's text ("Search catalog"; in the Mac toolbar); filters names, maintainers and descriptions. */
   query?: string;
   /** Catalog tab: names being installed (Install spins). */
   installing?: string[];
@@ -78,7 +83,7 @@ export interface PluginsScreenProps {
   detailOpen?: boolean;
   /** A change to the selected plugin is running. */
   busy?: boolean;
-  /** Draw the "Install from Git URL" dialog (Catalog tab). */
+  /** Draw the "Install from Git URL" dialog, which the bar's "+" opens. */
   gitInstall?: GitInstallState;
 
   /** Providers tab: memory providers ("Built-in" is always first). */
@@ -106,7 +111,7 @@ export interface PluginsScreenProps {
   /** "Hide from dashboard sidebar" in an installed plugin's detail. */
   onHiddenChange?: (name: string, hidden: boolean) => void;
   onQueryChange?: (query: string) => void;
-  /** The "Git URL" button next to the search. */
+  /** The bar's "+" ("Install from Git"), on every tab. */
   onGitInstall?: () => void;
   /** A field of the Git URL dialog changed: the whole new state. */
   onGitChange?: (next: GitInstallState) => void;
@@ -118,14 +123,24 @@ export interface PluginsScreenProps {
   onSaveProviders?: () => void;
   onRetry?: () => void;
   /**
-   * `apple`: a chevron back labelled "Chat" on a phone, the iOS segmented
-   * control instead of underline tabs, iOS toggles and spinners; rows swipe
-   * to Remove. Inherits the provider's platform.
+   * `apple`: the iOS bar (chevron back labelled "Chat", the title centred
+   * over the profile, "+") and segmented control on a phone; the Mac
+   * toolbar (tabs, the catalog search, "+") on `desktop`; chevrons on the
+   * rows, blue checks on the picked providers, swipe to Remove on touch.
+   * `material`: the 56px bar, a pill segmented control and leading radio
+   * buttons. Every list is an inset `GroupedSection`. Inherits the
+   * provider's platform.
    */
   platform?: Platform;
 }
 
 const TABS = ["installed", "catalog", "providers"] as const;
+
+const statusLabels = {
+  ready: "Ready",
+  needsSetup: "Needs setup",
+  unavailable: "Unavailable",
+};
 
 function notLoaded(
   state: PluginsTabState,
@@ -145,42 +160,34 @@ function notLoaded(
   );
 }
 
-function StatusTag({ status }: { status: MemoryProviderOption["status"] }) {
-  return status === "ready" ? (
-    <Tag variant="filled">Ready</Tag>
-  ) : (
-    <Tag>{status === "needsSetup" ? "Needs setup" : "Unavailable"}</Tag>
-  );
-}
-
 function Needs({ option }: { option: MemoryProviderOption }) {
   const n = option.needs ?? {};
-  const any = n.env?.length || n.tools?.length || n.python?.length;
-  if (!any)
-    return (
-      <div className="h-body-md">The server did not say what it needs.</div>
-    );
+  if (!n.env?.length && !n.tools?.length && !n.python?.length) {
+    return <div>The server did not say what it needs.</div>;
+  }
+  const names = (title: string, list?: string[]) =>
+    list?.length ? (
+      <div>
+        <div className="h-plugins__needs-label">{title}</div>
+        {list.map((e) => (
+          <div key={e} className="h-plugins__mono">
+            {e}
+          </div>
+        ))}
+      </div>
+    ) : null;
   return (
-    <div className="h-plugins__needs">
-      {n.env?.length ? (
-        <div>
-          <SectionHeader variant="label" title="Environment variables" />
-          {n.env.map((e) => (
-            <div key={e} className="h-mono">
-              {e}
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <>
+      {names("Environment variables", n.env)}
       {n.tools?.length ? (
         <div>
-          <SectionHeader variant="label" title="Tools" />
+          <div className="h-plugins__needs-label">Tools</div>
           {n.tools.map((t) => (
             <div key={t.name}>
-              <div className="h-body-md">{t.name}</div>
+              <div>{t.name}</div>
               {t.install ? (
                 <div className="h-plugins__command">
-                  <span className="h-mono">{t.install}</span>
+                  <span className="h-plugins__mono">{t.install}</span>
                   <IconButton
                     icon="content_copy"
                     label="Copy command"
@@ -192,34 +199,57 @@ function Needs({ option }: { option: MemoryProviderOption }) {
           ))}
         </div>
       ) : null}
-      {n.python?.length ? (
-        <div>
-          <SectionHeader variant="label" title="Python packages" />
-          {n.python.map((p) => (
-            <div key={p} className="h-mono">
-              {p}
-            </div>
-          ))}
+      {names("Python packages", n.python)}
+      <div className="h-plugins__needs-note">Set this up on the server.</div>
+    </>
+  );
+}
+
+/** "What it needs" under a provider that is not ready: a disclosure inside the memory group, as the app's padded `DisclosureTile`. */
+function NeedsDisclosure({
+  option,
+  open,
+  onToggle,
+}: {
+  option: MemoryProviderOption;
+  open: boolean;
+  onToggle?: () => void;
+}) {
+  return (
+    <div className="h-plugins__disclosure">
+      <button
+        type="button"
+        className="h-plugins__disclosure-button"
+        aria-expanded={open}
+        aria-label={`What ${option.name} needs`}
+        onClick={onToggle}
+      >
+        <span>What it needs</span>
+        <Icon name={open ? "expand_less" : "expand_more"} size={20} />
+      </button>
+      {open ? (
+        <div className="h-plugins__needs">
+          <Needs option={option} />
         </div>
       ) : null}
-      <div className="h-body-sm h-muted">Set this up on the server.</div>
     </div>
   );
 }
 
 /**
- * The Plugins screen: an app bar with Installed, Catalog and Providers tabs
- * (a segmented control on Apple, underline tabs on Material). Installed and
- * Catalog are `PluginRow` lists with a `PluginDetail` in a pane beside
- * them from 900px, or in a bottom `Sheet` on a phone; Catalog adds a search
- * field and the "Git URL" button that opens the unreviewed-code install
- * dialog. Providers picks the memory provider and context engine with
- * `RadioRow`s over a Save bar. Covers each tab's loading, failed and
- * not-available states. Fills its parent; give it a size.
+ * The Plugins screen on `SettingsScaffold`: Installed, Catalog and
+ * Providers tabs and a "+" that installs from a Git URL. Installed and
+ * Catalog are `PluginRow`s in one `GroupedSection`, with a `PluginDetail`
+ * in a pane beside them from 900px or in a bottom `Sheet` on a phone;
+ * Catalog searches ("Search catalog", in the Mac toolbar). Providers picks
+ * the memory provider and context engine with `GroupedChoiceRow`s over a
+ * Save bar. Covers each tab's loading, failed and not-available states.
+ * Fills its parent; give it a size.
  */
 export function PluginsScreen({
   tab = "installed",
   layout = "desktop",
+  profile,
   plugins = [],
   installedState = "loaded",
   catalog = [],
@@ -261,8 +291,8 @@ export function PluginsScreen({
 }: PluginsScreenProps) {
   const resolved = usePlatform(platform);
   const desktop = layout === "desktop";
-  const device = desktop ? "mac" : "touch";
-  const divider = <div className="h-plugins__divider" />;
+  const mac = desktop && resolved === "apple";
+  const device = mac ? "mac" : "touch";
 
   const q = query.trim().toLowerCase();
   const visibleCatalog = catalog.filter(
@@ -286,68 +316,69 @@ export function PluginsScreen({
     />
   ) : undefined;
 
-  let list;
+  const empty = (text: string) => (
+    <GroupedListView>
+      <div className="h-plugins__empty">{text}</div>
+    </GroupedListView>
+  );
+
+  let list: ReactNode;
   if (tab === "installed") {
-    list = notLoaded(
-      installedState,
-      "The plugin list is not available on this server",
-      "Could not load plugins",
-      onRetry,
-    ) ?? (
-      <div>
-        {plugins.length === 0 ? (
-          <div className="h-plugins__empty">No plugins installed</div>
-        ) : (
-          plugins.map((p, i) => (
-            <div key={p.name}>
-              {i > 0 ? divider : null}
+    list =
+      notLoaded(
+        installedState,
+        "The plugin list is not available on this server",
+        "Could not load plugins",
+        onRetry,
+      ) ??
+      (plugins.length === 0 ? (
+        empty("No plugins installed")
+      ) : (
+        <GroupedListView>
+          <GroupedSection>
+            {plugins.map((p) => (
               <PluginRow
+                key={p.name}
                 plugin={p}
-                device={device}
                 selected={desktop && p.name === selected}
                 onClick={() => onOpen?.(p.name)}
                 onEnabledChange={(on) => onEnabledChange?.(p.name, on)}
                 onRemove={() => onRemove?.(p.name)}
               />
-            </div>
-          ))
-        )}
-      </div>
-    );
+            ))}
+          </GroupedSection>
+        </GroupedListView>
+      ));
   } else if (tab === "catalog") {
     list = (
-      <div className="h-plugins__catalog">
-        <div className="h-plugins__search">
-          <div className="h-plugins__search-field">
-            <TextField
-              leadingIcon="search"
-              placeholder="Search catalog"
-              value={query}
-              onChange={(e) => onQueryChange?.(e.target.value)}
+      <div className="h-plugins__column">
+        {mac ? null : (
+          <div className="h-plugins__search">
+            <SettingsSearchField
+              hint="Search catalog"
+              query={query}
+              onChange={onQueryChange}
             />
           </div>
-          <Button variant="outlined" icon="link" onClick={onGitInstall}>
-            Git URL
-          </Button>
-        </div>
-        <div className="h-plugins__catalog-body">
-          {notLoaded(
-            catalogState,
-            "The catalog is not available on this server",
-            "Could not load the catalog",
-            onRetry,
-          ) ??
-            (visibleCatalog.length === 0 ? (
-              <div className="h-plugins__empty">
-                {catalog.length === 0
-                  ? "The catalog is empty"
-                  : "No plugins match"}
-              </div>
-            ) : (
-              visibleCatalog.map((p, i) => (
-                <div key={p.name}>
-                  {i > 0 ? divider : null}
+        )}
+        {notLoaded(
+          catalogState,
+          "The catalog is not available on this server",
+          "Could not load the catalog",
+          onRetry,
+        ) ??
+          (visibleCatalog.length === 0 ? (
+            empty(
+              catalog.length === 0
+                ? "The catalog is empty"
+                : "No plugins match",
+            )
+          ) : (
+            <GroupedListView>
+              <GroupedSection>
+                {visibleCatalog.map((p) => (
                   <PluginRow
+                    key={p.name}
                     plugin={p}
                     variant="catalog"
                     selected={desktop && p.name === selected}
@@ -355,85 +386,89 @@ export function PluginsScreen({
                     onClick={() => onOpen?.(p.name)}
                     onInstall={() => onInstall?.(p.name)}
                   />
-                </div>
-              ))
-            ))}
-        </div>
+                ))}
+              </GroupedSection>
+            </GroupedListView>
+          ))}
       </div>
     );
   } else {
+    const singleEngine = contextEngines.length <= 1;
     list = notLoaded(
       providersState,
       "The provider settings are not available on this server",
       "Could not load provider settings",
       onRetry,
     ) ?? (
-      <div className="h-plugins__providers">
-        <div className="h-plugins__providers-list">
-          <SectionHeader
-            title="Memory provider"
-            caption="Where the agent keeps long-term memory"
-          />
-          <RadioGroup label="Memory provider">
-            <RadioRow
+      <div className="h-plugins__column">
+        <GroupedListView>
+          <GroupedSection
+            header="Memory provider"
+            footer="Where the agent keeps long-term memory."
+            dividerIndent="choice"
+          >
+            <GroupedChoiceRow
               title="Built-in"
               subtitle="No external memory"
-              selected={memoryChoice === ""}
+              checked={memoryChoice === ""}
               disabled={providersSaving}
               onSelect={() => onChooseMemory?.("")}
             />
-            {memoryProviders.map((o) => (
-              <RadioRow
-                key={o.name}
-                title={o.name}
-                titleTrailing={<StatusTag status={o.status} />}
-                subtitle={o.description}
-                selected={memoryChoice === o.name}
-                disabled={
-                  providersSaving ||
-                  (o.status !== "ready" && o.name !== memoryInUse)
-                }
-                onSelect={() => onChooseMemory?.(o.name)}
-              >
-                {o.status !== "ready" ? (
-                  <FormSection
-                    collapsible
-                    title="What it needs"
-                    open={needsOpen.includes(o.name)}
-                    onToggle={() => onToggleNeeds?.(o.name)}
-                  >
-                    <Needs option={o} />
-                  </FormSection>
-                ) : null}
-              </RadioRow>
-            ))}
-          </RadioGroup>
-          <SectionHeader
-            title="Context engine"
-            caption="How long conversations are compressed"
-          />
-          {contextEngines.length > 1 ? (
-            <RadioGroup label="Context engine">
-              {contextEngines.map((o) => (
-                <RadioRow
+            {memoryProviders.flatMap((o) => {
+              const ready = o.status === "ready";
+              const row = (
+                <GroupedChoiceRow
+                  key={o.name}
+                  title={o.name}
+                  meta={ready ? "Ready" : undefined}
+                  warning={ready ? undefined : statusLabels[o.status]}
+                  subtitle={o.description}
+                  checked={memoryChoice === o.name}
+                  disabled={
+                    providersSaving || (!ready && o.name !== memoryInUse)
+                  }
+                  onSelect={() => onChooseMemory?.(o.name)}
+                />
+              );
+              return ready
+                ? [row]
+                : [
+                    row,
+                    <NeedsDisclosure
+                      key={`${o.name}-needs`}
+                      option={o}
+                      open={needsOpen.includes(o.name)}
+                      onToggle={() => onToggleNeeds?.(o.name)}
+                    />,
+                  ];
+            })}
+          </GroupedSection>
+          <GroupedSection
+            header="Context engine"
+            footer="How long conversations are compressed."
+            dividerIndent="choice"
+          >
+            {singleEngine ? (
+              <GroupedRow
+                title={contextEngines[0]?.name ?? "None"}
+                subtitle="No other context engines are available on this server"
+              />
+            ) : (
+              contextEngines.map((o) => (
+                <GroupedChoiceRow
                   key={o.name}
                   title={o.name}
                   subtitle={o.description}
-                  selected={contextChoice === o.name}
+                  checked={contextChoice === o.name}
                   disabled={providersSaving}
                   onSelect={() => onChooseContext?.(o.name)}
                 />
-              ))}
-            </RadioGroup>
-          ) : (
-            <div className="h-plugins__single-engine h-body-md">
-              {contextEngines[0] ? <div>{contextEngines[0].name}</div> : null}
-              <div>No other context engines are available on this server</div>
-            </div>
-          )}
-        </div>
+              ))
+            )}
+          </GroupedSection>
+        </GroupedListView>
         <div className="h-plugins__save-bar">
-          <span className="h-body-sm h-muted">Changes apply to new chats</span>
+          <span>Changes apply to new chats</span>
           <Button
             disabled={!providersDirty || providersSaving}
             onClick={onSaveProviders}
@@ -449,25 +484,56 @@ export function PluginsScreen({
     );
   }
 
+  const loadedCount = installedState === "loaded";
+  const subtitle =
+    [
+      profile,
+      ...(mac && loadedCount
+        ? [
+            `${plugins.length} installed`,
+            `${plugins.filter((p) => (p.status ?? "enabled") === "enabled").length} on`,
+          ]
+        : []),
+    ]
+      .filter(Boolean)
+      .join(" · ") || undefined;
+
   const split = desktop && tab !== "providers";
   return (
     <ScreenFrame platform={resolved}>
-      <ListDetailLayout
-        layout={split ? "split" : "list"}
+      <SettingsScaffold
+        device={device}
         title="Plugins"
+        subtitle={subtitle}
         onBack={onBack ?? noop}
-        backLabel="Chat"
         tabs={["Installed", "Catalog", "Providers"]}
         activeTab={TABS.indexOf(tab)}
         onTabChange={(i) => onTabChange?.(TABS[i])}
-        listWidth={400}
-        detailPadding={0}
-        list={list}
-        detail={
-          detail ? <div className="h-plugins__pane">{detail}</div> : undefined
+        search={
+          mac && tab === "catalog"
+            ? { hint: "Search catalog", query, onChange: onQueryChange }
+            : undefined
         }
-        placeholder="Select a plugin"
-      />
+        actions={[
+          { icon: "add", label: "Install from Git", onClick: onGitInstall },
+        ]}
+      >
+        {split ? (
+          <div className="h-plugins__split">
+            <div className="h-plugins__list">{list}</div>
+            <div
+              className={cx(
+                "h-plugins__pane",
+                !detail && "h-plugins__pane--empty",
+              )}
+            >
+              {detail ?? <ScreenCenter>Select a plugin</ScreenCenter>}
+            </div>
+          </div>
+        ) : (
+          list
+        )}
+      </SettingsScaffold>
       {!desktop && detailOpen && detail ? (
         <Sheet
           dragHandle

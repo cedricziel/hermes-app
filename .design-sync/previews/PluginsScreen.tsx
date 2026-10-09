@@ -13,29 +13,36 @@ const desktop = { ...phone, width: 800, height: 560 } as const;
 const plugins = [
   {
     name: "netbox",
-    version: "1.0.0",
+    version: "1.2.0",
     source: "git",
-    description:
-      "Query and update NetBox from the agent: look up devices, prefixes, VLANs and cables.",
+    description: "Query NetBox for devices and prefixes.",
     status: "enabled" as const,
-    authRequired: true,
-    authCommand: "hermes auth netbox",
     canUpdate: true,
     removable: true,
   },
   {
-    name: "gmail-triage",
-    version: "0.4.2",
-    source: "git",
-    description: "Sort, label and draft replies in Gmail.",
+    name: "notes-sync",
+    version: "1.2.0",
+    source: "user",
+    description: "Keep a folder of notes in step with memory.",
     status: "disabled" as const,
     removable: true,
   },
   {
-    name: "web-tools",
-    version: "2.1.0",
+    name: "calendar",
+    version: "1.2.0",
+    source: "git",
+    description: "Read and create calendar events.",
+    status: "inactive" as const,
+    authRequired: true,
+    authCommand: "hermes auth calendar",
+    removable: true,
+  },
+  {
+    name: "terminal",
+    version: "1.2.0",
     source: "bundled",
-    description: "Fetch pages and search the web.",
+    description: "Run shell commands.",
     status: "enabled" as const,
     bundled: true,
   },
@@ -43,136 +50,150 @@ const plugins = [
 
 const catalog = [
   {
-    name: "hermes-plugin-github",
+    name: "browser-tools",
     maintainer: "Nous Research",
     official: true,
-    description: "Issues, pull requests and reviews from the agent.",
+    description: "Drive a headless browser.",
     commit: "a3f9c21",
-    tools: ["github_issue", "github_pr"],
-    docsUrl: "https://github.com/NousResearch/hermes-plugin-github",
+    tools: ["browser_open", "browser_click"],
+    docsUrl: "https://example.com/browser-tools",
   },
   {
-    name: "hermes-plugin-weather",
-    maintainer: "someone",
-    description: "Forecasts and severe weather alerts for the places you name.",
-    commit: "77d01be",
-  },
-  {
-    name: "netbox",
-    maintainer: "acme",
-    description: "Query and update NetBox from the agent.",
-    commit: "e4c2a90",
+    name: "notes-sync",
+    maintainer: "A community author",
+    description: "Keep notes in step with memory.",
+    commit: "a3f9c21",
     installed: true,
     updateAvailable: true,
+  },
+  {
+    name: "rss-reader",
+    maintainer: "A community author",
+    description: "Read feeds and summarise them.",
+    commit: "a3f9c21",
   },
 ];
 
 const memory = [
   {
-    name: "mem0",
-    description: "Long-term memory with automatic fact extraction and search.",
+    name: "holographic",
+    description: "Remembers things with holographic.",
     status: "ready" as const,
   },
   {
-    name: "honcho",
-    description: "Theory-of-mind user modelling from Plastic Labs.",
-    status: "needsSetup" as const,
-    needs: {
-      env: ["HONCHO_API_KEY"],
-      python: ["honcho-ai"],
-    },
+    name: "vector-store",
+    description: "Remembers things with vector-store.",
+    status: "unavailable" as const,
+    needs: { env: ["VECTOR_STORE_URL"], python: ["vector-store-client"] },
   },
 ];
 
 const engines = [
-  {
-    name: "compressor",
-    description: "Summarises older turns when the context fills up.",
-  },
-  {
-    name: "lcm",
-    description: "Lossless context management: keeps every turn retrievable.",
-  },
+  { name: "compressor", description: "Summarises old turns." },
+  { name: "sliding-window", description: "Keeps the last turns." },
 ];
 
+/** iPhone: "Chat" back, the title over the profile, "+", the segmented tabs and the installed plugins in one inset group. */
 export const ApplePhoneInstalled = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <PluginsScreen layout="phone" plugins={plugins} />
-    </div>
+  <HermesProvider platform="apple" style={phone}>
+    <PluginsScreen layout="phone" profile="work" plugins={plugins} />
   </HermesProvider>
 );
 
-/** Material phone: a plugin's detail in a bottom sheet. */
+/** Material phone: a plugin's grouped detail in a bottom sheet. */
 export const MaterialPhoneDetailSheet = () => (
-  <div style={phone}>
+  <HermesProvider style={phone}>
     <PluginsScreen
       layout="phone"
+      profile="work"
       plugins={plugins}
-      selected="netbox"
+      selected="calendar"
       detailOpen
     />
-  </div>
+  </HermesProvider>
 );
 
-/** Desktop: the catalog with an entry's detail beside it. */
+/** Mac: the catalog with the search in the toolbar and an entry's detail beside the list. */
 export const DesktopCatalog = () => (
-  <div style={desktop}>
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
     <PluginsScreen
       layout="desktop"
       tab="catalog"
+      profile="work"
+      plugins={plugins}
       catalog={catalog}
-      selected="hermes-plugin-github"
-      installing={["hermes-plugin-weather"]}
+      selected="browser-tools"
+      installing={["rss-reader"]}
     />
-  </div>
+  </HermesProvider>
 );
 
-/** Install from Git URL: the unreviewed-code warning. */
+/** Install from Git URL, opened from the bar's "+": the unreviewed-code warning. */
 export const GitUrlDialog = () => (
-  <div style={desktop}>
+  <HermesProvider style={desktop}>
     <PluginsScreen
       layout="desktop"
       tab="catalog"
+      profile="work"
       catalog={catalog}
       gitInstall={{ url: "acme/hermes-plugin-jira", trust: true }}
     />
-  </div>
+  </HermesProvider>
 );
 
-/** Apple phone: the Providers tab, one provider needing setup on the server. */
+/** Providers on iPhone and Material: choice rows (a blue check, or a leading radio), an unavailable provider with its open "What it needs", and the Save bar. */
 export const AppleProviders = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <PluginsScreen
-        layout="phone"
-        tab="providers"
-        memoryProviders={memory}
-        memoryChoice="mem0"
-        needsOpen={["honcho"]}
-        contextEngines={engines}
-        contextChoice="compressor"
-        providersDirty
-      />
-    </div>
-  </HermesProvider>
+  <div style={{ display: "flex", gap: 16 }}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider key={platform} platform={platform} style={phone}>
+        <PluginsScreen
+          layout="phone"
+          tab="providers"
+          profile="work"
+          memoryProviders={memory}
+          memoryChoice="holographic"
+          needsOpen={["vector-store"]}
+          contextEngines={engines}
+          contextChoice="compressor"
+          providersDirty
+        />
+      </HermesProvider>
+    ))}
+  </div>
 );
 
 export const LoadingAndFailed = () => (
   <div style={{ display: "flex", gap: 16 }}>
-    <div style={{ ...phone, width: 300, height: 400 }}>
-      <PluginsScreen layout="phone" installedState="loading" />
-    </div>
-    <div style={{ ...phone, width: 300, height: 400 }}>
-      <PluginsScreen layout="phone" tab="catalog" catalogState="failed" />
-    </div>
+    <HermesProvider style={{ ...phone, width: 300, height: 400 }}>
+      <PluginsScreen layout="phone" profile="work" installedState="loading" />
+    </HermesProvider>
+    <HermesProvider
+      platform="apple"
+      style={{ ...phone, width: 300, height: 400 }}
+    >
+      <PluginsScreen
+        layout="phone"
+        profile="work"
+        tab="catalog"
+        catalogState="failed"
+      />
+    </HermesProvider>
   </div>
 );
 
+/** Mac, dark: the installed list with counts in the subtitle and the selected plugin's detail. */
 export const DarkDesktop = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={{ ...desktop, width: 768, height: 520 }}>
-      <PluginsScreen layout="desktop" plugins={plugins} selected="netbox" />
-    </div>
+  <HermesProvider
+    platform="apple"
+    typeRamp="default"
+    theme="dark"
+    style={desktop}
+  >
+    <PluginsScreen
+      layout="desktop"
+      profile="work"
+      plugins={plugins}
+      selected="notes-sync"
+    />
   </HermesProvider>
 );
