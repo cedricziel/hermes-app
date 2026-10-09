@@ -313,7 +313,8 @@ void main() {
       server
         ..on('GET', '/api/cron/jobs/job1', blocked)
         ..on('GET', '/api/cron/jobs/job1/runs', {'runs': []});
-      await pumpScreen(tester, size: const Size(400, 800));
+      // Tall enough for the runs under the reason, which wraps.
+      await pumpScreen(tester, size: const Size(400, 1000));
 
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();

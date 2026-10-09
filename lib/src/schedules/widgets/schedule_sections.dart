@@ -9,9 +9,9 @@ import '../schedule_widgets.dart';
 import 'run_history_empty.dart';
 import 'run_history_pending.dart';
 
-/// How [job] is doing as the first row of its detail: the status, the next
-/// run, a failure on the error line and an undelivered result on the warning
-/// line.
+/// How [job] is doing as the first row of its detail: the status and the
+/// next run, then why the last run failed and an undelivered result, wrapped
+/// in full (and selectable on a Mac). A paused or finished job keeps them.
 class ScheduleStatusRow extends StatelessWidget {
   const ScheduleStatusRow({super.key, required this.job, required this.now});
 
@@ -20,17 +20,98 @@ class ScheduleStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alert = jobAlert(job);
+    final undelivered = job.outcome == CronOutcome.deliveryFailed;
+    final failure = job.isFailing && !undelivered ? failureReason(job) : null;
     final deliveryError = job.lastDeliveryError;
-    return GroupedRow(
+    final warning = deliveryError == null
+        ? null
+        : undelivered
+        ? deliveryError
+        : 'Delivery failed: $deliveryError';
+    final row = GroupedRow(
       title: statusText(job, now),
       subtitle: nextRunText(job, now),
-      error: alert == JobAlert.failed ? failureReason(job) : null,
-      warning: alert == null || deliveryError == null
-          ? null
-          : alert == JobAlert.undelivered
-          ? deliveryError
-          : 'Delivery failed: $deliveryError',
+    );
+    if (failure == null && warning == null) return row;
+    final metrics = GroupedMetrics.of(context);
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          row,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              metrics.rowPadding,
+              0,
+              metrics.rowPadding,
+              metrics.rowVerticalPadding,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 4,
+              children: [
+                if (failure != null)
+                  _ProblemLine(
+                    icon: AppIcons.error,
+                    text: failure,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                if (warning != null)
+                  _ProblemLine(
+                    icon: AppIcons.warning,
+                    text: warning,
+                    color: context.hermesColors.warning,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A failure under the status, wrapped in full: on a Mac in a monospaced
+/// font that can be selected and copied.
+class _ProblemLine extends StatelessWidget {
+  const _ProblemLine({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  final AppIconSet icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = GroupedMetrics.of(context).subtitleSize;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 4,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: AppIcon(icon, size: size, color: color),
+        ),
+        Expanded(
+          child: mac
+              ? SelectableText(
+                  text,
+                  style: TextStyle(
+                    fontSize: size,
+                    fontFamily: 'monospace',
+                    color: color,
+                  ),
+                )
+              : Text(
+                  text,
+                  style: TextStyle(fontSize: size, color: color),
+                ),
+        ),
+      ],
     );
   }
 }
