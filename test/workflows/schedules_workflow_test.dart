@@ -777,18 +777,20 @@ void main() {
       await shots.capture(tester, 'gallery');
 
       await tester.enterText(
-        find.byKey(const Key('blueprint-search')),
+        find.byKey(const Key('settings-search-field')),
         'urgent',
       );
       await _settle(tester);
       await shots.capture(tester, 'gallery-searched');
 
-      await tester.enterText(find.byKey(const Key('blueprint-search')), 'zzz');
+      await tester.enterText(find.byKey(const Key('settings-search-field')), 'zzz');
       await _settle(tester);
       await shots.capture(tester, 'gallery-nothing-found');
 
-      await tester.enterText(find.byKey(const Key('blueprint-search')), '');
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Daily'));
+      await tester.enterText(find.byKey(const Key('settings-search-field')), '');
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await _settle(tester);
+      await tester.tap(menuItem('Daily'));
       await _settle(tester);
       await shots.capture(tester, 'gallery-category');
 
@@ -799,9 +801,9 @@ void main() {
       server.on('POST', '/api/cron/blueprints/instantiate', {
         'detail': "invalid time '25:00' — use HH:MM (24h)",
       }, status: 422);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'telegram'));
+      await tapVisible(tester, find.text('telegram'));
       await _settle(tester);
-      await tester.tap(find.text('Create task'));
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
       await _settle(tester);
       await shots.capture(tester, 'template-refused');
 
@@ -811,7 +813,7 @@ void main() {
         '/api/cron/blueprints/instantiate',
         (_) => held.future,
       );
-      await tester.tap(find.text('Create task'));
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
       await _frames(tester, 300);
       await shots.capture(tester, 'template-saving');
 

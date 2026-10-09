@@ -157,7 +157,7 @@ void main() {
       await openGallery(tester);
 
       await tester.enterText(
-        find.byKey(const Key('blueprint-search')),
+        find.byKey(const Key('settings-search-field')),
         'urgent',
       );
       await tester.pump();
@@ -166,11 +166,13 @@ void main() {
       expect(find.text('Morning briefing'), findsNothing);
     });
 
-    testWidgets('a category chip narrows the templates', (tester) async {
+    testWidgets('a category filter narrows the templates', (tester) async {
       await openGallery(tester);
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Daily'));
-      await tester.pump();
+      await tester.tap(find.byKey(const Key('settings-search-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Daily').last);
+      await tester.pumpAndSettle();
 
       expect(find.text('Morning briefing'), findsOneWidget);
       expect(find.text('Important mail'), findsNothing);
@@ -216,14 +218,15 @@ void main() {
       expect(find.text('08:00'), findsOneWidget);
       expect(
         tester
-            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'origin'))
-            .selected,
-        isTrue,
+            .widget<RadioGroup<String>>(find.byKey(const Key('slot-deliver')))
+            .groupValue,
+        'origin',
       );
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'telegram'));
+      await tester.ensureVisible(find.text('telegram'));
+      await tester.tap(find.text('telegram'));
       await tester.pump();
-      await tester.tap(find.text('Create task'));
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
       await tester.pumpAndSettle();
 
       expect(
@@ -254,11 +257,11 @@ void main() {
       }, status: 422);
       await openBlueprint(tester);
 
-      await tester.tap(find.text('Create task'));
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slot-error-time')), findsOneWidget);
-      expect(find.text('Create task'), findsOneWidget);
+      expect(find.widgetWithText(TextButton, 'Create'), findsOneWidget);
       expect(find.text('08:00'), findsOneWidget);
     });
   });
