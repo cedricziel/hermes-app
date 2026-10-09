@@ -1,5 +1,7 @@
 .h-segbutton {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(auto, 1fr);
   width: 100%;
   height: 40px;
   border: 1px solid var(--h-border);
@@ -8,8 +10,6 @@
 }
 
 .h-segbutton__segment {
-  flex: 1 1 0;
-  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

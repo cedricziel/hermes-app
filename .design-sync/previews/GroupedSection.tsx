@@ -13,16 +13,18 @@ type Look = "iphone" | "mac" | "material";
 
 const looks: Array<[Look, string]> = [
   ["iphone", "iPhone"],
-  ["mac", "Mac"],
   ["material", "Material"],
+  ["mac", "Mac"],
 ];
 
-const frame = {
-  width: 264,
-  border: "1px solid var(--h-border)",
-  borderRadius: 14,
-  overflow: "hidden",
-} as const;
+/** iPhone and Material at phone width, the Mac at a narrow window's width. */
+const frame = (look: Look) =>
+  ({
+    width: look === "mac" ? 520 : 390,
+    border: "1px solid var(--h-border)",
+    borderRadius: 14,
+    overflow: "hidden",
+  }) as const;
 
 const Panel = ({
   look,
@@ -37,7 +39,7 @@ const Panel = ({
     theme={theme}
     platform={look === "material" ? "material" : "apple"}
     typeRamp={look === "mac" ? "default" : undefined}
-    style={frame}
+    style={frame(look)}
   >
     <GroupedListView device={look === "mac" ? "mac" : "touch"}>
       {children(look)}
@@ -54,7 +56,15 @@ const Compare = ({
 }) => (
   <HermesProvider
     theme={theme}
-    style={{ display: "flex", gap: 12, padding: 12, alignItems: "flex-start" }}
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      padding: 8,
+      width: 804,
+      boxSizing: "border-box",
+      alignItems: "flex-start",
+    }}
   >
     {looks.map(([look]) => (
       <Panel key={look} look={look} theme={theme}>

@@ -78,7 +78,7 @@ export function KanbanBoardsScreen({
               <GroupedMenuButtonRow<KanbanBoardAction>
                 key={b.slug}
                 title={b.name}
-                subtitle={`${b.slug} · ${b.total} tasks`}
+                subtitle={`${b.slug} · ${b.total} ${b.total === 1 ? "task" : "tasks"}`}
                 value={b.slug === current ? "Current" : undefined}
                 menuLabel={b.name}
                 menuOpen={defaultMenuBoard === b.slug}

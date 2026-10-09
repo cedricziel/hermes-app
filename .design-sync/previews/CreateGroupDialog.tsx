@@ -34,7 +34,7 @@ export const IPhone = () => (
   </HermesProvider>
 );
 
-/** Mac: the toolbar search field above compact rows; the create failed, so the button reads Retry. */
+/** Mac: the same Material dialog at phone size throughout (title, field, search, rows, buttons), as the app shows it on every platform; the create failed, so the button reads Retry. */
 export const Mac = () => (
   <HermesProvider platform="apple" typeRamp="default">
     <div style={mac}>

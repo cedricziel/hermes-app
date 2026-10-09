@@ -22,10 +22,13 @@ export interface GroupedValueRowProps {
   /** Opens the picker. Without it the value shows but nothing opens (no chevron on iOS, a muted pop-up on a Mac). */
   onClick?: () => void;
   /**
-   * `apple` + `touch`: the label left, the value muted on the right (cut
-   * at 45% of the row) and a chevron, the whole row one button. `apple` +
+   * `apple` + `touch`: the label left, the value muted on the right (at
+   * most 45% of the row) and a chevron, the whole row one button. `apple` +
    * `mac`: a 40px row with the label left and the value in a bordered
-   * pop-up button on the right (12px, 6px corners, a small chevron down).
+   * pop-up button on the right (12px, 6px corners, a small chevron down,
+   * at most 260px). On both the label keeps its width (up to 60% of the
+   * row) and a long value is cut with an ellipsis; a warning wraps to two
+   * lines under the label.
    * `material`: two lines, the label over the value (muted, 14px), no
    * chevron. Inherits the provider's platform.
    */
@@ -54,8 +57,9 @@ export function GroupedValueRow({
   const progress = busy ? (
     <Spinner size={chrome === "mac" ? 14 : 18} label="Saving" />
   ) : undefined;
+  let row;
   if (chrome === "material") {
-    return (
+    row = (
       <GroupedRow
         title={title}
         subtitle={value}
@@ -68,9 +72,8 @@ export function GroupedValueRow({
         device={device}
       />
     );
-  }
-  if (chrome === "mac") {
-    return (
+  } else if (chrome === "mac") {
+    row = (
       <GroupedRow
         title={title}
         caption={caption}
@@ -84,20 +87,22 @@ export function GroupedValueRow({
         device={device}
       />
     );
+  } else {
+    row = (
+      <GroupedRow
+        title={title}
+        caption={caption}
+        warning={warning}
+        value={progress ? undefined : value}
+        trailing={progress}
+        chevron={!!open}
+        onClick={progress ? undefined : open}
+        platform={platform}
+        device={device}
+      />
+    );
   }
-  return (
-    <GroupedRow
-      title={title}
-      caption={caption}
-      warning={warning}
-      value={progress ? undefined : value}
-      trailing={progress}
-      chevron={!!open}
-      onClick={progress ? undefined : open}
-      platform={platform}
-      device={device}
-    />
-  );
+  return <div className="h-grouped-value-row">{row}</div>;
 }
 
 /** The Mac pop-up button showing a value. */
