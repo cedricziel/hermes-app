@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../theme/app_icons.dart';
 import '../../widgets/content_column.dart';
+import '../../widgets/settings_scaffold.dart';
 import '../group_protocol/hermes_groups_repository.dart';
 import 'group_room_controller.dart';
 import 'widgets/group_widgets.dart';
@@ -176,29 +178,29 @@ class _GroupChatScreenState extends State<GroupChatScreen>
   @override
   Widget build(BuildContext context) {
     final driver = _room.state?.driverStatus;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _room.room.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+    final actionable = !_room.pending && !_room.disbanded;
+    return SettingsScaffold(
+      title: _room.room.name,
+      subtitle: '${_room.room.members.length} members',
+      previousTitle: 'Bots',
+      actions: [
+        SettingsBarAction.menu(
+          label: 'Room actions',
+          icon: AppIcons.more,
+          menu: (_) => [
+            PopupMenuItem(
+              enabled: actionable,
+              onTap: _rename,
+              child: const Text('Rename'),
+            ),
+            PopupMenuItem(
+              enabled: actionable,
+              onTap: _disband,
+              child: const Text('Disband'),
+            ),
+          ],
         ),
-        actions: [
-          PopupMenuButton<String>(
-            tooltip: 'Room actions',
-            enabled: !_room.pending && !_room.disbanded,
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (value) {
-              if (value == 'rename') _rename();
-              if (value == 'disband') _disband();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'rename', child: Text('Rename')),
-              PopupMenuItem(value: 'disband', child: Text('Disband')),
-            ],
-          ),
-        ],
-      ),
+      ],
       body: _room.disbanded
           ? const Center(
               child: GroupNotice(message: 'This room has been disbanded.'),
