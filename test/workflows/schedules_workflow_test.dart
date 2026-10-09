@@ -756,7 +756,18 @@ void main() {
       await _settle(tester);
     }
 
-    Finder mode(String label) => find.widgetWithText(ChoiceChip, label);
+    Finder mode(String label) => find.descendant(
+      of: find.byKey(const Key('when-mode')),
+      matching: find.text(label),
+    );
+
+    final save = find.widgetWithText(TextButton, 'Save');
+
+    // A checked menu item takes the tap itself, not its label.
+    Finder menuItem(String label) => find.ancestor(
+      of: find.text(label).last,
+      matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+    );
 
     testWidgets('phone: pick a template and fill it in', (tester) async {
       final shots = ScreenshotRecorder('schedules-phone-create-template');
@@ -846,7 +857,7 @@ void main() {
       await type(tester, 'when-amount', '6');
       await tapVisible(tester, find.byKey(const Key('when-unit')));
       await shots.capture(tester, 'every-unit-menu');
-      await tester.tap(find.text('hours').last);
+      await tester.tap(menuItem('hours'));
       await _settle(tester);
       await shots.capture(tester, 'every-6-hours');
 
@@ -863,7 +874,7 @@ void main() {
       await tapVisible(tester, mode('Weekly'));
       await shots.capture(tester, 'weekly');
       for (final day in ['Tue', 'Wed', 'Fri']) {
-        await tester.tap(find.widgetWithText(FilterChip, day));
+        await tester.tap(find.text(day));
         await _settle(tester);
       }
       await shots.capture(tester, 'weekly-some-days');
@@ -885,7 +896,7 @@ void main() {
       await pumpSchedules(tester, shots, size: phoneSize);
       await openCustom(tester);
 
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'nothing-to-run');
 
       await type(tester, 'job-prompt', 'Say hello');
@@ -901,19 +912,19 @@ void main() {
       server.on('POST', '/api/cron/jobs', {
         'detail': 'script must be inside /home/hermes/work/scripts',
       }, status: 400);
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'refused-by-server');
 
       await type(tester, 'job-script', '');
       await tapVisible(tester, find.byKey(const Key('job-deliver')));
       await shots.capture(tester, 'deliver-menu');
-      await tester.tap(find.text('Discord').last);
+      await tester.tap(menuItem('Discord'));
       await _settle(tester);
       await shots.capture(tester, 'deliver-without-home-channel');
 
       await tapVisible(tester, find.byKey(const Key('job-profile')));
       await shots.capture(tester, 'profile-menu');
-      await tester.tap(find.text('home').last);
+      await tester.tap(menuItem('home'));
       await _settle(tester);
 
       await tester.tap(find.byKey(const Key('job-paused')));
@@ -924,7 +935,7 @@ void main() {
       cron.holdCreate = held;
       server.on('POST', '/api/cron/jobs', {}, status: 200);
       cron.serve();
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await _frames(tester, 300);
       await shots.capture(tester, 'saving');
 
@@ -961,7 +972,7 @@ void main() {
       await edit('Morning brief');
       await shots.capture(tester, 'weekday-task');
       await type(tester, 'job-prompt', 'Say good morning, kindly');
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'saved');
       await popRoute(tester);
 
@@ -995,7 +1006,7 @@ void main() {
       await openCustom(tester);
       await shots.capture(tester, 'empty-form');
 
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'nothing-to-run');
 
       await type(tester, 'job-name', 'Price watch for a GPU');
@@ -1010,7 +1021,7 @@ void main() {
       final held = Completer<void>();
       cron.holdCreate = held;
       cron.serve();
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await _frames(tester, 300);
       await shots.capture(tester, 'saving');
 
@@ -1028,7 +1039,7 @@ void main() {
       await shots.capture(tester, 'interval-task');
 
       await type(tester, 'job-prompt', 'Check the price again');
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'saved');
     });
 
@@ -1044,7 +1055,7 @@ void main() {
       await shots.capture(tester, 'gallery');
       await tester.tap(find.byKey(const Key('custom-task')));
       await _settle(tester);
-      await tapVisible(tester, find.text('Save task'));
+      await tapVisible(tester, save);
       await shots.capture(tester, 'form-with-error');
       await tapVisible(tester, mode('Weekly'));
       await shots.capture(tester, 'weekly');
