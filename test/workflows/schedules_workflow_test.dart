@@ -783,11 +783,17 @@ void main() {
       await _settle(tester);
       await shots.capture(tester, 'gallery-searched');
 
-      await tester.enterText(find.byKey(const Key('settings-search-field')), 'zzz');
+      await tester.enterText(
+        find.byKey(const Key('settings-search-field')),
+        'zzz',
+      );
       await _settle(tester);
       await shots.capture(tester, 'gallery-nothing-found');
 
-      await tester.enterText(find.byKey(const Key('settings-search-field')), '');
+      await tester.enterText(
+        find.byKey(const Key('settings-search-field')),
+        '',
+      );
       await tester.tap(find.byKey(const Key('settings-search-filter')));
       await _settle(tester);
       await tester.tap(menuItem('Daily'));
