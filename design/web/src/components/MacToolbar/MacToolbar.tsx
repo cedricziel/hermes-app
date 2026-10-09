@@ -94,11 +94,14 @@ export function MacToolbarSearchField({
         ref={inputRef}
         type="search"
         placeholder={hint}
+        aria-label={hint}
         value={query}
         onChange={(e) => onChange?.(e.target.value)}
         onFocus={onBegin}
         onKeyDown={(e) => {
-          if (e.key === "Escape") onEnd?.();
+          if (e.key !== "Escape") return;
+          if (query) e.stopPropagation();
+          onEnd?.();
         }}
       />
       {query || active ? (

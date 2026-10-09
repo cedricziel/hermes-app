@@ -1,0 +1,141 @@
+.h-model-picker {
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-model-picker-inline {
+  max-width: 440px;
+  border: 1px solid var(--h-border);
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--h-surface);
+}
+
+.h-model-picker--dialog .h-model-picker__head {
+  border-radius: 27px 27px 0 0;
+}
+
+.h-model-picker--dialog .h-model-picker__effort {
+  border-radius: 0 0 27px 27px;
+}
+
+.h-model-picker__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 16px var(--hg-gutter) 0;
+  background: var(--h-surface);
+}
+
+.h-model-picker--mac .h-model-picker__head {
+  padding-top: 14px;
+}
+
+.h-model-picker__title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.h-model-picker__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.h-model-picker--ios .h-model-picker__title {
+  font-size: 17px;
+}
+
+.h-model-picker--mac .h-model-picker__title {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.h-model-picker__note {
+  margin: 2px 0 0;
+  color: var(--h-muted);
+  font-size: var(--hg-footer);
+  line-height: 1.35;
+}
+
+.h-model-picker__search {
+  padding-top: 12px;
+}
+
+.h-model-picker__list {
+  padding: 0 var(--hg-gutter) 16px;
+}
+
+.h-model-picker__empty {
+  margin: 0;
+  padding: 24px 0;
+  color: var(--h-muted);
+  font-size: var(--hg-sub);
+  text-align: center;
+}
+
+.h-model-picker__effort {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px var(--hg-gutter) 16px;
+  border-top: 1px solid var(--h-border-subtle);
+  background: var(--h-surface);
+}
+
+.h-model-picker__effort .h-model-picker__effort-header {
+  padding-bottom: 0;
+}
+
+.h-model-picker__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.h-model-picker__pill {
+  --pill-h: 32px;
+  height: var(--pill-h);
+  padding: 0 calc(var(--pill-h) / 2.5);
+  border: 1px solid transparent;
+  border-radius: var(--h-radius-pill);
+  background: var(--h-surface-high);
+  color: color-mix(in srgb, var(--h-fg) 70%, transparent);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.h-model-picker--ios .h-model-picker__pill {
+  border-radius: calc(var(--pill-h) / 4);
+  font-size: 15px;
+}
+
+.h-model-picker--mac .h-model-picker__pill {
+  --pill-h: 24px;
+  border-radius: calc(var(--pill-h) / 4);
+  font-size: 12px;
+}
+
+.h-model-picker__pill--on {
+  border-color: var(--h-border);
+  background: var(--h-surface);
+  color: var(--h-fg);
+  font-weight: 600;
+}
+
+.h-model-picker__pill:focus-visible {
+  outline: 2px solid var(--h-primary);
+  outline-offset: 1px;
+}

@@ -19,6 +19,7 @@ export * from "./components/ToolCallGroup/ToolCallGroup";
 export * from "./components/ClarifyCard/ClarifyCard";
 export * from "./components/ChatComposer/ChatComposer";
 export * from "./components/ModelPill/ModelPill";
+export * from "./components/ModelPicker/ModelPicker";
 export * from "./components/UserMessage/UserMessage";
 export * from "./components/AssistantMessage/AssistantMessage";
 export * from "./components/ReasoningBlock/ReasoningBlock";

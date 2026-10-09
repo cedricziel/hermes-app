@@ -16,8 +16,9 @@ export interface ModelPillProps extends Omit<
 
 /**
  * The quiet pill in the chat composer's bottom row naming the chat's model and
- * reasoning effort ("claude-opus-4 · Medium ⌄"); pressing it opens the model
- * picker. Also used in the Kanban task form.
+ * reasoning effort ("claude-opus-4 · Medium ⌄"); pressing it opens the
+ * `ModelPicker` (a bottom sheet on a phone, a dialog from 900px). Also used
+ * in the Kanban task form, whose picker adds "Use the profile’s default".
  */
 export function ModelPill({
   model,
