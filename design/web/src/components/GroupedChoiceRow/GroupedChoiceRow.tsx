@@ -80,7 +80,7 @@ export function GroupedChoiceRow({
         chevron={false}
         disabled={disabled}
         radioChecked={checked}
-        onClick={disabled ? undefined : (onSelect ?? (() => {}))}
+        onClick={onSelect ?? (() => {})}
         platform={platform}
         device={device}
       />
