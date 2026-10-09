@@ -62,7 +62,7 @@ The recognizer takes the PCM `record` already captures, instead of opening the m
 - **Recognizer setup:**
   - A `SpeechTranscriber` for the locale Dart passed in, resolved through `supportedLocale(equivalentTo:)`, with volatile results on (a preset if one fits).
   - It runs inside a `SpeechAnalyzer` fed by an `AsyncStream<AnalyzerInput>`.
-- **Audio conversion:** incoming Int16 16 kHz PCM is converted to the format from `bestAvailableAudioFormat(compatibleWith:)`. Use Apple's own converter if the spike finds one fits, otherwise `AVAudioConverter` with its input-block API, which handles the sample-rate change.
+- **Audio conversion:** incoming Int16 16 kHz PCM is converted to the format from `bestAvailableAudioFormat(compatibleWith:)`. `AVAudioConverter` with its input-block API does it, and only when the formats differ. Apple's `AnalyzerInputConverter` needs OS 27.
 - **Live text:** the finalized results so far, plus the latest volatile one.
 - **`finish`:**
   1. Ends the input stream.
@@ -107,6 +107,21 @@ The recognizer takes the PCM `record` already captures, instead of opening the m
 - **iOS and macOS:** the new local plugin and the regenerated plugin registrants. No entitlement change: the microphone entitlement and `NSMicrophoneUsageDescription` exist already. The model download goes through the system, and the 1.1 spike confirms it works under the Release sandbox.
 - **Android, Windows and Linux:** no change. The plugin declares only iOS and macOS, and the setting is hidden there.
 - **watchOS:** none.
+
+## Spike findings (macOS 27, Xcode 27, unsandboxed command-line build)
+
+- Feeding 100 ms chunks of 16 kHz Int16 PCM to `SpeechAnalyzer` with the `.progressiveTranscription` preset produced word-by-word volatile results and one final result. The volatile text there was cumulative for the segment.
+- `SFSpeechRecognizer.authorizationStatus()` stayed `notDetermined` throughout, so on macOS `SpeechTranscriber` needs no speech-recognition authorization. iOS is still unchecked: no device was at hand. 3.5 checks it on a device.
+- `bestAvailableAudioFormat(compatibleWith:)` answered 16 kHz Int16 mono, the format `record` delivers. The converter only runs when the formats differ.
+- `AnalyzerInputConverter` exists only from OS 27, so the 26 target uses `AVAudioConverter`.
+- `supportedLocale(equivalentTo:)` mapped `de` to `de_CH` but `de-DE` to `de_DE`. Dart must pass the full locale tag with its region.
+- `AssetInventory.status` answered `installed` for en-US and `supported` for de-DE. An unknown locale gave `nil`, which maps to `unsupported`. The model download and the Release sandbox were not exercised; 3.5 covers them.
+
+Then in the app itself (macOS 27, sandboxed debug build, through `OnDeviceSpeech` and the plugin):
+
+- Models are reserved per app. en-US, installed for the command-line spike, read as `supported` (so `missing`) for the app until the app asked for it. `install` then finished in 83 ms with no progress events, because the files were already on disk. Picking "On this device" therefore always runs `install`, and the dialog must not assume a progress event arrives.
+- Partials, the final text, a cancel mid-recording followed by a clean new session, and `modelMissing` for a language not reserved all behaved as designed. There was no speech-permission prompt and no privacy crash without `NSSpeechRecognitionUsageDescription`.
+- The iOS 26.5 simulator reports `SpeechTranscriber.isAvailable == false`, so every language reads `unsupported` there. The iOS authorization question needs a real device; 3.5 covers it.
 
 ## Risks / Trade-offs
 

@@ -18,15 +18,16 @@ const _inConversationWindows = {
 
 /// Main engine only: notifications take the notification centre's delegate,
 /// secure storage holds the tokens a window must never read,
-/// macos_window_utils is bound to the main window, record is left out
-/// because a conversation window offers no voice input, and the rest is unused
-/// in a conversation window.
+/// macos_window_utils is bound to the main window, record and hermes_speech are
+/// left out because a conversation window offers no voice input, and the rest
+/// is unused in a conversation window.
 const _mainEngineOnly = {
   'ConnectivityPlusPlugin',
   'DeviceInfoPlusMacosPlugin',
   'FlutterAppGroupDirectoryPlugin',
   'FlutterLocalNotificationsPlugin',
   'FlutterSecureStorageDarwinPlugin',
+  'HermesSpeechPlugin',
   'LocalAuthPlugin',
   'MacOSWindowUtilsPlugin',
   'FPPPackageInfoPlusPlugin',

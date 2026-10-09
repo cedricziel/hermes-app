@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../telemetry/breadcrumbs.dart';
+import 'live_transcriber.dart';
 import 'transcribe_stream.dart';
 import 'voice_recorder.dart';
 import 'voice_support.dart';
@@ -73,7 +74,7 @@ class DictationController extends ChangeNotifier {
   var _liveTranscript = '';
   var _run = 0;
   var _leased = false;
-  TranscribeStream? _stream;
+  LiveTranscriber? _stream;
   StreamSubscription<Uint8List>? _pcm;
   Completer<void>? _pcmDone;
   Timer? _ticker;

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:stream_channel/stream_channel.dart';
 
 import '../chat/gateway/gateway_connection.dart';
+import 'live_transcriber.dart';
 
 /// Live transcription over the dashboard's `/api/audio/transcribe-stream`:
 /// 16-bit mono PCM goes in while the user speaks, partial text and then the
@@ -13,7 +14,7 @@ import '../chat/gateway/gateway_connection.dart';
 /// Any failure (no socket within [openTimeout], an `error` frame, a socket
 /// that closes before the final frame) leaves the stream [failed], and
 /// [finish] answers null so the caller uploads its recording instead.
-class TranscribeStream {
+class TranscribeStream implements LiveTranscriber {
   TranscribeStream.start({
     required MixedSocketConnect connect,
     required int sampleRate,
@@ -34,7 +35,7 @@ class TranscribeStream {
   StreamSubscription<Object?>? _frames;
   var _done = false;
 
-  /// The latest recognized text, as the server revises it.
+  @override
   Stream<String> get partials => _partials.stream;
 
   /// Whether live transcription gave up.
@@ -87,8 +88,8 @@ class TranscribeStream {
     }
   }
 
-  /// Sends a chunk of 16-bit little-endian mono PCM; held until the socket
-  /// opens.
+  /// Held until the socket opens.
+  @override
   void add(Uint8List pcm) {
     if (_result.isCompleted) return;
     if (_channel case final channel?) {
@@ -98,8 +99,7 @@ class TranscribeStream {
     }
   }
 
-  /// Ends the recording and waits for the final transcript; null when live
-  /// transcription failed.
+  @override
   Future<String?> finish() {
     final channel = _channel;
     if (channel == null) {
@@ -116,7 +116,8 @@ class TranscribeStream {
     );
   }
 
-  /// Drops the recording: closes the socket without asking for a transcript.
+  /// Closes the socket without asking for a transcript.
+  @override
   void cancel() => _fail();
 
   void _complete(String transcript) {
