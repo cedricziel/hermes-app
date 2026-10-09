@@ -120,7 +120,7 @@ export function KanbanCreateScreen({
   onBack,
 }: KanbanCreateScreenProps) {
   const back = onBack ?? (() => {});
-  const canEstimate = !estimating && title.trim() !== "";
+  const hasTitle = title.trim() !== "";
   return (
     <SettingsScaffold
       title="New task"
@@ -154,8 +154,8 @@ export function KanbanCreateScreen({
               estimating ? <Spinner size={18} label="Estimating" /> : undefined
             }
             chevron={false}
-            disabled={!canEstimate && !estimating}
-            onClick={canEstimate ? onEstimate : undefined}
+            disabled={!hasTitle}
+            onClick={hasTitle && !estimating ? onEstimate : undefined}
           />
         </GroupedSection>
         <GroupedSection

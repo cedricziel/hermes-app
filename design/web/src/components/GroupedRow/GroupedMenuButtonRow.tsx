@@ -1,10 +1,10 @@
-import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedRow } from "./GroupedRow";
 import { IconButton } from "../IconButton/IconButton";
 import { Menu, MenuAnchor, useMenuState, type MenuItem } from "../Menu/Menu";
 import { useGroupedChrome } from "../../platform";
 
 /** A grouped row that opens on click and offers `actions` in a trailing "…" menu, as the app's `_MenuRow` in `kanban_list_rows.dart`. */
-export function KanbanMenuRow<T extends string>({
+export function GroupedMenuButtonRow<T extends string>({
   title,
   subtitle,
   caption,

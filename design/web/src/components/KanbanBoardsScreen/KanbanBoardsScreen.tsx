@@ -3,7 +3,7 @@ import { GroupedSection } from "../GroupedSection/GroupedSection";
 import type { KanbanBoardItem } from "../KanbanToolbar/KanbanToolbar";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import type { AppleDevice, Platform } from "../../platform";
-import { KanbanMenuRow } from "./KanbanMenuRow";
+import { GroupedMenuButtonRow } from "../GroupedRow/GroupedMenuButtonRow";
 
 /** What a board row's "…" menu asks for. */
 export type KanbanBoardAction = "rename" | "export" | "archive" | "delete";
@@ -75,7 +75,7 @@ export function KanbanBoardsScreen({
         {boards.length > 0 ? (
           <GroupedSection>
             {boards.map((b) => (
-              <KanbanMenuRow<KanbanBoardAction>
+              <GroupedMenuButtonRow<KanbanBoardAction>
                 key={b.slug}
                 title={b.name}
                 subtitle={`${b.slug} · ${b.total} tasks`}

@@ -54,12 +54,9 @@ const sections: {
   },
 ];
 
-/** A profile on the Mac Profiles page; `path` is its home directory. */
-export type MacProfile = Profile;
-
 export interface MacProfilesPageProps {
   /** The dashboard's profiles. */
-  profiles?: MacProfile[];
+  profiles?: Profile[];
   /** Name of the selected profile, whose home the right side shows. */
   selected?: string;
   /**

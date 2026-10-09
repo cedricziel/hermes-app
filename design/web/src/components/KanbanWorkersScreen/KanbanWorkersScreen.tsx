@@ -1,7 +1,7 @@
 import { Button } from "../Button/Button";
 import { GroupedListView } from "../GroupedListView/GroupedListView";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
-import { KanbanMenuRow } from "../KanbanBoardsScreen/KanbanMenuRow";
+import { GroupedMenuButtonRow } from "../GroupedRow/GroupedMenuButtonRow";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
@@ -105,7 +105,7 @@ export function KanbanWorkersScreen({
         <GroupedListView>
           <GroupedSection>
             {workers.map((w) => (
-              <KanbanMenuRow<KanbanWorkerAction>
+              <GroupedMenuButtonRow<KanbanWorkerAction>
                 key={w.runId}
                 title={w.taskTitle}
                 subtitle={[w.taskId, `run #${w.runId}`, w.profile]
