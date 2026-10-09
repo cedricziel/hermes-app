@@ -34,6 +34,7 @@ import '../profiles/chat_profiles.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../profiles/mac_profiles_page.dart';
 import '../profiles/widgets/mac_profile_switcher.dart';
+import '../profiles/widgets/new_profile_dialog.dart';
 import '../schedules/hermes_cron_repository.dart';
 import '../schedules/schedule_alerts.dart';
 import '../schedules/schedule_models.dart';
@@ -430,7 +431,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         profiles: profiles.profiles,
         current: profiles.current,
         onSwitch: _switchProfile,
-        onNewProfile: () => createProfile(context, profiles),
+        onNewProfile: () => createProfile(context, profiles.create),
         onManage: () => _select(_Destination.profiles),
       ),
     );

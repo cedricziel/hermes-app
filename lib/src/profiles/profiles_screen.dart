@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_icons.dart';
-import '../widgets/adaptive_back_button.dart';
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/widgets/model_picker.dart';
-import '../widgets/content_column.dart';
+import '../theme/app_icons.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import 'hermes_profiles_repository.dart';
+import 'widgets/new_profile_dialog.dart';
 import 'widgets/profile_tile.dart';
 
 /// Lists the Hermes profiles on the connected dashboard and lets the user
@@ -141,15 +142,30 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     await _load();
   }
 
+  Future<void> _create() => createProfile(context, (name, {description}) async {
+    await _repository.create(name, description: description);
+    if (mounted) await _load();
+  });
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AdaptiveBackButton(previousTitle: 'Chat'),
-        leadingWidth: adaptiveBackLeadingWidth(context),
-        title: const Text('Profiles'),
-      ),
-      body: ContentColumn(child: _body()),
+    final count = _overview?.profiles.length;
+    return SettingsScaffold(
+      title: 'Profiles',
+      subtitle: switch (count) {
+        null => null,
+        1 => '1 profile',
+        _ => '$count profiles',
+      },
+      actions: [
+        SettingsBarAction(
+          key: const Key('profiles-new'),
+          label: 'New Profile',
+          icon: AppIcons.add,
+          onPressed: _create,
+        ),
+      ],
+      body: _body(),
     );
   }
 
@@ -171,25 +187,27 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
       );
     }
     final shown = _shownInChat;
-    return ListView(
+    return GroupedListView(
       children: [
-        if (shown != overview.active)
-          ListTile(
-            leading: const AppIcon(AppIcons.info),
-            title: Text(
-              'The chat shows $shown. The CLI default is ${overview.active}.',
-            ),
-          ),
-        for (final profile in overview.profiles)
-          ProfileTile(
-            profile: profile,
-            active: profile.name == overview.active,
-            onTap: () => _choose(profile),
-            onChangeModel: switch (_models) {
-              final models? => () => _changeModel(models, profile),
-              null => null,
-            },
-          ),
+        GroupedSection(
+          dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+          footer: shown == overview.active
+              ? null
+              : 'The chat shows $shown. The CLI default is ${overview.active}.',
+          children: [
+            for (final profile in overview.profiles)
+              ProfileTile(
+                key: ValueKey('profile-${profile.name}'),
+                profile: profile,
+                active: profile.name == overview.active,
+                onTap: () => _choose(profile),
+                onChangeModel: switch (_models) {
+                  final models? => () => _changeModel(models, profile),
+                  null => null,
+                },
+              ),
+          ],
+        ),
       ],
     );
   }

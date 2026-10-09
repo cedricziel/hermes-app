@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -168,7 +167,7 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
                 key: const Key('profiles-new'),
                 label: 'New Profile',
                 icon: AppIcons.add,
-                onPressed: () => createProfile(context, _profiles),
+                onPressed: () => createProfile(context, _profiles.create),
               ),
             ],
           ),
@@ -191,26 +190,6 @@ class _MacProfilesPageState extends State<MacProfilesPage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Asks for a new profile's name and creates it, saying why when the
-/// dashboard refuses.
-Future<void> createProfile(BuildContext context, ChatProfiles profiles) async {
-  final created = await showNewProfileDialog(context);
-  if (created == null || !context.mounted) return;
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  try {
-    await profiles.create(created.name, description: created.description);
-  } on Object catch (error) {
-    final detail = switch (error) {
-      DioException(response: Response(data: {'detail': final String d})) =>
-        ': $d',
-      _ => '',
-    };
-    messenger?.showSnackBar(
-      SnackBar(content: Text('Could not create the profile$detail')),
     );
   }
 }

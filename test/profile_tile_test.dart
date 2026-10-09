@@ -5,12 +5,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/profiles/widgets/profile_tile.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
-const _work = HermesProfile(name: 'work', skillCount: 3);
+const _work = HermesProfile(
+  name: 'work',
+  displayName: 'Work assistant',
+  model: 'hermes-4',
+  skillCount: 3,
+  path: '/home/hermes/.hermes/profiles/work',
+);
 
 Future<void> _pump(
   WidgetTester tester,
   TargetPlatform platform, {
+  HermesProfile profile = _work,
   bool active = false,
   VoidCallback? onChangeModel,
 }) => tester.pumpWidget(
@@ -18,7 +26,7 @@ Future<void> _pump(
     theme: ThemeData(platform: platform),
     home: Scaffold(
       body: ProfileTile(
-        profile: _work,
+        profile: profile,
         active: active,
         onTap: () {},
         onChangeModel: onChangeModel,
@@ -28,15 +36,40 @@ Future<void> _pump(
 );
 
 void main() {
-  group('on iOS', () {
-    testWidgets('marks the active profile with a checkmark, not a chip', (
+  testWidgets('leads with the initials and shows home, model and skills', (
+    tester,
+  ) async {
+    await _pump(tester, TargetPlatform.iOS);
+
+    expect(
+      find.descendant(of: find.byType(GroupedTile), matching: find.text('WA')),
+      findsOneWidget,
+    );
+    expect(find.text('/home/hermes/.hermes/profiles/work'), findsOneWidget);
+    expect(find.text('hermes-4 · 3 skills'), findsOneWidget);
+  });
+
+  testWidgets('prefers the description to the home', (tester) async {
+    await _pump(
       tester,
-    ) async {
+      TargetPlatform.iOS,
+      profile: const HermesProfile(
+        name: 'work',
+        description: 'Day job',
+        path: '/home/hermes/.hermes/profiles/work',
+      ),
+    );
+
+    expect(find.text('Day job'), findsOneWidget);
+    expect(find.text('/home/hermes/.hermes/profiles/work'), findsNothing);
+  });
+
+  group('on iOS', () {
+    testWidgets('marks the active profile with a checkmark', (tester) async {
       await _pump(tester, TargetPlatform.iOS, active: true);
 
       expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
-      expect(find.byType(Chip), findsNothing);
-      expect(find.byIcon(Icons.person_outline), findsNothing);
+      expect(find.text('Active'), findsNothing);
     });
 
     testWidgets('shows no checkmark on an inactive profile', (tester) async {
@@ -45,14 +78,11 @@ void main() {
       expect(find.byIcon(CupertinoIcons.check_mark), findsNothing);
     });
 
-    testWidgets('is a standard row, shorter than the Material tile', (
-      tester,
-    ) async {
+    testWidgets('is a grouped row of at least 44 points', (tester) async {
       await _pump(tester, TargetPlatform.iOS);
 
-      final height = tester.getSize(find.byType(ListTile)).height;
+      final height = tester.getSize(find.byType(GroupedRow)).height;
       expect(height, greaterThanOrEqualTo(44));
-      expect(height, lessThan(72));
     });
 
     testWidgets('changes the model from a long-press action sheet', (
@@ -60,9 +90,9 @@ void main() {
     ) async {
       var changed = 0;
       await _pump(tester, TargetPlatform.iOS, onChangeModel: () => changed++);
-      expect(find.byIcon(Icons.tune), findsNothing);
+      expect(find.byKey(const Key('profile-model-work')), findsNothing);
 
-      await tester.longPress(find.byType(ListTile));
+      await tester.longPress(find.byType(GroupedRow));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Change default model'));
       await tester.pumpAndSettle();
@@ -86,14 +116,16 @@ void main() {
     testWidgets('has no long-press without a model change', (tester) async {
       await _pump(tester, TargetPlatform.iOS);
 
-      await tester.longPress(find.byType(ListTile));
+      await tester.longPress(find.byType(GroupedRow));
       await tester.pumpAndSettle();
 
       expect(find.text('Change default model'), findsNothing);
     });
   });
 
-  testWidgets('keeps the Material tile and icons on Android', (tester) async {
+  testWidgets('says Active and offers the model button on Android', (
+    tester,
+  ) async {
     await _pump(
       tester,
       TargetPlatform.android,
@@ -102,12 +134,11 @@ void main() {
     );
 
     expect(find.text('Active'), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline), findsOneWidget);
     expect(find.byIcon(Icons.tune), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.check_mark), findsNothing);
+    expect(find.byIcon(Icons.check), findsNothing);
   });
 
-  testWidgets('keeps the Material tile with SF-style icons on macOS', (
+  testWidgets('checks the active profile and offers the button on macOS', (
     tester,
   ) async {
     await _pump(
@@ -117,9 +148,8 @@ void main() {
       onChangeModel: () {},
     );
 
-    expect(find.text('Active'), findsOneWidget);
-    expect(find.byIcon(CupertinoIcons.person), findsOneWidget);
+    expect(find.byIcon(CupertinoIcons.check_mark), findsOneWidget);
     expect(find.byIcon(CupertinoIcons.slider_horizontal_3), findsOneWidget);
-    expect(find.byIcon(Icons.person_outline), findsNothing);
+    expect(find.text('Active'), findsNothing);
   });
 }

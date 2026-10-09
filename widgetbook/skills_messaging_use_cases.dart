@@ -15,6 +15,7 @@ import 'package:hermes_app/src/skills/skill_job_sheet.dart';
 import 'package:hermes_app/src/skills/skills_controller.dart';
 import 'package:hermes_app/src/skills/skills_hub_controller.dart';
 import 'package:hermes_app/src/skills/widgets/skill_badges.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import '../test/support/fake_hermes_server.dart';
@@ -344,97 +345,77 @@ WidgetbookNode skillsMessagingNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ProfileTile',
       useCases: [
-        _profileTile(
-          'Active',
-          const HermesProfile(
-            name: 'default',
-            model: 'claude-opus-4',
-            skillCount: 58,
+        ..._profileTiles('Active and inactive', const [
+          (
+            HermesProfile(
+              name: 'default',
+              model: 'claude-opus-4',
+              skillCount: 58,
+              path: '/home/hermes/.hermes',
+            ),
+            true,
           ),
-          active: true,
-        ),
-        _profileTile(
-          'Inactive',
-          const HermesProfile(
-            name: 'work',
-            displayName: 'Work assistant',
-            description: 'Day job',
-            model: 'openai/gpt-5.1',
-            skillCount: 12,
+          (
+            HermesProfile(
+              name: 'work',
+              displayName: 'Work assistant',
+              description: 'Day job',
+              model: 'openai/gpt-5.1',
+              skillCount: 12,
+            ),
+            false,
           ),
-        ),
-        _profileTile(
-          'No model',
-          const HermesProfile(name: 'scratch', skillCount: 0),
-        ),
-        _profileTile(
-          'Material (Android)',
-          const HermesProfile(
-            name: 'work',
-            displayName: 'Work assistant',
-            model: 'openai/gpt-5.1',
-            skillCount: 12,
+          (HermesProfile(name: 'scratch'), false),
+        ]),
+        ..._profileTiles('Long text', const [
+          (
+            HermesProfile(
+              name: 'research',
+              displayName: 'Long-running research assistant for papers',
+              description: 'Reads papers, keeps notes and writes summaries',
+              model:
+                  'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
+              skillCount: 31,
+            ),
+            true,
           ),
-          active: true,
-          platform: TargetPlatform.android,
-        ),
-        _profileTile(
-          'Long text',
-          const HermesProfile(
-            name: 'research',
-            displayName: 'Long-running research assistant for papers',
-            description: 'Reads papers, keeps notes and writes summaries',
-            model: 'meta-llama/llama-4-maverick-17b-128e-instruct-long-context',
-            skillCount: 31,
-          ),
-          active: true,
-        ),
+        ]),
       ],
     ),
     WidgetbookComponent(
       name: 'ProfilesScreen',
-      useCases: [
-        WidgetbookUseCase(
-          name: 'Profiles',
-          builder: (_) {
-            final server = skillsServer();
-            return ProfilesScreen(
-              repository: HermesProfilesRepository(server.client().raw),
-              models: HermesModelsRepository(server.client().raw),
-              chatProfile: 'default',
-              onSwitched: (_) {},
-            );
-          },
-        ),
-      ],
+      useCases: onEachPlatform('Profiles', (_) {
+        final server = skillsServer();
+        return pushed(
+          ProfilesScreen(
+            repository: HermesProfilesRepository(server.client().raw),
+            models: HermesModelsRepository(server.client().raw),
+            chatProfile: 'default',
+            onSwitched: (_) {},
+          ),
+        );
+      }),
     ),
   ],
 );
 
-WidgetbookUseCase _profileTile(
-  String name,
-  HermesProfile profile, {
-  bool active = false,
-  TargetPlatform? platform,
-}) => WidgetbookUseCase(
-  name: name,
-  builder: (context) {
-    final tile = Material(
-      type: MaterialType.transparency,
-      child: ProfileTile(
-        profile: profile,
-        active: active,
-        onTap: () {},
-        onChangeModel: () {},
-      ),
-    );
-    return frame(
-      platform == null
-          ? tile
-          : Theme(
-              data: Theme.of(context).copyWith(platform: platform),
-              child: tile,
-            ),
-    );
-  },
+List<WidgetbookUseCase> _profileTiles(
+  String state,
+  List<(HermesProfile, bool)> profiles,
+) => onEachPlatform(
+  state,
+  (context) => frame(
+    GroupedSection(
+      dividerIndent: GroupedMetrics.of(context).indentAfterTile,
+      children: [
+        for (final (profile, active) in profiles)
+          ProfileTile(
+            profile: profile,
+            active: active,
+            onTap: () {},
+            onChangeModel: () {},
+          ),
+      ],
+    ),
+  ),
 );

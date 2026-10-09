@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../widgets/adaptive_dialog.dart';
@@ -76,6 +77,29 @@ class _NewProfileDialogState extends State<_NewProfileDialog> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Asks for a new profile's name and makes it with [create], saying why when
+/// the dashboard refuses.
+Future<void> createProfile(
+  BuildContext context,
+  Future<void> Function(String name, {String? description}) create,
+) async {
+  final created = await showNewProfileDialog(context);
+  if (created == null || !context.mounted) return;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  try {
+    await create(created.name, description: created.description);
+  } on Object catch (error) {
+    final detail = switch (error) {
+      DioException(response: Response(data: {'detail': final String d})) =>
+        ': $d',
+      _ => '',
+    };
+    messenger?.showSnackBar(
+      SnackBar(content: Text('Could not create the profile$detail')),
     );
   }
 }
