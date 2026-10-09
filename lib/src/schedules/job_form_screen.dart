@@ -5,7 +5,9 @@ import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
 import '../api/hermes_repositories.dart';
 import '../models/hermes_models_repository.dart';
 import '../theme/app_icons.dart';
-import '../widgets/disclosure_tile.dart';
+import '../widgets/grouped_form.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/settings_scaffold.dart';
 import 'job_draft.dart';
 import 'job_form_controller.dart';
 import 'schedule_picker.dart';
@@ -51,6 +53,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   late final TextEditingController _script;
   late final TextEditingController _contextFrom;
   late final TextEditingController _workdir;
+  late bool _advancedOpen = _hasAdvanced;
 
   JobFormController get _form => widget.controller;
   JobDraft get _draft => _form.draft;
@@ -114,55 +117,50 @@ class _JobFormScreenState extends State<JobFormScreen> {
     return ListenableBuilder(
       listenable: _form,
       builder: (context, _) {
-        final theme = Theme.of(context);
         final target = _form.selectedTarget;
+        final targetNames = {for (final t in _form.targets) t.id: t.name};
+        final profile = _draft.profile;
         return PopScope(
           canPop: !_form.isDirty,
           onPopInvokedWithResult: (didPop, _) => _close(didPop),
-          child: Scaffold(
-            appBar: AppBar(
-              leading: const CloseButton(),
-              title: Text(_form.isEditing ? 'Edit task' : 'New task'),
-              actions: [
-                TextButton(
-                  onPressed: _form.saving ? null : _save,
-                  child: const Text('Save'),
-                ),
-              ],
+          child: SettingsScaffold(
+            title: _form.isEditing ? 'Edit task' : 'New task',
+            subtitle: profile,
+            cancel: true,
+            formAction: SettingsFormAction(
+              label: 'Save',
+              busy: _form.saving,
+              onPressed: _save,
             ),
-            body: ListView(
-              padding: const EdgeInsets.all(16),
+            body: GroupedListView(
               children: [
-                TextField(
-                  key: const Key('job-name'),
-                  controller: _name,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (v) {
-                    _draft.name = v;
-                    _form.changed();
-                  },
+                GroupedSection(
+                  children: [
+                    GroupedTextFieldRow(
+                      key: const Key('job-name'),
+                      label: 'Name',
+                      controller: _name,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (v) {
+                        _draft.name = v;
+                        _form.changed();
+                      },
+                    ),
+                    GroupedTextFieldRow(
+                      key: const Key('job-prompt'),
+                      label: 'Task',
+                      hint: 'What should Hermes do each time?',
+                      controller: _prompt,
+                      minLines: 3,
+                      maxLines: 8,
+                      textCapitalization: TextCapitalization.sentences,
+                      onChanged: (v) {
+                        _draft.prompt = v;
+                        _form.changed();
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  key: const Key('job-prompt'),
-                  controller: _prompt,
-                  decoration: const InputDecoration(
-                    labelText: 'Task',
-                    hintText: 'What should Hermes do each time?',
-                    alignLabelWithHint: true,
-                  ),
-                  minLines: 3,
-                  maxLines: 8,
-                  textCapitalization: TextCapitalization.sentences,
-                  onChanged: (v) {
-                    _draft.prompt = v;
-                    _form.changed();
-                  },
-                ),
-                const SizedBox(height: 20),
-                Text('When', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 8),
                 SchedulePicker(
                   spec: _draft.spec,
                   now: _form.now,
@@ -171,91 +169,74 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     _form.changed(when: true);
                   },
                 ),
-                const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  key: const Key('job-deliver'),
-                  initialValue: _draft.deliver,
-                  decoration: const InputDecoration(
-                    labelText: 'Deliver results to',
-                  ),
-                  items: [
-                    for (final t in _form.targets)
-                      DropdownMenuItem(value: t.id, child: Text(t.name)),
-                  ],
-                  onChanged: (id) {
-                    if (id == null) return;
-                    _draft.deliver = id;
-                    _form.changed();
-                  },
-                ),
-                if (target != null && !target.homeTargetSet)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Row(
-                      spacing: 6,
-                      children: [
-                        AppIcon(
-                          AppIcons.warningPlain,
-                          size: 16,
-                          color: context.hermesColors.warning,
-                        ),
-                        const Expanded(
-                          child: Text(
-                            'No home channel is set on the server for this platform.',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (!_form.isEditing && widget.profileNames.length > 1) ...[
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    key: const Key('job-profile'),
-                    initialValue: widget.profileNames.contains(_draft.profile)
-                        ? _draft.profile
-                        : null,
-                    decoration: const InputDecoration(labelText: 'Profile'),
-                    items: [
-                      for (final p in widget.profileNames)
-                        DropdownMenuItem(value: p, child: Text(p)),
-                    ],
-                    onChanged: (p) {
-                      _draft.profile = p;
-                      _form.changed();
-                      _form.loadTargets();
-                      _loadModels();
-                    },
-                  ),
-                ],
-                if (!_form.isEditing)
-                  SwitchListTile.adaptive(
-                    key: const Key('job-paused'),
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Start paused'),
-                    value: _draft.paused,
-                    onChanged: (v) {
-                      _draft.paused = v;
-                      _form.changed();
-                    },
-                  ),
-                const SizedBox(height: 8),
-                DisclosureTile(
-                  key: const Key('job-advanced'),
-                  tilePadding: EdgeInsets.zero,
-                  title: const Text('Advanced'),
-                  initiallyExpanded: _hasAdvanced,
-                  childrenPadding: const EdgeInsets.only(bottom: 8),
+                GroupedSection(
+                  header: 'Delivery',
                   children: [
-                    _field(
-                      const Key('job-skills'),
-                      _skills,
-                      'Skills',
-                      helper: 'Names, separated by commas',
-                      onChanged: (v) => _draft.skills = JobDraft.parseNames(v),
+                    GroupedMenuRow<String>(
+                      key: const Key('job-deliver'),
+                      title: 'Deliver results to',
+                      options: targetNames.keys.toList(),
+                      labelOf: (id) => targetNames[id] ?? id,
+                      selected: _draft.deliver,
+                      warning: target != null && !target.homeTargetSet
+                          ? 'No home channel is set on the server for this '
+                                'platform.'
+                          : null,
+                      onSelected: (id) {
+                        _draft.deliver = id;
+                        _form.changed();
+                      },
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: JobModelField(
+                    if (!_form.isEditing && widget.profileNames.length > 1)
+                      GroupedMenuRow<String>(
+                        key: const Key('job-profile'),
+                        title: 'Profile',
+                        options: widget.profileNames,
+                        labelOf: (p) => p,
+                        selected: widget.profileNames.contains(profile)
+                            ? profile
+                            : null,
+                        onSelected: (p) {
+                          _draft.profile = p;
+                          _form.changed();
+                          _form.loadTargets();
+                          _loadModels();
+                        },
+                      ),
+                    if (!_form.isEditing)
+                      GroupedSwitchRow(
+                        key: const Key('job-paused'),
+                        title: 'Start paused',
+                        value: _draft.paused,
+                        onChanged: (v) {
+                          _draft.paused = v;
+                          _form.changed();
+                        },
+                      ),
+                  ],
+                ),
+                GroupedSection(
+                  footer: _advancedOpen
+                      ? 'Skills and task ids are separated by commas. The '
+                            'pre-run script is a file in the profile’s scripts '
+                            'folder; its output is added to the prompt.'
+                      : null,
+                  children: [
+                    _AdvancedRow(
+                      key: const Key('job-advanced'),
+                      open: _advancedOpen,
+                      onTap: () =>
+                          setState(() => _advancedOpen = !_advancedOpen),
+                    ),
+                    if (_advancedOpen) ...[
+                      _field(
+                        const Key('job-skills'),
+                        _skills,
+                        'Skills',
+                        onChanged: (v) =>
+                            _draft.skills = JobDraft.parseNames(v),
+                      ),
+                      JobModelField(
                         options: _form.modelOptions,
                         model: _draft.model,
                         provider: _draft.provider,
@@ -266,51 +247,35 @@ class _JobFormScreenState extends State<JobFormScreen> {
                           _form.changed();
                         },
                       ),
-                    ),
-                    _field(
-                      const Key('job-script'),
-                      _script,
-                      'Pre-run script',
-                      helper: 'A file in the profile’s scripts folder; its output is added to the prompt',
-                      onChanged: (v) => _draft.script = v,
-                    ),
-                    _field(
-                      const Key('job-context'),
-                      _contextFrom,
-                      'Take context from',
-                      helper: 'Ids of other tasks, separated by commas',
-                      onChanged: (v) =>
-                          _draft.contextFrom = JobDraft.parseNames(v),
-                    ),
-                    _field(
-                      const Key('job-workdir'),
-                      _workdir,
-                      'Working directory',
-                      onChanged: (v) => _draft.workdir = v,
-                    ),
+                      _field(
+                        const Key('job-script'),
+                        _script,
+                        'Pre-run script',
+                        onChanged: (v) => _draft.script = v,
+                      ),
+                      _field(
+                        const Key('job-context'),
+                        _contextFrom,
+                        'Take context from',
+                        hint: 'Task ids',
+                        onChanged: (v) =>
+                            _draft.contextFrom = JobDraft.parseNames(v),
+                      ),
+                      _field(
+                        const Key('job-workdir'),
+                        _workdir,
+                        'Working directory',
+                        onChanged: (v) => _draft.workdir = v,
+                      ),
+                    ],
                   ],
                 ),
-                if (_form.error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _form.error!,
+                if (_form.error case final error?)
+                  GroupedFooter(
+                    error,
+                    error: true,
                     key: const Key('job-error'),
-                    style: TextStyle(color: theme.colorScheme.error),
                   ),
-                ],
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _form.saving ? null : _save,
-                  child: _form.saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator.adaptive(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text('Save task'),
-                ),
               ],
             ),
           ),
@@ -323,22 +288,48 @@ class _JobFormScreenState extends State<JobFormScreen> {
     Key key,
     TextEditingController controller,
     String label, {
-    String? helper,
+    String? hint,
     required ValueChanged<String> onChanged,
-  }) => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: TextField(
-      key: key,
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        helperText: helper,
-        helperMaxLines: 2,
+  }) => GroupedTextFieldRow(
+    key: key,
+    label: label,
+    hint: hint,
+    controller: controller,
+    autocorrect: false,
+    onChanged: (v) {
+      onChanged(v);
+      _form.changed();
+    },
+  );
+}
+
+/// The row that shows or hides the advanced fields under it.
+class _AdvancedRow extends StatelessWidget {
+  const _AdvancedRow({super.key, required this.open, required this.onTap});
+
+  final bool open;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: Semantics(
+      button: true,
+      expanded: open,
+      child: InkWell(
+        onTap: onTap,
+        child: GroupedRow(
+          title: 'Advanced',
+          trailing: AnimatedRotation(
+            turns: open ? 0.25 : 0,
+            duration: const Duration(milliseconds: 150),
+            child: AppIcon(
+              AppIcons.chevronRight,
+              size: 18,
+              color: context.hermesColors.subtleText,
+            ),
+          ),
+        ),
       ),
-      onChanged: (v) {
-        onChanged(v);
-        _form.changed();
-      },
     ),
   );
 }

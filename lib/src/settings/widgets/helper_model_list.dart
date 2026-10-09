@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/auxiliary_models.dart';
 import '../../models/model_provider_option.dart';
 import '../../models/moa_setup.dart';
-import '../../theme/app_icons.dart';
-import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
+import '../../widgets/grouped_form.dart';
 import '../../widgets/grouped_list.dart';
 
 /// The last path segment of a model id, such as "deepseek-v4-pro" for
@@ -55,7 +54,7 @@ class HelperModelList extends StatelessWidget {
           ].join(' '),
           children: [
             for (final slot in models.slots)
-              _ValueRow(
+              GroupedValueRow(
                 key: Key('helper-${slot.task}'),
                 title: slot.label,
                 value: _describe(slot.choice),
@@ -72,13 +71,13 @@ class HelperModelList extends StatelessWidget {
                       'it off. Change these slots on the server.'
                 : null,
             children: [
-              _ValueRow(
+              GroupedValueRow(
                 key: const Key('helper-moa-preset'),
                 title: 'Preset',
                 value: moa.preset == 'default' ? 'Default' : moa.preset,
               ),
               for (final slot in moa.slots)
-                _ValueRow(
+                GroupedValueRow(
                   key: Key('helper-${slot.key}'),
                   title: slot.label,
                   value: slot.enabled ? _describe(slot.choice) : 'Off',
@@ -95,124 +94,5 @@ class HelperModelList extends StatelessWidget {
     if (choice == null) return 'Main model';
     if (choice.modelId.isEmpty) return 'Provider default';
     return shortModelName(choice.modelId);
-  }
-}
-
-/// A job and its model: on iOS the model as a muted value before the
-/// chevron, on Material under the job, and on the Mac in a pop-up button.
-class _ValueRow extends StatelessWidget {
-  const _ValueRow({
-    super.key,
-    required this.title,
-    required this.value,
-    this.busy = false,
-    this.onTap,
-  });
-
-  final String title;
-  final String value;
-  final bool busy;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final chrome = platformChromeOf(context);
-    final onTap = busy ? null : this.onTap;
-    final progress = busy
-        ? SizedBox.square(
-            dimension: chrome == PlatformChrome.macos ? 14 : 18,
-            child: const CircularProgressIndicator.adaptive(strokeWidth: 2),
-          )
-        : null;
-    return switch (chrome) {
-      PlatformChrome.material => GroupedRow(
-        title: title,
-        subtitle: value,
-        trailing: progress,
-        chevron: false,
-        onTap: onTap,
-      ),
-      PlatformChrome.macos => GroupedRow(
-        title: title,
-        trailing: progress ?? _PopUpValue(value: value, onPressed: onTap),
-      ),
-      PlatformChrome.ios => GroupedRow(
-        title: title,
-        // GroupedRow's own value does not shrink for a long model id.
-        trailing:
-            progress ??
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.sizeOf(context).width * 0.4,
-              ),
-              child: Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: GroupedMetrics.of(context).subtitleSize,
-                  color: context.hermesColors.subtleText,
-                ),
-              ),
-            ),
-        chevron: onTap != null,
-        onTap: onTap,
-      ),
-    };
-  }
-}
-
-/// A Mac pop-up button showing [value], which opens the picker.
-class _PopUpValue extends StatelessWidget {
-  const _PopUpValue({required this.value, required this.onPressed});
-
-  final String value;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final enabled = onPressed != null;
-    final color = enabled ? scheme.onSurface : context.hermesColors.subtleText;
-    final radius = BorderRadius.circular(6);
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      value: value,
-      onTap: onPressed,
-      excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 260),
-        child: Material(
-          color: scheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: radius,
-            side: BorderSide(color: scheme.outline),
-          ),
-          child: InkWell(
-            borderRadius: radius,
-            onTap: onPressed,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(9, 2, 6, 2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                spacing: 4,
-                children: [
-                  Flexible(
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: color),
-                    ),
-                  ),
-                  AppIcon(AppIcons.expandMore, size: 12, color: color),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 }

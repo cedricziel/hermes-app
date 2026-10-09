@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/model_provider_option.dart';
 import '../../models/widgets/model_picker.dart';
-import '../../theme/app_icons.dart';
+import '../../widgets/grouped_form.dart';
 
-/// The job form's model, which opens [ModelPicker] without effort and with
-/// the profile's default as the first entry. [options] is null while loading
+/// The job form's model, a value row that opens [ModelPicker] without effort
+/// and with the profile's default as the first entry. [options] is null while loading
 /// or when the list is unavailable; the picker then offers only the default.
 /// A saved [model] the options do not list is shown as it is and only
 /// replaced by a new pick.
@@ -44,8 +44,11 @@ class JobModelField extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) => GroupedValueRow(
     key: const Key('job-model'),
+    title: 'Model',
+    value: model.isEmpty ? 'Profile default' : model,
+    caption: _helper,
     onTap: () => showModelPicker(
       context,
       options: options ?? const ModelOptions(),
@@ -53,19 +56,6 @@ class JobModelField extends StatelessWidget {
       withEffort: false,
       onUseDefault: () => onChanged('', ''),
       onChanged: (choice) => onChanged(choice.modelId, choice.providerId),
-    ),
-    child: InputDecorator(
-      decoration: InputDecoration(
-        labelText: 'Model',
-        helperText: _helper,
-        suffixIcon: const AppIcon(AppIcons.expandMore),
-      ),
-      child: Text(
-        model.isEmpty ? 'Profile default' : model,
-        style: Theme.of(context).textTheme.bodyLarge,
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
-      ),
     ),
   );
 }

@@ -25,13 +25,21 @@ Future<List<ScheduleSpec>> _pump(
   return changes;
 }
 
+/// The row's value, which is the pop-up button on the Mac.
+Finder _value(String key) => find.descendant(
+  of: find.byKey(Key(key)),
+  matching: find.byWidgetPredicate(
+    (w) => w is Text && RegExp(r'\d').hasMatch(w.data ?? ''),
+  ),
+);
+
 void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     testWidgets('the time opens a Cupertino picker on $platform', (
       tester,
     ) async {
       final changes = await _pump(tester, platform, const DailySpec(8, 0));
-      await tester.tap(find.byKey(const Key('when-time')));
+      await tester.tap(_value('when-time'));
       await tester.pumpAndSettle();
       expect(find.byType(CupertinoDatePicker), findsOneWidget);
       expect(find.byType(TimePickerDialog), findsNothing);
@@ -43,7 +51,7 @@ void main() {
 
     testWidgets('Cancel keeps the schedule on $platform', (tester) async {
       final changes = await _pump(tester, platform, const DailySpec(8, 0));
-      await tester.tap(find.byKey(const Key('when-time')));
+      await tester.tap(_value('when-time'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
@@ -54,7 +62,7 @@ void main() {
       tester,
     ) async {
       await _pump(tester, platform, OnceSpec(DateTime(2026, 10, 4, 9)));
-      await tester.tap(find.byKey(const Key('when-date')));
+      await tester.tap(_value('when-date'));
       await tester.pumpAndSettle();
       expect(find.byType(CupertinoDatePicker), findsOneWidget);
       expect(find.byType(DatePickerDialog), findsNothing);
@@ -63,7 +71,7 @@ void main() {
 
   testWidgets('the time opens Material\'s picker on Android', (tester) async {
     await _pump(tester, TargetPlatform.android, const DailySpec(8, 0));
-    await tester.tap(find.byKey(const Key('when-time')));
+    await tester.tap(_value('when-time'));
     await tester.pumpAndSettle();
     expect(find.byType(TimePickerDialog), findsOneWidget);
     expect(find.byType(CupertinoDatePicker), findsNothing);
@@ -75,7 +83,7 @@ void main() {
       TargetPlatform.android,
       OnceSpec(DateTime(2026, 10, 4, 9)),
     );
-    await tester.tap(find.byKey(const Key('when-date')));
+    await tester.tap(_value('when-date'));
     await tester.pumpAndSettle();
     expect(find.byType(DatePickerDialog), findsOneWidget);
     expect(find.byType(CupertinoDatePicker), findsNothing);

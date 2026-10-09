@@ -8,6 +8,7 @@ import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/widgets/job_model_field.dart';
 import 'package:hermes_app/src/schedules/widgets/run_history_empty.dart';
 import 'package:hermes_app/src/schedules/widgets/schedule_filter_bar.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'fixtures.dart';
@@ -32,45 +33,43 @@ WidgetbookUseCase _tile(
   ),
 );
 
-WidgetbookUseCase _picker(String name, ScheduleSpec initial) =>
-    WidgetbookUseCase(
-      name: name,
-      builder: (_) {
-        var spec = initial;
-        return StatefulBuilder(
-          builder: (context, setState) => frame(
-            SchedulePicker(
-              spec: spec,
-              now: DateTime.now(),
-              onChanged: (next) => setState(() => spec = next),
-            ),
+List<WidgetbookUseCase> _picker(String name, ScheduleSpec initial) =>
+    onEachPlatform(name, (_) {
+      var spec = initial;
+      return StatefulBuilder(
+        builder: (context, setState) => frame(
+          SchedulePicker(
+            spec: spec,
+            now: DateTime.now(),
+            onChanged: (next) => setState(() => spec = next),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
-WidgetbookUseCase _modelField(
+List<WidgetbookUseCase> _modelField(
   String name, {
   ModelOptions? options = modelOptions,
   String model = '',
   String provider = '',
-}) => WidgetbookUseCase(
-  name: name,
-  builder: (_) {
-    var (m, p) = (model, provider);
-    return StatefulBuilder(
-      builder: (context, setState) => frame(
-        JobModelField(
-          options: options,
-          model: m,
-          provider: p,
-          onChanged: (model, provider) =>
-              setState(() => (m, p) = (model, provider)),
-        ),
+}) => onEachPlatform(name, (_) {
+  var (m, p) = (model, provider);
+  return StatefulBuilder(
+    builder: (context, setState) => frame(
+      GroupedSection(
+        children: [
+          JobModelField(
+            options: options,
+            model: m,
+            provider: p,
+            onChanged: (model, provider) =>
+                setState(() => (m, p) = (model, provider)),
+          ),
+        ],
       ),
-    );
-  },
-);
+    ),
+  );
+});
 
 WidgetbookUseCase _filterBar(
   String name, {
@@ -172,12 +171,15 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'SchedulePicker',
       useCases: [
-        _picker('Every', const EverySpec(30, EveryUnit.minutes)),
-        _picker('Daily', const DailySpec(9, 0)),
-        _picker('Weekly', const WeeklySpec({1, 3, 5}, 8, 30)),
-        _picker('Once', OnceSpec(DateTime.now().add(const Duration(days: 2)))),
-        _picker('Cron expression', const CronSpec('*/15 9-17 * * 1-5')),
-        _picker('Invalid cron', const CronSpec('nonsense')),
+        ..._picker('Every', const EverySpec(30, EveryUnit.minutes)),
+        ..._picker('Daily', const DailySpec(9, 0)),
+        ..._picker('Weekly', const WeeklySpec({1, 3, 5}, 8, 30)),
+        ..._picker(
+          'Once',
+          OnceSpec(DateTime.now().add(const Duration(days: 2))),
+        ),
+        ..._picker('Cron expression', const CronSpec('*/15 9-17 * * 1-5')),
+        ..._picker('Invalid cron', const CronSpec('nonsense')),
       ],
     ),
     WidgetbookComponent(
@@ -203,19 +205,19 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'JobModelField',
       useCases: [
-        _modelField('Profile default'),
-        _modelField(
+        ..._modelField('Profile default'),
+        ..._modelField(
           'Listed model',
           model: 'claude-opus-4',
           provider: 'anthropic',
         ),
-        _modelField(
+        ..._modelField(
           'Model not in the list',
           model: 'my-finetune-v3',
           provider: 'custom:lab',
         ),
-        _modelField('Model without a provider', model: 'gpt-4o'),
-        _modelField(
+        ..._modelField('Model without a provider', model: 'gpt-4o'),
+        ..._modelField(
           'List unavailable',
           options: null,
           model: 'claude-opus-4',
