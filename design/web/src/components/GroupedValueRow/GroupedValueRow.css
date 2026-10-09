@@ -34,3 +34,28 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+
+/* The label keeps its width and the value gives way first, cut with an
+   ellipsis (iOS at most 45% of the row, the Mac pop-up at most 260px). */
+.h-grouped-value-row {
+  border-radius: inherit;
+}
+
+.h-grouped-value-row .h-grouped-row__text {
+  flex: 1 1 auto;
+}
+
+.h-grouped-value-row .h-grouped-row__caption,
+.h-grouped-value-row .h-grouped-row__status {
+  contain: inline-size;
+}
+
+.h-grouped-value-row .h-grouped-row__value,
+.h-grouped-value-row .h-grouped-row__trailing {
+  flex: 0 1000 auto;
+  min-width: 0;
+}
+
+.h-grouped-value-row .h-mac-popup {
+  min-width: 0;
+}
