@@ -77,7 +77,8 @@ class SettingsFormAction {
       visualDensity: VisualDensity.standard,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      textStyle: Theme.of(context).textTheme.labelLarge
+          ?.copyWith(fontSize: 12, fontWeight: FontWeight.w500),
     ),
     child: busy ? _progress(12) : Text(label),
   );
@@ -90,10 +91,8 @@ class SettingsFormAction {
       style: TextButton.styleFrom(
         foregroundColor: color,
         minimumSize: const Size(kAppleMinTapTarget, kAppleMinTapTarget),
-        textStyle: TextStyle(
-          fontSize: ios ? 17 : 16,
-          fontWeight: FontWeight.w600,
-        ),
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(fontSize: ios ? 17 : 16, fontWeight: FontWeight.w600),
       ),
       child: busy ? _progress(18) : Text(label),
     );
@@ -353,7 +352,8 @@ class SettingsScaffold extends StatelessWidget {
       onPressed: () => Navigator.maybePop(context),
       style: TextButton.styleFrom(
         foregroundColor: Theme.of(context).colorScheme.primary,
-        textStyle: const TextStyle(fontSize: 17),
+        textStyle: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(fontSize: 17, fontWeight: FontWeight.w400),
       ),
       child: const Text('Cancel'),
     );
