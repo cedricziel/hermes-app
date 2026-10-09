@@ -89,3 +89,29 @@
     0 3px 8px rgb(0 0 0 / 0.12),
     0 3px 1px rgb(0 0 0 / 0.04);
 }
+
+.h-segmented--apple.h-segmented--inline,
+.h-segmented--apple.h-segmented--compact {
+  padding: 0;
+}
+
+.h-segmented--apple.h-segmented--compact {
+  display: inline-flex;
+}
+
+.h-segmented--apple.h-segmented--compact .h-segmented__track {
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+}
+
+.h-segmented--apple.h-segmented--compact .h-segmented__segment {
+  height: 24px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+}
+
+.h-segmented--apple.h-segmented--compact .h-segmented__segment--selected {
+  font-weight: 500;
+}

@@ -17,8 +17,8 @@ export interface IconButtonProps extends Omit<
   variant?: "standard" | "filled" | "outlined";
   /** `muted` draws the glyph in the subtle text color (attach, row overflow menus). */
   tone?: "default" | "muted";
-  /** 40 (default) or 32 for dense rows. */
-  size?: 32 | 40;
+  /** 40 (default), 32 for dense rows, or 44 for an iOS bar button (22px glyph). */
+  size?: 32 | 40 | 44;
 }
 
 /** An icon-only button with a circular hover state. */
