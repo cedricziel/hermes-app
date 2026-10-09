@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/kanban/kanban_create_screen.dart';
@@ -115,6 +116,61 @@ void main() {
       containsPair('title', 'Fix typo'),
     );
   });
+
+  testWidgets('says in full why there is no estimate', (tester) async {
+    tester.view
+      ..physicalSize = const Size(320, 640)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const reason =
+        'No helper model is configured for estimates on this server; '
+        'set one under Helper models and try again';
+    server.on('POST', '/api/plugins/kanban/estimate', {
+      'ok': false,
+      'reason': reason,
+    });
+    await pump(tester);
+
+    await tester.enterText(find.widgetWithText(TextField, 'Title'), 'Fix typo');
+    await tester.pump();
+    await tester.tap(find.text('Estimate the work'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.renderObject<RenderParagraph>(find.text(reason)).didExceedMaxLines,
+      isFalse,
+    );
+  });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('on $platform the estimate reads as a disabled button '
+        'until there is a title', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildHermesLightTheme(platform: platform),
+          home: KanbanCreateScreen(
+            repository: KanbanRepository(server.client()),
+            tenant: 'acme',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSemantics(find.text('Estimate the work')),
+        isSemantics(isButton: true, hasEnabledState: true, isEnabled: false),
+      );
+      // The title is the first field on every platform.
+      await tester.enterText(find.byType(EditableText).first, 'Fix typo');
+      await tester.pump();
+      expect(
+        tester.getSemantics(find.text('Estimate the work')),
+        isSemantics(isButton: true, isEnabled: true, hasTapAction: true),
+      );
+      semantics.dispose();
+    });
+  }
 
   testWidgets('will not estimate a draft without a title', (tester) async {
     await pump(tester);

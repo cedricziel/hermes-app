@@ -191,7 +191,9 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                   key: const Key('kanban-create-estimate'),
                   leading: const AppIcon(AppIcons.speed),
                   title: 'Estimate the work',
+                  // When there is no estimate it says why.
                   subtitle: estimate?.summary,
+                  subtitleMaxLines: null,
                   trailing: _estimating
                       ? const SizedBox.square(
                           dimension: 18,
@@ -201,7 +203,8 @@ class _KanbanCreateScreenState extends State<KanbanCreateScreen> {
                         )
                       : null,
                   chevron: false,
-                  onTap: canEstimate ? _estimateDraft : null,
+                  enabled: canEstimate,
+                  onTap: _estimateDraft,
                 ),
               ),
             ],
