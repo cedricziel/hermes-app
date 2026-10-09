@@ -49,7 +49,7 @@ export interface MenuItem<T extends string = string> {
   shortcut?: string;
   /** Material Symbols name. Leading on Material and Mac, trailing on iOS. */
   icon?: string;
-  /** Makes the entry a choice: `true` draws a check (leading on Material and Mac, trailing on iOS), `false` leaves its room empty on Material and Mac. Leave it out on plain actions, which then start at the edge. */
+  /** Makes the entry a choice: `true` draws a check (leading on Material and Mac, trailing on iOS), `false` leaves its room empty on Material and Mac. Leave it out on plain actions, which then start at the edge, except on a Mac: there every entry of a menu that has a choice keeps the check's room, as macOS menus do. */
   checked?: boolean;
   /** Drawn in the error color: Delete, Remove. */
   destructive?: boolean;
@@ -123,6 +123,9 @@ export function Menu<T extends string = string>({
         ? "ios"
         : "mac";
   const anchored = align !== undefined || side !== undefined;
+  const reserveCheck =
+    variant === "mac" &&
+    items.some((item) => item !== "divider" && item.checked !== undefined);
   return (
     <PlatformScope platform={resolvedPlatform}>
       <div
@@ -147,6 +150,7 @@ export function Menu<T extends string = string>({
               key={i}
               item={item}
               variant={variant}
+              reserveCheck={reserveCheck}
               onPick={() => onSelect?.(item, i)}
             />
           ),
@@ -159,10 +163,12 @@ export function Menu<T extends string = string>({
 function MenuRow<T extends string>({
   item,
   variant,
+  reserveCheck,
   onPick,
 }: {
   item: MenuItem<T>;
   variant: "material" | "ios" | "mac";
+  reserveCheck: boolean;
   onPick: () => void;
 }) {
   if (item.info) {
@@ -204,7 +210,7 @@ function MenuRow<T extends string>({
       )}
       onClick={onPick}
     >
-      {!ios && item.checked !== undefined ? (
+      {!ios && (item.checked !== undefined || reserveCheck) ? (
         <span className="h-menu__check">{check}</span>
       ) : null}
       {!ios ? icon : null}
