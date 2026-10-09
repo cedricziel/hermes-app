@@ -1,0 +1,57 @@
+.h-row-button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 0 8px;
+  font-family: var(--h-font);
+  color: var(--h-fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.h-row-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.h-row-button:focus-visible {
+  outline: 2px solid var(--h-fg);
+  outline-offset: 2px;
+}
+
+/* iOS: FilledButton.tonal, a stadium. */
+.h-row-button--ios {
+  height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--h-radius-pill);
+  background: var(--h-surface-high);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* macOS: a bordered push button. */
+.h-row-button--mac {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid var(--h-border);
+  border-radius: 6px;
+  background: var(--h-surface);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.h-row-button--material {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-pill);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.h-row-button:hover:not(:disabled) {
+  background: var(--h-hover);
+}

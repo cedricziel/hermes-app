@@ -1,14 +1,12 @@
 import { GroupedRow } from "../GroupedRow/GroupedRow";
-import { Spinner } from "../Spinner/Spinner";
 import { RowActions } from "../SwipeActions/RowActions";
 import {
-  cx,
   PlatformScope,
-  useGroupedChrome,
   usePlatform,
   type AppleDevice,
   type Platform,
 } from "../../platform";
+import { RowButton } from "../../rowButton";
 import "./PluginRow.css";
 
 /** A Hermes agent plugin: one installed on the server, or an entry in the curated catalog. */
@@ -105,7 +103,6 @@ export function PluginRow({
   actionSheetOpen,
 }: PluginRowProps) {
   const resolved = usePlatform(platform);
-  const chrome = useGroupedChrome(resolved, device);
   const apple = resolved === "apple";
   const join = (parts: Array<string | false | undefined>) =>
     parts.filter(Boolean).join(" · ") || undefined;
@@ -125,24 +122,12 @@ export function PluginRow({
           }
           trailing={
             plugin.installed ? undefined : (
-              <button
-                type="button"
-                className={cx(
-                  "h-plugin-install",
-                  `h-plugin-install--${chrome}`,
-                )}
-                disabled={installing}
+              <RowButton
+                label="Install"
+                busy={installing}
                 onClick={onInstall}
-              >
-                {installing ? (
-                  <Spinner
-                    size={chrome === "mac" ? 12 : 16}
-                    label="Installing"
-                  />
-                ) : (
-                  "Install"
-                )}
-              </button>
+                device={device}
+              />
             )
           }
           chevron={!!plugin.installed && apple}
