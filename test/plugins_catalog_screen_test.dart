@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 
 import 'package:hermes_app/src/plugins/hermes_plugin_manager_repository.dart';
@@ -58,7 +59,11 @@ void main() {
   final launched = <Uri>[];
   final events = <(String, Map<String, Object>)>[];
 
-  Future<void> pump(WidgetTester tester, {double width = 400}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    double width = 400,
+    TargetPlatform? platform,
+  }) async {
     launched.clear();
     events.clear();
     tester.view
@@ -67,6 +72,9 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
+        theme: platform == null
+            ? null
+            : buildHermesLightTheme(platform: platform),
         home: PluginsScreen(
           repository: HermesPluginManagerRepository(server.client().raw),
           events: (name, [attributes = const {}]) =>
@@ -855,5 +863,26 @@ void main() {
     );
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
+  });
+
+  testWidgets('the Mac toolbar search can be ended once it filters', (
+    tester,
+  ) async {
+    await pump(tester, width: 1000, platform: TargetPlatform.macOS);
+    await tester.tap(find.text('Catalog'));
+    await tester.pumpAndSettle();
+    expect(_entry('hermes-plugin-chrome-profiles'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('toolbar-search-field')),
+      'snap',
+    );
+    await tester.pumpAndSettle();
+    expect(_entry('hermes-plugin-chrome-profiles'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('toolbar-search-clear')));
+    await tester.pumpAndSettle();
+    expect(_entry('hermes-plugin-chrome-profiles'), findsOneWidget);
+    expect(find.text('snap'), findsNothing);
   });
 }

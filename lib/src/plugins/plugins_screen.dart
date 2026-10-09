@@ -84,6 +84,11 @@ class _PluginsScreenState extends State<PluginsScreen>
     await reportInstall(context, result);
   }
 
+  /// Filters the catalog from the Mac toolbar. The catalog's other changes
+  /// (it loads when its tab first builds) must not rebuild the toolbar, so
+  /// only the query does.
+  void _search(String query) => setState(() => _catalog.setQuery(query));
+
   /// "work · 3 installed · 2 on" on a Mac, the profile alone elsewhere.
   String? _subtitle(bool mac) {
     final plugins = _installed.plugins;
@@ -119,7 +124,7 @@ class _PluginsScreenState extends State<PluginsScreen>
             ? SettingsSearch(
                 query: _catalog.query,
                 hint: 'Search catalog',
-                onChanged: _catalog.setQuery,
+                onChanged: _search,
               )
             : null,
         actions: [
