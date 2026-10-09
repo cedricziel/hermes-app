@@ -105,7 +105,7 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 
 ## Follow-ups (base components the recreations asked for)
 
-- Chip is 32px; Flutter's filter chips are about 38px. Pill-shaped tags (MCP, plugins) are the shared `Tag` (`tinted`/`warning` for MCP, `outlined`/`strong`/`filled` for plugins).
+- Chip is 32px; Flutter's filter chips are about 38px. Since the clean restyle no settings row draws `Tag`s; status reads as muted text, a caption or a warning line.
 - Tokens asked for: `--h-radius-row` (8px sidebar rows), `--h-on-secondary`, a subtle text shade darker
   than `--h-muted` (`--h-secondary` is used for it), a warning-tinted card.
 - The Mac sidebar is the source list of Flutter #391: `ShellNavigation` draws 28px rows (Kanban captioned "All
@@ -119,8 +119,9 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   sorts by `ThreadItem.folderPath` on every platform, and since #434 Apple touch lists recency sections too while
   Material puts a "Chats" heading over its flat list, each with the "Group by" menu on the first header
   (`SectionedThreadList` in `MacSourceList.tsx`). `ShellNavigation profiles` draws the profile switcher and
-  `AccountFooter` becomes the Mac account footer (internal `MacAccount.tsx`, which also holds the Settings list
-  `AppShell settingsOpen` shows); the Mac sidebar has no "More". `AppShell compact` + `sidebarOverlayOpen` is the
+  `AccountFooter` becomes the Mac account footer (internal `MacAccount.tsx`); the Settings list `AppShell
+  settingsOpen` shows is the public `SettingsDialog` (`AppShell`/`ChatScreen` take `settingsValues`, and `ChatScreen`
+  forwards `onDismissSettings`); the Mac sidebar has no "More". `AppShell compact` + `sidebarOverlayOpen` is the
   compact window (sidebar over the page, `ShellChrome.closeOverlay`), and `ChatHeader` reads `compact` from it.
   `ShellDestination` gained `bots` and `profiles` (`MacProfilesPage` in the shell). `Menu` items gained `heading`
   and `detail`.
@@ -162,17 +163,11 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
   window from #396 (its `KanbanMacToolbar` is internal; the 380px inspector is docked from 760px of board width and
   covers the board from the right below that, through a container query). Not drawn: the phone drop strip and a drag
   in progress.
-- `KanbanBoardsScreen`, `KanbanWorkersScreen`: `ListRow` lists with row menus; the import, export and rename dialogs
-  and Inspect process are callbacks only.
-- `KanbanCreateScreen`, `JobFormScreen` (with `SchedulePicker`), `BlueprintFormScreen`: `FormSection` columns; the
-  time, date and model pickers are callbacks. `styles/form-screen.css` holds the shared form body.
-- `SchedulesScreen` with `ScheduleFilterBar`, `ScheduleJobRow` and `ScheduleJobDetail` (the default detail and the
-  Mac one from #401); `BlueprintGalleryScreen` with `BlueprintCard`. The Mac window (`device="mac"`) has the
-  `MacToolbar` scope control and separate job cards (`ScheduleJobRow device="mac"`). The phone's pushed detail is
-  `ScheduleJobDetail` on its own.
+- `KanbanBoardsScreen`, `KanbanWorkersScreen`, `KanbanCreateScreen`, `SchedulesScreen`, `ScheduleJobDetail`,
+  `JobFormScreen`, `BlueprintGalleryScreen` and `BlueprintFormScreen` follow the clean settings look; see "Clean
+  settings restyle" below. The import, export, rename and inspect dialogs are callbacks only.
 - Small additions to shared parts for these: `KanbanToolbar` `showSearch`, `showMore`, `onOpenMenu` and
-  `onMoreAction`; `KanbanColumn` `showHandles`; `ListDetailLayout` `onOpenMenu`; `ScheduleJobRow` Mac cards and a
-  status line that wraps the next run under it; `FactList` `mono`.
+  `onMoreAction`; `KanbanColumn` `showHandles`; `ListDetailLayout` `onOpenMenu`; `FactList` `mono`.
 
 - Chat follow-ups #463 and #495: the latest reply's actions are Copy, Try again and Edit prompt (`AssistantMessage`
   `onEdit`, `ChatThread onEdit`, `ChatScreen`/`ConversationWindowScreen` `onEditPrompt`); what the background review
@@ -187,22 +182,6 @@ CupertinoIcons.y)` pairs in `lib/src/theme/app_icons.dart` and the Flutter SDK's
 - Not recreated: thread rename/delete dialogs, the "Always allow" confirmation, UnsupportedRequestCard, the
   Kanban phone drop strip and the task panel's edit/assign/priority dialogs (callback props only).
 
-## Screen cards: MCP servers and Plugins
-
-- `McpServersScreen`: list + `McpServerDetail` from 900px, the phone's server page (`openServer`), the Add menu,
-  empty, loading and failed. `McpCatalogScreen`: search, filter chips, `McpCatalogRow`s, the install panel in the
-  pane (desktop) or a bottom `Sheet` (phone), "No servers match", failed. `McpAddServerScreen`: remote (URL, None /
-  Bearer token / OAuth) or command (args, environment rows), validation errors and the `McpCommandReview` sheet or
-  dialog. `McpSignInScreen`: waiting, browser failed, failed, expired. `McpJsonEditorScreen`: editor, parse error,
-  Hermes' problems, review dialog, load failed. `PluginsScreen`: Installed, Catalog (search, Git URL, the
-  unreviewed-code dialog) and Providers (memory and context engine `RadioRow`s, "What it needs", Save bar), each
-  tab's loading, failed and not-available states, `PluginDetail` in a pane or a bottom sheet.
-- The screens filter and validate their plain props themselves (catalog query and filter chips, the Add form's
-  URL check and Add button), so a preview shows the real empty and disabled states.
-- Gaps: no Mac window chrome (the cards are Material desktop or iPhone; `MacToolbar` and `ListDetailLayout
-device` are not wired in yet), the remove and discard confirmations and snack bars are not drawn, the catalog's
-  pull-to-refresh is not shown, and the SegmentedButton label "Bearer token" ellipsises at phone width.
-
 ## Re-sync risks
 
 - Everything here is a hand copy of Flutter UI. Check `git log lib/src/theme lib/src/chat/widgets
@@ -213,6 +192,9 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   viewer's OS and Google Fonts. A new `cupertino_icons` version in `pubspec.lock` means copying its ttf again.
 - Also check `lib/src/theme` (platform_chrome, type_scale, app_icons, breakpoints), `lib/src/widgets/adaptive_*` and
   `row_actions.dart` for new Apple rules; each needs a `platform` branch in the matching component.
+- The settings pages follow `lib/src/widgets/grouped_*.dart`, `settings_scaffold.dart` and
+  `settings_search_field.dart`: a change there (metrics, a new row slot) needs the matching change in
+  `src/components/Grouped*`, `SettingsScaffold` and `src/grouped.css`, or every settings card drifts at once.
 
 ## Known render warns
 
@@ -222,28 +204,79 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
 - `[FONT_REMOTE]` for "SF Pro Text", "Roboto Mono", "Material Symbols Outlined": expected (system fonts and the
   Google Fonts icon import).
 
-## Settings, skills and messaging screen cards
+## Clean settings restyle (#540–#550, Flutter #511–#539)
 
-- `ProfilesScreen`, `MessagingScreen`, `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillsScreen` (Installed and Discover
-  tabs, background job strip), `SkillDetailScreen`, `SkillEditorScreen`, `HubSkillScreen` and `HelperModelsScreen`
-  mirror `lib/src/profiles`, `lib/src/messaging`, `lib/src/skills` and `lib/src/settings/helper_models_screen.dart`, with
-  the states from their Widgetbook use cases (`skills_bots_use_cases.dart`, `settings_screen_use_cases.dart`,
-  `state_use_cases.dart`). Appearance and About are dialogs, so they have no screen card. Bots became Messaging in
-  #429 (the Bot Mode roster is a separate screen, not carded here). `MacProfilesPage` is the Mac sidebar's Profiles
-  page from #402 (`mac_profiles_page.dart`), which replaces the pushed `ProfilesScreen` on macOS.
-- They share an internal `ScreenFrame` (`src/screenFrame.tsx`, not exported): `ListDetailLayout` in its `list`
-  layout with a centred content column (640px like `ContentColumn`, 720px like `kDetailContentMaxWidth`) and an
-  optional pinned footer. On `apple` + `desktop` it passes `device="mac"` for the 52px toolbar, since a pushed route
-  fills the Mac window.
-- New parts: `SkillRow`, `HubSkillRow`, `MessagingPlatformRow`, `ModelSlotRow` (with `describeModelChoice`), `SecurityScanCard`,
-  `SkillJobSheet` (sheet content only) and `BusyBar`. `ListDetailLayout` gained `onClose` (an X for full-screen
-  editors) and `device`; a Mac bar shows the back chevron without the previous title, and a Mac page without a back
-  or close button (a page in the shell) gets a `MacToolbar` instead.
-- `Button` gained `variant="danger-outlined"` (Uninstall, Ask agent to delete); a skill's rendered `SKILL.md` fills its card
-  by setting `--h-chat-column: none` (internal `src/skillMarkdown.tsx`).
-- Follow-ups: KanbanTaskPanel's progress bar duplicates `BusyBar` (swap it in); the skill editor reaches into
-  `TextField`'s classes for its borderless, full-height area (a `plain` variant would be cleaner).
-- Gaps: pushed screens on a Mac don't leave room for the traffic lights (neither does the app); the Skills profile
-  chip draws its dropdown arrow before the name; messaging platform subtitles join their lines with " · " (Flutter stacks them);
-  the iOS long-press sheet of a profile row is not drawn (the tune button stays). `AppShell current="profiles"`
-  shows `MacProfilesPage` in the Mac shell (`AppShell`'s `AppleMacProfiles` cell).
+- Foundation (#540): `GroupedListView`, `GroupedSection`, `GroupedRow`, `GroupedSwitchRow`, `GroupedChoiceRow`,
+  `GroupedValueRow`, `GroupedMenuRow`, `GroupedTextFieldRow`, `GroupedSegmentedRow`, `GroupedDialog`,
+  `SettingsScaffold`, `SettingsSearchField` and `PillSegmentedControl` recreate `lib/src/widgets/grouped_*.dart`,
+  `settings_scaffold.dart`, `settings_search_field.dart` and `adaptive_tab_bar.dart`. `GroupedTile`, `GroupedFooter`
+  and `GroupedDialogNote` are exported helpers without cards (`componentSrcMap: null`).
+  - Three looks from `platform` + `device` (`useGroupedChrome`): ios = apple+touch, mac = apple+mac, material.
+    `SettingsScaffold`, `GroupedListView`, `GroupedSection` and `GroupedDialog` pass their device down through
+    `DeviceScope` (a ShellChromeContext override), so Menus inside follow it. Mac cells pass `device="mac"` once.
+  - Metrics are `--hg-*` custom properties on `h-gm--ios|mac|material` in `src/grouped.css`; divider indents are
+    section modifier classes (`text`, `leading`, `tile`, `choice`); a `choice` section is a named radiogroup.
+    The section card does not clip, so a row's menu can leave it; menus inside a scrolling `GroupedListView` are
+    still clipped by the scroll container (previews leave room under the row).
+  - Shared additions: `Switch small`, `SegmentedControl size`, `IconButton size={44}`, `MacToolbar leading` and an
+    element subtitle, `MacToolbarSearchField hint` (Escape clears without closing a dialog), `MenuAnchor` stops
+    mousedown, `GroupedRow expanded` and `checkboxChecked`, token `--h-apple-blue` (the iOS/Mac check; the one
+    non-monochrome accent). `GroupedTile` is `aria-hidden`.
+  - Internal: `screen.tsx` (`ScreenState` loading/failed/empty, `screenDevice`, `ScreenSplit`), `styles/settings-state.css`,
+    `rowButton.tsx` (a row's small trailing button: iOS tinted pill, Mac bordered push button, Material outlined
+    pill), `GroupedRow/GroupedMenuButtonRow.tsx` (row with a trailing "…" menu), `src/mcp.ts`.
+- Screens on it (each takes `platform` + `device` instead of `layout`, inherited from `AppShell`, else touch):
+  - Plugins, Skills, Helper models (#547): `PluginsScreen` draws its own 400px list/detail split inside the
+    scaffold body (no detail slot in `SettingsScaffold`); catalog search sits in the list on phone/Material and in
+    the Mac toolbar. `PluginRow` (muted On/Off/Inactive, version meta, "Bundled · …", "Needs login" warning; catalog
+    rows Official, Installed / Update available or Install), `PluginDetail` (header over sections), `SkillRow`
+    (switch row "description · source · used N times"), `HubSkillRow` ("Trust · description", no tags),
+    `SkillsScreen` (profile subtitle menu, search and filter in the bar, category groups with brand casing, "Hub
+    skills" update row), `ModelSlotRow` (value row: "Main model", "Provider default", "Off" or the short model),
+    `HelperModelsScreen` (footer names the main model; Mac puts it in the subtitle; MoA group with Preset).
+  - Messaging (#542): one group of `MessagingPlatformRow`s with a bot tile; intro is the footer; Mac subtitle
+    "N of M on"; off without credentials shows Set Up (iOS value + chevron, Material outlined pill, Mac "Set Up…").
+  - MCP (#546): `McpServerRow`/`McpCatalogRow` are tile rows with a muted facts line and a "Sign in needed" warning;
+    the servers list and catalog put a 380px list beside the detail or install pane; Add and Save are the bar's
+    `formAction`; catalog search and filter are the bar's `search`.
+  - Profiles and Kanban lists (#545): `ProfileTile` (initials tile, description or path, "model · N skills"
+    caption; Apple check / Material "Active"; on iOS "Change default model" is in the long-press sheet:
+    `actionSheetOpen`/`actionSheetProfile`), `ProfilesScreen` (+ when `onNewProfile`), `MacProfilesPage` detail as
+    grouped sections, `KanbanBoardsScreen`/`KanbanWorkersScreen` (`GroupedMenuButtonRow`), `KanbanCreateScreen`
+    (grouped form, Cancel and Create in the bar).
+  - Schedules and forms (#549): `SchedulesScreen` (scope as subtitle menu on phone, This profile / All profiles
+    segmented control on Mac; filter menu, Refresh and "+" in the bar; `ScheduleFilterBar` retired),
+    `ScheduleJobRow` (switch row; failure on the error line, undelivered on the warning line; keeps `RowActions`;
+    must sit in a `GroupedSection`), `ScheduleJobDetail` (grouped; `onBack` gives the pushed phone page; Mac header
+    with "…", Edit, Run now), `JobFormScreen` with `SchedulePicker` as its "When" group, `BlueprintGalleryScreen`
+    (`BlueprintCard` is a `GroupedRow`), `BlueprintFormScreen`.
+  - New cards (#543, #548, #550): `SettingsDialog`, `AppearanceDialog`, `NotificationsDialog`, `AppLockDialog`,
+    `AboutDialog` (compositions of `GroupedDialog`); `ModelPicker` (Material sheet on phone, 440px dialog on desktop,
+    on every platform as the app; search above 8 models; one choice group per provider; effort pills under the
+    list); `BotsScreen`, `CreateGroupDialog` (Material dialog on every platform, as the app) and
+    `BotGroupChatScreen` (room bar, status card, pending actions, transcript cards and composer; not `ChatThread`).
+- Not on it yet (as in Flutter): `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillDetailScreen`,
+  `SkillEditorScreen`, `HubSkillScreen`, `McpInstallPanel` and `McpCommandReview` keep the internal `ScreenFrame`
+  (`src/screenFrame.tsx`: `ListDetailLayout` list layout, 640/720px column, `device="mac"` on apple + desktop).
+- Gaps:
+  - Material floating labels are always floated; the GroupedDialog Mac panel has no window chrome; the Mac pop-up
+    value is a plain bordered button; the Mac Save/Create push button uses the primary fill.
+  - Busy `formAction`s announce "Add"/"Save" (no "Adding…"/"Saving…"); `SettingsBarAction` has no `selected`, so a
+    filter button isn't marked while a filter is on; the iOS segmented control spans the full width (the app's is
+    compact and centred); `GroupedRow` has no monospace title, so PluginDetail's command rows and MCP tool names are
+    hand-drawn or plain.
+  - Subtitles and captions are cut to one line; `GroupedSwitchRow` dims only the switch when disabled.
+  - Rows without swipe or right-click: Kanban board and worker rows, the Mac schedule pane's "…".
+  - A swiped `PluginRow` paints `.h-swipe__row` from PluginRow.css; a `SwipeActions` fix would serve McpServerRow
+    and ScheduleJobRow too. `.h-bots-add` duplicates Messaging's Set Up button.
+  - `ModelPicker`'s 560px dialog height cap isn't enforced; Bots: no per-kind status counts, no @mention
+    suggestions, activity entries without their payload.
+  - Not drawn: remove/discard confirmations and snack bars, the import/export/rename dialogs, Providers' "What it
+    needs" is a hand-drawn disclosure.
+  - Mac menus with any checkable item reserve the check column for every item (native macOS behaviour); Flutter's
+    compact `AdaptivePopupMenuButton` doesn't yet, so the app's job "…" menu is still misaligned (#555).
+  - `CreateGroupDialog` keeps one size on every platform; in Flutter the search and rows inside it follow the Mac
+    metrics, so the app mixes sizes there (#555).
+  - `GroupedValueRow` (and `GroupedMenuRow`) on Apple keep the title up to 60% of the row and let the value give way
+    (iOS value capped at 45%, Mac pop-up at 260px, as `grouped_form.dart`); `SegmentedButton` gives a segment that
+    needs more room for its label and check the extra width.

@@ -27,7 +27,10 @@
     "MacToolbarButton": null,
     "MacToolbarSeparator": null,
     "MacToolbarSearchField": null,
-    "RadioGroup": null
+    "RadioGroup": null,
+    "GroupedTile": null,
+    "GroupedFooter": null,
+    "GroupedDialogNote": null
   },
   "overrides": {
     "TextField": {
@@ -258,9 +261,6 @@
     "MacProfilesPage": {
       "cardMode": "column"
     },
-    "ScheduleFilterBar": {
-      "cardMode": "column"
-    },
     "BlueprintCard": {
       "cardMode": "column"
     },
@@ -295,6 +295,48 @@
       "cardMode": "column"
     },
     "SchedulesScreen": {
+      "cardMode": "column"
+    },
+    "PillSegmentedControl": {
+      "cardMode": "column"
+    },
+    "SettingsSearchField": {
+      "cardMode": "column"
+    },
+    "GroupedListView": {
+      "cardMode": "column"
+    },
+    "SettingsScaffold": {
+      "cardMode": "column"
+    },
+    "BotGroupChatScreen": {
+      "cardMode": "column"
+    },
+    "BotsScreen": {
+      "cardMode": "column"
+    },
+    "AboutDialog": {
+      "cardMode": "column"
+    },
+    "AppLockDialog": {
+      "cardMode": "column"
+    },
+    "AppearanceDialog": {
+      "cardMode": "column"
+    },
+    "CreateGroupDialog": {
+      "cardMode": "column"
+    },
+    "GroupedDialog": {
+      "cardMode": "column"
+    },
+    "ModelPicker": {
+      "cardMode": "column"
+    },
+    "NotificationsDialog": {
+      "cardMode": "column"
+    },
+    "SettingsDialog": {
       "cardMode": "column"
     }
   }
