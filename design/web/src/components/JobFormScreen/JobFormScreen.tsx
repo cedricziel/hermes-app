@@ -13,8 +13,7 @@ import {
   type SchedulePickerProps,
 } from "../SchedulePicker/SchedulePicker";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
-import { cx, type AppleDevice, type Platform } from "../../platform";
-import "./JobFormScreen.css";
+import { type AppleDevice, type Platform } from "../../platform";
 
 /** The "Advanced" fields of a job. */
 export interface JobAdvancedFields {
@@ -163,6 +162,7 @@ export function JobFormScreen({
             title="Deliver results to"
             options={targets}
             selected={deliverTo ? targets.indexOf(deliverTo) : undefined}
+            placeholder={deliverTo}
             open={defaultOpen === "deliver"}
             warning={
               noHomeChannel
@@ -176,6 +176,7 @@ export function JobFormScreen({
               title="Profile"
               options={profiles}
               selected={profile ? profiles.indexOf(profile) : undefined}
+              placeholder={profile}
               onSelect={(i) => onProfileChange?.(profiles[i])}
             />
           ) : null}
@@ -188,17 +189,17 @@ export function JobFormScreen({
           ) : null}
         </GroupedSection>
         <GroupedSection
-          className={cx(
-            "h-job-form__advanced",
-            advancedOpen && "h-job-form__advanced--open",
-          )}
           footer={
             advancedOpen
               ? "Skills and task ids are separated by commas. The pre-run script is a file in the profile’s scripts folder; its output is added to the prompt."
               : undefined
           }
         >
-          <GroupedRow title="Advanced" onClick={onToggleAdvanced} />
+          <GroupedRow
+            title="Advanced"
+            expanded={advancedOpen}
+            onClick={() => onToggleAdvanced?.()}
+          />
           {advancedOpen
             ? [
                 field("skills", "Skills", advanced.skills),

@@ -138,7 +138,7 @@ export function SchedulesScreen({
   const resolved = usePlatform(platform);
   const split = layout === "desktop";
   const appleDevice = useAppleDevice(split ? "desktop" : "phone", device);
-  const mac = resolved === "apple" && appleDevice === "mac";
+  const mac = resolved === "apple" && split && appleDevice === "mac";
   const loaded = state === "ready";
   const list = !loaded ? (
     state === "error" ? (

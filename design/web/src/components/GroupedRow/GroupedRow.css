@@ -188,3 +188,17 @@
   font-weight: 600;
   line-height: 1;
 }
+
+.h-grouped-row__chevron {
+  transition: transform 150ms ease;
+}
+
+.h-grouped-row__chevron--expanded {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .h-grouped-row__chevron {
+    transition: none;
+  }
+}

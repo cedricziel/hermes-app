@@ -52,7 +52,7 @@ export interface ScheduleRunItem {
   active?: boolean;
   /** The latest run of a failing job: a red error icon and "Failed · 1 min". */
   failed?: boolean;
-  /** It never finished (no duration): an amber warning icon. */
+  /** It never finished (no duration): an amber warning icon. Defaults to `outcome === "Unfinished"`. */
   unfinished?: boolean;
 }
 
@@ -322,12 +322,13 @@ function RunRow({
   run: ScheduleRunItem;
   onClick: () => void;
 }) {
+  const unfinished = run.unfinished ?? run.outcome === "Unfinished";
   const size = groupedMetrics[useGroupedChrome()].titleSize + 5;
   const icon = run.active ? (
     <Spinner size={size - 4} />
   ) : run.failed ? (
     <Icon name="error_outline" size={size} color="var(--h-error)" />
-  ) : run.unfinished ? (
+  ) : unfinished ? (
     <Icon name="warning" size={size} color="var(--h-warning)" />
   ) : (
     <Icon name="check_circle" size={size} color="var(--h-success)" />
@@ -342,7 +343,7 @@ function RunRow({
       title={run.started}
       value={
         run.failed
-          ? run.unfinished
+          ? unfinished
             ? "Failed"
             : `Failed · ${run.outcome}`
           : run.outcome
