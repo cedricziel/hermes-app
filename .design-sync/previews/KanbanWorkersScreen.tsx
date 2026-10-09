@@ -1,4 +1,4 @@
-import { AppShell, HermesProvider, KanbanWorkersScreen } from "@hermes-app/ui";
+import { HermesProvider, KanbanWorkersScreen } from "@hermes-app/ui";
 import type { KanbanWorkerItem } from "@hermes-app/ui";
 
 const workers: KanbanWorkerItem[] = [
@@ -7,79 +7,77 @@ const workers: KanbanWorkerItem[] = [
     taskId: "t_run",
     taskTitle: "Migrate webhooks to v2 signing",
     profile: "coder",
-    started: "3 min ago",
-    heartbeat: "20 s ago",
+    started: "12m ago",
+    heartbeat: "Just now",
   },
   {
     runId: 9,
-    taskId: "t_run2",
-    taskTitle: "Backfill usage metrics",
-    profile: "coder",
-    started: "1 h ago",
-    heartbeat: "6 min ago",
+    taskId: "t_notes",
+    taskTitle: "Write the release notes",
+    profile: "writer",
+    started: "3m ago",
   },
 ];
 
 const phone = {
   width: 390,
-  height: 640,
+  height: 560,
   border: "1px solid var(--h-border)",
+  borderRadius: 14,
   overflow: "hidden",
 } as const;
+const desktop = { ...phone, width: 800, height: 420 } as const;
+const small = { ...phone, width: 260, height: 320 } as const;
+const pair = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
+const noop = () => {};
 
-const small = { ...phone, width: 250, height: 360 } as const;
-
-/** iPhone: two workers with wrapping details, chevron back with "Kanban". */
+/** iPhone: the title over "2 running", Refresh in the bar; each row's task, run and profile, then start and heartbeat; the iOS pull-down of a row open. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <KanbanWorkersScreen workers={workers} />
-    </div>
+  <HermesProvider platform="apple" style={phone}>
+    <KanbanWorkersScreen workers={workers} defaultMenuRun={7} onBack={noop} />
   </HermesProvider>
 );
 
-/** Android: a worker's menu open (Inspect process, Terminate). */
+/** Android: a worker's "⋮" popup open (Inspect process, Terminate). */
 export const MaterialPhone = () => (
-  <div style={phone}>
-    <KanbanWorkersScreen workers={workers} defaultMenuRun={7} />
-  </div>
+  <HermesProvider platform="material" style={phone}>
+    <KanbanWorkersScreen workers={workers} defaultMenuRun={7} onBack={noop} />
+  </HermesProvider>
 );
 
-/** Desktop beside the shell's sidebar. */
+/** A Mac window: the 52px toolbar, 13px rows in the centred 600px column. */
 export const Desktop = () => (
-  <div
-    style={{
-      width: 800,
-      height: 480,
-      border: "1px solid var(--h-border)",
-      overflow: "hidden",
-    }}
-  >
-    <AppShell layout="desktop" current="kanban" account="Ada Lovelace">
-      <KanbanWorkersScreen workers={workers} layout="desktop" />
-    </AppShell>
-  </div>
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
+    <KanbanWorkersScreen device="mac" workers={workers} onBack={noop} />
+  </HermesProvider>
 );
 
 /** No workers, loading, and a failed load with Retry. */
 export const EmptyLoadingError = () => (
-  <div style={{ display: "flex", gap: 16 }}>
-    <div style={small}>
-      <KanbanWorkersScreen workers={[]} />
-    </div>
-    <div style={small}>
-      <KanbanWorkersScreen state="loading" />
-    </div>
-    <div style={small}>
-      <KanbanWorkersScreen state="error" />
-    </div>
+  <div style={pair}>
+    <HermesProvider platform="apple" style={small}>
+      <KanbanWorkersScreen workers={[]} onBack={noop} />
+    </HermesProvider>
+    <HermesProvider platform="apple" style={small}>
+      <KanbanWorkersScreen state="loading" onBack={noop} />
+    </HermesProvider>
+    <HermesProvider platform="material" style={small}>
+      <KanbanWorkersScreen state="error" onBack={noop} />
+    </HermesProvider>
   </div>
 );
 
 export const Dark = () => (
-  <HermesProvider theme="dark" style={{ width: "fit-content" }}>
-    <div style={{ ...phone, height: 360 }}>
-      <KanbanWorkersScreen workers={workers} />
-    </div>
-  </HermesProvider>
+  <div style={pair}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider
+        key={platform}
+        theme="dark"
+        platform={platform}
+        style={{ ...phone, height: 360 }}
+      >
+        <KanbanWorkersScreen workers={workers} onBack={noop} />
+      </HermesProvider>
+    ))}
+  </div>
 );

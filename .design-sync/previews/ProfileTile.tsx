@@ -1,97 +1,96 @@
-import { HermesProvider, ProfileTile } from "@hermes-app/ui";
+import {
+  GroupedListView,
+  GroupedSection,
+  HermesProvider,
+  ProfileTile,
+} from "@hermes-app/ui";
 
-const pane = { width: 600 } as const;
+const pane = {
+  width: 400,
+  border: "1px solid var(--h-border)",
+  borderRadius: 14,
+  overflow: "hidden",
+} as const;
+const row = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
 const noop = () => {};
 
-export const Profiles = () => (
-  <div style={pane}>
-    <ProfileTile
-      active
-      onChangeModel={noop}
-      profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
-    />
-    <ProfileTile
-      onChangeModel={noop}
-      profile={{
-        name: "work",
-        displayName: "Work assistant",
-        description: "Day job: tickets, reviews and the on-call rota",
-        skillCount: 12,
-      }}
-    />
-  </div>
-);
-
-export const NoModel = () => (
-  <div style={pane}>
-    <ProfileTile profile={{ name: "scratch", skillCount: 0 }} />
-  </div>
-);
-
-export const LongText = () => (
-  <div style={{ width: 380 }}>
-    <ProfileTile
-      active
-      onChangeModel={noop}
-      profile={{
-        name: "research",
-        displayName: "Long-running research assistant for papers",
-        description: "Reads papers, keeps notes and writes summaries",
-        model: "meta-llama/llama-4-maverick-17b-128e-instruct-long-context",
-        skillCount: 31,
-      }}
-    />
-  </div>
-);
-
-export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={pane}>
-      <ProfileTile
-        active
-        onChangeModel={noop}
-        profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
-      />
-      <ProfileTile
-        onChangeModel={noop}
-        profile={{
-          name: "work",
-          displayName: "Work assistant",
-          description: "Day job",
-          model: "openai/gpt-5.1",
-          skillCount: 12,
-        }}
-      />
-    </div>
-  </HermesProvider>
-);
-
+const main = {
+  name: "default",
+  path: "/home/hermes/.hermes",
+  model: "hermes-4",
+  skillCount: 58,
+};
 const work = {
   name: "work",
   displayName: "Work assistant",
-  description: "Day job: tickets and reviews",
+  description: "Day job: tickets, reviews and the on-call rota",
+  model: "openai/gpt-5.1",
   skillCount: 12,
 };
 
-/** iOS (left): a compact row with a trailing checkmark, then the tune button when the row can change its model. Mac (right) keeps the Material tile. */
-export const AppleRows = () => (
-  <HermesProvider platform="apple" style={{ display: "flex", gap: 20 }}>
-    <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
-      <ProfileTile
-        layout="phone"
-        active
-        onChangeModel={noop}
-        profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
-      />
-      <ProfileTile layout="phone" onChangeModel={noop} profile={work} />
-    </div>
-    <div style={{ width: 390, border: "1px solid var(--h-border)" }}>
-      <ProfileTile
-        active
-        onChangeModel={noop}
-        profile={{ name: "default", model: "hermes-4", skillCount: 58 }}
-      />
+const Group = ({ device }: { device?: "mac" | "touch" }) => (
+  <GroupedListView device={device}>
+    <GroupedSection dividerIndent="tile">
+      <ProfileTile active onChangeModel={noop} profile={main} />
       <ProfileTile onChangeModel={noop} profile={work} />
-    </div>
+    </GroupedSection>
+  </GroupedListView>
+);
+
+/** iPhone, Mac and Material: initials tile, description or home path, "model · skills"; checked on Apple, "Active" on Material; the tune button on Mac and Material. */
+export const Profiles = () => (
+  <div style={{ ...row, flexDirection: "column" }}>
+    <HermesProvider platform="apple" style={pane}>
+      <Group />
+    </HermesProvider>
+    <HermesProvider platform="apple" typeRamp="default" style={pane}>
+      <Group device="mac" />
+    </HermesProvider>
+    <HermesProvider platform="material" style={pane}>
+      <Group />
+    </HermesProvider>
+  </div>
+);
+
+/** No description, path, model or way to change it: label and skill count only. */
+export const NoModel = () => (
+  <HermesProvider platform="material" style={pane}>
+    <GroupedListView>
+      <GroupedSection dividerIndent="tile">
+        <ProfileTile profile={{ name: "scratch", skillCount: 0 }} />
+      </GroupedSection>
+    </GroupedListView>
   </HermesProvider>
+);
+
+/** Long label, description and model are cut with an ellipsis inside a narrow group. */
+export const LongText = () => (
+  <HermesProvider platform="material" style={{ ...pane, width: 340 }}>
+    <GroupedListView>
+      <GroupedSection dividerIndent="tile">
+        <ProfileTile
+          active
+          onChangeModel={noop}
+          profile={{
+            name: "research",
+            displayName: "Long-running research assistant for papers",
+            description: "Reads papers, keeps notes and writes summaries",
+            model: "meta-llama/llama-4-maverick-17b-128e-instruct",
+            skillCount: 31,
+          }}
+        />
+      </GroupedSection>
+    </GroupedListView>
+  </HermesProvider>
+);
+
+export const Dark = () => (
+  <div style={row}>
+    <HermesProvider theme="dark" platform="apple" style={pane}>
+      <Group />
+    </HermesProvider>
+    <HermesProvider theme="dark" platform="material" style={pane}>
+      <Group />
+    </HermesProvider>
+  </div>
 );

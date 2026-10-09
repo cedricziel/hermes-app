@@ -2,16 +2,22 @@ import { HermesProvider, ProfilesScreen } from "@hermes-app/ui";
 
 const phone = {
   width: 390,
-  height: 640,
+  height: 560,
   border: "1px solid var(--h-border)",
   borderRadius: 14,
   overflow: "hidden",
 } as const;
-const desktop = { ...phone, width: 800, height: 480 } as const;
+const desktop = { ...phone, width: 800, height: 420 } as const;
+const pair = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
 const noop = () => {};
 
 const profiles = [
-  { name: "default", model: "claude-opus-4", skillCount: 58 },
+  {
+    name: "default",
+    path: "/home/hermes/.hermes",
+    model: "hermes-4",
+    skillCount: 58,
+  },
   {
     name: "work",
     displayName: "Work assistant",
@@ -23,75 +29,94 @@ const profiles = [
     name: "research",
     displayName: "Research",
     description: "Reads papers, keeps notes and writes summaries",
-    model: "hermes-4",
     skillCount: 31,
   },
 ];
 
+/** iPhone: "3 profiles" under the title, "+" in the bar, the active profile checked; changing a model is in the long-press sheet, so no tune buttons. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <ProfilesScreen
-        profiles={profiles}
-        active="default"
-        onBack={noop}
-        onChangeModel={noop}
-      />
-    </div>
+  <HermesProvider platform="apple" style={phone}>
+    <ProfilesScreen
+      profiles={profiles}
+      active="default"
+      onBack={noop}
+      onNewProfile={noop}
+      onChangeModel={noop}
+    />
   </HermesProvider>
 );
 
+/** Android: "Active" and the tune buttons; the chat shows another profile than the CLI default, so the group's footer says so. */
 export const MaterialPhone = () => (
-  <div style={phone}>
+  <HermesProvider platform="material" style={phone}>
     <ProfilesScreen
       profiles={profiles}
       active="default"
       shownInChat="work"
       onBack={noop}
+      onNewProfile={noop}
       onChangeModel={noop}
     />
-  </div>
-);
-
-export const AppleMac = () => (
-  <HermesProvider platform="apple" typeRamp="default">
-    <div style={desktop}>
-      <ProfilesScreen
-        layout="desktop"
-        profiles={profiles}
-        active="work"
-        onBack={noop}
-        onChangeModel={noop}
-      />
-    </div>
   </HermesProvider>
 );
 
-export const Loading = () => (
-  <div style={phone}>
-    <ProfilesScreen state="loading" onBack={noop} />
-  </div>
+/** A pushed page in a Mac window: 52px toolbar with back and "+", 13px rows with the check and tune buttons in the centred column. */
+export const AppleMac = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
+    <ProfilesScreen
+      device="mac"
+      profiles={profiles}
+      active="work"
+      onBack={noop}
+      onNewProfile={noop}
+      onChangeModel={noop}
+    />
+  </HermesProvider>
 );
 
-export const Failed = () => (
-  <div style={phone}>
-    <ProfilesScreen state="failed" onBack={noop} />
+/** iPhone: changing a profile's default model is in the row's long-press sheet. */
+export const AppleLongPress = () => (
+  <HermesProvider platform="apple" style={phone}>
+    <ProfilesScreen
+      profiles={profiles}
+      active="default"
+      onBack={noop}
+      onNewProfile={noop}
+      onChangeModel={noop}
+      actionSheetProfile="work"
+    />
+  </HermesProvider>
+);
+
+/** Loading and a failed load with Retry. */
+export const LoadingFailed = () => (
+  <div style={pair}>
+    <HermesProvider platform="apple" style={{ ...phone, height: 360 }}>
+      <ProfilesScreen state="loading" onBack={noop} onNewProfile={noop} />
+    </HermesProvider>
+    <HermesProvider platform="material" style={{ ...phone, height: 360 }}>
+      <ProfilesScreen state="failed" onBack={noop} onNewProfile={noop} />
+    </HermesProvider>
   </div>
 );
 
 export const Dark = () => (
-  <HermesProvider
-    theme="dark"
-    platform="apple"
-    style={{ width: "fit-content", borderRadius: 14 }}
-  >
-    <div style={phone}>
-      <ProfilesScreen
-        profiles={profiles}
-        active="default"
-        onBack={noop}
-        onChangeModel={noop}
-      />
-    </div>
-  </HermesProvider>
+  <div style={pair}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider
+        key={platform}
+        theme="dark"
+        platform={platform}
+        style={phone}
+      >
+        <ProfilesScreen
+          profiles={profiles}
+          active="default"
+          onBack={noop}
+          onNewProfile={noop}
+          onChangeModel={noop}
+        />
+      </HermesProvider>
+    ))}
+  </div>
 );
