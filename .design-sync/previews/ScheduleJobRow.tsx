@@ -1,272 +1,182 @@
-import { HermesProvider, ScheduleJobRow } from "@hermes-app/ui";
+import {
+  GroupedListView,
+  GroupedSection,
+  HermesProvider,
+  ScheduleJobRow,
+} from "@hermes-app/ui";
+import type { ScheduleJob } from "@hermes-app/ui";
 
-const column = {
-  width: 368,
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-} as const;
+const failing: ScheduleJob = {
+  id: "job1",
+  title: "Check the status page",
+  deliverTo: "Local",
+  profile: "work",
+  scheduleText: "Every 30 minutes",
+  state: "scheduled",
+  outcome: "failed",
+  lastRun: "20 min ago",
+  nextRun: "in 9 min",
+  failureReason: "Request timed out",
+};
+const healthy: ScheduleJob = {
+  id: "job2",
+  title: "Morning brief",
+  deliverTo: "Local",
+  profile: "work",
+  scheduleText: "Weekdays at 08:00",
+  state: "scheduled",
+  outcome: "ok",
+  lastRun: "3 h ago",
+  nextRun: "in 20 h",
+};
+const paused: ScheduleJob = {
+  id: "job3",
+  title: "Weekly digest",
+  deliverTo: "Telegram",
+  profile: "home",
+  scheduleText: "Fridays at 17:00",
+  state: "paused",
+  outcome: "none",
+};
+const undelivered: ScheduleJob = {
+  id: "job4",
+  title: "Nightly backup report",
+  deliverTo: "Telegram",
+  scheduleText: "Every day at 03:00",
+  state: "scheduled",
+  outcome: "deliveryFailed",
+  lastRun: "6 h ago",
+  nextRun: "in 18 h",
+  failureReason: "Telegram: chat not found",
+};
+const completed: ScheduleJob = {
+  id: "job5",
+  title: "Remind me about the dentist",
+  deliverTo: "Origin chat",
+  scheduleText: "once on 2026-10-08 09:00",
+  state: "completed",
+  outcome: "ok",
+  lastRun: "yesterday",
+};
 
+const noop = () => {};
+const pair = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
+const touch = { width: 390, padding: "8px 0" } as const;
+const mac = { width: 300, padding: "8px 0" } as const;
+
+const group = (jobs: ScheduleJob[], extra?: { showProfile?: boolean }) => (
+  <GroupedListView>
+    <GroupedSection>
+      {jobs.map((job) => (
+        <ScheduleJobRow
+          key={job.id}
+          job={job}
+          showProfile={extra?.showProfile}
+          onClick={noop}
+          onPausedChange={noop}
+        />
+      ))}
+    </GroupedSection>
+  </GroupedListView>
+);
+
+/** The list on iPhone and Material: name, "schedule · delivery", the next run or last outcome, the failure on the error line, a switch. */
 export const List = () => (
-  <div style={column}>
-    <ScheduleJobRow
-      selected
-      job={{
-        id: "price-watch",
-        title: "Price watch",
-        deliverTo: "Local",
-        scheduleText: "Every 30 minutes",
-        state: "scheduled",
-        outcome: "failed",
-        lastRun: "40 min ago",
-        nextRun: "in 20 min",
-        failureReason: "Provider timeout",
-      }}
-    />
-    <ScheduleJobRow
-      job={{
-        id: "morning-brief",
-        title: "Morning brief",
-        deliverTo: "Local",
-        scheduleText: "Weekdays at 08:00",
-        state: "scheduled",
-        outcome: "ok",
-        lastRun: "2 h ago",
-        nextRun: "in 3 h",
-      }}
-    />
-    <ScheduleJobRow
-      job={{
-        id: "check-build",
-        title: "Check the build and tell me",
-        deliverTo: "Local",
-        scheduleText: "Every 6 hours",
-        state: "scheduled",
-        outcome: "none",
-        nextRun: "in 6 h",
-      }}
-    />
+  <div style={pair}>
+    <HermesProvider platform="apple" style={touch}>
+      {group([failing, healthy, paused])}
+    </HermesProvider>
+    <HermesProvider platform="material" style={touch}>
+      {group([failing, healthy, paused])}
+    </HermesProvider>
   </div>
 );
 
+/** A result that could not be delivered: the status and its reason on the warning line. iPhone and Mac. */
 export const DeliveryFailed = () => (
-  <div style={column}>
-    <ScheduleJobRow
-      job={{
-        id: "standup",
-        title: "Standup notes",
-        deliverTo: "Telegram",
-        scheduleText: "Weekdays at 08:00",
-        state: "scheduled",
-        outcome: "deliveryFailed",
-        lastRun: "5 h ago",
-        nextRun: "in 19 h",
-        failureReason: "Telegram: chat not found",
-      }}
-    />
+  <div style={pair}>
+    <HermesProvider platform="apple" style={touch}>
+      {group([undelivered])}
+    </HermesProvider>
+    <HermesProvider platform="apple" typeRamp="default" style={mac}>
+      <GroupedListView device="mac">
+        <GroupedSection>
+          <ScheduleJobRow job={failing} selected onClick={noop} />
+          <ScheduleJobRow job={undelivered} onClick={noop} />
+        </GroupedSection>
+      </GroupedListView>
+    </HermesProvider>
   </div>
 );
 
+/** A paused job (switch off) and a finished one-shot job (switch disabled), Material and iPhone. */
 export const PausedAndCompleted = () => (
-  <div style={column}>
-    <ScheduleJobRow
-      job={{
-        id: "weekly-digest",
-        title: "Weekly digest",
-        deliverTo: "Local",
-        scheduleText: "Mondays at 09:00",
-        state: "paused",
-        outcome: "ok",
-      }}
-    />
-    <ScheduleJobRow
-      job={{
-        id: "renew-tls",
-        title: "Renew the TLS certificate",
-        deliverTo: "Local",
-        scheduleText: "once on 2026-09-18 09:00",
-        state: "completed",
-        outcome: "ok",
-      }}
-    />
+  <div style={pair}>
+    <HermesProvider platform="material" style={touch}>
+      {group([paused, completed])}
+    </HermesProvider>
+    <HermesProvider platform="apple" style={touch}>
+      {group([paused, completed])}
+    </HermesProvider>
   </div>
 );
 
+/** "All profiles": each subtitle ends in the job's profile; long names and reasons end in an ellipsis. */
 export const LongTextAllProfiles = () => (
-  <div style={column}>
-    <ScheduleJobRow
-      showProfile
-      job={{
-        id: "pr-summary",
-        title:
-          "Summarise every open pull request across all of the repositories in the organisation",
-        deliverTo: "Discord",
-        profile: "work",
-        scheduleText:
-          "Every weekday at 08:00, 12:00 and 17:00 except public holidays in the organisation's home country",
-        state: "scheduled",
-        outcome: "failed",
-        lastRun: "5 min ago",
-        nextRun: "in 2 min",
-        failureReason:
-          "ConnectionError: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded",
-      }}
-    />
+  <HermesProvider platform="apple" style={touch}>
+    {group(
+      [
+        {
+          ...failing,
+          title:
+            "Summarize every open pull request in the infrastructure repos",
+          failureReason:
+            "Provider returned 529 overloaded after three retries, giving up",
+        },
+        healthy,
+        paused,
+      ],
+      { showProfile: true },
+    )}
+  </HermesProvider>
+);
+
+/** iPhone: a row swiped open to Delete, clipped with the group's corners, in light and dark. */
+export const AppleSwipe = () => (
+  <div style={pair}>
+    {(["light", "dark"] as const).map((theme) => (
+      <HermesProvider key={theme} platform="apple" theme={theme} style={touch}>
+        <GroupedListView>
+          <GroupedSection>
+            <ScheduleJobRow job={failing} onClick={noop} />
+            <ScheduleJobRow job={healthy} swipeRevealed onClick={noop} />
+            <ScheduleJobRow job={paused} swipeRevealed onClick={noop} />
+          </GroupedSection>
+        </GroupedListView>
+      </HermesProvider>
+    ))}
   </div>
 );
 
+/** Dark on Material and on a Mac. */
 export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={column}>
-      <ScheduleJobRow
-        selected
-        job={{
-          id: "price-watch",
-          title: "Price watch",
-          deliverTo: "Local",
-          scheduleText: "Every 30 minutes",
-          state: "scheduled",
-          outcome: "failed",
-          lastRun: "40 min ago",
-          nextRun: "in 20 min",
-          failureReason: "Provider timeout",
-        }}
-      />
-      <ScheduleJobRow
-        job={{
-          id: "morning-brief",
-          title: "Morning brief",
-          deliverTo: "Local",
-          scheduleText: "Weekdays at 08:00",
-          state: "scheduled",
-          outcome: "ok",
-          lastRun: "2 h ago",
-          nextRun: "in 3 h",
-        }}
-      />
-      <ScheduleJobRow
-        job={{
-          id: "weekly-digest",
-          title: "Weekly digest",
-          deliverTo: "Local",
-          scheduleText: "Mondays at 09:00",
-          state: "paused",
-          outcome: "ok",
-        }}
-      />
-    </div>
-  </HermesProvider>
-);
-
-const jobs = [
-  {
-    id: "price-watch",
-    title: "Price watch",
-    deliverTo: "Local",
-    scheduleText: "Every 30 minutes",
-    state: "scheduled" as const,
-    outcome: "failed" as const,
-    lastRun: "40 min ago",
-    nextRun: "in 20 min",
-    failureReason: "Provider timeout",
-  },
-  {
-    id: "morning-brief",
-    title: "Morning brief",
-    deliverTo: "Telegram",
-    scheduleText: "Weekdays at 08:00",
-    state: "scheduled" as const,
-    outcome: "ok" as const,
-    lastRun: "2 h ago",
-    nextRun: "in 3 h",
-  },
-  {
-    id: "weekly",
-    title: "Weekly digest",
-    deliverTo: "Local",
-    scheduleText: "Fridays at 17:00",
-    state: "paused" as const,
-    outcome: "none" as const,
-  },
-];
-
-/** Apple: one inset grouped list. Rows are siblings; the first and last get the group's corners. */
-export const InsetGrouped = () => (
-  <HermesProvider platform="apple" style={{ width: 390, padding: "16px 0" }}>
-    <div>
-      {jobs.map((job) => (
-        <ScheduleJobRow key={job.id} job={job} />
-      ))}
-    </div>
-  </HermesProvider>
-);
-
-/** iPhone: the middle row swiped from the trailing edge shows Delete in red, clipped by the group's inset. */
-export const AppleSwipe = () => (
-  <HermesProvider platform="apple" style={{ width: 390, padding: "16px 0" }}>
-    <div>
-      {jobs.map((job) => (
-        <ScheduleJobRow
-          key={job.id}
-          job={job}
-          swipeRevealed={job.id === "morning-brief"}
-        />
-      ))}
-    </div>
-  </HermesProvider>
-);
-
-/** iPhone: a long press on "Morning brief" opens the action sheet with Run now, Pause and Delete. */
-export const AppleActionSheet = () => (
-  <HermesProvider
-    platform="apple"
-    style={{ position: "relative", width: 390, height: 520, padding: "16px 0" }}
-  >
-    <div>
-      {jobs.map((job) => (
-        <ScheduleJobRow
-          key={job.id}
-          job={job}
-          actionSheetOpen={job.id === "morning-brief"}
-        />
-      ))}
-    </div>
-  </HermesProvider>
-);
-
-export const AppleSwipeDark = () => (
-  <HermesProvider
-    platform="apple"
-    theme="dark"
-    style={{ width: 390, padding: "16px 0" }}
-  >
-    <div>
-      {jobs.map((job) => (
-        <ScheduleJobRow
-          key={job.id}
-          job={job}
-          swipeRevealed={job.id === "weekly"}
-        />
-      ))}
-    </div>
-  </HermesProvider>
-);
-
-/** Mac window (`device="mac"`): each job a card of its own, 8px apart; the selected one has a 2px primary outline. In a narrow column the next run moves under the status. */
-export const MacCards = () => (
-  <HermesProvider
-    platform="apple"
-    typeRamp="default"
-    style={{
-      width: 300,
-      padding: 12,
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-    }}
-  >
-    {jobs.map((job, i) => (
-      <ScheduleJobRow key={job.id} job={job} device="mac" selected={i === 1} />
-    ))}
-  </HermesProvider>
+  <div style={pair}>
+    <HermesProvider platform="material" theme="dark" style={touch}>
+      {group([failing, undelivered, paused])}
+    </HermesProvider>
+    <HermesProvider
+      platform="apple"
+      typeRamp="default"
+      theme="dark"
+      style={mac}
+    >
+      <GroupedListView device="mac">
+        <GroupedSection>
+          <ScheduleJobRow job={failing} selected onClick={noop} />
+          <ScheduleJobRow job={healthy} onClick={noop} />
+          <ScheduleJobRow job={paused} onClick={noop} />
+        </GroupedSection>
+      </GroupedListView>
+    </HermesProvider>
+  </div>
 );
