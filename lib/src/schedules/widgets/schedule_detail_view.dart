@@ -67,6 +67,7 @@ class ScheduleDetailView extends StatelessWidget {
             child: MacScheduleHeader(
               job: job,
               now: now,
+              showTitle: showTitle,
               muted: muted,
               onMutedChanged: onMutedChanged,
               onRunNow: onRunNow,
@@ -164,12 +165,16 @@ class MacScheduleHeader extends StatelessWidget {
     required this.onEdit,
     required this.onTogglePaused,
     required this.onDelete,
+    this.showTitle = true,
     this.muted,
     this.onMutedChanged,
   });
 
   final CronJob job;
   final DateTime now;
+
+  /// Whether to name the job; false when the page's toolbar already does.
+  final bool showTitle;
   final bool? muted;
   final VoidCallback onRunNow;
   final VoidCallback onEdit;
@@ -191,7 +196,7 @@ class MacScheduleHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 2,
       children: [
-        Text(job.title, style: theme.textTheme.titleMedium),
+        if (showTitle) Text(job.title, style: theme.textTheme.titleMedium),
         if (subtitle.isNotEmpty)
           Text(
             subtitle,
