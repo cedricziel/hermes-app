@@ -49,7 +49,7 @@ export function AppearanceDialog({
       platform={platform}
       device={device}
     >
-      <GroupedSection dividerIndent="choice">
+      <GroupedSection dividerIndent="choice" label="Theme">
         {(Object.keys(themeModeLabels) as ThemeMode[]).map((m) => (
           <GroupedChoiceRow
             key={m}

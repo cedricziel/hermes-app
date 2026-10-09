@@ -142,6 +142,8 @@ export interface ChatScreenProps {
   onThreadAction?: (id: string, action: ThreadAction) => void;
   onAccountAction?: (action: AccountAction) => void;
   onSettingsPick?: (entry: SettingsEntry) => void;
+  /** Mac: the Settings list's Done, its barrier or Escape. */
+  onDismissSettings?: () => void;
   onConfirmSignOut?: () => void;
   onCancelSignOut?: () => void;
   onGroupingChange?: (grouping: ThreadGrouping) => void;
@@ -227,6 +229,7 @@ export function ChatScreen({
   onThreadAction,
   onAccountAction,
   onSettingsPick,
+  onDismissSettings,
   onConfirmSignOut,
   onCancelSignOut,
   onGroupingChange,
@@ -342,6 +345,7 @@ export function ChatScreen({
       settingsOpen={settingsOpen}
       settingsValues={settingsValues}
       onSettingsPick={onSettingsPick}
+      onDismissSettings={onDismissSettings}
       signOutConfirmOpen={signOutConfirmOpen}
       onConfirmSignOut={onConfirmSignOut}
       onCancelSignOut={onCancelSignOut}
