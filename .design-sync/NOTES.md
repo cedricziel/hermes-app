@@ -225,7 +225,8 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   - Internal: `screen.tsx` (`ScreenState` loading/failed/empty, `screenDevice`, `ScreenSplit`), `styles/settings-state.css`,
     `rowButton.tsx` (a row's small trailing button: iOS tinted pill, Mac bordered push button, Material outlined
     pill), `GroupedRow/GroupedMenuButtonRow.tsx` (row with a trailing "…" menu), `src/mcp.ts`.
-- Screens on it (each takes `platform` + `device` instead of `layout`, inherited from `AppShell`, else touch):
+- Screens on it (each takes `platform` + `device`, inherited from `AppShell`, else touch; Plugins, Skills, Helper
+  models, Messaging, the MCP list/catalog/add/JSON screens, Schedules and Bots also keep `layout` for the desktop split):
   - Plugins, Skills, Helper models (#547): `PluginsScreen` draws its own 400px list/detail split inside the
     scaffold body (no detail slot in `SettingsScaffold`); catalog search sits in the list on phone/Material and in
     the Mac toolbar. `PluginRow` (muted On/Off/Inactive, version meta, "Bundled · …", "Needs login" warning; catalog
@@ -256,8 +257,9 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
     list); `BotsScreen`, `CreateGroupDialog` (Material dialog on every platform, as the app) and
     `BotGroupChatScreen` (room bar, status card, pending actions, transcript cards and composer; not `ChatThread`).
 - Not on it yet (as in Flutter): `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillDetailScreen`,
-  `SkillEditorScreen`, `HubSkillScreen`, `McpInstallPanel` and `McpCommandReview` keep the internal `ScreenFrame`
-  (`src/screenFrame.tsx`: `ListDetailLayout` list layout, 640/720px column, `device="mac"` on apple + desktop).
+  `SkillEditorScreen` and `HubSkillScreen` keep an internal `ScreenFrame` (`src/screenFrame.tsx`: `ListDetailLayout`
+  list layout, 640/720px column, `device="mac"` on apple + desktop; `src/screen.tsx` has a second, older one);
+  `McpInstallPanel` and `McpCommandReview` are panes and sheets with no frame of their own.
 - Gaps:
   - Material floating labels are always floated; the GroupedDialog Mac panel has no window chrome; the Mac pop-up
     value is a plain bordered button; the Mac Save/Create push button uses the primary fill.
@@ -278,5 +280,6 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
   - `CreateGroupDialog` keeps one size on every platform; in Flutter the search and rows inside it follow the Mac
     metrics, so the app mixes sizes there (#555).
   - `GroupedValueRow` (and `GroupedMenuRow`) on Apple keep the title up to 60% of the row and let the value give way
-    (iOS value capped at 45%, Mac pop-up at 260px, as `grouped_form.dart`); `SegmentedButton` gives a segment that
+    (iOS value capped at 45%, Mac pop-up at 260px; Flutter's `grouped_form.dart` caps the iOS value at 45% of the
+    screen width and has no 60% title rule, which is web CSS only); `SegmentedButton` gives a segment that
     needs more room for its label and check the extra width.
