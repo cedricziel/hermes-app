@@ -88,6 +88,37 @@ void main() {
     expect(find.text('Add'), findsNothing);
   });
 
+  for (final (count, subtitle) in [(1, '1 bot'), (2, '2 bots')]) {
+    testWidgets('the Mac subtitle counts $count as "$subtitle"', (
+      tester,
+    ) async {
+      final repository = BotModeRosterRepository(
+        (_, _) async => {
+          'bot_mode_protocol': true,
+          'profiles': [
+            for (var i = 0; i < count; i++)
+              {
+                'name': 'bot$i',
+                'ui_meta_revisions': {'hermes-bots': 1},
+                'ui_meta': {
+                  'hermes-bots': {'title': 'Bot $i'},
+                },
+              },
+          ],
+        },
+        serverId: 'local',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.macOS),
+          home: BotModeRosterScreen(repository: repository),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(subtitle), findsOneWidget);
+    });
+  }
+
   testWidgets('older gateway explains unavailable state', (tester) async {
     final repository = BotModeRosterRepository(
       (_, _) async => {'profiles': []},

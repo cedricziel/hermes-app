@@ -418,7 +418,9 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     return SettingsScaffold(
       title: 'Bots',
-      subtitle: mac && ready ? '${roster.bots.length} bots' : null,
+      subtitle: mac && ready
+          ? (roster.bots.length == 1 ? '1 bot' : '${roster.bots.length} bots')
+          : null,
       previousTitle: null,
       search: ready && roster.bots.isNotEmpty
           ? SettingsSearch(
