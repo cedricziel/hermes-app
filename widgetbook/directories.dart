@@ -2,6 +2,7 @@ import 'thread_grouping_use_cases.dart';
 
 import 'package:widgetbook/widgetbook.dart';
 
+import 'grouped_form_use_cases.dart';
 import 'handoff_use_cases.dart';
 import 'adaptive_use_cases.dart';
 import 'adaptive_chrome_use_cases.dart';
@@ -45,6 +46,7 @@ final List<WidgetbookNode> directories = [
   platformHintNode(),
   adaptiveChromeNode(),
   settingsChromeNode(),
+  groupedFormNode(),
   macToolbarNode(),
   appIconsNode(),
   appNode(),
