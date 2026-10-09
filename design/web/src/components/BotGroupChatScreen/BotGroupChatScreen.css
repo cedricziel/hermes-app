@@ -89,6 +89,7 @@
 
 .h-group-chat__text {
   margin: 10px 0 0;
+  white-space: pre-wrap;
   font-size: 14px;
   line-height: 20px;
 }
