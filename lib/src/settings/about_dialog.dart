@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../widgets/grouped_dialog.dart';
+import '../widgets/grouped_list.dart';
 import 'report_bug_link.dart';
 
 Future<void> showAppAboutDialog(BuildContext context) async {
@@ -23,14 +25,19 @@ class AppAboutDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SimpleDialog(
-      title: const Text('About'),
+    return GroupedDialog(
+      title: 'About',
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Text('Version $version'),
+        GroupedSection(
+          children: [
+            GroupedRow(title: 'Version', value: version),
+            GroupedRow(
+              key: const Key('report-bug'),
+              title: 'Report a bug',
+              onTap: () => openIssueTracker(openLink),
+            ),
+          ],
         ),
-        ReportBugLink(openLink: openLink),
       ],
     );
   }

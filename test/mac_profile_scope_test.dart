@@ -236,7 +236,7 @@ void main() {
 
     await tester.tap(find.text('Settings…'));
     await tester.pumpAndSettle();
-    expect(find.text('Appearance…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('setting-appearance')), findsOneWidget);
     expect(find.text('About Hermes'), findsOneWidget);
   });
 
@@ -249,7 +249,7 @@ void main() {
 
     expect(registry.invoke(MacCommand.settings), isTrue);
     await tester.pumpAndSettle();
-    expect(find.text('Appearance…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('setting-appearance')), findsOneWidget);
   });
 
   group('account commands in the menu bar', () {

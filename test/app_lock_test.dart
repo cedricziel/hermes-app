@@ -5,6 +5,7 @@ import 'package:hermes_app/src/app_lock/app_lock_dialog.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -257,14 +258,14 @@ void main() {
     }
 
     bool? switchValue(WidgetTester tester) =>
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value;
+        tester.widget<GroupedSwitchRow>(find.byType(GroupedSwitchRow)).value;
 
     testWidgets('the switch turns the lock on', (tester) async {
       final lock = (await tester.runAsync(relaunched))!;
       await openDialog(tester, lock);
       expect(switchValue(tester), isFalse);
 
-      await tester.tap(find.byType(SwitchListTile));
+      await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
       expect(lock.enabled, isTrue);
@@ -280,7 +281,9 @@ void main() {
       await openDialog(tester, lock);
 
       expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).onChanged,
+        tester
+            .widget<GroupedSwitchRow>(find.byType(GroupedSwitchRow))
+            .onChanged,
         isNull,
       );
       expect(find.textContaining('Set up Face ID'), findsOneWidget);

@@ -7,6 +7,7 @@ import 'package:hermes_app/src/live_activities/live_activities.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
@@ -16,7 +17,9 @@ import 'support/fake_share_inbox.dart';
 
 void main() {
   late NotificationSettings settings;
-  final notifyTile = find.widgetWithText(SwitchListTile, 'Notify me');
+  final notifyTile = find.byKey(const Key('notify-me'));
+  Finder switchOf(Finder row) =>
+      find.descendant(of: row, matching: find.byType(Switch));
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
@@ -63,7 +66,7 @@ void main() {
     await openDialog(tester);
 
     expect(notifyTile, findsOneWidget);
-    expect(tester.widget<SwitchListTile>(notifyTile).value, isTrue);
+    expect(tester.widget<GroupedSwitchRow>(notifyTile).value, isTrue);
   });
 
   testWidgets('the dialog says alerts need the app to be running', (
@@ -83,11 +86,11 @@ void main() {
   testWidgets('flipping the switch turns notifications off', (tester) async {
     await openDialog(tester);
 
-    await tester.tap(notifyTile);
+    await tester.tap(switchOf(notifyTile));
     await tester.pumpAndSettle();
 
     expect(settings.enabled, isFalse);
-    expect(tester.widget<SwitchListTile>(notifyTile).value, isFalse);
+    expect(tester.widget<GroupedSwitchRow>(notifyTile).value, isFalse);
   });
 
   testWidgets('a denied permission points to system settings', (tester) async {
@@ -130,12 +133,12 @@ void main() {
     await openDialog(tester);
 
     final tile = find.byKey(const Key('schedule-alerts'));
-    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+    expect(tester.widget<GroupedSwitchRow>(tile).value, isTrue);
 
-    await tester.tap(tile);
+    await tester.tap(switchOf(tile));
     await tester.pumpAndSettle();
 
-    expect(tester.widget<SwitchListTile>(tile).value, isFalse);
+    expect(tester.widget<GroupedSwitchRow>(tile).value, isFalse);
     expect(settings.scheduleAlerts, isFalse);
   });
 
@@ -144,12 +147,12 @@ void main() {
   ) async {
     await openDialog(tester);
 
-    await tester.tap(notifyTile);
+    await tester.tap(switchOf(notifyTile));
     await tester.pumpAndSettle();
 
     expect(
       tester
-          .widget<SwitchListTile>(find.byKey(const Key('schedule-alerts')))
+          .widget<GroupedSwitchRow>(find.byKey(const Key('schedule-alerts')))
           .onChanged,
       isNull,
     );
@@ -177,7 +180,7 @@ void main() {
     testWidgets('on to begin with, and off ends what is shown', (tester) async {
       final live = await activities(tester);
       await openDialog(tester, liveActivities: live);
-      expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+      expect(tester.widget<GroupedSwitchRow>(tile).value, isTrue);
       expect(find.text(hint), findsNothing);
 
       await tester.runAsync(() async {
@@ -186,7 +189,7 @@ void main() {
       });
       expect(service.running, hasLength(1));
 
-      await tester.tap(tile);
+      await tester.tap(switchOf(tile));
       await tester.pumpAndSettle();
       await tester.runAsync(pumpEventQueue);
 

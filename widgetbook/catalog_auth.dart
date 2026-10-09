@@ -112,6 +112,7 @@ Widget withAppProviders(
   Widget child, {
   AppLockController? lock,
   LiveActivities? liveActivities,
+  NotificationSettings? notificationSettings,
 }) => MultiProvider(
   providers: [
     ChangeNotifierProvider<AuthController>.value(value: auth),
@@ -123,7 +124,10 @@ Widget withAppProviders(
       value:
           lock ?? AppLockController(authenticator: FakeDeviceAuthenticator()),
     ),
-    ChangeNotifierProvider(create: (_) => NotificationSettings()),
+    if (notificationSettings != null)
+      ChangeNotifierProvider.value(value: notificationSettings)
+    else
+      ChangeNotifierProvider(create: (_) => NotificationSettings()),
     Provider<NotificationService>.value(value: FakeNotificationService()),
     Provider<LiveActivities?>.value(value: liveActivities),
   ],

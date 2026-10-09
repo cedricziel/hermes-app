@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../theme/hermes_theme.dart';
+import '../widgets/grouped_dialog.dart';
+import '../widgets/grouped_list.dart';
 import 'app_lock_controller.dart';
 
 Future<void> showAppLockDialog(BuildContext context) {
@@ -21,27 +22,28 @@ class _AppLockDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lock = context.watch<AppLockController>();
-    final subtle = context.hermesColors.subtleText;
-    return SimpleDialog(
-      title: const Text('App lock'),
+    return GroupedDialog(
+      title: 'App lock',
       children: [
-        SwitchListTile.adaptive(
-          title: const Text('Require Face ID or Touch ID'),
-          subtitle: const Text(
-            'Hermes asks for Face ID, Touch ID, fingerprint or your device '
-            'passcode when you open it and when you come back to it.',
-          ),
-          value: lock.enabled,
-          onChanged: lock.available || lock.enabled ? lock.setEnabled : null,
+        GroupedSection(
+          footer:
+              'Hermes asks for Face ID, Touch ID, fingerprint or your device '
+              'passcode when you open it and when you come back to it.',
+          children: [
+            GroupedSwitchRow(
+              key: const Key('app-lock-switch'),
+              title: 'Require Face ID or Touch ID',
+              value: lock.enabled,
+              onChanged: lock.available || lock.enabled
+                  ? lock.setEnabled
+                  : null,
+            ),
+          ],
         ),
         if (!lock.available)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
-            child: Text(
-              'Set up Face ID, Touch ID or a passcode in system settings to '
-              'use app lock. This device does not offer one right now.',
-              style: TextStyle(fontSize: 12.5, color: subtle),
-            ),
+          const GroupedDialogNote(
+            'Set up Face ID, Touch ID or a passcode in system settings to '
+            'use app lock. This device does not offer one right now.',
           ),
       ],
     );
