@@ -64,7 +64,6 @@ export * from "./components/SkillsScreen/SkillsScreen";
 export * from "./components/SkillDetailScreen/SkillDetailScreen";
 export * from "./components/HubSkillScreen/HubSkillScreen";
 export * from "./components/MacProfilesPage/MacProfilesPage";
-export * from "./components/ScheduleFilterBar/ScheduleFilterBar";
 export * from "./components/BlueprintCard/BlueprintCard";
 export * from "./components/KanbanScreen/KanbanScreen";
 export * from "./components/KanbanBoardsScreen/KanbanBoardsScreen";

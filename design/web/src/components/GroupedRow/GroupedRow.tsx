@@ -36,6 +36,8 @@ export interface GroupedRowProps {
   onClick?: () => void;
   /** Whether to draw the disclosure chevron (iOS 16px, Mac 12px, Material 20px, muted). By default when the row has `onClick` and no `trailing`. */
   chevron?: boolean;
+  /** A disclosure row that shows or hides the rows under it (the job form's "Advanced"): its chevron turns down while `true`, and the button reports `aria-expanded`. */
+  expanded?: boolean;
   /** Highlights the row whose details show beside the list (filled with the border color). */
   selected?: boolean;
   /** Draws the title in the error color, for "Remove plugin", "Delete profile". */
@@ -75,6 +77,7 @@ export function GroupedRow({
   trailing,
   onClick,
   chevron,
+  expanded,
   selected = false,
   destructive = false,
   disabled = false,
@@ -135,7 +138,10 @@ export function GroupedRow({
         <Icon
           name="chevron_right"
           size={m.chevron}
-          className="h-grouped-row__chevron"
+          className={cx(
+            "h-grouped-row__chevron",
+            expanded && "h-grouped-row__chevron--expanded",
+          )}
         />
       ) : null}
     </>
@@ -162,6 +168,7 @@ export function GroupedRow({
         role={radioChecked === undefined ? undefined : "radio"}
         aria-checked={radioChecked}
         aria-current={selected || undefined}
+        aria-expanded={expanded}
         disabled={disabled}
         onClick={onClick}
       >

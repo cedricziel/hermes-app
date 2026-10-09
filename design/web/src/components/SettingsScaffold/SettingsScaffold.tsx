@@ -321,7 +321,7 @@ function PhoneBar({
       <button
         type="button"
         className="h-settings__back"
-        aria-label={`Back to ${backLabel}`}
+        aria-label={backLabel ? `Back to ${backLabel}` : "Back"}
         onClick={onBack}
       >
         <Icon name="arrow_back" apple="back" size={30} />
@@ -377,7 +377,9 @@ function FormActionButton({
   return (
     <button
       type="button"
-      className={mac ? "h-settings__mac-form-action" : "h-settings__text-button"}
+      className={
+        mac ? "h-settings__mac-form-action" : "h-settings__text-button"
+      }
       disabled={action.disabled || action.busy}
       onClick={action.onClick}
     >

@@ -1,40 +1,5 @@
-.h-blueprint-gallery {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-}
-
-.h-blueprint-gallery__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: -4px;
-}
-
-.h-blueprint-gallery__cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.h-blueprint-gallery__card {
-  width: 260px;
-  max-width: 100%;
-}
-
 .h-blueprint-gallery__center {
   display: flex;
   justify-content: center;
   padding: 24px;
-}
-
-.h-blueprint-gallery__failed {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.h-blueprint-gallery__failed > span {
-  flex: 1;
 }

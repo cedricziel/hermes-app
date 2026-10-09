@@ -1,23 +1,17 @@
-import { Switch } from "../Switch/Switch";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
 import { RowActions } from "../SwipeActions/RowActions";
-import {
-  PlatformScope,
-  usePlatform,
-  useRowDevice,
-  type AppleDevice,
-  type Platform,
-} from "../../platform";
+import { type AppleDevice, type Platform } from "../../platform";
 import "./ScheduleJobRow.css";
 
 /** A cron job of a Hermes profile, as the Schedules list shows it. */
 export interface ScheduleJob {
   /** Stable job id. */
   id: string;
-  /** Job name, e.g. "Morning brief". Wraps to two lines, then ellipsis. */
+  /** Job name, e.g. "Morning brief". One line, then an ellipsis. */
   title: string;
   /** Where results go, already labelled: "Local", "Origin chat", "Telegram", "Discord". */
   deliverTo: string;
-  /** Profile the job belongs to; shown as a second chip when `showProfile` is set. */
+  /** Profile the job belongs to; added to the subtitle when `showProfile` is set. */
   profile?: string;
   /** The schedule in words: "Every 30 minutes", "Weekdays at 08:00", "once on 2026-09-18 09:00". */
   scheduleText: string;
@@ -29,40 +23,34 @@ export interface ScheduleJob {
   lastRun?: string;
   /** Relative time of the next run, e.g. "in 20 min". Hidden while paused or completed. */
   nextRun?: string;
-  /** First line of the run or delivery error, shown in monospace under a failed status: "Provider timeout". */
+  /** First line of the run or delivery error, joined to the failed status on the row's error or warning line: "Request timed out". */
   failureReason?: string;
 }
 
 export interface ScheduleJobRowProps {
   /** The job to show. */
   job: ScheduleJob;
-  /** Highlighted as the job open in the detail pane (wide layout). */
+  /** Filled with the border color as the job open in the detail pane (wide layout). */
   selected?: boolean;
-  /** Add the job's profile as a chip, for the "All profiles" filter. */
+  /** Adds the job's profile to the subtitle ("Weekdays at 08:00 · Local · work"), for "All profiles". */
   showProfile?: boolean;
   /** The row was clicked: open the job. */
   onClick?: () => void;
   /** The switch was flipped; `true` pauses the job, `false` resumes it. */
   onPausedChange?: (paused: boolean) => void;
   /**
-   * `apple`: an inset grouped list row instead of a bordered card. Stack the
-   * rows as siblings in one container: the first and last get the group's
-   * 10px corners, a hairline separates the rest, and the switch is the Apple
-   * toggle. On touch the row swipes from the trailing edge to Delete and a
+   * The row's metrics follow the platform: iOS 17px title over a 15px
+   * subtitle and 13px caption with the 51x31 switch; Mac 13/11/11px with
+   * the small 36x22 switch; Material 16/14/13px with the Material switch.
+   * On Apple touch the row swipes from the trailing edge to Delete and a
    * long press opens an action sheet with Run now, Pause or Resume, and
    * Delete (see `swipeRevealed`, `actionSheetOpen`); a Mac right-clicks for
    * them. Inherits the provider's platform.
    */
   platform?: Platform;
-  /**
-   * Under `apple`, `touch` (default) or `mac`; only touch swipes.
-   * Inherited from the enclosing `AppShell`. `mac` draws the row as a Mac
-   * window lists jobs: a card of its own (10px corners, 1px outline, 2px
-   * primary outline when `selected`), stacked 8px apart in a 12px padded
-   * column, instead of a row of an inset group.
-   */
+  /** Under `apple`, `touch` or `mac`; only touch swipes. Inherited from the enclosing `GroupedSection`, `GroupedListView` or `AppShell`. */
   device?: AppleDevice;
-  /** Apple touch: draw the row swiped open, Delete showing in red. A static preview state. */
+  /** Apple touch: draw the row swiped open, Delete showing in red and clipped with the group. A static preview state. */
   swipeRevealed?: boolean;
   /** Apple touch: draw the long-press action sheet over the screen (the nearest positioned ancestor). A static preview state. */
   actionSheetOpen?: boolean;
@@ -90,25 +78,22 @@ export function scheduleJobStatusText(job: ScheduleJob): string {
   }
 }
 
-/** The status tone: `error`, `warning`, `success` or `muted`. */
-export function scheduleJobTone(job: ScheduleJob): string {
-  if (job.state !== "scheduled") return "muted";
-  switch (job.outcome) {
-    case "failed":
-      return "error";
-    case "deliveryFailed":
-      return "warning";
-    case "ok":
-      return "success";
-    default:
-      return "muted";
-  }
+/** What the row and the detail flag about the last run: `failed`, `undelivered` (it ran, the delivery failed), or nothing while the job is fine, paused or completed. */
+export function scheduleJobAlert(
+  job: ScheduleJob,
+): "failed" | "undelivered" | undefined {
+  if (job.state !== "scheduled") return undefined;
+  if (job.outcome === "deliveryFailed") return "undelivered";
+  return job.outcome === "failed" ? "failed" : undefined;
 }
 
 /**
- * One cron job in the Schedules list: a bordered card with the name, delivery
- * chip and an on/off switch, the schedule in words, and a status line with the
- * last run's outcome and the next run.
+ * One cron job as a row of the Schedules list's `GroupedSection`, a
+ * `GroupedSwitchRow`: the name, "schedule · delivery" as the subtitle, the
+ * next run (or the last run's outcome and the next run) as the caption, a
+ * failure on the error line ("Failed 20 min ago · Request timed out") or an
+ * undelivered result on the warning line, and a switch that pauses the job.
+ * Put a list's rows in one `GroupedSection`.
  */
 export function ScheduleJobRow({
   job,
@@ -122,25 +107,13 @@ export function ScheduleJobRow({
   actionSheetOpen,
   onAction,
 }: ScheduleJobRowProps) {
-  const resolvedPlatform = usePlatform(platform);
-  const apple = resolvedPlatform === "apple";
-  const rowDevice = useRowDevice(device);
-  const macCard = apple && rowDevice === "mac";
   const on = job.state === "scheduled";
   const locked = job.state === "completed";
-  const failing = job.outcome === "failed" || job.outcome === "deliveryFailed";
-  const reason =
-    failing && job.state === "scheduled" ? job.failureReason : undefined;
-  const next = on && job.nextRun ? `Next run ${job.nextRun}` : null;
-  const classes = [
-    "h-schedule-job-row",
-    `h-schedule-job-row--${scheduleJobTone(job)}`,
-    selected ? "h-schedule-job-row--selected" : null,
-    apple ? "h-schedule-job-row--apple" : null,
-    macCard ? "h-schedule-job-row--mac" : null,
-  ]
+  const alert = scheduleJobAlert(job);
+  const status = [scheduleJobStatusText(job), alert && job.failureReason]
     .filter(Boolean)
-    .join(" ");
+    .join(" · ");
+  const next = on && job.nextRun ? `Next run ${job.nextRun}` : undefined;
   const actions = [
     { label: "Run now", icon: "play_arrow", value: "run-now" as const },
     ...(locked
@@ -158,64 +131,35 @@ export function ScheduleJobRow({
     },
   ].map((a) => ({ ...a, onPress: () => onAction?.(a.value) }));
   return (
-    <PlatformScope platform={resolvedPlatform}>
-      <RowActions
+    <RowActions
+      title={job.title}
+      actions={actions}
+      swipeRevealed={swipeRevealed}
+      actionSheetOpen={actionSheetOpen}
+      platform={platform}
+      device={device}
+      className="h-schedule-job-row__swipe"
+    >
+      <GroupedSwitchRow
         title={job.title}
-        actions={actions}
-        swipeRevealed={swipeRevealed}
-        actionSheetOpen={actionSheetOpen}
+        subtitle={[
+          job.scheduleText,
+          job.deliverTo,
+          showProfile ? job.profile : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        caption={alert ? next : [status, next].filter(Boolean).join(" · ")}
+        error={alert === "failed" ? status : undefined}
+        warning={alert === "undelivered" ? status : undefined}
+        selected={selected}
+        checked={on}
+        disabled={locked}
+        onChange={(checked) => onPausedChange?.(!checked)}
+        onClick={onClick}
+        platform={platform}
         device={device}
-        className="h-schedule-job-row__swipe"
-      >
-        <div
-          className={classes}
-          role="button"
-          tabIndex={0}
-          aria-pressed={selected}
-          onClick={onClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onClick?.();
-            }
-          }}
-        >
-          <div className="h-schedule-job-row__head">
-            <div className="h-schedule-job-row__titles">
-              <span className="h-schedule-job-row__title">{job.title}</span>
-              <span className="h-schedule-job-row__chip">{job.deliverTo}</span>
-              {showProfile && job.profile ? (
-                <span className="h-schedule-job-row__chip">{job.profile}</span>
-              ) : null}
-            </div>
-            <Switch
-              checked={on}
-              label={on ? "Pause" : "Resume"}
-              disabled={locked}
-              onClick={(e) => e.stopPropagation()}
-              onChange={() => onPausedChange?.(on)}
-            />
-          </div>
-          {job.scheduleText ? (
-            <div className="h-schedule-job-row__schedule">
-              {job.scheduleText}
-            </div>
-          ) : null}
-          <hr className="h-schedule-job-row__divider" />
-          <div className="h-schedule-job-row__status">
-            <span className="h-schedule-job-row__dot" />
-            <span className="h-schedule-job-row__status-text">
-              {scheduleJobStatusText(job)}
-            </span>
-            {next ? (
-              <span className="h-schedule-job-row__next">{next}</span>
-            ) : null}
-          </div>
-          {reason ? (
-            <div className="h-schedule-job-row__reason">{reason}</div>
-          ) : null}
-        </div>
-      </RowActions>
-    </PlatformScope>
+      />
+    </RowActions>
   );
 }

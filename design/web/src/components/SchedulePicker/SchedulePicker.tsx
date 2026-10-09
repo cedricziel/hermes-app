@@ -1,7 +1,12 @@
-import { Button } from "../Button/Button";
-import { Chip } from "../Chip/Chip";
-import { SelectField } from "../SelectField/SelectField";
-import { TextField } from "../TextField/TextField";
+import {
+  GroupedFooter,
+  GroupedSection,
+} from "../GroupedSection/GroupedSection";
+import { GroupedMenuRow } from "../GroupedMenuRow/GroupedMenuRow";
+import { GroupedSegmentedRow } from "../GroupedSegmentedRow/GroupedSegmentedRow";
+import { GroupedTextFieldRow } from "../GroupedTextFieldRow/GroupedTextFieldRow";
+import { GroupedValueRow } from "../GroupedValueRow/GroupedValueRow";
+import { cx, type AppleDevice, type Platform } from "../../platform";
 import "./SchedulePicker.css";
 
 /** How a job's schedule is entered. */
@@ -10,18 +15,13 @@ export type ScheduleMode = "every" | "daily" | "weekly" | "once" | "cron";
 /** A unit of an `every` schedule. */
 export type ScheduleEveryUnit = "minutes" | "hours" | "days";
 
-const modes: [ScheduleMode, string][] = [
-  ["every", "Every"],
-  ["daily", "Daily"],
-  ["weekly", "Weekly"],
-  ["once", "Once"],
-  ["cron", "Cron"],
-];
-
+const modes: ScheduleMode[] = ["every", "daily", "weekly", "once", "cron"];
+const modeLabels = ["Every", "Daily", "Weekly", "Once", "Cron"];
+const units: ScheduleEveryUnit[] = ["minutes", "hours", "days"];
 const week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export interface SchedulePickerProps {
-  /** The mode chip picked; it decides the inputs under the chips. */
+  /** The segment picked; it decides the rows under the control. */
   mode: ScheduleMode;
   /** `every`: the number typed, e.g. `30`. */
   amount?: string;
@@ -31,13 +31,18 @@ export interface SchedulePickerProps {
   time?: string;
   /** `weekly`: the days picked, as `Mon` … `Sun`. */
   days?: string[];
-  /** `once`: the date, already formatted: "Sep 18, 2026". */
+  /** `once`: the date, already formatted: "Oct 10, 2026". */
   date?: string;
   /** `cron`: the expression or phrase typed. */
   cron?: string;
-  /** The next runs worked out from a valid schedule: "tomorrow 08:00, Thu 08:00, Fri 08:00". Without it a `cron` schedule says the server works it out on save. */
+  /** The next runs worked out from a valid schedule, the group's footer: "Oct 9, 2026 3:45 AM, Oct 9, 2026 4:45 AM, …". Without it a `cron` schedule says the server works it out on save. */
   nextRuns?: string;
-  /** A mode chip pressed. */
+  /** Draws the Unit menu open, for previews. */
+  unitMenuOpen?: boolean;
+  /** iOS, Mac and Material grouped rows, from the enclosing `GroupedListView`. Inherits the provider's platform. */
+  platform?: Platform;
+  device?: AppleDevice;
+  /** A segment pressed. */
   onModeChange?: (mode: ScheduleMode) => void;
   /** `every`: the amount typed. */
   onAmountChange?: (amount: string) => void;
@@ -45,20 +50,22 @@ export interface SchedulePickerProps {
   onUnitChange?: (unit: ScheduleEveryUnit) => void;
   /** `weekly`: a day toggled. */
   onDayToggle?: (day: string) => void;
-  /** The time button pressed (the app opens its time picker). */
+  /** The Time row pressed (the app opens its time picker). */
   onPickTime?: () => void;
-  /** `once`: the date button pressed (the app opens its date picker). */
+  /** `once`: the Date row pressed (the app opens its date picker). */
   onPickDate?: () => void;
   /** `cron`: the expression typed. */
   onCronChange?: (cron: string) => void;
 }
 
 /**
- * The "When" of the job form: Every, Daily, Weekly, Once and Cron chips,
- * then the inputs of the mode picked (a number and unit, a time button, day
- * chips, a date button, or a cron field) and the next runs in muted text.
- * Put it in a `FormSection` titled "When". Same on every platform, as in the
- * app; the pickers its buttons open are the platform's.
+ * The "When" of the job form as a `GroupedSection` headed "When": a
+ * `GroupedSegmentedRow` (Every, Daily, Weekly, Once, Cron), then the rows of
+ * the mode picked: Every (a number field) and Unit (a menu row); a Time
+ * value row; the seven day pills (Mon first, the picked ones filled with
+ * the primary color) and Time; Date and Time; or a monospace Schedule
+ * field. Under the group: the cron hint and the next runs as footers. Put
+ * it in a `GroupedListView` between the form's other sections.
  */
 export function SchedulePicker({
   mode,
@@ -69,6 +76,9 @@ export function SchedulePicker({
   date,
   cron = "",
   nextRuns,
+  unitMenuOpen,
+  platform,
+  device,
   onModeChange,
   onAmountChange,
   onUnitChange,
@@ -77,85 +87,91 @@ export function SchedulePicker({
   onPickDate,
   onCronChange,
 }: SchedulePickerProps) {
-  const timeButton = (
-    <div>
-      <Button variant="outlined" icon="schedule" onClick={onPickTime}>
-        {time}
-      </Button>
-    </div>
+  const timeRow = (
+    <GroupedValueRow title="Time" value={time} onClick={() => onPickTime?.()} />
   );
   return (
-    <div className="h-schedule-picker">
-      <div className="h-schedule-picker__chips">
-        {modes.map(([m, label]) => (
-          <Chip
-            key={m}
-            label={label}
-            selected={m === mode}
-            onClick={() => onModeChange?.(m)}
-          />
-        ))}
-      </div>
-      {mode === "every" ? (
-        <div className="h-schedule-picker__every">
-          <TextField
-            className="h-schedule-picker__amount"
-            label="Every"
-            inputMode="numeric"
-            value={amount}
-            onChange={(e) => onAmountChange?.(e.target.value)}
-            readOnly={!onAmountChange}
-          />
-          <div className="h-schedule-picker__unit">
-            <SelectField
-              value={unit}
-              options={["minutes", "hours", "days"]}
-              onChange={(v) => onUnitChange?.(v as ScheduleEveryUnit)}
-            />
-          </div>
-        </div>
-      ) : mode === "daily" ? (
-        timeButton
-      ) : mode === "weekly" ? (
-        <>
-          <div className="h-schedule-picker__days">
-            {week.map((d) => (
-              <Chip
-                key={d}
-                label={d}
-                selected={days.includes(d)}
-                onClick={() => onDayToggle?.(d)}
-              />
-            ))}
-          </div>
-          {timeButton}
-        </>
-      ) : mode === "once" ? (
-        <div className="h-schedule-picker__chips">
-          <Button variant="outlined" icon="calendar_today" onClick={onPickDate}>
-            {date ?? "Choose a date"}
-          </Button>
-          <Button variant="outlined" icon="schedule" onClick={onPickTime}>
-            {time}
-          </Button>
-        </div>
-      ) : (
-        <TextField
-          label="Schedule"
-          mono
-          value={cron}
-          helper="A five-field cron expression, for example 0 9 * * 1-5, or a phrase like every monday 9am"
-          onChange={(e) => onCronChange?.(e.target.value)}
-          readOnly={!onCronChange}
+    <>
+      <GroupedSection header="When" platform={platform} device={device}>
+        <GroupedSegmentedRow
+          labels={modeLabels}
+          value={modes.indexOf(mode)}
+          label="When"
+          onChange={(i) => onModeChange?.(modes[i])}
         />
-      )}
-      {nextRuns ? (
-        <div className="h-schedule-picker__note">{`Next runs: ${nextRuns}`}</div>
-      ) : mode === "cron" ? (
-        <div className="h-schedule-picker__note">
-          The server works out the next run when you save.
-        </div>
+        {mode === "every" ? (
+          <GroupedTextFieldRow
+            label="Every"
+            type="number"
+            value={amount}
+            onChange={onAmountChange}
+          />
+        ) : null}
+        {mode === "every" ? (
+          <GroupedMenuRow
+            title="Unit"
+            options={units}
+            selected={units.indexOf(unit)}
+            open={unitMenuOpen}
+            onSelect={(i) => onUnitChange?.(units[i])}
+          />
+        ) : null}
+        {mode === "weekly" ? (
+          <div className="h-schedule-picker__days">
+            {week.map((d) => {
+              const on = days.includes(d);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={on}
+                  className={cx(
+                    "h-schedule-picker__day",
+                    on && "h-schedule-picker__day--on",
+                  )}
+                  onClick={() => onDayToggle?.(d)}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {mode === "once" ? (
+          <GroupedValueRow
+            title="Date"
+            value={date ?? "Choose a date"}
+            onClick={() => onPickDate?.()}
+          />
+        ) : null}
+        {mode === "daily" || mode === "weekly" || mode === "once"
+          ? timeRow
+          : null}
+        {mode === "cron" ? (
+          <GroupedTextFieldRow
+            label="Schedule"
+            hint="0 9 * * 1-5"
+            monospace
+            value={cron}
+            onChange={onCronChange}
+          />
+        ) : null}
+      </GroupedSection>
+      {mode === "cron" ? (
+        <GroupedFooter platform={platform} device={device}>
+          A five-field cron expression, for example 0 9 * * 1-5, or a phrase
+          like every monday 9am.
+        </GroupedFooter>
       ) : null}
-    </div>
+      {nextRuns ? (
+        <GroupedFooter platform={platform} device={device}>
+          {`Next runs: ${nextRuns}`}
+        </GroupedFooter>
+      ) : mode === "cron" ? (
+        <GroupedFooter platform={platform} device={device}>
+          The server works out the next run when you save.
+        </GroupedFooter>
+      ) : null}
+    </>
   );
 }

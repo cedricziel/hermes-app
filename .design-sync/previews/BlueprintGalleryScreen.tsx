@@ -32,56 +32,81 @@ const phone = {
   border: "1px solid var(--h-border)",
   overflow: "hidden",
 } as const;
+const desktop = { ...phone, width: 800, height: 520 } as const;
+const pair = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
 
-/** iPhone: the custom task card, search, category chips and the templates. */
+/** iPhone: Cancel, the title over "work", the search field with its category filter button, "Custom task" with a "+" tile, then a group per category. Beside it the filter menu open. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <BlueprintGalleryScreen blueprints={blueprints} />
-    </div>
-  </HermesProvider>
+  <div style={pair}>
+    <HermesProvider platform="apple" style={phone}>
+      <BlueprintGalleryScreen blueprints={blueprints} profile="work" />
+    </HermesProvider>
+    <HermesProvider platform="apple" style={phone}>
+      <BlueprintGalleryScreen
+        blueprints={blueprints}
+        profile="work"
+        category="daily"
+        filterMenuOpen
+      />
+    </HermesProvider>
+  </div>
 );
 
-/** Android: the Daily category picked. */
+/** Material: the close X and the 44px pill search field; a search narrowing the list. */
 export const MaterialPhone = () => (
-  <div style={phone}>
-    <BlueprintGalleryScreen blueprints={blueprints} category="daily" />
+  <div style={pair}>
+    <HermesProvider platform="material" style={phone}>
+      <BlueprintGalleryScreen blueprints={blueprints} profile="work" />
+    </HermesProvider>
+    <HermesProvider platform="material" style={phone}>
+      <BlueprintGalleryScreen
+        blueprints={blueprints}
+        profile="work"
+        query="mail"
+      />
+    </HermesProvider>
   </div>
 );
 
-/** Desktop window: 260px cards side by side. */
+/** Mac: the toolbar with the back button, the search field and the filter button, the groups in the 600px column. */
 export const Desktop = () => (
-  <div
-    style={{
-      width: 800,
-      height: 480,
-      border: "1px solid var(--h-border)",
-      overflow: "hidden",
-    }}
-  >
-    <BlueprintGalleryScreen blueprints={blueprints} />
-  </div>
-);
-
-const half = { ...phone, width: 380, height: 300 } as const;
-
-/** Loading the templates, and a failed load with Retry; the custom card is there in both. */
-export const LoadingAndFailed = () => (
-  <div style={{ display: "flex", gap: 20 }}>
-    <div style={half}>
-      <BlueprintGalleryScreen state="loading" />
-    </div>
-    <div style={half}>
-      <BlueprintGalleryScreen state="error" />
-    </div>
-  </div>
-);
-
-/** A search with no match. Dark. */
-export const NoMatchDark = () => (
-  <HermesProvider theme="dark" style={{ width: "fit-content" }}>
-    <div style={{ ...phone, height: 420 }}>
-      <BlueprintGalleryScreen blueprints={blueprints} query="backup" />
-    </div>
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
+    <BlueprintGalleryScreen
+      device="mac"
+      blueprints={blueprints}
+      profile="work"
+    />
   </HermesProvider>
+);
+
+/** Loading, and the templates failing to load (a "Templates" group with Retry). "Custom task" stays. */
+export const LoadingAndFailed = () => (
+  <div style={pair}>
+    <HermesProvider platform="apple" style={{ ...phone, height: 420 }}>
+      <BlueprintGalleryScreen state="loading" profile="work" />
+    </HermesProvider>
+    <HermesProvider platform="material" style={{ ...phone, height: 420 }}>
+      <BlueprintGalleryScreen state="error" profile="work" />
+    </HermesProvider>
+  </div>
+);
+
+/** A search without matches: "No templates match". Dark, iPhone and Material. */
+export const NoMatchDark = () => (
+  <div style={pair}>
+    {(["apple", "material"] as const).map((platform) => (
+      <HermesProvider
+        key={platform}
+        platform={platform}
+        theme="dark"
+        style={{ ...phone, height: 420 }}
+      >
+        <BlueprintGalleryScreen
+          blueprints={blueprints}
+          profile="work"
+          query="weather"
+        />
+      </HermesProvider>
+    ))}
+  </div>
 );

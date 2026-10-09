@@ -1,32 +1,21 @@
 .h-schedules-screen__list {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 100%;
 }
 
+.h-schedules-screen__jobs,
 .h-schedules-screen__list > .h-state,
 .h-schedules-screen__center {
   flex: 1;
+  min-height: 0;
 }
 
 .h-schedules-screen__center {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Material: cards 10px apart with 16px sides; room left for the button. */
-.h-schedules-screen__jobs {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 4px 16px 96px;
-}
-
-/* Apple: the rows form one inset grouped list (they bring their own inset). */
-.h-schedules-screen__jobs--grouped {
-  gap: 0;
-  padding: 4px 0 96px;
 }
 
 .h-schedules-screen__note {
@@ -42,38 +31,27 @@
   min-width: 0;
 }
 
-/* Mac window: the unified toolbar over the job column and the detail. */
-.h-schedules-screen--mac {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
+.h-schedules-screen__split {
   height: 100%;
   min-height: 0;
-  background: var(--h-bg);
-  color: var(--h-fg);
-}
-
-.h-schedules-screen__scope {
-  width: 220px;
-  flex: none;
-}
-
-.h-schedules-screen__mac-body {
-  flex: 1;
-  min-height: 0;
   display: flex;
 }
 
-.h-schedules-screen__mac-list {
+/* A Mac window's toolbar has a border under it, as the app's. */
+.h-schedules-screen--mac .h-schedules-screen__split {
+  border-top: 1px solid var(--h-border);
+}
+
+.h-schedules-screen__column {
   flex: none;
-  overflow-y: auto;
+  min-height: 0;
   border-right: 1px solid var(--h-border);
 }
 
-.h-schedules-screen__mac-detail {
+.h-schedules-screen__detail {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
+  min-height: 0;
 }
 
 .h-schedules-screen__placeholder {
@@ -82,10 +60,4 @@
   justify-content: center;
   height: 100%;
   color: var(--h-muted);
-}
-
-/* Mac: each job its own card, 8px apart in a 12px padded column. */
-.h-schedules-screen__jobs--mac {
-  gap: 8px;
-  padding: 4px 12px 12px;
 }
