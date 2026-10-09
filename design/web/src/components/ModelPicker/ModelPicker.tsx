@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GroupedChoiceRow } from "../GroupedChoiceRow/GroupedChoiceRow";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { effortLabel, type ModelChoice } from "../ModelSlotRow/ModelSlotRow";
@@ -48,7 +48,7 @@ export interface ModelPickerProps {
   note?: string;
   /** Adds "Use the profile’s default" as its own group first (Kanban, Helper models, a job), checked while nothing is selected. The app closes the picker when it is picked. */
   onUseDefault?: () => void;
-  /** The search text to start with, for previews. The field shows only with more than 8 models. */
+  /** The search text; the picker keeps what is typed until this prop changes. The field shows only with more than 8 models. */
   query?: string;
   /** The search text changed. */
   onQueryChange?: (query: string) => void;
@@ -122,6 +122,15 @@ export function ModelPicker({
   const mac = chrome === "mac";
   const [selected, setSelected] = useState(initialSelected);
   const [query, setQuery] = useState(initialQuery);
+  useEffect(
+    () => setSelected(initialSelected),
+    [
+      initialSelected?.provider,
+      initialSelected?.model,
+      initialSelected?.effort,
+    ],
+  );
+  useEffect(() => setQuery(initialQuery), [initialQuery]);
 
   const modelOf = (choice: ModelChoice | null) =>
     providers
@@ -168,7 +177,7 @@ export function ModelPicker({
       </div>
       <div className="h-model-picker__list">
         {onUseDefault && !trimmed ? (
-          <GroupedSection dividerIndent="choice">
+          <GroupedSection dividerIndent="choice" label="Default model">
             <GroupedChoiceRow
               title="Use the profile’s default"
               checked={!selected}
