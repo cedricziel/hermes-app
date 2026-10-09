@@ -32,10 +32,12 @@ export interface ModelSlotRowProps {
   platform?: Platform;
 }
 
-const effortLabels: Record<string, string> = {
-  none: "Off",
-  xhigh: "Extra High",
-};
+/** What the dashboard calls a reasoning effort: "none" is "Off", "xhigh" "Extra High", the rest capitalised (the app's `effortLabel`). */
+export function effortLabel(effort: string) {
+  if (effort === "none") return "Off";
+  if (effort === "xhigh") return "Extra High";
+  return effort.charAt(0).toUpperCase() + effort.slice(1);
+}
 
 /** "model · provider · effort", or "Same as main model (x)" for `auto`, as the app's helper model list words it. */
 export function describeModelChoice(choice?: ModelChoice, mainModel?: string) {
@@ -44,10 +46,7 @@ export function describeModelChoice(choice?: ModelChoice, mainModel?: string) {
       ? `Same as main model (${mainModel})`
       : "Same as main model";
   }
-  const effort = choice.effort
-    ? (effortLabels[choice.effort] ??
-      choice.effort.charAt(0).toUpperCase() + choice.effort.slice(1))
-    : undefined;
+  const effort = choice.effort ? effortLabel(choice.effort) : undefined;
   return [choice.model || "Provider default", choice.provider, effort]
     .filter(Boolean)
     .join(" · ");

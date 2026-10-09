@@ -92,14 +92,8 @@
   background: var(--h-surface);
 }
 
-.h-model-picker__effort-header {
-  margin: 0;
-  padding: 0 var(--hg-row-pad);
-  color: var(--h-muted);
-  font-size: var(--hg-header);
-  font-weight: var(--hg-header-weight);
-  line-height: 1.3;
-  text-transform: var(--hg-header-case);
+.h-model-picker__effort .h-model-picker__effort-header {
+  padding-bottom: 0;
 }
 
 .h-model-picker__pills {

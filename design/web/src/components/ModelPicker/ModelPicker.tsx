@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { GroupedChoiceRow } from "../GroupedChoiceRow/GroupedChoiceRow";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
-import type { ModelChoice } from "../ModelSlotRow/ModelSlotRow";
+import { effortLabel, type ModelChoice } from "../ModelSlotRow/ModelSlotRow";
 import { Sheet } from "../Sheet/Sheet";
 import { SettingsSearchField } from "../SettingsSearchField/SettingsSearchField";
 import { metricsClass } from "../../grouped";
@@ -78,13 +78,6 @@ export interface ModelPickerProps {
 
 /** More models than this get a search field, as in the app. */
 const searchAbove = 8;
-
-/** What the dashboard calls an effort (the app's `effortLabel`). */
-export function effortLabel(effort: string) {
-  if (effort === "none") return "Off";
-  if (effort === "xhigh") return "Extra High";
-  return effort.charAt(0).toUpperCase() + effort.slice(1);
-}
 
 /** Providers whose name matches keep every model; the others keep the models whose id matches. */
 function matching(providers: ModelPickerProvider[], search: string) {
@@ -221,7 +214,9 @@ export function ModelPicker({
       </div>
       {selected && efforts.length ? (
         <div className="h-model-picker__effort">
-          <h3 className="h-model-picker__effort-header">Reasoning effort</h3>
+          <h3 className="h-grouped-section__header h-model-picker__effort-header">
+            Reasoning effort
+          </h3>
           <div
             className="h-model-picker__pills"
             role="group"
