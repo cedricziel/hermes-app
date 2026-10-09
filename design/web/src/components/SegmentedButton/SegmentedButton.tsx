@@ -18,8 +18,9 @@ export interface SegmentedButtonProps {
 /**
  * A single choice between a few options inside a form, as Flutter's Material
  * 3 `SegmentedButton`, which the app draws the same on every platform: a
- * 40px outlined pill split into equal segments, the picked one tinted with a
- * check before its label. Use it for "Remote (URL)" / "Command" or the
+ * 40px outlined pill split into segments that share the width (a longer
+ * label, or the picked one with its check, gets the room it needs), the
+ * picked one tinted with a check before its label. Use it for "Remote (URL)" / "Command" or the
  * authentication kind. To switch between views of a screen use
  * `SegmentedControl` instead.
  */

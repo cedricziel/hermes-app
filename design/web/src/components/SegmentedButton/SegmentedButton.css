@@ -8,7 +8,7 @@
 }
 
 .h-segbutton__segment {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
   display: inline-flex;
   align-items: center;
