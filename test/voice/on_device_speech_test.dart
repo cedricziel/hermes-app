@@ -78,6 +78,18 @@ void main() {
       expect(calls.single.arguments, {'locale': 'de-DE'});
     });
 
+    test('tells listeners once a model is installed', () async {
+      answers['install'] = (_) => null;
+      final speech = OnDeviceSpeech();
+      var installs = 0;
+      speech.installed.listen((_) => installs++);
+
+      await speech.install('de-DE');
+      await pumpEventQueue();
+
+      expect(installs, 1);
+    });
+
     test('a failed install throws its code', () async {
       answers['install'] = (_) =>
           throw PlatformException(code: 'unsupported', message: 'nope');

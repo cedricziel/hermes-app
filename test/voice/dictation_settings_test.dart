@@ -23,6 +23,18 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
   });
 
+  test('is not loaded until load completes, and tells listeners', () async {
+    final settings = DictationSettings();
+    var told = 0;
+    settings.addListener(() => told++);
+    expect(settings.loaded, isFalse);
+
+    await settings.load();
+
+    expect(settings.loaded, isTrue);
+    expect(told, 1);
+  });
+
   test('dictates through Hermes until the user picks otherwise', () async {
     final settings = DictationSettings();
     await settings.load();

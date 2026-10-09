@@ -51,8 +51,10 @@ import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
 import '../voice/dictation_controller.dart';
+import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
+import '../voice/voice_support.dart';
 import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
@@ -154,6 +156,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesGatewayTransport? _ownedTransport;
   final _composerController = TextEditingController();
   DictationController? _dictation;
+  DictationSettings? _dictationSettings;
+  OnDeviceSpeech? _onDeviceSpeech;
+  StreamSubscription<void>? _modelInstalls;
 
   /// The profile whose voice support [_dictation] was last configured for.
   ({String? profile})? _voiceProfile;
@@ -271,8 +276,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         recorder: widget.voiceRecorder ?? RecordVoiceRecorder(),
         onTranscript: _insertTranscript,
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
-        onDevice: _maybeRead<OnDeviceSpeech>(),
+        onDevice: _onDeviceSpeech = _maybeRead<OnDeviceSpeech>(),
       );
+      _dictationSettings = _maybeRead<DictationSettings>()
+        ?..addListener(_refreshVoice);
+      _modelInstalls = _onDeviceSpeech?.installed.listen((_) {
+        if (_dictationEngine == DictationEngine.device) _refreshVoice();
+      });
       _refreshVoice();
     }
     _handoff = _maybeRead<HandoffController>();
@@ -557,6 +567,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..removeListener(_changed)
       ..dispose();
     _ownedTransport?.close();
+    _dictationSettings?.removeListener(_refreshVoice);
+    unawaited(_modelInstalls?.cancel());
     _dictation?.dispose();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
@@ -572,12 +584,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final dictation = _dictation;
     final repository = _chat.repository;
     if (dictation == null || repository == null) return;
+    // Until the saved engine is known, asking the server could break the
+    // on-device promise; the settings call back once loaded.
+    if (_dictationSettings?.loaded == false) return;
     final profile = _chat.profile;
     _voiceProfile = (profile: profile);
+    final engine = _dictationEngine;
+    bool current() =>
+        mounted && _chat.profile == profile && _dictationEngine == engine;
+    if (engine == DictationEngine.device) {
+      // Speech stays on the device, so the server's voice config is not read.
+      final model = await _onDeviceSpeech!.status(
+        OnDeviceSpeech.deviceLocale(),
+      );
+      if (!current()) return;
+      dictation.configure(
+        profile: profile,
+        support: VoiceSupport.none,
+        engine: engine,
+        model: model,
+      );
+      return;
+    }
     final support = await repository.voiceSupport(profile: profile);
-    if (!mounted || _chat.profile != profile) return;
+    if (!current()) return;
     dictation.configure(profile: profile, support: support);
   }
+
+  /// The chosen dictation engine; Hermes without an on-device recognizer.
+  DictationEngine get _dictationEngine => _onDeviceSpeech == null
+      ? DictationEngine.hermes
+      : _dictationSettings?.engine ?? DictationEngine.hermes;
 
   /// Puts a dictated [transcript] where the cursor is, a space apart from the
   /// text around it, without sending.
