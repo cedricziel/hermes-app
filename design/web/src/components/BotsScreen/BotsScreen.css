@@ -1,0 +1,26 @@
+/* A profile row's Add (the app's InstallButton). */
+.h-bots-add {
+  height: auto;
+  min-width: 0;
+  padding: 6px 12px;
+  border-radius: var(--h-radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.h-bots-add--ios {
+  min-height: 28px;
+  padding: 4px 14px;
+  font-size: 15px;
+}
+
+.h-bots-add--mac {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--h-surface);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  cursor: default;
+}
