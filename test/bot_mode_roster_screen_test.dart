@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_repository.dart';
 import 'package:hermes_app/src/bot_mode/bot_mode_roster_screen.dart';
+import 'package:hermes_app/src/widgets/grouped_list.dart';
 
 void main() {
   testWidgets('shows managed bots, filters them and offers explicit add', (
@@ -70,9 +71,21 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
-    expect(saved, isNotEmpty);
+    expect(saved, hasLength(1));
+    expect(saved.single['name'], 'plain');
     expect(find.text('Add an existing profile'), findsNothing);
-    expect(find.text('plain'), findsWidgets);
+    // The profile is now a bot: one row, with the bot's Edit button.
+    final row = find.byType(GroupedRow);
+    expect(row, findsOneWidget);
+    expect(
+      find.descendant(of: row, matching: find.text('plain')),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(of: row, matching: find.byTooltip('Edit bot')),
+      findsOneWidget,
+    );
+    expect(find.text('Add'), findsNothing);
   });
 
   testWidgets('older gateway explains unavailable state', (tester) async {
