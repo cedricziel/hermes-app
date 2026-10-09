@@ -71,7 +71,7 @@ void main() {
   final back = find.byKey(const ValueKey('mcp-review-back'));
 
   bool addEnabled(WidgetTester tester) =>
-      tester.widget<FilledButton>(addButton).onPressed != null;
+      tester.widget<ButtonStyleButton>(addButton).onPressed != null;
 
   Finder field(String label) => find.widgetWithText(TextField, label);
 
@@ -512,7 +512,7 @@ void main() {
 
       await tester.tap(addButton);
       await tester.pump();
-      final onPressed = tester.widget<FilledButton>(addButton).onPressed;
+      final onPressed = tester.widget<ButtonStyleButton>(addButton).onPressed;
       onPressed?.call();
       await tester.pumpAndSettle();
 
@@ -590,7 +590,7 @@ void main() {
         findsOneWidget,
       );
       expect(addEnabled(tester), isFalse);
-      final onPressed = tester.widget<FilledButton>(addButton).onPressed;
+      final onPressed = tester.widget<ButtonStyleButton>(addButton).onPressed;
       onPressed?.call();
       answer.complete((status: 200, body: mcpServerRow(name: 'linear')));
       await tester.pumpAndSettle();

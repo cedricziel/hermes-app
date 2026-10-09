@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import '../theme/app_icons.dart';
 import '../widgets/settings_scaffold.dart';
-import 'widgets/form_submit_button.dart';
 
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/widgets/adaptive_dialog.dart';
@@ -190,12 +189,20 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
         title: 'Edit as JSON',
         subtitle: [?profile, 'mcp_servers'].join(' · '),
         previousTitle: 'MCP servers',
-        body: _body(theme, sending: sending),
+        formAction: _loading
+            ? null
+            : SettingsFormAction(
+                key: const ValueKey('mcp-json-save'),
+                label: 'Save',
+                busy: sending,
+                onPressed: _canSave ? _save : null,
+              ),
+        body: _body(theme),
       ),
     );
   }
 
-  Widget _body(ThemeData theme, {required bool sending}) {
+  Widget _body(ThemeData theme) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
@@ -276,13 +283,6 @@ class _McpJsonEditorScreenState extends State<McpJsonEditorScreen> {
             const SizedBox(height: 8),
             Text(failure, style: TextStyle(color: theme.colorScheme.error)),
           ],
-          const SizedBox(height: 12),
-          FormSubmitButton(
-            buttonKey: const ValueKey('mcp-json-save'),
-            label: 'Save',
-            busy: sending,
-            onPressed: _canSave ? _save : null,
-          ),
         ],
       ),
     );
