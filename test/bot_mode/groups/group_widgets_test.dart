@@ -51,6 +51,45 @@ void main() {
       expect(find.text('two'), findsNWidgets(2));
     },
   );
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('on $platform a member row says whether it is checked', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final members = [
+        for (final id in ['one', 'two'])
+          GroupMember.fromJson(fixtures.member(id)),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: GroupMemberChecklist(
+              members: members,
+              selected: const {'one'},
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('one').last),
+        isSemantics(
+          hasCheckedState: true,
+          isChecked: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('two').last),
+        isSemantics(hasCheckedState: true, isChecked: false),
+      );
+      semantics.dispose();
+    });
+  }
+
   testWidgets('event prose has recorded author and discussion thread', (
     tester,
   ) async {

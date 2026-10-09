@@ -66,6 +66,53 @@ void main() {
     expect(_groupValue(tester), 'light');
   });
 
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    testWidgets('on $platform a row is one node with its checked state', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(_app(platform));
+
+      expect(
+        tester.getSemantics(find.text('Light')),
+        isSemantics(
+          label: 'Light',
+          hasCheckedState: true,
+          isChecked: true,
+          isInMutuallyExclusiveGroup: true,
+          hasEnabledState: true,
+          isEnabled: true,
+          hasTapAction: true,
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('Dark')),
+        isSemantics(
+          label: 'Dark',
+          hasCheckedState: true,
+          isChecked: false,
+          isInMutuallyExclusiveGroup: true,
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('Automatic')),
+        isSemantics(
+          label: 'Automatic',
+          hasCheckedState: true,
+          isChecked: false,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+      semantics.dispose();
+    });
+  }
+
   testWidgets('Material leads with the radio, past which separators start', (
     tester,
   ) async {

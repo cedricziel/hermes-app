@@ -42,11 +42,15 @@ class GroupedChoiceRow<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final apple = platformChromeOf(context).isApple;
     final group = RadioGroup.maybeOf<T>(context);
-    final radio = Radio<T>.adaptive(
-      value: value,
-      enabled: enabled,
-      useCupertinoCheckmarkStyle: true,
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    // The row says it is a radio button and whether it is picked, so the
+    // radio itself is only its picture.
+    final radio = ExcludeSemantics(
+      child: Radio<T>.adaptive(
+        value: value,
+        enabled: enabled,
+        useCupertinoCheckmarkStyle: true,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
     );
     return GroupedRow(
       title: title,
@@ -56,7 +60,10 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       leading: apple ? null : radio,
       trailing: apple ? radio : null,
       chevron: false,
-      onTap: enabled && group != null ? () => group.onChanged(value) : null,
+      checked: group?.groupValue == value,
+      inMutuallyExclusiveGroup: true,
+      enabled: enabled,
+      onTap: group == null ? null : () => group.onChanged(value),
     );
   }
 }

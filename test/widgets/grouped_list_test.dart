@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:hermes_app/src/widgets/grouped_list.dart';
@@ -217,6 +218,192 @@ void main() {
     );
     expect(find.text('Command · Off'), findsOneWidget);
   });
+
+  const long =
+      'The server refused the bot token because it was revoked in the '
+      'platform settings an hour ago, so the bot cannot sign in';
+
+  double lineHeight(WidgetTester tester, String text) {
+    final style = tester.widget<Text>(find.text(text)).style!;
+    return style.fontSize! * 1.5;
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('an error line on $platform wraps instead of cutting off', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(320, 640)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(platform, const GroupedRow(title: 'Slack', error: long)),
+      );
+      expect(
+        tester.getSize(find.text(long)).height,
+        greaterThan(lineHeight(tester, long)),
+      );
+      expect(
+        tester.renderObject<RenderParagraph>(find.text(long)).didExceedMaxLines,
+        isFalse,
+      );
+    });
+
+    testWidgets('a warning line on $platform wraps instead of cutting off', (
+      tester,
+    ) async {
+      tester.view
+        ..physicalSize = const Size(320, 640)
+        ..devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _app(platform, GroupedRow(title: 'Slack', warning: '$long. $long')),
+      );
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('$long. $long'))
+            .didExceedMaxLines,
+        isFalse,
+      );
+    });
+  }
+
+  testWidgets('a subtitle stays on one line unless the row asks for more', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(320, 640)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        const GroupedSection(
+          children: [
+            GroupedRow(key: Key('short'), title: 'One', subtitle: long),
+            GroupedRow(
+              key: Key('long'),
+              title: 'Two',
+              subtitle: '$long.',
+              subtitleMaxLines: null,
+            ),
+          ],
+        ),
+      ),
+    );
+    expect(
+      tester.renderObject<RenderParagraph>(find.text(long)).didExceedMaxLines,
+      isTrue,
+    );
+    expect(
+      tester
+          .renderObject<RenderParagraph>(find.text('$long.'))
+          .didExceedMaxLines,
+      isFalse,
+    );
+  });
+
+  testWidgets('a long value shortens instead of overflowing the row', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(320, 640)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _app(
+        TargetPlatform.iOS,
+        GroupedRow(
+          title: 'Platforms',
+          value: 'macOS, Linux, Windows, iOS, Android, FreeBSD, Haiku',
+          onTap: () {},
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getTopRight(find.text('Platforms')).dx,
+      lessThan(tester.getTopLeft(find.textContaining('macOS, Linux')).dx),
+    );
+  });
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('a disabled row on $platform is still a button', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      var taps = 0;
+      await tester.pumpWidget(
+        _app(
+          platform,
+          GroupedRow(
+            title: 'Estimate the work',
+            enabled: false,
+            onTap: () => taps++,
+          ),
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('Estimate the work')),
+        isSemantics(
+          label: 'Estimate the work',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+      await tester.tap(find.text('Estimate the work'));
+      expect(taps, 0);
+      semantics.dispose();
+    });
+
+    testWidgets('a checked row on $platform says it is checked', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _app(
+          platform,
+          GroupedRow(
+            title: 'Ada',
+            checked: true,
+            trailing: const Icon(Icons.check),
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('Ada')),
+        isSemantics(
+          label: 'Ada',
+          hasCheckedState: true,
+          isChecked: true,
+          hasTapAction: true,
+        ),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('a leading tile on $platform is not read out', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        _app(
+          platform,
+          GroupedRow(
+            title: 'Work assistant',
+            leading: const GroupedTile(child: Text('WA')),
+            onTap: () {},
+          ),
+        ),
+      );
+      expect(
+        tester.getSemantics(find.text('Work assistant')),
+        isSemantics(label: 'Work assistant'),
+      );
+      semantics.dispose();
+    });
+  }
 
   for (final (platform, size) in [
     (TargetPlatform.iOS, 29.0),

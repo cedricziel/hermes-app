@@ -187,19 +187,17 @@ class _MemberRow extends StatelessWidget {
               ),
             ),
     );
-    return Semantics(
-      checked: checked,
-      enabled: enabled,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.45,
-        child: GroupedRow(
-          title: member.displayName ?? member.profile,
-          subtitle: '@${member.handle}',
-          leading: apple ? null : mark,
-          trailing: apple ? mark : null,
-          chevron: false,
-          onTap: enabled ? () => onChanged(!checked) : null,
-        ),
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GroupedRow(
+        title: member.displayName ?? member.profile,
+        subtitle: '@${member.handle}',
+        leading: apple ? null : mark,
+        trailing: apple ? mark : null,
+        chevron: false,
+        checked: checked,
+        enabled: enabled,
+        onTap: () => onChanged(!checked),
       ),
     );
   }
