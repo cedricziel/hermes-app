@@ -37,3 +37,14 @@ export const AppleDark = () => (
     <Set />
   </HermesProvider>
 );
+
+/** The Mac settings row's small toggle (`small`): 36x22, on, off and disabled. */
+export const AppleSmall = () => (
+  <HermesProvider platform="apple" style={stage}>
+    <div style={row}>
+      <Switch small checked label="Enabled" />
+      <Switch small checked={false} label="Hide from dashboard sidebar" />
+      <Switch small checked disabled label="Live Activities" />
+    </div>
+  </HermesProvider>
+);
