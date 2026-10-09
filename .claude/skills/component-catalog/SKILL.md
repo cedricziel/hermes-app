@@ -20,10 +20,11 @@ a design tool. If a widget only works inside a screen, that is the thing to
 fix. Widgets that a screen builds inline should be pulled out into
 `lib/src/*/widgets/` so they can have use cases.
 
-The same widget has a hand-made React copy in `design/web` that Claude Design
-builds with. A change to how a widget looks leaves that copy stale until it is
-ported (see `.design-sync/NOTES.md`); say "needs a design port" in the PR body
-so the port gets planned, or port it in the same PR.
+Many widgets and screens also have a hand-made React copy in
+`design/web/src/components/`, which Claude Design builds with. If the one you
+changed has one, a visual change leaves it stale until it is ported (see
+`.design-sync/NOTES.md`): port it in the same PR, or write "needs a design
+port" in the PR body so the port gets planned.
 
 ## Run it
 
