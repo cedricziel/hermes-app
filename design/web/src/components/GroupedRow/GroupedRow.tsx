@@ -189,6 +189,7 @@ export interface GroupedTileProps {
  * A row's leading picture in a rounded square filled with the tinted
  * surface: iOS 29px (7px corners, 18px glyph), Mac 24px (6px, 14px),
  * Material 32px (10px, 20px). Letters are 3/4 of the glyph size, semibold.
+ * Decorative: hidden from assistive technology, the row's title names it.
  * Pass it as a row's `leading` and `dividerIndent="tile"` on the section.
  */
 export function GroupedTile({
@@ -199,7 +200,10 @@ export function GroupedTile({
 }: GroupedTileProps) {
   const chrome = useGroupedChrome(platform, device);
   return (
-    <span className={cx("h-grouped-tile", metricsClass(chrome))}>
+    <span
+      className={cx("h-grouped-tile", metricsClass(chrome))}
+      aria-hidden
+    >
       {icon ? (
         <Icon name={icon} size={groupedMetrics[chrome].tileIconSize} />
       ) : (
