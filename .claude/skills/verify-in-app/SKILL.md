@@ -578,6 +578,27 @@ the app says "No speech detected".
   access; allow it by hand. A screenshot can show the waveform but not what
   was heard: speak, tap stop and read the draft.
 
+### On this device
+
+- Account menu (Settings… on macOS) > Dictation > On this device. The dev app
+  has to request the language's model once even when the system already has it
+  (the request then finishes in well under a second); `swift`/command-line
+  probes see the system's models, the sandboxed app only its own.
+- The backend logs no requests, so to prove no `/api/audio/` call goes out,
+  put a logging TCP forwarder in front of it (a dozen lines of `asyncio` that
+  forward bytes and write each `GET /path HTTP` line to a file; `socat` is not
+  installed) and launch `flutter run -d macos
+  --dart-define=HERMES_SERVER_URL=http://127.0.0.1:<proxy port>` yourself:
+  `dev-app.sh start` refuses a port the backend's pid doesn't listen on.
+  Saving the engine and restarting caught a `voice-config` read made before
+  the setting had loaded.
+- The iOS simulator has no on-device recognizer (`SpeechTranscriber.isAvailable`
+  is false), so it shows "Not available for your language". Use a device.
+- Without a microphone in the loop, a throwaway `lib/*_tmp.dart` entry run with
+  `flutter run -d macos -t` can feed `say` PCM through `OnDeviceSpeech` in
+  3200-byte chunks. Print with `print`, not `stdout`, so it also shows on iOS,
+  and delete the file before committing.
+
 ## Verify Apple Handoff
 
 Use an isolated backend and invented saved chats. Never install a test build

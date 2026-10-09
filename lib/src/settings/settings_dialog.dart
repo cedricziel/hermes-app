@@ -6,6 +6,8 @@ import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
+import '../voice/dictation_dialog.dart';
+import '../voice/dictation_settings.dart';
 import '../widgets/grouped_dialog.dart';
 import '../widgets/grouped_list.dart';
 import 'about_dialog.dart';
@@ -15,6 +17,7 @@ import 'theme_controller.dart';
 enum _Setting {
   appearance('Appearance'),
   notifications('Notifications'),
+  dictation('Dictation'),
   appLock('App Lock'),
   about('About Hermes'),
   changeServer('Change Server');
@@ -35,6 +38,13 @@ Future<void> showSettingsDialog(BuildContext context) async {
     _Setting.notifications: _read<NotificationSettings>(
       context,
       (settings) => _onOff(settings.enabled),
+    ),
+    _Setting.dictation: _read<DictationSettings>(
+      context,
+      (settings) => switch (settings.engine) {
+        DictationEngine.hermes => 'Hermes',
+        DictationEngine.device => 'On this device',
+      },
     ),
     _Setting.appLock: _read<AppLockController>(
       context,
@@ -57,6 +67,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
             children: [
               row(_Setting.appearance),
               row(_Setting.notifications),
+              if (dictationEngineOffered) row(_Setting.dictation),
               row(_Setting.appLock),
             ],
           ),
@@ -73,6 +84,8 @@ Future<void> showSettingsDialog(BuildContext context) async {
       await showAppearanceDialog(context);
     case _Setting.notifications:
       await showNotificationsDialog(context);
+    case _Setting.dictation:
+      await showDictationDialog(context);
     case _Setting.appLock:
       await showAppLockDialog(context);
     case _Setting.about:

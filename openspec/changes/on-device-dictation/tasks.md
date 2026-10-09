@@ -53,7 +53,7 @@
 
 ## 3. PR 3: `feat(voice): choose on-device dictation`
 
-- [ ] 3.1 Build the Dictation settings dialog as a plain-model widget in `lib/src/voice/widgets/`, plus the composer's "model missing" notice. Add Widgetbook use cases in `widgetbook/voice_use_cases.dart`, each in both themes at phone and desktop width:
+- [x] 3.1 Build the Dictation settings dialog as a plain-model widget in `lib/src/voice/widgets/`, plus the composer's "model missing" notice. Add Widgetbook use cases in `widgetbook/voice_use_cases.dart`, each in both themes at phone and desktop width:
   - Hermes chosen;
   - device ready;
   - model not downloaded;
@@ -64,9 +64,9 @@
 
   Verify with `flutter test test/widgetbook_test.dart`.
 
-- [ ] 3.2 Write a failing widget test, then wire the dialog. Add "Dictation…" to `settings_dialog.dart` and the account menu on iOS and macOS only, hidden elsewhere. Connect it to `DictationSettings` and to `OnDeviceSpeech` status and install, including reopening during a download. Record the install's outcome as `voice.model.install` (outcome only), starting with a failing assertion.
-- [ ] 3.3 Write a failing `ChatScreen` test: with the device engine and a ready model, the microphone shows while `voice-config` reports `stt disabled`; with the model missing it is hidden. Then make `ChatScreen` skip `voice-config` for the device engine and recheck on profile change, engine change and resume.
-- [ ] 3.4 Update `CLAUDE.md`'s Voice paragraph, and the `verify-in-app` skill with the permission and model-download steps the dev app needs. At archive time, update the voice-dictation spec's Purpose, which today names only Hermes' transcript.
+- [x] 3.2 Write a failing widget test, then wire the dialog. Add "Dictation…" to `settings_dialog.dart` and the account menu on iOS and macOS only, hidden elsewhere. Connect it to `DictationSettings` and to `OnDeviceSpeech` status and install, including reopening during a download. Record the install's outcome as `voice.model.install` (outcome only), starting with a failing assertion.
+- [x] 3.3 Write a failing `ChatScreen` test: with the device engine and a ready model, the microphone shows while `voice-config` reports `stt disabled`; with the model missing it is hidden. Then make `ChatScreen` skip `voice-config` for the device engine and recheck on profile change, engine change and resume.
+- [x] 3.4 Update `CLAUDE.md`'s Voice paragraph, and the `verify-in-app` skill with the permission and model-download steps the dev app needs. At archive time, update the voice-dictation spec's Purpose, which today names only Hermes' transcript.
 - [ ] 3.5 Verify all of these:
   - `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test` are green.
   - `verify-in-app` on macOS:

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/on_device_speech.dart';
@@ -10,7 +12,11 @@ class FakeSpeechChannel {
     _messenger.setMockMethodCallHandler(OnDeviceSpeech.methods, _answer);
     _messenger.setMockStreamHandler(
       OnDeviceSpeech.events,
-      MockStreamHandler.inline(onListen: (_, sink) => _events = sink),
+      MockStreamHandler.inline(
+        onListen: (_, sink) {
+          _events = sink;
+        },
+      ),
     );
   }
 
@@ -25,6 +31,7 @@ class FakeSpeechChannel {
   String transcript = '';
   String? finishError;
 
+  Completer<void>? _install;
   final calls = <MethodCall>[];
   final audio = <int>[];
   MockStreamHandlerEventSink? _events;
@@ -35,6 +42,27 @@ class FakeSpeechChannel {
   /// The recognizer's latest text for the open session.
   void hears(String text) =>
       _events?.success({'id': _session, 'type': 'partial', 'text': text});
+
+  /// How far the model download is. In a widget test, call it inside
+  /// `tester.runAsync`: the event is delivered outside the fake clock.
+  Future<void> progress(double fraction) async {
+    // Lets a listen that is still being set up arrive first.
+    await Future<void>.delayed(Duration.zero);
+    _events?.success({'type': 'progress', 'fraction': fraction});
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  /// Ends the `install` in progress.
+  void completeInstall() {
+    status = 'installed';
+    _install?.complete();
+    _install = null;
+  }
+
+  void failInstall(String code) {
+    _install?.completeError(PlatformException(code: code));
+    _install = null;
+  }
 
   /// The recognizer fails mid-recording.
   void fails(String code) =>
@@ -50,6 +78,10 @@ class FakeSpeechChannel {
     switch (call.method) {
       case 'status':
         return status;
+      case 'install':
+        status = 'downloading';
+        await (_install = Completer()).future;
+        return null;
       case 'start':
         if (status != 'installed') {
           throw PlatformException(code: 'modelMissing');

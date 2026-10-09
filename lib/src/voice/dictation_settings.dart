@@ -21,26 +21,31 @@ class DictationSettings extends ChangeNotifier {
   final SharedPreferencesAsync _prefs;
 
   var _engine = DictationEngine.hermes;
+  var _loaded = false;
   var _picks = 0;
   Future<void> _lastWrite = Future.value();
 
   DictationEngine get engine => _engine;
 
+  /// False until [load] read the saved engine or the user picked one;
+  /// [engine] is only the default before that.
+  bool get loaded => _loaded;
+
   Future<void> load() async {
     final picksBefore = _picks;
     final saved = await _prefs.getString(_prefsEngineKey);
     if (_picks != picksBefore) return;
-    final engine =
+    _engine =
         DictationEngine.values.asNameMap()[saved] ?? DictationEngine.hermes;
-    if (engine == _engine) return;
-    _engine = engine;
+    _loaded = true;
     notifyListeners();
   }
 
   Future<void> setEngine(DictationEngine engine) {
     _picks++;
-    if (engine != _engine) {
+    if (engine != _engine || !_loaded) {
       _engine = engine;
+      _loaded = true;
       notifyListeners();
     }
     return _lastWrite = _lastWrite

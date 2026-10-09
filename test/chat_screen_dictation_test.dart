@@ -1,13 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/voice/dictation_settings.dart';
+import 'package:hermes_app/src/voice/on_device_speech.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_hermes_server.dart';
+import 'support/fake_speech_channel.dart';
 import 'support/fake_voice_recorder.dart';
 import 'support/pump_chat.dart';
 
 final _dictate = find.bySemanticsLabel('Dictate');
 
-FakeHermesServer _server({bool voice = true}) {
+FakeHermesServer _server({bool voice = true, bool sttDisabled = false}) {
   final server = FakeHermesServer()
     ..on('GET', '/api/sessions', sessionListBody(const []))
     ..on('POST', '/api/audio/stt-lease', {'ok': true})
@@ -15,7 +24,13 @@ FakeHermesServer _server({bool voice = true}) {
       'ok': true,
       'transcript': 'book a table',
     });
-  if (voice) {
+  if (sttDisabled) {
+    server.on('GET', '/api/audio/voice-config', {
+      'ok': true,
+      'stt': {'mode': 'relay', 'reason': 'stt disabled'},
+      'tts': {'mode': 'relay'},
+    });
+  } else if (voice) {
     server.on('GET', '/api/audio/voice-config', {
       'ok': true,
       'stt': {'mode': 'relay', 'reason': 'local provider'},
@@ -96,5 +111,128 @@ void main() {
     expect(recorder.recording, isFalse);
     expect(server.requestsTo('POST', '/api/audio/transcribe'), isEmpty);
     expect(composerField, findsOneWidget);
+  });
+
+  group('on the device', () {
+    late FakeSpeechChannel speech;
+    late DictationSettings settings;
+    late OnDeviceSpeech onDevice;
+
+    setUp(() {
+      speech = FakeSpeechChannel();
+      settings = DictationSettings();
+      onDevice = OnDeviceSpeech();
+    });
+    tearDown(() => speech.dispose());
+
+    Future<FakeHermesServer> pump(
+      WidgetTester tester, {
+      DictationEngine engine = DictationEngine.device,
+      FakeVoiceRecorder? recorder,
+    }) async {
+      final server = _server(sttDisabled: true);
+      unawaited(settings.setEngine(engine));
+      await pumpChatScreen(
+        tester,
+        server: server,
+        voiceRecorder: recorder ?? FakeVoiceRecorder(),
+        providers: [
+          ChangeNotifierProvider.value(value: settings),
+          Provider.value(value: onDevice),
+        ],
+      );
+      return server;
+    }
+
+    testWidgets('offers the microphone without a server provider', (
+      tester,
+    ) async {
+      final server = await pump(tester);
+
+      expect(_dictate, findsOneWidget);
+      expect(server.requestsTo('GET', '/api/audio/voice-config'), isEmpty);
+    });
+
+    testWidgets('a saved device engine never reads the voice config', (
+      tester,
+    ) async {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+      final prefs = SharedPreferencesAsync();
+      settings = DictationSettings(prefs: prefs);
+      final server = _server(sttDisabled: true);
+      await pumpChatScreen(
+        tester,
+        server: server,
+        voiceRecorder: FakeVoiceRecorder(),
+        providers: [
+          ChangeNotifierProvider.value(value: settings),
+          Provider.value(value: onDevice),
+        ],
+      );
+      await tester.runAsync(
+        () => prefs.setString('hermes.dictation_engine', 'device'),
+      );
+      await tester.runAsync(settings.load);
+      await tester.pumpAndSettle();
+
+      expect(server.requestsTo('GET', '/api/audio/voice-config'), isEmpty);
+      expect(_dictate, findsOneWidget);
+    });
+
+    testWidgets('hides the microphone while the model is missing', (
+      tester,
+    ) async {
+      speech.status = 'missing';
+      await pump(tester);
+
+      expect(_dictate, findsNothing);
+    });
+
+    testWidgets('switching the engine checks again', (tester) async {
+      await pump(tester, engine: DictationEngine.hermes);
+      expect(_dictate, findsNothing, reason: 'the server has no STT');
+
+      unawaited(settings.setEngine(DictationEngine.device));
+      await tester.pumpAndSettle();
+
+      expect(_dictate, findsOneWidget);
+    });
+
+    testWidgets('a finished download shows the microphone', (tester) async {
+      speech.status = 'missing';
+      await pump(tester);
+      expect(_dictate, findsNothing);
+
+      final installing = onDevice.install('en-US');
+      await tester.pump();
+      speech.completeInstall();
+      await installing;
+      await tester.pumpAndSettle();
+
+      expect(_dictate, findsOneWidget);
+    });
+
+    testWidgets('dictates into the draft without asking the server', (
+      tester,
+    ) async {
+      speech.transcript = 'book a table';
+      final recorder = FakeVoiceRecorder();
+      final server = await pump(tester, recorder: recorder);
+      await tester.enterText(composerField, 'Please');
+
+      await tester.tap(_dictate);
+      await tester.pump(const Duration(milliseconds: 300));
+      recorder.speak(List.filled(160, 4000));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.bySemanticsLabel('Stop voice input'));
+      await tester.pumpAndSettle();
+
+      expect(_draft(tester), 'Please book a table');
+      expect(
+        server.requests.where((r) => r.path.startsWith('/api/audio/')),
+        isEmpty,
+      );
+    });
   });
 }

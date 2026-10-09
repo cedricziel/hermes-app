@@ -7,7 +7,8 @@ import '../dictation_controller.dart';
 
 /// The line above the composer that says how a dictation ended, when it did
 /// not end with text: nothing heard, a failure (with [onRetry] when the
-/// recording was kept) or no microphone access.
+/// recording was kept), no microphone access, or the device's speech model
+/// gone.
 class DictationNotice extends StatelessWidget {
   const DictationNotice({
     super.key,
@@ -24,7 +25,8 @@ class DictationNotice extends StatelessWidget {
   static bool shows(DictationPhase phase) => switch (phase) {
     DictationPhase.failed ||
     DictationPhase.noSpeech ||
-    DictationPhase.denied => true,
+    DictationPhase.denied ||
+    DictationPhase.modelMissing => true,
     _ => false,
   };
 
@@ -37,6 +39,9 @@ class DictationNotice extends StatelessWidget {
       DictationPhase.denied =>
         'Microphone access is off. Allow it for Hermes in your device’s '
             'privacy settings.',
+      DictationPhase.modelMissing =>
+        'The speech model for your language isn’t on this device anymore. '
+            'Download it again in the Dictation settings.',
       _ => '',
     };
     final scheme = Theme.of(context).colorScheme;
