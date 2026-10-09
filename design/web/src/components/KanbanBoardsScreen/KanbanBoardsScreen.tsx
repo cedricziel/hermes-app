@@ -1,16 +1,9 @@
-import { useState } from "react";
-import { Button } from "../Button/Button";
-import { IconButton } from "../IconButton/IconButton";
-import { ListDetailLayout } from "../ListDetailLayout/ListDetailLayout";
-import { ListRow } from "../ListRow/ListRow";
-import { Menu, MenuAnchor } from "../Menu/Menu";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
 import type { KanbanBoardItem } from "../KanbanToolbar/KanbanToolbar";
-import {
-  PlatformScope,
-  usePlatform,
-  type AppleDevice,
-  type Platform,
-} from "../../platform";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
+import type { AppleDevice, Platform } from "../../platform";
+import { KanbanMenuRow } from "./KanbanMenuRow";
 
 /** What a board row's "…" menu asks for. */
 export type KanbanBoardAction = "rename" | "export" | "archive" | "delete";
@@ -18,39 +11,39 @@ export type KanbanBoardAction = "rename" | "export" | "archive" | "delete";
 export interface KanbanBoardsScreenProps {
   /** Every board on the server, as the switcher lists them. */
   boards: KanbanBoardItem[];
-  /** Slug of the board on screen: a filled check instead of an empty circle. */
+  /** Slug of the board on screen: a muted "Current" before its "…" button. */
   current?: string;
   /** Slug of the board whose "…" menu starts open, for previews. */
   defaultMenuBoard?: string;
   /**
-   * `apple`: a chevron back button with "Kanban" beside it on an iPhone,
-   * the iOS type ramp and 44px rows, iOS pull-downs or Mac menus (see
-   * `device`). The rows stay a plain list and "New board" a floating
-   * button, as in the app. Inherits the provider's platform.
+   * A `SettingsScaffold` page. `apple` + `touch` (iPhone): "Kanban" beside
+   * the back chevron, the title centred over "3 boards", 17px rows in an
+   * inset group, "…" opening the iOS pull-down. `apple` + `mac`: the 52px
+   * toolbar, 13px rows in a centred 600px column, the compact Mac menu.
+   * `material`: the 56px bar, 56px rows, a vertical "⋮" and the Material
+   * popup. Inherits the provider's platform.
    */
   platform?: Platform;
-  /** Under `apple`, `touch` or `mac` for the row menus; inherited from the enclosing `AppShell`, else `mac`. */
+  /** Under `apple`: `mac` or `touch`. Defaults to the enclosing `AppShell`'s, else `touch`. */
   device?: AppleDevice;
-  /** `phone` shows the parent's title beside the Apple back chevron. */
-  layout?: "phone" | "desktop";
   /** A board row was pressed: switch to it and go back to the board. */
   onSelect?: (slug: string) => void;
   /** An entry of a row's menu was picked (Archive and Delete only when there is more than one board). */
   onAction?: (slug: string, action: KanbanBoardAction) => void;
-  /** "New board" pressed (the app asks for a name). */
+  /** The bar's "+" (New board; the app asks for a name). */
   onCreate?: () => void;
-  /** The import button in the bar pressed (the app asks for an archive path on the server). */
+  /** The bar's import button (a folder on Apple; the app asks for an archive path on the server). */
   onImport?: () => void;
   /** Back pressed. */
   onBack?: () => void;
 }
 
 /**
- * "Boards", opened from the board switcher's "Manage boards…": every board
- * as a `ListRow` (name, slug and task count) with a "…" menu (Rename,
- * Export…, Archive, Delete), an import button in the bar and a "New board"
- * floating button. Built on `ListDetailLayout` in its `list` layout. Fills
- * its parent.
+ * "Boards", opened from the board switcher's "Manage boards…": a
+ * `SettingsScaffold` with "N boards" under the title and Import and "+" in
+ * the bar, then one inset group with a row per board (name; slug and task
+ * count), "Current" on the open board and a "…" menu (Rename, Export…,
+ * Archive, Delete). Fills its parent.
  */
 export function KanbanBoardsScreen({
   boards,
@@ -58,84 +51,58 @@ export function KanbanBoardsScreen({
   defaultMenuBoard,
   platform,
   device,
-  layout = "phone",
   onSelect,
   onAction,
   onCreate,
   onImport,
   onBack,
 }: KanbanBoardsScreenProps) {
-  const resolvedPlatform = usePlatform(platform);
   const several = boards.length > 1;
-  const [menu, setMenu] = useState(defaultMenuBoard);
   return (
-    <PlatformScope platform={resolvedPlatform}>
-      <ListDetailLayout
-        layout="list"
-        title="Boards"
-        onBack={onBack ?? (() => {})}
-        backLabel={layout === "phone" ? "Kanban" : undefined}
-        actions={
-          <IconButton
-            icon="file_open"
-            label="Import a board"
-            onClick={onImport}
-          />
-        }
-        floatingAction={
-          <Button icon="add" onClick={onCreate}>
-            New board
-          </Button>
-        }
-        list={
-          <div>
+    <SettingsScaffold
+      title="Boards"
+      subtitle={boards.length === 1 ? "1 board" : `${boards.length} boards`}
+      onBack={onBack ?? (() => {})}
+      backLabel="Kanban"
+      actions={[
+        { icon: "file_open", label: "Import a board", onClick: onImport },
+        { icon: "add", label: "New board", onClick: onCreate },
+      ]}
+      platform={platform}
+      device={device}
+    >
+      <GroupedListView>
+        {boards.length > 0 ? (
+          <GroupedSection>
             {boards.map((b) => (
-              <ListRow
+              <KanbanMenuRow<KanbanBoardAction>
                 key={b.slug}
-                grouped={false}
-                icon={b.slug === current ? "check_circle" : "circle"}
-                iconFilled={b.slug === current}
                 title={b.name}
                 subtitle={`${b.slug} · ${b.total} tasks`}
+                value={b.slug === current ? "Current" : undefined}
+                menuLabel={b.name}
+                menuOpen={defaultMenuBoard === b.slug}
                 onClick={() => onSelect?.(b.slug)}
-                trailing={
-                  <MenuAnchor>
-                    <IconButton
-                      icon="more_vert"
-                      label={`${b.name} actions`}
-                      onClick={() =>
-                        setMenu(menu === b.slug ? undefined : b.slug)
-                      }
-                    />
-                    {menu === b.slug ? (
-                      <Menu<KanbanBoardAction>
-                        align="end"
-                        label={b.name}
-                        device={device}
-                        style={{ minWidth: 180 }}
-                        items={[
-                          { label: "Rename", value: "rename" },
-                          { label: "Export…", value: "export" },
-                          ...(several
-                            ? [
-                                { label: "Archive", value: "archive" as const },
-                                { label: "Delete", value: "delete" as const },
-                              ]
-                            : []),
-                        ]}
-                        onSelect={(item) => {
-                          setMenu(undefined);
-                          if (item.value) onAction?.(b.slug, item.value);
-                        }}
-                      />
-                    ) : null}
-                  </MenuAnchor>
-                }
+                onAction={(action) => onAction?.(b.slug, action)}
+                actions={[
+                  { label: "Rename", value: "rename" },
+                  { label: "Export…", value: "export" },
+                  ...(several
+                    ? [
+                        { label: "Archive", value: "archive" as const },
+                        {
+                          label: "Delete",
+                          value: "delete" as const,
+                          destructive: true,
+                        },
+                      ]
+                    : []),
+                ]}
               />
             ))}
-          </div>
-        }
-      />
-    </PlatformScope>
+          </GroupedSection>
+        ) : null}
+      </GroupedListView>
+    </SettingsScaffold>
   );
 }
