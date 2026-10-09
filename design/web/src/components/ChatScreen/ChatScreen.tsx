@@ -14,13 +14,13 @@ import {
 import { ChatHeader } from "../ChatHeader/ChatHeader";
 import { ChatThread, type ChatTurn } from "../ChatThread/ChatThread";
 import { ModelPill } from "../ModelPill/ModelPill";
+import type { SettingsEntry } from "../SettingsDialog/SettingsDialog";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import {
   ThreadSidebar,
   type AccountAction,
   type MacProfileScope,
-  type SettingsEntry,
   type ThreadAction,
   type ThreadGrouping,
   type ThreadItem,

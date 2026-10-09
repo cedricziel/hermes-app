@@ -1,6 +1,10 @@
 import { GroupedDialog } from "../GroupedDialog/GroupedDialog";
 import { GroupedRow } from "../GroupedRow/GroupedRow";
 import { GroupedSection } from "../GroupedSection/GroupedSection";
+import {
+  themeModeLabels,
+  type ThemeMode,
+} from "../AppearanceDialog/AppearanceDialog";
 import type { AppleDevice, Platform } from "../../platform";
 
 /** An entry of the Settings list: each opens its own dialog, except `change-server`, which leaves for the server setup screen. */
@@ -8,8 +12,8 @@ export type SettingsEntry =
   "appearance" | "notifications" | "app-lock" | "about" | "change-server";
 
 export interface SettingsDialogProps {
-  /** The theme the Appearance row shows as its value: "Follow system", "Light" or "Dark". Leave out for no value. */
-  appearance?: string;
+  /** The theme in use; the Appearance row shows its name as the value ("Follow system", "Light", "Dark"). Leave out for no value. */
+  appearance?: ThemeMode;
   /** Notifications are on: the Notifications row reads "On", else "Off". Leave out for no value. */
   notifications?: boolean;
   /** App lock is on: the App Lock row reads "On", else "Off". Leave out for no value. */
@@ -63,7 +67,11 @@ export function SettingsDialog({
       device={device}
     >
       <GroupedSection>
-        {row("appearance", "Appearance", appearance)}
+        {row(
+          "appearance",
+          "Appearance",
+          appearance && themeModeLabels[appearance],
+        )}
         {row("notifications", "Notifications", onOff(notifications))}
         {row("app-lock", "App Lock", onOff(appLock))}
       </GroupedSection>

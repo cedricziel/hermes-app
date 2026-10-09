@@ -14,7 +14,7 @@ const row = { display: "flex", gap: 16, alignItems: "flex-start" } as const;
 const noop = () => {};
 
 const values = {
-  appearance: "Follow system",
+  appearance: "system",
   notifications: true,
   appLock: false,
 } as const;
@@ -39,7 +39,7 @@ export const IPhoneAndMaterial = () => (
     <HermesProvider>
       <div style={phone}>
         <SettingsDialog
-          appearance="Dark"
+          appearance="dark"
           notifications={false}
           appLock
           onPick={noop}
@@ -55,7 +55,7 @@ export const Dark = () => (
   <HermesProvider platform="apple" typeRamp="default" theme="dark">
     <div style={mac}>
       <SettingsDialog
-        appearance="Dark"
+        appearance="dark"
         notifications
         appLock
         device="mac"

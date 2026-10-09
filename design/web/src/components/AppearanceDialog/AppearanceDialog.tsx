@@ -6,11 +6,12 @@ import type { AppleDevice, Platform } from "../../platform";
 /** The app's theme modes. */
 export type ThemeMode = "system" | "light" | "dark";
 
-const themeModes: { value: ThemeMode; label: string }[] = [
-  { value: "system", label: "Follow system" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-];
+/** What each theme mode is called in the settings (the app's `themeModeLabels`). */
+export const themeModeLabels: Record<ThemeMode, string> = {
+  system: "Follow system",
+  light: "Light",
+  dark: "Dark",
+};
 
 export interface AppearanceDialogProps {
   /** The theme in use; its row is checked. */
@@ -49,12 +50,12 @@ export function AppearanceDialog({
       device={device}
     >
       <GroupedSection dividerIndent="choice">
-        {themeModes.map((m) => (
+        {(Object.keys(themeModeLabels) as ThemeMode[]).map((m) => (
           <GroupedChoiceRow
-            key={m.value}
-            title={m.label}
-            checked={m.value === mode}
-            onSelect={() => onChange?.(m.value)}
+            key={m}
+            title={themeModeLabels[m]}
+            checked={m === mode}
+            onSelect={() => onChange?.(m)}
           />
         ))}
       </GroupedSection>

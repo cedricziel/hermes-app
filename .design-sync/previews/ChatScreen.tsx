@@ -304,7 +304,7 @@ export const AppleMacSettings = () => (
         windowSize="medium"
         settingsOpen
         settingsValues={{
-          appearance: "Follow system",
+          appearance: "system",
           notifications: true,
           appLock: false,
         }}
