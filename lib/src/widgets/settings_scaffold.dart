@@ -43,6 +43,63 @@ class SettingsBarAction {
   final Key? key;
 }
 
+/// A form's Save or Create in a settings page's bar: a text button on iOS
+/// and Material, a small push button in the Mac toolbar. While [busy] it
+/// shows progress and ignores taps.
+class SettingsFormAction {
+  const SettingsFormAction({
+    required this.label,
+    required this.onPressed,
+    this.busy = false,
+    this.key,
+  });
+
+  final String label;
+
+  /// Null disables the button.
+  final VoidCallback? onPressed;
+  final bool busy;
+  final Key? key;
+
+  VoidCallback? get _onPressed => busy ? null : onPressed;
+
+  Widget _progress(double size) => SizedBox.square(
+    dimension: size,
+    child: const CircularProgressIndicator.adaptive(strokeWidth: 2),
+  );
+
+  Widget _mac(BuildContext context) => FilledButton(
+    key: key,
+    onPressed: _onPressed,
+    style: FilledButton.styleFrom(
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+    ),
+    child: busy ? _progress(12) : Text(label),
+  );
+
+  Widget _phone(BuildContext context, {required bool ios}) {
+    final color = Theme.of(context).colorScheme.primary;
+    return TextButton(
+      key: key,
+      onPressed: _onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: color,
+        minimumSize: const Size(kAppleMinTapTarget, kAppleMinTapTarget),
+        textStyle: TextStyle(
+          fontSize: ios ? 17 : 16,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      child: busy ? _progress(18) : Text(label),
+    );
+  }
+}
+
 /// A menu that a settings page's subtitle opens, such as the profiles a page
 /// can show; the subtitle then ends in a small chevron.
 class SettingsSubtitleMenu<T> {
@@ -110,6 +167,8 @@ class SettingsScaffold extends StatelessWidget {
     this.tabs,
     this.tabController,
     this.search,
+    this.formAction,
+    this.cancel = false,
     required this.body,
   });
 
@@ -127,6 +186,13 @@ class SettingsScaffold extends StatelessWidget {
   final List<String>? tabs;
   final TabController? tabController;
   final SettingsSearch? search;
+
+  /// A form's Save or Create, at the bar's trailing edge after [actions].
+  final SettingsFormAction? formAction;
+
+  /// Leads with Cancel (iOS) or a close button (Material) instead of back,
+  /// for a form; the Mac keeps its back button.
+  final bool cancel;
   final Widget body;
 
   @override
@@ -181,6 +247,10 @@ class SettingsScaffold extends StatelessWidget {
               if ((tabs != null || search != null) && actions.isNotEmpty)
                 const MacToolbarSeparator(),
               for (final action in actions) _macAction(action),
+              if (formAction case final formAction?) ...[
+                const SizedBox(width: 4),
+                formAction._mac(context),
+              ],
             ],
           ),
           Expanded(
@@ -233,8 +303,12 @@ class SettingsScaffold extends StatelessWidget {
         toolbarHeight: ios ? kAppleNavBarHeight : 56,
         centerTitle: ios,
         automaticallyImplyLeading: false,
-        leading: leading,
-        leadingWidth: back ? adaptiveBackLeadingWidth(context) : null,
+        leading: cancel ? _cancelButton(context, ios) : leading,
+        leadingWidth: cancel
+            ? (ios ? 88 : null)
+            : back
+            ? adaptiveBackLeadingWidth(context)
+            : null,
         title: _BarTitle(
           title: title,
           subtitle: subtitle,
@@ -243,6 +317,8 @@ class SettingsScaffold extends StatelessWidget {
         ),
         actions: [
           for (final action in actions) _phoneAction(context, action, ios),
+          if (formAction case final formAction?)
+            formAction._phone(context, ios: ios),
           SizedBox(width: ios ? 4 : 8),
         ],
         bottom: bottomHeight == 0
@@ -268,6 +344,18 @@ class SettingsScaffold extends StatelessWidget {
               ),
       ),
       body: body,
+    );
+  }
+
+  Widget _cancelButton(BuildContext context, bool ios) {
+    if (!ios) return const CloseButton();
+    return TextButton(
+      onPressed: () => Navigator.maybePop(context),
+      style: TextButton.styleFrom(
+        foregroundColor: Theme.of(context).colorScheme.primary,
+        textStyle: const TextStyle(fontSize: 17),
+      ),
+      child: const Text('Cancel'),
     );
   }
 
