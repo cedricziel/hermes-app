@@ -7,7 +7,6 @@ import 'mcp_banner.dart';
 import 'mcp_command_review.dart';
 import 'mcp_command_review_items.dart';
 import 'mcp_servers_controller.dart';
-import 'widgets/form_submit_button.dart';
 
 import '../widgets/named_icon_button.dart';
 
@@ -204,6 +203,12 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
       title: 'Add server',
       subtitle: widget.servers.profile,
       previousTitle: 'MCP servers',
+      formAction: SettingsFormAction(
+        key: const ValueKey('mcp-add-server-button'),
+        label: 'Add',
+        busy: _saving && !widget.servers.isReviewing,
+        onPressed: _canAdd ? _submit : null,
+      ),
       body: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -243,13 +248,6 @@ class _McpAddServerScreenState extends State<McpAddServerScreen> {
                   title: error,
                 ),
               ],
-              const SizedBox(height: 20),
-              FormSubmitButton(
-                buttonKey: const ValueKey('mcp-add-server-button'),
-                label: 'Add',
-                busy: _saving && !widget.servers.isReviewing,
-                onPressed: _canAdd ? _submit : null,
-              ),
             ],
           ),
         ),

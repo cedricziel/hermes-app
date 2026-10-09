@@ -90,7 +90,7 @@ void main() {
       tester.widget<TextField>(editor).controller!.text;
 
   bool saveEnabled(WidgetTester tester) =>
-      tester.widget<FilledButton>(saveButton).onPressed != null;
+      tester.widget<ButtonStyleButton>(saveButton).onPressed != null;
 
   Future<void> edit(WidgetTester tester, Object? value) async {
     await tester.enterText(
@@ -415,7 +415,7 @@ void main() {
 
       await tester.tap(saveButton);
       await tester.pump();
-      tester.widget<FilledButton>(saveButton).onPressed?.call();
+      tester.widget<ButtonStyleButton>(saveButton).onPressed?.call();
       await tester.pumpAndSettle();
 
       expect(find.text('Delete and save'), findsOneWidget);
