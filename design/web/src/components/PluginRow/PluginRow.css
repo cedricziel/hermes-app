@@ -1,84 +1,63 @@
-.h-plugin-row {
-  display: flex;
+/* A swiped row slides over the card, so it carries the card's fill. */
+.h-plugin-row > .h-swipe__row {
+  background: var(--h-surface);
+}
+
+.h-plugin-install {
+  flex: none;
+  display: inline-flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 24px 8px 16px;
-  min-height: 72px;
-  background: transparent;
+  justify-content: center;
+  margin: 0 0 0 8px;
+  font-family: var(--h-font);
   color: var(--h-fg);
   cursor: pointer;
-  min-width: 0;
+  white-space: nowrap;
 }
 
-.h-plugin-row:hover {
-  background: var(--h-hover);
+.h-plugin-install:disabled {
+  cursor: default;
 }
 
-.h-plugin-row--selected,
-.h-plugin-row--selected:hover {
-  background: var(--h-surface-high);
-}
-
-.h-plugin-row:focus-visible {
+.h-plugin-install:focus-visible {
   outline: 2px solid var(--h-fg);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
-.h-plugin-row__body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
+/* iOS: FilledButton.tonal, a stadium. */
+.h-plugin-install--ios {
+  height: 28px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--h-radius-pill);
+  background: var(--h-surface-high);
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.h-plugin-row__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.h-plugin-row__name {
-  min-width: 0;
-  font-size: 16px;
-  line-height: 24px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.h-plugin-row__version,
-.h-plugin-row__maintainer {
+/* macOS: a bordered push button. */
+.h-plugin-install--mac {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid var(--h-border);
+  border-radius: 6px;
+  background: var(--h-surface);
   font-size: 12px;
-  line-height: 16px;
-  color: var(--h-secondary);
-  white-space: nowrap;
+  font-weight: 400;
 }
 
-.h-plugin-row__maintainer {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.h-plugin-row__description {
+.h-plugin-install--material {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--h-border);
+  border-radius: var(--h-radius-pill);
+  background: transparent;
   font-size: 14px;
-  line-height: 20px;
-  color: var(--h-secondary);
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-weight: 600;
 }
 
-.h-plugin-row__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  padding-top: 6px;
-}
-
-.h-plugin-row__trailing {
-  flex: none;
-  display: flex;
-  align-items: center;
+.h-plugin-install--ios:hover:not(:disabled),
+.h-plugin-install--mac:hover:not(:disabled),
+.h-plugin-install--material:hover:not(:disabled) {
+  background: var(--h-hover);
 }

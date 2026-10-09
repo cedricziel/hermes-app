@@ -1,152 +1,175 @@
-import { HermesProvider, PluginRow } from "@hermes-app/ui";
+import type { ReactNode } from "react";
+import {
+  GroupedListView,
+  GroupedSection,
+  HermesProvider,
+  PluginRow,
+  type Platform,
+} from "@hermes-app/ui";
 
-const pane = { width: 400 } as const;
-const divider = {
-  height: 1,
-  background: "var(--h-border)",
-} as const;
+const cell = { width: 380, paddingTop: 8 } as const;
+const row = { display: "flex", gap: 12, alignItems: "flex-start" } as const;
 
-export const Installed = () => (
-  <div style={pane}>
+const looks: Array<{
+  name: string;
+  platform: Platform;
+  device?: "mac";
+}> = [
+  { name: "iPhone", platform: "apple" },
+  { name: "Mac", platform: "apple", device: "mac" },
+  { name: "Material", platform: "material" },
+];
+
+function Look({
+  look,
+  theme,
+  children,
+}: {
+  look: (typeof looks)[number];
+  theme?: "dark";
+  children: ReactNode;
+}) {
+  return (
+    <HermesProvider
+      platform={look.platform}
+      typeRamp={look.device ? "default" : undefined}
+      theme={theme}
+      style={cell}
+    >
+      <GroupedListView device={look.device}>{children}</GroupedListView>
+    </HermesProvider>
+  );
+}
+
+const installed = (
+  <GroupedSection>
+    <PluginRow
+      plugin={{
+        name: "netbox",
+        version: "1.2.0",
+        description: "Query NetBox for devices and prefixes.",
+        status: "enabled",
+      }}
+    />
     <PluginRow
       selected
       plugin={{
-        name: "netbox",
-        version: "1.0.0",
-        description:
-          "Query and update NetBox from the agent: look up devices, prefixes, VLANs and cables, reserve addresses and keep the source of truth in sync.",
-        authRequired: true,
-        status: "enabled",
-      }}
-    />
-    <div style={divider} />
-    <PluginRow
-      plugin={{
-        name: "kanban",
-        version: "1.0.0",
-        description: "About kanban",
-        bundled: true,
-        status: "enabled",
-      }}
-    />
-    <div style={divider} />
-    <PluginRow
-      plugin={{
-        name: "gmail-triage",
-        version: "1.0.0",
-        description: "About gmail-triage",
+        name: "notes-sync",
+        version: "1.2.0",
+        description: "Keep a folder of notes in step with memory.",
         status: "disabled",
       }}
     />
-    <div style={divider} />
     <PluginRow
       plugin={{
-        name: "idle-plugin",
-        version: "1.0.0",
-        description: "About idle-plugin",
+        name: "calendar",
+        version: "1.2.0",
+        description: "Read and create calendar events.",
         status: "inactive",
+        authRequired: true,
       }}
     />
-    <div style={divider} />
     <PluginRow
       plugin={{
-        name: "old",
-        version: "1.0.0",
-        description: "About old",
-        removedReason: "unsafe network call",
+        name: "terminal",
+        version: "1.2.0",
+        description: "Run shell commands.",
         status: "enabled",
+        bundled: true,
       }}
     />
-  </div>
+  </GroupedSection>
 );
 
-export const Catalog = () => (
-  <div style={pane}>
+const catalog = (
+  <GroupedSection>
     <PluginRow
       variant="catalog"
       plugin={{
-        name: "hermes-plugin-chrome-profiles",
-        maintainer: "Acme",
-        description: "Switch Chrome profiles from the agent",
-        commit: "a3f9c21",
+        name: "browser-tools",
+        maintainer: "Nous Research",
+        description: "Drive a headless browser.",
         official: true,
       }}
     />
-    <div style={divider} />
     <PluginRow
       variant="catalog"
-      selected
       plugin={{
-        name: "hermes-snapcompact",
-        maintainer: "someone",
-        description: "About hermes-snapcompact",
-        commit: "a3f9c21",
+        name: "notes-sync",
+        maintainer: "A community author",
+        description: "Keep notes in step with memory.",
         installed: true,
         updateAvailable: true,
       }}
     />
-    <div style={divider} />
     <PluginRow
       variant="catalog"
       installing
       plugin={{
-        name: "hermes-plugin-weather",
-        maintainer: "someone",
-        description: "Forecasts.",
-        commit: "a3f9c21",
+        name: "rss-reader",
+        maintainer: "A community author",
+        description: "Read feeds and summarise them.",
       }}
     />
+  </GroupedSection>
+);
+
+/** Installed rows on iPhone, Mac and Material: "v1.2.0" after the name, "On"/"Off"/"Inactive" as muted text (with a chevron on Apple), "Needs login" as a warning, the selected row filled. */
+export const Installed = () => (
+  <div style={row}>
+    {looks.map((look) => (
+      <Look key={look.name} look={look}>
+        {installed}
+      </Look>
+    ))}
   </div>
 );
 
+/** Catalog rows: "Official" after the name, maintainer · description, "Update available" for an installed entry, and Install as an iOS tinted pill, a Mac push button or a Material outlined pill (spinning while it installs). */
+export const Catalog = () => (
+  <div style={row}>
+    {looks.map((look) => (
+      <Look key={look.name} look={look}>
+        {catalog}
+      </Look>
+    ))}
+  </div>
+);
+
+/** A name that does not fit is cut with an ellipsis; a removed plugin warns why. */
 export const LongName = () => (
-  <div style={pane}>
-    <PluginRow
-      plugin={{
-        name: "a-plugin-with-a-really-long-name-that-does-not-fit",
-        version: "1.0.0",
-        description: "Short.",
-        status: "enabled",
-      }}
-    />
-  </div>
-);
-
-export const Dark = () => (
-  <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
-    <div style={pane}>
+  <Look look={looks[2]}>
+    <GroupedSection>
       <PluginRow
-        selected
         plugin={{
-          name: "netbox",
+          name: "a-plugin-with-a-really-long-name-that-does-not-fit",
           version: "1.0.0",
-          description:
-            "Query and update NetBox from the agent: look up devices, prefixes, VLANs and cables.",
-          authRequired: true,
+          description: "Short.",
           status: "enabled",
         }}
       />
-      <div style={divider} />
       <PluginRow
         plugin={{
-          name: "gmail-triage",
+          name: "old",
           version: "1.0.0",
-          description: "About gmail-triage",
-          status: "disabled",
+          description: "About old",
+          removedReason: "unsafe network call",
+          status: "enabled",
         }}
       />
-      <div style={divider} />
-      <PluginRow
-        variant="catalog"
-        plugin={{
-          name: "hermes-plugin-weather",
-          maintainer: "someone",
-          description: "Forecasts.",
-          commit: "a3f9c21",
-        }}
-      />
-    </div>
-  </HermesProvider>
+    </GroupedSection>
+  </Look>
+);
+
+export const Dark = () => (
+  <div style={row}>
+    {looks.map((look) => (
+      <Look key={look.name} look={look} theme="dark">
+        {installed}
+        {catalog}
+      </Look>
+    ))}
+  </div>
 );
 
 const weather = {
@@ -156,10 +179,10 @@ const weather = {
   status: "enabled" as const,
   removable: true,
 };
-const netbox = {
-  name: "netbox",
-  version: "1.0.0",
-  description: "Query and update NetBox from the agent.",
+const notes = {
+  name: "notes-sync",
+  version: "1.2.0",
+  description: "Keep a folder of notes in step with memory.",
   status: "disabled" as const,
   removable: true,
 };
@@ -171,40 +194,33 @@ const phone = {
   borderRadius: 14,
 } as const;
 
-/** iPhone: an installed plugin swiped from the trailing edge shows Remove in red; the catalog's Install spins with the activity indicator. */
+/** iPhone: an installed plugin swiped from the trailing edge shows Remove in red, clipped by the group. */
 export const AppleSwipe = () => (
-  <HermesProvider platform="apple" style={{ width: 390 }}>
-    <PluginRow plugin={weather} swipeRevealed />
-    <div style={divider} />
-    <PluginRow plugin={netbox} />
-    <div style={divider} />
-    <PluginRow
-      variant="catalog"
-      installing
-      plugin={{
-        name: "hermes-plugin-github",
-        maintainer: "Nous Research",
-        description: "Issues, pull requests and reviews from the agent.",
-        commit: "a3f9c21",
-        official: true,
-      }}
-    />
-  </HermesProvider>
+  <Look look={looks[0]}>
+    <GroupedSection>
+      <PluginRow plugin={weather} swipeRevealed />
+      <PluginRow plugin={notes} />
+    </GroupedSection>
+  </Look>
 );
 
 /** iPhone: a long press on an installed plugin opens Disable and Remove in an action sheet. */
 export const AppleActionSheet = () => (
   <HermesProvider platform="apple" style={phone}>
-    <PluginRow plugin={weather} actionSheetOpen />
-    <div style={divider} />
-    <PluginRow plugin={netbox} />
+    <GroupedListView>
+      <GroupedSection>
+        <PluginRow plugin={weather} actionSheetOpen />
+        <PluginRow plugin={notes} />
+      </GroupedSection>
+    </GroupedListView>
   </HermesProvider>
 );
 
 export const AppleSwipeDark = () => (
-  <HermesProvider platform="apple" theme="dark" style={{ width: 390 }}>
-    <PluginRow plugin={weather} />
-    <div style={divider} />
-    <PluginRow plugin={netbox} swipeRevealed />
-  </HermesProvider>
+  <Look look={looks[0]} theme="dark">
+    <GroupedSection>
+      <PluginRow plugin={weather} />
+      <PluginRow plugin={notes} swipeRevealed />
+    </GroupedSection>
+  </Look>
 );

@@ -1,9 +1,10 @@
-import { Button } from "../Button/Button";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
 import { Spinner } from "../Spinner/Spinner";
-import { Tag } from "../Tag/Tag";
 import { RowActions } from "../SwipeActions/RowActions";
 import {
+  cx,
   PlatformScope,
+  useGroupedChrome,
   usePlatform,
   type AppleDevice,
   type Platform,
@@ -14,27 +15,27 @@ import "./PluginRow.css";
 export interface PluginItem {
   /** Plugin name, e.g. "netbox" or "hermes-plugin-weather". One line, then ellipsis. */
   name: string;
-  /** Installed version next to the name, e.g. "1.0.0" (installed rows). */
+  /** Installed version, after the name as muted "v1.2.0" (installed rows). */
   version?: string;
-  /** Who publishes it, as a small line under the name (catalog rows). */
+  /** Who publishes it, first in the subtitle: "Nous Research · Drive a headless browser." (catalog rows). */
   maintainer?: string;
-  /** What it does. Two lines, then ellipsis. */
+  /** What it does, in the one-line subtitle after "Bundled" or the maintainer. */
   description?: string;
-  /** Short commit of the catalog entry, shown as a monospace tag: "a3f9c21" (catalog rows). */
+  /** Short commit of the catalog entry: "a3f9c21". Shown in its details, not the row. */
   commit?: string;
-  /** Status chip of an installed plugin: `enabled` (solid), `disabled` or `inactive` (outlined). */
+  /** Whether an installed plugin is on: the row's muted value reads "On", "Off" or "Inactive". */
   status?: "enabled" | "disabled" | "inactive";
-  /** Ships with Hermes; adds a "Bundled" tag. */
+  /** Ships with Hermes: the subtitle starts with "Bundled". */
   bundled?: boolean;
-  /** Needs `hermes auth` on the server; adds a "Needs login" tag. */
+  /** Needs `hermes auth` on the server: a "Needs login" warning line. */
   authRequired?: boolean;
-  /** Why the hub pulled it, e.g. "unsafe network call"; adds "Removed: <reason>". */
+  /** Why the hub pulled it, e.g. "unsafe network call": a "Removed: <reason>" warning line. */
   removedReason?: string;
-  /** Curated by Nous; a solid "Official" tag next to the name (catalog rows). */
+  /** Curated by Nous: muted "Official" after the name (catalog rows). */
   official?: boolean;
-  /** Already installed: the catalog row shows an "Installed" chip instead of Install. */
+  /** Already installed: the catalog row reads "Installed" (with a chevron on Apple) instead of the Install button. */
   installed?: boolean;
-  /** A newer commit than the installed one exists; adds "Update available" (catalog rows). */
+  /** A newer commit than the installed one exists: the catalog row reads "Update available". */
   updateAvailable?: boolean;
   /** The server can delete it (installed from Git, not bundled): its swipe and action sheet offer Remove. */
   removable?: boolean;
@@ -44,9 +45,11 @@ export interface PluginRowProps {
   /** The plugin to show. */
   plugin: PluginItem;
   /**
-   * `installed`: a row of the Installed tab, with name + version and a status
-   * chip. `catalog`: a row of the Catalog tab, with maintainer, commit and an
-   * Install button (or an "Installed" chip).
+   * `installed`: a row of the Installed tab: name, "v1.2.0", "Bundled · what
+   * it does", a warning for a needed login or a removal, and "On", "Off" or
+   * "Inactive". `catalog`: a row of the Catalog tab: name, "Official",
+   * "maintainer · what it does", and "Installed" / "Update available" or a
+   * small Install button.
    */
   variant?: "installed" | "catalog";
   /** Highlighted as the plugin open in the detail pane (wide layout). */
@@ -62,14 +65,17 @@ export interface PluginRowProps {
   /** Remove was picked from an installed row's swipe or action sheet. */
   onRemove?: () => void;
   /**
-   * `apple`: Install's spinner is the activity indicator. On touch an
-   * installed row swipes from the trailing edge to Remove (when `removable`)
-   * and a long press opens an action sheet with Enable or Disable, and
-   * Remove (see `swipeRevealed`, `actionSheetOpen`); a Mac right-clicks for
-   * them. Inherits the provider's platform.
+   * `apple`: a disclosure chevron after the value (installed rows, and
+   * catalog entries already installed); Install is a tinted pill on iOS
+   * (28px, 15px semibold) and a bordered push button on a Mac (22px, 6px
+   * corners, 12px). On touch an installed row swipes from the trailing edge
+   * to Remove (when `removable`) and a long press opens an action sheet with
+   * Enable or Disable, and Remove (see `swipeRevealed`, `actionSheetOpen`).
+   * `material`: no chevron, Install an outlined 32px pill. Inherits the
+   * provider's platform.
    */
   platform?: Platform;
-  /** Under `apple`, `touch` (default) or `mac`; only touch swipes. Inherited from the enclosing `AppShell`. */
+  /** Under `apple`, `touch` or `mac`; only touch swipes. Inherited from the enclosing `SettingsScaffold`, `GroupedSection` or `AppShell`, else touch. */
   device?: AppleDevice;
   /** Apple touch, installed rows: draw the row swiped open, Remove showing in red. A static preview state. */
   swipeRevealed?: boolean;
@@ -77,10 +83,12 @@ export interface PluginRowProps {
   actionSheetOpen?: boolean;
 }
 
+const statusLabels = { enabled: "On", disabled: "Off", inactive: "Inactive" };
+
 /**
- * One plugin in the Plugins screen's Installed or Catalog list: a full-width
- * list tile with the name, a two-line description, small pill tags and a
- * trailing status chip or Install button. Separate rows with a 1px divider.
+ * One plugin in the Plugins screen's Installed or Catalog list: a
+ * `GroupedRow`, so stack rows in one `GroupedSection`. Status reads as
+ * muted text, never as a pill; its switch lives in `PluginDetail`.
  */
 export function PluginRow({
   plugin,
@@ -96,141 +104,96 @@ export function PluginRow({
   swipeRevealed,
   actionSheetOpen,
 }: PluginRowProps) {
-  const resolvedPlatform = usePlatform(platform);
-  const catalog = variant === "catalog";
-  const tags = catalog
-    ? [
-        plugin.commit ? (
-          <Tag key="commit" mono>
-            {plugin.commit}
-          </Tag>
-        ) : null,
-        plugin.installed && plugin.updateAvailable ? (
-          <Tag key="update" variant="strong">
-            Update available
-          </Tag>
-        ) : null,
-      ].filter(Boolean)
-    : [
-        plugin.bundled ? <Tag key="bundled">Bundled</Tag> : null,
-        plugin.authRequired ? (
-          <Tag key="login" variant="strong">
-            Needs login
-          </Tag>
-        ) : null,
-        plugin.removedReason ? (
-          <Tag key="removed" variant="strong">
-            {`Removed: ${plugin.removedReason}`}
-          </Tag>
-        ) : null,
-      ].filter(Boolean);
-  const status = plugin.status ?? "enabled";
-  const enabled = status === "enabled";
-  const actions = catalog
-    ? []
-    : [
-        {
-          label: enabled ? "Disable" : "Enable",
-          icon: enabled ? "toggle_off" : "toggle_on",
-          onPress: () => onEnabledChange?.(!enabled),
-        },
-        ...(plugin.removable
-          ? [
-              {
-                label: "Remove",
-                icon: "delete",
-                destructive: true,
-                onPress: onRemove,
-              },
-            ]
-          : []),
-      ];
+  const resolved = usePlatform(platform);
+  const chrome = useGroupedChrome(resolved, device);
+  const apple = resolved === "apple";
+  const join = (parts: Array<string | false | undefined>) =>
+    parts.filter(Boolean).join(" · ") || undefined;
+  if (variant === "catalog") {
+    return (
+      <PlatformScope platform={resolved}>
+        <GroupedRow
+          title={plugin.name}
+          meta={plugin.official ? "Official" : undefined}
+          subtitle={join([plugin.maintainer, plugin.description])}
+          value={
+            !plugin.installed
+              ? undefined
+              : plugin.updateAvailable
+                ? "Update available"
+                : "Installed"
+          }
+          trailing={
+            plugin.installed ? undefined : (
+              <button
+                type="button"
+                className={cx(
+                  "h-plugin-install",
+                  `h-plugin-install--${chrome}`,
+                )}
+                disabled={installing}
+                onClick={onInstall}
+              >
+                {installing ? (
+                  <Spinner
+                    size={chrome === "mac" ? 12 : 16}
+                    label="Installing"
+                  />
+                ) : (
+                  "Install"
+                )}
+              </button>
+            )
+          }
+          chevron={!!plugin.installed && apple}
+          selected={selected}
+          onClick={onClick}
+          device={device}
+        />
+      </PlatformScope>
+    );
+  }
+  const enabled = (plugin.status ?? "enabled") === "enabled";
   return (
-    <PlatformScope platform={resolvedPlatform}>
+    <PlatformScope platform={resolved}>
       <RowActions
         title={plugin.name}
-        actions={actions}
+        actions={[
+          {
+            label: enabled ? "Disable" : "Enable",
+            icon: enabled ? "toggle_off" : "toggle_on",
+            onPress: () => onEnabledChange?.(!enabled),
+          },
+          ...(plugin.removable
+            ? [
+                {
+                  label: "Remove",
+                  icon: "delete",
+                  destructive: true,
+                  onPress: onRemove,
+                },
+              ]
+            : []),
+        ]}
         swipeRevealed={swipeRevealed}
         actionSheetOpen={actionSheetOpen}
         device={device}
+        className="h-plugin-row"
       >
-        <div
-          className={[
-            "h-plugin-row",
-            selected ? "h-plugin-row--selected" : null,
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          role="button"
-          tabIndex={0}
-          aria-pressed={selected}
+        <GroupedRow
+          title={plugin.name}
+          meta={plugin.version ? `v${plugin.version}` : undefined}
+          subtitle={join([plugin.bundled && "Bundled", plugin.description])}
+          warning={join([
+            plugin.authRequired && "Needs login",
+            plugin.removedReason && `Removed: ${plugin.removedReason}`,
+          ])}
+          value={statusLabels[plugin.status ?? "enabled"]}
+          chevron={apple}
+          selected={selected}
           onClick={onClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onClick?.();
-            }
-          }}
-        >
-          <div className="h-plugin-row__body">
-            <div className="h-plugin-row__title">
-              <span className="h-plugin-row__name">{plugin.name}</span>
-              {!catalog && plugin.version ? (
-                <span className="h-plugin-row__version">{plugin.version}</span>
-              ) : null}
-              {catalog && plugin.official ? (
-                <Tag variant="filled">Official</Tag>
-              ) : null}
-            </div>
-            {catalog && plugin.maintainer ? (
-              <div className="h-plugin-row__maintainer">
-                {plugin.maintainer}
-              </div>
-            ) : null}
-            {plugin.description ? (
-              <div className="h-plugin-row__description">
-                {plugin.description}
-              </div>
-            ) : null}
-            {tags.length > 0 ? (
-              <div className="h-plugin-row__tags">{tags}</div>
-            ) : null}
-          </div>
-          <div className="h-plugin-row__trailing">
-            {catalog ? (
-              plugin.installed ? (
-                <Tag variant="filled">Installed</Tag>
-              ) : (
-                <Button
-                  disabled={installing}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onInstall?.();
-                  }}
-                >
-                  {installing ? (
-                    <Spinner
-                      size={16}
-
-                      color="var(--h-muted)"
-                      label="Installing"
-                    />
-                  ) : (
-                    "Install"
-                  )}
-                </Button>
-              )
-            ) : (
-              <Tag variant={enabled ? "filled" : "outlined"}>
-                {enabled
-                  ? "Enabled"
-                  : status === "disabled"
-                    ? "Disabled"
-                    : "Inactive"}
-              </Tag>
-            )}
-          </div>
-        </div>
+          device={device}
+        />
       </RowActions>
     </PlatformScope>
   );
