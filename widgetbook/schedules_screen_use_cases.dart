@@ -226,14 +226,16 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'BlueprintGalleryScreen',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Gallery',
-          builder: (_) => Hosted<HermesCronRepository>(
-            create: () => _cron(schedulesServer()),
-            builder: (_, repository) => BlueprintGalleryScreen(
-              repository: repository,
-              profile: 'work',
-              profileNames: const ['work', 'home'],
+        ...onEachPlatform(
+          'Gallery',
+          (_) => pushed(
+            Hosted<HermesCronRepository>(
+              create: () => _cron(schedulesServer()),
+              builder: (_, repository) => BlueprintGalleryScreen(
+                repository: repository,
+                profile: 'work',
+                profileNames: const ['work', 'home'],
+              ),
             ),
           ),
         ),
@@ -242,21 +244,23 @@ WidgetbookNode schedulesScreensNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'BlueprintFormScreen',
       useCases: [
-        WidgetbookUseCase(
-          name: 'Morning briefing',
-          builder: (_) => Hosted<BlueprintFormController>(
-            create: () async {
-              final repository = _cron(schedulesServer());
-              final blueprints = await repository.blueprints();
-              return BlueprintFormController(
-                repository: repository,
-                blueprint: blueprints.first,
-                profile: 'work',
-              );
-            },
-            dispose: (controller) => controller.dispose(),
-            builder: (_, controller) =>
-                BlueprintFormScreen(controller: controller),
+        ...onEachPlatform(
+          'Morning briefing',
+          (_) => pushed(
+            Hosted<BlueprintFormController>(
+              create: () async {
+                final repository = _cron(schedulesServer());
+                final blueprints = await repository.blueprints();
+                return BlueprintFormController(
+                  repository: repository,
+                  blueprint: blueprints.first,
+                  profile: 'work',
+                );
+              },
+              dispose: (controller) => controller.dispose(),
+              builder: (_, controller) =>
+                  BlueprintFormScreen(controller: controller),
+            ),
           ),
         ),
       ],
