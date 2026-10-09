@@ -25,6 +25,8 @@ import 'src/telemetry/breadcrumbs.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
 import 'src/update/github_release_store.dart';
+import 'src/voice/dictation_settings.dart';
+import 'src/voice/on_device_speech.dart';
 import 'src/watch/watch_bridge.dart';
 import 'src/windows/conversation_window_app.dart';
 import 'src/windows/conversation_windows.dart';
@@ -103,6 +105,13 @@ Future<void> main([List<String> args = const []]) async {
         ),
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
+        ChangeNotifierProvider(create: (_) => DictationSettings()..load()),
+        // One app-wide listener: the recognizer's event channel has a single
+        // native sink.
+        Provider<OnDeviceSpeech>(
+          create: (_) => OnDeviceSpeech(),
+          dispose: (_, speech) => speech.dispose(),
+        ),
         ChangeNotifierProvider(
           lazy: false,
           create: (_) => AppLockController()..load(),

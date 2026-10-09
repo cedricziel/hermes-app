@@ -36,8 +36,8 @@
 
 ## 2. PR 2: `feat(voice): on-device dictation engine`
 
-- [ ] 2.1 Write failing tests for `DictationSettings`: default `hermes`, persisted choice, and an edit during `load` winning. Implement it and provide it with the app-wide `OnDeviceSpeech` in `main.dart`.
-- [ ] 2.2 Write failing `DictationController` tests with a fake `OnDeviceSpeech` and `FakeHermesServer`. For the device engine:
+- [x] 2.1 Write failing tests for `DictationSettings`: default `hermes`, persisted choice, and an edit during `load` winning. Implement it and provide it with the app-wide `OnDeviceSpeech` in `main.dart`.
+- [x] 2.2 Write failing `DictationController` tests with a fake `OnDeviceSpeech` and `FakeHermesServer`. For the device engine:
   - partials become `liveTranscript`;
   - the final text is inserted;
   - empty final text gives `noSpeech` with no upload;
@@ -49,7 +49,7 @@
 
   For engine changes, a change mid-recording cancels with no request to Hermes, and a change after a failed Hermes transcription drops the kept clip. The Hermes engine is otherwise unchanged. Implement the engine in the controller until they pass.
 
-- [ ] 2.3 Write failing assertions for the breadcrumbs: `engine` on `voice.dictation.started` and `voice.dictation.ended`, `path: device` on settle, and the `voice.model.install` outcome. None may carry text, locale or a native message. Then add them. These are this change's only telemetry.
+- [x] 2.3 Write failing assertions for the breadcrumbs: `engine` on `voice.dictation.started` and `voice.dictation.ended`, `path: device` on settle, None may carry text, locale or a native message. Then add them. The `voice.model.install` outcome moved to 3.2, where the install runs. These are this change's only telemetry.
 
 ## 3. PR 3: `feat(voice): choose on-device dictation`
 
@@ -64,7 +64,7 @@
 
   Verify with `flutter test test/widgetbook_test.dart`.
 
-- [ ] 3.2 Write a failing widget test, then wire the dialog. Add "Dictation…" to `settings_dialog.dart` and the account menu on iOS and macOS only, hidden elsewhere. Connect it to `DictationSettings` and to `OnDeviceSpeech` status and install, including reopening during a download.
+- [ ] 3.2 Write a failing widget test, then wire the dialog. Add "Dictation…" to `settings_dialog.dart` and the account menu on iOS and macOS only, hidden elsewhere. Connect it to `DictationSettings` and to `OnDeviceSpeech` status and install, including reopening during a download. Record the install's outcome as `voice.model.install` (outcome only), starting with a failing assertion.
 - [ ] 3.3 Write a failing `ChatScreen` test: with the device engine and a ready model, the microphone shows while `voice-config` reports `stt disabled`; with the model missing it is hidden. Then make `ChatScreen` skip `voice-config` for the device engine and recheck on profile change, engine change and resume.
 - [ ] 3.4 Update `CLAUDE.md`'s Voice paragraph, and the `verify-in-app` skill with the permission and model-download steps the dev app needs. At archive time, update the voice-dictation spec's Purpose, which today names only Hermes' transcript.
 - [ ] 3.5 Verify all of these:

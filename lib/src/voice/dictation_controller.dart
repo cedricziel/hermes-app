@@ -7,7 +7,9 @@ import 'package:flutter/foundation.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../telemetry/breadcrumbs.dart';
+import 'dictation_settings.dart';
 import 'live_transcriber.dart';
+import 'on_device_speech.dart';
 import 'transcribe_stream.dart';
 import 'voice_recorder.dart';
 import 'voice_support.dart';
@@ -32,13 +34,19 @@ enum DictationPhase {
 
   /// The app may not use the microphone.
   denied,
+
+  /// The on-device engine's language model is no longer on the device.
+  modelMissing,
 }
 
-/// Records one dictation at a time and turns it into text through Hermes:
-/// live over `/api/audio/transcribe-stream` when the profile's provider can,
-/// else (or when that fails) by uploading the recording to
-/// `POST /api/audio/transcribe`. The transcript goes to [onTranscript]; it is
-/// never sent.
+/// Records one dictation at a time and turns it into text.
+///
+/// With [DictationEngine.hermes] that happens through the profile's server:
+/// live over `/api/audio/transcribe-stream` when its provider can, else (or
+/// when that fails) by uploading the recording to `POST /api/audio/transcribe`.
+/// With [DictationEngine.device] the operating system's recognizer does it,
+/// and nothing goes to the server. The transcript goes to [onTranscript]; it
+/// is never sent.
 class DictationController extends ChangeNotifier {
   DictationController({
     required this._repository,
@@ -47,7 +55,11 @@ class DictationController extends ChangeNotifier {
     required this.onTranscript,
     this._breadcrumbs = Breadcrumbs.none,
     this.maxDuration = const Duration(minutes: 5),
-  }) : _lease = 'app:voice-input:${_randomId()}';
+    OnDeviceSpeech? onDevice,
+    String Function()? locale,
+  }) : _onDevice = onDevice ?? OnDeviceSpeech(),
+       _locale = locale ?? OnDeviceSpeech.deviceLocale,
+       _lease = 'app:voice-input:${_randomId()}';
 
   static const sampleRate = 16000;
   static const _tick = Duration(milliseconds: 100);
@@ -59,6 +71,8 @@ class DictationController extends ChangeNotifier {
   final MixedSocketConnect _connect;
   final VoiceRecorder _recorder;
   final Breadcrumbs _breadcrumbs;
+  final OnDeviceSpeech _onDevice;
+  final String Function() _locale;
   final String _lease;
   final ValueChanged<String> onTranscript;
 
@@ -67,6 +81,8 @@ class DictationController extends ChangeNotifier {
 
   String? _profile;
   VoiceSupport _support = VoiceSupport.none;
+  var _engine = DictationEngine.hermes;
+  var _model = OnDeviceModel.unsupported;
   var _phase = DictationPhase.idle;
   var _level = 0.0;
   final _levels = <double>[];
@@ -94,17 +110,28 @@ class DictationController extends ChangeNotifier {
   /// The text recognized so far, while recording live; not yet final.
   String get liveTranscript => _liveTranscript;
 
-  /// Whether dictation is offered for the current profile.
-  bool get available => _support.speechToText;
+  /// Whether dictation is offered for the current profile and engine.
+  bool get available =>
+      _onTheDevice ? _model == OnDeviceModel.installed : _support.speechToText;
+
+  bool get _onTheDevice => _engine == DictationEngine.device;
 
   bool get canRetry => _phase == DictationPhase.failed && _keptClip != null;
 
-  /// Points dictation at [profile]; a recording for another profile is
-  /// dropped.
-  void configure({String? profile, required VoiceSupport support}) {
-    if (profile != _profile) unawaited(cancel());
+  /// Points dictation at [profile] and [engine]; a recording for another
+  /// profile or engine is dropped, with any recording kept for a retry.
+  /// [model] is the on-device model's state for the device's language.
+  void configure({
+    String? profile,
+    required VoiceSupport support,
+    DictationEngine engine = DictationEngine.hermes,
+    OnDeviceModel model = OnDeviceModel.unsupported,
+  }) {
+    if (profile != _profile || engine != _engine) unawaited(cancel());
     _profile = profile;
     _support = support;
+    _engine = engine;
+    _model = model;
     notifyListeners();
   }
 
@@ -117,18 +144,25 @@ class DictationController extends ChangeNotifier {
       return;
     }
     if (run != _run) return;
-    _acquireLease();
-    if (_support.liveTranscription) {
-      final stream = _stream = TranscribeStream.start(
-        connect: _connect,
-        sampleRate: sampleRate,
-        query: {'profile': ?_profile},
-      );
-      stream.partials.listen((text) {
-        _liveTranscript = text;
-        notifyListeners();
-      });
+    final LiveTranscriber? stream;
+    if (_onTheDevice) {
+      stream = await _startOnDevice(run);
+      if (stream == null) return;
+    } else {
+      _acquireLease();
+      stream = _support.liveTranscription
+          ? TranscribeStream.start(
+              connect: _connect,
+              sampleRate: sampleRate,
+              query: {'profile': ?_profile},
+            )
+          : null;
     }
+    _stream = stream;
+    stream?.partials.listen((text) {
+      _liveTranscript = text;
+      notifyListeners();
+    });
     final Stream<Uint8List> pcm;
     try {
       pcm = await _recorder.start(sampleRate: sampleRate);
@@ -138,7 +172,8 @@ class DictationController extends ChangeNotifier {
       _end(DictationPhase.failed, 'failed');
       return;
     }
-    _clip = BytesBuilder(copy: false);
+    // The on-device engine has no retry, so it keeps no recording.
+    _clip = _onTheDevice ? null : BytesBuilder(copy: false);
     _elapsed = Duration.zero;
     _level = 0;
     _levels.clear();
@@ -152,7 +187,7 @@ class DictationController extends ChangeNotifier {
       notifyListeners();
       if (_elapsed >= maxDuration) unawaited(stop());
     });
-    _breadcrumbs('voice.dictation.started');
+    _breadcrumbs('voice.dictation.started', {'engine': _engine.name});
     _setPhase(DictationPhase.recording);
   }
 
@@ -178,12 +213,41 @@ class DictationController extends ChangeNotifier {
     final live = await _stream?.finish();
     _stream = null;
     if (run != _run) return;
-    if (live != null && live.isNotEmpty) {
+    if (_onTheDevice) {
+      _settleOnDevice(live);
+    } else if (live != null && live.isNotEmpty) {
       _settle(live, path: 'stream');
     } else {
       await _transcribeClip(clip, run);
     }
   }
+
+  /// Opens a recognizer session; null when the dictation ended instead,
+  /// which it does when the system removed the model since [configure].
+  Future<OnDeviceSession?> _startOnDevice(int run) async {
+    try {
+      final session = await _onDevice.start(
+        locale: _locale(),
+        sampleRate: sampleRate,
+      );
+      if (run == _run) return session;
+      session.cancel();
+    } on OnDeviceSpeechException catch (e) {
+      if (run != _run) return null;
+      if (e.code == 'modelMissing') {
+        _end(DictationPhase.modelMissing, 'model_missing');
+      } else {
+        _end(DictationPhase.failed, 'failed', path: 'device');
+      }
+    }
+    return null;
+  }
+
+  /// The on-device recognizer's [transcript], or its failure: there is no
+  /// recording to retry or upload.
+  void _settleOnDevice(String? transcript) => transcript == null
+      ? _end(DictationPhase.failed, 'failed', path: 'device')
+      : _settle(transcript, path: 'device');
 
   /// Tries the recording of a failed transcription again.
   Future<void> retry() async {
@@ -263,7 +327,11 @@ class DictationController extends ChangeNotifier {
   /// [phase].
   void _end(DictationPhase phase, String outcome, {String? path}) {
     _releaseLease();
-    _breadcrumbs('voice.dictation.ended', {'outcome': outcome, 'path': ?path});
+    _breadcrumbs('voice.dictation.ended', {
+      'engine': _engine.name,
+      'outcome': outcome,
+      'path': ?path,
+    });
     _setPhase(phase);
   }
 
