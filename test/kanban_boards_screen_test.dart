@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_board_controller.dart';
 import 'package:hermes_app/src/kanban/kanban_boards_screen.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
@@ -127,7 +128,7 @@ void main() {
     server.on('DELETE', '/api/plugins/kanban/boards/ops', {'result': {}});
     await pump(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.tap(find.byType(PopupMenuButton<RowAction>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Archive'));
     await tester.pumpAndSettle();
@@ -157,7 +158,7 @@ void main() {
     });
     await pump(tester);
 
-    await tester.tap(find.byType(PopupMenuButton<String>).last);
+    await tester.tap(find.byType(PopupMenuButton<RowAction>).last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Export…'));
     await tester.pumpAndSettle();

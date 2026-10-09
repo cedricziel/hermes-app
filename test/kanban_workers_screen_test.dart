@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/widgets/row_actions.dart';
 import 'package:hermes_app/src/kanban/kanban_repository.dart';
 import 'package:hermes_app/src/kanban/kanban_workers_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -47,7 +48,7 @@ void main() {
   }
 
   Future<void> openMenu(WidgetTester tester, String item) async {
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byType(PopupMenuButton<RowAction>));
     await tester.pumpAndSettle();
     await tester.tap(find.text(item));
     await tester.pumpAndSettle();

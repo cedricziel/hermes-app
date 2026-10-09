@@ -337,8 +337,9 @@ Widget _boardRows({required bool removable}) => GroupedSection(
         onOpen: () {},
         onRename: () {},
         onExport: () {},
-        onArchive: removable ? () {} : null,
-        onDelete: removable ? () {} : null,
+        removable: removable,
+        onArchive: () {},
+        onDelete: () {},
       ),
   ],
 );

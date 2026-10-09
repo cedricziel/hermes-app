@@ -5,48 +5,58 @@ import '../../theme/app_icons.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/adaptive_popup_menu_button.dart';
 import '../../widgets/grouped_list.dart';
+import '../../widgets/row_actions.dart';
 import '../kanban_models.dart';
 
 /// A board in the boards list: its name, slug and task count, "Current" for
 /// the open board, and a menu to rename, export, archive or delete it.
-/// [onArchive] and [onDelete] are null for the only board, which must stay.
+/// [removable] is false for the only board, which must stay.
 class KanbanBoardRow extends StatelessWidget {
   const KanbanBoardRow({
     super.key,
     required this.board,
     required this.current,
+    required this.removable,
     required this.onOpen,
     required this.onRename,
     required this.onExport,
-    this.onArchive,
-    this.onDelete,
+    required this.onArchive,
+    required this.onDelete,
   });
 
   final KanbanBoardInfo board;
   final bool current;
+  final bool removable;
   final VoidCallback onOpen;
   final VoidCallback onRename;
   final VoidCallback onExport;
-  final VoidCallback? onArchive;
-  final VoidCallback? onDelete;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
-    final onArchive = this.onArchive;
-    final onDelete = this.onDelete;
-    return _MenuRow(
-      title: board.name,
-      subtitle: '${board.slug} · ${board.total} tasks',
-      value: current ? 'Current' : null,
-      onTap: onOpen,
-      actions: {
-        'Rename': onRename,
-        'Export…': onExport,
-        'Archive': ?onArchive,
-        'Delete': ?onDelete,
-      },
-    );
-  }
+  Widget build(BuildContext context) => _MenuRow(
+    title: board.name,
+    subtitle: '${board.slug} · ${board.total} tasks',
+    value: current ? 'Current' : null,
+    onTap: onOpen,
+    actions: [
+      RowAction(label: 'Rename', icon: AppIcons.edit, onPressed: onRename),
+      RowAction(label: 'Export…', icon: AppIcons.share, onPressed: onExport),
+      if (removable) ...[
+        RowAction(
+          label: 'Archive',
+          icon: AppIcons.archive,
+          onPressed: onArchive,
+        ),
+        RowAction(
+          label: 'Delete',
+          icon: AppIcons.delete,
+          destructive: true,
+          onPressed: onDelete,
+        ),
+      ],
+    ],
+  );
 }
 
 /// A running worker: its task, the run and the profile running it, when it
@@ -77,13 +87,26 @@ class KanbanWorkerRow extends StatelessWidget {
       subtitle: [w.taskId, 'run #${w.runId}', ?w.profile].join(' · '),
       caption: times.isEmpty ? null : times.join(' · '),
       onTap: onOpen,
-      actions: {'Inspect process': onInspect, 'Terminate': onTerminate},
+      actions: [
+        RowAction(
+          label: 'Inspect process',
+          icon: AppIcons.info,
+          onPressed: onInspect,
+        ),
+        RowAction(
+          label: 'Terminate',
+          icon: AppIcons.stop,
+          destructive: true,
+          onPressed: onTerminate,
+        ),
+      ],
     );
   }
 }
 
-/// A [GroupedRow] that opens on tap and keeps its other actions in a
-/// trailing menu, which a right click also opens.
+/// A [GroupedRow] that opens on tap and offers its [actions] in a trailing
+/// menu, plus the platform's own way: a swipe or long press on iOS, a right
+/// click on the Mac.
 class _MenuRow extends StatelessWidget {
   const _MenuRow({
     required this.title,
@@ -99,29 +122,30 @@ class _MenuRow extends StatelessWidget {
   final String? caption;
   final String? value;
   final VoidCallback onTap;
-  final Map<String, VoidCallback> actions;
+  final List<RowAction> actions;
 
   @override
   Widget build(BuildContext context) {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
-    return ContextMenuRow(
-      builder: (context, menu) => GroupedRow(
+    return RowActions(
+      title: title,
+      actions: actions,
+      child: GroupedRow(
         title: title,
         subtitle: subtitle,
         caption: caption,
         value: value,
         onTap: onTap,
-        trailing: AdaptivePopupMenuButton<String>(
-          controller: menu,
+        trailing: AdaptivePopupMenuButton<RowAction>(
           padding: EdgeInsets.all(mac ? 2 : 8),
           icon: mac ? const AppIcon(AppIcons.more, size: 16) : null,
-          onSelected: (label) => actions[label]?.call(),
+          onSelected: (action) => action.onPressed(),
           itemBuilder: (_) => [
-            for (final label in actions.keys)
+            for (final action in actions)
               AdaptiveMenuItem(
-                value: label,
-                destructive: label == 'Delete' || label == 'Terminate',
-                child: Text(label),
+                value: action,
+                destructive: action.destructive,
+                child: Text(action.label),
               ),
           ],
         ),

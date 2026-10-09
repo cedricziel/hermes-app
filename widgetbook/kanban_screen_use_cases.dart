@@ -146,28 +146,28 @@ class NoKanbanFiles implements KanbanFiles {
   Future<bool> save(String name, Uint8List bytes) async => true;
 }
 
+Widget _hosted(
+  FakeHermesServer Function() server,
+  Widget Function(KanbanRepository repository) build,
+) => Hosted<KanbanRepository>(
+  create: () => KanbanRepository(server().client()),
+  builder: (_, repository) => build(repository),
+);
+
 WidgetbookUseCase _screen(
   String name,
   FakeHermesServer Function() server,
   Widget Function(KanbanRepository repository) build,
-) => WidgetbookUseCase(
-  name: name,
-  builder: (_) => Hosted<KanbanRepository>(
-    create: () => KanbanRepository(server().client()),
-    builder: (_, repository) => build(repository),
-  ),
-);
+) => WidgetbookUseCase(name: name, builder: (_) => _hosted(server, build));
 
-List<WidgetbookUseCase> _onEachPlatform(
+/// [build]'s page pushed over another, once per platform.
+List<WidgetbookUseCase> _pushedOnEachPlatform(
   String name,
   FakeHermesServer Function() server,
   Widget Function(KanbanRepository repository) build,
 ) => onEachPlatform(
   name,
-  (_) => Hosted<KanbanRepository>(
-    create: () => KanbanRepository(server().client()),
-    builder: (_, repository) => build(repository),
-  ),
+  (_) => _hosted(server, (repository) => pushed(build(repository))),
 );
 
 WidgetbookUseCase _boardScreen(String name, {bool empty = false}) =>
@@ -237,16 +237,16 @@ List<WidgetbookNode> kanbanScreenComponents() => [
   WidgetbookComponent(
     name: 'KanbanWorkersScreen',
     useCases: [
-      ..._onEachPlatform(
+      ..._pushedOnEachPlatform(
         'Running worker',
         kanbanServer,
-        (repository) => pushed(KanbanWorkersScreen(repository: repository)),
+        (repository) => KanbanWorkersScreen(repository: repository),
       ),
-      ..._onEachPlatform(
+      ..._pushedOnEachPlatform(
         'No workers',
         () =>
             kanbanServer()..on('GET', '$_root/workers/active', {'workers': []}),
-        (repository) => pushed(KanbanWorkersScreen(repository: repository)),
+        (repository) => KanbanWorkersScreen(repository: repository),
       ),
     ],
   ),

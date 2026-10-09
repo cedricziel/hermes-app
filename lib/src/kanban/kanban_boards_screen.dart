@@ -206,13 +206,11 @@ class KanbanBoardsScreen extends StatelessWidget {
                         },
                         onRename: () => _rename(context, b.slug, b.name),
                         onExport: () => _export(context, b.slug, b.name),
-                        onArchive: removable
-                            ? () =>
-                                  _remove(context, b.slug, b.name, hard: false)
-                            : null,
-                        onDelete: removable
-                            ? () => _remove(context, b.slug, b.name, hard: true)
-                            : null,
+                        removable: removable,
+                        onArchive: () =>
+                            _remove(context, b.slug, b.name, hard: false),
+                        onDelete: () =>
+                            _remove(context, b.slug, b.name, hard: true),
                       ),
                   ],
                 ),
