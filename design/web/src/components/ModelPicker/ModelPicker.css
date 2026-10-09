@@ -1,7 +1,6 @@
 .h-model-picker {
   color: var(--h-fg);
   font-family: var(--h-font);
-  background: var(--h-surface);
 }
 
 .h-model-picker-inline {
@@ -9,6 +8,15 @@
   border: 1px solid var(--h-border);
   border-radius: 28px;
   overflow: hidden;
+  background: var(--h-surface);
+}
+
+.h-model-picker--dialog .h-model-picker__head {
+  border-radius: 27px 27px 0 0;
+}
+
+.h-model-picker--dialog .h-model-picker__effort {
+  border-radius: 0 0 27px 27px;
 }
 
 .h-model-picker__head {

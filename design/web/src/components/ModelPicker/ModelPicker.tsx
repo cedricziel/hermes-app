@@ -156,7 +156,13 @@ export function ModelPicker({
     ) : null;
 
   const content = (
-    <div className={cx("h-model-picker", `h-model-picker--${chrome}`)}>
+    <div
+      className={cx(
+        "h-model-picker",
+        `h-model-picker--${chrome}`,
+        presentation === "desktop" && "h-model-picker--dialog",
+      )}
+    >
       <div className="h-model-picker__head">
         <div className="h-model-picker__title-row">
           <h2 className="h-model-picker__title">{title}</h2>
