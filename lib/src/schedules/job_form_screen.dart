@@ -24,6 +24,17 @@ Future<bool> confirmDiscard(BuildContext context) => showConfirmDialog(
   filled: false,
 );
 
+/// Scrolls a form to its top, where it says why a save was refused: Save is
+/// in the bar, so the reason must not be left below the fold.
+void revealFormError(ScrollController scroll) {
+  if (!scroll.hasClients) return;
+  scroll.animateTo(
+    0,
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
+}
+
 /// The form for a custom task and for changing one. Pops with the saved job.
 class JobFormScreen extends StatefulWidget {
   const JobFormScreen({
@@ -54,6 +65,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
   late final TextEditingController _contextFrom;
   late final TextEditingController _workdir;
   late bool _advancedOpen = _hasAdvanced;
+  final _scroll = ScrollController();
 
   JobFormController get _form => widget.controller;
   JobDraft get _draft => _form.draft;
@@ -89,12 +101,18 @@ class _JobFormScreenState extends State<JobFormScreen> {
       c.dispose();
     }
     _form.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     final job = await _form.save();
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (!mounted) return;
+    if (job != null) {
+      Navigator.of(context).pop(job);
+    } else if (_form.error != null) {
+      revealFormError(_scroll);
+    }
   }
 
   Future<void> _close(bool didPop) async {
@@ -133,7 +151,14 @@ class _JobFormScreenState extends State<JobFormScreen> {
               onPressed: _save,
             ),
             body: GroupedListView(
+              controller: _scroll,
               children: [
+                if (_form.error case final error?)
+                  GroupedFooter(
+                    error,
+                    error: true,
+                    key: const Key('job-error'),
+                  ),
                 GroupedSection(
                   children: [
                     GroupedTextFieldRow(
@@ -270,12 +295,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     ],
                   ],
                 ),
-                if (_form.error case final error?)
-                  GroupedFooter(
-                    error,
-                    error: true,
-                    key: const Key('job-error'),
-                  ),
               ],
             ),
           ),

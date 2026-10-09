@@ -185,11 +185,24 @@ class BlueprintFormScreen extends StatefulWidget {
 }
 
 class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
+  final _scroll = ScrollController();
+
   BlueprintFormController get _form => widget.controller;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   Future<void> _save() async {
     final job = await _form.save();
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (!mounted) return;
+    if (job != null) {
+      Navigator.of(context).pop(job);
+    } else if (_form.error != null || _form.fieldErrors.isNotEmpty) {
+      revealFormError(_scroll);
+    }
   }
 
   Future<void> _pickTime(BlueprintField field) async {
@@ -285,16 +298,23 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
             onPressed: _save,
           ),
           body: GroupedListView(
+            controller: _scroll,
             children: [
-              if (blueprint.description.isNotEmpty)
-                GroupedFooter(blueprint.description),
-              for (final field in blueprint.fields) ..._slot(field),
               if (_form.error case final error?)
                 GroupedFooter(
                   error,
                   key: const Key('blueprint-error'),
                   error: true,
+                )
+              else if (_form.fieldErrors.isNotEmpty)
+                const GroupedFooter(
+                  'Check the fields marked below.',
+                  key: Key('blueprint-error'),
+                  error: true,
                 ),
+              if (blueprint.description.isNotEmpty)
+                GroupedFooter(blueprint.description),
+              for (final field in blueprint.fields) ..._slot(field),
             ],
           ),
         );
