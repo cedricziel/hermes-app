@@ -104,11 +104,12 @@ class _GroupMemberChecklistState extends State<GroupMemberChecklist> {
   Widget build(BuildContext context) {
     final apple = platformChromeOf(context).isApple;
     final metrics = GroupedMetrics.of(context);
+    final needle = _query.toLowerCase();
     final shown = [
       for (final member in widget.members)
         if ('${member.displayName ?? ''} ${member.profile} ${member.handle}'
             .toLowerCase()
-            .contains(_query))
+            .contains(needle))
           member,
     ];
     return Column(
@@ -119,7 +120,7 @@ class _GroupMemberChecklistState extends State<GroupMemberChecklist> {
           search: SettingsSearch(
             query: _query,
             hint: 'Search members',
-            onChanged: (query) => setState(() => _query = query.toLowerCase()),
+            onChanged: (query) => setState(() => _query = query),
           ),
         ),
         GroupedSection(

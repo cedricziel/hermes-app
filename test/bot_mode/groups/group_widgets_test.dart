@@ -90,6 +90,34 @@ void main() {
     });
   }
 
+  testWidgets('member search keeps what was typed and ignores case', (
+    tester,
+  ) async {
+    final members = [
+      'one',
+      'two',
+    ].map((id) => GroupMember.fromJson(fixtures.member(id))).toList();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupMemberChecklist(
+            members: members,
+            selected: const {},
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'TWO');
+    await tester.pump();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'TWO',
+    );
+    expect(find.text('one'), findsNothing);
+    expect(find.text('two'), findsOneWidget);
+  });
   testWidgets('event prose has recorded author and discussion thread', (
     tester,
   ) async {
