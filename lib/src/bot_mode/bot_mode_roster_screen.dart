@@ -3,9 +3,15 @@ import 'package:flutter/material.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/model_provider_option.dart';
 import '../models/widgets/model_picker.dart';
-import '../widgets/content_column.dart';
-import '../widgets/state_message.dart';
+import '../macos/mac_toolbar.dart' show macToolbarButtonStyle;
+import '../plugins/widgets/catalog_row.dart' show InstallButton;
 import '../theme/app_icons.dart';
+import '../theme/platform_chrome.dart';
+import '../widgets/grouped_list.dart';
+import '../widgets/named_icon_button.dart';
+import '../widgets/settings_scaffold.dart';
+import '../widgets/settings_search_field.dart';
+import '../widgets/state_message.dart';
 import 'group_protocol/hermes_groups_repository.dart';
 import 'groups/group_rooms_panel.dart';
 import 'bot_mode_roster_repository.dart';
@@ -37,6 +43,8 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
   Object? _error;
   bool _loading = true;
   String _query = '';
+  final _adding = <String>{};
+  final _groupsPanel = GlobalKey<GroupRoomsPanelState>();
 
   @override
   void initState() {
@@ -72,40 +80,26 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(message)));
 
-  Future<void> _addExisting() async {
-    final choices = _roster?.availableProfiles ?? const <BotModeBot>[];
-    if (choices.isEmpty) {
-      _message('No other profiles are available');
-      return;
-    }
-    final picked = await showModalBottomSheet<BotModeBot>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            const ListTile(title: Text('Add an existing profile')),
-            for (final bot in choices)
-              ListTile(
-                title: Text(bot.title),
-                subtitle: Text(bot.name),
-                onTap: () => Navigator.pop(context, bot),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (picked == null) return;
+  Future<void> _add(BotModeBot profile) async {
+    setState(() => _adding.add(profile.name));
     try {
-      final result = await widget.repository.save(picked, title: picked.title);
+      final result = await widget.repository.save(
+        profile,
+        title: profile.title,
+      );
       if (!result.succeeded) throw StateError('Presentation was not saved');
       await _load();
     } on Object {
       if (mounted) {
         _message('Could not add this profile. Retry from the roster.');
       }
+    } finally {
+      if (mounted) setState(() => _adding.remove(profile.name));
     }
   }
+
+  Future<void> _refresh() =>
+      Future.wait([_load(), ?_groupsPanel.currentState?.refresh()]);
 
   Future<void> _create() async {
     final name = TextEditingController();
@@ -418,206 +412,145 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Bots'),
+  Widget build(BuildContext context) {
+    final roster = _roster;
+    final ready = roster != null && roster.supported && _error == null;
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    return SettingsScaffold(
+      title: 'Bots',
+      subtitle: mac && ready ? '${roster.bots.length} bots' : null,
+      previousTitle: null,
+      search: ready && roster.bots.isNotEmpty
+          ? SettingsSearch(
+              query: _query,
+              hint: 'Search bots',
+              onChanged: (value) => setState(() => _query = value),
+            )
+          : null,
       actions: [
-        IconButton(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Refresh',
+        SettingsBarAction(
+          label: 'Refresh',
+          icon: AppIcons.refresh,
+          onPressed: _refresh,
+        ),
+        SettingsBarAction(
+          label: 'Create bot',
+          icon: AppIcons.add,
+          onPressed: ready ? _create : null,
         ),
       ],
-    ),
-    body: _body(),
-  );
+      body: _body(),
+    );
+  }
 
   Widget _body() {
     if (_loading && _roster == null) {
       return const Center(child: CircularProgressIndicator.adaptive());
     }
-    if (_error != null) return _notice('Could not load bots', 'Retry', _load);
     final roster = _roster;
-    if (roster == null) return _notice('Could not load bots', 'Retry', _load);
+    if (_error != null || roster == null) {
+      return _notice('Could not load bots');
+    }
     if (!roster.supported) {
       return _notice(
-        'This server needs a Bot Mode compatible update. Chat and Messaging are still available.',
-        'Retry',
-        _load,
+        'Bot Mode is not available',
+        detail: 'This server needs a Bot Mode compatible update. Chat and Messaging are still available.',
       );
     }
-    final bots = roster.bots
-        .where(
-          (bot) => '${bot.title} ${bot.name} ${bot.description}'
-              .toLowerCase()
-              .contains(_query.toLowerCase()),
-        )
-        .toList();
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurface.withValues(alpha: 0.62);
-    return ContentColumn(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 48),
-        children: [
-          Text('Your specialists', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Each bot has its own profile, instructions and conversation.',
-            style: theme.textTheme.bodyMedium?.copyWith(color: muted),
+    final query = _query.toLowerCase();
+    bool matches(BotModeBot bot) =>
+        '${bot.title} ${bot.name} ${bot.description}'.toLowerCase().contains(
+          query,
+        );
+    final bots = roster.bots.where(matches).toList();
+    final available = roster.availableProfiles.where(matches).toList();
+    final editStyle = platformChromeOf(context) == PlatformChrome.macos
+        ? macToolbarButtonStyle(context)
+        : null;
+    final metrics = GroupedMetrics.of(context);
+    return GroupedListView(
+      children: [
+        if (roster.bots.isEmpty)
+          const StateMessage(
+            icon: AppIcons.bot,
+            title: 'No bots yet',
+            detail: 'Create a specialist or add a profile you already use.',
+          )
+        else if (bots.isEmpty)
+          const StateMessage(
+            title: 'No matching bots',
+            detail: 'Try another name or profile.',
+          )
+        else
+          GroupedSection(
+            header: 'Bots',
+            dividerIndent: metrics.indentAfterTile,
+            footer:
+                'Each bot has its own profile, instructions and conversation.',
+            children: [for (final bot in bots) _botRow(bot, editStyle)],
           ),
-          const SizedBox(height: 24),
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: _create,
-                icon: const Icon(Icons.add),
-                label: const Text('Create bot'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _addExisting,
-                icon: const Icon(Icons.person_add_alt_outlined),
-                label: const Text('Add profile'),
-              ),
-            ],
+        if (available.isNotEmpty)
+          GroupedSection(
+            header: 'Add an existing profile',
+            dividerIndent: metrics.indentAfterTile,
+            footer: 'Profiles on this server that are not bots yet.',
+            children: [for (final profile in available) _profileRow(profile)],
           ),
-          const SizedBox(height: 28),
-          TextField(
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.search),
-              hintText: 'Search specialists',
-            ),
-            onChanged: (value) => setState(() => _query = value),
+        if (widget.groups != null && widget.onOpenGroup != null)
+          GroupRoomsPanel(
+            key: _groupsPanel,
+            repository: widget.groups!,
+            bots: roster.bots,
+            onOpen: widget.onOpenGroup!,
           ),
-          const SizedBox(height: 28),
-          Text(
-            'BOTS  ${roster.bots.length}',
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: muted,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (roster.bots.isEmpty)
-            const StateMessage(
-              icon: AppIcons.bot,
-              title: 'No bots yet',
-              detail: 'Create a specialist or add a profile you already use.',
-            ),
-          if (roster.bots.isNotEmpty && bots.isEmpty)
-            const StateMessage(
-              title: 'No matching bots',
-              detail: 'Try another name or profile.',
-            ),
-          for (final bot in bots) ...[
-            _botCard(bot, theme, muted),
-            const SizedBox(height: 10),
-          ],
-          if (widget.groups != null && widget.onOpenGroup != null) ...[
-            const SizedBox(height: 24),
-            GroupRoomsPanel(
-              repository: widget.groups!,
-              bots: roster.bots,
-              onOpen: widget.onOpenGroup!,
-            ),
-          ],
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _botCard(BotModeBot bot, ThemeData theme, Color muted) {
-    final scheme = theme.colorScheme;
+  Widget _botRow(BotModeBot bot, ButtonStyle? editStyle) {
     final rawSummary = bot.metadata['description'];
     final summary = rawSummary is String ? rawSummary : bot.description;
-    return Material(
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: scheme.outline),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => widget.onOpen?.call(bot),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: scheme.surfaceContainerHighest,
-                foregroundColor: scheme.onSurface,
-                child: Text(
-                  bot.title.characters.first.toUpperCase(),
-                  style: theme.textTheme.titleMedium,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      bot.title,
-                      style: theme.textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [bot.name, ?bot.model].join('  ·  '),
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: muted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (summary.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        summary,
-                        style: theme.textTheme.bodyMedium,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    if (bot.preview case final preview?
-                        when preview.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        preview,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: muted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_horiz),
-                tooltip: 'Edit bot',
-                onPressed: () => _edit(bot),
-              ),
-            ],
-          ),
-        ),
+    final preview = bot.preview ?? '';
+    return GroupedRow(
+      leading: _initialTile(bot),
+      title: bot.title,
+      subtitle: summary.isNotEmpty
+          ? summary
+          : preview.isNotEmpty
+          ? preview
+          : null,
+      caption: [bot.name, ?bot.model].join(' · '),
+      onTap: widget.onOpen == null ? null : () => widget.onOpen!(bot),
+      trailing: NamedIconButton(
+        label: 'Edit bot',
+        icon: AppIcons.more,
+        visualDensity: VisualDensity.compact,
+        style: editStyle,
+        onPressed: () => _edit(bot),
       ),
     );
   }
 
-  Widget _notice(String message, String action, VoidCallback onPressed) =>
-      Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(padding: const EdgeInsets.all(16), child: Text(message)),
-            FilledButton(onPressed: onPressed, child: Text(action)),
-          ],
-        ),
-      );
+  Widget _profileRow(BotModeBot profile) => GroupedRow(
+    leading: _initialTile(profile),
+    title: profile.title,
+    subtitle: profile.title == profile.name ? null : profile.name,
+    trailing: InstallButton(
+      label: 'Add',
+      installing: _adding.contains(profile.name),
+      onPressed: () => _add(profile),
+    ),
+  );
+
+  Widget _initialTile(BotModeBot bot) => GroupedTile(
+    child: ExcludeSemantics(
+      child: Text(bot.title.characters.firstOrNull?.toUpperCase() ?? '?'),
+    ),
+  );
+
+  Widget _notice(String title, {String? detail}) => StateMessage(
+    title: title,
+    detail: detail,
+    action: OutlinedButton(onPressed: _load, child: const Text('Retry')),
+  );
 }

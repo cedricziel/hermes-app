@@ -75,7 +75,7 @@ void main() {
       await shots.capture(tester, 'editor');
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Create bot'));
+      await tester.tap(find.byTooltip('Create bot'));
       await tester.pumpAndSettle();
       await shots.capture(tester, 'create');
     });
