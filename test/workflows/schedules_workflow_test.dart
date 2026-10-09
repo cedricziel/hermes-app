@@ -376,15 +376,16 @@ void main() {
       await _settle(tester);
       await shots.capture(tester, 'list-bottom');
 
-      await _tap(tester, find.text('Failing (2)'));
+      await _filter(tester, 'Failing (2)', shots: shots);
       await shots.capture(tester, 'filter-failing');
 
-      await _tap(tester, find.text('Failing (2)'));
-      await _tap(tester, find.widgetWithText(FilterChip, 'Paused'));
+      await _filter(tester, 'Paused');
       await shots.capture(tester, 'filter-paused');
 
-      await _tap(tester, find.widgetWithText(FilterChip, 'Paused'));
-      await _tap(tester, find.text('All profiles'));
+      await _filter(tester, 'All tasks');
+      await _tap(tester, find.byKey(const Key('settings-subtitle-menu')));
+      await shots.capture(tester, 'scope-menu');
+      await _tap(tester, _menuItem('All profiles'));
       await shots.capture(tester, 'all-profiles');
     });
 
@@ -447,7 +448,7 @@ void main() {
         ..serve();
       await tester.tap(find.byTooltip('Refresh'));
       await _settle(tester);
-      await _tap(tester, find.widgetWithText(FilterChip, 'Paused'));
+      await _filter(tester, 'Paused');
       await shots.capture(tester, 'no-match-for-filter');
     });
 
@@ -484,7 +485,7 @@ void main() {
       await _openTile(tester, _longName);
       await shots.capture(tester, 'long-task');
 
-      await _tap(tester, find.text('Failing (2)'));
+      await _filter(tester, 'Failing (2)');
       await shots.capture(tester, 'filter-failing');
     });
 
@@ -746,7 +747,7 @@ void main() {
     }
 
     Future<void> openGallery(WidgetTester tester) async {
-      await tester.tap(find.text('New'));
+      await tester.tap(find.byKey(const Key('schedules-new')));
       await _settle(tester);
     }
 
@@ -1412,6 +1413,26 @@ Future<void> _openTile(WidgetTester tester, String title) async {
   await tester.tap(tile);
   await _settle(tester);
 }
+
+/// Picks [label] from the bar's filter menu, capturing the open menu when
+/// [shots] is given.
+Future<void> _filter(
+  WidgetTester tester,
+  String label, {
+  ScreenshotRecorder? shots,
+}) async {
+  await tester.tap(find.byKey(const Key('schedule-filter')));
+  await _settle(tester);
+  await shots?.capture(tester, 'filter-menu');
+  await tester.tap(_menuItem(label));
+  await _settle(tester);
+}
+
+/// The open menu's item labelled [label].
+Finder _menuItem(String label) => find.ancestor(
+  of: find.text(label),
+  matching: find.byWidgetPredicate((w) => w is CheckedPopupMenuItem),
+);
 
 /// Scrolls [finder] into view and taps it.
 Future<void> _tap(WidgetTester tester, Finder finder) async {

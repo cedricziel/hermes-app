@@ -622,9 +622,7 @@ void main() {
 
     await openInSidebar(tester, 'Kanban');
     await openInSidebar(tester, 'Schedules');
-    expect(find.byType(FloatingActionButton), findsWidgets);
-
-    await tester.tap(find.byType(FloatingActionButton).hitTestable());
+    await tester.tap(find.byKey(const Key('schedules-new')).hitTestable());
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
@@ -740,19 +738,15 @@ void main() {
       jobRoutes();
       await pumpShell(tester, size: const Size(400, 800));
       await openTab(tester, 'Schedules');
-      await tester.ensureVisible(find.text('Paused'));
+      await tester.tap(find.byKey(const Key('schedule-filter')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Paused'));
       await tester.pumpAndSettle();
 
       await openTab(tester, 'Chat');
       await openTab(tester, 'Schedules');
 
-      expect(
-        tester
-            .widget<FilterChip>(find.widgetWithText(FilterChip, 'Paused'))
-            .selected,
-        isTrue,
-      );
+      expect(find.text('No tasks match this filter'), findsOneWidget);
     });
 
     testWidgets('goes back to Chat when cron goes away while selected', (

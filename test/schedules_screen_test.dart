@@ -6,7 +6,6 @@ import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/schedule_detail.dart';
 import 'package:hermes_app/src/schedules/schedule_models.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
-import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 import 'package:provider/provider.dart';
@@ -80,10 +79,11 @@ void main() {
       await pumpScreen(tester, size: const Size(400, 800));
 
       expect(find.text('Morning brief'), findsOneWidget);
-      expect(find.text('Weekdays at 08:00'), findsOneWidget);
-      expect(find.text('Last run succeeded 2 h ago'), findsOneWidget);
-      expect(find.text('Next run in 3 h'), findsOneWidget);
-      expect(find.text('Local'), findsOneWidget);
+      expect(find.text('Weekdays at 08:00 · Local'), findsOneWidget);
+      expect(
+        find.text('Last run succeeded 2 h ago · Next run in 3 h'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows a failure with its reason', (tester) async {
@@ -98,8 +98,7 @@ void main() {
 
       await pumpScreen(tester, size: const Size(400, 800));
 
-      expect(find.text('Failed 40 min ago'), findsOneWidget);
-      expect(find.text('Provider timeout'), findsOneWidget);
+      expect(find.text('Failed 40 min ago · Provider timeout'), findsOneWidget);
     });
 
     testWidgets('shows a paused job as paused with its switch off', (
@@ -123,7 +122,7 @@ void main() {
 
       await pumpScreen(tester, size: const Size(400, 800));
 
-      expect(find.text('Failed'), findsOneWidget);
+      expect(find.text('Failed · Boom'), findsOneWidget);
       expect(find.textContaining('null'), findsNothing);
     });
 
@@ -164,7 +163,8 @@ void main() {
       ]);
       await pumpScreen(tester, size: const Size(400, 800));
 
-      await tester.ensureVisible(find.text('Failing (1)'));
+      await tester.tap(find.byKey(const Key('schedule-filter')));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Failing (1)'));
       await tester.pumpAndSettle();
 
@@ -429,7 +429,9 @@ void main() {
       expect(find.text('No runs yet'), findsOneWidget);
     });
 
-    testWidgets('every filter fits in the list column', (tester) async {
+    testWidgets('the subtitle picks the profiles, the bar the filter', (
+      tester,
+    ) async {
       server.on('GET', '/api/profiles/active', {
         'active': 'research-assistant',
         'current': 'research-assistant',
@@ -445,19 +447,30 @@ void main() {
         ..on('GET', '/api/cron/jobs/bad', broken)
         ..on('GET', '/api/cron/jobs/bad/runs', {'runs': []});
       await pumpScreen(tester, size: const Size(1400, 900));
+      expect(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('research-assistant'),
+        ),
+        findsOneWidget,
+      );
 
-      final column = tester.getRect(find.byType(SchedulesList));
-      for (final label in [
-        'research-assistant (active)',
-        'All profiles',
-        'Failing (1)',
-        'Paused',
-      ]) {
-        final chip = tester.getRect(
-          find.ancestor(of: find.text(label), matching: find.byType(RawChip)),
-        );
-        expect(column.expandToInclude(chip), column, reason: label);
+      await tester.tap(find.byKey(const Key('schedule-filter')));
+      await tester.pumpAndSettle();
+      for (final label in ['All tasks', 'Failing (1)', 'Paused']) {
+        expect(find.text(label), findsOneWidget, reason: label);
       }
+      await tester.tap(find.text('All tasks'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-subtitle-menu')));
+      await tester.pumpAndSettle();
+      expect(find.text('research-assistant (active)'), findsOneWidget);
+      await tester.tap(find.text('All profiles'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('All profiles'), findsOneWidget);
+      expect(controller.allProfiles, isTrue);
     });
   });
 

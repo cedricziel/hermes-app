@@ -3,15 +3,17 @@ import 'package:flutter/material.dart';
 
 import '../../macos/mac_toolbar.dart';
 import '../../theme/app_icons.dart';
+import 'schedule_filter_menu.dart';
 
 /// The Schedules toolbar in a Mac window: the title with the number of jobs
-/// listed, the profile scope, Refresh and New Schedule.
+/// listed, the profile scope, the status filter, Refresh and New Schedule.
 class SchedulesMacToolbar extends StatelessWidget {
   const SchedulesMacToolbar({
     super.key,
     required this.jobCount,
     required this.allProfiles,
     required this.onScopeChanged,
+    required this.filterMenu,
     required this.onRefresh,
     required this.onNew,
   });
@@ -19,6 +21,9 @@ class SchedulesMacToolbar extends StatelessWidget {
   final int jobCount;
   final bool allProfiles;
   final ValueChanged<bool> onScopeChanged;
+
+  /// The [ScheduleFilterMenu] for the failing and paused jobs.
+  final Widget filterMenu;
   final VoidCallback onRefresh;
   final VoidCallback onNew;
 
@@ -39,6 +44,7 @@ class SchedulesMacToolbar extends StatelessWidget {
         ),
       ),
       const MacToolbarSeparator(),
+      filterMenu,
       MacToolbarButton(
         label: 'Refresh',
         icon: AppIcons.refresh,

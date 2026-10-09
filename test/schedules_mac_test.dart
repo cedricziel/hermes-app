@@ -6,7 +6,6 @@ import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/schedules/blueprint_screens.dart';
 import 'package:hermes_app/src/schedules/hermes_cron_repository.dart';
 import 'package:hermes_app/src/schedules/job_form_screen.dart';
-import 'package:hermes_app/src/schedules/schedule_widgets.dart';
 import 'package:hermes_app/src/schedules/schedules_controller.dart';
 import 'package:hermes_app/src/schedules/schedules_list.dart';
 import 'package:hermes_app/src/schedules/schedules_screen.dart';
@@ -90,8 +89,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder profileChip(String name) =>
-      find.descendant(of: find.byType(InfoChip), matching: find.text(name));
+  Finder profileChip(String name) => find.textContaining(' · $name');
 
   group('toolbar', () {
     testWidgets('File > New Schedule (command-N) opens the gallery', (
@@ -132,7 +130,7 @@ void main() {
   });
 
   group('scope', () {
-    testWidgets('All profiles lists every profile with a profile chip', (
+    testWidgets('All profiles lists every profile and names it', (
       tester,
     ) async {
       await pumpScreen(tester);
@@ -162,13 +160,16 @@ void main() {
       expect(await prefs.getBool('hermes.schedules_all_profiles'), isTrue);
     });
 
-    testWidgets('the filter bar leaves the scope to the toolbar', (
+    testWidgets('the filter menu leaves the scope to the toolbar', (
       tester,
     ) async {
       await pumpScreen(tester);
 
-      expect(find.byType(ChoiceChip), findsNothing);
-      expect(find.widgetWithText(FilterChip, 'Paused'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('schedule-filter')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Paused'), findsWidgets);
+      expect(find.textContaining('(active)'), findsNothing);
     });
 
     testWidgets('an empty profile says so', (tester) async {
@@ -273,7 +274,7 @@ void main() {
 
   group('other platforms', () {
     for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-      testWidgets('$platform keeps its app bar and filter chips', (
+      testWidgets('$platform keeps its app bar and filter menu', (
         tester,
       ) async {
         await pumpScreen(tester, platform: platform);
@@ -281,7 +282,10 @@ void main() {
         expect(find.byType(SchedulesMacToolbar), findsNothing);
         expect(find.byType(MacScheduleDetail), findsNothing);
         expect(find.byType(AppBar), findsOneWidget);
-        expect(find.widgetWithText(ChoiceChip, 'All profiles'), findsOneWidget);
+        expect(find.byKey(const Key('schedule-filter')), findsOneWidget);
+        await tester.tap(find.byKey(const Key('settings-subtitle-menu')));
+        await tester.pumpAndSettle();
+        expect(find.text('All profiles'), findsOneWidget);
       });
     }
   });
