@@ -44,6 +44,8 @@ class ConversationWindowsMenu extends StatelessWidget {
                 windows.showMainWindow,
               ),
               MacCommand.openInNewWindow: const MacCommandHandler(null),
+              // A settings page in the main window stays put.
+              MacCommand.back: const MacCommandHandler(null),
               MacCommand.pinThread: run(
                 ThreadAction.pin,
                 title: key.pinned ? 'Unpin' : 'Pin',
