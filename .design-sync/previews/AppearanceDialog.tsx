@@ -11,28 +11,29 @@ const phone = {
 } as const;
 const mac = { ...phone, width: 640, height: 420 } as const;
 const row = { display: "flex", gap: 16, alignItems: "flex-start" } as const;
-const column = { ...row, flexDirection: "column" } as const;
 const noop = () => {};
 
-/** iPhone: Follow system checked with the trailing blue check; under it the Mac: the compact rows and Done in a 44px bar. */
+/** iPhone: Follow system checked with the trailing blue check. */
 export const Apple = () => (
-  <div style={column}>
-    <HermesProvider platform="apple">
-      <div style={phone}>
-        <AppearanceDialog mode="system" onChange={noop} onDone={noop} />
-      </div>
-    </HermesProvider>
-    <HermesProvider platform="apple" typeRamp="default">
-      <div style={{ ...mac, width: 520 }}>
-        <AppearanceDialog
-          mode="light"
-          device="mac"
-          onChange={noop}
-          onDone={noop}
-        />
-      </div>
-    </HermesProvider>
-  </div>
+  <HermesProvider platform="apple">
+    <div style={phone}>
+      <AppearanceDialog mode="system" onChange={noop} onDone={noop} />
+    </div>
+  </HermesProvider>
+);
+
+/** Mac: the compact rows and Done in a 44px bar. */
+export const Mac = () => (
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={{ ...mac, width: 520 }}>
+      <AppearanceDialog
+        mode="light"
+        device="mac"
+        onChange={noop}
+        onDone={noop}
+      />
+    </div>
+  </HermesProvider>
 );
 
 /** Material: leading radios, the title at the start, no Done; light and dark. */

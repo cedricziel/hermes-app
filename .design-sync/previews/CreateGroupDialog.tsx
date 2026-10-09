@@ -15,7 +15,7 @@ const frame = {
   overflow: "hidden",
   background: "var(--h-bg)",
 } as const;
-const mac = { ...frame, width: 720, height: 560 } as const;
+const mac = { ...frame, width: 720, height: 640 } as const;
 const row = { display: "flex", gap: 16, alignItems: "flex-start" } as const;
 
 /** iPhone: nothing picked yet, so Create is disabled; trailing blue checks once picked. Beside it two bots picked and a name typed. */

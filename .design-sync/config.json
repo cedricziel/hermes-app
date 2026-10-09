@@ -338,6 +338,24 @@
     },
     "SettingsDialog": {
       "cardMode": "column"
+    },
+    "GroupedMenuRow": {
+      "cardMode": "column"
+    },
+    "GroupedRow": {
+      "cardMode": "column"
+    },
+    "GroupedSection": {
+      "cardMode": "column"
+    },
+    "GroupedSegmentedRow": {
+      "cardMode": "column"
+    },
+    "GroupedSwitchRow": {
+      "cardMode": "column"
+    },
+    "GroupedValueRow": {
+      "cardMode": "column"
     }
   }
 }
