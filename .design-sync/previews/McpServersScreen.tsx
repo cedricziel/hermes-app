@@ -50,6 +50,7 @@ const servers = [
   },
 ];
 
+/** iPhone: the inset group under "‹ Chat", the title over the profile, "+" and "…" in the bar. */
 export const ApplePhone = () => (
   <HermesProvider platform="apple">
     <div style={phone}>
@@ -58,6 +59,7 @@ export const ApplePhone = () => (
   </HermesProvider>
 );
 
+/** Material phone with the "+" menu open: Browse the catalog, Add a custom server. */
 export const MaterialPhone = () => (
   <div style={phone}>
     <McpServersScreen
@@ -69,21 +71,28 @@ export const MaterialPhone = () => (
   </div>
 );
 
+/** Mac: the toolbar ("work · 3 servers"), the 380px list beside grafana's detail. */
 export const Desktop = () => (
-  <div style={desktop}>
-    <McpServersScreen layout="desktop" profile="work" servers={servers} />
-  </div>
+  <HermesProvider platform="apple" typeRamp="default">
+    <div style={desktop}>
+      <McpServersScreen layout="desktop" profile="work" servers={servers} />
+    </div>
+  </HermesProvider>
 );
 
-/** The phone's server page, opened from the list. */
+/** iPhone, dark: a server's own page, named in the bar, back to "MCP servers". */
 export const ApplePhoneServerPage = () => (
-  <HermesProvider platform="apple">
+  <HermesProvider
+    platform="apple"
+    theme="dark"
+    style={{ width: "fit-content", borderRadius: 14 }}
+  >
     <div style={phone}>
       <McpServersScreen
         layout="phone"
         profile="work"
         servers={servers}
-        openServer="asana"
+        openServer="grafana"
       />
     </div>
   </HermesProvider>
@@ -96,16 +105,27 @@ export const Empty = () => (
 );
 
 export const LoadingAndFailed = () => (
-  <div style={{ display: "flex", gap: 16 }}>
+  <HermesProvider platform="apple" style={{ display: "flex", gap: 16 }}>
     <div style={{ ...phone, width: 300, height: 400 }}>
-      <McpServersScreen layout="phone" servers={[]} state="loading" />
+      <McpServersScreen
+        layout="phone"
+        profile="work"
+        servers={[]}
+        state="loading"
+      />
     </div>
     <div style={{ ...phone, width: 300, height: 400 }}>
-      <McpServersScreen layout="phone" servers={[]} state="failed" />
+      <McpServersScreen
+        layout="phone"
+        profile="work"
+        servers={[]}
+        state="failed"
+      />
     </div>
-  </div>
+  </HermesProvider>
 );
 
+/** Material desktop, dark, asana selected: its sign-in banner in the detail. */
 export const DarkDesktop = () => (
   <HermesProvider theme="dark" style={{ padding: 16, borderRadius: 14 }}>
     <div style={{ ...desktop, width: 768, height: 520 }}>

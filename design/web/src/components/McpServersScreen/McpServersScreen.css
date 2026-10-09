@@ -4,14 +4,3 @@
   justify-content: center;
   gap: 8px;
 }
-
-.h-mcp-screen__list {
-  padding: 8px 0;
-}
-
-.h-mcp-screen__note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 0 16px 8px;
-}
