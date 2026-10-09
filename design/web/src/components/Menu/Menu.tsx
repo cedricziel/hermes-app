@@ -180,6 +180,7 @@ function MenuRow<T extends string>({
         )}
         role="presentation"
       >
+        {reserveCheck ? <span className="h-menu__check" aria-hidden /> : null}
         <span className="h-menu__label">{item.label}</span>
       </div>
     );
