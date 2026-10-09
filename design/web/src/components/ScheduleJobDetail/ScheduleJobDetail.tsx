@@ -1,36 +1,40 @@
-import { useState } from "react";
-import { Badge } from "../Badge/Badge";
+import { type ReactNode } from "react";
 import { Button } from "../Button/Button";
-import { FactList, type Fact } from "../FactList/FactList";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { Menu, MenuAnchor } from "../Menu/Menu";
+import { Menu, MenuAnchor, useMenuState } from "../Menu/Menu";
 import {
+  scheduleJobAlert,
   scheduleJobStatusText,
-  scheduleJobTone,
   type ScheduleJob,
 } from "../ScheduleJobRow/ScheduleJobRow";
+import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Spinner } from "../Spinner/Spinner";
-import { SwitchRow } from "../SwitchRow/SwitchRow";
 import {
   cx,
+  DeviceScope,
   PlatformScope,
+  useGroupedChrome,
   usePlatform,
-  useRowDevice,
   type AppleDevice,
   type Platform,
 } from "../../platform";
+import { groupedMetrics } from "../../grouped";
 import "./ScheduleJobDetail.css";
 
 /** A job as its detail shows it: the list row's job plus what only the detail has. */
 export interface ScheduleJobDetailItem extends ScheduleJob {
-  /** What Hermes does each run, shown in full. */
+  /** What Hermes does each run, shown in full in the "Task" group. */
   prompt?: string;
-  /** A cron job's expression, shown as a chip under the schedule (Mac: a "Cron" fact): `0 8 * * 1-5`. */
+  /** A cron job's expression, a "Cron" row in monospace under "Repeats": `0 8 * * 1-5`. */
   cronExpression?: string;
   /** The job's settings as label and value, in order: Skills, Model, Provider, Script, Working directory, Takes context from. Deliver to and Profile are added from the job. */
   settings?: { label: string; value: string }[];
-  /** The last delivery's error when the run itself went fine: "Telegram: chat not found". */
+  /** The last delivery's error: the warning line of the status row ("Delivery failed: …" when the run itself failed too). */
   deliveryError?: string;
   /** Hermes blocked the job before it could run, so it has no runs: the empty history explains that. */
   blocked?: boolean;
@@ -40,14 +44,16 @@ export interface ScheduleJobDetailItem extends ScheduleJob {
 export interface ScheduleRunItem {
   /** Stable id. */
   id: string;
-  /** When it started, formatted: "Today 08:00", "Sep 17, 08:00". */
+  /** When it started, formatted: "Oct 9, 2026 3:22 AM". */
   started: string;
-  /** How it went, in a word or its length: "Running", "Unfinished", "42 s", "3 min". */
+  /** How it went, in a word or its length: "Running", "Unfinished", "42 s", "1 min". */
   outcome: string;
-  /** Still running: a spinner. */
+  /** Still running: a spinner in place of the icon. */
   active?: boolean;
-  /** Mac: the latest run of a failing job, marked with a red error icon and "Failed". */
+  /** The latest run of a failing job: a red error icon and "Failed · 1 min". */
   failed?: boolean;
+  /** It never finished (no duration): an amber warning icon. */
+  unfinished?: boolean;
 }
 
 export interface ScheduleJobDetailProps {
@@ -57,25 +63,28 @@ export interface ScheduleJobDetailProps {
   runs?: ScheduleRunItem[];
   /** `ready` lists `runs`; `loading` a spinner; `error` "Could not load the runs" with Retry. */
   runsState?: "ready" | "loading" | "error";
-  /** More runs can be loaded: "Show more" under the history. */
+  /** More runs can be loaded: a "Show more" row closes the history. */
   canShowMore?: boolean;
   /** The job's alerts are muted; omit where notifications can't be muted (no Mute switch or menu entry). */
   muted?: boolean;
   /**
-   * `default`: the phone's pushed detail and the right pane of the split
-   * layout: the title, a status card, Run now / Pause / Edit, Mute
-   * notifications, then Schedule, Task, Settings, Run history and "Delete
-   * task". `mac`: the Mac window's detail, at most 560px wide: a header with
-   * the schedule and next run beside "…" (Pause, Mute Notifications,
-   * Delete…), Edit and Run now, the last failure in a card, the settings as
-   * a grid and "Recent runs" in a card. Under `platform="apple"` inside a Mac
-   * `AppShell` it is `mac` by itself.
+   * The detail as grouped sections, after the app's `ScheduleDetailView`:
+   * the status row (status, next run, the failure on the error line), a
+   * "Mute notifications" switch row, Run now / Pause / Edit rows with
+   * leading icons, then "Schedule" (Repeats, Cron), "Task" (the prompt),
+   * "Settings" (the job's settings, Deliver to, Profile), "Run history"
+   * (each run with a success, failure or warning icon, the start time and
+   * its outcome as the value) and a red "Delete task" row. On a Mac
+   * (`apple` + `mac`) the pane leads with the title over "schedule · next
+   * run" beside "…" (Pause, Mute Notifications, Delete…), Edit and Run now
+   * instead of those rows, and the history is "Recent runs". Inherits the
+   * provider's platform.
    */
-  variant?: "default" | "mac";
-  /** `apple`: the Apple switch and iOS type ramp; menus follow `device`. Inherits the provider's platform. */
   platform?: Platform;
-  /** Under `apple`, `touch` or `mac`; `mac` also picks the `mac` variant when `variant` is left out. */
+  /** Under `apple`, `touch` or `mac`. Inherited from the enclosing `SettingsScaffold`, `GroupedListView` or `AppShell`. */
   device?: AppleDevice;
+  /** A pushed page on a phone: wraps the detail in a `SettingsScaffold` titled with the job, with a back button to "Schedules". Without it the detail is a pane and, off a Mac, names the job in a headline above the groups. */
+  onBack?: () => void;
   /** Mac: start with the "…" menu open, for previews. */
   defaultMenuOpen?: boolean;
   /** Run now pressed. */
@@ -97,10 +106,11 @@ export interface ScheduleJobDetailProps {
 }
 
 /**
- * One scheduled job in full: how it is doing, what it does, its settings
- * and its runs, with Run now, Pause, Edit and Delete. The detail pane of
- * `SchedulesScreen` (pushed over the list on a phone). Built from `Button`,
- * `SwitchRow`, `FactList`, `Badge` and `Menu`.
+ * One scheduled job in full, as grouped sections: how it is doing, what can
+ * be done with it, what it does and its runs. The detail pane of
+ * `SchedulesScreen`, or with `onBack` the page pushed over the list on a
+ * phone. Built from `GroupedListView`, `GroupedSection`, `GroupedRow` and
+ * `GroupedSwitchRow`.
  */
 export function ScheduleJobDetail({
   job,
@@ -108,9 +118,9 @@ export function ScheduleJobDetail({
   runsState = "ready",
   canShowMore = false,
   muted,
-  variant,
   platform,
   device,
+  onBack,
   defaultMenuOpen = false,
   onRunNow,
   onTogglePaused,
@@ -122,361 +132,311 @@ export function ScheduleJobDetail({
   onShowMore,
 }: ScheduleJobDetailProps) {
   const resolvedPlatform = usePlatform(platform);
-  const rowDevice = useRowDevice(device);
-  const mac =
-    (variant ??
-      (resolvedPlatform === "apple" && rowDevice === "mac"
-        ? "mac"
-        : "default")) === "mac";
+  const chrome = useGroupedChrome(resolvedPlatform, device);
+  const mac = chrome === "mac";
   const locked = job.state === "completed";
+  const paused = job.state === "paused";
+  const alert = scheduleJobAlert(job);
   const next =
     job.state === "scheduled" && job.nextRun ? job.nextRun : undefined;
-  const history =
-    runsState === "loading" ? (
-      <div className="h-job-detail__center">
-        <Spinner />
-      </div>
-    ) : runsState === "error" ? (
-      <div className="h-job-detail__retry">
-        <span>Could not load the runs</span>
-        <Button variant="text" onClick={onRetryRuns}>
-          Retry
-        </Button>
-      </div>
-    ) : runs.length === 0 ? (
-      job.blocked ? (
-        <div className="h-job-detail__blocked">
-          <span>
-            Hermes blocked this task before it could start, so no run was
-            recorded. It tries again at the next scheduled time.
-          </span>
-          {job.failureReason ? (
-            <span className="h-job-detail__mono-muted">
-              {job.failureReason}
-            </span>
-          ) : null}
-        </div>
-      ) : (
-        <div>No runs yet</div>
-      )
-    ) : null;
-  const showMore = canShowMore ? (
-    <div>
-      <Button variant="text" onClick={onShowMore}>
-        Show more
-      </Button>
-    </div>
-  ) : null;
-  const toneName = scheduleJobTone(job);
-
-  if (mac) {
-    const failing =
-      job.outcome === "failed" || job.outcome === "deliveryFailed";
-    const delivery = job.outcome === "deliveryFailed";
-    const facts: Fact[] = [
-      ...(job.profile ? [{ label: "Profile", value: job.profile }] : []),
-      { label: "Deliver to", value: job.deliverTo },
-      {
-        label: "Status",
-        value:
-          job.state === "paused"
-            ? "Paused"
-            : job.state === "completed"
-              ? "Completed"
-              : "Active",
-      },
-      ...(job.cronExpression
-        ? [{ label: "Cron", value: job.cronExpression, mono: true }]
-        : []),
-      ...(job.deliveryError && !delivery
-        ? [{ label: "Delivery", value: `Failed: ${job.deliveryError}` }]
-        : []),
-      ...(job.settings ?? []),
-      ...(job.prompt ? [{ label: "Prompt", value: job.prompt }] : []),
-    ];
-    const subtitle = [job.scheduleText, next ? `next run ${next}` : undefined]
-      .filter(Boolean)
-      .join(" · ");
-    return (
-      <PlatformScope platform={resolvedPlatform}>
-        <div className="h-job-detail h-job-detail--mac">
-          <div className="h-job-detail__mac-column">
-            <div className="h-job-detail__mac-header">
-              <div className="h-job-detail__mac-heading">
-                <div className="h-job-detail__mac-title">{job.title}</div>
-                {subtitle ? (
-                  <div className="h-job-detail__mac-subtitle">{subtitle}</div>
-                ) : null}
-              </div>
-              <div className="h-job-detail__mac-buttons">
-                <MacMore
-                  paused={job.state === "paused"}
-                  locked={locked}
-                  muted={muted}
-                  defaultOpen={defaultMenuOpen}
-                  device={device}
-                  onTogglePaused={onTogglePaused}
-                  onMutedChange={onMutedChange}
-                  onDelete={onDelete}
-                />
-                <Button variant="outlined" compact onClick={onEdit}>
-                  Edit
-                </Button>
-                <Button icon="play_arrow" compact onClick={onRunNow}>
-                  Run now
-                </Button>
-              </div>
-            </div>
-            {failing ? (
-              <div className="h-job-detail__card h-job-detail__mac-failure">
-                <Badge tone={delivery ? "warning" : "error"}>
-                  {delivery ? "Delivery failed" : "Failed"}
-                </Badge>
-                <span className="h-job-detail__mac-failure-text">
-                  {[
-                    delivery ? job.deliveryError : job.failureReason,
-                    job.lastRun,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-              </div>
-            ) : null}
-            <FactList facts={facts} labelWidth={110} mono={false} />
-            <div className="h-job-detail__section">
-              <div className="h-job-detail__heading">Recent runs</div>
-              {history ?? (
-                <div className="h-job-detail__card h-job-detail__mac-runs">
-                  {runs.map((run) => (
-                    <button
-                      key={run.id}
-                      type="button"
-                      className="h-job-detail__mac-run"
-                      onClick={() => onOpenRun?.(run)}
-                    >
-                      {run.active ? (
-                        <Spinner size={14} />
-                      ) : run.failed ? (
-                        <Icon name="error" size={16} color="var(--h-error)" />
-                      ) : run.outcome === "Unfinished" ? (
-                        <Icon
-                          name="warning"
-                          size={16}
-                          color="var(--h-warning)"
-                        />
-                      ) : (
-                        <Icon
-                          name="check_circle"
-                          size={16}
-                          color="var(--h-success)"
-                        />
-                      )}
-                      <span className="h-job-detail__mac-run-time">
-                        {run.started}
-                      </span>
-                      <span className="h-job-detail__mac-run-outcome">
-                        {run.failed
-                          ? run.outcome === "Unfinished"
-                            ? "Failed"
-                            : `Failed · ${run.outcome}`
-                          : run.outcome}
-                      </span>
-                      <Icon
-                        name="chevron_right"
-                        size={14}
-                        color="var(--h-muted)"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-              {showMore}
-            </div>
-          </div>
-        </div>
-      </PlatformScope>
+  const warning =
+    alert && job.deliveryError
+      ? alert === "undelivered"
+        ? job.deliveryError
+        : `Delivery failed: ${job.deliveryError}`
+      : undefined;
+  const fact = (label: string, value: string, mono = false) =>
+    chrome === "material" ? (
+      <GroupedRow
+        key={label}
+        title={label}
+        subtitle={value}
+        monospaceSubtitle={mono}
+      />
+    ) : mono ? (
+      <GroupedRow
+        key={label}
+        title={label}
+        trailing={<span className="h-job-detail__mono">{value}</span>}
+      />
+    ) : (
+      <GroupedRow key={label} title={label} value={value} />
     );
-  }
-
-  const settings: Fact[] = [
-    ...(job.settings ?? []),
-    { label: "Deliver to", value: job.deliverTo },
-    ...(job.profile ? [{ label: "Profile", value: job.profile }] : []),
-  ];
-  const failed = job.outcome === "failed";
-  return (
-    <PlatformScope platform={resolvedPlatform}>
-      <div className="h-job-detail">
-        <div className="h-job-detail__title">{job.title}</div>
-        <div
-          className={cx(
-            "h-job-detail__card h-job-detail__status",
-            `h-job-detail__status--${toneName}`,
-          )}
-        >
-          <div className="h-job-detail__status-line">
-            <span className="h-job-detail__dot" />
-            <span>{scheduleJobStatusText(job)}</span>
-          </div>
-          {failed && job.failureReason ? (
-            <div className="h-job-detail__reason">{job.failureReason}</div>
-          ) : null}
-          {job.deliveryError && job.outcome !== "deliveryFailed" ? (
-            <div>{`Delivery failed: ${job.deliveryError}`}</div>
-          ) : null}
-          {job.outcome === "deliveryFailed" && job.deliveryError ? (
-            <div className="h-job-detail__delivery">{job.deliveryError}</div>
-          ) : null}
-          {next ? (
-            <div className="h-job-detail__next">{`Next run ${next}`}</div>
-          ) : null}
-        </div>
-        <div className="h-job-detail__buttons">
-          <Button icon="play_arrow" onClick={onRunNow}>
-            Run now
-          </Button>
-          <Button
-            variant="outlined"
-            icon={job.state === "paused" ? "play_arrow" : "pause"}
-            disabled={locked}
-            onClick={onTogglePaused}
-          >
-            {job.state === "paused" ? "Resume" : "Pause"}
-          </Button>
-          <Button variant="outlined" icon="edit" onClick={onEdit}>
-            Edit
-          </Button>
-        </div>
-        {muted !== undefined ? (
-          <SwitchRow
+  const body = (
+    <GroupedListView>
+      {mac ? (
+        <MacHeader
+          job={job}
+          next={next}
+          locked={locked}
+          paused={paused}
+          muted={muted}
+          defaultMenuOpen={defaultMenuOpen}
+          onRunNow={onRunNow}
+          onEdit={onEdit}
+          onTogglePaused={onTogglePaused}
+          onMutedChange={onMutedChange}
+          onDelete={onDelete}
+        />
+      ) : onBack ? null : (
+        <h2 className="h-job-detail__title">{job.title}</h2>
+      )}
+      <GroupedSection>
+        <GroupedRow
+          title={scheduleJobStatusText(job)}
+          subtitle={next ? `Next run ${next}` : undefined}
+          error={alert === "failed" ? job.failureReason : undefined}
+          warning={warning}
+        />
+        {!mac && muted !== undefined ? (
+          <GroupedSwitchRow
             title="Mute notifications"
             subtitle="No alert when this task runs"
             checked={muted}
-            onChange={onMutedChange}
+            onChange={(m) => onMutedChange?.(m)}
           />
         ) : null}
-        <div className="h-job-detail__section">
-          <div className="h-job-detail__heading">Schedule</div>
-          <div className="h-job-detail__schedule">
-            {job.scheduleText || "Unknown"}
-          </div>
-          {job.cronExpression ? (
-            <div>
-              <Badge>{job.cronExpression}</Badge>
-            </div>
-          ) : null}
-        </div>
-        {job.prompt ? (
-          <div className="h-job-detail__section">
-            <div className="h-job-detail__heading">Task</div>
-            <div className="h-job-detail__card">{job.prompt}</div>
-          </div>
-        ) : null}
-        <div className="h-job-detail__section">
-          <div className="h-job-detail__heading">Settings</div>
-          <FactList facts={settings} labelWidth={130} mono={false} />
-        </div>
-        <div className="h-job-detail__section">
-          <div className="h-job-detail__heading">Run history</div>
-          {history ??
-            runs.map((run) => (
-              <button
-                key={run.id}
-                type="button"
-                className="h-job-detail__run"
-                onClick={() => onOpenRun?.(run)}
-              >
-                {run.active ? (
-                  <Spinner size={16} />
-                ) : (
-                  <Icon name="chat_bubble" size={18} color="var(--h-border)" />
-                )}
-                <span className="h-job-detail__run-text">
-                  <span>{run.started}</span>
-                  <span className="h-job-detail__run-outcome">
-                    {run.outcome}
-                  </span>
+      </GroupedSection>
+      {mac ? null : (
+        <GroupedSection dividerIndent="leading">
+          <GroupedRow
+            icon="play_arrow"
+            title="Run now"
+            chevron={false}
+            onClick={onRunNow}
+          />
+          {locked ? null : (
+            <GroupedRow
+              icon={paused ? "play_arrow" : "pause"}
+              title={paused ? "Resume" : "Pause"}
+              chevron={false}
+              onClick={onTogglePaused}
+            />
+          )}
+          <GroupedRow icon="edit" title="Edit" onClick={onEdit} />
+        </GroupedSection>
+      )}
+      <GroupedSection header="Schedule">
+        {fact("Repeats", job.scheduleText || "Unknown")}
+        {job.cronExpression ? fact("Cron", job.cronExpression, true) : null}
+      </GroupedSection>
+      {job.prompt ? (
+        <GroupedSection header="Task">
+          <Padded className="h-job-detail__prompt">{job.prompt}</Padded>
+        </GroupedSection>
+      ) : null}
+      <GroupedSection header="Settings">
+        {(job.settings ?? []).map((s) => fact(s.label, s.value))}
+        {fact("Deliver to", job.deliverTo)}
+        {job.profile ? fact("Profile", job.profile) : null}
+      </GroupedSection>
+      <GroupedSection
+        header={mac ? "Recent runs" : "Run history"}
+        dividerIndent="leading"
+      >
+        {runsState === "loading" ? (
+          <Padded className="h-job-detail__center">
+            <Spinner />
+          </Padded>
+        ) : runsState === "error" ? (
+          <Padded className="h-job-detail__retry">
+            <span>Could not load the runs</span>
+            <Button variant="text" compact onClick={onRetryRuns}>
+              Retry
+            </Button>
+          </Padded>
+        ) : runs.length === 0 ? (
+          <Padded className="h-job-detail__empty">
+            {job.blocked ? (
+              <>
+                <span>
+                  Hermes blocked this task before it could start, so no run was
+                  recorded. It tries again at the next scheduled time.
                 </span>
-                <Icon name="chevron_right" size={20} />
-              </button>
-            ))}
-          {showMore}
-        </div>
-        <div>
-          <Button
-            variant="text"
-            icon="delete"
-            className="h-job-detail__delete"
+                {job.failureReason ? (
+                  <span className="h-job-detail__mono h-job-detail__muted">
+                    {job.failureReason}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              "No runs yet"
+            )}
+          </Padded>
+        ) : (
+          runs.map((run) => (
+            <RunRow key={run.id} run={run} onClick={() => onOpenRun?.(run)} />
+          ))
+        )}
+        {canShowMore && runsState === "ready" ? (
+          <GroupedRow title="Show more" chevron={false} onClick={onShowMore} />
+        ) : null}
+      </GroupedSection>
+      {mac ? null : (
+        <GroupedSection>
+          <GroupedRow
+            title="Delete task"
+            destructive
+            chevron={false}
             onClick={onDelete}
+          />
+        </GroupedSection>
+      )}
+    </GroupedListView>
+  );
+  return (
+    <PlatformScope platform={resolvedPlatform}>
+      <DeviceScope device={device}>
+        {onBack ? (
+          <SettingsScaffold
+            title={job.title}
+            onBack={onBack}
+            backLabel="Schedules"
           >
-            Delete task
-          </Button>
-        </div>
-      </div>
+            {body}
+          </SettingsScaffold>
+        ) : (
+          <div className="h-job-detail">{body}</div>
+        )}
+      </DeviceScope>
     </PlatformScope>
   );
 }
 
-function MacMore({
-  paused,
+function Padded({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cx("h-job-detail__padded", className)}>{children}</div>
+  );
+}
+
+function RunRow({
+  run,
+  onClick,
+}: {
+  run: ScheduleRunItem;
+  onClick: () => void;
+}) {
+  const size = groupedMetrics[useGroupedChrome()].titleSize + 5;
+  const icon = run.active ? (
+    <Spinner size={size - 4} />
+  ) : run.failed ? (
+    <Icon name="error_outline" size={size} color="var(--h-error)" />
+  ) : run.unfinished ? (
+    <Icon name="warning" size={size} color="var(--h-warning)" />
+  ) : (
+    <Icon name="check_circle" size={size} color="var(--h-success)" />
+  );
+  return (
+    <GroupedRow
+      leading={
+        <span className="h-job-detail__run-icon" style={{ width: size }}>
+          {icon}
+        </span>
+      }
+      title={run.started}
+      value={
+        run.failed
+          ? run.unfinished
+            ? "Failed"
+            : `Failed · ${run.outcome}`
+          : run.outcome
+      }
+      onClick={onClick}
+    />
+  );
+}
+
+function MacHeader({
+  job,
+  next,
   locked,
+  paused,
   muted,
-  defaultOpen,
-  device,
+  defaultMenuOpen,
+  onRunNow,
+  onEdit,
   onTogglePaused,
   onMutedChange,
   onDelete,
 }: {
-  paused: boolean;
+  job: ScheduleJobDetailItem;
+  next?: string;
   locked: boolean;
+  paused: boolean;
   muted?: boolean;
-  defaultOpen: boolean;
-  device?: AppleDevice;
+  defaultMenuOpen: boolean;
+  onRunNow?: () => void;
+  onEdit?: () => void;
   onTogglePaused?: () => void;
   onMutedChange?: (muted: boolean) => void;
   onDelete?: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useMenuState(defaultMenuOpen);
+  const subtitle = [job.scheduleText, next ? `next run ${next}` : undefined]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <MenuAnchor>
-      <IconButton
-        icon="more_horiz"
-        label="More"
-        size={32}
-        onClick={() => setOpen(!open)}
-      />
-      {open ? (
-        <Menu
-          align="end"
-          label="More"
-          device={device}
-          style={{ minWidth: 200 }}
-          items={[
-            {
-              label: paused ? "Resume" : "Pause",
-              value: "pause",
-              disabled: locked,
-            },
-            ...(muted !== undefined
-              ? [
-                  {
-                    label: "Mute Notifications",
-                    value: "mute",
-                    checked: muted,
-                  },
-                ]
-              : []),
-            "divider" as const,
-            { label: "Delete…", value: "delete", destructive: true },
-          ]}
-          onSelect={(item) => {
-            setOpen(false);
-            if (item.value === "pause") onTogglePaused?.();
-            else if (item.value === "mute") onMutedChange?.(!muted);
-            else onDelete?.();
-          }}
-        />
-      ) : null}
-    </MenuAnchor>
+    <div className="h-job-detail__mac-header">
+      <div className="h-job-detail__mac-heading">
+        <div className="h-job-detail__mac-title">{job.title}</div>
+        {subtitle ? (
+          <div className="h-job-detail__mac-subtitle">{subtitle}</div>
+        ) : null}
+      </div>
+      <div className="h-job-detail__mac-buttons">
+        <MenuAnchor>
+          <IconButton
+            icon="more_horiz"
+            label="More"
+            size={32}
+            onClick={() => setOpen(!open)}
+          />
+          {open ? (
+            <Menu
+              align="end"
+              label="More"
+              device="mac"
+              style={{ minWidth: 200 }}
+              items={[
+                {
+                  label: paused ? "Resume" : "Pause",
+                  value: "pause",
+                  disabled: locked,
+                },
+                ...(muted !== undefined
+                  ? [
+                      {
+                        label: "Mute Notifications",
+                        value: "mute",
+                        checked: muted,
+                      },
+                    ]
+                  : []),
+                "divider" as const,
+                { label: "Delete…", value: "delete", destructive: true },
+              ]}
+              onSelect={(item) => {
+                setOpen(false);
+                if (item.value === "pause") onTogglePaused?.();
+                else if (item.value === "mute") onMutedChange?.(!muted);
+                else onDelete?.();
+              }}
+            />
+          ) : null}
+        </MenuAnchor>
+        <Button variant="outlined" compact onClick={onEdit}>
+          Edit
+        </Button>
+        <Button icon="play_arrow" compact onClick={onRunNow}>
+          Run now
+        </Button>
+      </div>
+    </div>
   );
 }
