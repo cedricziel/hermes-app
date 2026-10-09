@@ -174,7 +174,10 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
         ..._picker('Every', const EverySpec(30, EveryUnit.minutes)),
         ..._picker('Daily', const DailySpec(9, 0)),
         ..._picker('Weekly', const WeeklySpec({1, 3, 5}, 8, 30)),
-        ..._picker('Once', OnceSpec(DateTime.now().add(const Duration(days: 2)))),
+        ..._picker(
+          'Once',
+          OnceSpec(DateTime.now().add(const Duration(days: 2))),
+        ),
         ..._picker('Cron expression', const CronSpec('*/15 9-17 * * 1-5')),
         ..._picker('Invalid cron', const CronSpec('nonsense')),
       ],
