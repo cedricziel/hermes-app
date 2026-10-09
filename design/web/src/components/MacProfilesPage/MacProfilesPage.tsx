@@ -1,9 +1,14 @@
 import { Button } from "../Button/Button";
-import { Icon } from "../Icon/Icon";
+import { GroupedListView } from "../GroupedListView/GroupedListView";
+import { GroupedRow, GroupedTile } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
 import { MacToolbar, MacToolbarButton } from "../MacToolbar/MacToolbar";
 import type { Profile } from "../ProfileTile/ProfileTile";
 import { StateMessage } from "../StateMessage/StateMessage";
-import { InitialsAvatar as Avatar } from "../ThreadSidebar/MacAccount";
+import {
+  InitialsAvatar as Avatar,
+  initialsOf,
+} from "../ThreadSidebar/MacAccount";
 import { cx, PlatformScope } from "../../platform";
 import "./MacProfilesPage.css";
 
@@ -50,10 +55,7 @@ const sections: {
 ];
 
 /** A profile on the Mac Profiles page; `path` is its home directory. */
-export interface MacProfile extends Profile {
-  /** The profile's home on the server: "~/.hermes/profiles/work". */
-  path?: string;
-}
+export type MacProfile = Profile;
 
 export interface MacProfilesPageProps {
   /** The dashboard's profiles. */
@@ -156,54 +158,35 @@ export function MacProfilesPage({
             </div>
             <div className="h-mac-profiles__detail">
               {profile ? (
-                <div className="h-mac-profiles__home">
-                  <div className="h-mac-profiles__head">
-                    <Avatar label={label(profile)} size={44} />
-                    <div>
-                      <div className="h-title-md">{label(profile)}</div>
-                      {profile.path ? (
-                        <div className="h-mono h-muted h-mac-profiles__path">
-                          {profile.path}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="h-mac-profiles__card">
+                <GroupedListView device="mac">
+                  <GroupedSection>
+                    <GroupedRow
+                      title={label(profile)}
+                      subtitle={profile.path || undefined}
+                      monospaceSubtitle
+                      caption={profile.description || undefined}
+                      leading={
+                        <GroupedTile>{initialsOf(label(profile))}</GroupedTile>
+                      }
+                    />
+                  </GroupedSection>
+                  <GroupedSection
+                    header="In this profile"
+                    dividerIndent="tile"
+                    footer="Everything here lives in this profile's home directory. Chats, schedules, memory and API keys are also per profile; Kanban and sign-in are shared."
+                  >
                     {sections.map((s) => (
-                      <button
+                      <GroupedRow
                         key={s.id}
-                        type="button"
-                        className="h-mac-profiles__section"
+                        title={s.label}
+                        subtitle={s.detail}
+                        leading={<GroupedTile icon={s.icon} />}
+                        value={counts[s.id]?.toString()}
                         onClick={() => onOpen?.(s.id)}
-                      >
-                        <Icon name={s.icon} size={18} className="h-muted" />
-                        <span className="h-mac-profiles__row-text">
-                          <span className="h-mac-profiles__section-title">
-                            {s.label}
-                          </span>
-                          <span className="h-mac-profiles__row-detail">
-                            {s.detail}
-                          </span>
-                        </span>
-                        {counts[s.id] !== undefined ? (
-                          <span className="h-muted h-mac-profiles__count">
-                            {counts[s.id]}
-                          </span>
-                        ) : null}
-                        <Icon
-                          name="chevron_right"
-                          size={14}
-                          className="h-muted"
-                        />
-                      </button>
+                      />
                     ))}
-                  </div>
-                  <div className="h-mac-profiles__note">
-                    Everything here lives in this profile's home directory.
-                    Chats, schedules, memory and API keys are also per profile;
-                    Kanban and sign-in are shared.
-                  </div>
-                </div>
+                  </GroupedSection>
+                </GroupedListView>
               ) : null}
             </div>
           </div>

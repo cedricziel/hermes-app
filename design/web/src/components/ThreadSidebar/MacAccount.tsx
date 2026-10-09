@@ -12,7 +12,7 @@ import "./MacAccount.css";
  */
 
 /** The first letters of up to two words of `label`, upper case; "?" without any (the app's `initialsOf`). */
-function initialsOf(label: string) {
+export function initialsOf(label: string) {
   const letters = label
     .split(/[\s_\-.@/:]+/)
     .filter(Boolean)

@@ -1,8 +1,14 @@
+import { GroupedRow, GroupedTile } from "../GroupedRow/GroupedRow";
 import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { cx, PlatformScope, usePlatform, type Platform } from "../../platform";
-import type { DeviceLayout } from "../ThreadSidebar/ThreadSidebar";
-import "./ProfileTile.css";
+import { RowActions } from "../SwipeActions/RowActions";
+import { initialsOf } from "../ThreadSidebar/MacAccount";
+import {
+  useGroupedChrome,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
 
 /** A Hermes profile: its own config, skills, memory and chats on the server. */
 export interface Profile {
@@ -12,6 +18,8 @@ export interface Profile {
   displayName?: string;
   /** What the profile is for: "Day job: tickets, reviews and the on-call rota". */
   description?: string;
+  /** The profile's home on the server: "/home/hermes/.hermes/profiles/work". The row's subtitle when there is no `description`. */
+  path?: string;
   /** Default model, e.g. "hermes-4" or "openai/gpt-5.1". */
   model?: string;
   /** Number of skills it has. */
@@ -21,97 +29,97 @@ export interface Profile {
 export interface ProfileTileProps {
   /** The profile to show. */
   profile: Profile;
-  /** The chats' current profile: adds an "Active" chip. */
+  /** The CLI default profile: a trailing check on Apple, a muted "Active" on Material. */
   active?: boolean;
   /** The row was clicked: switch to this profile. */
   onClick?: () => void;
-  /** Shows a tune button that changes the profile's default model, and calls this when pressed. */
-  onChangeModel?: () => void;
   /**
-   * `apple` with `layout="phone"` (iOS): a compact row at least 44px tall with
-   * no leading icon, a trailing checkmark on the active profile instead of
-   * the "Active" chip, and the tune button (when `onChangeModel` is given)
-   * after it. `apple` with `layout="desktop"`
-   * (macOS) keeps this tile with SF-style glyphs. Inherits the provider's
-   * platform.
+   * The profile's default model can be changed: a tune button at the
+   * trailing edge (Mac and Material), or on iOS a "Change default model"
+   * entry of the row's long-press sheet. Called when it is pressed.
+   */
+  onChangeModel?: () => void;
+  /** iOS only, with `onChangeModel`: draws the long-press action sheet open over the screen, for previews. */
+  actionSheetOpen?: boolean;
+  /**
+   * A row of the Profiles group (`GroupedRow`): the profile's initials in a
+   * `GroupedTile`, its label, its description (or home path), and a muted
+   * caption of default model and skill count. `apple`: a check marks the
+   * active profile. `material`: a muted "Active" value. Inherits the
+   * provider's platform.
    */
   platform?: Platform;
-  /** Touch (`phone`) or pointer (`desktop`, default) row under `platform="apple"`. */
-  layout?: DeviceLayout;
+  /** Under `apple`: `mac` (13px row, tune button) or `touch` (iPhone, iPad: 17px row, no tune button). Inherited from the enclosing `GroupedSection`, else `touch`. */
+  device?: AppleDevice;
 }
 
 /**
- * One row of the Profiles screen: a person icon, the profile's label, a
- * subtitle of description · model · skill count, an "Active" chip on the
- * current one and a button to change its default model.
+ * One profile in the Profiles group: initials tile, label, description or
+ * home, then "model · N skills"; the active one checked (Apple) or marked
+ * "Active" (Material), and a button to change its default model. Put it in
+ * a `GroupedSection` with `dividerIndent="tile"`.
  */
 export function ProfileTile({
   profile,
   active = false,
   onClick,
   onChangeModel,
+  actionSheetOpen,
   platform,
-  layout = "desktop",
+  device,
 }: ProfileTileProps) {
   const resolvedPlatform = usePlatform(platform);
-  const ios = resolvedPlatform === "apple" && layout === "phone";
-  const parts = [
-    profile.description,
-    profile.model,
-    `${profile.skillCount} skills`,
-  ].filter(Boolean);
-  const changeModel = onChangeModel ? (
-    <IconButton
-      icon="tune"
-      label="Change default model"
-      onClick={(e) => {
-        e.stopPropagation();
-        onChangeModel();
-      }}
-    />
-  ) : null;
-  return (
-    <PlatformScope platform={resolvedPlatform}>
-      <div
-        className={cx("h-profile-tile", ios && "h-profile-tile--ios")}
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={(e) => {
-          if (e.target !== e.currentTarget) return;
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onClick?.();
-          }
-        }}
-      >
-        {ios ? null : (
-          <Icon name="person" size={24} className="h-profile-tile__icon" />
-        )}
-        <div className="h-profile-tile__body">
-          <div className="h-profile-tile__title">
-            {profile.displayName || profile.name}
-          </div>
-          <div className="h-profile-tile__subtitle">{parts.join(" · ")}</div>
-        </div>
-        {ios && active ? (
-          <Icon
-            name="check"
-            size={20}
-            label="Active"
-            className="h-profile-tile__check"
+  const chrome = useGroupedChrome(platform, device);
+  const apple = chrome !== "material";
+  const label = profile.displayName || profile.name;
+  const trailing =
+    (active && apple) || (onChangeModel && chrome !== "ios") ? (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {active && apple ? (
+          <Icon name="check" size={chrome === "mac" ? 16 : 22} label="Active" />
+        ) : null}
+        {onChangeModel && chrome !== "ios" ? (
+          <IconButton
+            icon="tune"
+            label="Change default model"
+            size={chrome === "mac" ? 32 : 40}
+            onClick={onChangeModel}
           />
         ) : null}
-        {ios ? changeModel : null}
-        {!ios && (active || onChangeModel) ? (
-          <div className="h-profile-tile__trailing">
-            {active ? (
-              <span className="h-profile-tile__chip">Active</span>
-            ) : null}
-            {changeModel}
-          </div>
-        ) : null}
-      </div>
-    </PlatformScope>
+      </span>
+    ) : undefined;
+  const row = (
+    <GroupedRow
+      title={label}
+      subtitle={profile.description || profile.path || undefined}
+      caption={[profile.model, `${profile.skillCount} skills`]
+        .filter(Boolean)
+        .join(" · ")}
+      leading={<GroupedTile>{initialsOf(label)}</GroupedTile>}
+      value={active && !apple ? "Active" : undefined}
+      trailing={trailing}
+      chevron={false}
+      onClick={onClick}
+      platform={platform}
+      device={device}
+    />
+  );
+  if (!onChangeModel) return row;
+  return (
+    <RowActions
+      title={label}
+      actions={[
+        {
+          label: "Change default model",
+          icon: "tune",
+          onPress: onChangeModel,
+        },
+      ]}
+      actionSheetOpen={actionSheetOpen}
+      platform={resolvedPlatform}
+      device={chrome === "ios" ? "touch" : "mac"}
+    >
+      {row}
+    </RowActions>
   );
 }

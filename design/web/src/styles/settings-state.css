@@ -1,0 +1,10 @@
+/* A settings page's loading spinner or failure message, centred in its body. */
+.h-settings-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 16px;
+}
