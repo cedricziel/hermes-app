@@ -1,36 +1,45 @@
-import { Button } from "../Button/Button";
+import { GroupedRow } from "../GroupedRow/GroupedRow";
+import { GroupedSection } from "../GroupedSection/GroupedSection";
+import { GroupedSwitchRow } from "../GroupedSwitchRow/GroupedSwitchRow";
+import { Icon } from "../Icon/Icon";
 import { IconButton } from "../IconButton/IconButton";
-import { SectionHeader } from "../SectionHeader/SectionHeader";
 import { Spinner } from "../Spinner/Spinner";
-import { SwitchRow } from "../SwitchRow/SwitchRow";
-import { Tag } from "../Tag/Tag";
 import type { PluginItem } from "../PluginRow/PluginRow";
-import { PlatformScope, usePlatform, type Platform } from "../../platform";
+import {
+  cx,
+  DeviceScope,
+  PlatformScope,
+  useGroupedChrome,
+  usePlatform,
+  type AppleDevice,
+  type Platform,
+} from "../../platform";
+import { metricsClass } from "../../grouped";
 import "./PluginDetail.css";
 
 /** A plugin with everything its detail shows, on top of what its row shows. */
 export interface PluginDetails extends PluginItem {
-  /** Installed: where it came from, after the version: "git", "bundled". */
+  /** Installed: where it came from, after the version: "v1.2.0 · git". */
   source?: string;
   /** Installed: hidden from the web dashboard's sidebar. */
   hidden?: boolean;
-  /** Installed: Hermes can update it from its source; adds an Update button. */
+  /** Installed: Hermes can update it from its source; adds an Update row. */
   canUpdate?: boolean;
-  /** Installed, `authRequired`: the command to run on the server, shown with a copy button: "hermes auth netbox". Without it the block says a login is needed. */
+  /** Installed, `authRequired`: the command to run on the server, in monospace with a copy button: "hermes auth netbox". Without it the group says a login is needed. */
   authCommand?: string;
-  /** Catalog: "Requires Hermes >=0.9". */
+  /** Catalog: a "Requires Hermes" row: ">=0.9". */
   requiresHermes?: string;
-  /** Catalog: platforms it runs on: ["linux", "macos"]. */
+  /** Catalog: a "Platforms" row: ["linux", "macos"]. */
   platforms?: string[];
-  /** Catalog: tool names it provides, as monospace tags. */
+  /** Catalog: tool names it provides, a "Tools" group with a row each. */
   tools?: string[];
-  /** Catalog: hook names it provides. */
+  /** Catalog: hook names it provides, a "Hooks" group. */
   hooks?: string[];
-  /** Catalog: middleware it provides. */
+  /** Catalog: middleware it provides, a "Middleware" group. */
   middleware?: string[];
-  /** Catalog: environment variables it needs. */
+  /** Catalog: environment variables it needs, an "Environment variables" group. */
   env?: string[];
-  /** Catalog: a docs address; adds a "Documentation" link. */
+  /** Catalog: a docs address; adds a "Documentation" row with an open-in-browser glyph. */
   docsUrl?: string;
 }
 
@@ -38,14 +47,16 @@ export interface PluginDetailProps {
   /** The plugin to show. */
   plugin: PluginDetails;
   /**
-   * `installed`: an installed plugin, with the Enabled and "Hide from
-   * dashboard sidebar" switches, Update, the login block and Remove plugin.
-   * `catalog`: a catalog entry, with its maintainer, tags, requirements, what
-   * it provides, a docs link and, when not installed, "Enable after install"
-   * and Install.
+   * `installed`: an installed plugin: a "Removed" warning group, the
+   * Enabled and "Hide from dashboard sidebar" switches, a "Needs login"
+   * group with the command, and Update and "Remove plugin" (red) rows.
+   * `catalog`: a catalog entry: when not installed "Enable after install"
+   * and a full-width Install button, then Status, Commit, "Requires
+   * Hermes" and Platforms rows, groups of what it provides and needs, and
+   * a Documentation row.
    */
   variant?: "installed" | "catalog";
-  /** A change to this plugin is running: switches and buttons are disabled, Update or Install spins. */
+  /** A change to this plugin is running: switches and rows are disabled, Update or Install spins. */
   busy?: boolean;
   /** Catalog: "Enable after install". Default on. */
   enableAfterInstall?: boolean;
@@ -56,39 +67,42 @@ export interface PluginDetailProps {
   /** The "Hide from dashboard sidebar" switch. */
   onHiddenChange?: (hidden: boolean) => void;
   onUpdate?: () => void;
-  /** "Remove plugin". The app asks before removing. */
+  /** "Remove plugin", shown when `removable`. The app asks before removing. */
   onRemove?: () => void;
   /** Copy the login command. */
   onCopyLogin?: () => void;
   /** Catalog: Install. */
   onInstall?: () => void;
-  /** Catalog: the Documentation link. */
+  /** Catalog: the Documentation row. */
   onOpenDocs?: () => void;
-  /** Switches and spinners follow the platform; the layout is the same. Inherits the provider's platform. */
+  /**
+   * The header (name at the row title size + 3, semibold; a muted
+   * "v1.2.0 · git" or "Official · maintainer" line; the description) over
+   * `GroupedSection`s in the platform's grouped look: iOS 17px rows,
+   * Mac 13px, Material 16px. Inherits the provider's platform.
+   */
   platform?: Platform;
+  /** Under `apple`: `mac` or `touch`; inherited from `SettingsScaffold` or `AppShell`, else touch. */
+  device?: AppleDevice;
 }
 
-function Group({ title, names }: { title: string; names?: string[] }) {
+function Names({ header, names }: { header: string; names?: string[] }) {
   if (!names?.length) return null;
   return (
-    <div className="h-plugin-detail__group">
-      <SectionHeader variant="label" title={title} />
-      <div className="h-plugin-detail__tags">
-        {names.map((n) => (
-          <Tag key={n} mono>
-            {n}
-          </Tag>
-        ))}
-      </div>
-    </div>
+    <GroupedSection header={header}>
+      {names.map((n) => (
+        <GroupedRow key={n} title={n} />
+      ))}
+    </GroupedSection>
   );
 }
 
 /**
  * One plugin's details and what the user can change, from the Plugins
- * screen's Installed or Catalog tab. Put it in a `Sheet dragHandle
- * padding={0}` below 900px and in `PluginsScreen`'s right-hand pane from
- * 900px; it does not know which.
+ * screen's Installed or Catalog tab, as the app's `DetailPage`: a header
+ * and grouped sections. Put it in a `Sheet dragHandle padding={0}` below
+ * 900px and in `PluginsScreen`'s right-hand pane from 900px; it does not
+ * know which.
  */
 export function PluginDetail({
   plugin,
@@ -104,150 +118,180 @@ export function PluginDetail({
   onInstall,
   onOpenDocs,
   platform,
+  device,
 }: PluginDetailProps) {
   const resolved = usePlatform(platform);
+  const chrome = useGroupedChrome(resolved, device);
   const catalog = variant === "catalog";
-  const meta = [
-    plugin.version ? `v${plugin.version}` : null,
-    plugin.source || null,
-  ]
+  const spinner = <Spinner size={chrome === "mac" ? 14 : 16} label="Working" />;
+  const meta = (
+    catalog
+      ? [plugin.official && "Official", plugin.maintainer]
+      : [plugin.version && `v${plugin.version}`, plugin.source]
+  )
     .filter(Boolean)
     .join(" · ");
-  const spinner = <Spinner size={16} color="var(--h-muted)" label="Working" />;
+  const facts = [
+    plugin.installed ? (
+      <GroupedRow
+        key="status"
+        title="Status"
+        value={plugin.updateAvailable ? "Update available" : "Installed"}
+      />
+    ) : null,
+    plugin.commit ? (
+      <GroupedRow key="commit" title="Commit" value={plugin.commit} />
+    ) : null,
+    plugin.requiresHermes ? (
+      <GroupedRow
+        key="requires"
+        title="Requires Hermes"
+        value={plugin.requiresHermes}
+      />
+    ) : null,
+    plugin.platforms?.length ? (
+      <GroupedRow
+        key="platforms"
+        title="Platforms"
+        value={plugin.platforms.join(", ")}
+      />
+    ) : null,
+  ].filter(Boolean);
   return (
     <PlatformScope platform={resolved}>
-      <div className="h-plugin-detail">
-        <div className="h-plugin-detail__title">
-          <span className="h-title-lg">{plugin.name}</span>
-          {catalog && plugin.official ? (
-            <Tag variant="filled">Official</Tag>
-          ) : null}
-        </div>
-        {catalog ? (
-          plugin.maintainer ? (
-            <div className="h-body-sm h-muted">{plugin.maintainer}</div>
-          ) : null
-        ) : meta ? (
-          <div className="h-body-sm h-muted">{meta}</div>
-        ) : null}
-        {plugin.description ? (
-          <div className="h-body-md h-plugin-detail__description">
-            {plugin.description}
+      <DeviceScope device={device}>
+        <div className={cx("h-plugin-detail", metricsClass(chrome))}>
+          <div className="h-plugin-detail__header">
+            <div className="h-plugin-detail__title">{plugin.name}</div>
+            {meta ? <div className="h-plugin-detail__meta">{meta}</div> : null}
+            {plugin.description ? (
+              <div className="h-plugin-detail__description">
+                {plugin.description}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {catalog ? (
-          <>
-            <div className="h-plugin-detail__tags h-plugin-detail__gap-12">
-              {plugin.commit ? <Tag mono>{plugin.commit}</Tag> : null}
-              {plugin.installed ? <Tag variant="filled">Installed</Tag> : null}
-              {plugin.installed && plugin.updateAvailable ? (
-                <Tag variant="strong">Update available</Tag>
-              ) : null}
-            </div>
-            {plugin.requiresHermes ? (
-              <div className="h-body-md h-muted h-plugin-detail__gap-8">
-                Requires Hermes {plugin.requiresHermes}
-              </div>
-            ) : null}
-            {plugin.platforms?.length ? (
-              <div className="h-body-md h-muted h-plugin-detail__gap-8">
-                Platforms: {plugin.platforms.join(", ")}
-              </div>
-            ) : null}
-            <Group title="Tools" names={plugin.tools} />
-            <Group title="Hooks" names={plugin.hooks} />
-            <Group title="Middleware" names={plugin.middleware} />
-            <Group title="Environment variables" names={plugin.env} />
-            {plugin.docsUrl ? (
-              <div className="h-plugin-detail__docs">
-                <Button variant="text" icon="open_in_new" onClick={onOpenDocs}>
-                  Documentation
-                </Button>
-              </div>
-            ) : null}
-            {!plugin.installed ? (
-              <div className="h-plugin-detail__install">
-                <SwitchRow
-                  title="Enable after install"
-                  checked={enableAfterInstall}
-                  disabled={busy}
-                  onChange={onEnableAfterInstallChange}
-                />
-                <Button fullWidth disabled={busy} onClick={onInstall}>
-                  {busy ? spinner : "Install"}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : (
-          <>
-            {plugin.removedReason ? (
-              <div className="h-plugin-detail__gap-12">
-                <Tag variant="strong">{`Removed: ${plugin.removedReason}`}</Tag>
-              </div>
-            ) : null}
-            <div className="h-plugin-detail__gap-8">
-              <SwitchRow
-                title="Enabled"
-                subtitle="Applies to new chats"
-                checked={(plugin.status ?? "enabled") === "enabled"}
-                disabled={busy}
-                onChange={onEnabledChange}
-              />
-              <SwitchRow
-                title="Hide from dashboard sidebar"
-                subtitle="Only affects the web dashboard"
-                checked={Boolean(plugin.hidden)}
-                disabled={busy}
-                onChange={onHiddenChange}
-              />
-            </div>
-            {plugin.canUpdate ? (
-              <Button
-                variant="outlined"
-                fullWidth
-                className="h-plugin-detail__gap-8 h-plugin-detail__tonal"
-                disabled={busy}
-                onClick={onUpdate}
-              >
-                {busy ? spinner : "Update"}
-              </Button>
-            ) : null}
-            {plugin.authRequired ? (
-              <div className="h-plugin-detail__login">
-                <div className="h-label-lg">Needs login</div>
-                {plugin.authCommand ? (
-                  <div className="h-plugin-detail__command">
-                    <span className="h-mono">{plugin.authCommand}</span>
-                    <IconButton
-                      icon="content_copy"
-                      label="Copy command"
-                      size={32}
-                      onClick={onCopyLogin}
+          {catalog ? (
+            <>
+              {!plugin.installed ? (
+                <>
+                  <GroupedSection>
+                    <GroupedSwitchRow
+                      title="Enable after install"
+                      checked={enableAfterInstall}
+                      disabled={busy}
+                      onChange={onEnableAfterInstallChange}
                     />
-                  </div>
+                  </GroupedSection>
+                  <button
+                    type="button"
+                    className="h-plugin-detail__install"
+                    disabled={busy}
+                    onClick={onInstall}
+                  >
+                    {busy ? (
+                      <Spinner
+                        size={16}
+                        color="currentColor"
+                        label="Installing"
+                      />
+                    ) : (
+                      "Install"
+                    )}
+                  </button>
+                </>
+              ) : null}
+              {facts.length ? <GroupedSection>{facts}</GroupedSection> : null}
+              <Names header="Tools" names={plugin.tools} />
+              <Names header="Hooks" names={plugin.hooks} />
+              <Names header="Middleware" names={plugin.middleware} />
+              <Names header="Environment variables" names={plugin.env} />
+              {plugin.docsUrl ? (
+                <GroupedSection>
+                  <GroupedRow
+                    title="Documentation"
+                    chevron={false}
+                    trailing={
+                      <span className="h-plugin-detail__external">
+                        <Icon name="open_in_new" size={16} />
+                      </span>
+                    }
+                    onClick={onOpenDocs}
+                  />
+                </GroupedSection>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {plugin.removedReason ? (
+                <GroupedSection>
+                  <GroupedRow title="Removed" warning={plugin.removedReason} />
+                </GroupedSection>
+              ) : null}
+              <GroupedSection>
+                <GroupedSwitchRow
+                  title="Enabled"
+                  subtitle="Applies to new chats"
+                  checked={(plugin.status ?? "enabled") === "enabled"}
+                  disabled={busy}
+                  onChange={onEnabledChange}
+                />
+                <GroupedSwitchRow
+                  title="Hide from dashboard sidebar"
+                  subtitle="Only affects the web dashboard"
+                  checked={Boolean(plugin.hidden)}
+                  disabled={busy}
+                  onChange={onHiddenChange}
+                />
+              </GroupedSection>
+              {plugin.authRequired ? (
+                plugin.authCommand ? (
+                  <GroupedSection
+                    header="Needs login"
+                    footer="Run this on the server."
+                  >
+                    <div className="h-plugin-detail__command">
+                      <span>{plugin.authCommand}</span>
+                      <IconButton
+                        icon="content_copy"
+                        label="Copy command"
+                        tone="muted"
+                        size={chrome === "mac" ? 32 : 40}
+                        onClick={onCopyLogin}
+                      />
+                    </div>
+                  </GroupedSection>
                 ) : (
-                  <div className="h-body-md">
-                    This plugin needs a login on the server.
-                  </div>
-                )}
-                <div className="h-body-sm h-muted">Run this on the server.</div>
-              </div>
-            ) : null}
-            {plugin.removable ? (
-              <Button
-                variant="outlined"
-                fullWidth
-                className="h-plugin-detail__remove"
-                disabled={busy}
-                onClick={onRemove}
-              >
-                Remove plugin
-              </Button>
-            ) : null}
-          </>
-        )}
-      </div>
+                  <GroupedSection header="Needs login">
+                    <GroupedRow title="This plugin needs a login on the server." />
+                  </GroupedSection>
+                )
+              ) : null}
+              {plugin.canUpdate || plugin.removable ? (
+                <GroupedSection>
+                  {plugin.canUpdate ? (
+                    <GroupedRow
+                      title="Update"
+                      chevron={false}
+                      trailing={busy ? spinner : undefined}
+                      disabled={busy}
+                      onClick={onUpdate}
+                    />
+                  ) : null}
+                  {plugin.removable ? (
+                    <GroupedRow
+                      title="Remove plugin"
+                      destructive
+                      chevron={false}
+                      disabled={busy}
+                      onClick={onRemove}
+                    />
+                  ) : null}
+                </GroupedSection>
+              ) : null}
+            </>
+          )}
+        </div>
+      </DeviceScope>
     </PlatformScope>
   );
 }
