@@ -124,6 +124,8 @@ export function PluginRow({
             plugin.installed ? undefined : (
               <RowButton
                 label="Install"
+                busyLabel="Installing"
+                ariaLabel={`Install ${plugin.name}`}
                 busy={installing}
                 onClick={onInstall}
                 device={device}

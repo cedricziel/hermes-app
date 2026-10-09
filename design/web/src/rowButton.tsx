@@ -10,12 +10,18 @@ import "./rowButton.css";
  */
 export function RowButton({
   label,
+  busyLabel = label,
+  ariaLabel,
   busy = false,
   disabled = false,
   onClick,
   device,
 }: {
   label: string;
+  /** The spinner's name while busy: "Installing". */
+  busyLabel?: string;
+  /** A fuller accessible name: "Install rss-reader". */
+  ariaLabel?: string;
   busy?: boolean;
   disabled?: boolean;
   onClick?: () => void;
@@ -26,11 +32,12 @@ export function RowButton({
     <button
       type="button"
       className={cx("h-row-button", `h-row-button--${chrome}`)}
+      aria-label={ariaLabel}
       disabled={busy || disabled}
       onClick={onClick}
     >
       {busy ? (
-        <Spinner size={chrome === "mac" ? 12 : 16} label={label} />
+        <Spinner size={chrome === "mac" ? 12 : 16} label={busyLabel} />
       ) : (
         label
       )}

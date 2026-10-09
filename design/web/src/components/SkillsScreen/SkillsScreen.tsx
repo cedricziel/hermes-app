@@ -8,6 +8,7 @@ import { HubSkillRow, type HubSkill } from "../HubSkillRow/HubSkillRow";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import type { SettingsSearch } from "../SettingsSearchField/SettingsSearchField";
 import { SkillRow, type Skill } from "../SkillRow/SkillRow";
+import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
 import {
   useGroupedChrome,
@@ -87,6 +88,8 @@ export interface SkillsScreenProps {
   state?: "loaded" | "loading" | "failed" | "unsupported" | "empty";
   /** The profile whose skills are shown, under the title: "default". On a Mac with the count: "default · 3 skills". */
   profile?: string;
+  /** How many skills the profile has, for the Mac subtitle; defaults to the skills in `groups` (which a search or filter narrows). */
+  skillCount?: number;
   /** Other profiles to look at: the subtitle becomes a button ("default ⌄") opening a menu of them, the current one checked. */
   profiles?: string[];
   /** Draws the profile menu open, for previews. */
@@ -197,6 +200,7 @@ export function SkillsScreen({
   tab = "installed",
   state = "loaded",
   profile,
+  skillCount: totalSkills,
   profiles = [],
   profileMenuOpen,
   query = "",
@@ -231,7 +235,8 @@ export function SkillsScreen({
     resolved === "apple" && layout === "desktop" && device !== "touch";
   const discover = !!hub && tab === "discover";
   const ready = state === "loaded";
-  const skillCount = groups.reduce((n, g) => n + g.skills.length, 0);
+  const skillCount =
+    totalSkills ?? groups.reduce((n, g) => n + g.skills.length, 0);
   const menuProfiles = profile
     ? [profile, ...profiles.filter((p) => p !== profile)]
     : [];
@@ -274,6 +279,7 @@ export function SkillsScreen({
       return (
         <ScreenState
           state={state}
+          loadingLabel="Loading skills"
           failedTitle="Could not load skills"
           unsupportedTitle="The connected Hermes does not support skills."
           onRetry={onRetry}
@@ -321,6 +327,7 @@ export function SkillsScreen({
       return (
         <ScreenState
           state={hubState}
+          loadingLabel="Loading the hub"
           failedTitle="Could not load the hub"
           unsupportedTitle="The connected Hermes does not support the skills hub."
           onRetry={onHubRetry}
@@ -352,7 +359,11 @@ export function SkillsScreen({
         );
       }
       if (h.searching && !results.length) {
-        return <ScreenState state="loading" failedTitle="" />;
+        return (
+          <ScreenCenter>
+            <Spinner size={36} label="Searching" />
+          </ScreenCenter>
+        );
       }
       if (!results.length && !h.timedOut) {
         return <Note text="No skills found." />;

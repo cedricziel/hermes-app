@@ -104,6 +104,7 @@ export function HelperModelsScreen({
         {state !== "loaded" ? (
           <ScreenState
             state={state}
+            loadingLabel="Loading helper models"
             failedTitle="Could not load the helper models"
             onRetry={onRetry}
           />

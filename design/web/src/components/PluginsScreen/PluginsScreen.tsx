@@ -115,6 +115,15 @@ export interface PluginsScreenProps {
   onRemove?: (name: string) => void;
   /** "Hide from dashboard sidebar" in an installed plugin's detail. */
   onHiddenChange?: (name: string, hidden: boolean) => void;
+  /** The Update row in an installed plugin's detail. */
+  onUpdate?: (name: string) => void;
+  /** The copy button beside the login command. */
+  onCopyLogin?: (name: string) => void;
+  /** The Documentation row in a catalog entry's detail. */
+  onOpenDocs?: (name: string) => void;
+  /** Catalog detail: "Enable after install". Default on. */
+  enableAfterInstall?: boolean;
+  onEnableAfterInstallChange?: (enable: boolean) => void;
   onQueryChange?: (query: string) => void;
   /** The bar's "+" ("Install from Git"), on every tab. */
   onGitInstall?: () => void;
@@ -284,6 +293,11 @@ export function PluginsScreen({
   onEnabledChange,
   onRemove,
   onHiddenChange,
+  onUpdate,
+  onCopyLogin,
+  onOpenDocs,
+  enableAfterInstall = true,
+  onEnableAfterInstallChange = noop,
   onQueryChange,
   onGitInstall,
   onGitChange,
@@ -318,6 +332,11 @@ export function PluginsScreen({
       busy={busy || installing.includes(picked.name)}
       onEnabledChange={(on) => onEnabledChange?.(picked.name, on)}
       onHiddenChange={(hidden) => onHiddenChange?.(picked.name, hidden)}
+      onUpdate={() => onUpdate?.(picked.name)}
+      onCopyLogin={() => onCopyLogin?.(picked.name)}
+      onOpenDocs={() => onOpenDocs?.(picked.name)}
+      enableAfterInstall={enableAfterInstall}
+      onEnableAfterInstallChange={onEnableAfterInstallChange}
       onRemove={() => onRemove?.(picked.name)}
       onInstall={() => onInstall?.(picked.name)}
     />
@@ -453,7 +472,7 @@ export function PluginsScreen({
           <GroupedSection
             header="Context engine"
             footer="How long conversations are compressed."
-            dividerIndent="choice"
+            dividerIndent={singleEngine ? undefined : "choice"}
           >
             {singleEngine ? (
               <GroupedRow
