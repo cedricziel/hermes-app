@@ -364,9 +364,13 @@ class GroupedRow extends StatelessWidget {
     final caption = this.caption;
     final warning = this.warning;
     final error = this.error;
-    final leading = this.leading;
+    // A checked row's mark only pictures the state the row announces.
+    Widget? mark(Widget? child) => child == null || checked == null
+        ? child
+        : ExcludeSemantics(child: child);
+    final leading = mark(this.leading);
     final value = this.value;
-    final trailing = this.trailing;
+    final trailing = mark(this.trailing);
     final showChevron = chevron ?? (onTap != null && trailing == null);
     // A control beside a row that opens something stays its own node, so a
     // screen reader can both open the row and flip the switch.
@@ -374,6 +378,112 @@ class GroupedRow extends StatelessWidget {
     final titleStyle = TextStyle(
       fontSize: metrics.titleSize,
       color: destructive ? scheme.error : scheme.onSurface,
+    );
+    Widget row({double? valueWidth}) => Row(
+      children: [
+        if (leading != null) ...[
+          IconTheme.merge(
+            data: IconThemeData(color: muted, size: metrics.leadingSize),
+            child: leading,
+          ),
+          SizedBox(width: metrics.leadingGap),
+        ],
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: metrics.rowVerticalPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
+                  TextSpan(
+                    text: title,
+                    children: [
+                      if (meta != null)
+                        TextSpan(
+                          text: '  $meta',
+                          style: TextStyle(
+                            fontSize: metrics.subtitleSize,
+                            color: muted,
+                          ),
+                        ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: titleStyle,
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    maxLines: subtitleMaxLines,
+                    overflow: subtitleMaxLines == null
+                        ? null
+                        : TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: monospaceSubtitle
+                          ? metrics.footerSize
+                          : metrics.subtitleSize,
+                      fontFamily: monospaceSubtitle ? 'monospace' : null,
+                      color: muted,
+                    ),
+                  ),
+                if (caption != null)
+                  Text(
+                    caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: metrics.footerSize,
+                      color: muted,
+                    ),
+                  ),
+                if (warning != null)
+                  _StatusLine(
+                    icon: AppIcons.warning,
+                    text: warning,
+                    color: colors.warning,
+                    size: metrics.subtitleSize,
+                  ),
+                if (error != null)
+                  _StatusLine(
+                    icon: AppIcons.error,
+                    text: error,
+                    color: scheme.error,
+                    size: metrics.subtitleSize,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (value != null)
+          // At most half the row, so a long value cannot push the
+          // title out.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: valueWidth!),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: metrics.subtitleSize, color: muted),
+              ),
+            ),
+          ),
+        if (trailing != null && !trailingApart)
+          Padding(padding: const EdgeInsets.only(left: 8), child: trailing),
+        if (showChevron)
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: AppIcon(
+              AppIcons.chevronRight,
+              key: const Key('grouped-row-chevron'),
+              size: apple ? metrics.titleSize - 1 : 20,
+              color: muted,
+            ),
+          ),
+      ],
     );
     // Only the text is padded, so a switch beside it keeps the row's height.
     final content = ConstrainedBox(
@@ -383,122 +493,11 @@ class GroupedRow extends StatelessWidget {
           start: metrics.rowPadding,
           end: trailingApart ? 0 : metrics.rowPadding,
         ),
-        child: LayoutBuilder(
-          builder: (context, row) => Row(
-            children: [
-              if (leading != null) ...[
-                IconTheme.merge(
-                  data: IconThemeData(color: muted, size: metrics.leadingSize),
-                  child: leading,
-                ),
-                SizedBox(width: metrics.leadingGap),
-              ],
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    vertical: metrics.rowVerticalPadding,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text.rich(
-                        TextSpan(
-                          text: title,
-                          children: [
-                            if (meta != null)
-                              TextSpan(
-                                text: '  $meta',
-                                style: TextStyle(
-                                  fontSize: metrics.subtitleSize,
-                                  color: muted,
-                                ),
-                              ),
-                          ],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: titleStyle,
-                      ),
-                      if (subtitle != null)
-                        Text(
-                          subtitle,
-                          maxLines: subtitleMaxLines,
-                          overflow: subtitleMaxLines == null
-                              ? null
-                              : TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: monospaceSubtitle
-                                ? metrics.footerSize
-                                : metrics.subtitleSize,
-                            fontFamily: monospaceSubtitle ? 'monospace' : null,
-                            color: muted,
-                          ),
-                        ),
-                      if (caption != null)
-                        Text(
-                          caption,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: metrics.footerSize,
-                            color: muted,
-                          ),
-                        ),
-                      if (warning != null)
-                        _StatusLine(
-                          icon: AppIcons.warning,
-                          text: warning,
-                          color: colors.warning,
-                          size: metrics.subtitleSize,
-                        ),
-                      if (error != null)
-                        _StatusLine(
-                          icon: AppIcons.error,
-                          text: error,
-                          color: scheme.error,
-                          size: metrics.subtitleSize,
-                        ),
-                    ],
-                  ),
-                ),
+        child: value == null
+            ? row()
+            : LayoutBuilder(
+                builder: (context, box) => row(valueWidth: box.maxWidth / 2),
               ),
-              if (value != null)
-                // At most half the row, so a long value cannot push the
-                // title out.
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: row.maxWidth / 2),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: metrics.subtitleSize,
-                        color: muted,
-                      ),
-                    ),
-                  ),
-                ),
-              if (trailing != null && !trailingApart)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: trailing,
-                ),
-              if (showChevron)
-                Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: AppIcon(
-                    AppIcons.chevronRight,
-                    key: const Key('grouped-row-chevron'),
-                    size: apple ? metrics.titleSize - 1 : 20,
-                    color: muted,
-                  ),
-                ),
-            ],
-          ),
-        ),
       ),
     );
     final ink = InkWell(onTap: enabled ? onTap : null, child: content);
@@ -508,7 +507,7 @@ class GroupedRow extends StatelessWidget {
         button: onTap != null && checked == null,
         enabled: onTap != null ? enabled : null,
         checked: checked,
-        inMutuallyExclusiveGroup: checked != null && inMutuallyExclusiveGroup,
+        inMutuallyExclusiveGroup: inMutuallyExclusiveGroup,
         selected: selected,
         child: child,
       ),
