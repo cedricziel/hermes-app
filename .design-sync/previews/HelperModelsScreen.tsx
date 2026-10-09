@@ -51,78 +51,96 @@ const moa = {
   ],
 };
 
+/** iPhone: the title over the profile, the slots as value rows (muted model, chevron) with the main model in the footer, and the Mixture of agents group with its Preset. */
 export const ApplePhone = () => (
-  <HermesProvider platform="apple">
-    <div style={phone}>
-      <HelperModelsScreen
-        slots={slots}
-        mainModel="claude-opus-4"
-        moa={moa}
-        onBack={noop}
-      />
-    </div>
+  <HermesProvider platform="apple" style={phone}>
+    <HelperModelsScreen
+      profile="work"
+      slots={slots}
+      mainModel="claude-opus-4"
+      moa={moa}
+      onBack={noop}
+    />
   </HermesProvider>
 );
 
+/** Material: two-line rows (label over model), one slot saving. */
 export const MaterialPhone = () => (
-  <div style={phone}>
+  <HermesProvider style={phone}>
     <HelperModelsScreen
+      profile="work"
       slots={[slots[0], { ...slots[1], saving: true }, slots[2], slots[3]]}
       mainModel="claude-opus-4"
       moa={moa}
       onBack={noop}
     />
-  </div>
-);
-
-export const AppleMacWithoutMoa = () => (
-  <HermesProvider platform="apple" typeRamp="default">
-    <div style={desktop}>
-      <HelperModelsScreen
-        layout="desktop"
-        slots={slots}
-        mainModel="claude-opus-4"
-        onBack={noop}
-      />
-    </div>
   </HermesProvider>
 );
 
-export const PrivacyFilter = () => (
-  <div style={phone}>
+/** Mac without a mixture of agents: "work · main model claude-opus-4" in the toolbar and each model in a pop-up button. */
+export const AppleMacWithoutMoa = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={desktop}>
     <HelperModelsScreen
+      layout="desktop"
+      profile="work"
+      slots={slots}
+      mainModel="claude-opus-4"
+      onBack={noop}
+    />
+  </HermesProvider>
+);
+
+/** Hermes' privacy filter is on: a named preset and a footer saying to change the slots on the server, which do not open. */
+export const PrivacyFilter = () => (
+  <HermesProvider platform="apple" style={phone}>
+    <HelperModelsScreen
+      profile="work"
       slots={slots.slice(0, 2)}
       mainModel="claude-opus-4"
       moa={{ ...moa, preset: "cheap", privacyFilterOn: true }}
       onBack={noop}
     />
-  </div>
+  </HermesProvider>
 );
 
 export const Loading = () => (
-  <div style={phone}>
-    <HelperModelsScreen state="loading" onBack={noop} />
-  </div>
+  <HermesProvider platform="apple" style={phone}>
+    <HelperModelsScreen state="loading" profile="work" onBack={noop} />
+  </HermesProvider>
 );
 
 export const Failed = () => (
-  <div style={phone}>
-    <HelperModelsScreen state="failed" onBack={noop} />
-  </div>
+  <HermesProvider style={phone}>
+    <HelperModelsScreen state="failed" profile="work" onBack={noop} />
+  </HermesProvider>
 );
 
+/** Dark on iPhone and a Mac. */
 export const Dark = () => (
-  <HermesProvider
-    theme="dark"
-    style={{ width: "fit-content", borderRadius: 14 }}
-  >
-    <div style={phone}>
+  <div style={{ display: "flex", gap: 12 }}>
+    <HermesProvider platform="apple" theme="dark" style={phone}>
       <HelperModelsScreen
+        profile="work"
         slots={slots}
         mainModel="claude-opus-4"
         moa={moa}
         onBack={noop}
       />
-    </div>
-  </HermesProvider>
+    </HermesProvider>
+    <HermesProvider
+      platform="apple"
+      typeRamp="default"
+      theme="dark"
+      style={{ ...phone, width: 400 }}
+    >
+      <HelperModelsScreen
+        layout="desktop"
+        profile="work"
+        slots={slots}
+        mainModel="claude-opus-4"
+        moa={moa}
+        onBack={noop}
+      />
+    </HermesProvider>
+  </div>
 );
