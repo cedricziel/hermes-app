@@ -95,7 +95,11 @@ export function ProfileTile({
       caption={[profile.model, `${profile.skillCount} skills`]
         .filter(Boolean)
         .join(" · ")}
-      leading={<GroupedTile>{initialsOf(label)}</GroupedTile>}
+      leading={
+        <GroupedTile platform={platform} device={device}>
+          {initialsOf(label)}
+        </GroupedTile>
+      }
       value={active && !apple ? "Active" : undefined}
       trailing={trailing}
       chevron={false}

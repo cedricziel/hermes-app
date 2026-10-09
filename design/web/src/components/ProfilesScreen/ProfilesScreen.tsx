@@ -23,7 +23,7 @@ export interface ProfilesScreenProps {
   onChangeModel?: (name: string) => void;
   /** iOS: the profile whose long-press sheet ("Change default model") is drawn open, for previews. */
   actionSheetProfile?: string;
-  /** The bar's "+" (New Profile; the app asks for a name and description). */
+  /** Shows the bar's "+" (New Profile; the app asks for a name and description). */
   onNewProfile?: () => void;
   onRetry?: () => void;
   /** Back to the chat ("Chat" beside the iOS chevron). */
@@ -73,7 +73,11 @@ export function ProfilesScreen({
           : undefined
       }
       onBack={onBack}
-      actions={[{ icon: "add", label: "New Profile", onClick: onNewProfile }]}
+      actions={
+        onNewProfile
+          ? [{ icon: "add", label: "New Profile", onClick: onNewProfile }]
+          : []
+      }
       platform={platform}
       device={device}
     >

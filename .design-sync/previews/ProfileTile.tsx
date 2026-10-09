@@ -63,7 +63,7 @@ export const NoModel = () => (
   </HermesProvider>
 );
 
-/** Long label, description and model wrap or cut inside a narrow group. */
+/** Long label, description and model are cut with an ellipsis inside a narrow group. */
 export const LongText = () => (
   <HermesProvider platform="material" style={{ ...pane, width: 340 }}>
     <GroupedListView>

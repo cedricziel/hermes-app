@@ -68,6 +68,7 @@ export const AppleMac = () => (
       profiles={profiles}
       active="work"
       onBack={noop}
+      onNewProfile={noop}
       onChangeModel={noop}
     />
   </HermesProvider>
@@ -80,6 +81,7 @@ export const AppleLongPress = () => (
       profiles={profiles}
       active="default"
       onBack={noop}
+      onNewProfile={noop}
       onChangeModel={noop}
       actionSheetProfile="work"
     />
@@ -90,10 +92,10 @@ export const AppleLongPress = () => (
 export const LoadingFailed = () => (
   <div style={pair}>
     <HermesProvider platform="apple" style={{ ...phone, height: 360 }}>
-      <ProfilesScreen state="loading" onBack={noop} />
+      <ProfilesScreen state="loading" onBack={noop} onNewProfile={noop} />
     </HermesProvider>
     <HermesProvider platform="material" style={{ ...phone, height: 360 }}>
-      <ProfilesScreen state="failed" onBack={noop} />
+      <ProfilesScreen state="failed" onBack={noop} onNewProfile={noop} />
     </HermesProvider>
   </div>
 );
@@ -111,6 +113,7 @@ export const Dark = () => (
           profiles={profiles}
           active="default"
           onBack={noop}
+          onNewProfile={noop}
           onChangeModel={noop}
         />
       </HermesProvider>

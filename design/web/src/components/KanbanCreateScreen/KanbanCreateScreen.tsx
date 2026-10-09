@@ -121,6 +121,10 @@ export function KanbanCreateScreen({
 }: KanbanCreateScreenProps) {
   const back = onBack ?? (() => {});
   const hasTitle = title.trim() !== "";
+  const options =
+    assignee && !assignees.includes(assignee)
+      ? [assignee, ...assignees]
+      : assignees;
   return (
     <SettingsScaffold
       title="New task"
@@ -168,11 +172,11 @@ export function KanbanCreateScreen({
         >
           <GroupedMenuRow
             title="Assignee"
-            options={[auto, ...assignees]}
-            selected={assignee ? assignees.indexOf(assignee) + 1 : 0}
+            options={[auto, ...options]}
+            selected={assignee ? options.indexOf(assignee) + 1 : 0}
             open={defaultOpen === "assignee"}
             onSelect={(i) =>
-              onAssigneeChange?.(i === 0 ? undefined : assignees[i - 1])
+              onAssigneeChange?.(i === 0 ? undefined : options[i - 1])
             }
           />
           {modelField === "list" ? (
