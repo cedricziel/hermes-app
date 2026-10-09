@@ -18,6 +18,12 @@
   color: var(--h-fg);
 }
 
+.h-settings-search--ios:has(.h-settings-search__input:focus-visible),
+.h-settings-search--material:has(.h-settings-search__input:focus-visible) {
+  outline: 2px solid var(--h-fg);
+  outline-offset: -2px;
+}
+
 .h-settings-search--ios {
   height: 36px;
   padding-left: 8px;

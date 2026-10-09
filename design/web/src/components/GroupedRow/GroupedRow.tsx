@@ -42,6 +42,8 @@ export interface GroupedRowProps {
   destructive?: boolean;
   /** Dims the row and ignores clicks. */
   disabled?: boolean;
+  /** Makes the clickable row a radio option for assistive technology, checked or not (`GroupedChoiceRow` sets it). */
+  radioChecked?: boolean;
   /**
    * `apple` + `touch`: rows at least 44px, 16px padding. `apple` + `mac`:
    * 40px rows, 12px padding, 13px titles. `material`: 56px rows, 16px
@@ -76,6 +78,7 @@ export function GroupedRow({
   selected = false,
   destructive = false,
   disabled = false,
+  radioChecked,
   platform,
   device,
 }: GroupedRowProps) {
@@ -156,6 +159,8 @@ export function GroupedRow({
       <button
         type="button"
         className="h-grouped-row__main h-grouped-row__main--button"
+        role={radioChecked === undefined ? undefined : "radio"}
+        aria-checked={radioChecked}
         aria-current={selected || undefined}
         disabled={disabled}
         onClick={onClick}

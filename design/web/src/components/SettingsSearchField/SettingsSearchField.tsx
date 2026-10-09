@@ -77,7 +77,7 @@ export function SettingsSearchField({
   const resolved = usePlatform(platform);
   const chrome = useGroupedChrome(resolved, device);
   const [open, setOpen] = useMenuState(filterMenuOpen);
-  const active = filters.length > 0 && !filters[0].selected;
+  const active = filters.some((f, i) => i > 0 && f.selected);
   const menu = open ? (
     <Menu
       align="end"

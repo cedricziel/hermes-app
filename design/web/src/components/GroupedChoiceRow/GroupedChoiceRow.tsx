@@ -69,12 +69,7 @@ export function GroupedChoiceRow({
     />
   );
   return (
-    <div
-      className="h-choice-row"
-      role="radio"
-      aria-checked={checked}
-      aria-disabled={disabled}
-    >
+    <div className="h-choice-row">
       <GroupedRow
         title={title}
         subtitle={subtitle}
@@ -84,6 +79,7 @@ export function GroupedChoiceRow({
         trailing={apple ? mark : undefined}
         chevron={false}
         disabled={disabled}
+        radioChecked={checked}
         onClick={disabled ? undefined : (onSelect ?? (() => {}))}
         platform={platform}
         device={device}
