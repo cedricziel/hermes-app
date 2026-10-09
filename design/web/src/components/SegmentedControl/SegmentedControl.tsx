@@ -18,6 +18,15 @@ export interface SegmentedControlProps {
    * surface-colored thumb. Inherits the provider's platform.
    */
   platform?: Platform;
+  /**
+   * Apple only. `bar` (default): the 48px band under a screen's bar.
+   * `inline`: the control alone with no band, as wide as its parent, 13px
+   * labels (an iOS `GroupedSegmentedRow`). `compact`: a Mac toolbar's or
+   * Mac row's small control, 12px labels on 24px segments, every segment as
+   * wide as the widest; as wide as its segments need in a toolbar
+   * (`SettingsScaffold`'s Mac tabs), as wide as its parent in a block.
+   */
+  size?: "bar" | "inline" | "compact";
   className?: string;
 }
 
@@ -33,6 +42,7 @@ export function SegmentedControl({
   onChange,
   label,
   platform,
+  size = "bar",
   className,
 }: SegmentedControlProps) {
   const apple = usePlatform(platform) === "apple";
@@ -41,6 +51,7 @@ export function SegmentedControl({
       className={cx(
         "h-segmented",
         apple ? "h-segmented--apple" : "h-segmented--material",
+        apple && size !== "bar" && `h-segmented--${size}`,
         className,
       )}
     >

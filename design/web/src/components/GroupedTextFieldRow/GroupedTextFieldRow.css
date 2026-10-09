@@ -1,0 +1,68 @@
+.h-grouped-field {
+  display: flex;
+  box-sizing: border-box;
+  min-height: var(--hg-row-min);
+  padding: 0 var(--hg-row-pad);
+  color: var(--h-fg);
+  font-family: var(--h-font);
+}
+
+.h-grouped-field--apple {
+  align-items: center;
+  gap: calc(var(--hg-leading-gap) + 4px);
+  padding-top: calc(var(--hg-row-vpad) + 4px);
+  padding-bottom: calc(var(--hg-row-vpad) + 4px);
+}
+
+.h-grouped-field--material {
+  flex-direction: column;
+  justify-content: center;
+  padding-top: var(--hg-row-vpad);
+  padding-bottom: var(--hg-row-vpad);
+}
+
+.h-grouped-field__label {
+  flex: none;
+  font-size: var(--hg-title);
+}
+
+.h-grouped-field__float {
+  color: var(--h-muted);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.h-grouped-field__input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--h-fg);
+  font: inherit;
+  font-size: var(--hg-title);
+  line-height: 1.35;
+  resize: none;
+}
+
+.h-grouped-field__input::placeholder {
+  color: var(--h-muted);
+  font-family: var(--h-font);
+  font-size: var(--hg-title);
+}
+
+.h-grouped-field__input--mono {
+  font-family: var(--h-font-mono);
+  font-size: var(--hg-footer);
+}
+
+.h-grouped-field__input:disabled {
+  color: var(--h-muted);
+}
+
+.h-grouped-field--material:focus-within .h-grouped-field__float {
+  color: var(--h-primary);
+}

@@ -193,3 +193,31 @@ export const Dark = () => (
     </div>
   </HermesProvider>
 );
+
+/** A pushed settings page: the `leading` back button before the title, compact tabs, the search field with a hint, then "+". */
+export const PushedPage = () => (
+  <HermesProvider platform="apple" typeRamp="default" style={column}>
+    <div style={bar}>
+      <MacToolbar
+        title="Plugins"
+        subtitle="work · 4 installed · 2 on"
+        leading={
+          <MacToolbarButton icon="chevron_left" label="Back" shortcut="⌘[" />
+        }
+        actions={
+          <>
+            <SegmentedControl
+              labels={["Installed", "Catalog", "Providers"]}
+              value={0}
+              size="compact"
+              platform="apple"
+            />
+            <MacToolbarSearchField hint="Search catalog" />
+            <MacToolbarSeparator />
+            <MacToolbarButton icon="add" label="Install from Git URL" />
+          </>
+        }
+      />
+    </div>
+  </HermesProvider>
+);

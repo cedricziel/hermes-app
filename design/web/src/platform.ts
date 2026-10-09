@@ -1,6 +1,7 @@
 import {
   createContext,
   createElement,
+  Fragment,
   useContext,
   type ReactNode,
 } from "react";
@@ -98,3 +99,39 @@ export function useRowDevice(device?: AppleDevice): AppleDevice {
 
 /** Width in px a Mac window's traffic lights take at the top left, which the sidebar and a collapsed header leave free. */
 export const TRAFFIC_LIGHT_GAP = 78;
+
+/**
+ * The look a grouped settings component draws: `ios` (iPhone, iPad), `mac`
+ * or `material`, as Flutter's `PlatformChrome`.
+ */
+export type GroupedChrome = "ios" | "mac" | "material";
+
+/** Sets the Apple device for a subtree, keeping the enclosing `AppShell`'s other state, so rows and menus inside a Mac page draw the Mac look. */
+export function DeviceScope({
+  device,
+  children,
+}: {
+  device?: AppleDevice;
+  children?: ReactNode;
+}) {
+  const shell = useContext(ShellChromeContext);
+  if (!device || device === shell.device) {
+    return createElement(Fragment, null, children);
+  }
+  return createElement(
+    ShellChromeContext.Provider,
+    { value: { ...shell, device } },
+    children,
+  );
+}
+
+/** Resolves a grouped component's look: `material`, else the Apple device (an explicit `device`, then the enclosing scope's, then `touch`). */
+export function useGroupedChrome(
+  platform?: Platform,
+  device?: AppleDevice,
+): GroupedChrome {
+  const resolved = usePlatform(platform);
+  const rowDevice = useRowDevice(device);
+  if (resolved === "material") return "material";
+  return rowDevice === "mac" ? "mac" : "ios";
+}

@@ -55,6 +55,8 @@ export function MacToolbarSeparator() {
 export interface MacToolbarSearchFieldProps {
   /** The typed query. */
   query?: string;
+  /** The placeholder: "Search" (default), "Search skills". */
+  hint?: string;
   /** A search is open: the field stays 240px wide and shows the clear button. */
   active?: boolean;
   /** Draw the focus ring, for previews (the field also shows it while it has the focus). */
@@ -71,6 +73,7 @@ export interface MacToolbarSearchFieldProps {
 /** The toolbar's search field: 26px tall and 180px wide, 240px with a focus ring while in use; Escape and the clear button end the search. */
 export function MacToolbarSearchField({
   query = "",
+  hint = "Search",
   active = false,
   focused = false,
   onChange,
@@ -90,7 +93,7 @@ export function MacToolbarSearchField({
       <input
         ref={inputRef}
         type="search"
-        placeholder="Search"
+        placeholder={hint}
         value={query}
         onChange={(e) => onChange?.(e.target.value)}
         onFocus={onBegin}
@@ -115,8 +118,10 @@ export function MacToolbarSearchField({
 export interface MacToolbarProps {
   /** The page's title, 13px bold: the open chat, "Kanban", "Schedules". */
   title: string;
-  /** An 11px muted line under the title: "default · claude-opus-4", "main · all profiles · 12 tasks", "4 jobs". */
-  subtitle?: string;
+  /** An 11px muted line under the title: "default · claude-opus-4", "main · all profiles · 12 tasks", "4 jobs". May be an element, such as a subtitle that opens a menu. */
+  subtitle?: ReactNode;
+  /** A control before the title, 8px from it, such as a pushed page's back `MacToolbarButton`; the bar then starts 12px from the edge instead of 20px. */
+  leading?: ReactNode;
   /**
    * The trailing controls, 4px apart: `MacToolbarButton`s, a
    * `MacToolbarSeparator` between groups, a `MacToolbarSearchField`, or a
@@ -152,6 +157,7 @@ export interface MacToolbarProps {
 export function MacToolbar({
   title,
   subtitle,
+  leading,
   actions,
   border = false,
   sidebarHidden,
@@ -174,7 +180,11 @@ export function MacToolbar({
           hidden && "h-mac-toolbar--sidebar-hidden",
         )}
         style={
-          leadingInset === undefined ? undefined : { paddingLeft: leadingInset }
+          leadingInset !== undefined
+            ? { paddingLeft: leadingInset }
+            : leading && !hidden
+              ? { paddingLeft: 12 }
+              : undefined
         }
       >
         {hidden && showSidebar ? (
@@ -185,10 +195,18 @@ export function MacToolbar({
             onClick={showSidebar}
           />
         ) : null}
+        {leading}
         <div className="h-mac-toolbar__title">
           <span className="h-mac-toolbar__heading">{title}</span>
           {subtitle ? (
-            <span className="h-mac-toolbar__subtitle">{subtitle}</span>
+            <span
+              className={cx(
+                "h-mac-toolbar__subtitle",
+                typeof subtitle !== "string" && "h-mac-toolbar__subtitle--node",
+              )}
+            >
+              {subtitle}
+            </span>
           ) : null}
         </div>
         {actions ? (

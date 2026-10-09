@@ -28,3 +28,31 @@ export const AppleDark = () => (
     <SegmentedControl labels={tabs} value={2} label="Plugins" />
   </HermesProvider>
 );
+
+/** Apple sizes: `inline` across an iOS group row, `compact` in a Mac toolbar (12px, segments as wide as the widest). */
+export const AppleSizes = () => (
+  <HermesProvider
+    platform="apple"
+    style={{
+      ...phone,
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      padding: 16,
+    }}
+  >
+    <SegmentedControl
+      labels={["Low", "Medium", "High"]}
+      value={1}
+      size="inline"
+    />
+    <div>
+      <SegmentedControl
+        labels={tabs}
+        value={0}
+        size="compact"
+        label="Plugins"
+      />
+    </div>
+  </HermesProvider>
+);

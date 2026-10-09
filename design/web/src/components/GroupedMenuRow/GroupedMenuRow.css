@@ -1,0 +1,9 @@
+.h-grouped-menu-row {
+  position: relative;
+  border-radius: inherit;
+}
+
+.h-grouped-menu-row .h-grouped-menu-row__menu {
+  right: 8px;
+  z-index: 20;
+}

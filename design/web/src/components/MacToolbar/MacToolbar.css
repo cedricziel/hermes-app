@@ -44,6 +44,10 @@
   color: var(--h-muted);
 }
 
+.h-mac-toolbar__subtitle--node {
+  overflow: visible;
+}
+
 .h-mac-toolbar__actions {
   display: flex;
   flex-shrink: 0;

@@ -41,6 +41,8 @@
   /* Apple system red and orange (swipe actions, the action sheet) and the elevated fill of its Cancel. */
   --h-apple-red: #ff3b30;
   --h-apple-orange: #ff9500;
+  /* Apple system blue: the check mark of a picked choice row (CupertinoRadio). */
+  --h-apple-blue: #007aff;
   --h-apple-elevated: #ffffff;
   /* Apple alert: the system separator between its buttons and the lighter modal barrier behind it. */
   --h-apple-separator: rgba(60, 60, 67, 0.29);
@@ -90,6 +92,7 @@
   --h-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   --h-apple-red: #ff453a;
   --h-apple-orange: #ff9f0a;
+  --h-apple-blue: #0a84ff;
   --h-apple-elevated: #2c2c2e;
   --h-apple-separator: rgba(84, 84, 88, 0.6);
   --h-apple-scrim: rgba(0, 0, 0, 0.48);

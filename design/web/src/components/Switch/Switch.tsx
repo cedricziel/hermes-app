@@ -20,6 +20,8 @@ export interface SwitchProps extends Omit<
    * provider's platform.
    */
   platform?: Platform;
+  /** Apple only: the small 36x22 toggle of a Mac settings row (`GroupedSwitchRow` on a Mac). */
+  small?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export function Switch({
   onChange,
   label,
   platform,
+  small = false,
   className,
   onClick,
   type = "button",
@@ -47,6 +50,7 @@ export function Switch({
       className={cx(
         "h-switch",
         apple && "h-switch--apple",
+        apple && small && "h-switch--small",
         checked && "h-switch--on",
         className,
       )}
