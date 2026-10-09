@@ -44,6 +44,8 @@ export interface BotProfile {
   name: string;
   /** Its title, when it differs from the name; the name then shows under it. */
   title?: string;
+  /** The profile's description; only the search matches it. */
+  description?: string;
 }
 
 /** A hosted group room. */
@@ -108,7 +110,9 @@ export interface BotsScreenProps {
   device?: AppleDevice;
 }
 
-const initial = (title: string) => title.charAt(0).toUpperCase() || "?";
+const initial = (title: string) => (
+  <span aria-hidden="true">{(Array.from(title)[0] ?? "?").toUpperCase()}</span>
+);
 
 /** The small Add button of a profile row (the app's `InstallButton`): a filled pill on iOS, a bordered push button on a Mac, an outlined pill on Material; a spinner while adding. */
 function AddButton({
@@ -180,7 +184,7 @@ export function BotsScreen({
     matches(`${b.title} ${b.name} ${b.summary ?? ""}`),
   );
   const shownProfiles = availableProfiles.filter((p) =>
-    matches(`${p.title ?? ""} ${p.name}`),
+    matches(`${p.title ?? ""} ${p.name} ${p.description ?? ""}`),
   );
   const canCreateGroup = !groupsUnavailable && bots.length >= 2;
 

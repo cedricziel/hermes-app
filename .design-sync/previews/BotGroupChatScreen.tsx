@@ -52,12 +52,25 @@ export const Mac = () => (
   </HermesProvider>
 );
 
-/** Material: the back arrow and the name at the start; dark with the room menu open (Rename, Disband). */
+/** Material: the back arrow and the name at the start, a member waiting for an approval (Allow once, Deny); dark with the room menu open (Rename, Disband). */
 export const Material = () => (
   <div style={row}>
     <HermesProvider>
       <div style={phone}>
-        <BotGroupChatScreen {...room} blocked working={false} />
+        <BotGroupChatScreen
+          {...room}
+          blocked
+          working={false}
+          pendingActions={[
+            {
+              id: "a1",
+              member: "Analyst",
+              kind: "approval",
+              command: "rm -rf build/",
+              description: "Clean the build folder before the export.",
+            },
+          ]}
+        />
       </div>
     </HermesProvider>
     <HermesProvider theme="dark">

@@ -130,3 +130,11 @@
   justify-content: flex-end;
   margin-top: 8px;
 }
+
+.h-group-chat__action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+}

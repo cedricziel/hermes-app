@@ -41,7 +41,7 @@ export interface CreateGroupDialogProps {
   query?: string;
   /** The room is being created: the fields are disabled and the button reads "Creating…". */
   pending?: boolean;
-  /** The create failed: the message shows under the list and the button reads "Retry". */
+  /** The create failed: the message shows under the list, the button reads "Retry", and the name and members stay locked (Retry resends the same request). */
   error?: string;
   onNameChange?: (name: string) => void;
   onSelectedChange?: (selected: string[]) => void;
@@ -60,8 +60,9 @@ export interface CreateGroupDialogProps {
  * rows are "Editor" over "@writer", with a blue check at the trailing edge
  * on Apple and a checkbox at the leading edge on Material. The footer says
  * "Choose 2–6 bots. Membership is fixed for this room." and that hosted
- * groups cannot answer interactive requests. It covers its nearest
- * positioned ancestor; put it inside the screen.
+ * groups cannot answer interactive requests. Like the app's, it does not
+ * close on a click outside or Escape. It covers its nearest positioned
+ * ancestor; put it inside the screen.
  */
 export function CreateGroupDialog({
   members,
@@ -86,6 +87,7 @@ export function CreateGroupDialog({
   useEffect(() => setSelected(selectedProp), [selectedProp.join("\n")]);
   useEffect(() => setQuery(queryProp), [queryProp]);
 
+  const locked = pending || error !== undefined;
   const q = query.trim().toLowerCase();
   const shown = members.filter((m) =>
     `${m.title} ${m.name}`.toLowerCase().includes(q),
@@ -109,7 +111,6 @@ export function CreateGroupDialog({
         presentation="dialog"
         title="Create group"
         width={528}
-        onDismiss={pending ? undefined : onCancel}
         actions={
           <>
             <Button variant="text" disabled={pending} onClick={onCancel}>
@@ -125,7 +126,7 @@ export function CreateGroupDialog({
           <TextField
             label="Room name"
             value={name}
-            disabled={pending}
+            disabled={locked}
             onChange={(e) => {
               setName(e.target.value);
               onNameChange?.(e.target.value);
@@ -143,10 +144,11 @@ export function CreateGroupDialog({
             <GroupedSection
               dividerIndent={apple ? undefined : "leading"}
               footer="Choose 2–6 bots. Membership is fixed for this room."
+              label="Members"
             >
               {shown.map((m) => {
                 const checked = selected.includes(m.name);
-                const enabled = !pending && (checked || selected.length < 6);
+                const enabled = !locked && (checked || selected.length < 6);
                 const mark = apple ? (
                   <span className="h-choice-check" aria-hidden="true">
                     {checked ? (

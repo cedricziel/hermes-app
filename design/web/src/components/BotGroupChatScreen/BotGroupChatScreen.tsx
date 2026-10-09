@@ -1,3 +1,7 @@
+import {
+  ApprovalCard,
+  type ApprovalChoice,
+} from "../ApprovalCard/ApprovalCard";
 import { Button } from "../Button/Button";
 import { Card } from "../Card/Card";
 import { groupInteractionLimitation } from "../CreateGroupDialog/CreateGroupDialog";
@@ -24,8 +28,21 @@ export interface BotGroupEvent {
   text?: string;
   /** An activity entry's label: "Started work", "Work completed", "Work failed — review details", "Group created". */
   activity?: string;
-  /** The discussion thread it belongs to, shown at the card's trailing edge: "Topic 1". A member message in a thread offers "Reply in thread". */
+  /** The discussion thread it belongs to, shown at the card's trailing edge: "Topic 1". A message in a thread offers "Reply in thread". */
   thread?: string;
+}
+
+/** Something a member of the room waits for. */
+export interface BotGroupPendingAction {
+  id: string;
+  /** The member's name; "Task needs attention" without one. */
+  member?: string;
+  /** `approval`: an approval card (Allow once, Deny). `retry`: a failed turn with "Review retry". `input`: a clarify, sudo or secret request the room cannot answer. */
+  kind: "approval" | "retry" | "input";
+  /** An approval's command: "rm -rf build/". */
+  command?: string;
+  /** What the approval is for, or why the turn needs a retry. */
+  description?: string;
 }
 
 export interface BotGroupChatScreenProps {
@@ -39,7 +56,13 @@ export interface BotGroupChatScreenProps {
   working?: boolean;
   /** A member waits for an approval: "Waiting for approval" with a warning glyph, and Stop. */
   blocked?: boolean;
-  /** Why the room cannot run now (no ready driver), at the top of the status card; Send is disabled. */
+  /** What members wait for, as cards in the status card. While there are any, the limitation note is left out. */
+  pendingActions?: BotGroupPendingAction[];
+  /** The room's history could not be read: a notice with Retry over the transcript. */
+  failure?: string;
+  /** A send's receipt was lost: Send reads "Review message retry". */
+  retrySend?: boolean;
+  /** Why the room cannot run now (no ready driver), at the top of the status card; Send is disabled and approvals offer only Deny. */
   unavailableReason?: string;
   /** The composer's thread line: "New topic" or "Reply in Topic 1". */
   discussionLabel?: string;
@@ -56,6 +79,9 @@ export interface BotGroupChatScreenProps {
   onRename?: () => void;
   onDisband?: () => void;
   onStop?: () => void;
+  onApprove?: (actionId: string, choice: ApprovalChoice) => void;
+  onRetryAction?: (actionId: string) => void;
+  onRetryLoad?: () => void;
   onReply?: (eventId: string) => void;
   onNewTopic?: () => void;
   onDraftChange?: (draft: string) => void;
@@ -83,19 +109,19 @@ function EventCard({
 }) {
   return (
     <Card className="h-group-chat__event">
-      <header className="h-group-chat__event-head">
+      <div className="h-group-chat__event-head">
         <span className="h-group-chat__avatar" aria-hidden="true">
-          {event.author.charAt(0).toUpperCase()}
+          {(Array.from(event.author)[0] ?? "?").toUpperCase()}
         </span>
         <span className="h-group-chat__author">{event.author}</span>
         {event.thread ? (
           <span className="h-group-chat__thread">{event.thread}</span>
         ) : null}
-      </header>
+      </div>
       {event.text !== undefined ? (
         <>
           <p className="h-group-chat__text">{event.text}</p>
-          {event.thread && event.author !== "You" ? (
+          {event.thread ? (
             <Button variant="text" icon="reply" compact onClick={onReply}>
               Reply in thread
             </Button>
@@ -126,6 +152,9 @@ export function BotGroupChatScreen({
   name,
   memberCount,
   events = [],
+  pendingActions = [],
+  failure,
+  retrySend = false,
   working = false,
   blocked = false,
   unavailableReason,
@@ -138,6 +167,9 @@ export function BotGroupChatScreen({
   onRename,
   onDisband,
   onStop,
+  onApprove,
+  onRetryAction,
+  onRetryLoad,
   onReply,
   onNewTopic,
   onDraftChange,
@@ -183,9 +215,17 @@ export function BotGroupChatScreen({
                 Loading room history
               </div>
             ) : null}
+            {failure ? (
+              <div className="h-group-chat__loading">
+                <span>{failure}</span>
+                <Button variant="text" compact onClick={onRetryLoad}>
+                  Retry
+                </Button>
+              </div>
+            ) : null}
             <div className="h-group-chat__status">
               {unavailableReason ? <p>{unavailableReason}</p> : null}
-              {running ? (
+              {running && pendingActions.length === 0 ? (
                 <p className="h-group-chat__note">
                   <Icon name="info" size={18} apple={false} />
                   <span>{groupInteractionLimitation}</span>
@@ -217,6 +257,45 @@ export function BotGroupChatScreen({
                   </Button>
                 ) : null}
               </div>
+              {pendingActions.map((action) => (
+                <Card
+                  key={action.id}
+                  padding={12}
+                  className="h-group-chat__action"
+                >
+                  <div>{action.member ?? "Task needs attention"}</div>
+                  {action.kind === "approval" ? (
+                    <ApprovalCard
+                      command={action.command}
+                      description={
+                        action.description ??
+                        "This member is waiting for your approval."
+                      }
+                      choices={unavailableReason ? ["deny"] : ["once", "deny"]}
+                      disabled={pending}
+                      onAnswer={(choice) => onApprove?.(action.id, choice)}
+                    />
+                  ) : (
+                    <div>{action.description ?? `Pending ${action.kind}`}</div>
+                  )}
+                  {action.kind === "input" ? (
+                    <div className="h-muted">
+                      This input cannot be answered in the hosted room. Stop the
+                      task if it stalls.
+                    </div>
+                  ) : null}
+                  {action.kind === "retry" ? (
+                    <Button
+                      variant="text"
+                      compact
+                      disabled={pending || !!unavailableReason}
+                      onClick={() => onRetryAction?.(action.id)}
+                    >
+                      Review retry
+                    </Button>
+                  ) : null}
+                </Card>
+              ))}
             </div>
             {events.map((event) => (
               <EventCard
@@ -253,7 +332,11 @@ export function BotGroupChatScreen({
                 disabled={!!unavailableReason || pending || draft.trim() === ""}
                 onClick={onSend}
               >
-                {pending ? "Sending…" : "Send"}
+                {pending
+                  ? "Sending…"
+                  : retrySend
+                    ? "Review message retry"
+                    : "Send"}
               </Button>
             </div>
           </div>
