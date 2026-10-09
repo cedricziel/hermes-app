@@ -48,9 +48,9 @@ dependencies:
   # OS keychain / keystore for the native OAuth token set.
   flutter_secure_storage: ^11.2.0
   # Opens the system browser for the RFC 8252 native login flow.
-  url_launcher: ^6.3.2
+  url_launcher: ^6.3.3
   # Persists non-secret app settings (server URL) across launches.
-  shared_preferences: ^2.5.5
+  shared_preferences: ^2.5.6
   # App-wide state management (auth session, connection settings).
   provider: ^6.1.5+1
   # PKCE code_challenge (SHA-256) for the native OAuth flow.
@@ -78,7 +78,7 @@ dependencies:
   version: ^3.0.2
   local_auth: ^3.0.2
   file_picker: ^13.1.0
-  image_picker: ^1.2.3
+  image_picker: ^1.2.4
   desktop_drop: ^0.8.4
   pasteboard: ^0.5.0
   # Opens a downloaded file in the system's app for its type, on all five
@@ -89,7 +89,7 @@ dependencies:
   flutter_json_view: ^1.1.5
   connectivity_plus: ^7.3.1
   # App version shown in the About dialog.
-  package_info_plus: ^10.2.1
+  package_info_plus: ^10.2.2
   html_unescape: ^2.0.0
   macos_window_utils: ^1.9.1
   flutter_slidable: ^4.0.3
