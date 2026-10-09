@@ -11,12 +11,13 @@ import { MacToolbarButton } from "../MacToolbar/MacToolbar";
 import { SettingsScaffold } from "../SettingsScaffold/SettingsScaffold";
 import { Spinner } from "../Spinner/Spinner";
 import { StateMessage } from "../StateMessage/StateMessage";
-import { ScreenState } from "../../screen";
+import { ScreenFrame, ScreenState } from "../../screen";
 import type { ScreenLayout } from "../../screenFrame";
 import {
   cx,
   useAppleDevice,
   useGroupedChrome,
+  usePlatform,
   type AppleDevice,
   type GroupedChrome,
   type Platform,
@@ -168,8 +169,9 @@ export function BotsScreen({
   platform,
   device,
 }: BotsScreenProps) {
+  const resolved = usePlatform(platform);
   const appleDevice = useAppleDevice(layout, device);
-  const chrome = useGroupedChrome(platform, appleDevice);
+  const chrome = useGroupedChrome(resolved, appleDevice);
   const mac = chrome === "mac";
   const ready = state === "loaded";
   const q = query.trim().toLowerCase();
@@ -183,172 +185,176 @@ export function BotsScreen({
   const canCreateGroup = !groupsUnavailable && bots.length >= 2;
 
   return (
-    <SettingsScaffold
-      title="Bots"
-      subtitle={mac && ready ? `${bots.length} bots` : undefined}
-      search={
-        ready && bots.length
-          ? { query, hint: "Search bots", onChange: onQueryChange }
-          : undefined
-      }
-      actions={[
-        { icon: "refresh", label: "Refresh", onClick: onRefresh },
-        {
-          icon: "add",
-          label: "Create bot",
-          onClick: onCreateBot,
-          disabled: !ready,
-        },
-      ]}
-      platform={platform}
-      device={appleDevice}
-    >
-      {ready ? (
-        <GroupedListView>
-          {bots.length === 0 ? (
-            <StateMessage
-              icon="smart_toy"
-              title="No bots yet"
-              detail="Create a specialist or add a profile you already use."
-            />
-          ) : shownBots.length === 0 ? (
-            <StateMessage
-              title="No matching bots"
-              detail="Try another name or profile."
-            />
-          ) : (
-            <GroupedSection
-              header="Bots"
-              dividerIndent="tile"
-              footer="Each bot has its own profile, instructions and conversation."
-            >
-              {shownBots.map((bot) => (
-                <GroupedRow
-                  key={bot.name}
-                  leading={<GroupedTile>{initial(bot.title)}</GroupedTile>}
-                  title={bot.title}
-                  subtitle={bot.summary || bot.preview || undefined}
-                  caption={[bot.name, bot.model].filter(Boolean).join(" · ")}
-                  onClick={onOpenBot ? () => onOpenBot(bot.name) : undefined}
-                  trailing={
-                    mac ? (
-                      <MacToolbarButton
-                        icon="more_horiz"
-                        label="Edit bot"
-                        onClick={() => onEditBot?.(bot.name)}
-                      />
-                    ) : (
-                      <IconButton
-                        icon="more_horiz"
-                        label="Edit bot"
-                        size={40}
-                        onClick={() => onEditBot?.(bot.name)}
-                      />
-                    )
-                  }
-                />
-              ))}
-            </GroupedSection>
-          )}
-          {shownProfiles.length ? (
-            <GroupedSection
-              header="Add an existing profile"
-              dividerIndent="tile"
-              footer="Profiles on this server that are not bots yet."
-            >
-              {shownProfiles.map((p) => {
-                const title = p.title || p.name;
-                return (
+    <ScreenFrame platform={resolved}>
+      <SettingsScaffold
+        title="Bots"
+        subtitle={mac && ready ? `${bots.length} bots` : undefined}
+        search={
+          ready && bots.length
+            ? { query, hint: "Search bots", onChange: onQueryChange }
+            : undefined
+        }
+        actions={[
+          { icon: "refresh", label: "Refresh", onClick: onRefresh },
+          {
+            icon: "add",
+            label: "Create bot",
+            onClick: onCreateBot,
+            disabled: !ready,
+          },
+        ]}
+        platform={platform}
+        device={appleDevice}
+      >
+        {ready ? (
+          <GroupedListView>
+            {bots.length === 0 ? (
+              <StateMessage
+                icon="smart_toy"
+                title="No bots yet"
+                detail="Create a specialist or add a profile you already use."
+              />
+            ) : shownBots.length === 0 ? (
+              <StateMessage
+                title="No matching bots"
+                detail="Try another name or profile."
+              />
+            ) : (
+              <GroupedSection
+                header="Bots"
+                dividerIndent="tile"
+                footer="Each bot has its own profile, instructions and conversation."
+              >
+                {shownBots.map((bot) => (
                   <GroupedRow
-                    key={p.name}
-                    leading={<GroupedTile>{initial(title)}</GroupedTile>}
-                    title={title}
-                    subtitle={title === p.name ? undefined : p.name}
+                    key={bot.name}
+                    leading={<GroupedTile>{initial(bot.title)}</GroupedTile>}
+                    title={bot.title}
+                    subtitle={bot.summary || bot.preview || undefined}
+                    caption={[bot.name, bot.model].filter(Boolean).join(" · ")}
+                    onClick={onOpenBot ? () => onOpenBot(bot.name) : undefined}
                     trailing={
-                      <AddButton
-                        chrome={chrome}
-                        busy={adding.includes(p.name)}
-                        onClick={() => onAddProfile?.(p.name)}
-                      />
+                      mac ? (
+                        <MacToolbarButton
+                          icon="more_horiz"
+                          label="Edit bot"
+                          onClick={() => onEditBot?.(bot.name)}
+                        />
+                      ) : (
+                        <IconButton
+                          icon="more_horiz"
+                          label="Edit bot"
+                          size={40}
+                          onClick={() => onEditBot?.(bot.name)}
+                        />
+                      )
                     }
                   />
-                );
-              })}
-            </GroupedSection>
-          ) : null}
-          {groups ? (
-            <GroupedSection
-              header="Groups"
-              dividerIndent="tile"
-              footer={
-                groupsUnavailable ??
-                "Bots in a group work on a task together on the server. A group has 2–6 bots, fixed when it is created."
-              }
-            >
-              {groupsState === "loading" && groups.length === 0 ? (
+                ))}
+              </GroupedSection>
+            )}
+            {shownProfiles.length ? (
+              <GroupedSection
+                header="Add an existing profile"
+                dividerIndent="tile"
+                footer="Profiles on this server that are not bots yet."
+              >
+                {shownProfiles.map((p) => {
+                  const title = p.title || p.name;
+                  return (
+                    <GroupedRow
+                      key={p.name}
+                      leading={<GroupedTile>{initial(title)}</GroupedTile>}
+                      title={title}
+                      subtitle={title === p.name ? undefined : p.name}
+                      trailing={
+                        <AddButton
+                          chrome={chrome}
+                          busy={adding.includes(p.name)}
+                          onClick={() => onAddProfile?.(p.name)}
+                        />
+                      }
+                    />
+                  );
+                })}
+              </GroupedSection>
+            ) : null}
+            {groups ? (
+              <GroupedSection
+                header="Groups"
+                dividerIndent="tile"
+                footer={
+                  groupsUnavailable ??
+                  "Bots in a group work on a task together on the server. A group has 2–6 bots, fixed when it is created."
+                }
+              >
+                {groupsState === "loading" && groups.length === 0 ? (
+                  <GroupedRow
+                    title="Loading groups"
+                    trailing={<Spinner size={16} />}
+                  />
+                ) : null}
+                {groupsState === "failed" ? (
+                  <GroupedRow
+                    title="Could not load groups"
+                    warning={groupsError}
+                    trailing={
+                      <Button variant="text" compact onClick={onRetryGroups}>
+                        Retry
+                      </Button>
+                    }
+                  />
+                ) : null}
+                {groupsState === "loaded" && groups.length === 0 ? (
+                  <GroupedRow
+                    title="No groups yet"
+                    subtitle="Create a room with 2–6 bots."
+                  />
+                ) : null}
+                {groups.map((room) => (
+                  <GroupedRow
+                    key={room.id}
+                    leading={<GroupedTile icon="groups" />}
+                    title={room.name}
+                    subtitle={`${room.members.length} members · ${room.members.join(", ")}`}
+                    warning={
+                      room.needsAttention ? "Needs your attention" : undefined
+                    }
+                    value={room.working ? "Working" : undefined}
+                    onClick={() => onOpenGroup?.(room.id)}
+                  />
+                ))}
                 <GroupedRow
-                  title="Loading groups"
-                  trailing={<Spinner size={16} />}
+                  leading={<GroupedTile icon="add" />}
+                  title="Create group"
+                  chevron={false}
+                  disabled={!canCreateGroup}
+                  onClick={onCreateGroup}
                 />
-              ) : null}
-              {groupsState === "failed" ? (
-                <GroupedRow
-                  title="Could not load groups"
-                  warning={groupsError}
-                  trailing={
-                    <Button variant="text" compact onClick={onRetryGroups}>
-                      Retry
-                    </Button>
-                  }
-                />
-              ) : null}
-              {groupsState === "loaded" && groups.length === 0 ? (
-                <GroupedRow
-                  title="No groups yet"
-                  subtitle="Create a room with 2–6 bots."
-                />
-              ) : null}
-              {groups.map((room) => (
-                <GroupedRow
-                  key={room.id}
-                  leading={<GroupedTile icon="groups" />}
-                  title={room.name}
-                  subtitle={`${room.members.length} members · ${room.members.join(", ")}`}
-                  warning={
-                    room.needsAttention ? "Needs your attention" : undefined
-                  }
-                  value={room.working ? "Working" : undefined}
-                  onClick={() => onOpenGroup?.(room.id)}
-                />
-              ))}
-              <GroupedRow
-                leading={<GroupedTile icon="add" />}
-                title="Create group"
-                chevron={false}
-                disabled={!canCreateGroup}
-                onClick={onCreateGroup}
-              />
-            </GroupedSection>
-          ) : null}
-        </GroupedListView>
-      ) : (
-        <ScreenState
-          state={state === "unsupported" ? "failed" : state}
-          failedTitle={
-            state === "unsupported"
-              ? "Bot Mode is not available"
-              : "Could not load bots"
-          }
-          failedDetail={
-            state === "unsupported"
-              ? "This server needs a Bot Mode compatible update. Chat and Messaging are still available."
-              : undefined
-          }
-          retryVariant="outlined"
-          onRetry={onRetry}
-        />
-      )}
-      {createGroup ? <CreateGroupDialog {...createGroup} /> : null}
-    </SettingsScaffold>
+              </GroupedSection>
+            ) : null}
+          </GroupedListView>
+        ) : (
+          <ScreenState
+            state={state === "unsupported" ? "failed" : state}
+            failedTitle={
+              state === "unsupported"
+                ? "Bot Mode is not available"
+                : "Could not load bots"
+            }
+            failedDetail={
+              state === "unsupported"
+                ? "This server needs a Bot Mode compatible update. Chat and Messaging are still available."
+                : undefined
+            }
+            retryVariant="outlined"
+            onRetry={onRetry}
+          />
+        )}
+      </SettingsScaffold>
+      {createGroup ? (
+        <CreateGroupDialog device={appleDevice} {...createGroup} />
+      ) : null}
+    </ScreenFrame>
   );
 }
