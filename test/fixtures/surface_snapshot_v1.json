@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-10T12:00:00Z",
+  "signedIn": true,
+  "profile": "default",
+  "profiles": [
+    "default",
+    "work"
+  ],
+  "recentChats": [
+    {
+      "profile": "default",
+      "id": "abc",
+      "title": "Trip plan",
+      "snippet": "Booked the flights and the first hotel.",
+      "updatedAt": "2026-10-10T11:50:00Z",
+      "url": "hermes://chat?profile=default&id=abc"
+    },
+    {
+      "profile": "work",
+      "id": "w 1",
+      "title": "C++ review",
+      "snippet": "The destructor runs twice.",
+      "updatedAt": "2026-10-10T10:00:00Z",
+      "url": "hermes://chat?profile=work&id=w%201"
+    },
+    {
+      "profile": "default",
+      "id": "def",
+      "title": "Groceries",
+      "updatedAt": "2026-10-09T18:00:00Z",
+      "url": "hermes://chat?profile=default&id=def"
+    }
+  ],
+  "pending": [
+    {
+      "profile": "default",
+      "threadId": "abc",
+      "threadTitle": "Trip plan",
+      "kind": "approval",
+      "requestId": "r1",
+      "createdAt": "2026-10-10T11:30:00Z",
+      "url": "hermes://chat?profile=default&id=abc"
+    },
+    {
+      "profile": "work",
+      "threadId": "w 1",
+      "threadTitle": "C++ review",
+      "kind": "question",
+      "requestId": "r2",
+      "createdAt": "2026-10-10T11:45:00Z",
+      "url": "hermes://chat?profile=work&id=w%201"
+    }
+  ],
+  "kanban": {
+    "blocked": 1,
+    "review": 2
+  },
+  "schedules": {
+    "nextRunAt": "2026-10-11T08:00:00Z",
+    "nextJobName": "Daily digest",
+    "lastFailed": {
+      "profile": "default",
+      "jobId": "j1",
+      "name": "Backup",
+      "at": "2026-10-09T03:00:00Z",
+      "url": "hermes://schedules?profile=default&job=j1"
+    }
+  }
+}
