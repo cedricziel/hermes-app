@@ -249,7 +249,7 @@ void main() {
     await settle();
 
     expect(last(), {'v': 1, 'state': 'none'});
-    expect(urgents.last, isFalse);
+    expect(urgents.last, isTrue);
   });
 
   test('clears what was shown', () async {
@@ -441,21 +441,87 @@ void main() {
       expect(urgents, [true, false, true]);
     });
 
-    test('a turn the watch sent does not spend it', () async {
+    test('the first working of a turn the watch sent does not', () async {
       final turn = Object();
       status.begin(turn, title: null, fromWatch: true);
-      status.onEvent(turn, approval, title: null);
+      status.onEvent(turn, const ReplyDelta('x'), title: null, fromWatch: true);
       await settle();
 
-      expect(urgents, [false, false]);
+      expect(urgents, [false]);
     });
 
-    test('a clear does not', () async {
+    test('every later state of a turn the watch sent does', () async {
+      final turn = Object();
+      status.begin(turn, title: null, fromWatch: true);
+      status.onEvent(turn, approval, title: null, fromWatch: true);
+      status.onEvent(turn, const ReplyDelta('x'), title: null, fromWatch: true);
+      status.onEvent(
+        turn,
+        const ReplyCompleted('ok'),
+        title: null,
+        fromWatch: true,
+      );
+      await settle();
+
+      expect(urgents, [false, true, true, true]);
+    });
+
+    test('a title or a chat id that arrives does not', () async {
+      final turn = Object();
+      status.begin(turn, title: null);
+      status.onEvent(
+        turn,
+        const ThreadBound('s1'),
+        title: null,
+        threadId: 'p/s1',
+      );
+      status.onEvent(
+        turn,
+        const ThreadTitled('A'),
+        title: 'A',
+        threadId: 'p/s1',
+      );
+      await settle();
+
+      expect(urgents, [true, false, false]);
+    });
+
+    test('a clear does, even when this run showed nothing', () async {
       status.begin(Object(), title: 'A');
+      status.clear();
       status.clear();
       await settle();
 
-      expect(urgents, [true, false]);
+      expect(urgents, [true, true, true]);
+    });
+
+    test('a chat that is dropped or abandoned does', () async {
+      final dropped = Object();
+      status.begin(dropped, title: 'A');
+      status.drop(dropped);
+      final abandoned = Object();
+      status.begin(abandoned, title: 'B');
+      status.abandon(abandoned);
+      await settle();
+
+      expect(urgents, [true, true, true, true]);
+      expect(sent.map((payload) => payload['state']), [
+        'working',
+        'none',
+        'working',
+        'none',
+      ]);
+    });
+
+    test('taking a title off the watch for App Lock does', () async {
+      status.begin(Object(), title: 'Backup', threadId: 'p/s1');
+      appLocked = true;
+      lock.notifyListeners();
+      appLocked = false;
+      lock.notifyListeners();
+      await settle();
+
+      expect(urgents, [true, true, false]);
     });
   });
 
@@ -494,6 +560,95 @@ void main() {
       await settle();
 
       expect(sent, hasLength(1));
+    });
+  });
+
+  group('a turn that waits and nothing ends', () {
+    const vault = UnsupportedRequested(
+      UnsupportedRequest(requestId: 'r2', kind: UnsupportedKind.sudo),
+    );
+
+    test('is replaced by the next turn of the same chat', () async {
+      final watchTurn = Object();
+      status.begin(watchTurn, title: null, threadId: 'p/s1', fromWatch: true);
+      status.onEvent(
+        watchTurn,
+        vault,
+        title: null,
+        threadId: 'p/s1',
+        fromWatch: true,
+      );
+      expect(sent.last['state'], 'waiting');
+
+      final phoneTurn = Object();
+      status.begin(phoneTurn, title: 'A', threadId: 'p/s1');
+      await settle();
+      expect(last()['state'], 'working');
+      expect(last()['title'], 'A');
+
+      status.onEvent(
+        phoneTurn,
+        const ReplyCompleted('ok'),
+        title: 'A',
+        threadId: 'p/s1',
+      );
+      await settle();
+      expect(last()['state'], 'ready');
+    });
+
+    test('is not replaced by a turn of another chat', () async {
+      final watchTurn = Object();
+      status.begin(watchTurn, title: null, threadId: 'p/s1', fromWatch: true);
+      status.onEvent(
+        watchTurn,
+        vault,
+        title: null,
+        threadId: 'p/s1',
+        fromWatch: true,
+      );
+      status.begin(Object(), title: 'B', threadId: 'p/s2');
+      await settle();
+
+      expect(last()['state'], 'waiting');
+    });
+
+    test('stops showing after half an hour, and gives way', () async {
+      final watchTurn = Object();
+      status.begin(watchTurn, title: null, threadId: 'p/s1', fromWatch: true);
+      status.onEvent(
+        watchTurn,
+        vault,
+        title: null,
+        threadId: 'p/s1',
+        fromWatch: true,
+      );
+
+      now = now.add(const Duration(minutes: 31));
+      status.begin(Object(), title: 'B', threadId: 'p/s2');
+      await settle();
+
+      expect(last()['state'], 'working');
+      expect(last()['title'], 'B');
+    });
+
+    test('is not shown after half an hour with nothing else to show', () async {
+      status.begin(Object(), title: 'A');
+      now = now.add(const Duration(minutes: 31));
+      lock.notifyListeners();
+      await settle();
+
+      expect(last(), {'v': 1, 'state': 'none'});
+    });
+
+    test('a reply that finished is not forgotten after half an hour', () async {
+      final turn = Object();
+      status.begin(turn, title: 'A');
+      status.onEvent(turn, const ReplyCompleted('ok'), title: 'A');
+      now = now.add(const Duration(minutes: 31));
+      lock.notifyListeners();
+      await settle();
+
+      expect(last()['state'], 'ready');
     });
   });
 

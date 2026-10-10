@@ -1608,17 +1608,24 @@ void main() {
       expect(statuses.last['state'], 'waiting');
     });
 
-    test('does not spend the complication budget on its own turns', () async {
-      final pending = send(waits: true);
-      await pumpEventQueue();
-      transport.sends.single
-        ..emit(const ThreadBound('new-1'))
-        ..emit(approval);
-      await pending;
+    test(
+      'wakes the watch app for a state of its own turn but the first',
+      () async {
+        final pending = send(waits: true);
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(approval);
+        await pending;
 
-      expect(urgents, isNotEmpty);
-      expect(urgents, everyElement(isFalse));
-    });
+        expect(statuses.map((status) => status['state']), [
+          'working',
+          'working',
+          'waiting',
+        ]);
+        expect(urgents, [false, false, true]);
+      },
+    );
 
     test('a broken connection is a failed reply', () async {
       final pending = send();

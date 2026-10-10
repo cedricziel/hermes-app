@@ -16,6 +16,12 @@ typedef ComplicationSender = Future<String> Function(
   required bool urgent,
 });
 
+/// How long a working or waiting turn is believed without news. Hermes has no
+/// push channel, so a phone app that was suspended cannot say a turn ended,
+/// and a turn left waiting when its connection closed has nobody to end it.
+/// The watch applies the same limit to what it holds.
+const kComplicationStaleAfter = Duration(minutes: 30);
+
 /// The chat id the watch uses for a chat of [profile]: the profile and the
 /// session id, because a session id is only unique within a profile.
 String boundThreadId(String? profile, String sessionId) =>
@@ -93,7 +99,19 @@ class WatchComplicationStatus {
     _turns[turn] = _Turn(ReplyActivityState.working, _now(), fromWatch)
       ..title = title
       ..threadId = threadId;
+    _supersede(turn);
     _publish();
+  }
+
+  /// A turn that starts on a chat replaces the earlier ones of that chat, which
+  /// can no longer be waiting for anything: one the watch left waiting on a
+  /// request it could not answer is not ended by anything else.
+  void _supersede(Object turn) {
+    final threadId = _turns[turn]?.threadId;
+    if (threadId == null) return;
+    _turns.removeWhere(
+      (key, other) => key != turn && other.threadId == threadId,
+    );
   }
 
   /// Moves [turn] along for [event]. The title and chat are as they are now,
@@ -108,6 +126,7 @@ class WatchComplicationStatus {
     bool fromWatch = false,
   }) {
     var current = _turns[turn];
+    var started = false;
     if (current == null || current.state.finished) {
       if (opensTurn(event) || _asks(event)) {
         current = _turns[turn] = _Turn(
@@ -115,6 +134,7 @@ class WatchComplicationStatus {
           _now(),
           fromWatch,
         );
+        started = true;
       } else if (current == null) {
         return;
       }
@@ -128,6 +148,7 @@ class WatchComplicationStatus {
         ..state = next
         ..title = title
         ..threadId = threadId;
+      if (started) _supersede(turn);
     }
     _publish();
   }
@@ -173,6 +194,7 @@ class WatchComplicationStatus {
   }
 
   void _publish({bool force = false}) {
+    _forgetStale();
     _forgetOldFinished();
     final shown = _shown();
     final payload = <String, Object>{
@@ -197,11 +219,35 @@ class WatchComplicationStatus {
     // keeps it rising across a restart.
     final now = _now().millisecondsSinceEpoch;
     _seq = now > _seq ? now : _seq + 1;
+    // A change of state is news worth the budget, a stop or a clear included,
+    // and so is a title taken off the watch for App Lock. A new title or chat
+    // id is not. The first working of a turn the watch sent is not either: the
+    // watch app is awake for it.
+    final stripped =
+        last != null &&
+        appLock() &&
+        (last.containsKey('title') && !payload.containsKey('title') ||
+            last.containsKey('threadId') && !payload.containsKey('threadId'));
+    final stateChanged =
+        force || last == null || last['state'] != payload['state'];
     final urgent =
-        shown != null &&
-        !shown.fromWatch &&
-        (last == null || last['state'] != payload['state']);
+        (stateChanged || stripped) &&
+        !(shown != null &&
+            shown.fromWatch &&
+            !shown.published &&
+            payload['state'] == 'working');
+    shown?.published = true;
     unawaited(_deliver(payload, {...payload, 'seq': _seq}, urgent));
+  }
+
+  /// A working or waiting turn nothing has renewed is no longer believed.
+  void _forgetStale() {
+    final now = _now();
+    _turns.removeWhere(
+      (_, turn) =>
+          !turn.state.finished &&
+          now.difference(turn.updatedAt) > kComplicationStaleAfter,
+    );
   }
 
   /// Only the newest finished turn is kept, as the glance's last word.
@@ -244,6 +290,9 @@ class _Turn {
   String? title;
   String? threadId;
   final bool fromWatch;
+
+  /// Whether the watch was told about this turn already.
+  bool published = false;
 
   bool get waiting => switch (state) {
     ReplyActivityState.approval ||
