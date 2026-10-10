@@ -47,6 +47,12 @@
 		C0DC256A998B03F622796497 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */; };
 		DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */; };
 		F2CB0B8AC120A8E23B8820AE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF79B50BC0B3A3CBB709B7F /* ShareViewController.swift */; };
+		EA211A84368E30C977E4970D /* HermesComplication.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AFB76F3291A3FD93424EE6AE /* HermesComplication.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		3DB3D9D223113CE3572DFF69 /* HermesComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14B7EAA18D45D3E35EBE777 /* HermesComplication.swift */; };
+		205F262C6B6F697C33BFC066 /* ComplicationStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053AD8DF858B09D1B496A102 /* ComplicationStatus.swift */; };
+		E906D3B1611A2FC146858A4C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FBE34169D2E9FC1668004267 /* PrivacyInfo.xcprivacy */; };
+		E374C00D227036FEE7A19CFB /* ComplicationStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053AD8DF858B09D1B496A102 /* ComplicationStatus.swift */; };
+		F7C7D4930611290C8846B039 /* ComplicationUpdates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DE0E4F034826AB51478920 /* ComplicationUpdates.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +83,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = ADA517DE31AE184FFF3B3719;
 			remoteInfo = HermesWatch;
+		};
+		0DA026B63254248807DB4731 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3F21B910819E1B12E4B29B3A;
+			remoteInfo = HermesComplication;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -112,6 +125,17 @@
 				8440D477DFEE677E69A92710 /* HermesWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		21BD2B047DFDC5AA80AD01B6 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				EA211A84368E30C977E4970D /* HermesComplication.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -172,6 +196,15 @@
 		E71B86F76BA7818BE17D62C1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E8CE00F2E3EF1A4E96AA892B /* ShareExtension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = ShareExtension.xcconfig; sourceTree = "<group>"; };
 		F884F744E1BE6D3436E17C0A /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AFB76F3291A3FD93424EE6AE /* HermesComplication.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HermesComplication.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C14B7EAA18D45D3E35EBE777 /* HermesComplication.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesComplication.swift; sourceTree = "<group>"; };
+		0DFCCA13E10CF94E2E3740B2 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0418CF75219965FE82B01B9E /* HermesComplication.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = HermesComplication.entitlements; sourceTree = "<group>"; };
+		1C2055C5F2EE7C66BEDDBEA2 /* HermesComplication.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = HermesComplication.xcconfig; sourceTree = "<group>"; };
+		FBE34169D2E9FC1668004267 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		11D1B6F81FCD85E5F822AF97 /* HermesWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = HermesWatch.entitlements; sourceTree = "<group>"; };
+		053AD8DF858B09D1B496A102 /* ComplicationStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ComplicationStatus.swift; sourceTree = "<group>"; };
+		49DE0E4F034826AB51478920 /* ComplicationUpdates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ComplicationUpdates.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +241,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		ECFE7B78E54376CAFD0848A5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		92D1F669FB3E1F0B67779393 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -273,6 +313,8 @@
 				51DEB56C491EC2EB383EE443 /* ConversationView.swift */,
 				A7C1D2E3F4051627384950B2 /* WatchShortcuts.swift */,
 				A7C1D2E3F4051627384950A2 /* VoiceRecorder.swift */,
+				49DE0E4F034826AB51478920 /* ComplicationUpdates.swift */,
+				11D1B6F81FCD85E5F822AF97 /* HermesWatch.entitlements */,
 				839BF041A4C50E625124451A /* Core */,
 			);
 			name = HermesWatch;
@@ -290,6 +332,7 @@
 				8908571C5C02E62FE16C822C /* ReportingTransport.swift */,
 				2AADC7C6CE97D1D351DAA04F /* ChatCache.swift */,
 				66AA96492324979FC244ABD9 /* WatchMarkdown.swift */,
+				053AD8DF858B09D1B496A102 /* ComplicationStatus.swift */,
 			);
 			name = Core;
 			path = Core;
@@ -318,6 +361,7 @@
 				399D349ABD80BFC84308699A /* ShareExtension */,
 				590D84891A73FFC37A8BDAC3 /* HermesWatch */,
 				8AF34F0F0D00A7BF28407130 /* HermesLiveActivity */,
+				782C2905C33DD45D8825927E /* HermesComplication */,
 			);
 			sourceTree = "<group>";
 		};
@@ -329,6 +373,7 @@
 				C38423933E5F7974F5AAD4C4 /* ShareExtension.appex */,
 				1489DDDC525F33C83AEB9CF7 /* HermesWatch.app */,
 				0A065B676562D3FF98F33E24 /* HermesLiveActivity.appex */,
+				AFB76F3291A3FD93424EE6AE /* HermesComplication.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -368,6 +413,19 @@
 				1A2CB2543D09C7555603C939 /* Foundation.framework */,
 			);
 			name = iOS;
+			sourceTree = "<group>";
+		};
+		782C2905C33DD45D8825927E /* HermesComplication */ = {
+			isa = PBXGroup;
+			children = (
+				C14B7EAA18D45D3E35EBE777 /* HermesComplication.swift */,
+				0DFCCA13E10CF94E2E3740B2 /* Info.plist */,
+				0418CF75219965FE82B01B9E /* HermesComplication.entitlements */,
+				1C2055C5F2EE7C66BEDDBEA2 /* HermesComplication.xcconfig */,
+				FBE34169D2E9FC1668004267 /* PrivacyInfo.xcprivacy */,
+			);
+			name = HermesComplication;
+			path = HermesComplication;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -463,15 +521,34 @@
 				14F093D28CAC8611D6DD7620 /* Sources */,
 				76966E9037DD402E7A07DD60 /* Frameworks */,
 				7BD8C01FB61CB98D80D5202A /* Resources */,
+				21BD2B047DFDC5AA80AD01B6 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				279FE50F8137BF24C0186122 /* PBXTargetDependency */,
 			);
 			name = HermesWatch;
 			productName = HermesWatch;
 			productReference = 1489DDDC525F33C83AEB9CF7 /* HermesWatch.app */;
 			productType = "com.apple.product-type.application";
+		};
+		3F21B910819E1B12E4B29B3A /* HermesComplication */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 40BDA87666B7CF3978B4D841 /* Build configuration list for PBXNativeTarget "HermesComplication" */;
+			buildPhases = (
+				2EDF9336F6D865B0B6E970E5 /* Sources */,
+				92D1F669FB3E1F0B67779393 /* Frameworks */,
+				AF47C3099D2C541F085C7D45 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HermesComplication;
+			productName = HermesComplication;
+			productReference = AFB76F3291A3FD93424EE6AE /* HermesComplication.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -515,6 +592,7 @@
 				1AFA5C02006F9B22B5610DE6 /* ShareExtension */,
 				ADA517DE31AE184FFF3B3719 /* HermesWatch */,
 				F883C6699BA9F7E680F25112 /* HermesLiveActivity */,
+				3F21B910819E1B12E4B29B3A /* HermesComplication */,
 			);
 		};
 /* End PBXProject section */
@@ -561,6 +639,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D4E5F60718293A4B12 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AF47C3099D2C541F085C7D45 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E906D3B1611A2FC146858A4C /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -629,6 +715,8 @@
 				1E0043EFD5473B28A64732A9 /* ReportingTransport.swift in Sources */,
 				B5C5B4399AC38F8E77CEDD6A /* ChatCache.swift in Sources */,
 				1EEBDAE07238CB416F5A48E6 /* WatchMarkdown.swift in Sources */,
+				E374C00D227036FEE7A19CFB /* ComplicationStatus.swift in Sources */,
+				F7C7D4930611290C8846B039 /* ComplicationUpdates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,6 +748,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		2EDF9336F6D865B0B6E970E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3DB3D9D223113CE3572DFF69 /* HermesComplication.swift in Sources */,
+				205F262C6B6F697C33BFC066 /* ComplicationStatus.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -685,6 +782,12 @@
 			name = HermesWatch;
 			target = ADA517DE31AE184FFF3B3719 /* HermesWatch */;
 			targetProxy = BFAC1098620EA8871B96EE62 /* PBXContainerItemProxy */;
+		};
+		279FE50F8137BF24C0186122 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = HermesComplication;
+			target = 3F21B910819E1B12E4B29B3A /* HermesComplication */;
+			targetProxy = 0DA026B63254248807DB4731 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -794,8 +897,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HermesWatch/HermesWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
@@ -929,8 +1034,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HermesWatch/HermesWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
@@ -1007,8 +1114,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = HermesWatch/HermesWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Hermes;
@@ -1245,6 +1354,92 @@
 			};
 			name = Debug;
 		};
+		E9DAFFD83143868FA182754D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C2055C5F2EE7C66BEDDBEA2 /* HermesComplication.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HermesComplication/HermesComplication.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HermesComplication/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		BD6DB7B78F740B882445166D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C2055C5F2EE7C66BEDDBEA2 /* HermesComplication.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HermesComplication/HermesComplication.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HermesComplication/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		BB94D6CEE66A42446FB5C496 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1C2055C5F2EE7C66BEDDBEA2 /* HermesComplication.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = HermesComplication/HermesComplication.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CUSTOM_GROUP_ID = group.com.cedricziel.hermesApp;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = HermesComplication/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Profile;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1304,6 +1499,16 @@
 				97C147061CF9000F007C117D /* Debug */,
 				97C147071CF9000F007C117D /* Release */,
 				249021D4217E4FDB00AE95B9 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		40BDA87666B7CF3978B4D841 /* Build configuration list for PBXNativeTarget "HermesComplication" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD6DB7B78F740B882445166D /* Release */,
+				E9DAFFD83143868FA182754D /* Debug */,
+				BB94D6CEE66A42446FB5C496 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

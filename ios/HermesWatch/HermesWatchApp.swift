@@ -4,9 +4,16 @@ import SwiftUI
 struct HermesWatchApp: App {
   private let client: HermesClient = Self.makeClient()
 
+  init() {
+    #if DEBUG
+      DemoClient.seedComplication()
+    #endif
+  }
+
   var body: some Scene {
     WindowGroup {
       ThreadListView(model: ThreadListModel(client: client))
+        .onOpenURL { LaunchRequests.shared.open($0) }
     }
   }
 

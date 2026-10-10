@@ -6,14 +6,25 @@ import Observation
 @MainActor
 @Observable
 final class LaunchRequests {
-  enum Request {
+  enum Request: Equatable {
     case newChat
     case voiceChat
+    case thread(id: String, title: String)
   }
 
   static let shared = LaunchRequests()
 
   var pending: Request?
+
+  /// Queues what a tap on a complication asked for. A link to the app alone
+  /// asks for nothing.
+  func open(_ url: URL) {
+    switch ComplicationLink(url: url) {
+    case .voice: pending = .voiceChat
+    case .chat(let id, let title): pending = .thread(id: id, title: title ?? "Hermes")
+    case .open, nil: break
+    }
+  }
 }
 
 struct NewChatIntent: AppIntent {

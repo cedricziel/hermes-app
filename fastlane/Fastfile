@@ -6,6 +6,7 @@ APP_IDENTIFIER       = "com.cedricziel.hermesApp"
 EXTENSION_IDENTIFIER = "#{APP_IDENTIFIER}.ShareExtension"
 WATCH_IDENTIFIER     = "#{APP_IDENTIFIER}.watchkitapp"
 LIVE_ACTIVITY_IDENTIFIER = "#{APP_IDENTIFIER}.LiveActivity"
+COMPLICATION_IDENTIFIER = "#{WATCH_IDENTIFIER}.Complication"
 APP_NAME             = "Hermes App"
 TEAM_ID        = "WPW3QSLZ2F"
 OUTPUT_DIR     = "build/fastlane"
@@ -25,8 +26,11 @@ TARGETS = {
       "ShareExtension" => EXTENSION_IDENTIFIER,
       "HermesWatch" => WATCH_IDENTIFIER,
       "HermesLiveActivity" => LIVE_ACTIVITY_IDENTIFIER,
+      "HermesComplication" => COMPLICATION_IDENTIFIER,
     },
-    match_identifiers: [APP_IDENTIFIER, EXTENSION_IDENTIFIER, WATCH_IDENTIFIER, LIVE_ACTIVITY_IDENTIFIER],
+    match_identifiers: [
+      APP_IDENTIFIER, EXTENSION_IDENTIFIER, WATCH_IDENTIFIER, LIVE_ACTIVITY_IDENTIFIER, COMPLICATION_IDENTIFIER
+    ],
   },
   mac: {
     flutter_platform: "macos",
@@ -112,7 +116,8 @@ lane :bootstrap_app do
     APP_IDENTIFIER => APP_NAME,
     EXTENSION_IDENTIFIER => "#{APP_NAME} Share Extension",
     WATCH_IDENTIFIER => "#{APP_NAME} Watch",
-    LIVE_ACTIVITY_IDENTIFIER => "#{APP_NAME} Live Activity"
+    LIVE_ACTIVITY_IDENTIFIER => "#{APP_NAME} Live Activity",
+    COMPLICATION_IDENTIFIER => "#{APP_NAME} Watch Complication"
   }.each do |identifier, name|
     bundle = Spaceship::ConnectAPI::BundleId.all(filter: { identifier: identifier })
                                             .find { |b| b.identifier == identifier }
@@ -130,10 +135,12 @@ lane :bootstrap_app do
 
   # The App Groups capability and the group container can't be set up through
   # the public API; without them the share extension can't hand content to
-  # the app, and the Live Activity can't read what the app shows in it.
+  # the app, the Live Activity can't read what the app shows in it, and the
+  # watch complication can't read the status the watch app received.
   UI.important(<<~MSG)
     In the developer portal (Identifiers), enable "App Groups" on #{APP_IDENTIFIER},
-    #{EXTENSION_IDENTIFIER} and #{LIVE_ACTIVITY_IDENTIFIER} and assign them to
+    #{EXTENSION_IDENTIFIER}, #{LIVE_ACTIVITY_IDENTIFIER}, #{WATCH_IDENTIFIER} and
+    #{COMPLICATION_IDENTIFIER} and assign them to
     group.#{APP_IDENTIFIER}, then run
     `fastlane bootstrap_signing force:true` to regenerate the profiles.
   MSG

@@ -59,7 +59,11 @@ struct ThreadListView: View {
     .onChange(of: launchRequests.pending, initial: true) { _, request in
       guard let request else { return }
       launchRequests.pending = nil
-      path = [request == .voiceChat ? .voiceChat() : .newChat()]
+      switch request {
+      case .newChat: path = [.newChat()]
+      case .voiceChat: path = [.voiceChat()]
+      case .thread(let id, let title): path = [.thread(id: id, title: title)]
+      }
     }
     // A chat started or continued in a conversation belongs in the list once
     // the user is back on it.

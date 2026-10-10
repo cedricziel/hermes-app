@@ -4,6 +4,7 @@ import Foundation
   /// Canned chats for the simulator, which has no phone to relay through.
   /// Set HERMES_WATCH_DEMO to `list`, or to `chat` to open a chat too
   /// (`SIMCTL_CHILD_HERMES_WATCH_DEMO=chat xcrun simctl launch …`).
+  /// `HERMES_WATCH_COMPLICATION` seeds the complications' status the same way.
   struct DemoClient: HermesClient {
     private static var mode: String? { ProcessInfo.processInfo.environment["HERMES_WATCH_DEMO"] }
     static var enabled: Bool { mode != nil }
@@ -14,6 +15,17 @@ import Foundation
       ThreadSummary(id: "d2", title: "Groceries for the weekend", updatedAt: .now.addingTimeInterval(-7_200), pinned: false),
       ThreadSummary(id: "d3", title: "Draft a reply to the landlord about the heating", updatedAt: .now.addingTimeInterval(-90_000), pinned: false),
     ]
+
+    /// Puts a status where the complications read it, as the phone would send
+    /// it: `HERMES_WATCH_COMPLICATION` is `working`, `waiting`, `ready`,
+    /// `failed` or `none`.
+    static func seedComplication() {
+      guard let state = ProcessInfo.processInfo.environment["HERMES_WATCH_COMPLICATION"] else { return }
+      ComplicationUpdates.receive([
+        "v": 1, "state": state, "updatedAt": Date().timeIntervalSince1970 - 30,
+        "title": threads[0].title, "threadId": threads[0].id,
+      ])
+    }
 
     func threads() async throws -> [ThreadSummary] { Self.threads }
 
