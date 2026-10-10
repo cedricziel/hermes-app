@@ -653,10 +653,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The transcript itself arrives through [_insertTranscript].
   void _onDictation() {
     final dictation = _dictation!;
-    final busy =
-        dictation.phase == DictationPhase.recording ||
-        dictation.phase == DictationPhase.settling;
-    if (busy) {
+    if (dictation.busy) {
       final draft = _dictationDraft ??= DictationDraft(
         _composerController.value,
       );

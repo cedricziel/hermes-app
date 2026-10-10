@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 class DictationDraft {
   const DictationDraft(this.original);
 
+  static final _space = RegExp(r'\s');
+
   /// The draft before recording, given back on cancel or failure.
   final TextEditingValue original;
 
@@ -18,7 +20,7 @@ class DictationDraft {
         : TextSelection.collapsed(offset: text.length);
     final before = text.substring(0, selection.start);
     final after = text.substring(selection.end);
-    bool spaced(String s) => s.isEmpty || RegExp(r'\s').hasMatch(s);
+    bool spaced(String s) => s.isEmpty || _space.hasMatch(s);
     final lead = spaced(before.isEmpty ? '' : before[before.length - 1])
         ? ''
         : ' ';

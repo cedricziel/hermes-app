@@ -139,7 +139,7 @@ class DictationController extends ChangeNotifier {
   }
 
   Future<void> start() async {
-    if (_busy) return;
+    if (busy) return;
     final run = ++_run;
     _keptClip = null;
     if (!await _recorder.requestPermission()) {
@@ -194,7 +194,8 @@ class DictationController extends ChangeNotifier {
     _setPhase(DictationPhase.recording);
   }
 
-  bool get _busy =>
+  /// Whether a recording or its transcription is in progress.
+  bool get busy =>
       _phase == DictationPhase.recording || _phase == DictationPhase.settling;
 
   /// Listeners hear of a new level on the next tick, not on every chunk.
@@ -206,10 +207,10 @@ class DictationController extends ChangeNotifier {
 
   /// Completes once no recording or transcription is in progress.
   Future<void> whenSettled() async {
-    while (_busy) {
+    while (busy) {
       final settled = Completer<void>();
       void check() {
-        if (!_busy && !settled.isCompleted) settled.complete();
+        if (!busy && !settled.isCompleted) settled.complete();
       }
 
       addListener(check);
@@ -321,7 +322,7 @@ class DictationController extends ChangeNotifier {
 
   /// Drops the recording, or the transcript on its way.
   Future<void> cancel() async {
-    final wasBusy = _busy;
+    final wasBusy = busy;
     _run++;
     _stream?.cancel();
     _stream = null;
@@ -338,7 +339,7 @@ class DictationController extends ChangeNotifier {
 
   /// Clears a notice (failed, no speech, denied).
   void dismiss() {
-    if (_busy) return;
+    if (busy) return;
     _keptClip = null;
     _setPhase(DictationPhase.idle);
   }
