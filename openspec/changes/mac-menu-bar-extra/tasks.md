@@ -1,0 +1,18 @@
+## 1. PR 1: `feat(macos): keep running after the last window closes`
+
+- [ ] 1.1 Start with failing tests for `AppPresence`: on macOS, `hidden` and `inactive` count as foreground and not as focused, and `paused` counts as neither. On other platforms foreground equals `resumed`. Add `lib/src/shell/app_presence.dart`.
+- [ ] 1.2 Start with failing tests showing that `ScheduleWatcher` keeps its one-minute timer while the macOS app is hidden and stops on `paused`, and that `AttentionNotifier` still posts for a hidden app and stays silent for the focused thread. Wire `ScheduleWatcher` and `AppShell` (`_schedulesController?.foreground`) to `AppPresence.foreground`.
+- [ ] 1.3 Return false from `applicationShouldTerminateAfterLastWindowClosed` in `macos/Runner/AppDelegate.swift`. Add the `hermes_app/app` channel with `terminate`, which PR 2 uses. Add a test for the channel's Dart side.
+- [ ] 1.4 Observability: start with a failing test for the `app.lifecycle` `state: windowless` crumb in `AppShell`. Implement it with fixed values only.
+- [ ] 1.5 Update `.claude/skills/verify-in-app/SKILL.md` with the windowless checks: close the window, reply finishes and notifies, a schedule run is announced within 3 minutes, Dock reopen, Cmd-Q. If App Nap delays the timer, add the `beginActivity` hold described in the design.
+- [ ] 1.6 Verify: `dart format`, `flutter analyze`, `flutter test`, and verify-in-app on macOS against `scripts/dev-backend.sh`.
+
+## 2. PR 2: `feat(macos): add a menu bar item for replies and approvals`
+
+- [ ] 2.1 Start with failing tests for `MenuBarExtraModel`, built from a `ChatController` with fake threads: idle, working and attention precedence, approval choices exactly as the request offers them, command trimming, the signed-out state, and equality so the menu does not rebuild when nothing changed.
+- [ ] 2.2 Widgetbook: the menu cannot be shown in the catalog, so add a use case for the three icon states (template images on light and dark backgrounds) and for the Settings row with its switch, in both themes. Pull the approval choice labels out of the card into a shared function if they are inline.
+- [ ] 2.3 Add `tray_manager` (check its macOS SwiftPM/CocoaPods setup and keep it out of `MainFlutterWindow.swift`'s conversation-window registrant). Start with failing tests, using a fake tray boundary, for menu building, actions (open chat, existing conversation window, approve through `ChatController.answerApproval`, expired request, New Chat, Show Main Window, Quit), and no network traffic on open (`FakeHermesServer` sees no request). Implement `MenuBarExtra` in `lib/src/macos/menu_bar_extra/` and mount it from `AppShell` on macOS only.
+- [ ] 2.4 Start with failing tests for `MenuBarExtraSettings` (default on, persisted, off destroys the item) and its row in `settings_dialog.dart`, shown only on macOS.
+- [ ] 2.5 Observability: start with failing tests for the `menubar.opened` and `menubar.action` crumbs and the `menubar.approval_answered` log, asserting fixed fields only with no title, command or id. Implement them.
+- [ ] 2.6 Update CLAUDE.md (Architecture: macOS menu bar item and stay-alive) and the verify-in-app skill (menu checks, screenshots of the menu bar).
+- [ ] 2.7 Verify: `dart format`, `flutter analyze`, `flutter test`, the Widgetbook test, and verify-in-app on macOS: icon states, approving from the menu, opening a chat with the window closed, hiding the item in Settings, light and dark menu bars.
