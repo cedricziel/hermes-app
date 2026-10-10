@@ -8,6 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/background/headless_hermes.dart';
+import 'package:hermes_app/src/models/hermes_session.dart';
+import 'package:hermes_app/src/telemetry/telemetry.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
@@ -20,8 +24,10 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_chat_transport.dart';
+import 'support/fake_hermes_server.dart';
 import 'support/fake_device_authenticator.dart';
 import 'support/memory_token_store.dart';
+import 'support/recording_tracer.dart';
 import 'support/fake_notification_service.dart';
 
 const _approval = NotificationAnswer(
@@ -432,28 +438,52 @@ void main() {
   });
 
   group('answering alone', () {
-    setUp(
-      () => SharedPreferencesAsyncPlatform.instance =
-          InMemorySharedPreferencesAsync.empty(),
+    late FakeHermesServer server;
+    late MemoryTokenStore store;
+    late RecordingTracer tracer;
+
+    setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.withData({
+            kSavedServerUrlKey: 'http://hermes.test',
+          });
+      server = FakeHermesServer()
+        ..on('GET', '/api/status', {'auth_required': true});
+      store = MemoryTokenStore(
+        const HermesSession(
+          accessToken: 'access',
+          refreshToken: 'refresh',
+          expiresAt: 4102444800,
+          provider: 'basic',
+          userId: 'u1',
+          serverUrl: 'http://hermes.test',
+          mintedAt: 1000,
+        ),
+      );
+      tracer = RecordingTracer();
+    });
+
+    LoneAnswerer lone() => LoneAnswerer(
+      transportFor: (_) => transport,
+      notifications: notifications,
+      deps: HeadlessDeps(
+        tokenStore: store,
+        prefs: SharedPreferencesAsync(),
+        devServerUrl: '',
+        adapter: server,
+        telemetry: (attributes) => ConnectionTelemetry(tracer: tracer),
+      ),
     );
 
     test(
-      'two answers at once go one at a time, each signed in afresh',
+      'two answers at once go one at a time, each connected afresh',
       () async {
-        var signIns = 0;
-        final lone = LoneAnswerer(
-          createAuth: () {
-            signIns++;
-            return AuthController(tokenStore: MemoryTokenStore());
-          },
-          transportFor: (_) => transport,
-          notifications: notifications,
-        );
+        final answerer = lone();
         final gate = transport.openAnswerGate = Completer<void>();
         final deadline = DateTime.now().add(const Duration(seconds: 5));
 
-        final first = lone.answer(_approval, deadline);
-        final second = lone.answer(_approval, deadline);
+        final first = answerer.answer(_approval, deadline);
+        final second = answerer.answer(_approval, deadline);
         await pumpEventQueue();
         expect(transport.openAnswers, hasLength(1));
         gate.complete();
@@ -461,9 +491,99 @@ void main() {
         expect(await first, AnswerOutcome.ok);
         expect(await second, AnswerOutcome.ok);
         expect(transport.openAnswers, hasLength(2));
-        expect(signIns, 2);
+        expect(server.requestsTo('GET', '/api/status'), hasLength(2));
       },
     );
+
+    test('runs as the answer_request task of the headless runtime', () async {
+      await lone().answer(
+        _approval,
+        DateTime.now().add(const Duration(seconds: 5)),
+      );
+
+      final span = tracer.spans.single;
+      expect(span.name, 'background.task');
+      expect(span.attributes, containsPair('task', 'answer_request'));
+    });
+
+    test('tells the user to open the app when nobody is signed in', () async {
+      store.session = null;
+
+      final outcome = await lone().answer(
+        _approval,
+        DateTime.now().add(const Duration(seconds: 5)),
+      );
+
+      expect(outcome, AnswerOutcome.signedOut);
+      expect(transport.openAnswers, isEmpty);
+      expect(notifications.shown.single.body, kAnswerFailedBody);
+    });
+
+    test('tells the user to open the app when storage is locked', () async {
+      store.unreadable = true;
+
+      final outcome = await lone().answer(
+        _approval,
+        DateTime.now().add(const Duration(seconds: 5)),
+      );
+
+      expect(outcome, AnswerOutcome.failed);
+      expect(transport.openAnswers, isEmpty);
+      expect(notifications.shown.single.body, kAnswerFailedBody);
+    });
+
+    test('tells the user to open the app when the server is down', () async {
+      server.on('GET', '/api/status', {}, status: 503);
+
+      final outcome = await lone().answer(
+        _approval,
+        DateTime.now().add(const Duration(seconds: 5)),
+      );
+
+      expect(outcome, AnswerOutcome.failed);
+      expect(notifications.shown.single.body, kAnswerFailedBody);
+    });
+
+    test(
+      'checks App Lock before it connects to a server that is down',
+      () async {
+        server.on('GET', '/api/status', {}, status: 503);
+
+        final outcome = await LoneAnswerer(
+          transportFor: (_) => transport,
+          notifications: notifications,
+          locked: () async => true,
+          deps: HeadlessDeps(
+            tokenStore: store,
+            prefs: SharedPreferencesAsync(),
+            devServerUrl: '',
+            adapter: server,
+          ),
+        ).answer(_approval, DateTime.now().add(const Duration(seconds: 5)));
+
+        expect(outcome, AnswerOutcome.locked);
+        expect(server.requests, isEmpty);
+        expect(notifications.shown.single.body, kOpenToAnswerBody);
+      },
+    );
+
+    test('does not answer past App Lock, nor tell twice', () async {
+      final outcome = await LoneAnswerer(
+        transportFor: (_) => transport,
+        notifications: notifications,
+        locked: () async => true,
+        deps: HeadlessDeps(
+          tokenStore: store,
+          prefs: SharedPreferencesAsync(),
+          devServerUrl: '',
+          adapter: server,
+        ),
+      ).answer(_approval, DateTime.now().add(const Duration(seconds: 5)));
+
+      expect(outcome, AnswerOutcome.locked);
+      expect(transport.openAnswers, isEmpty);
+      expect(notifications.shown.single.body, kOpenToAnswerBody);
+    });
   });
 
   group('the running app', () {

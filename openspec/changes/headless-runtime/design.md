@@ -25,9 +25,10 @@ What exists today:
 `AuthController` mixes connection building with sign-in UI state and the sign-out reaction, which is exactly what must not run here. `headless_hermes.dart` holds a private `HeadlessConnection`:
 
 1. Server: the define, else the saved key (`kSavedServerUrlKey`, now exported from `auth_controller.dart`). None → `HeadlessSignedOut` (`outcome: no_server`).
-2. Status: `HermesApiClient.probeStatus()` on a plain `Dio` with `RequestTimeoutInterceptor` (5 s connect). Failure → `HeadlessUnreachable` (`outcome: unreachable`). `authRequired == false` → no session needed.
-3. Session: `TokenStore().readState()`, a new method beside `read()` that tells an empty store from an unreadable keychain (`errSecInteractionNotAllowed` before the first unlock). Empty → `HeadlessSignedOut` (`outcome: no_session`); unreadable → `HeadlessLocked` (`outcome: locked`). `read()` keeps its behaviour.
-4. Client: `Dio` with `RequestTimeoutInterceptor`, the connection's telemetry interceptor (`Telemetry.forConnection(hermesServerAttributes(status))`) and `_HeadlessAuth`, wrapped in `HermesApiClient` and `HermesRepositories`.
+2. Keychain: `TokenStore().readState(repair: false)` is read before any request, so a locked keychain ends the run (`outcome: locked`) without one. `repair: false` makes it read-only: it neither saves the session again under the current options nor clears a value it cannot parse.
+3. Status: `HermesApiClient.probeStatus()` on a plain `Dio` with `RequestTimeoutInterceptor` (5 s connect). Failure → `HeadlessUnreachable` (`outcome: unreachable`). `authRequired == false` → no session needed.
+4. Session: `readState()` is a new method beside `read()` that tells an empty store from an unreadable keychain (`errSecInteractionNotAllowed` before the first unlock). Empty, or minted by another dashboard → `HeadlessSignedOut` (`outcome: no_session`), after the status request, since a server without the auth gate needs no session. `read()` keeps its behaviour.
+5. Client: `Dio` with `RequestTimeoutInterceptor`, the connection's telemetry interceptor (`Telemetry.forConnection(hermesServerAttributes(status))`) and `_HeadlessAuth`, wrapped in `HermesApiClient` and `HermesRepositories`.
 
 `_HeadlessAuth` attaches the bearer token and refreshes at most once per run, proactively when `needsRefresh()` or after a 401, using compare-and-swap on storage:
 
@@ -112,3 +113,21 @@ Platforms affected: iOS (new Swift file in the Runner target). The Dart runtime 
 No stored format changes. Rollback removes the runtime; the foreground adoption is harmless without it.
 
 `LoneAnswerer` (`lib/src/notifications/request_answers.dart`), which builds its own `AuthController` and transport in the iOS background isolate, moves onto `withHeadlessHermes(task: 'answer_request')`, so one headless path remains.
+
+## As built
+
+Where the build differed from the plan above:
+
+- `AuthController` gained no behaviour. The saved-server key (`kSavedServerUrlKey`), the dev define (`kDevServerUrlDefine`) and the URL normalizer (`normalizeServerUrl`) are exported from it, and the no-gate page token moved to `auth/page_token.dart` (`PageToken`, `pageTokenInterceptor`), so a headless run against a dashboard without the auth gate sends the same header the app does.
+- `TokenStore.readState({repair})` returns a sealed `SessionRead` (`SessionFound`, `SessionEmpty`, `SessionUnreadable`); `read()` is built on it.
+- `HeadlessDeps` is a plain class, not `@visibleForTesting`, because `LoneAnswerer` passes it through. A run uses the device's parts unless told otherwise.
+- `profiles()` returns `List<String?>` (`[null]` when the list fails or is empty), as designed; Contract 3 in the rollout notes says `List<String>`.
+- `BackgroundPlugins` also registers `device_info_plus` (the telemetry resource reads it) and has no `path_provider_foundation`, which is Dart-only on iOS. `NotificationActions.registerPlugins` calls it and adds the Runner's own channels.
+- `LoneAnswerer(transportFor:, deps:)` replaces `createAuth`/`transportFor(auth)`. `answerRequestInBackground` calls `prepareBackgroundIsolate()`, so telemetry is now initialized in that isolate too; its spans are exported in batches, so a run that iOS suspends first may lose its span.
+- A rejected refresh re-reads storage, again after `rejectionRecheck` (1 s), as `AuthController` does: a pair that `sameOwner` and `isNewerThan` is adopted; any other changed pair ends the run as `HeadlessUnreachable` and logs `background.refresh_conflict`.
+- Ending a run (`_Run.close`) stops new requests and refreshes, waits up to `closeGrace` (3 s) for a refresh in flight so its pair is stored before the caller lets iOS suspend the app, then closes every socket and `Dio`. A refresh only starts with at least `minRefreshBudget` (4 s) left and its attempts are cut to fit the budget, so the budget cannot end a run between the server rotating the token and the write. The storage read before the write-back does not skip it when the read fails, and a failed write logs `auth.session.store_failed`.
+- A body that gets through despite a failed session keeps its result; one that fails after it reports the auth outcome. `profiles()` throws once the session has failed.
+- Only a keychain that reports `errSecInteractionNotAllowed` (-25308) is `HeadlessLocked`; other read errors are `HeadlessUnreachable`.
+- Not done: the window between the write-back's read and its write cannot be closed without an atomic compare-and-set in the keychain, which the plugin lacks; the read is directly before the write.
+- `LoneAnswerer` checks App Lock before `withHeadlessHermes`, so a locked app never touches the server or the tokens.
+

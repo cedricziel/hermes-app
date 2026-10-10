@@ -10,6 +10,14 @@ class MemoryTokenStore extends TokenStore {
   /// Makes [write] fail, like a keychain that cannot be written.
   bool failWrites = false;
 
+  /// Makes [readState] report a keychain that cannot be read, like one that
+  /// is locked before the first unlock.
+  bool unreadable = false;
+
+  /// Whether an [unreadable] store is locked, as before the first unlock,
+  /// rather than failing for another reason.
+  bool unreadableLocked = true;
+
   /// Makes [read] hand out a copy, like a keychain does, instead of the
   /// stored object.
   final bool copyOnRead;
@@ -19,6 +27,15 @@ class MemoryTokenStore extends TokenStore {
     final stored = session;
     if (stored == null || !copyOnRead) return stored;
     return HermesSession.fromStorageJson(stored.toStorageJson());
+  }
+
+  @override
+  Future<SessionRead> readState({bool repair = true}) async {
+    if (unreadable) return SessionUnreadable(locked: unreadableLocked);
+    return switch (await read()) {
+      final session? => SessionFound(session),
+      null => const SessionEmpty(),
+    };
   }
 
   @override

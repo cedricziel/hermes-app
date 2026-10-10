@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
@@ -36,7 +37,16 @@ class TokenStore {
   /// Whether the stored session was written again under the current options.
   bool _resaved = false;
 
-  Future<HermesSession?> read() async {
+  Future<HermesSession?> read() async => (await readState()).session;
+
+  /// Like [read], but says why there is no session: nothing is stored, or the
+  /// keychain cannot be read right now (on iOS: before the first unlock since
+  /// the device started).
+  ///
+  /// With [repair] false it only reads: it neither saves the session again
+  /// under the current options nor clears a value it cannot parse, for a
+  /// reader that must not write beside the app.
+  Future<SessionRead> readState({bool repair = true}) async {
     final String? raw;
     try {
       raw = await _storage.read(key: _sessionKey);
@@ -50,26 +60,36 @@ class TokenStore {
       }
       // A keychain that cannot be read right now (locked, unavailable) says
       // nothing about the stored session, so it is left alone.
-      return null;
+      return SessionUnreadable(locked: _isLocked(error));
     }
-    if (raw == null || raw.isEmpty) return null;
+    if (raw == null || raw.isEmpty) return const SessionEmpty();
     try {
       final json = jsonDecode(raw);
       if (json is! Map<String, dynamic>) {
         throw const FormatException('stored session is not an object');
       }
       final session = HermesSession.fromStorageJson(json);
-      await _resaveOnce(raw);
-      return session;
+      if (repair) await _resaveOnce(raw);
+      return SessionFound(session);
     } on Object {
-      try {
-        await clear();
-      } on Object {
-        // The next sign-in overwrites the entry.
+      if (repair) {
+        try {
+          await clear();
+        } on Object {
+          // The next sign-in overwrites the entry.
+        }
       }
-      return null;
+      return const SessionEmpty();
     }
   }
+
+  /// `errSecInteractionNotAllowed`: the plugin reports the status in the
+  /// message and details of its "Unexpected security result code" error.
+  static bool _isLocked(Object error) =>
+      error is PlatformException &&
+      (error.code == '-25308' ||
+          error.details == -25308 ||
+          (error.message?.contains('-25308') ?? false));
 
   /// A session saved by an older version keeps the options it was saved
   /// with until it is written again.
@@ -91,4 +111,34 @@ class TokenStore {
   }
 
   Future<void> clear() => _storage.delete(key: _sessionKey);
+}
+
+/// What [TokenStore.readState] found.
+sealed class SessionRead {
+  const SessionRead();
+
+  /// The stored session, or null when there is none to use.
+  HermesSession? get session => null;
+}
+
+/// A stored session.
+final class SessionFound extends SessionRead {
+  const SessionFound(this.session);
+
+  @override
+  final HermesSession session;
+}
+
+/// Nothing usable is stored.
+final class SessionEmpty extends SessionRead {
+  const SessionEmpty();
+}
+
+/// The keychain could not be read, so nothing is known about the session.
+final class SessionUnreadable extends SessionRead {
+  const SessionUnreadable({this.locked = false});
+
+  /// Whether the keychain is locked, as on iOS before the first unlock since
+  /// the device started, rather than failing for another reason.
+  final bool locked;
 }

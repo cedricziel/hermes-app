@@ -3,8 +3,6 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import flutter_local_notifications
-import flutter_secure_storage_darwin
-import shared_preferences_foundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -53,15 +51,7 @@ final class NotificationActions: NSObject, UNUserNotificationCenterDelegate {
   /// The plugins the headless engine needs to sign in and post a follow-up,
   /// and the Runner's own channels for it.
   static func registerPlugins(_ registry: FlutterPluginRegistry) {
-    if let registrar = registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin") {
-      FlutterLocalNotificationsPlugin.register(with: registrar)
-    }
-    if let registrar = registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin") {
-      FlutterSecureStorageDarwinPlugin.register(with: registrar)
-    }
-    if let registrar = registry.registrar(forPlugin: "SharedPreferencesPlugin") {
-      SharedPreferencesPlugin.register(with: registrar)
-    }
+    BackgroundPlugins.register(with: registry)
     if let registrar = registry.registrar(forPlugin: "HermesBackgroundTask") {
       BackgroundTask.install(messenger: registrar.messenger())
     }

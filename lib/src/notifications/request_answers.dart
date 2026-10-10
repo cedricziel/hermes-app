@@ -5,17 +5,18 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
-import 'dart:ui' show DartPluginRegistrant, IsolateNameServer;
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter/foundation.dart' show ChangeNotifier, ValueListenable;
 import 'package:flutter/services.dart' show MethodChannel;
-import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
 import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
+import '../background/entry_points.dart';
+import '../background/headless_hermes.dart';
 import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
@@ -442,24 +443,23 @@ SendPort? _lookupApp() =>
     IsolateNameServer.lookupPortByName(kRequestAnswersPort);
 
 /// Answers in the iOS background isolate when the app's own isolate is not
-/// running. Answers go one at a time, so two of them never refresh the token
-/// pair at once.
+/// running, on a connection of the headless runtime. Answers go one at a
+/// time, so two of them never refresh the token pair at once.
 class LoneAnswerer {
   LoneAnswerer({
-    AuthController Function()? createAuth,
-    ChatTransport? Function(AuthController auth)? transportFor,
     NotificationService? notifications,
     Future<bool> Function()? locked,
-  }) : _createAuth = createAuth ?? AuthController.new,
-       _locked = locked ?? AppLockController.savedEnabled,
-       _transportFor = transportFor ?? gatewayTransportFor,
+    ChatTransport Function(HeadlessHermes hermes)? transportFor,
+    this._deps,
+  }) : _locked = locked ?? AppLockController.savedEnabled,
+       _transportFor = transportFor ?? ((hermes) => hermes.transport()),
        _notifications =
            notifications ?? LocalNotificationService(background: true);
 
-  final AuthController Function() _createAuth;
-  final ChatTransport? Function(AuthController auth) _transportFor;
+  final ChatTransport Function(HeadlessHermes hermes) _transportFor;
   final NotificationService _notifications;
   final Future<bool> Function() _locked;
+  final HeadlessDeps? _deps;
   Future<void> _last = Future.value();
 
   Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) {
@@ -469,23 +469,57 @@ class LoneAnswerer {
   }
 
   /// Each answer starts from the saved server and session as they are now:
-  /// a controller kept from an earlier answer would miss a sign-out or a
+  /// a connection kept from an earlier answer would miss a sign-out or a
   /// switch to another server meanwhile.
   Future<AnswerOutcome> _answer(
     NotificationAnswer answer,
     DateTime deadline,
   ) async {
-    final auth = _createAuth();
-    try {
-      return await RequestAnswerSender(
-        transport: () => _transportFor(auth),
+    // Before any request: with App Lock on, nothing may touch the server or
+    // the stored tokens, and the user is told to open the app.
+    if (await _appLocked()) {
+      return RequestAnswerSender(
+        transport: () => null,
         notifications: _notifications,
-        ready: auth.bootstrap,
-        locked: _locked,
+        locked: () async => true,
       ).send(answer, route: 'background', deadline: deadline);
-    } finally {
-      auth.dispose();
     }
+    final left = deadline.difference(DateTime.now());
+    final outcome = await withHeadlessHermes<AnswerOutcome>(
+      (hermes) => RequestAnswerSender(
+        transport: () => _transportFor(hermes),
+        notifications: _notifications,
+        events: () => hermes.repositories.telemetry.events,
+        locked: _locked,
+      ).send(answer, route: 'background', deadline: deadline),
+      task: 'answer_request',
+      timeout: left.isNegative ? Duration.zero : left,
+      deps: _deps,
+    );
+    // The sender tells the user about every outcome of its own; the runtime
+    // ending the work before it ran is told here.
+    return switch (outcome) {
+      HeadlessDone(:final value) => value,
+      HeadlessSignedOut() => await _unanswered(answer, AnswerOutcome.signedOut),
+      HeadlessLocked() ||
+      HeadlessUnreachable() => await _unanswered(answer, AnswerOutcome.failed),
+    };
+  }
+
+  Future<bool> _appLocked() async {
+    try {
+      return await _locked();
+    } on Object {
+      return true;
+    }
+  }
+
+  Future<AnswerOutcome> _unanswered(
+    NotificationAnswer answer,
+    AnswerOutcome outcome,
+  ) async {
+    await RequestAnswerSender.tellFailed(_notifications, answer);
+    return outcome;
   }
 }
 
@@ -527,8 +561,7 @@ LoneAnswerer? _loneAnswerer;
 /// its own.
 @pragma('vm:entry-point')
 Future<void> answerRequestInBackground(NotificationResponse response) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
+  await prepareBackgroundIsolate();
   final handover = handoverOf(response.payload);
   // From when iOS handed the button over: the background time started then.
   final deadline = (handover.receivedAt ?? DateTime.now()).add(kAnswerBudget);

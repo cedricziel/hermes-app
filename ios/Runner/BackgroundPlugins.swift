@@ -1,0 +1,34 @@
+import Flutter
+import device_info_plus
+import flutter_local_notifications
+import flutter_secure_storage_darwin
+import package_info_plus
+import shared_preferences_foundation
+
+/// The plugins a background engine needs to reach Hermes: the session in the
+/// keychain, the saved server, telemetry and notifications. A second engine
+/// must not get `GeneratedPluginRegistrant`'s whole list: several plugins act
+/// as application or scene delegates (share, URL and Live Activity handling),
+/// and registering them twice would handle every URL and share twice.
+///
+/// Consumers pass this to their plugin's registrant callback, for example
+/// `FlutterLocalNotificationsPlugin.setPluginRegistrantCallback`.
+enum BackgroundPlugins {
+  static func register(with registry: FlutterPluginRegistry) {
+    if let registrar = registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin") {
+      FlutterSecureStorageDarwinPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "SharedPreferencesPlugin") {
+      SharedPreferencesPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "FPPPackageInfoPlusPlugin") {
+      FPPPackageInfoPlusPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "FPPDeviceInfoPlusPlugin") {
+      FPPDeviceInfoPlusPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin") {
+      FlutterLocalNotificationsPlugin.register(with: registrar)
+    }
+  }
+}
