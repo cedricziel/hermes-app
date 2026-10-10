@@ -126,21 +126,40 @@ class WatchRequestHandler {
     if (repo == null) return _noSession();
     final profile = await activeProfile();
     if (!thread.isIn(profile)) return _error('bad_request');
-    final messages = await repo.loadMessages(thread.id, profile: profile);
+    final messages = [
+      for (final message in await repo.loadMessages(
+        thread.id,
+        profile: profile,
+      ))
+        if (_text(message) case final text when text.isNotEmpty)
+          (message: message, text: text),
+    ];
     return {
       'ok': true,
       'messages': [
-        for (final message in messages.skip(
+        for (final (:message, :text) in messages.skip(
           messages.length > messageLimit ? messages.length - messageLimit : 0,
         ))
           {
             'id': message.id,
             'role': message.role == ChatRole.user ? 'user' : 'assistant',
-            'content': _cut(message.content),
+            'content': _cut(text),
             'at': message.createdAt.millisecondsSinceEpoch ~/ 1000,
           },
       ],
     };
+  }
+
+  /// Everything [message] says, in the order it was written: a turn that
+  /// called tools keeps its text in [ChatMessage.sealedProse], not in
+  /// [ChatMessage.content].
+  static String _text(ChatMessage message) {
+    final display = message.displayText;
+    return [
+      for (final prose in message.sealedProse) prose.text.trim(),
+      (display != null && display.trim().isNotEmpty ? display : message.content)
+          .trim(),
+    ].where((part) => part.isNotEmpty).join('\n\n');
   }
 
   Future<Map<String, Object?>> _transcribe(
