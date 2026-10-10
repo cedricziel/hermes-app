@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hermes_app/src/theme/breakpoints.dart';
@@ -20,6 +21,7 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
 import '../kanban/hermes_plugins_repository.dart';
+import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../settings/account_actions.dart';
@@ -106,6 +108,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   final _opened = <_Destination>{};
   SchedulesController? _schedulesController;
   ScheduleWatcher? _watcher;
+  StreamSubscription<bool>? _windowlessChanges;
+  var _appForeground = true;
+
+  /// Whether the macOS runner reports no window on screen. The app goes on
+  /// then; only the watcher polls, not a Schedules page nobody sees.
+  var _windowless = false;
 
   /// A tap on a scheduled task's notification that came before the cron
   /// check was done.
@@ -159,6 +167,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
     }
     WidgetsBinding.instance.addObserver(this);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      _windowlessChanges = MacApp.windowlessChanges.listen(_onWindowless);
+    }
     _detect();
     final windows = _maybeRead<ConversationWindows?>();
     if (windows != null) {
@@ -184,6 +195,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _showInMain?.cancel();
+    _windowlessChanges?.cancel();
     _watcher?.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();
@@ -199,13 +211,21 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed ||
         state == AppLifecycleState.paused) {
       _breadcrumbs('app.lifecycle', {'state': state.name});
-    } else if (AppPresence.windowless(state)) {
-      // The app goes on without a window, which a crash report should show.
-      _breadcrumbs('app.lifecycle', {'state': 'windowless'});
     }
-    _schedulesController?.foreground = AppPresence.foreground(state);
+    _appForeground = AppPresence.foreground(state);
+    _syncSchedulesForeground();
     if (state == AppLifecycleState.resumed) _detect();
   }
+
+  void _onWindowless(bool windowless) {
+    _windowless = windowless;
+    // The last window closing is what a crash report should show.
+    if (windowless) _breadcrumbs('app.lifecycle', {'state': 'windowless'});
+    _syncSchedulesForeground();
+  }
+
+  void _syncSchedulesForeground() =>
+      _schedulesController?.foreground = _appForeground && !_windowless;
 
   /// Puts Chat in front. The chat asks for this when a notification tap or
   /// shared content lands there while another page is on screen. Screens

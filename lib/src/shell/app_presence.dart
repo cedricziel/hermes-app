@@ -23,11 +23,6 @@ abstract final class AppPresence {
   static bool focused(AppLifecycleState? state) =>
       state == null || state == AppLifecycleState.resumed;
 
-  /// Whether the app runs without a window on screen: macOS keeps it alive
-  /// after the last window closes.
-  static bool windowless(AppLifecycleState state, {TargetPlatform? platform}) =>
-      _isMac(platform) && state == AppLifecycleState.hidden;
-
   static bool _isMac(TargetPlatform? platform) =>
       (platform ?? defaultTargetPlatform) == TargetPlatform.macOS;
 }

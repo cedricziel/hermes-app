@@ -26,4 +26,24 @@ void main() {
 
     expect([for (final c in calls) c.method], ['terminate']);
   });
+
+  test('windowlessChanges passes on what the runner reports', () async {
+    final seen = <bool>[];
+    final sub = MacApp.windowlessChanges.listen(seen.add);
+    addTearDown(sub.cancel);
+
+    for (final value in [true, false]) {
+      await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .handlePlatformMessage(
+            'hermes_app/app',
+            const StandardMethodCodec().encodeMethodCall(
+              MethodCall('windowless', value),
+            ),
+            (_) {},
+          );
+    }
+    await Future<void>.delayed(Duration.zero);
+
+    expect(seen, [true, false]);
+  });
 }

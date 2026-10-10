@@ -236,11 +236,13 @@ notification or schedule code:
   Dock icon stays, and the reply's completion posts a notification.
 - Add a cron job that fires within a minute, close the window, and wait: the
   run is announced within about 3 minutes. If App Nap delays the timer, the
-  `beginActivity` hold in `AppDelegate` is not taking effect; check
-  `pmset -g assertions` for "Hermes keeps running replies".
+  `beginActivity` hold in `AppDelegate.refreshWindowless` is not taking
+  effect. That hold takes no sleep assertion, so `pmset -g assertions` does
+  not list it; look at the App Nap column in Activity Monitor (View > Columns).
 - Click the Dock icon, or tap a notification: the main window comes back with
   its earlier state.
 - Cmd-Q with no window visible ends the process.
+- A full-screen main window leaves full screen on close and leaves no empty Space.
 - Open a conversation window, close the main window, then close the
   conversation window: the app still runs, and ⌘0 brings the main window
   back, after which a new conversation window still opens.

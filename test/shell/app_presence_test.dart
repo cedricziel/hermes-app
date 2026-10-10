@@ -67,26 +67,4 @@ void main() {
     expect(AppPresence.foreground(null, platform: TargetPlatform.iOS), isTrue);
     expect(AppPresence.focused(null), isTrue);
   });
-
-  test('windowless is a hidden app on macOS and nothing elsewhere', () {
-    expect(
-      AppPresence.windowless(AppLifecycleState.hidden, platform: mac),
-      isTrue,
-    );
-    expect(
-      AppPresence.windowless(AppLifecycleState.resumed, platform: mac),
-      isFalse,
-    );
-    expect(
-      AppPresence.windowless(AppLifecycleState.inactive, platform: mac),
-      isFalse,
-    );
-    expect(
-      AppPresence.windowless(
-        AppLifecycleState.hidden,
-        platform: TargetPlatform.iOS,
-      ),
-      isFalse,
-    );
-  });
 }
