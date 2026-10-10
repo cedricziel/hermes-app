@@ -128,6 +128,23 @@ void main() {
           (darker.computeLuminance() + 0.05);
 
       expect(contrast, greaterThanOrEqualTo(4.5));
+
+      // Drawn like an enabled skill, not dimmed.
+      Color? colorOf(String text) =>
+          tester.widget<Text>(find.textContaining(text)).style?.color;
+      expect(colorOf('Compose stacks'), colorOf('Review a PR'));
+      expect(colorOf('compose'), colorOf('pr-review'));
+      expect(
+        tester
+            .widgetList<Opacity>(
+              find.ancestor(
+                of: find.textContaining('Compose stacks'),
+                matching: find.byType(Opacity),
+              ),
+            )
+            .where((o) => o.opacity < 1),
+        isEmpty,
+      );
     });
 
     testWidgets('a disabled skill has its switch off', (tester) async {
