@@ -24,6 +24,20 @@ Future<bool> confirmDiscard(BuildContext context) => showConfirmDialog(
   filled: false,
 );
 
+/// Scrolls the form in front to its top, where it says why a save was
+/// refused: Save is in the bar, so the reason must not be left below the
+/// fold. The form scrolls with the route's primary controller, which a tap
+/// on the iOS status bar also scrolls.
+void revealFormError(BuildContext context) {
+  final scroll = PrimaryScrollController.maybeOf(context);
+  if (scroll == null || !scroll.hasClients) return;
+  scroll.animateTo(
+    0,
+    duration: const Duration(milliseconds: 250),
+    curve: Curves.easeOut,
+  );
+}
+
 /// The form for a custom task and for changing one. Pops with the saved job.
 class JobFormScreen extends StatefulWidget {
   const JobFormScreen({
@@ -94,7 +108,12 @@ class _JobFormScreenState extends State<JobFormScreen> {
 
   Future<void> _save() async {
     final job = await _form.save();
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (!mounted) return;
+    if (job != null) {
+      Navigator.of(context).pop(job);
+    } else {
+      revealFormError(context);
+    }
   }
 
   Future<void> _close(bool didPop) async {
@@ -134,6 +153,12 @@ class _JobFormScreenState extends State<JobFormScreen> {
             ),
             body: GroupedListView(
               children: [
+                if (_form.error case final error?)
+                  GroupedFooter(
+                    error,
+                    error: true,
+                    key: const Key('job-error'),
+                  ),
                 GroupedSection(
                   children: [
                     GroupedTextFieldRow(
@@ -270,12 +295,6 @@ class _JobFormScreenState extends State<JobFormScreen> {
                     ],
                   ],
                 ),
-                if (_form.error case final error?)
-                  GroupedFooter(
-                    error,
-                    error: true,
-                    key: const Key('job-error'),
-                  ),
               ],
             ),
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../theme/platform_chrome.dart';
 import '../widgets/grouped_form.dart';
 import '../widgets/grouped_list.dart';
+import '../widgets/shrink_to_fit_text.dart';
 import 'schedule_spec.dart';
 import 'schedule_widgets.dart';
 
@@ -299,15 +300,17 @@ class _DayToggles extends StatelessWidget {
                       child: SizedBox(
                         height: mac ? 24 : 32,
                         child: Center(
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            style: TextStyle(
-                              fontSize: mac ? 11 : 13,
-                              fontWeight: on
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                              color: on ? scheme.onPrimary : scheme.onSurface,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                            child: ShrinkToFitText(
+                              label,
+                              style: TextStyle(
+                                fontSize: mac ? 11 : 13,
+                                fontWeight: on
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: on ? scheme.onPrimary : scheme.onSurface,
+                              ),
                             ),
                           ),
                         ),

@@ -189,7 +189,12 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
 
   Future<void> _save() async {
     final job = await _form.save();
-    if (job != null && mounted) Navigator.of(context).pop(job);
+    if (!mounted) return;
+    if (job != null) {
+      Navigator.of(context).pop(job);
+    } else {
+      revealFormError(context);
+    }
   }
 
   Future<void> _pickTime(BlueprintField field) async {
@@ -286,15 +291,19 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
           ),
           body: GroupedListView(
             children: [
-              if (blueprint.description.isNotEmpty)
-                GroupedFooter(blueprint.description),
-              for (final field in blueprint.fields) ..._slot(field),
-              if (_form.error case final error?)
+              if (_form.error ??
+                      (_form.fieldErrors.isEmpty
+                          ? null
+                          : 'Check the fields marked below.')
+                  case final error?)
                 GroupedFooter(
                   error,
                   key: const Key('blueprint-error'),
                   error: true,
                 ),
+              if (blueprint.description.isNotEmpty)
+                GroupedFooter(blueprint.description),
+              for (final field in blueprint.fields) ..._slot(field),
             ],
           ),
         );

@@ -8,6 +8,7 @@ import '../theme/platform_chrome.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'grouped_list.dart';
+import 'shrink_to_fit_text.dart';
 
 /// A labelled value that opens a picker: on iOS the value muted before the
 /// chevron, on Material under the label, and on the Mac in a pop-up button.
@@ -386,9 +387,8 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
                   selected: segment == value,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Text(
+                    child: ShrinkToFitText(
                       label,
-                      maxLines: 1,
                       style: TextStyle(
                         fontSize: chrome == PlatformChrome.macos ? 12 : 13,
                         color: scheme.onSurface,
@@ -435,13 +435,17 @@ class GroupedFooter extends StatelessWidget {
         metrics.rowPadding,
         0,
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: metrics.footerSize,
-          color: error
-              ? Theme.of(context).colorScheme.error
-              : context.hermesColors.subtleText,
+      // A screen reader reads an error out as soon as it shows.
+      child: Semantics(
+        liveRegion: error,
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: metrics.footerSize,
+            color: error
+                ? Theme.of(context).colorScheme.error
+                : context.hermesColors.subtleText,
+          ),
         ),
       ),
     );

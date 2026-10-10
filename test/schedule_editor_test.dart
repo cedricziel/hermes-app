@@ -83,27 +83,39 @@ void main() {
 
   tearDown(() => controller.dispose());
 
-  Future<void> pumpScreen(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(400, 900);
+  Future<void> pumpScreen(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
+    tester.view.physicalSize = Size(400, height);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       MaterialApp(
-        theme: buildHermesLightTheme(),
+        theme: buildHermesLightTheme(platform: platform),
         home: SchedulesScreen(controller: controller, onOpenRun: (_, _) {}),
       ),
     );
     await tester.pumpAndSettle();
   }
 
-  Future<void> openGallery(WidgetTester tester) async {
-    await pumpScreen(tester);
+  Future<void> openGallery(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
+    await pumpScreen(tester, height: height, platform: platform);
     await tester.tap(find.byKey(const Key('schedules-new')));
     await tester.pumpAndSettle();
   }
 
-  Future<void> openCustom(WidgetTester tester) async {
-    await openGallery(tester);
+  Future<void> openCustom(
+    WidgetTester tester, {
+    double height = 900,
+    TargetPlatform? platform,
+  }) async {
+    await openGallery(tester, height: height, platform: platform);
     await tester.tap(find.byKey(const Key('custom-task')));
     await tester.pumpAndSettle();
   }
@@ -191,8 +203,11 @@ void main() {
   });
 
   group('blueprint form', () {
-    Future<void> openBlueprint(WidgetTester tester) async {
-      await openGallery(tester);
+    Future<void> openBlueprint(
+      WidgetTester tester, {
+      double height = 900,
+    }) async {
+      await openGallery(tester, height: height);
       await tester.tap(find.text('Morning briefing'));
       await tester.pumpAndSettle();
     }
@@ -264,9 +279,54 @@ void main() {
       expect(find.widgetWithText(TextButton, 'Create'), findsOneWidget);
       expect(find.text('08:00'), findsOneWidget);
     });
+
+    testWidgets('shows a refusal in view on a short phone', (tester) async {
+      server.on('POST', '/api/cron/blueprints/instantiate', {
+        'detail': 'The scheduler is not running',
+      }, status: 500);
+      await openBlueprint(tester, height: 320);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('blueprint-error')).hitTestable(),
+        findsOneWidget,
+      );
+    });
   });
 
   group('job form', () {
+    for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+      testWidgets('$platform announces why Save was refused', (tester) async {
+        final handle = tester.ensureSemantics();
+        await openCustom(tester, height: 560, platform: platform);
+
+        await save(tester);
+
+        expect(
+          tester.getSemantics(find.byKey(const Key('job-error'))),
+          isSemantics(
+            label: 'A task needs a prompt, a skill or a script',
+            isLiveRegion: true,
+          ),
+        );
+        handle.dispose();
+      });
+    }
+
+    testWidgets('shows why Save was refused on a short phone', (tester) async {
+      await openCustom(tester, height: 560);
+
+      await save(tester);
+
+      expect(find.byKey(const Key('job-error')).hitTestable(), findsOneWidget);
+      expect(
+        find.text('A task needs a prompt, a skill or a script'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('creates a job from Every 6 hours', (tester) async {
       server
         ..on(

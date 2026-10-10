@@ -27,12 +27,14 @@ class McpCatalogScreen extends StatefulWidget {
 
 class _McpCatalogScreenState extends State<McpCatalogScreen> {
   late final McpCatalogController _catalog;
+  late final Listenable _changes;
   String? _selected;
 
   @override
   void initState() {
     super.initState();
     _catalog = McpCatalogController(widget.servers)..load();
+    _changes = Listenable.merge([_catalog, widget.servers]);
   }
 
   @override
@@ -97,7 +99,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _catalog,
+      listenable: _changes,
       builder: (context, _) {
         final profile = widget.servers.profile;
         final entries = _catalog.entries;

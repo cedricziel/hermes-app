@@ -113,6 +113,21 @@ final _healthyJob = CronJob(
   skills: const ['backups'],
 );
 
+/// Paused after a run that failed with a reason too long for one line.
+final _pausedAfterFailureJob = CronJob(
+  id: 'job-6',
+  name: 'Sync the shared calendar',
+  scheduleKind: 'cron',
+  scheduleExpr: '*/15 * * * *',
+  state: CronJobState.paused,
+  lastRunAt: DateTime.now().subtract(const Duration(hours: 3)),
+  lastStatus: 'error',
+  lastError:
+      'CalDAV server answered 401 Unauthorized for '
+      'https://calendar.example.com/dav/shared/ after refreshing the token',
+  profile: 'work',
+);
+
 Widget _detail(
   CronJob job, {
   List<CronRun>? runs,
@@ -182,6 +197,10 @@ WidgetbookNode schedulesNode() => WidgetbookFolder(
         ...onEachPlatform(
           'Paused, muted',
           (_) => _detail(pausedJob, runs: const [], muted: true),
+        ),
+        ...onEachPlatform(
+          'Paused after a long failure',
+          (_) => _detail(_pausedAfterFailureJob, runs: const []),
         ),
         ...onEachPlatform(
           'Blocked before it ran',

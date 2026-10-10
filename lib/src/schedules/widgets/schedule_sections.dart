@@ -10,8 +10,9 @@ import 'run_history_empty.dart';
 import 'run_history_pending.dart';
 
 /// How [job] is doing as the first row of its detail: the status, the next
-/// run, a failure on the error line and an undelivered result on the warning
-/// line.
+/// run, why the last run failed on the error line and an undelivered result
+/// on the warning line. A paused or finished job keeps them. On a Mac they
+/// are monospaced and selectable, so a failure can be copied.
 class ScheduleStatusRow extends StatelessWidget {
   const ScheduleStatusRow({super.key, required this.job, required this.now});
 
@@ -20,17 +21,100 @@ class ScheduleStatusRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alert = jobAlert(job);
+    final undelivered = job.outcome == CronOutcome.deliveryFailed;
+    final failure = job.isFailing && !undelivered ? failureReason(job) : null;
     final deliveryError = job.lastDeliveryError;
-    return GroupedRow(
+    final warning = deliveryError == null
+        ? null
+        : undelivered
+        ? deliveryError
+        : 'Delivery failed: $deliveryError';
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
+    final row = GroupedRow(
       title: statusText(job, now),
       subtitle: nextRunText(job, now),
-      error: alert == JobAlert.failed ? failureReason(job) : null,
-      warning: alert == null || deliveryError == null
-          ? null
-          : alert == JobAlert.undelivered
-          ? deliveryError
-          : 'Delivery failed: $deliveryError',
+      error: mac ? null : failure,
+      warning: mac ? null : warning,
+    );
+    if (!mac || (failure == null && warning == null)) return row;
+    // The Mac shows the whole error, a traceback included, to copy.
+    final fullFailure = failure == null ? null : job.lastError?.trim();
+    final metrics = GroupedMetrics.of(context);
+    return MergeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          row,
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              metrics.rowPadding,
+              0,
+              metrics.rowPadding,
+              metrics.rowVerticalPadding,
+            ),
+            child: SelectionArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 4,
+                children: [
+                  if (fullFailure != null && fullFailure.isNotEmpty)
+                    _SelectableProblem(
+                      icon: AppIcons.error,
+                      text: fullFailure,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  if (warning != null)
+                    _SelectableProblem(
+                      icon: AppIcons.warning,
+                      text: warning,
+                      color: context.hermesColors.warning,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A failure under a Mac status row, monospaced: GroupedRow's own error
+/// line, drawn here so the [SelectionArea] around it can select it. Plain
+/// text, so a screen reader reads it rather than offering a text field.
+class _SelectableProblem extends StatelessWidget {
+  const _SelectableProblem({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+
+  final AppIconSet icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = GroupedMetrics.of(context).subtitleSize;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: 4,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: AppIcon(icon, size: size, color: color),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: size,
+              fontFamily: 'monospace',
+              color: color,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

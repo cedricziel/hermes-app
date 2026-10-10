@@ -168,8 +168,14 @@ void main() {
       await tester.tap(find.byKey(const Key('schedule-filter')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Paused'), findsWidgets);
-      expect(find.textContaining('(active)'), findsNothing);
+      final entries = find.byWidgetPredicate((w) => w is PopupMenuEntry);
+      expect(
+        [
+          for (final entry in tester.widgetList<PopupMenuEntry>(entries))
+            ((entry as CheckedPopupMenuItem).child! as Text).data,
+        ],
+        ['All tasks', 'Failing (1)', 'Paused'],
+      );
     });
 
     testWidgets('an empty profile says so', (tester) async {
@@ -204,6 +210,18 @@ void main() {
 
       expect(find.byType(MacScheduleHeader), findsOneWidget);
       expect(find.text('Morning brief'), findsWidgets);
+    });
+
+    testWidgets('a pushed detail names the job once, in the toolbar', (
+      tester,
+    ) async {
+      await pumpScreen(tester, size: const Size(500, 800));
+
+      await tester.tap(find.text('Morning brief'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MacScheduleHeader), findsOneWidget);
+      expect(find.text('Morning brief'), findsOneWidget);
     });
 
     testWidgets('shows a failure line only for a failed job', (tester) async {

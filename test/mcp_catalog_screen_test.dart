@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/mcp/hermes_mcp_repository.dart';
 import 'package:hermes_app/src/mcp/mcp_catalog_controller.dart';
+import 'package:hermes_app/src/mcp/mcp_catalog_screen.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_controller.dart';
 import 'package:hermes_app/src/mcp/mcp_servers_screen.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
@@ -124,6 +125,31 @@ void main() {
             .queryParameters['profile'],
         'work',
       );
+    });
+
+    testWidgets('the subtitle follows the profile the servers learn', (
+      tester,
+    ) async {
+      final servers = McpServersController(
+        repository: HermesMcpRepository(server.client().raw),
+        profiles: HermesProfilesRepository(server.client().raw),
+      );
+      addTearDown(servers.dispose);
+      await tester.pumpWidget(
+        MaterialApp(home: McpCatalogScreen(servers: servers)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Installing into: work'), findsOneWidget);
+
+      server.on(
+        'GET',
+        '/api/profiles/active',
+        activeProfileBody(active: 'home'),
+      );
+      unawaited(servers.load());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Installing into: home'), findsOneWidget);
     });
 
     testWidgets('the empty state has a button to the catalog', (tester) async {

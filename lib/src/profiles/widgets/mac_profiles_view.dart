@@ -137,7 +137,7 @@ class MacProfileRow extends StatelessWidget {
   }
 }
 
-/// One profile's home: its name and path, then a group of what it holds
+/// One profile's home: its name and path (selectable, to copy), then a group of what it holds
 /// with a count each, and a note on what else lives there.
 class MacProfileDetail extends StatelessWidget {
   const MacProfileDetail({
@@ -159,12 +159,38 @@ class MacProfileDetail extends StatelessWidget {
       children: [
         GroupedSection(
           children: [
-            GroupedRow(
-              title: profile.label,
-              subtitle: path == null || path.isEmpty ? null : path,
-              monospaceSubtitle: true,
-              caption: profile.description.isEmpty ? null : profile.description,
-              leading: GroupedTile(child: Text(initialsOf(profile.label))),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                GroupedRow(
+                  title: profile.label,
+                  subtitle: profile.description.isEmpty
+                      ? null
+                      : profile.description,
+                  subtitleMaxLines: null,
+                  leading: GroupedTile(child: Text(initialsOf(profile.label))),
+                ),
+                if (path != null && path.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      metrics.indentAfterTile,
+                      0,
+                      metrics.rowPadding,
+                      metrics.rowVerticalPadding + 4,
+                    ),
+                    // Selectable to copy, but read as text, not a field.
+                    child: SelectionArea(
+                      child: Text(
+                        path,
+                        style: TextStyle(
+                          fontSize: metrics.footerSize,
+                          fontFamily: 'monospace',
+                          color: context.hermesColors.subtleText,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

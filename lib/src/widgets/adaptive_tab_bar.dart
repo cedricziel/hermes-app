@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/platform_chrome.dart';
+import 'shrink_to_fit_text.dart';
 
 /// The switch between views of the same content, for `AppBar.bottom`: a
 /// sliding segmented control on Apple platforms and a [PillSegmentedControl]
@@ -170,16 +171,17 @@ class _PillSegment extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                color: selected
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.7),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: ShrinkToFitText(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? scheme.onSurface
+                      : scheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
           ),

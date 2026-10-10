@@ -58,6 +58,7 @@ class HelperModelList extends StatelessWidget {
                 key: Key('helper-${slot.task}'),
                 title: slot.label,
                 value: _describe(slot.choice),
+                caption: _details(slot.choice),
                 busy: saving.contains(slot.task),
                 onTap: () => onTap(slot),
               ),
@@ -80,7 +81,8 @@ class HelperModelList extends StatelessWidget {
                 GroupedValueRow(
                   key: Key('helper-${slot.key}'),
                   title: slot.label,
-                  value: slot.enabled ? _describe(slot.choice) : 'Off',
+                  value: _describe(slot.choice),
+                  caption: _details(slot.choice, off: !slot.enabled),
                   busy: saving.contains(slot.key),
                   onTap: onTapMoa == null ? null : () => onTapMoa(slot),
                 ),
@@ -94,5 +96,20 @@ class HelperModelList extends StatelessWidget {
     if (choice == null) return 'Main model';
     if (choice.modelId.isEmpty) return 'Provider default';
     return shortModelName(choice.modelId);
+  }
+
+  /// What the short value leaves out: "Off" for a slot switched off, the
+  /// whole model id when it was shortened, the provider and the effort.
+  static String? _details(ModelChoice? choice, {bool off = false}) {
+    final effort = choice?.effort;
+    final parts = [
+      if (off) 'Off',
+      if (choice != null) ...[
+        if (shortModelName(choice.modelId) != choice.modelId) choice.modelId,
+        if (choice.providerId.isNotEmpty) choice.providerId,
+        if (effort != null && effort.isNotEmpty) effortLabel(effort),
+      ],
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 }

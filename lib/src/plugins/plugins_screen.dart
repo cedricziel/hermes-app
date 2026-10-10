@@ -44,6 +44,7 @@ class _PluginsScreenState extends State<PluginsScreen>
   late final HermesPluginManagerRepository _repository;
   late final PluginsController _installed;
   late final CatalogController _catalog;
+  final _catalogQuery = ValueNotifier<String>('');
   late final ProvidersController _providers;
   late final _tabs = TabController(length: 3, vsync: this);
 
@@ -68,6 +69,7 @@ class _PluginsScreenState extends State<PluginsScreen>
   @override
   void dispose() {
     _tabs.dispose();
+    _catalogQuery.dispose();
     _providers.dispose();
     _catalog.dispose();
     _installed.dispose();
@@ -82,6 +84,14 @@ class _PluginsScreenState extends State<PluginsScreen>
     );
     if (result == null || !mounted) return;
     await reportInstall(context, result);
+  }
+
+  /// Filters the catalog from the Mac toolbar. The catalog's other changes
+  /// (it loads when its tab first builds) must not rebuild the toolbar, so
+  /// only the query does, through [_catalogQuery].
+  void _search(String query) {
+    _catalog.setQuery(query);
+    _catalogQuery.value = query;
   }
 
   /// "work · 3 installed · 2 on" on a Mac, the profile alone elsewhere.
@@ -101,7 +111,7 @@ class _PluginsScreenState extends State<PluginsScreen>
   Widget build(BuildContext context) {
     final mac = platformChromeOf(context) == PlatformChrome.macos;
     return ListenableBuilder(
-      listenable: Listenable.merge([_installed, _tabs]),
+      listenable: Listenable.merge([_installed, _tabs, _catalogQuery]),
       child: TabBarView(
         controller: _tabs,
         children: [
@@ -119,7 +129,7 @@ class _PluginsScreenState extends State<PluginsScreen>
             ? SettingsSearch(
                 query: _catalog.query,
                 hint: 'Search catalog',
-                onChanged: _catalog.setQuery,
+                onChanged: _search,
               )
             : null,
         actions: [

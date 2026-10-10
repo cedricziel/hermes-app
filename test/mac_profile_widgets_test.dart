@@ -159,6 +159,45 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('profile-section-plugins')));
       expect(opened, [ProfileSection.plugins]);
     });
+
+    testWidgets('the home path can be selected and copied', (tester) async {
+      await _pump(
+        tester,
+        MacProfilesView(
+          profiles: _profiles,
+          selected: 'work',
+          onSelect: (_) {},
+          counts: const {},
+          onOpen: (_) {},
+        ),
+      );
+
+      final path = find.text('/home/hermes/.hermes/profiles/work');
+      expect(tester.widget<Text>(path).style?.fontFamily, 'monospace');
+      expect(
+        find.ancestor(of: path, matching: find.byType(SelectionArea)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('screen readers hear the name, not the initials', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        MacProfilesView(
+          profiles: _profiles,
+          selected: 'work',
+          onSelect: (_) {},
+          counts: const {},
+          onOpen: (_) {},
+        ),
+      );
+
+      expect(find.bySemanticsLabel(RegExp(r'^W\b')), findsNothing);
+      handle.dispose();
+    });
   });
 
   group('MacAccountFooter', () {
