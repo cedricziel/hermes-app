@@ -22,6 +22,7 @@ class ComposerDictation {
     required MixedSocketConnect connect,
     required VoiceRecorder recorder,
     required this._field,
+    required this._profile,
     this._settings,
     this._onDevice,
     this._breadcrumbs = Breadcrumbs.none,
@@ -42,12 +43,17 @@ class ComposerDictation {
 
   final HermesChatRepository _repository;
   final TextEditingController _field;
+
+  /// The profile the composer sends to, read each time voice support is.
+  final String? Function() _profile;
   final DictationSettings? _settings;
   final OnDeviceSpeech? _onDevice;
   final Breadcrumbs _breadcrumbs;
   late final DictationController controller;
   StreamSubscription<void>? _installs;
-  String? _profile;
+
+  /// The profile whose voice support was last asked for.
+  ({String? profile})? _asked;
   var _disposed = false;
   var _downloadFailed = false;
 
@@ -57,10 +63,9 @@ class ComposerDictation {
   /// The text this dictation last put in the field.
   String? _shown;
 
-  /// Points dictation at [profile]'s voice support.
-  Future<void> configure(String? profile) {
-    _profile = profile;
-    return refresh();
+  /// Asks again when the composer's profile changed since the last time.
+  void followProfile() {
+    if (_asked?.profile != _profile()) unawaited(refresh());
   }
 
   /// The chosen engine; Hermes without an on-device recognizer.
@@ -73,9 +78,10 @@ class ComposerDictation {
   /// settings call back once loaded.
   Future<void> refresh() async {
     if (_disposed || _settings?.loaded == false) return;
-    final profile = _profile;
+    final profile = _profile();
+    _asked = (profile: profile);
     final engine = _engine;
-    bool current() => !_disposed && _profile == profile && _engine == engine;
+    bool current() => !_disposed && _profile() == profile && _engine == engine;
     if (engine == DictationEngine.device) {
       // Speech stays on the device, so the server's voice config is not read.
       final locale = OnDeviceSpeech.deviceLocale();

@@ -19,7 +19,6 @@ import '../messaging/hermes_messaging_repository.dart';
 import '../mcp/hermes_mcp_repository.dart';
 import '../mcp/mcp_servers_screen.dart';
 import '../models/hermes_models_repository.dart';
-import '../models/widgets/composer_model_pill.dart';
 import '../live_activities/live_activities.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../notifications/attention_notifier.dart';
@@ -49,24 +48,21 @@ import 'attachments/attachment_source.dart';
 import 'attachments/plugin_attachment_source.dart';
 import 'chat_controller.dart';
 import 'chat_models.dart';
+import 'chat_thread_bindings.dart';
 import 'chat_open_requests.dart';
 import 'chat_transport.dart';
 import 'gateway/gateway_connection.dart';
 import 'gateway/hermes_gateway_transport.dart';
 import 'hermes_chat_repository.dart';
-import '../voice/dictation_controller.dart';
-import '../voice/dictation_draft.dart';
+import '../voice/composer_dictation.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
-import '../voice/voice_support.dart';
 import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
-import 'widgets/chat_thread_view.dart';
-import 'widgets/message_actions.dart' show TurnActionStatus;
 import 'widgets/chat_header.dart';
 import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
@@ -162,13 +158,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   HermesModelsRepository? _models;
   HermesGatewayTransport? _ownedTransport;
   final _composerController = TextEditingController();
-  DictationController? _dictation;
-  DictationSettings? _dictationSettings;
-  OnDeviceSpeech? _onDeviceSpeech;
-  StreamSubscription<void>? _modelInstalls;
-
-  /// The profile whose voice support [_dictation] was last configured for.
-  ({String? profile})? _voiceProfile;
+  ComposerDictation? _dictation;
   List<SlashCommand> _slashCommands = const [];
   String? _slashContext;
   int _slashFetchGeneration = 0;
@@ -193,8 +183,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
-  final _latestReplyId = ValueNotifier<String?>(null);
-  final _turnActionStatus = ValueNotifier(TurnActionStatus.idle);
+  final _latestReply = LatestReply();
 
   StarterContextLoader? _starterLoader;
 
@@ -281,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_chat.repository case final repository?) {
       final auth = _maybeRead<AuthController>();
       final baseUrl = auth?.baseUrl;
-      _dictation = DictationController(
+      _dictation = ComposerDictation(
         repository: repository,
         connect: api == null || baseUrl == null
             ? ([_ = const {}]) => Future.error(StateError('No dashboard'))
@@ -293,17 +282,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 telemetry: repositories?.telemetry.gateway(),
               ),
         recorder: widget.voiceRecorder ?? RecordVoiceRecorder(),
-        onTranscript: _insertTranscript,
+        field: _composerController,
+        profile: () => _chat.profile,
+        settings: _maybeRead<DictationSettings>(),
+        onDevice: _maybeRead<OnDeviceSpeech>(),
         breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
-        onDevice: _onDeviceSpeech = _maybeRead<OnDeviceSpeech>(),
       );
-      _dictation!.addListener(_onDictation);
-      _dictationSettings = _maybeRead<DictationSettings>()
-        ?..addListener(_refreshVoice);
-      _modelInstalls = _onDeviceSpeech?.installed.listen((_) {
-        if (_dictationEngine == DictationEngine.device) _refreshVoice();
-      });
-      _refreshVoice();
+      unawaited(_dictation!.refresh());
     }
     _handoff = _maybeRead<HandoffController>();
     _handoff?.bind((activity, valid) async {
@@ -333,13 +318,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       );
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
     _panelTookVoice = _windows?.panelTookVoice.listen(
-      (_) => _dictation?.cancel(),
+      (_) => _dictation?.controller.cancel(),
     );
-    _dictation?.addListener(_takeVoice);
+    _dictation?.controller.addListener(_takeVoice);
   }
 
   void _takeVoice() {
-    final recording = _dictation!.busy;
+    final recording = _dictation!.controller.busy;
     if (recording && !_recording) unawaited(_windows?.stopPanelDictation());
     _recording = recording;
   }
@@ -488,7 +473,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   void _changed() {
     if (!mounted) return;
-    if (_voiceProfile?.profile != _chat.profile) _refreshVoice();
+    _dictation?.followProfile();
     widget.chatProfiles?.showing(_chat.profile);
     _syncDock();
     setState(() {});
@@ -668,7 +653,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _addAttachments(List<SharedFile> files) {
-    final added = files.where((f) => !_attachments.contains(f)).toList();
+    final added = newAttachments(_attachments, files);
     if (added.isEmpty) return;
     setState(() => _attachments.addAll(added));
   }
@@ -678,10 +663,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _foreground = state == AppLifecycleState.resumed;
     _updateActivePolling();
     if (state case AppLifecycleState.paused || AppLifecycleState.hidden) {
-      _dictation?.cancel();
+      _dictation?.controller.cancel();
     }
     if (!_foreground) return;
-    _refreshVoice();
+    unawaited(_dictation?.refresh());
     _chat.checkConnection();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
   }
@@ -707,118 +692,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ..removeListener(_changed)
       ..dispose();
     _ownedTransport?.close();
-    _dictationSettings?.removeListener(_refreshVoice);
-    unawaited(_modelInstalls?.cancel());
     _dictation?.dispose();
     _composerController.removeListener(_onComposerText);
     _composerController.dispose();
     _composerFocus.dispose();
-    _latestReplyId.dispose();
-    _turnActionStatus.dispose();
+    _latestReply.dispose();
     _searchFocus.dispose();
     super.dispose();
-  }
-
-  /// Asks what voice input the shown profile allows, and points dictation
-  /// at it.
-  Future<void> _refreshVoice() async {
-    final dictation = _dictation;
-    final repository = _chat.repository;
-    if (dictation == null || repository == null) return;
-    // Until the saved engine is known, asking the server could break the
-    // on-device promise; the settings call back once loaded.
-    if (_dictationSettings?.loaded == false) return;
-    final profile = _chat.profile;
-    _voiceProfile = (profile: profile);
-    final engine = _dictationEngine;
-    bool current() =>
-        mounted && _chat.profile == profile && _dictationEngine == engine;
-    if (engine == DictationEngine.device) {
-      // Speech stays on the device, so the server's voice config is not read.
-      final locale = OnDeviceSpeech.deviceLocale();
-      final model = await _onDeviceSpeech!.status(locale);
-      if (!current()) return;
-      if (model == OnDeviceModel.missing) unawaited(_downloadModel(locale));
-      if (effectiveDictationEngine(engine, model) == engine) {
-        dictation.configure(
-          profile: profile,
-          support: VoiceSupport.none,
-          engine: engine,
-          model: model,
-        );
-        return;
-      }
-    }
-    final support = await repository.voiceSupport(profile: profile);
-    if (!current()) return;
-    dictation.configure(profile: profile, support: support);
-  }
-
-  var _modelDownloadFailed = false;
-
-  /// Fetches the device's speech model; [OnDeviceSpeech.installed] then
-  /// shows the microphone. After a failure only the Dictation setting tries
-  /// again, so a metered connection is not hit on every refresh.
-  Future<void> _downloadModel(String locale) async {
-    if (_modelDownloadFailed) return;
-    var installed = true;
-    try {
-      await _onDeviceSpeech!.install(locale);
-    } on OnDeviceSpeechException {
-      installed = false;
-      _modelDownloadFailed = true;
-    }
-    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('voice.model.install', {
-      'outcome': installed ? 'installed' : 'failed',
-    });
-  }
-
-  /// The chosen dictation engine; Hermes without an on-device recognizer.
-  DictationEngine get _dictationEngine => _onDeviceSpeech == null
-      ? DictationEngine.hermes
-      : _dictationSettings?.engine ?? DictationEngine.hermes;
-
-  /// Puts a dictated [transcript] where the cursor is, a space apart from the
-  /// text around it, without sending.
-  void _insertTranscript(String transcript) =>
-      _composerController.value = DictationDraft(_composerController.value)
-          .showing(transcript);
-
-  /// The draft as the running dictation found it; null when none runs.
-  DictationDraft? _dictationDraft;
-
-  /// The text this dictation last put in the field.
-  String? _dictationShown;
-
-  /// Shows the words recognized so far in the field while dictating, and
-  /// gives the draft back when the dictation ends without a transcript.
-  /// The transcript itself arrives through [_insertTranscript].
-  ///
-  /// Anything else that writes the field meanwhile (Edit, a starter prompt,
-  /// shared text, Open in New Window) wins: the dictation is dropped and that
-  /// text stays.
-  void _onDictation() {
-    final dictation = _dictation!;
-    final current = _composerController.value;
-    if (dictation.busy) {
-      if (_dictationShown case final shown? when shown != current.text) {
-        _dictationDraft = null;
-        _dictationShown = null;
-        unawaited(dictation.cancel());
-        return;
-      }
-      final draft = _dictationDraft ??= DictationDraft(current);
-      final shown = draft.showing(dictation.liveTranscript);
-      // Only the text: a selection made in the field stays.
-      if (shown.text != current.text) _composerController.value = shown;
-      _dictationShown = _composerController.text;
-    } else {
-      _dictationShown = null;
-      if (_dictationDraft case final draft?) {
-        _dictationDraft = null;
-        _composerController.value = draft.original;
-      }
-    }
   }
 
   void _newThread() {
@@ -1124,23 +1004,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
-  /// The notifier changes after the frame: the action bars listening to it
-  /// are built in this one.
-  void _followLatestReply(ChatThread? thread) {
-    final id = latestFinishedReplyId(thread);
-    final status = thread == null
-        ? TurnActionStatus.idle
-        : _chat.turnActionStatus(thread);
-    if (_latestReplyId.value == id && _turnActionStatus.value == status) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _latestReplyId.value = id;
-      _turnActionStatus.value = status;
-    });
-  }
-
   @override
   Widget build(BuildContext context) =>
       MacCommandScope(commands: _menuCommands(), child: _buildScreen(context));
@@ -1185,8 +1048,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             macSidebar || isWideLayout(context, width: constraints.maxWidth);
         final selected = chat.selectedThread;
         final bot = selected?.botContext;
-        final modelOptions = chat.modelOptions;
-        _followLatestReply(selected);
+        _latestReply.follow(chat, selected);
         ThreadSidebar buildSidebar({Widget? navigation}) => ThreadSidebar(
           navigation: navigation,
           onOpenInNewWindow: _windows == null
@@ -1213,17 +1075,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
         final macSplit = isWide && _mac;
         final search = chat.search;
-        final threadView = ChatThreadView(
+        final threadView = boundChatThreadView(
+          chat: chat,
+          thread: selected,
           greetingName: context.select<AuthController, String?>(
             (auth) => auth.identity?.displayName,
           ),
-          thread: selected,
-          botContext: bot,
           sendTarget: () => (_chat.profile, _chat.selectedId),
-          chatController: chat.controllerFor(selected),
           composerController: _composerController,
           composerFocus: _composerFocus,
-          dictation: _dictation,
+          dictation: _dictation?.controller,
           attachments: _attachments,
           attachmentSource: _attachmentSource,
           onAddAttachments: _addAttachments,
@@ -1234,21 +1095,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           commandRunning: _slashSending,
           starterPrompts: _showsWelcome ? _starterPrompts() : null,
           onPickStarter: _pickStarter,
-          latestReplyId: _latestReplyId,
-          turnActionStatus: _turnActionStatus,
-          modelPill: modelOptions == null || modelOptions.providers.isEmpty
-              ? null
-              : ComposerModelPill(
-                  options: modelOptions,
-                  choice: chat.modelChoice,
-                  onChanged: chat.chooseModel,
-                ),
-          onRetry: selected == null || chat.lastPromptText(selected) == null
-              ? null
-              : () => chat.retry(selected),
-          onEdit: selected == null || !chat.canEditLastPrompt(selected)
-              ? null
-              : () => chat.editLastPrompt(selected),
+          latestReply: _latestReply,
+          editable: true,
           header: !isWide
               ? null
               : _mac
@@ -1278,39 +1126,6 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   onShowConnection: _showConnection,
                   onNewChat: _newThread,
                 ),
-          onLoadOlder: selected == null || !chat.hasOlder(selected.id)
-              ? null
-              : () => chat.loadOlder(selected.id),
-          onAnswerApproval: selected == null
-              ? null
-              : (id, choice) => chat.answerApproval(selected, id, choice),
-          onAnswerClarify: selected == null
-              ? null
-              : (id, answers) => chat.answerClarify(selected, id, answers),
-          onSkipUnsupported: selected == null
-              ? null
-              : (id, kind) => chat.skipUnsupported(selected, id, kind),
-          onAnswerVault: selected == null
-              ? null
-              : (id, kind, {identifier = '', password = '', code = ''}) =>
-                    chat.answerVaultRequest(
-                      selected,
-                      id,
-                      kind,
-                      identifier: identifier,
-                      password: password,
-                      code: code,
-                    ),
-          onStop: selected == null || chat.transport == null
-              ? null
-              : () => chat.stopReply(selected),
-          queued: selected == null ? const [] : chat.queuedIn(selected),
-          onRemoveQueued: selected == null
-              ? null
-              : (prompt) => chat.removeQueued(selected, prompt),
-          onSendQueued: selected == null || !chat.queuePaused(selected)
-              ? null
-              : () => chat.sendQueued(selected),
         );
 
         return Scaffold(

@@ -130,6 +130,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
             ([_ = const {}]) => Future.error(StateError('No live socket')),
         recorder: recorder,
         field: _composerController,
+        profile: () => _chat.profile,
         settings: widget.dictationSettings,
         onDevice: widget.onDevice,
       );
@@ -181,7 +182,7 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
       _loadFailed = !loaded;
     });
     if (!loaded) return;
-    unawaited(_dictation?.configure(_chat.profile));
+    unawaited(_dictation?.refresh());
     if (_sendWhenLoaded) {
       _sendWhenLoaded = false;
       _send(_composerController.text);
