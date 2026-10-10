@@ -48,7 +48,7 @@ final class QuickPanel: NSObject, NSWindowDelegate {
   private(set) static var switchingKey = false
 
   private static let width: CGFloat = 680
-  private static let height: CGFloat = 132
+  private static let height: CGFloat = 168
 
   let windowId: String
   private let panel: QuickPanelWindow
@@ -137,6 +137,9 @@ final class QuickPanel: NSObject, NSWindowDelegate {
     case "hidePanel":
       hide(reason: call.arguments as? String ?? "escape")
       result(nil)
+    case "resizePanel":
+      if let height = call.arguments as? Double { resize(to: CGFloat(height)) }
+      result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -195,6 +198,17 @@ final class QuickPanel: NSObject, NSWindowDelegate {
 
   func windowDidResignKey(_ notification: Notification) {
     hide(reason: "focus_lost")
+  }
+
+  /// Grows or shrinks the panel to [height], at most 60% of its screen,
+  /// keeping its top edge where it is.
+  private func resize(to height: CGFloat) {
+    let limit = (panel.screen ?? NSScreen.main)?.visibleFrame.height ?? height
+    let content = min(height, limit * 0.6)
+    var frame = panel.frameRect(forContentRect: NSRect(
+      origin: .zero, size: NSSize(width: Self.width, height: content)))
+    frame.origin = NSPoint(x: panel.frame.minX, y: panel.frame.maxY - frame.height)
+    panel.setFrame(frame, display: true, animate: shown)
   }
 
   /// On the screen with the pointer, centred, in its upper third.

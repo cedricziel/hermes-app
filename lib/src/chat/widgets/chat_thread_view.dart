@@ -68,6 +68,7 @@ class ChatThreadView extends StatelessWidget {
     this.onRemoveQueued,
     this.onSendQueued,
     this.greetingName,
+    this.welcome = true,
   });
 
   final ChatThread? thread;
@@ -125,6 +126,10 @@ class ChatThreadView extends StatelessWidget {
   /// The signed-in user's name for the welcome view's greeting.
   final String? greetingName;
 
+  /// Whether an empty chat shows the welcome view; the quick panel shows
+  /// just the composer instead.
+  final bool welcome;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -160,6 +165,7 @@ class ChatThreadView extends StatelessWidget {
             commandRunning: commandRunning,
             sendTarget: sendTarget,
           ),
+          emptyChatListBuilder: welcome ? null : (_) => const SizedBox.shrink(),
         );
 
     return Column(

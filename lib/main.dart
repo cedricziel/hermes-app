@@ -125,6 +125,7 @@ Future<void> main([List<String> args = const []]) async {
               },
               headers: auth.windowAuthHeaders,
               breadcrumbs: context.read<Breadcrumbs>(),
+              events: telemetry.events(),
             );
             // An expired session keeps the windows for after the sign-in.
             auth.signedOut.listen(

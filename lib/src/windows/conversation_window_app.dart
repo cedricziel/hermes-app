@@ -1,12 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-import '../api/hermes_api_client.dart';
 import '../api/hermes_repositories.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
@@ -19,7 +17,7 @@ import '../theme/hermes_theme.dart';
 import 'conversation_window_args.dart';
 import 'conversation_window_screen.dart';
 import 'desktop_conversation_windows.dart';
-import 'window_auth_interceptor.dart';
+import 'window_api_client.dart';
 
 /// The conversation window [main] was started for: desktop_multi_window
 /// starts each window's engine at `main(["multi_window", id, arguments])`.
@@ -52,15 +50,7 @@ Future<void> runConversationWindow(String windowId, String arguments) async {
   final args = launch.args;
   await MacWindow.initializeConversationWindow();
 
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: args.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 30),
-    ),
-  );
-  dio.interceptors.add(WindowAuthInterceptor(dio, link.headers));
-  final api = HermesApiClient(dio);
+  final api = windowApiClient(args.baseUrl, link.headers);
   final repositories = HermesRepositories(api);
   final transport = HermesGatewayTransport(
     connect: hermesGatewayConnect(

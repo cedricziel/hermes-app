@@ -42,6 +42,24 @@ Future<void> Function(Object? windowId)? _onConversationClosed;
 /// (false) the key window.
 Stream<bool> get _keyChanges => _keyChangeController.stream;
 
+/// Asks the main window for the auth headers of a request window [windowId]
+/// makes; see `WindowAuthInterceptor`.
+Future<Map<String, String>> _askHeaders(
+  String windowId,
+  Map<String, String>? rejected,
+) async {
+  try {
+    final headers = await _mainChannel.invokeMethod<Map<Object?, Object?>>(
+      'auth.headers',
+      {'window_id': windowId, 'rejected': rejected},
+    );
+    return headers?.cast<String, String>() ?? const {};
+  } on Object catch (error) {
+    debugPrint('The main window gave no auth headers: $error');
+    return const {};
+  }
+}
+
 /// [ConversationWindowHost] over desktop_multi_window, for the main engine.
 class DesktopConversationWindowHost implements ConversationWindowHost {
   @override
@@ -179,17 +197,8 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
       _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});
 
   @override
-  Future<Map<String, String>> headers({Map<String, String>? rejected}) async {
-    try {
-      final headers = await _main<Map<Object?, Object?>>('auth.headers', {
-        'rejected': rejected,
-      });
-      return headers?.cast<String, String>() ?? const {};
-    } on Object catch (error) {
-      debugPrint('The main window gave no auth headers: $error');
-      return const {};
-    }
-  }
+  Future<Map<String, String>> headers({Map<String, String>? rejected}) =>
+      _askHeaders(windowId, rejected);
 
   @override
   Stream<String> get commands => _commands.stream;
@@ -250,10 +259,47 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
   }
 }
 
-/// What the quick panel's engine (window [windowId]) asks of its native
-/// panel. Tells the main window each time the panel shows or hides, for its
-/// breadcrumbs.
-class DesktopQuickPanelLink {
+/// What the quick panel's engine asks of the main window and of its native
+/// panel.
+abstract interface class QuickPanelLink {
+  /// Fires each time the panel is shown.
+  Stream<void> get shown;
+
+  /// Fires each time the panel is hidden.
+  Stream<void> get hidden;
+
+  /// Moves the engine into its panel and shows it; once, at start.
+  Future<void> present();
+
+  /// Hides the panel; [reason] is one of the fixed hide reasons.
+  Future<void> hide(String reason);
+
+  /// Resizes the panel to [height], keeping its top edge.
+  Future<void> resize(double height);
+
+  /// The main window's current profile, which the panel sends to.
+  Future<String?> currentProfile();
+
+  /// The auth headers for a request; see `WindowAuthInterceptor`.
+  Future<Map<String, String>> headers({Map<String, String>? rejected});
+
+  /// Opens [threadId] in a conversation window, with [draft] in its
+  /// composer, or focuses the window that shows it.
+  Future<void> showInWindow({
+    required String threadId,
+    required String? profile,
+    required String title,
+    ConversationDraft? draft,
+  });
+
+  /// Tells the main window, for its breadcrumbs, whether a show continued
+  /// the chat.
+  void reportChat({required bool continued});
+}
+
+/// [QuickPanelLink] for the panel window [windowId]. Tells the main window
+/// each time the panel shows or hides, for its breadcrumbs.
+class DesktopQuickPanelLink implements QuickPanelLink {
   DesktopQuickPanelLink(this.windowId) {
     _nativeWindow.setMethodCallHandler((call) async {
       switch (call.method) {
@@ -261,6 +307,7 @@ class DesktopQuickPanelLink {
           _shown.add(null);
           _report({'event': 'shown'});
         case 'panelHidden':
+          _hidden.add(null);
           _report({'event': 'hidden', 'reason': call.arguments});
       }
     });
@@ -268,26 +315,66 @@ class DesktopQuickPanelLink {
 
   final String windowId;
   final _shown = StreamController<void>.broadcast();
+  final _hidden = StreamController<void>.broadcast();
+
+  Future<T?> _main<T>(String method, [Map<String, Object?> args = const {}]) =>
+      _mainChannel.invokeMethod<T>(method, {'window_id': windowId, ...args});
 
   void _report(Map<String, Object?> args) => unawaited(
-    DesktopConversationWindowLink._quietly(
-      _mainChannel.invokeMethod<void>('panel', {
-        'window_id': windowId,
-        ...args,
-      }),
-    ),
+    DesktopConversationWindowLink._quietly(_main<void>('panel', args)),
   );
 
-  /// Fires each time the panel is shown.
+  @override
   Stream<void> get shown => _shown.stream;
 
-  /// Moves the engine into its panel and shows it; once, at start.
+  @override
+  Stream<void> get hidden => _hidden.stream;
+
+  @override
   Future<void> present() => DesktopConversationWindowLink._quietly(
     _nativeWindow.invokeMethod<void>('presentPanel', {'window_id': windowId}),
   );
 
-  /// Hides the panel; [reason] is one of the fixed hide reasons.
+  @override
   Future<void> hide(String reason) => DesktopConversationWindowLink._quietly(
     _nativeWindow.invokeMethod<void>('hidePanel', reason),
   );
+
+  @override
+  Future<void> resize(double height) => DesktopConversationWindowLink._quietly(
+    _nativeWindow.invokeMethod<void>('resizePanel', height),
+  );
+
+  @override
+  Future<String?> currentProfile() async {
+    try {
+      return await _main<String>('profile.current');
+    } on Object catch (error) {
+      debugPrint('The main window gave no profile: $error');
+      return null;
+    }
+  }
+
+  @override
+  Future<Map<String, String>> headers({Map<String, String>? rejected}) =>
+      _askHeaders(windowId, rejected);
+
+  @override
+  Future<void> showInWindow({
+    required String threadId,
+    required String? profile,
+    required String title,
+    ConversationDraft? draft,
+  }) => DesktopConversationWindowLink._quietly(
+    _main<void>('panel.showInWindow', {
+      'thread_id': threadId,
+      'profile': profile,
+      'title': title,
+      'draft': ?draft?.toJson(),
+    }),
+  );
+
+  @override
+  void reportChat({required bool continued}) =>
+      _report({'event': 'chat', 'continued': continued});
 }
