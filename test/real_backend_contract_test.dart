@@ -868,21 +868,21 @@ void main() {
               as String;
     });
 
-    test('live sessions and their pending approvals read the way background '
-        'refresh asks for them', () async {
-      const statuses = {
-        'idle',
-        'starting',
-        'waiting',
-        'working',
-        'streaming',
-        'resuming',
-      };
+    const liveStatuses = {
+      'idle',
+      'starting',
+      'waiting',
+      'working',
+      'streaming',
+      'resuming',
+    };
 
-      for (final params in [
-        const <String, Object?>{},
-        const <String, Object?>{'profile': 'default'},
-      ]) {
+    for (final params in [
+      const <String, Object?>{},
+      const <String, Object?>{'profile': 'default'},
+    ]) {
+      test('live sessions list as background refresh reads them '
+          '(params: $params)', () async {
         final listed = await rpc.request('session.active_list', params);
         final rows = (listed['sessions'] as List).cast<Map<String, dynamic>>();
         for (final row in rows) {
@@ -890,12 +890,13 @@ void main() {
           expect(row['session_key'], isA<String>());
           expect(row['title'], isA<String>());
           expect(row['last_active'], isA<num>());
-          expect(statuses, contains(row['status']));
+          expect(liveStatuses, contains(row['status']));
         }
         expect(rows.map((row) => row['id']), contains(sessionId));
-      }
+      }, skip: skip);
+    }
 
-      // The runtime id is what the approvals are asked by.
+    test('approvals are asked by the runtime session id', () async {
       final pending = await rpc.request('approval.pending', {
         'session_id': sessionId,
         'profile': 'default',
