@@ -227,11 +227,19 @@ public struct BoardModel: Equatable, Sendable {
       parts.isEmpty ? (snapshot.schedules == nil ? "No board or schedules on this server" : "Nothing scheduled") : nil
     url = parts.first?.url
   }
+}
 
-  /// When the widget needs a new entry: now, and when the next run comes
-  /// due, so it can read "Due" without the app writing a new snapshot.
-  public static func timelineDates(snapshot: SurfaceSnapshot?, now: Date) -> [Date] {
-    guard let next = snapshot?.schedules?.nextRunAt, next > now else { return [now] }
-    return [now, next]
+/// When a widget needs a new timeline entry without the app writing a new
+/// snapshot.
+public enum SurfaceTimeline {
+  /// Now; when the snapshot turns stale, so the widget can say so; and, for
+  /// the Board, when the next run comes due, so it can read "Due".
+  public static func dates(snapshot: SurfaceSnapshot?, now: Date, followsNextRun: Bool) -> [Date] {
+    guard let snapshot, snapshot.signedIn else { return [now] }
+    var dates = [now]
+    let staleAt = snapshot.updatedAt.addingTimeInterval(surfaceStaleAfter)
+    if staleAt > now { dates.append(staleAt) }
+    if followsNextRun, let next = snapshot.schedules?.nextRunAt, next > now { dates.append(next) }
+    return dates.sorted()
   }
 }

@@ -9,6 +9,14 @@
 /* Begin PBXBuildFile section */
 		C900BFAD4E3FACB17EC29FE4 /* HermesLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0A065B676562D3FF98F33E24 /* HermesLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		344A12BA9B08653AFA499068 /* HermesLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = D02A68B8ECBAECDA4AA375D6 /* HermesLiveActivity.swift */; };
+		5D0000000000000000000065 /* SurfaceProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000001 /* SurfaceProvider.swift */; };
+		5D0000000000000000000066 /* SurfaceViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000002 /* SurfaceViews.swift */; };
+		5D0000000000000000000067 /* RecentChatsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000003 /* RecentChatsWidget.swift */; };
+		5D0000000000000000000068 /* NeedsYouWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000004 /* NeedsYouWidget.swift */; };
+		5D0000000000000000000069 /* BoardWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000005 /* BoardWidget.swift */; };
+		5D000000000000000000006A /* SurfaceSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000006 /* SurfaceSnapshot.swift */; };
+		5D000000000000000000006B /* WidgetModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000007 /* WidgetModels.swift */; };
+		5D000000000000000000006C /* SurfaceSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D0000000000000000000008 /* SurfaceSample.swift */; };
 		A3BD8ABC8308525ED56E1791 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA4EDC232D777BB6CBD97EF5 /* PrivacyInfo.xcprivacy */; };
 		0AA3809677393A117BD4526D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F884F744E1BE6D3436E17C0A /* Assets.xcassets */; };
 		12AB7B237264DC0886E10BDB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9978D7CC9E15B585ACD0BBA0 /* Models.swift */; };
@@ -146,6 +154,14 @@
 /* Begin PBXFileReference section */
 		0A065B676562D3FF98F33E24 /* HermesLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HermesLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D02A68B8ECBAECDA4AA375D6 /* HermesLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HermesLiveActivity.swift; sourceTree = "<group>"; };
+		5D0000000000000000000001 /* SurfaceProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceProvider.swift; sourceTree = "<group>"; };
+		5D0000000000000000000002 /* SurfaceViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceViews.swift; sourceTree = "<group>"; };
+		5D0000000000000000000003 /* RecentChatsWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecentChatsWidget.swift; sourceTree = "<group>"; };
+		5D0000000000000000000004 /* NeedsYouWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NeedsYouWidget.swift; sourceTree = "<group>"; };
+		5D0000000000000000000005 /* BoardWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BoardWidget.swift; sourceTree = "<group>"; };
+		5D0000000000000000000006 /* SurfaceSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceSnapshot.swift; sourceTree = "<group>"; };
+		5D0000000000000000000007 /* WidgetModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WidgetModels.swift; sourceTree = "<group>"; };
+		5D0000000000000000000008 /* SurfaceSample.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SurfaceSample.swift; sourceTree = "<group>"; };
 		9A5FB84CC1EADB59D802D85B /* HermesLiveActivity.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = HermesLiveActivity.entitlements; sourceTree = "<group>"; };
 		E3007A457C6A440E0F035EA9 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B0F3B5974772D8DB0097E950 /* HermesLiveActivity.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = HermesLiveActivity.xcconfig; sourceTree = "<group>"; };
@@ -264,10 +280,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5D00000000000000000001F4 /* HermesSurfaceKit */ = {
+			isa = PBXGroup;
+			children = (
+				5D0000000000000000000006 /* SurfaceSnapshot.swift */,
+				5D0000000000000000000007 /* WidgetModels.swift */,
+				5D0000000000000000000008 /* SurfaceSample.swift */,
+			);
+			name = HermesSurfaceKit;
+			path = HermesSurfaceKit/Sources/HermesSurfaceKit;
+			sourceTree = "<group>";
+		};
 		8AF34F0F0D00A7BF28407130 /* HermesLiveActivity */ = {
 			isa = PBXGroup;
 			children = (
 				D02A68B8ECBAECDA4AA375D6 /* HermesLiveActivity.swift */,
+				5D0000000000000000000001 /* SurfaceProvider.swift */,
+				5D0000000000000000000002 /* SurfaceViews.swift */,
+				5D0000000000000000000003 /* RecentChatsWidget.swift */,
+				5D0000000000000000000004 /* NeedsYouWidget.swift */,
+				5D0000000000000000000005 /* BoardWidget.swift */,
 				E3007A457C6A440E0F035EA9 /* Info.plist */,
 				9A5FB84CC1EADB59D802D85B /* HermesLiveActivity.entitlements */,
 				B0F3B5974772D8DB0097E950 /* HermesLiveActivity.xcconfig */,
@@ -369,6 +401,7 @@
 				399D349ABD80BFC84308699A /* ShareExtension */,
 				590D84891A73FFC37A8BDAC3 /* HermesWatch */,
 				8AF34F0F0D00A7BF28407130 /* HermesLiveActivity */,
+				5D00000000000000000001F4 /* HermesSurfaceKit */,
 				782C2905C33DD45D8825927E /* HermesComplication */,
 			);
 			sourceTree = "<group>";
@@ -703,6 +736,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				344A12BA9B08653AFA499068 /* HermesLiveActivity.swift in Sources */,
+				5D0000000000000000000065 /* SurfaceProvider.swift in Sources */,
+				5D0000000000000000000066 /* SurfaceViews.swift in Sources */,
+				5D0000000000000000000067 /* RecentChatsWidget.swift in Sources */,
+				5D0000000000000000000068 /* NeedsYouWidget.swift in Sources */,
+				5D0000000000000000000069 /* BoardWidget.swift in Sources */,
+				5D000000000000000000006A /* SurfaceSnapshot.swift in Sources */,
+				5D000000000000000000006B /* WidgetModels.swift in Sources */,
+				5D000000000000000000006C /* SurfaceSample.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

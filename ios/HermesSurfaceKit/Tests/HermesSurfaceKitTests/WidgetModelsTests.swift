@@ -288,18 +288,41 @@ final class BoardModelTests: XCTestCase {
     XCTAssertNil(model.url)
     XCTAssertTrue(model.parts.isEmpty)
   }
+}
 
-  func testTimelineAddsAnEntryWhenTheNextRunComes() {
-    let next = now.addingTimeInterval(3600)
-    let dates = BoardModel.timelineDates(snapshot: snapshot(schedules: schedules(next: next)), now: now)
-    XCTAssertEqual(dates, [now, next])
+final class SurfaceTimelineTests: XCTestCase {
+  private func dates(_ snapshot: SurfaceSnapshot?, followsNextRun: Bool = false) -> [Date] {
+    SurfaceTimeline.dates(snapshot: snapshot, now: now, followsNextRun: followsNextRun)
   }
 
-  func testTimelineIsOneEntryWithoutAFutureRun() {
-    XCTAssertEqual(BoardModel.timelineDates(snapshot: snapshot(), now: now), [now])
-    XCTAssertEqual(BoardModel.timelineDates(snapshot: nil, now: now), [now])
-    let past = snapshot(schedules: schedules(next: now.addingTimeInterval(-5)))
-    XCTAssertEqual(BoardModel.timelineDates(snapshot: past, now: now), [now])
+  func testAddsAnEntryWhenTheSnapshotTurnsStale() {
+    let written = now.addingTimeInterval(-3600)
+    XCTAssertEqual(
+      dates(snapshot(updatedAt: written)), [now, written.addingTimeInterval(surfaceStaleAfter)])
+  }
+
+  func testAlreadyStaleIsOneEntry() {
+    XCTAssertEqual(dates(snapshot(updatedAt: now.addingTimeInterval(-7 * 3600))), [now])
+  }
+
+  func testBoardAddsAnEntryWhenTheNextRunComesDue() {
+    let next = now.addingTimeInterval(1800)
+    let snap = snapshot(schedules: ScheduleSummary(nextRunAt: next, nextJobName: "x", lastFailed: nil))
+    XCTAssertEqual(
+      dates(snap, followsNextRun: true),
+      [now, next, snap.updatedAt.addingTimeInterval(surfaceStaleAfter)])
+    XCTAssertFalse(dates(snap).contains(next))
+  }
+
+  func testPastRunAddsNoEntry() {
+    let snap = snapshot(
+      schedules: ScheduleSummary(nextRunAt: now.addingTimeInterval(-5), nextJobName: "x", lastFailed: nil))
+    XCTAssertFalse(dates(snap, followsNextRun: true).contains { $0 < now })
+  }
+
+  func testSignedOutIsOneEntry() {
+    XCTAssertEqual(dates(nil), [now])
+    XCTAssertEqual(dates(snapshot(signedIn: false)), [now])
   }
 }
 
