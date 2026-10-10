@@ -56,7 +56,7 @@ A widget extension is its own process and cannot read the watch app's container.
 
 Working and waiting go idle after 30 minutes without a renewal because Hermes has no push channel: a phone app that iOS suspended cannot report the end, and a stale "Working" is worse than nothing. The phone republishes only on a change, so a turn that really runs longer stops being shown after 30 minutes. This is a documented limit.
 
-The provider returns the plan with `.atEnd`; the watch app reloads the timelines when a status arrives.
+The provider returns the plan with `.never`: the plan already ends with a quiet entry for the moment a status stops being believed, so nothing else needs to renew it, and the watch app reloads the timelines when a status arrives.
 
 ### Deep links
 
