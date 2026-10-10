@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hermes_app/src/widgets/adaptive_add_action.dart';
 import 'package:hermes_app/src/widgets/adaptive_back_button.dart';
 import 'package:hermes_app/src/widgets/adaptive_tab_bar.dart';
 import 'package:widgetbook/widgetbook.dart';
@@ -10,7 +9,7 @@ WidgetbookNode adaptiveChromeNode() => WidgetbookComponent(
   name: 'Adaptive bars',
   useCases: [
     WidgetbookUseCase(
-      name: 'Detail bar with back, add and tabs',
+      name: 'Detail bar with back and tabs',
       builder: (_) => const _Pushed(),
     ),
   ],
@@ -43,7 +42,6 @@ class _Detail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final add = AdaptiveAddAction(label: 'New', onPressed: () {});
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -51,10 +49,8 @@ class _Detail extends StatelessWidget {
           leading: const AdaptiveBackButton(previousTitle: 'Skills'),
           leadingWidth: adaptiveBackLeadingWidth(context),
           title: const Text('Plugins'),
-          actions: [?add.toolbarButton(context)],
           bottom: const AdaptiveTabBar(labels: ['Installed', 'Catalog']),
         ),
-        floatingActionButton: add.floatingButton(context),
         body: const TabBarView(
           children: [
             Center(child: Text('Installed')),
