@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/services.dart';
 
 import '../chat/chat_transport.dart';
@@ -130,7 +131,7 @@ class WatchComplicationStatus {
     };
     final last = _last;
     if (last == null && shown == null) return;
-    if (last != null && _sameStatus(last, payload)) return;
+    if (last != null && mapEquals(last, payload)) return;
     _last = payload;
     unawaited(_deliver(payload));
   }
@@ -148,14 +149,6 @@ class WatchComplicationStatus {
       (_, turn) => turn.state.finished && !identical(turn, newest),
     );
   }
-
-  /// Whether two payloads say the same to the watch: the time moves with the
-  /// state, so it is not compared on its own.
-  static bool _sameStatus(Map<String, Object> a, Map<String, Object> b) =>
-      a['state'] == b['state'] &&
-      a['title'] == b['title'] &&
-      a['threadId'] == b['threadId'] &&
-      a['updatedAt'] == b['updatedAt'];
 
   Future<void> _deliver(Map<String, Object> payload) async {
     try {
