@@ -402,12 +402,15 @@ class WatchRequestHandler {
         final own = event is UnsolicitedEvent ? event.event : event;
         switch (own) {
           case ApprovalRequested(:final request):
-            // Only an answerable notification is worth waiting for.
-            if (!attempt.waits || !await announce(own)) return cannotAnswer();
+            // Announced either way; only an answerable notification, for a
+            // watch that can show it, is worth waiting for.
+            final answerable = await announce(own);
+            if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'approval');
             continue;
           case ClarifyRequested(:final request):
-            if (!attempt.waits || !await announce(own)) return cannotAnswer();
+            final answerable = await announce(own);
+            if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'question');
             continue;
           case VaultRequested() || UnsupportedRequested():
@@ -537,10 +540,11 @@ class _SendAttempt {
     () => requestIds.isEmpty ? _open.clear() : requestIds.forEach(_open.remove),
   );
 
-  /// The turn went on, which one answered request lets it do. Which one is
-  /// not said, so the oldest is taken for answered.
+  /// The turn went on, which an answered request lets it do. Which one is not
+  /// said, so this only counts when one request alone is open; with more,
+  /// their expiry or withdrawal closes them.
   void progressed() => _update(() {
-    if (_open.isNotEmpty) _open.remove(_open.keys.first);
+    if (_open.length == 1) _open.clear();
   });
 
   void _update(void Function() change) {

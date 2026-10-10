@@ -311,8 +311,8 @@ void main() {
       expect(service.shown, isEmpty);
     });
 
-    test('shows nothing while the permission was denied', () async {
-      await settings.recordPermission(granted: false);
+    test('asks the system whether it may post, every time', () async {
+      service.allowedAnswer = false;
 
       expect(
         await WatchBridge.announcer(service, settings)(notification),

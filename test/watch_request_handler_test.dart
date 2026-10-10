@@ -1316,6 +1316,24 @@ void main() {
         ..emit(approval);
 
       expect((await pending)['text'], WatchRequestHandler.cannotAnswerText);
+      // The notification can still be answered on the phone or the watch.
+      expect(announced.single.request, isNotNull);
+    });
+
+    test('two open approvals stay open while the turn goes on', () async {
+      useHandler(hold: const Duration(milliseconds: 20));
+      await waitOn(approval);
+      final turn = transport.sends.single..emit(second);
+      await pumpEventQueue();
+
+      final retry = send();
+      await pumpEventQueue();
+      turn
+        ..emit(const ToolStarted(name: 'terminal'))
+        ..emit(const ToolFinished(name: 'terminal'))
+        ..emit(const ReplyDelta('…'));
+
+      expect((await retry)['waiting'], 'approval');
     });
 
     test('keeps waiting while another request is still open', () async {

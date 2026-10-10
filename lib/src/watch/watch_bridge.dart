@@ -85,7 +85,8 @@ class WatchBridge {
   /// whether it was posted. A watch request can wake the app before the saved
   /// setting was read, so it is read first. It never asks for permission:
   /// the prompt would appear on a phone the user is not holding, so it stays
-  /// with the chat on the phone, and a denied permission posts nothing. A
+  /// with the chat on the phone, and a permission the system now denies posts
+  /// nothing. A
   /// notification that cannot be shown is dropped.
   static Future<bool> Function(AttentionNotification) announcer(
     NotificationService? service,
@@ -95,8 +96,11 @@ class WatchBridge {
     try {
       if (settings != null) {
         if (!settings.loaded) await settings.load();
-        if (!settings.enabled || settings.permissionDenied) return false;
+        if (!settings.enabled) return false;
       }
+      // Asked each time: the user may have changed it in system settings
+      // since the app last recorded an answer.
+      if (await service.allowed() == false) return false;
       await service.show(notification);
       return true;
     } on Object {
