@@ -17,6 +17,7 @@ void main() {
   late ConversationWindows windows;
   late BreadcrumbTrail trail;
   late List<(String, String?)> shownInMain;
+  late List<String> events;
   ({String baseUrl, bool authRequired})? connection;
 
   ConversationWindows build() => ConversationWindows(
@@ -25,6 +26,7 @@ void main() {
     connection: () => connection,
     headers: ({rejected}) async => {'Authorization': 'Bearer t'},
     breadcrumbs: Breadcrumbs.of(trail),
+    events: (name, [attributes = const {}]) => events.add('$name $attributes'),
   )..showInMainRequests.listen((r) => shownInMain.add((r.threadId, r.profile)));
 
   setUp(() {
@@ -33,6 +35,7 @@ void main() {
     trail = BreadcrumbTrail();
     host = FakeConversationWindowHost();
     shownInMain = [];
+    events = [];
     connection = _server;
     windows = build();
   });
@@ -462,6 +465,107 @@ void main() {
         'panel.hidden {reason: escape}',
         'panel.hidden {reason: other}',
       ]);
+    });
+
+    test('records whether a shown panel continued its chat', () async {
+      await windows.togglePanel();
+
+      await host.call('panel', {
+        'window_id': 'p0',
+        'event': 'chat',
+        'continued': true,
+      });
+      await host.call('panel', {'window_id': 'p0', 'event': 'chat'});
+
+      expect(
+        [
+          for (final c in trail.recent)
+            if (c.name == 'panel.chat') '${c.attributes}',
+        ],
+        ['{continued: true}', '{continued: false}'],
+      );
+    });
+
+    test('Open in Hermes opens the chat in a window with its draft', () async {
+      await windows.togglePanel();
+
+      final move = await host.call('panel.showInWindow', {
+        'window_id': 'p0',
+        'thread_id': 's1',
+        'profile': 'work',
+        'title': 'Secret plan',
+        'draft': {'text': 'and then?', 'files': <Object>[]},
+      });
+
+      final args = host.created.values.single;
+      expect(
+        (args.threadId, args.profile, args.title),
+        ('s1', 'work', 'Secret plan'),
+      );
+      expect(host.drafts.values.single?.text, 'and then?');
+      expect(events, ['panel.opened_in_window {}']);
+      expect(move, 'opened');
+    });
+
+    test(
+      'Open in Hermes focuses a window that already shows the chat',
+      () async {
+        await windows.open('s1', profile: 'work', title: 'Plan');
+        await windows.togglePanel();
+
+        final move = await host.call('panel.showInWindow', {
+          'window_id': 'p1',
+          'thread_id': 's1',
+          'profile': 'work',
+          'title': 'Plan',
+        });
+
+        expect(host.created, hasLength(1));
+        expect(host.focused, ['w0']);
+        expect(move, 'focused', reason: 'the window took no draft');
+      },
+    );
+
+    test('Open in Hermes without a connection fails', () async {
+      await windows.togglePanel();
+      connection = null;
+
+      final move = await host.call('panel.showInWindow', {
+        'window_id': 'p0',
+        'thread_id': 's1',
+        'profile': 'work',
+        'title': 'Plan',
+      });
+
+      expect(move, 'failed');
+    });
+
+    test('the panel and the main window never record at once', () async {
+      var stopped = 0;
+      windows.panelTookVoice.listen((_) => stopped++);
+      await windows.togglePanel();
+      await host.present('p0');
+
+      await host.call('panel.dictating', {'window_id': 'p0'});
+      await pumpEventQueue();
+      await windows.stopPanelDictation();
+
+      expect(stopped, 1);
+      expect(host.commands, [('p0', 'stopDictation')]);
+    });
+
+    test('only the panel may open a chat in a window this way', () async {
+      await windows.togglePanel();
+
+      await host.call('panel.showInWindow', {
+        'window_id': 'w9',
+        'thread_id': 's1',
+        'profile': 'work',
+        'title': 'Plan',
+      });
+
+      expect(host.created, isEmpty);
+      expect(events, isEmpty);
     });
   });
 }

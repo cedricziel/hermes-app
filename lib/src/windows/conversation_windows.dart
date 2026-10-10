@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_otel/flutter_otel.dart'
+    show AppEventLogger, noopAppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../chat/widgets/thread_actions_menu.dart';
@@ -117,6 +119,7 @@ class ConversationWindows extends ChangeNotifier {
     required this._connection,
     required this._headers,
     this._breadcrumbs = Breadcrumbs.none,
+    this._events = noopAppEventLogger,
   }) {
     _host.listen(_handle);
     _subscriptions
@@ -134,9 +137,22 @@ class ConversationWindows extends ChangeNotifier {
   final ({String baseUrl, bool authRequired})? Function() _connection;
   final WindowAuthHeaders _headers;
   final Breadcrumbs _breadcrumbs;
+  final AppEventLogger _events;
   final _subscriptions = <StreamSubscription<void>>[];
   final _mainFocused = StreamController<void>.broadcast();
   final _showInMain = StreamController<ConversationRef>.broadcast();
+  final _panelTookVoice = StreamController<void>.broadcast();
+
+  /// Fires when the quick panel starts recording, so the main window stops
+  /// its own dictation.
+  Stream<void> get panelTookVoice => _panelTookVoice.stream;
+
+  /// Stops the quick panel's dictation, as the main window starts its own.
+  Future<void> stopPanelDictation() async {
+    if (_panel case final panel? when panel.presented) {
+      await _host.command(panel.id, 'stopDictation');
+    }
+  }
 
   final _windows = <ConversationWindowEntry>[];
   List<ConversationWindowEntry> get windows => List.unmodifiable(_windows);
@@ -464,7 +480,30 @@ class ConversationWindows extends ChangeNotifier {
         if (args['event'] == 'shown' && windowId == _panel?.id) {
           _panel?.presented = true;
         }
-        _recordPanel(args['event'], args['reason']);
+        _recordPanel(args['event'], args['reason'], args['continued']);
+      case 'panel.showInWindow':
+        // The panel has hidden itself; its chat goes on in a window.
+        final threadId = args['thread_id'];
+        final title = args['title'];
+        if (windowId != _panel?.id || threadId is! String) {
+          return WindowMove.failed.name;
+        }
+        _events('panel.opened_in_window');
+        final profile = args['profile'] as String?;
+        final existed = windowFor(threadId, profile) != null;
+        final shown = await open(
+          threadId,
+          profile: profile,
+          title: title is String ? title : '',
+          draft: switch (ConversationDraft.fromJson(args['draft'])) {
+            final draft? when !draft.isEmpty => draft,
+            _ => null,
+          },
+        );
+        if (!shown) return WindowMove.failed.name;
+        return (existed ? WindowMove.focused : WindowMove.opened).name;
+      case 'panel.dictating':
+        if (windowId == _panel?.id) _panelTookVoice.add(null);
       case 'closed':
         // The native side waits for this before the app may quit.
         if (windowId is String) await _drop(windowId);
@@ -480,8 +519,10 @@ class ConversationWindows extends ChangeNotifier {
   };
 
   /// Crumbs for what the panel reports, with only fixed values.
-  void _recordPanel(Object? event, Object? reason) {
+  void _recordPanel(Object? event, Object? reason, Object? continued) {
     switch (event) {
+      case 'chat':
+        _breadcrumbs('panel.chat', {'continued': continued == true});
       case 'shown':
         _breadcrumbs('panel.shown');
       case 'hidden':
@@ -511,6 +552,7 @@ class ConversationWindows extends ChangeNotifier {
     }
     _mainFocused.close();
     _showInMain.close();
+    _panelTookVoice.close();
     super.dispose();
   }
 }

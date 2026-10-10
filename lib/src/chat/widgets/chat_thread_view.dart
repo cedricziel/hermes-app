@@ -68,6 +68,7 @@ class ChatThreadView extends StatelessWidget {
     this.onRemoveQueued,
     this.onSendQueued,
     this.greetingName,
+    this.welcome = true,
   });
 
   final ChatThread? thread;
@@ -125,6 +126,10 @@ class ChatThreadView extends StatelessWidget {
   /// The signed-in user's name for the welcome view's greeting.
   final String? greetingName;
 
+  /// Whether an empty chat shows the welcome view; the quick panel shows
+  /// just the composer instead.
+  final bool welcome;
+
   @override
   Widget build(BuildContext context) {
     final builders =
@@ -161,6 +166,13 @@ class ChatThreadView extends StatelessWidget {
             sendTarget: sendTarget,
           ),
         );
+    // copyWith takes a null builder as "none", so only the panel's case
+    // replaces the welcome view.
+    final shown = welcome
+        ? builders
+        : builders.copyWith(
+            emptyChatListBuilder: (_) => const SizedBox.shrink(),
+          );
 
     return Column(
       children: [
@@ -191,7 +203,7 @@ class ChatThreadView extends StatelessWidget {
                       onMessageSend: onSend,
                       onAttachmentTap: openAttachMenu,
                       theme: buildChatTheme(Theme.of(context)),
-                      builders: builders,
+                      builders: shown,
                     ),
                   ),
                 ),

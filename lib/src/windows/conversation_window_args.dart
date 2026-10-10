@@ -169,3 +169,8 @@ class QuickPanelLaunch {
     }
   }
 }
+
+/// What Open in Hermes did with the quick panel's chat: [opened] it in a new
+/// window, which took the composer's draft; [focused] the window already
+/// showing it, which took nothing; or [failed].
+enum WindowMove { opened, focused, failed }

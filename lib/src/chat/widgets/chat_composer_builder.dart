@@ -64,7 +64,7 @@ WidgetBuilder buildChatComposer({
               dictation.available
                   ? DictationView.of(
                       dictation,
-                      onSend: () => _sendAfterDictation(
+                      onSend: () => sendAfterDictation(
                         dictation,
                         controller,
                         onSend,
@@ -84,7 +84,7 @@ WidgetBuilder buildChatComposer({
 /// a profile change) or failed, whose failure stays on screen. Nor does it
 /// send when [sendTarget] (the chat) changed while the transcript was on its
 /// way.
-Future<void> _sendAfterDictation(
+Future<void> sendAfterDictation(
   DictationController dictation,
   TextEditingController controller,
   ValueChanged<String> onSend,

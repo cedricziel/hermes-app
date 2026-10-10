@@ -86,6 +86,24 @@ None carries text, titles, profile names or ids.
 - A chord another app has already taken may register without an error; the recorder warns only about system and menu-bar clashes. The user sees that the panel does not appear and records another chord.
 - Two engines each holding an audio engine: only the key window dictates, and the panel stops recording on hide.
 
+## As built (PR B)
+
+- Layout: before the first send the panel is the header and the composer alone, as tall as they are (Dart measures and calls `resizePanel`). After it, the panel shows the chat's own `ChatThreadView` (with the new `welcome: false`, so an empty list draws nothing), with the composer at the bottom as in the chat, at 540 pt, which the native side caps at 60% of the screen. It does not grow with each streamed line: the thread view scrolls inside a fixed height, which avoids a resize per delta.
+- Open in Hermes hides the panel first, then calls `panel.showInWindow` on the main channel (opening or focusing the window through `ConversationWindows.open`, with the composer's draft). Hiding first keeps the window coming forward from counting as `focus_lost`.
+- Dictation goes through `ComposerDictation` (`lib/src/voice/composer_dictation.dart`), a port of what `ChatScreen` does inline: the Dictation setting, the profile's voice support, the on-device model download and the draft shown while dictating. `ChatScreen` can move onto it later; it was left alone here to keep clear of other open changes to that file.
+- The secondary engines' API client (`windowApiClient`) now also applies `RequestTimeoutInterceptor`, so a dictation upload gets its longer timeout in the panel.
+- `lastUsed` moves on sends and on reply events of the selected chat, not on other controller changes.
+
+Review fixes (PR B):
+- Nothing is sent until the main window's profile has loaded: a Return during the load is held and goes out once it has, under that profile, and the draft stays in the field. A failed load shows "Could not load your chats." with Try Again above the composer and refuses sends.
+- The unsent draft and picked files survive every hide; only a send or an Open in Hermes that opened a new window (which took them) clears them. Open in Hermes into a window that already showed the chat keeps the draft, and a move that failed keeps the chat as well (`WindowMove`).
+- Focus loss does not hide the panel while focus is with something it opened: a sheet on it, an app modal, an open or save dialog, or while Dart holds it (`holdPanel`: during a file pick, and while dictating, which covers the first microphone prompt). When the hold ends the panel takes the keys back if Hermes is active, and otherwise hides.
+- Before the first send the compact layout is measured unbounded (`OverflowBox`) and re-measured on size changes, so a longer prompt or a row of attachments grows the panel up to the cap.
+- Each show re-reads the Dictation setting and checks the connection; a continued show also re-reads its chat.
+- The panel and the main window never record at once: the panel reports `panel.dictating` and the main window's `ChatScreen` cancels its dictation; the main window starting one sends `stopDictation` to the panel.
+- The panel's `ChatController` gets the profiles repository, so a missing `profile.current` falls back to the sticky active profile.
+- The thread-view bindings, latest-reply tracking, attachment de-duplication and model-pill rule moved to `lib/src/chat/chat_thread_bindings.dart`, used by the panel and `ConversationWindowScreen` (task 6.1 moves `ChatScreen` later).
+
 ## Decisions left to implementation
 
 - The panel opens on the screen with the mouse, centred horizontally, in the upper third.
