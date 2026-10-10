@@ -6,7 +6,7 @@ class SceneDelegate: FlutterSceneDelegate {
                       options connectionOptions: UIScene.ConnectionOptions) {
     super.scene(scene, willConnectTo: session, options: connectionOptions)
     for activity in connectionOptions.userActivities {
-      _ = ChatHandoff.shared.receive(activity)
+      if !Spotlight.shared.receive(activity) { _ = ChatHandoff.shared.receive(activity) }
     }
     // The live_activities plugin only hears taps while the app runs; a tap
     // that launched it is kept for Dart to ask for.
@@ -14,7 +14,7 @@ class SceneDelegate: FlutterSceneDelegate {
   }
 
   override func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-    if !ChatHandoff.shared.receive(userActivity) {
+    if !Spotlight.shared.receive(userActivity) && !ChatHandoff.shared.receive(userActivity) {
       super.scene(scene, continue: userActivity)
     }
   }

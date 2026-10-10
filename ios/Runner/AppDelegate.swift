@@ -61,6 +61,7 @@ import flutter_local_notifications
     NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     KeyCommandMenu.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
+    Spotlight.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     LiveActivityLaunch.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
