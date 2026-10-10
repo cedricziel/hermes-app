@@ -65,6 +65,11 @@ None holds user content.
 
 With App Lock on, `surface-snapshot` writes no titles or snippets, so the indexer treats such a snapshot like a signed-out one and calls `deleteAll`. When App Lock is turned off, the next snapshot re-indexes the chats. Nothing in Spotlight can show a chat title that the app itself would hide behind Face ID.
 
+### Dependencies
+
+- `surface-snapshot`: recent chats with snippets and URLs, the write listener, the signed-out snapshot, and empty titles under App Lock.
+- `deep-links`: opening a result goes through the `hermes://` link path.
+
 ## Risks / Trade-offs
 
 - [Only ten chats are searchable] → stated in the spec; a full index needs paging every profile's sessions and is left for later.

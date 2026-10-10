@@ -5,7 +5,7 @@ One PR, `feat(ios): add Lock Screen and StandBy widgets`. Lands after `home-scre
 ## 1. Models (Swift, TDD)
 
 - [ ] 1.1 Write failing tests in `HermesSurfaceKitTests` for the accessory models: circular count, rectangular kind label of the oldest request, inline text ("N waiting in Hermes", "Nothing waiting"), tap URL (oldest request or `hermes://requests`), "Sign in" when signed out, and the redacted title when App Lock left it out. Implement in `ios/HermesSurfaceKit/Sources/HermesSurfaceKit/WidgetModels.swift`; verify with `swift test`.
-- [ ] 1.2 Write failing tests that the launch URL helper builds `hermes://new` and `hermes://new?dictate=1` exactly as `deep-links` parses them (same strings as its Dart tests). Implement `ios/HermesSurfaceKit/Sources/HermesSurfaceKit/LaunchLinks.swift`; verify.
+- [ ] 1.2 Add a Dart test that writes `ios/HermesSurfaceKit/Tests/Fixtures/deep_links.json` from the `deep-links` change's `deepLinkUri` for a fixed input set (plain, spaces, `&`, `/`, `%`, non-ASCII profile and thread ids; chat, new, new with dictate) and fails when the file is out of date. Write a failing Swift test that `DeepLink` (`ios/HermesSurfaceKit/Sources/HermesSurfaceKit/DeepLink.swift`, the package's only URL builder, which `app-intents` reuses) matches every case. Implement it; verify both pass.
 
 ## 2. Widgets (SwiftUI)
 

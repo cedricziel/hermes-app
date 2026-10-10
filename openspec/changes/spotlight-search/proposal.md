@@ -20,7 +20,7 @@ Non-goals:
 - No Siri suggestions or App Shortcuts from indexed items (`app-intents`).
 - No Android equivalent (AppSearch).
 
-Security and privacy impact: the indexed titles and snippets leave the app's sandbox for the system's Spotlight index, where any user of the unlocked device can search them, and iOS may show them in suggestions. That is why the switch is off by default and its description says so. The items are stored in a named index with complete file protection, so they are not searchable while the device is locked. The index holds no token, server address or user identity; the link holds the profile name and chat id. Everything is removed on sign-out, server change or switching off. Telemetry carries counts, domains and outcomes, never a title, snippet or id.
+Security and privacy impact: the indexed titles and snippets leave the app's sandbox for the system's Spotlight index, where any user of the unlocked device can search them, and iOS may show them in suggestions. That is why the switch is off by default and its description says so. The items are stored in a named index with complete file protection, so they are not searchable while the device is locked. The index holds no token, server address or user identity; the link holds the profile name and chat id. Everything is removed on sign-out, server change, switching off, or turning App Lock on, and nothing is indexed while App Lock is on. Telemetry carries counts, domains and outcomes, never a title, snippet or id.
 
 Observability:
 
