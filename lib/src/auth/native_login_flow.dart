@@ -210,21 +210,45 @@ Future<HermesSession> runNativeLogin(
   }
 }
 
+/// How long one refresh attempt waits for its answer. Two attempts together
+/// stay inside the 30 seconds Hermes keeps a refresh result to answer a
+/// repeat of it.
+const _refreshAttemptTimeout = Duration(seconds: 12);
+
 /// Rotates a stored session's tokens via `/auth/native/refresh`.
+///
+/// The identity provider may end the session when a spent refresh token
+/// comes back. An attempt whose answer never arrived may already have rotated
+/// it, so it is repeated once with the same token, which Hermes answers with
+/// the set it just issued. [onRetry] is called before that repeat.
 Future<HermesSession> refreshNativeSession(
   String baseUrl,
   HermesSession session, {
   Dio? httpClient,
+  void Function()? onRetry,
 }) async {
   final dio = httpClient ?? Dio(BaseOptions(baseUrl: baseUrl));
+  Future<Response<Map<String, dynamic>>> attempt() =>
+      dio.post<Map<String, dynamic>>(
+        '/auth/native/refresh',
+        data: {
+          'refresh_token': session.refreshToken,
+          'provider': session.provider,
+        },
+        options: Options(
+          sendTimeout: _refreshAttemptTimeout,
+          receiveTimeout: _refreshAttemptTimeout,
+        ),
+      );
   try {
-    final response = await dio.post<Map<String, dynamic>>(
-      '/auth/native/refresh',
-      data: {
-        'refresh_token': session.refreshToken,
-        'provider': session.provider,
-      },
-    );
+    Response<Map<String, dynamic>> response;
+    try {
+      response = await attempt();
+    } on DioException catch (e) {
+      if (!_mayHaveReachedServer(e)) rethrow;
+      onRetry?.call();
+      response = await attempt();
+    }
     final data = response.data;
     if (data == null) {
       throw NativeLoginException(
@@ -241,6 +265,15 @@ Future<HermesSession> refreshNativeSession(
     );
   }
 }
+
+/// Whether a request that got no answer may still have been carried out.
+bool _mayHaveReachedServer(DioException e) => switch (e.type) {
+  DioExceptionType.sendTimeout ||
+  DioExceptionType.receiveTimeout ||
+  DioExceptionType.connectionError ||
+  DioExceptionType.unknown => true,
+  _ => false,
+};
 
 Future<String> _awaitCallback(
   HttpServer server, {
