@@ -8,6 +8,7 @@ import '../theme/platform_chrome.dart';
 import 'adaptive_popup_menu_button.dart';
 import 'adaptive_tab_bar.dart';
 import 'grouped_list.dart';
+import 'shrink_to_fit_text.dart';
 
 /// A labelled value that opens a picker: on iOS the value muted before the
 /// chevron, on Material under the label, and on the Mac in a pop-up button.
@@ -386,17 +387,11 @@ class GroupedSegmentedRow<T extends Object> extends StatelessWidget {
                   selected: segment == value,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    // Five segments at 320 points or a large text size
-                    // would cut a label; it shrinks to fit instead.
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: TextStyle(
-                          fontSize: chrome == PlatformChrome.macos ? 12 : 13,
-                          color: scheme.onSurface,
-                        ),
+                    child: ShrinkToFitText(
+                      label,
+                      style: TextStyle(
+                        fontSize: chrome == PlatformChrome.macos ? 12 : 13,
+                        color: scheme.onSurface,
                       ),
                     ),
                   ),

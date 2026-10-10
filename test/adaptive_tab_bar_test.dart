@@ -87,4 +87,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('two'), findsOneWidget);
   });
+
+  testWidgets('each pill segment fills the track, even with a long label', (
+    tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(320, 600)
+      ..devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.android),
+        home: Scaffold(
+          body: PillSegmentedControl<int>(
+            value: 0,
+            segments: const {
+              0: 'Installed plugins',
+              1: 'Catalog',
+              2: 'Providers',
+            },
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final track = tester.getSize(find.byType(PillSegmentedControl<int>));
+    for (final ink in tester.widgetList(find.byType(InkWell))) {
+      expect(tester.getSize(find.byWidget(ink)).height, track.height - 6);
+    }
+  });
 }

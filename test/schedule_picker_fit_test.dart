@@ -4,22 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/schedules/schedule_picker.dart';
 import 'package:hermes_app/src/schedules/schedule_spec.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/widgets/shrink_to_fit_text.dart';
 
-/// Every label of [spec]'s picker at [width] and [scale], each whole.
-Future<void> _expectWhole(
+import 'support/screenshot_recorder.dart';
+
+/// Every label of [spec]'s picker at [width] and [scale], in the real font:
+/// never drawn below [ShrinkToFitText.defaultMinScale] of its size, and
+/// whole up to text scale 1.3.
+Future<void> _expectReadable(
   WidgetTester tester, {
   required TargetPlatform platform,
   required double width,
   required double scale,
   ScheduleSpec spec = const WeeklySpec({1, 3, 5}, 8, 30),
 }) async {
-  tester.view
-    ..physicalSize = Size(width, 900)
-    ..devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
+  // Loads Roboto: the test font is far wider than any real one.
+  await ScreenshotRecorder('picker-fit').start(tester, Size(width, 900));
   await tester.pumpWidget(
     MaterialApp(
-      theme: buildHermesLightTheme(platform: platform),
+      theme: withScreenshotFont(buildHermesLightTheme(platform: platform)),
       home: MediaQuery.withClampedTextScaling(
         minScaleFactor: scale,
         maxScaleFactor: scale,
@@ -52,13 +55,18 @@ Future<void> _expectWhole(
   ]) {
     for (final element in find.text(label).evaluate()) {
       final paragraph = element.renderObject! as RenderParagraph;
-      final whole = paragraph.getMaxIntrinsicWidth(double.infinity);
-      expect(
-        paragraph.size.width,
-        greaterThanOrEqualTo(whole - 0.5),
-        reason: '"$label" is cut at ${paragraph.size.width} of $whole',
+      final drawn = tester.getRect(
+        find.byElementPredicate((e) => e == element),
       );
-      expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      final drawnScale = drawn.width / paragraph.size.width;
+      expect(
+        drawnScale,
+        greaterThanOrEqualTo(ShrinkToFitText.defaultMinScale - 0.001),
+        reason: '"$label" is drawn at $drawnScale of its size',
+      );
+      if (scale <= 1.3) {
+        expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+      }
     }
   }
 }
@@ -70,16 +78,17 @@ void main() {
     TargetPlatform.macOS,
   ]) {
     for (final scale in [1.0, 1.3, 2.0]) {
-      testWidgets('$platform at 320 and text scale $scale shows every label', (
-        tester,
-      ) async {
-        await _expectWhole(
-          tester,
-          platform: platform,
-          width: 320,
-          scale: scale,
-        );
-      });
+      testWidgets(
+        '$platform at 320 and text scale $scale keeps every label readable',
+        (tester) async {
+          await _expectReadable(
+            tester,
+            platform: platform,
+            width: 320,
+            scale: scale,
+          );
+        },
+      );
     }
   }
 }
