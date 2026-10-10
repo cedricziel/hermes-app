@@ -28,5 +28,5 @@ One PR, `feat(app): open hermes:// links`. About 450 changed lines with tests. N
 
 ## 6. Verify
 
-- [ ] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all pass.
+- [x] 6.1 Run `dart format --output=none --set-exit-if-changed .`, `flutter analyze` and `flutter test`; all pass.
 - [ ] 6.2 verify-in-app on macOS against `scripts/dev-backend.sh`: `open 'hermes://chat?...'` with the app running and with it quit, `hermes://new?prompt=Hello%20there` (composer filled, nothing sent), `hermes://schedules`, and a malformed link (nothing happens). Repeat `chat` and `new&dictate=1` in the iOS simulator with `xcrun simctl openurl`. Restore the `ios/`/`macos/` Xcode files the build rewrites, staging files by name.
