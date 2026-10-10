@@ -80,6 +80,16 @@ struct ThreadListView: View {
       }
     }
     .refreshable { await model.load() }
+    .safeAreaInset(edge: .bottom) {
+      if let failure = model.refreshFailure {
+        Text("Saved chats. \(failure.message)")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal)
+          .background(.background)
+      }
+    }
   }
 }
 
@@ -97,9 +107,8 @@ private struct ThreadRow: View {
         }
         Text(thread.title).lineLimit(2)
       }
-      // The phone sends 0 for a chat it has no time for.
-      if thread.updatedAt.timeIntervalSince1970 > 0 {
-        Text(thread.updatedAt, format: .relative(presentation: .named, unitsStyle: .abbreviated))
+      if let updatedAt = thread.updatedAt {
+        Text(updatedAt, format: .relative(presentation: .named, unitsStyle: .abbreviated))
           .font(.footnote)
           .foregroundStyle(.secondary)
       }

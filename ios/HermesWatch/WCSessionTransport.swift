@@ -36,7 +36,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
         },
         errorHandler: { error in
           self.logger.error("Delivery failed operation=\(operation, privacy: .public) code=\((error as NSError).code)")
-          continuation.resume(throwing: HermesClientError.phoneUnreachable)
+          continuation.resume(throwing: RelayFailure.delivery(code: (error as NSError).code))
         }
       )
     }
@@ -49,7 +49,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
       if session.activationState == .activated { return }
       try await Task.sleep(nanoseconds: 200_000_000)
     }
-    throw HermesClientError.phoneUnreachable
+    throw RelayFailure.notActivated
   }
 
   /// The session reports the phone unreachable for a moment after it
@@ -59,7 +59,7 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
       if session.isReachable { return }
       try await Task.sleep(nanoseconds: 200_000_000)
     }
-    throw HermesClientError.phoneUnreachable
+    throw RelayFailure.notReachable
   }
 
   func session(

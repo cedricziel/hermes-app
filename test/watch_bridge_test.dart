@@ -109,6 +109,32 @@ void main() {
     },
   );
 
+  test('records the failures the watch had reaching the phone', () async {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    await fromNative('request', {
+      'op': 'threads',
+      'diagnostics': [
+        {'op': 'send', 'reason': 'not_reachable', 'at': now - 90},
+        {'op': 'private text', 'reason': 'delivery:7012', 'at': now - 5},
+        'not a map',
+      ],
+    });
+
+    expect(events.named('watch.delivery.failed'), [
+      {
+        'watch.operation': 'send',
+        'watch.failure': 'not_reachable',
+        'watch.failure_age_s': inInclusiveRange(89, 95),
+      },
+      {
+        'watch.operation': 'unknown',
+        'watch.failure': 'delivery:7012',
+        'watch.failure_age_s': inInclusiveRange(4, 10),
+      },
+    ]);
+  });
+
   test('records signed out with the current phone auth state', () async {
     bridge.dispose();
     bridge = WatchBridge(

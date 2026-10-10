@@ -31,8 +31,11 @@ final class ConversationModel {
     if threadId != nil { phase = .loading }
   }
 
+  /// Shows the messages saved last time, if there are any, until the phone
+  /// answers.
   func load() async {
     guard let threadId else { return }
+    if messages.isEmpty, let saved = client.savedMessages(threadId: threadId) { messages = saved }
     do {
       messages = try await client.messages(threadId: threadId)
       phase = .idle

@@ -1,14 +1,15 @@
 import Foundation
 
-struct ThreadSummary: Identifiable, Equatable {
+struct ThreadSummary: Identifiable, Equatable, Codable {
   let id: String
   let title: String
-  let updatedAt: Date
+  /// Nil when the phone knows no time for the chat.
+  let updatedAt: Date?
   let pinned: Bool
 }
 
-struct ChatMessage: Identifiable, Equatable {
-  enum Role: Equatable {
+struct ChatMessage: Identifiable, Equatable, Codable {
+  enum Role: String, Equatable, Codable {
     case user
     case assistant
   }
