@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
@@ -164,6 +166,35 @@ void main() {
 
       expect(storage.saved, hasLength(2));
       expect(storage.reloads, 2);
+    });
+
+    test('writes land in the order they were asked for', () async {
+      await store.write(snapshot());
+      storage.saved.clear();
+      final gate = storage.saveGate = Completer<void>();
+      final titled = SurfaceSnapshot(
+        updatedAt: DateTime.utc(2026, 10, 10, 12),
+        recentChats: [
+          RecentChat(
+            profile: 'default',
+            id: 'c1',
+            title: 'Trip plan',
+            updatedAt: DateTime.utc(2026, 10, 10, 11),
+          ),
+        ],
+      );
+
+      final first = store.write(titled);
+      final second = store.write(titled.redacted());
+      gate.complete();
+      await Future.wait([first, second]);
+
+      expect(
+        storage.saved
+            .map(SurfaceSnapshot.fromJson)
+            .map((s) => s!.recentChats.single.title),
+        ['Trip plan', ''],
+      );
     });
 
     test('clear writes the signed-out form', () async {

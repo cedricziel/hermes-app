@@ -42,6 +42,7 @@ void main() {
   late SurfaceSnapshots snapshots;
   late StreamController<void> signedOut;
   late DateTime now;
+  late SurfaceSession session;
 
   HermesRepositories newRepositories() => HermesRepositories(
     server.client(),
@@ -55,6 +56,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     now = DateTime.utc(2026, 10, 10, 12);
+    session = SurfaceSession.signedIn;
     server = FakeHermesServer()
       ..on('GET', '/api/profiles', {
         'profiles': [
@@ -69,22 +71,20 @@ void main() {
     store = SurfaceSnapshotStore(storage: storage);
     tracer = RecordingTracer();
     signedOut = StreamController<void>.broadcast();
-    snapshots =
-        SurfaceSnapshots(
-            store: store,
-            signedOut: signedOut.stream,
-            debounce: debounce,
-            remoteInterval: const Duration(minutes: 5),
-            pauseWindow: const Duration(milliseconds: 100),
-            now: () => now,
-            builderFor: (repositories) => SurfaceSnapshotBuilder(
-              repositories,
-              timeout: const Duration(milliseconds: 300),
-              now: () => now,
-            ),
-          )
-          ..repositories = newRepositories()
-          ..signedIn = true;
+    snapshots = SurfaceSnapshots(
+      store: store,
+      session: () => session,
+      signedOut: signedOut.stream,
+      debounce: debounce,
+      remoteInterval: const Duration(minutes: 5),
+      pauseWindow: const Duration(milliseconds: 100),
+      now: () => now,
+      builderFor: (repositories) => SurfaceSnapshotBuilder(
+        repositories,
+        timeout: const Duration(milliseconds: 300),
+        now: () => now,
+      ),
+    )..repositories = newRepositories();
     addTearDown(() async {
       snapshots.dispose();
       await signedOut.close();
@@ -210,7 +210,7 @@ void main() {
   });
 
   test('nothing is built while signed out, repositories or not', () async {
-    snapshots.signedIn = false;
+    session = SurfaceSession.signedOut;
 
     snapshots.chatChanged(SurfaceTrigger.reply, hints());
     snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
@@ -226,13 +226,67 @@ void main() {
     await nextWrite();
     signedOut.add(null);
     await nextWrite();
-    snapshots.signedIn = false;
+    session = SurfaceSession.signedOut;
 
     snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
     expect(lastWrite().signedIn, isFalse);
     expect(storage.saved, hasLength(2));
+  });
+
+  test('a pause after the sign-out, before the app learns of it, writes '
+      'nothing', () async {
+    snapshots.chatChanged(SurfaceTrigger.threads, hints());
+    await nextWrite();
+    signedOut.add(null);
+    session = SurfaceSession.signedOut;
+    await nextWrite();
+
+    snapshots.didChangeAppLifecycleState(AppLifecycleState.paused);
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+
+    expect(
+      storage.saved.map(SurfaceSnapshot.fromJson).map((s) => s!.signedIn),
+      [true, false],
+    );
+  });
+
+  group('at the login screen', () {
+    SurfaceSnapshot account() => SurfaceSnapshot(updatedAt: now, profile: 'a');
+
+    test('a stored snapshot of a signed-in account is replaced', () async {
+      storage.saved.add(account().encode());
+      session = SurfaceSession.signedOut;
+
+      snapshots.sessionChanged();
+      await nextWrite();
+
+      expect(lastWrite().signedIn, isFalse);
+      expect(lastWrite().profile, isNull);
+    });
+
+    test('a signed-out snapshot is left alone', () async {
+      storage.saved.add(SurfaceSnapshot.signedOut(now).encode());
+      session = SurfaceSession.signedOut;
+
+      snapshots.sessionChanged();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(storage.saved, hasLength(1));
+    });
+
+    test('nothing happens while the session is signed in or unknown', () async {
+      storage.saved.add(account().encode());
+
+      for (final other in [SurfaceSession.signedIn, SurfaceSession.unknown]) {
+        session = other;
+        snapshots.sessionChanged();
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+
+      expect(storage.saved, hasLength(1));
+    });
   });
 
   group('sign-out', () {
@@ -315,15 +369,13 @@ void main() {
       addTearDown(lock.dispose);
       await lock.load();
       snapshots.dispose();
-      snapshots =
-          SurfaceSnapshots(
-              store: store,
-              appLock: lock,
-              debounce: debounce,
-              now: () => now,
-            )
-            ..repositories = newRepositories()
-            ..signedIn = true;
+      snapshots = SurfaceSnapshots(
+        store: store,
+        session: () => session,
+        appLock: lock,
+        debounce: debounce,
+        now: () => now,
+      )..repositories = newRepositories();
     });
 
     Future<void> turn(bool on) async {
@@ -445,14 +497,12 @@ void main() {
       final gate = Completer<FakeResponse>();
       server.onRequest('GET', '/api/profiles', (_) => gate.future);
       snapshots.dispose();
-      snapshots =
-          SurfaceSnapshots(
-              store: store,
-              debounce: Duration.zero,
-              now: () => now,
-            )
-            ..repositories = newRepositories()
-            ..signedIn = true;
+      snapshots = SurfaceSnapshots(
+        store: store,
+        session: () => session,
+        debounce: Duration.zero,
+        now: () => now,
+      )..repositories = newRepositories();
 
       snapshots.chatChanged(SurfaceTrigger.threads, hints());
       await Future<void>.delayed(const Duration(milliseconds: 20));

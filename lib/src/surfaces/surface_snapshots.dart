@@ -21,6 +21,19 @@ const kSurfaceRemoteInterval = Duration(minutes: 5);
 /// what is known; an answer within it makes the one write.
 const kSurfacePauseWindow = Duration(milliseconds: 800);
 
+/// What the connection says about the account, read whenever it matters.
+enum SurfaceSession {
+  /// A session is in place; snapshots are built.
+  signedIn,
+
+  /// The app settled on the login or setup screen.
+  signedOut,
+
+  /// Starting up, connecting or signing in, or the server is out of reach:
+  /// the stored snapshot stays as it is.
+  unknown,
+}
+
 class _Job {
   const _Job(this.trigger, {required this.remote});
 
@@ -36,6 +49,7 @@ class _Job {
 class SurfaceSnapshots with WidgetsBindingObserver {
   SurfaceSnapshots({
     required this.store,
+    required this.session,
     Stream<void>? signedOut,
     this.appLock,
     this.debounce = kSurfaceDebounce,
@@ -52,6 +66,10 @@ class SurfaceSnapshots with WidgetsBindingObserver {
   }
 
   final SurfaceSnapshotStore store;
+
+  /// Read at every decision rather than copied, so a change is seen before
+  /// any provider has passed it on.
+  final SurfaceSession Function() session;
   final AppLockController? appLock;
   final Duration debounce;
   final Duration remoteInterval;
@@ -61,10 +79,6 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   /// The repositories of the connection, which stay after a session ended.
   HermesRepositories? repositories;
-
-  /// Whether the connection has a session. Nothing is built or written
-  /// without one, so the signed-out snapshot stays.
-  bool signedIn = false;
 
   StreamSubscription<void>? _signedOut;
   Timer? _timer;
@@ -82,6 +96,8 @@ class SurfaceSnapshots with WidgetsBindingObserver {
   /// nothing behind.
   var _generation = 0;
 
+  bool get _signedIn => session() == SurfaceSession.signedIn;
+
   bool get _lockOn => appLock?.enabled ?? false;
 
   /// The chat screen's account of its profile after something changed.
@@ -96,6 +112,28 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     if (state != AppLifecycleState.paused) return;
     _timer?.cancel();
     _request(const _Job(SurfaceTrigger.pause, remote: true));
+  }
+
+  /// Tells that the connection moved. Settling on the login or setup screen
+  /// replaces a stored snapshot that still says signed in, which a sign-out
+  /// that no event announced (the app was killed, a token was refused while
+  /// no screen was up) leaves behind.
+  void sessionChanged() {
+    if (session() != SurfaceSession.signedOut) return;
+    unawaited(_replaceStaleAccount());
+  }
+
+  Future<void> _replaceStaleAccount() async {
+    final generation = _generation;
+    try {
+      final stored = await store.read();
+      if (stored == null || !stored.signedIn) return;
+      if (generation != _generation || _disposed) return;
+      if (session() != SurfaceSession.signedOut) return;
+      await _clear();
+    } on Object {
+      // The next change of the connection tries again.
+    }
   }
 
   void _onAppLock() {
@@ -146,7 +184,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   Future<void> _run(_Job job) async {
     final repositories = this.repositories;
-    if (repositories == null || !signedIn || _disposed) return;
+    if (repositories == null || !_signedIn || _disposed) return;
     final generation = _generation;
     try {
       if (_previous == null) {
@@ -204,7 +242,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     final span = _startSpan(repositories, trigger);
     try {
       final result = await _builder!.build(
-        signedIn: signedIn,
+        signedIn: _signedIn,
         previous: _previous,
         hints: _hints,
         refreshRemote: remote,
@@ -223,7 +261,7 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     int generation, {
     bool remote = false,
   }) async {
-    if (generation != _generation || _disposed || !signedIn) return;
+    if (generation != _generation || _disposed || !_signedIn) return;
     if (remote) _lastRemote = _now();
     // App Lock may have changed while the build was under way.
     final snapshot = _previous = _lockOn

@@ -67,6 +67,10 @@ class SurfaceSnapshotStore {
   SurfaceSnapshot? _written;
   var _seeded = false;
 
+  /// Writes run one after another, in the order they were asked for, so an
+  /// older snapshot is never stored over a newer one.
+  Future<void> _tail = Future.value();
+
   /// Each snapshot that changed what is stored, also when storing failed, so
   /// in-app readers stay current without the App Group.
   Stream<SurfaceSnapshot> get writes => _writes.stream;
@@ -82,7 +86,13 @@ class SurfaceSnapshotStore {
 
   /// Stores [snapshot] unless it says what the last one did, then reloads
   /// the widgets. A storage that fails is logged and never throws.
-  Future<void> write(SurfaceSnapshot snapshot) async {
+  Future<void> write(SurfaceSnapshot snapshot) {
+    final done = _tail.then((_) => _write(snapshot));
+    _tail = done;
+    return done;
+  }
+
+  Future<void> _write(SurfaceSnapshot snapshot) async {
     if (!_seeded) {
       _seeded = true;
       _written = await read();

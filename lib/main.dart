@@ -239,11 +239,18 @@ Future<void> main([List<String> args = const []]) async {
             return (previous ??
                   SurfaceSnapshots(
                     store: store,
+                    session: () => switch (auth.state) {
+                      HermesConnectionState.ready => SurfaceSession.signedIn,
+                      HermesConnectionState.needsLogin ||
+                      HermesConnectionState.needsServerUrl =>
+                        SurfaceSession.signedOut,
+                      _ => SurfaceSession.unknown,
+                    },
                     signedOut: auth.signedOut,
                     appLock: context.read<AppLockController>(),
                   ))
               ..repositories = repositories
-              ..signedIn = auth.state == HermesConnectionState.ready;
+              ..sessionChanged();
           },
           dispose: (_, snapshots) => snapshots?.dispose(),
         ),

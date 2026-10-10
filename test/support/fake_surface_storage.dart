@@ -14,8 +14,14 @@ class FakeSurfaceStorage implements SurfaceStorage {
   /// Thrown by [reload] while set.
   Error? reloadFailure;
 
+  /// Holds back the next [save] until it completes.
+  Completer<void>? saveGate;
+
   @override
   Future<void> save(String json) async {
+    final gate = saveGate;
+    saveGate = null;
+    if (gate != null) await gate.future;
     if (failure case final error?) throw error;
     saved.add(json);
   }
