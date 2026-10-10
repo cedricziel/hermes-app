@@ -547,9 +547,12 @@ final class MenuBarStatusItem: NSObject, NSMenuDelegate {
 
   func menuDidClose(_: NSMenu) {
     menuOpen = false
-    if let args = deferred {
-      deferred = nil
-      update(args)
+    // The picked item's action runs after the menu closes, so the menu is
+    // rebuilt a turn later or the pick would find its item gone.
+    DispatchQueue.main.async { [weak self] in
+      guard let self, !self.menuOpen, let args = self.deferred else { return }
+      self.deferred = nil
+      self.update(args)
     }
   }
 
