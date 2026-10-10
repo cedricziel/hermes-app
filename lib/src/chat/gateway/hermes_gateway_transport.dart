@@ -2440,54 +2440,99 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// `request.answer` resolves an open server-to-client request by its id,
   /// with no session attached, for a client that never received the frame.
-  /// A server that raised the request as an event instead (`approval.request`,
-  /// `clarify.request`) only takes the older answers: `approval.respond` on
-  /// the resumed chat, `clarify.respond` for a question without an id.
+  /// A request the server raised as an event (`approval.request`,
+  /// `clarify.request`), or any request on a server without
+  /// `request.answer`, takes the older answers: `approval.respond` on the
+  /// resumed chat, `clarify.respond`. An `expired` answer is final: nothing
+  /// is resumed for it.
   @override
   Future<bool> answerOpenRequest(
     String requestId,
     OpenRequestAnswer answer, {
     String? threadId,
     String? profile,
+    bool raisedAsEvent = false,
+    DateTime? deadline,
   }) async {
     final client = await _client();
+    if (raisedAsEvent) {
+      return _answerEventRequest(
+        client,
+        requestId,
+        answer,
+        threadId: threadId,
+        profile: profile,
+        deadline: deadline,
+      );
+    }
+    final result = switch (answer) {
+      ApprovalChoiceAnswer(:final choice) => {'choice': choice},
+      QuestionAnswer(:final questionId, :final values, :final multiSelect) => {
+        'answers': {
+          questionId: _clarifyValue(values, multiSelect: multiSelect),
+        },
+      },
+    };
+    try {
+      _beforeDeadline(deadline);
+      final reply = await _call(client, 'request.answer', {
+        'id': requestId,
+        'result': result,
+        'profile': ?profile,
+      });
+      return reply['status'] == 'ok';
+    } on GatewayRpcException catch (error) {
+      if (error.code != kGatewayMethodNotFound) rethrow;
+      return _answerEventRequest(
+        client,
+        requestId,
+        answer,
+        threadId: threadId,
+        profile: profile,
+        deadline: deadline,
+      );
+    }
+  }
+
+  Future<bool> _answerEventRequest(
+    GatewayRpcClient client,
+    String requestId,
+    OpenRequestAnswer answer, {
+    required String? threadId,
+    required String? profile,
+    required DateTime? deadline,
+  }) async {
     switch (answer) {
-      case QuestionAnswer(questionId: '', :final values, :final multiSelect):
+      case QuestionAnswer(:final questionId, :final values, :final multiSelect):
+        _beforeDeadline(deadline);
         final reply = await _call(client, 'clarify.respond', {
           'request_id': requestId,
           'answer': _clarifyValue(values, multiSelect: multiSelect),
+          if (questionId.isNotEmpty) 'question_id': questionId,
         });
         return reply['status'] != 'expired';
-      case QuestionAnswer(:final questionId, :final values, :final multiSelect):
-        final reply = await _call(client, 'request.answer', {
-          'id': requestId,
-          'result': {
-            'answers': {
-              questionId: _clarifyValue(values, multiSelect: multiSelect),
-            },
-          },
-          'profile': ?profile,
-        });
-        return reply['status'] == 'ok';
       case ApprovalChoiceAnswer(:final choice):
-        final reply = await _call(client, 'request.answer', {
-          'id': requestId,
-          'result': {'choice': choice},
-          'profile': ?profile,
-        });
-        if (reply['status'] == 'ok') return true;
         if (threadId == null) return false;
+        _beforeDeadline(deadline);
         final resumed = await _call(client, 'session.resume', {
           'session_id': threadId,
           'profile': ?profile,
           'source': gatewaySessionSource,
         });
-        final respond = await _call(client, 'approval.respond', {
+        _beforeDeadline(deadline);
+        final reply = await _call(client, 'approval.respond', {
           'session_id': resumed['session_id'] as String? ?? threadId,
           'request_id': requestId,
           'choice': choice,
         });
-        return ((respond['resolved'] as num?) ?? 0) > 0;
+        return ((reply['resolved'] as num?) ?? 0) > 0;
+    }
+  }
+
+  /// An answer given up on must not go out late.
+  static void _beforeDeadline(DateTime? deadline) {
+    if (deadline != null && !DateTime.now().isBefore(deadline)) {
+      throw TimeoutException('The answer is past its deadline');
     }
   }
 

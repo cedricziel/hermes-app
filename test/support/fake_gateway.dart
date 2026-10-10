@@ -397,6 +397,11 @@ class FakeGateway {
           'id': id,
           'result': {'status': skipStatus},
         });
+      case 'request.answer' when unknownMethods.contains('request.answer'):
+        _send({
+          'id': id,
+          'error': {'code': -32601, 'message': 'unknown method'},
+        });
       case 'request.answer':
         _send({
           'id': id,

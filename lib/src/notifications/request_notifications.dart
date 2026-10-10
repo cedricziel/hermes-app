@@ -247,9 +247,14 @@ class PendingRequest {
     this.questionId = '',
     this.multiSelect = false,
     this.choices = const [],
+    this.raisedAsEvent = false,
   });
 
   final String requestId;
+
+  /// The server raised it as an event rather than as a request to the
+  /// client, so it takes the older answer RPCs.
+  final bool raisedAsEvent;
   final PendingRequestKind kind;
   final String questionId;
   final bool multiSelect;
@@ -263,6 +268,7 @@ class PendingRequest {
     if (questionId.isNotEmpty) 'q': questionId,
     if (multiSelect) 'm': true,
     if (choices.isNotEmpty) 'c': choices,
+    if (raisedAsEvent) 'e': true,
   };
 
   static PendingRequest? fromJson(Object? json) {
@@ -281,18 +287,23 @@ class PendingRequest {
       choices: choices is List
           ? choices.whereType<String>().toList()
           : const [],
+      raisedAsEvent: json['e'] == true,
     );
   }
 }
 
 /// What a notification for [request] must remember to answer it, or null
 /// when it gets no buttons.
-PendingRequest? pendingRequestFor(InputRequest request) {
+PendingRequest? pendingRequestFor(
+  InputRequest request, {
+  bool raisedAsEvent = false,
+}) {
   if (requestCategoryFor(request)?.actions.isEmpty ?? true) return null;
   return switch (request) {
     ApprovalRequest(:final requestId) => PendingRequest(
       requestId: requestId,
       kind: PendingRequestKind.approval,
+      raisedAsEvent: raisedAsEvent,
     ),
     ClarifyRequest(:final requestId, questions: [final question]) =>
       PendingRequest(
@@ -303,6 +314,7 @@ PendingRequest? pendingRequestFor(InputRequest request) {
         choices: question.multiSelect
             ? const []
             : _choiceButtons(question.choices),
+        raisedAsEvent: raisedAsEvent,
       ),
     _ => null,
   };

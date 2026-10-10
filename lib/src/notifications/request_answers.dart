@@ -118,12 +118,12 @@ class RequestAnswerSender {
     String route = 'main',
     DateTime? deadline,
   }) async {
-    final left = deadline == null
-        ? null
-        : deadline.difference(DateTime.now()) - followUpMargin;
+    // Past it nothing may go out any more: the follow-up says it did not.
+    final cutoff = deadline?.subtract(followUpMargin);
+    final left = cutoff?.difference(DateTime.now());
     final outcome = left == null
-        ? await _send(answer)
-        : await _send(answer).timeout(
+        ? await _send(answer, cutoff)
+        : await _send(answer, cutoff).timeout(
             left.isNegative ? Duration.zero : left,
             onTimeout: () => AnswerOutcome.failed,
           );
@@ -145,7 +145,10 @@ class RequestAnswerSender {
     return outcome;
   }
 
-  Future<AnswerOutcome> _send(NotificationAnswer answer) async {
+  Future<AnswerOutcome> _send(
+    NotificationAnswer answer,
+    DateTime? cutoff,
+  ) async {
     try {
       await ready();
       final chat = transport();
@@ -157,6 +160,8 @@ class RequestAnswerSender {
               answer.answer,
               threadId: answer.target.threadId,
               profile: answer.target.profile,
+              raisedAsEvent: answer.request.raisedAsEvent,
+              deadline: cutoff,
             )
             .timeout(timeout);
         return accepted ? AnswerOutcome.ok : AnswerOutcome.expired;

@@ -292,6 +292,21 @@ void main() {
       );
     });
 
+    test('remember a request raised as an event', () {
+      final pending = pendingRequestFor(
+        _approval(['once']),
+        raisedAsEvent: true,
+      )!;
+
+      expect(PendingRequest.fromJson(pending.toJson())!.raisedAsEvent, isTrue);
+      expect(
+        PendingRequest.fromJson(
+          pendingRequestFor(_approval(['once']))!.toJson(),
+        )!.raisedAsEvent,
+        isFalse,
+      );
+    });
+
     test('reject a payload that is not one', () {
       expect(PendingRequest.fromJson('nope'), isNull);
       expect(PendingRequest.fromJson({'k': 'approval'}), isNull);

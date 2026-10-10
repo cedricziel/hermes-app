@@ -122,7 +122,16 @@ AttentionNotification? attentionFor({
     category: request == null
         ? null
         : requestCategoryFor(request, appLock: appLock),
-    request: request == null || appLock ? null : pendingRequestFor(request),
+    request: request == null || appLock
+        ? null
+        : pendingRequestFor(
+            request,
+            raisedAsEvent: switch (event) {
+              ApprovalRequested(:final raisedAsEvent) ||
+              ClarifyRequested(:final raisedAsEvent) => raisedAsEvent,
+              _ => false,
+            },
+          ),
   );
 }
 

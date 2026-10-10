@@ -140,6 +140,12 @@ void main() {
       expect(n.request?.requestId, 'r1');
     });
 
+    test('remembers that an approval was raised as an event', () {
+      final n = _for(const ApprovalRequested(_approval, raisedAsEvent: true))!;
+
+      expect(n.request?.raisedAsEvent, isTrue);
+    });
+
     test('an approval without a command shows its description', () {
       const bare = ApprovalRequest(
         requestId: 'r1',

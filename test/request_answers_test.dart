@@ -83,6 +83,7 @@ void main() {
       expect((answer as ApprovalChoiceAnswer).choice, 'once');
       expect(profile, 'work');
       expect(transport.openAnswerThreads.single, 's1');
+      expect(transport.openAnswerEvents.single, isFalse);
       expect(transport.closed, isTrue);
       expect(notifications.shown, isEmpty);
     });
@@ -128,6 +129,31 @@ void main() {
         'route': 'background',
       });
     });
+  });
+
+  test('passes on how the request was raised and when to give up', () async {
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+
+    await sender.send(
+      const NotificationAnswer(
+        target: NotificationTarget(threadId: 's1'),
+        title: 'Cleanup',
+        request: PendingRequest(
+          requestId: 'r1',
+          kind: PendingRequestKind.approval,
+          raisedAsEvent: true,
+        ),
+        answer: ApprovalChoiceAnswer('once'),
+      ),
+      deadline: deadline,
+    );
+
+    expect(transport.openAnswerEvents.single, isTrue);
+    expect(
+      transport.openAnswerDeadlines.single!.isBefore(deadline),
+      isTrue,
+      reason: 'it stops sending in time to post the follow-up',
+    );
   });
 
   test('gives up in time to post the follow-up before the deadline', () async {

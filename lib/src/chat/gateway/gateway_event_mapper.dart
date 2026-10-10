@@ -68,9 +68,11 @@ ChatEvent? mapGatewayEvent(GatewayEvent event) {
     ),
     'approval.request' => ApprovalRequested(
       toApproval(text('request_id'), payload),
+      raisedAsEvent: true,
     ),
     'clarify.request' => ClarifyRequested(
       toClarify(text('request_id'), payload),
+      raisedAsEvent: true,
     ),
     'secret.request' => unsupportedRequest(
       text('request_id'),
