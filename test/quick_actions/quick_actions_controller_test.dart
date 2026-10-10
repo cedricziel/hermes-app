@@ -297,5 +297,5 @@ class GatedStorage implements SurfaceStorage {
   Future<void> save(String json) async {}
 
   @override
-  Future<void> reload(List<String> kinds) async {}
+  Future<void> reload(String kind) async {}
 }
