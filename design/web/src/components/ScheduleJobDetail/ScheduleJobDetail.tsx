@@ -396,6 +396,8 @@ function MacHeader({
             icon="more_horiz"
             label="More"
             size={32}
+            aria-haspopup="menu"
+            aria-expanded={open}
             onClick={() => setOpen(!open)}
           />
           {open ? (

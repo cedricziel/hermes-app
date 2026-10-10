@@ -78,6 +78,9 @@ export function SettingsSearchField({
   const chrome = useGroupedChrome(resolved, device);
   const [open, setOpen] = useMenuState(filterMenuOpen);
   const active = filters.some((f, i) => i > 0 && f.selected);
+  const filterLabel = active
+    ? `Filter: ${filters.find((f, i) => i > 0 && f.selected)?.label}`
+    : "Filter";
   const menu = open ? (
     <Menu
       align="end"
@@ -107,8 +110,9 @@ export function SettingsSearchField({
             <MenuAnchor>
               <MacToolbarButton
                 icon="filter_list"
-                label="Filter"
+                label={filterLabel}
                 selected={active}
+                menuOpen={open}
                 onClick={toggle}
               />
               {menu}
@@ -158,7 +162,7 @@ export function SettingsSearchField({
                 "h-settings-search__filter",
                 active && "h-settings-search__filter--active",
               )}
-              aria-label="Filter"
+              aria-label={filterLabel}
               aria-haspopup="menu"
               aria-expanded={open}
               onClick={toggle}

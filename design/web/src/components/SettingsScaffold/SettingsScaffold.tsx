@@ -78,7 +78,7 @@ export interface SettingsScaffoldProps {
   subtitleMenu?: SettingsSubtitleMenu;
   /** A pushed page: draws the back button. iOS: a chevron with `backLabel`; Mac: a 28px chevron toolbar button (⌘[); Material: the back arrow. */
   onBack?: () => void;
-  /** iOS: the title of the page underneath, beside the back chevron. Default "Chat". */
+  /** iOS: the title of the page underneath, beside the back chevron; longer than 12 characters, it reads "Back", as Cupertino's back button does. Default "Chat". */
   backLabel?: string;
   /** A top-level page on a phone (no `onBack`): a menu button that opens the shell's drawer. Ignored on a Mac. */
   onOpenMenu?: () => void;
@@ -325,7 +325,9 @@ function PhoneBar({
         onClick={onBack}
       >
         <Icon name="arrow_back" apple="back" size={30} />
-        <span className="h-settings__back-label">{backLabel}</span>
+        <span className="h-settings__back-label">
+          {backLabel.length > 12 ? "Back" : backLabel}
+        </span>
       </button>
     ) : (
       <IconButton icon="arrow_back" label="Back" onClick={onBack} />
@@ -408,6 +410,7 @@ function BarAction({
         label={action.label}
         shortcut={action.shortcut}
         selected={open}
+        menuOpen={action.menu ? open : undefined}
         disabled={action.disabled}
         onClick={onClick}
       />

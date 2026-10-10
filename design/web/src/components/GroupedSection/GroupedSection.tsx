@@ -1,4 +1,4 @@
-import { Children, Fragment, type ReactNode } from "react";
+import { Children, Fragment, isValidElement, type ReactNode } from "react";
 import {
   cx,
   DeviceScope,
@@ -95,7 +95,7 @@ export function GroupedSection({
             aria-label={dividerIndent === "choice" ? (label ?? header) : label}
           >
             {rows.map((row, i) => (
-              <Fragment key={i}>
+              <Fragment key={isValidElement(row) ? (row.key ?? i) : i}>
                 {i > 0 ? (
                   <div
                     className="h-grouped-section__divider"

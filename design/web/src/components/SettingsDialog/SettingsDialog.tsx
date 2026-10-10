@@ -5,17 +5,32 @@ import {
   themeModeLabels,
   type ThemeMode,
 } from "../AppearanceDialog/AppearanceDialog";
-import type { AppleDevice, Platform } from "../../platform";
+import { usePlatform, type AppleDevice, type Platform } from "../../platform";
 
 /** An entry of the Settings list: each opens its own dialog, except `change-server`, which leaves for the server setup screen. */
 export type SettingsEntry =
-  "appearance" | "notifications" | "app-lock" | "about" | "change-server";
+  | "appearance"
+  | "notifications"
+  | "dictation"
+  | "app-lock"
+  | "about"
+  | "change-server";
+
+/** Who turns speech into text: the chat profile's provider on the Hermes server, or Apple's recognizer on the device. */
+export type DictationEngine = "hermes" | "device";
+
+const dictationLabels: Record<DictationEngine, string> = {
+  hermes: "Hermes",
+  device: "On this device",
+};
 
 export interface SettingsDialogProps {
   /** The theme in use; the Appearance row shows its name as the value ("Follow system", "Light", "Dark"). Leave out for no value. */
   appearance?: ThemeMode;
   /** Notifications are on: the Notifications row reads "On", else "Off". Leave out for no value. */
   notifications?: boolean;
+  /** Apple only (the app offers the on-device engine on iOS and macOS): the Dictation row, between Notifications and App Lock, reads "Hermes" or "On this device". Leave out for no value. */
+  dictation?: DictationEngine;
   /** App lock is on: the App Lock row reads "On", else "Off". Leave out for no value. */
   appLock?: boolean;
   /** A row was picked; the app closes this list and opens that entry's dialog. */
@@ -41,13 +56,15 @@ const onOff = (on: boolean | undefined) =>
 /**
  * The app's Settings list (`showSettingsDialog`): a `GroupedDialog` titled
  * "Settings" with two groups of chevron rows. Appearance (the theme),
- * Notifications and App Lock (On/Off) show their current value; About
- * Hermes and Change Server have none. Covers its nearest positioned
- * ancestor with a dimmed barrier unless `inline`.
+ * Notifications and App Lock (On/Off) and, on Apple, Dictation (which
+ * engine) show their current value; About Hermes and Change Server have
+ * none. Covers its nearest positioned ancestor with a dimmed barrier
+ * unless `inline`.
  */
 export function SettingsDialog({
   appearance,
   notifications,
+  dictation,
   appLock,
   onPick,
   onDone,
@@ -55,6 +72,7 @@ export function SettingsDialog({
   platform,
   device,
 }: SettingsDialogProps) {
+  const apple = usePlatform(platform) === "apple";
   const row = (entry: SettingsEntry, title: string, value?: string) => (
     <GroupedRow title={title} value={value} onClick={() => onPick?.(entry)} />
   );
@@ -73,6 +91,13 @@ export function SettingsDialog({
           appearance && themeModeLabels[appearance],
         )}
         {row("notifications", "Notifications", onOff(notifications))}
+        {apple
+          ? row(
+              "dictation",
+              "Dictation",
+              dictation && dictationLabels[dictation],
+            )
+          : null}
         {row("app-lock", "App Lock", onOff(appLock))}
       </GroupedSection>
       <GroupedSection>

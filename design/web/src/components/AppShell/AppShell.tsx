@@ -254,14 +254,14 @@ export interface AppShellProps {
   onAccountAction?: (action: AccountAction) => void;
   /**
    * Mac only: show the Settings list (the account menu's Settings…, ⌘,), a
-   * `SettingsDialog` over the window: Appearance, Notifications and App Lock
-   * with their values, then About Hermes and Change Server.
+   * `SettingsDialog` over the window: Appearance, Notifications, Dictation
+   * and App Lock with their values, then About Hermes and Change Server.
    */
   settingsOpen?: boolean;
-  /** The values the Settings list shows: the theme ("Follow system") and whether notifications and app lock are on. */
+  /** The values the Settings list shows: the theme ("Follow system"), whether notifications and app lock are on, and the dictation engine. */
   settingsValues?: Pick<
     SettingsDialogProps,
-    "appearance" | "notifications" | "appLock"
+    "appearance" | "notifications" | "dictation" | "appLock"
   >;
   /** An entry of the Settings list was picked. */
   onSettingsPick?: (entry: SettingsEntry) => void;

@@ -119,6 +119,8 @@ export interface PluginsScreenProps {
   onUpdate?: (name: string) => void;
   /** The copy button beside the login command. */
   onCopyLogin?: (name: string) => void;
+  /** The copy button beside a tool's install command in a provider's "What it needs"; the app copies it and says "Copied". */
+  onCopyCommand?: (command: string) => void;
   /** The Documentation row in a catalog entry's detail. */
   onOpenDocs?: (name: string) => void;
   /** Catalog detail: "Enable after install". Default on. */
@@ -176,7 +178,13 @@ function notLoaded(
   );
 }
 
-function Needs({ option }: { option: MemoryProviderOption }) {
+function Needs({
+  option,
+  onCopyCommand,
+}: {
+  option: MemoryProviderOption;
+  onCopyCommand?: (command: string) => void;
+}) {
   const n = option.needs ?? {};
   if (!n.env?.length && !n.tools?.length && !n.python?.length) {
     return <div>The server did not say what it needs.</div>;
@@ -208,6 +216,7 @@ function Needs({ option }: { option: MemoryProviderOption }) {
                     icon="content_copy"
                     label="Copy command"
                     size={32}
+                    onClick={() => onCopyCommand?.(t.install!)}
                   />
                 </div>
               ) : null}
@@ -226,10 +235,12 @@ function NeedsDisclosure({
   option,
   open,
   onToggle,
+  onCopyCommand,
 }: {
   option: MemoryProviderOption;
   open: boolean;
   onToggle?: () => void;
+  onCopyCommand?: (command: string) => void;
 }) {
   return (
     <div className="h-plugins__disclosure">
@@ -245,7 +256,7 @@ function NeedsDisclosure({
       </button>
       {open ? (
         <div className="h-plugins__needs">
-          <Needs option={option} />
+          <Needs option={option} onCopyCommand={onCopyCommand} />
         </div>
       ) : null}
     </div>
@@ -295,6 +306,7 @@ export function PluginsScreen({
   onHiddenChange,
   onUpdate,
   onCopyLogin,
+  onCopyCommand,
   onOpenDocs,
   enableAfterInstall = true,
   onEnableAfterInstallChange = noop,
@@ -465,6 +477,7 @@ export function PluginsScreen({
                       option={o}
                       open={needsOpen.includes(o.name)}
                       onToggle={() => onToggleNeeds?.(o.name)}
+                      onCopyCommand={onCopyCommand}
                     />,
                   ];
             })}
@@ -648,6 +661,12 @@ export function PluginsScreen({
               collapsible
               title="Advanced"
               open={gitInstall.advancedOpen}
+              onToggle={() =>
+                onGitChange?.({
+                  ...gitInstall,
+                  advancedOpen: !gitInstall.advancedOpen,
+                })
+              }
             >
               <SwitchRow
                 title="Overwrite existing (force)"

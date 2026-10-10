@@ -40,6 +40,8 @@ export function GroupedMenuButtonRow<T extends string>({
             icon="more_vert"
             label={`${menuLabel} actions`}
             size={chrome === "mac" ? 32 : 40}
+            aria-haspopup="menu"
+            aria-expanded={open}
             onMouseDown={(e) => e.stopPropagation()}
             onClick={() => setOpen((o) => !o)}
           />

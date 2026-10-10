@@ -251,11 +251,12 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
     must sit in a `GroupedSection`), `ScheduleJobDetail` (grouped; `onBack` gives the pushed phone page; Mac header
     with "…", Edit, Run now), `JobFormScreen` with `SchedulePicker` as its "When" group, `BlueprintGalleryScreen`
     (`BlueprintCard` is a `GroupedRow`), `BlueprintFormScreen`.
-  - New cards (#543, #548, #550): `SettingsDialog`, `AppearanceDialog`, `NotificationsDialog`, `AppLockDialog`,
+  - New cards (#543, #548, #550): `SettingsDialog` (Dictation row with the engine on Apple only, as #554), `AppearanceDialog`, `NotificationsDialog`, `AppLockDialog`,
     `AboutDialog` (compositions of `GroupedDialog`); `ModelPicker` (Material sheet on phone, 440px dialog on desktop,
     on every platform as the app; search above 8 models; one choice group per provider; effort pills under the
     list); `BotsScreen`, `CreateGroupDialog` (Material dialog on every platform, as the app) and
-    `BotGroupChatScreen` (room bar, status card, pending actions, transcript cards and composer; not `ChatThread`).
+    `BotGroupChatScreen` (room bar, status card, pending actions, transcript cards and composer; not `ChatThread`;
+    Disband, Review retry and Review message retry ask first in a Material `AlertDialog`, `confirm` draws one open).
 - Not on it yet (as in Flutter): `MessagingSetupScreen`, `TelegramPairingScreen`, `SkillDetailScreen`,
   `SkillEditorScreen` and `HubSkillScreen` keep an internal `ScreenFrame` (`src/screenFrame.tsx`: `ListDetailLayout`
   list layout, 640/720px column, `device="mac"` on apple + desktop; `src/screen.tsx` has a second, older one);
@@ -273,7 +274,7 @@ lib/src/kanban/widgets lib/src/shell lib/src/screens lib/src/mcp lib/src/plugins
     and ScheduleJobRow too. `.h-bots-add` duplicates Messaging's Set Up button.
   - `ModelPicker`'s 560px dialog height cap isn't enforced; Bots: no per-kind status counts, no @mention
     suggestions, activity entries without their payload.
-  - Not drawn: remove/discard confirmations and snack bars, the import/export/rename dialogs, Providers' "What it
+  - Not drawn: remove/discard confirmations (the group room's are) and snack bars, the import/export/rename dialogs, Providers' "What it
     needs" is a hand-drawn disclosure.
   - Mac menus with any checkable item reserve the check column for every item (native macOS behaviour); Flutter's
     compact `AdaptivePopupMenuButton` doesn't yet, so the app's job "…" menu is still misaligned (#555).

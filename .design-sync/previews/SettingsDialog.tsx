@@ -16,6 +16,7 @@ const noop = () => {};
 const values = {
   appearance: "system",
   notifications: true,
+  dictation: "device",
   appLock: false,
 } as const;
 
@@ -28,7 +29,7 @@ export const Mac = () => (
   </HermesProvider>
 );
 
-/** iPhone and Material: the same list in the touch dialog (centred title, Done) and the Material dialog (title at the start, no Done). */
+/** iPhone and Material: the same list in the touch dialog (centred title, Done) and the Material dialog (title at the start, no Done, and no Dictation row: the app offers it on iOS and macOS only). */
 export const IPhoneAndMaterial = () => (
   <div style={row}>
     <HermesProvider platform="apple">
@@ -57,6 +58,7 @@ export const Dark = () => (
       <SettingsDialog
         appearance="dark"
         notifications
+        dictation="hermes"
         appLock
         device="mac"
         onPick={noop}
