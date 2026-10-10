@@ -22,8 +22,11 @@ void main() {
     authenticator = FakeDeviceAuthenticator();
   });
 
-  AppLockController controller() {
-    final lock = AppLockController(authenticator: authenticator);
+  AppLockController controller({bool coverWhenInactive = true}) {
+    final lock = AppLockController(
+      authenticator: authenticator,
+      coverWhenInactive: coverWhenInactive,
+    );
     addTearDown(lock.dispose);
     return lock;
   }
@@ -119,12 +122,62 @@ void main() {
       },
     );
 
-    test('losing focus alone does not lock', () async {
+    test('losing focus covers the app but does not lock it', () async {
       final lock = await enabledLock();
+      authenticator.reasons.clear();
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      expect(lock.covered, isTrue);
+      expect(lock.locked, isFalse);
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await pumpEventQueue();
+      expect(lock.covered, isFalse);
+      expect(authenticator.reasons, isEmpty);
+    });
+
+    test('stays covered from losing focus until the device confirms', () async {
+      final lock = await enabledLock();
+      authenticator.succeeds = false;
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
+      lock.didChangeAppLifecycleState(AppLifecycleState.resumed);
+      await pumpEventQueue();
+
+      expect(lock.covered, isTrue);
+      authenticator.succeeds = true;
+      await lock.unlock();
+      expect(lock.covered, isFalse);
+    });
+
+    test('the device prompt itself does not cover the app', () async {
+      final lock = controller();
+      await lock.load();
+      authenticator.onAuthenticate = () =>
+          lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+
+      await lock.setEnabled(true);
+
+      expect(lock.covered, isFalse);
+    });
+
+    test('losing focus does not cover where windows stay visible', () async {
+      final lock = controller(coverWhenInactive: false);
+      await lock.load();
+      await lock.setEnabled(true);
 
       lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
 
-      expect(lock.locked, isFalse);
+      expect(lock.covered, isFalse);
+    });
+
+    test('losing focus does not cover while the lock is off', () async {
+      final lock = await relaunched();
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+
+      expect(lock.covered, isFalse);
     });
 
     test('never locks while it is off', () async {
@@ -226,6 +279,17 @@ void main() {
       await tester.tap(find.text('Unlock'));
       await tester.pumpAndSettle();
       expect(registry.handlerFor(MacCommand.copyTranscript), isNotNull);
+    });
+
+    testWidgets('hides the app while it is inactive', (tester) async {
+      final lock = (await tester.runAsync(enabledLock))!;
+      await pumpGate(tester, lock);
+
+      lock.didChangeAppLifecycleState(AppLifecycleState.inactive);
+      await tester.pump();
+
+      expect(find.text('chat'), findsNothing);
+      expect(find.text('Unlock'), findsNothing);
     });
 
     testWidgets('shows the app when the lock is off', (tester) async {
