@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../chat/media/media_source.dart';
+import '../chat/media/media_store.dart';
+import '../chat/media/quick_look.dart';
+import '../chat/media/quick_look_telemetry.dart';
 import '../core/safe_notifier.dart';
 import '../models/model_provider_option.dart';
 import 'kanban_files.dart';
@@ -21,6 +26,8 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
     this.files = const PlatformKanbanFiles(),
     this.board,
     this.onChanged,
+    this.media,
+    this.telemetry = const QuickLookTelemetry(),
   });
 
   final KanbanRepository repository;
@@ -32,6 +39,13 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
 
   /// Called after every change that went through, so the board can refresh.
   final VoidCallback? onChanged;
+
+  /// The cache attachments are staged in to be previewed or opened. Without
+  /// it an attachment can only be saved.
+  final MediaStore? media;
+
+  /// Where a preview reports that it opened or failed.
+  final QuickLookTelemetry telemetry;
 
   KanbanTaskDetail? _detail;
   bool _failed = false;
@@ -286,6 +300,95 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
   /// receiver's wait, and the panel stays usable meanwhile.
   Future<Uint8List> readAttachment(KanbanAttachment a) =>
       repository.downloadAttachment(a.id, board: board);
+
+  /// Whether an attachment can be previewed or opened: there is a cache to
+  /// put it in.
+  bool get canOpenAttachments => media != null;
+
+  /// Downloads [a] into the media cache once, and from then on reuses it.
+  Future<File> _stageAttachment(MediaStore store, KanbanAttachment a) =>
+      store.stage(
+        'kanban:${board ?? ''}:${a.id}',
+        a.filename,
+        () => repository.downloadAttachment(a.id, board: board),
+      );
+
+  /// Shows [a] in the Quick Look panel, downloading it first. With [toggle]
+  /// the panel closes instead when it already shows the file. Returns whether
+  /// the panel shows the file afterwards. Does nothing while a transfer runs.
+  /// Throws [KanbanException] when the file could not be fetched or shown.
+  Future<bool> preview(
+    KanbanAttachment a, {
+    required QuickLookTrigger trigger,
+    bool toggle = false,
+  }) async {
+    final store = media;
+    if (store == null || _transferring) return false;
+    _setTransferring(true);
+    try {
+      final File file;
+      try {
+        file = await _stageAttachment(store, a);
+      } on Object catch (e) {
+        telemetry.failed(
+          QuickLookSource.kanban,
+          trigger,
+          stage: QuickLookStage.download,
+          reason: e is MediaFetchException ? e.reason.name : 'failed',
+        );
+        if (e is KanbanException) rethrow;
+        throw const KanbanException('Could not download the attachment.');
+      }
+      if (disposed) return false;
+      final outcome = toggle
+          ? await store.toggleQuickLook(file)
+          : await store.quickLook(file)
+          ? QuickLookToggle.shown
+          : QuickLookToggle.failed;
+      switch (outcome) {
+        case QuickLookToggle.shown:
+          telemetry.opened(QuickLookSource.kanban, trigger);
+          return true;
+        case QuickLookToggle.closed:
+          return false;
+        case QuickLookToggle.failed:
+          telemetry.failed(
+            QuickLookSource.kanban,
+            trigger,
+            stage: QuickLookStage.native,
+            reason: 'unavailable',
+          );
+          throw const KanbanException("Quick Look couldn't preview this file.");
+      }
+    } finally {
+      _setTransferring(false);
+    }
+  }
+
+  /// Downloads [a] and hands it to the app the system has for its type.
+  /// Does nothing while a transfer runs. Throws [KanbanException] when the
+  /// file could not be fetched or no app opens it.
+  Future<void> open(KanbanAttachment a) async {
+    final store = media;
+    if (store == null || _transferring) return;
+    _setTransferring(true);
+    try {
+      final File file;
+      try {
+        file = await _stageAttachment(store, a);
+      } on KanbanException {
+        rethrow;
+      } on Object {
+        throw const KanbanException('Could not download the attachment.');
+      }
+      if (disposed) return;
+      if (!await store.open(file)) {
+        throw const KanbanException('No app can open this file.');
+      }
+    } finally {
+      _setTransferring(false);
+    }
+  }
 
   /// Saves an attachment to the device; whether it was saved.
   Future<bool> download(KanbanAttachment a) async {

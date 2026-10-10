@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../chat/media/media_store.dart';
+import '../../chat/media/quick_look_telemetry.dart';
 import '../../theme/breakpoints.dart';
 import '../../theme/platform_chrome.dart';
 
@@ -125,6 +128,8 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
     taskId: widget.taskId,
     board: widget.board,
     onChanged: widget.onChanged,
+    media: context.read<MediaStore?>(),
+    telemetry: QuickLookTelemetry.of(context),
   );
 
   @override
@@ -212,6 +217,14 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
       messenger.showSnackBar(SnackBar(content: Text('Saved ${a.filename}')));
     }
   }
+
+  Future<void> _openAttachment(KanbanAttachment a) => _run(() => _task.open(a));
+
+  Future<void> _quickLook(
+    KanbanAttachment a,
+    QuickLookTrigger trigger, {
+    bool toggle = false,
+  }) => _run(() => _task.preview(a, trigger: trigger, toggle: toggle));
 
   void _showLog() => showDialog<void>(
     context: context,
@@ -405,6 +418,13 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             onAttach: () => _run(_task.attach),
             onDownload: _download,
             onRead: _task.readAttachment,
+            onOpen: _task.canOpenAttachments ? (a) => _openAttachment(a) : null,
+            onQuickLook: _task.canOpenAttachments
+                ? (a) => _quickLook(a, QuickLookTrigger.menu)
+                : null,
+            onToggleQuickLook: _task.canOpenAttachments
+                ? (a) => _quickLook(a, QuickLookTrigger.key, toggle: true)
+                : null,
             onRemove: (a) => _confirmThen(
               'Remove ${a.filename}?',
               'Remove',

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/media/quick_look.dart';
@@ -73,5 +74,28 @@ void main() {
     expect(none.available, isFalse);
     expect(await none.preview('/a'), isFalse);
     expect(await none.toggle('/a'), QuickLookToggle.failed);
+  });
+
+  // The main window and every conversation window ask for it the same way.
+  group('platformQuickLook', () {
+    tearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    test('is the panel on macOS', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      expect(platformQuickLook(), isA<MethodChannelQuickLook>());
+      expect(platformQuickLook().available, isTrue);
+    });
+
+    for (final platform in [
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    ]) {
+      test('is none on $platform', () {
+        debugDefaultTargetPlatformOverride = platform;
+        expect(platformQuickLook(), isA<NoQuickLook>());
+      });
+    }
   });
 }
