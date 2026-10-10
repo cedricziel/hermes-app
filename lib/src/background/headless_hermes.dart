@@ -20,10 +20,14 @@ import '../auth/auth_controller.dart';
 import '../auth/native_login_flow.dart';
 import '../auth/page_token.dart';
 import '../auth/token_store.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../models/hermes_session.dart';
 import '../models/hermes_status.dart';
+import '../surfaces/surface_snapshot.dart';
+import '../surfaces/surface_snapshot_builder.dart';
+import '../surfaces/surface_snapshot_store.dart';
 import '../telemetry/telemetry.dart';
 import 'entry_points.dart';
 
@@ -72,6 +76,8 @@ class HeadlessDeps {
     this.minRefreshBudget = const Duration(seconds: 4),
     this.rejectionRecheck = const Duration(seconds: 1),
     this.closeGrace = const Duration(seconds: 3),
+    this.snapshotStore,
+    this.appLockOn,
   });
 
   final TokenStore? tokenStore;
@@ -92,9 +98,17 @@ class HeadlessDeps {
   /// storage before the run gives up on the session.
   final Duration rejectionRecheck;
 
-  /// How long ending a run waits for a refresh in flight to store its pair,
-  /// and for a body to settle after the session failed.
+  /// How long a run that is winding down waits, in all: for a body to settle
+  /// after the session failed, for a refresh in flight to store its pair, and
+  /// for the sockets to close. One window, counted from the first of them.
   final Duration closeGrace;
+
+  /// Where [HeadlessHermes.refreshSnapshot] writes; the App Group by default.
+  final SurfaceSnapshotStore? snapshotStore;
+
+  /// Whether App Lock is on, which keeps titles out of the snapshot. The
+  /// saved setting by default, where unreadable counts as on.
+  final Future<bool> Function()? appLockOn;
 }
 
 /// Runs [body] against the saved server with the stored session, within
@@ -103,10 +117,11 @@ class HeadlessDeps {
 /// [HeadlessUnreachable], since a background callback that throws is reported
 /// to the system as a failure.
 ///
-/// A refresh that is under way when the run ends is waited for (up to
-/// [HeadlessDeps.closeGrace]) so the pair it rotated is stored before the
-/// caller lets the operating system suspend the app. After the run ends,
-/// nothing the body still does reaches the server.
+/// A refresh that is under way when the run ends is waited for (within
+/// [HeadlessDeps.closeGrace], which all the waiting of a run shares) so the
+/// pair it rotated is stored before the caller lets the operating system
+/// suspend the app. After the run ends, nothing the body still does reaches
+/// the server.
 Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
   Future<T> Function(HeadlessHermes hermes) body, {
   required String task,
@@ -141,6 +156,7 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
       _quiet(() {
         span
           ..setAttributes(run.serverAttributes)
+          ..setAttributes(run.annotations)
           ..setAttribute('outcome', ended.outcome)
           ..setAttribute('error.type', ended.errorType)
           ..end();
@@ -152,10 +168,10 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
 
 /// The Hermes connection a headless run works with.
 class HeadlessHermes {
-  HeadlessHermes._(this._connection, this._openTransport);
+  HeadlessHermes._(this._connection, this._run);
 
   final _Connection _connection;
-  final HermesGatewayTransport Function(_Connection connection) _openTransport;
+  final _Run _run;
 
   /// The repositories the app's screens use.
   HermesRepositories get repositories => _connection.repositories;
@@ -176,7 +192,18 @@ class HeadlessHermes {
   }
 
   /// A gateway transport on a socket of its own, closed when the run ends.
-  HermesGatewayTransport transport() => _openTransport(_connection);
+  HermesGatewayTransport transport() => _run._openTransport(_connection);
+
+  /// Adds [value] to the run's `background.task` span as [name]. Counts and
+  /// flags only: the span never holds ids, titles or text.
+  void annotate(String name, Object value) => _run.annotations[name] = value;
+
+  /// Reads every profile's chats, Kanban and schedules, builds the snapshot
+  /// and stores it for the widgets. With [pending] those are the open
+  /// requests of every profile and replace the stored ones; without it the
+  /// stored requests stay.
+  Future<SurfaceSnapshot> refreshSnapshot({List<PendingRequest>? pending}) =>
+      _run.refreshSnapshot(_connection.repositories, pending);
 }
 
 class _Ended<T> {
@@ -210,6 +237,18 @@ class _Run {
 
   Map<String, Object> serverAttributes = const {};
 
+  /// What the body added to the run's span.
+  final annotations = <String, Object>{};
+
+  DateTime? _graceEnds;
+
+  /// What is left of the one window a winding-down run may wait in.
+  Duration _graceLeft() {
+    final ends = _graceEnds ??= DateTime.now().add(_deps.closeGrace);
+    final left = ends.difference(DateTime.now());
+    return left.isNegative ? Duration.zero : left;
+  }
+
   /// A client for [baseUrl] that [close] shuts down.
   Dio client(
     String baseUrl,
@@ -239,7 +278,7 @@ class _Run {
     final connection = opened.connection;
     if (connection == null) return _refused<T>(opened.refusal!);
     _auth = connection.auth;
-    final hermes = HeadlessHermes._(connection, _openTransport);
+    final hermes = HeadlessHermes._(connection, this);
     final bodyEnd = () async {
       try {
         return _Ended<T>('ok', HeadlessDone(await body(hermes)));
@@ -261,7 +300,7 @@ class _Run {
       _Stop.unreachable => const HeadlessUnreachable(),
     });
     final settled = await bodyEnd.timeout(
-      _deps.closeGrace,
+      _graceLeft(),
       onTimeout: () => authEnded,
     );
     return settled.outcome == 'ok' ? settled : authEnded;
@@ -292,16 +331,35 @@ class _Run {
     return transport;
   }
 
+  Future<SurfaceSnapshot> refreshSnapshot(
+    HermesRepositories repositories,
+    List<PendingRequest>? pending,
+  ) async {
+    final store = _deps.snapshotStore ?? SurfaceSnapshotStore();
+    final lockOn = _deps.appLockOn ?? AppLockController.savedEnabled;
+    final previous = await store.read();
+    final built = await SurfaceSnapshotBuilder(repositories).build(
+      signedIn: true,
+      previous: previous,
+      refreshRemote: true,
+      redact: await lockOn(),
+      pending: pending,
+    );
+    annotations['snapshot.sources_failed'] = built.sourcesFailed;
+    await store.write(built.snapshot);
+    return built.snapshot;
+  }
+
   /// Ends the run: no new refresh or request starts, a refresh in flight gets
   /// to store its pair, then every socket and client is closed so that
   /// nothing the body still does reaches the server.
   Future<void> close() async {
     _closed = true;
-    await _auth?.shutdown(_deps.closeGrace);
+    await _auth?.shutdown(_graceLeft());
     await Future.wait([
       for (final transport in _transports)
         transport.close().catchError((Object _) {}),
-    ]);
+    ]).timeout(_graceLeft(), onTimeout: () => const []);
     for (final client in _clients) {
       client.close(force: true);
     }

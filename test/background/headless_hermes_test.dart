@@ -45,6 +45,9 @@ class _Store extends MemoryTokenStore {
   void Function(int read)? beforeRead;
   int writes = 0;
 
+  /// How long a write takes, as a busy keychain would.
+  Duration writeDelay = Duration.zero;
+
   @override
   Future<SessionRead> readState({bool repair = true}) {
     final read = reads++;
@@ -55,6 +58,7 @@ class _Store extends MemoryTokenStore {
   @override
   Future<void> write(HermesSession next) async {
     writes++;
+    await Future<void>.delayed(writeDelay);
     await super.write(next);
   }
 }
@@ -146,6 +150,7 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.withData({kSavedServerUrlKey: _url});
     dashboard = _Dashboard();
+    dashboard.server.honourReceiveTimeouts = true;
     store = _Store(_session());
     events = RecordedEvents();
     tracer = RecordingTracer();
@@ -561,16 +566,85 @@ void main() {
       'an in-flight refresh that outlasts the budget still writes its pair',
       () async {
         store.session = _session(expiresAt: 1);
-        dashboard.refreshDelay = const Duration(milliseconds: 900);
+        store.writeDelay = const Duration(milliseconds: 500);
 
         final outcome = await run(
           readProfiles,
-          timeout: const Duration(milliseconds: 600),
+          timeout: const Duration(milliseconds: 300),
         );
 
         expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
         expect(spanOutcome(), 'timeout');
         expect(store.session!.refreshToken, 'refresh-2');
+      },
+    );
+
+    test('a refresh slower than half the budget is cut off, twice', () async {
+      store.session = _session(expiresAt: 1);
+      dashboard.refreshDelay = const Duration(milliseconds: 700);
+      final before = store.session;
+
+      final outcome = await run(
+        readProfiles,
+        timeout: const Duration(seconds: 1),
+      );
+
+      expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
+      expect(dashboard.refreshes, 2);
+      expect(store.writes, 0);
+      expect(store.session, same(before));
+    });
+
+    test('a body stuck after the session failed is waited for once', () async {
+      store.session = _session(expiresAt: 1);
+      dashboard.refreshStatus = 401;
+      final stuck = Completer<void>();
+      addTearDown(() {
+        if (!stuck.isCompleted) stuck.complete();
+      });
+      final watch = Stopwatch()..start();
+
+      final outcome = await run<void>((hermes) async {
+        unawaited(
+          hermes.repositories.profiles.list().then<void>(
+            (_) {},
+            onError: (Object _) {},
+          ),
+        );
+        await stuck.future;
+      }, with_: deps(closeGrace: const Duration(milliseconds: 500)));
+
+      expect(outcome, isA<HeadlessSignedOut<void>>());
+      expect(watch.elapsed, lessThan(const Duration(milliseconds: 900)));
+    });
+
+    test(
+      'a refresh still storing its pair is waited for only so long',
+      () async {
+        store.session = _session(expiresAt: 1);
+        store.writeDelay = const Duration(seconds: 2);
+        final stuck = Completer<void>();
+        addTearDown(() {
+          if (!stuck.isCompleted) stuck.complete();
+        });
+        final watch = Stopwatch()..start();
+
+        final outcome = await run<void>(
+          (hermes) async {
+            unawaited(
+              hermes.repositories.profiles.list().then<void>(
+                (_) {},
+                onError: (Object _) {},
+              ),
+            );
+            await stuck.future;
+          },
+          timeout: const Duration(milliseconds: 300),
+          with_: deps(closeGrace: const Duration(milliseconds: 500)),
+        );
+
+        expect(outcome, isA<HeadlessUnreachable<void>>());
+        expect(watch.elapsed, lessThan(const Duration(milliseconds: 1100)));
       },
     );
 
@@ -787,6 +861,17 @@ void main() {
   });
 
   group('telemetry', () {
+    test('the body can add counts to the span', () async {
+      await run((hermes) async {
+        hermes
+          ..annotate('requests.new', 2)
+          ..annotate('steps_failed', 0);
+      });
+
+      expect(taskSpan().attributes['requests.new'], 2);
+      expect(taskSpan().attributes['steps_failed'], 0);
+    });
+
     test(
       'records one background.task span with the server attributes',
       () async {

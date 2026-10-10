@@ -40,12 +40,16 @@ class SurfaceSnapshotBuilder {
   /// [hints] are what the chat screen knows of the open profile: they stand
   /// in for a request for its chats and its open requests. Sources are read
   /// from the server only with [refreshRemote]; without it everything but the
-  /// hints comes from [previous]. With [redact] chat titles, snippets and job
-  /// names are left out.
+  /// hints comes from [previous]. [pending] is the open requests of every
+  /// profile as someone just read them: it replaces whatever [previous] held,
+  /// so a request another profile has since answered is dropped, and the
+  /// hints then only name the chats. With [redact] chat titles, snippets and
+  /// job names are left out.
   Future<SnapshotBuild> build({
     required bool signedIn,
     SurfaceSnapshot? previous,
     ChatHints? hints,
+    List<PendingRequest>? pending,
     bool refreshRemote = false,
     bool redact = false,
   }) async {
@@ -96,9 +100,17 @@ class SurfaceSnapshotBuilder {
       }
     }
 
-    var pending = [...?previous?.pending];
+    final seen = {
+      for (final p in previous?.pending ?? const <PendingRequest>[])
+        p.requestId: p.createdAt,
+    };
+    var open = [...?previous?.pending];
+    if (pending != null) {
+      open = [
+        for (final p in pending) p.firstSeen(seen[p.requestId] ?? p.createdAt),
+      ];
+    }
     if (hints != null) {
-      final seen = {for (final p in pending) p.requestId: p.createdAt};
       chats = [
         ...chats.where((c) => c.profile != openProfile),
         for (final thread in hints.threads)
@@ -110,18 +122,20 @@ class SurfaceSnapshotBuilder {
             updatedAt: thread.updatedAt,
           ),
       ];
-      pending = [
-        ...pending.where((p) => p.profile != openProfile),
-        for (final request in hints.requests)
-          PendingRequest(
-            profile: openProfile,
-            threadId: request.threadId,
-            threadTitle: request.threadTitle,
-            kind: request.kind,
-            requestId: request.requestId,
-            createdAt: seen[request.requestId] ?? request.seenAt,
-          ),
-      ];
+      if (pending == null) {
+        open = [
+          ...open.where((p) => p.profile != openProfile),
+          for (final request in hints.requests)
+            PendingRequest(
+              profile: openProfile,
+              threadId: request.threadId,
+              threadTitle: request.threadTitle,
+              kind: request.kind,
+              requestId: request.requestId,
+              createdAt: seen[request.requestId] ?? request.seenAt,
+            ),
+        ];
+      }
     }
 
     final snapshot = SurfaceSnapshot(
@@ -130,7 +144,7 @@ class SurfaceSnapshotBuilder {
       profile: openProfile,
       profiles: profiles,
       recentChats: chats,
-      pending: pending,
+      pending: open,
       kanban: kanban,
       schedules: schedules,
     );

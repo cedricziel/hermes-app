@@ -132,6 +132,16 @@ class PendingRequest {
   String get url =>
       deepLinkUri(OpenChat(profile: profile, threadId: threadId)).toString();
 
+  /// The same request, first seen at [at].
+  PendingRequest firstSeen(DateTime at) => PendingRequest(
+    profile: profile,
+    threadId: threadId,
+    threadTitle: threadTitle,
+    kind: kind,
+    requestId: requestId,
+    createdAt: at,
+  );
+
   PendingRequest redacted() => PendingRequest(
     profile: profile,
     threadId: threadId,

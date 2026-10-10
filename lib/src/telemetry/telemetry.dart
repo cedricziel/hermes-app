@@ -192,10 +192,9 @@ class Telemetry {
     return Telemetry._(sdk);
   }
 
-  /// Waits for every log/span exported so far to reach [logExporter]/its
-  /// span equivalent. Only meaningful in tests: production export is
-  /// fire-and-forget.
-  @visibleForTesting
+  /// Waits for every log and span exported so far to be sent. Export is
+  /// fire-and-forget otherwise; a background run calls this before it hands
+  /// control back, since the system then suspends the process.
   Future<void> flush() async {
     final sdk = _sdk;
     if (sdk != null) await sdk.forceFlush();
