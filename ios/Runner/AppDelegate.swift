@@ -24,8 +24,10 @@ import flutter_local_notifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  // The commands of the iPad menu bar. Flutter sees a key first and, finding
-  // nothing to do with it, UIKit then runs the command of an enabled item.
+  // The commands of the iPad menu bar. Observed on the iPad simulator: Flutter
+  // sees a key press first and, finding nothing to do with it, UIKit then runs
+  // the command of an enabled item, once; the chord of a disabled item is not
+  // taken, so only Flutter sees it.
   override func buildMenu(with builder: UIMenuBuilder) {
     super.buildMenu(with: builder)
     if builder.system == .main {

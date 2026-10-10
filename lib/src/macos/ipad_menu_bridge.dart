@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 
 import '../telemetry/breadcrumbs.dart';
@@ -52,7 +53,9 @@ class IpadMenuBridge {
   Future<void> _onCall(MethodCall call) async {
     if (call.method != 'invoke') throw MissingPluginException();
     final command = _commands[call.arguments]?.command;
-    if (command == null || !(registry.handlerFor(command)?.enabled ?? false)) {
+    if (command == null ||
+        !(registry.handlerFor(command)?.enabled ?? false) ||
+        _composing()) {
       return;
     }
     breadcrumbs('menu.command', {
@@ -60,6 +63,16 @@ class IpadMenuBridge {
       'platform': 'ipados',
     });
     registry.invoke(command);
+  }
+
+  /// Whether the focused text field holds marked text. UIKit takes the chord
+  /// even then, and ⌘N must not open a chat while the user is still choosing a
+  /// candidate in an input method.
+  bool _composing() {
+    final field = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorStateOfType<EditableTextState>();
+    final range = field?.textEditingValue.composing;
+    return range != null && range.isValid && !range.isCollapsed;
   }
 
   void _sendState() {

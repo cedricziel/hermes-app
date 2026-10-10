@@ -39,6 +39,10 @@ How keys reach Flutter on iOS: `FlutterViewController` overrides `pressesBegan`/
 
 `AppShell` offers Settings, Connection Details and Sign Out with iOS chrome too. `ChatScreen`'s Find on iOS focuses the sidebar's `ThreadSearchView` field (a new `FocusNode` parameter) when the sidebar is on screen, and is null otherwise, so ⌘F then reaches Flutter. Delete… on iPad has no chord.
 
+### Idiom, composition and covered screens
+
+The runner adds the menu and answers `canPerformAction` only when `UIDevice.userInterfaceIdiom == .pad`; an iPhone keeps the system menus. `IpadMenuBridge` ignores an `invoke` while the focused `EditableText` has a non-collapsed composing range. On iOS a `MacCommandScope` also offers nothing while its route is not current (`ModalRoute.isCurrentOf`), so a dialog or sheet over the chat takes its commands away; the Mac keeps the earlier behavior.
+
 ### Platforms and native changes
 
 iOS and iPadOS; macOS output unchanged. `AppDelegate.swift`, a new `KeyCommandMenu.swift` in the Runner target (`project.pbxproj`). No Info.plist or entitlement change.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
@@ -175,5 +177,59 @@ void main() {
     expect(notified, 1);
     await Future<void>.delayed(Duration.zero);
     expect(notified, 2);
+  });
+
+  group('under a dialog', () {
+    Future<BuildContext> pumpApp(
+      WidgetTester tester,
+      TargetPlatform platform,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: platform),
+          builder: (context, child) =>
+              MacCommandScope.root(registry: registry, child: child!),
+          home: MacCommandScope(
+            commands: {MacCommand.newChat: MacCommandHandler(() {})},
+            child: const Text('chat'),
+          ),
+        ),
+      );
+      return tester.element(find.text('chat'));
+    }
+
+    testWidgets('an iPad scope offers nothing while a dialog covers it', (
+      tester,
+    ) async {
+      final context = await pumpApp(tester, TargetPlatform.iOS);
+      expect(registry.handlerFor(MacCommand.newChat), isNotNull);
+
+      unawaited(
+        showDialog<void>(
+          context: context,
+          builder: (_) => const AlertDialog(content: Text('dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(registry.handlerFor(MacCommand.newChat), isNull);
+
+      Navigator.of(tester.element(find.text('dialog'))).pop();
+      await tester.pumpAndSettle();
+      expect(registry.handlerFor(MacCommand.newChat), isNotNull);
+    });
+
+    testWidgets('a Mac scope keeps its commands under a dialog', (
+      tester,
+    ) async {
+      final context = await pumpApp(tester, TargetPlatform.macOS);
+      unawaited(
+        showDialog<void>(
+          context: context,
+          builder: (_) => const AlertDialog(content: Text('dialog')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(registry.handlerFor(MacCommand.newChat), isNotNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 }

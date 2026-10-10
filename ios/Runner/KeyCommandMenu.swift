@@ -49,7 +49,10 @@ final class KeyCommandMenu {
     }
   }
 
-  func isEnabled(_ command: String) -> Bool { states[command]?.enabled ?? false }
+  /// The menu is for the iPad; an iPhone keeps the system's own menus.
+  private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+  func isEnabled(_ command: String) -> Bool { isPad && states[command]?.enabled ?? false }
 
   func title(of command: String) -> String? { states[command]?.title }
 
@@ -60,6 +63,7 @@ final class KeyCommandMenu {
   /// Takes out the system menus Hermes has no use for (Find would claim ⌘F),
   /// then adds the layout Dart sent.
   func build(with builder: UIMenuBuilder, action: Selector) {
+    guard isPad else { return }
     builder.remove(menu: .find)
     builder.remove(menu: .format)
     builder.remove(menu: .newScene)

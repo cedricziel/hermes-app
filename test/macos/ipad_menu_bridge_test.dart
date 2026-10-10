@@ -279,6 +279,38 @@ void main() {
     expect(trail.recent.where((c) => c.name == 'menu.command'), isEmpty);
   });
 
+  testWidgets('a command during text composition does nothing', (tester) async {
+    var created = 0;
+    final text = TextEditingController(text: 'にほん');
+    addTearDown(text.dispose);
+    final runner = await pump(
+      tester,
+      MacCommandScope(
+        commands: {MacCommand.newChat: MacCommandHandler(() => created++)},
+        child: Scaffold(body: TextField(controller: text, autofocus: true)),
+      ),
+    );
+    await tester.pump();
+    text.value = const TextEditingValue(
+      text: 'にほん',
+      selection: TextSelection.collapsed(offset: 3),
+      composing: TextRange(start: 0, end: 3),
+    );
+    await tester.pump();
+
+    await runner.choose('newChat');
+    expect(created, 0);
+    expect(trail.recent.where((c) => c.name == 'menu.command'), isEmpty);
+
+    text.value = const TextEditingValue(
+      text: 'にほん',
+      selection: TextSelection.collapsed(offset: 3),
+    );
+    await tester.pump();
+    await runner.choose('newChat');
+    expect(created, 1);
+  });
+
   group('observability', () {
     testWidgets('a command adds a breadcrumb with its name and platform only', (
       tester,

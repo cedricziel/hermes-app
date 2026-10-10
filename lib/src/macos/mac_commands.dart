@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../theme/platform_chrome.dart';
+
 /// The commands the macOS menu bar offers that a screen carries out.
 enum MacCommand {
   about,
@@ -232,8 +234,14 @@ class _MacCommandScopeState extends State<MacCommandScope> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final registry = MacCommandScope.registryOf(context);
+    // An iPad keyboard can reach a chat a dialog or sheet covers, so there a
+    // scope also waits until its route is on top again. The Mac keeps offering
+    // them: its menu bar is not covered by a sheet in the same way.
     final shown =
-        TickerMode.valuesOf(context).enabled && Visibility.of(context);
+        TickerMode.valuesOf(context).enabled &&
+        Visibility.of(context) &&
+        (platformChromeOf(context) != PlatformChrome.ios ||
+            (ModalRoute.isCurrentOf(context) ?? true));
     if (registry == null || !shown) {
       _unregister();
     } else if (_registration == null || _registration!._registry != registry) {

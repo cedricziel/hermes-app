@@ -6,7 +6,7 @@ iPadOS 26 gives every app a menu bar, and holding ⌘ shows its commands with th
 
 ## What Changes
 
-- On iPadOS (and an iPhone with a keyboard, where holding ⌘ lists the same commands) the app adds its commands to the system menu bar with the Mac shortcuts:
+- On iPadOS the app adds its commands to the system menu bar with the Mac shortcuts:
   - Hermes: About Hermes; Settings… (⌘,); Connection Details, Sign Out…
   - File: New Chat (⌘N; "New Task" on Kanban, "New Schedule" on Schedules)
   - View: Back (⌘[)
