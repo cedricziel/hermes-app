@@ -66,13 +66,8 @@ void main() {
     final pending = handler.handle({'op': 'send', 'text': 'Hello'});
     await pumpEventQueue();
     transport.sends.single.emit(
-      ApprovalRequested(
-        const ApprovalRequest(
-          requestId: 'r1',
-          command: 'ls',
-          description: 'list',
-          choices: ['once'],
-        ),
+      const UnsupportedRequested(
+        UnsupportedRequest(requestId: 'r1', kind: UnsupportedKind.sudo),
       ),
     );
 
@@ -1033,28 +1028,7 @@ void main() {
   });
 
   group('requests the watch cannot answer', () {
-    const bodies = {
-      'approval': kApprovalBody,
-      'question': kQuestionBody,
-      'secret': kNeedsYouBody,
-      'sudo': kNeedsYouBody,
-      'vault': kNeedsYouBody,
-    };
     const requests = <String, ChatEvent>{
-      'approval': ApprovalRequested(
-        ApprovalRequest(
-          requestId: 'r1',
-          command: 'rm -rf build',
-          description: 'delete files',
-          choices: ['once', 'deny'],
-        ),
-      ),
-      'question': ClarifyRequested(
-        ClarifyRequest(
-          requestId: 'r2',
-          questions: [ClarifyQuestion(qid: '', question: 'Which branch?')],
-        ),
-      ),
       'secret': UnsupportedRequested(
         UnsupportedRequest(requestId: 'r3', kind: UnsupportedKind.secret),
       ),
@@ -1068,7 +1042,11 @@ void main() {
 
     for (final MapEntry(:key, :value) in requests.entries) {
       test('ends the send at once on $key', () async {
-        final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+        final pending = handler.handle({
+          'op': 'send',
+          'text': 'Hello',
+          'sendId': 'a',
+        });
         await pumpEventQueue();
         transport.sends.single
           ..emit(const ThreadBound('new-1'))
@@ -1086,37 +1064,167 @@ void main() {
           'failed': false,
         });
         expect(transport.closed, isTrue);
-        expect(announced.map((n) => n.body), [bodies[key]]);
+        expect(announced.map((n) => n.body), [kNeedsYouBody]);
+      });
+    }
+  });
+
+  group('waiting on the user', () {
+    const approval = ApprovalRequested(
+      ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      ),
+    );
+    const question = ClarifyRequested(
+      ClarifyRequest(
+        requestId: 'r2',
+        batch: true,
+        questions: [ClarifyQuestion(qid: 'q1', question: 'Which branch?')],
+      ),
+    );
+
+    Future<Map<String, Object?>> send() =>
+        handler.handle({'op': 'send', 'text': 'Hello', 'sendId': 'a'});
+
+    void useHandler({
+      Duration sendTimeout = const Duration(seconds: 60),
+      Duration waitingTimeout = const Duration(minutes: 15),
+      Duration hold = const Duration(seconds: 20),
+    }) {
+      handler = WatchRequestHandler(
+        repository: () => HermesChatRepository(server.client().raw),
+        transport: () => transport,
+        activeProfile: () async => profile,
+        announce: announced.add,
+        sendTimeout: sendTimeout,
+        waitingTimeout: waitingTimeout,
+        waitingHold: hold,
+      );
+    }
+
+    for (final (kind, event, body) in [
+      ('approval', approval as ChatEvent, 'rm -rf build'),
+      ('question', question as ChatEvent, 'Which branch?'),
+    ]) {
+      test('answers that the send waits on $kind, and keeps it', () async {
+        final pending = send();
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ReplyStarted())
+          ..emit(event);
+
+        expect(await pending, {
+          'ok': true,
+          'threadId': '/new-1',
+          'waiting': kind,
+        });
+        expect(transport.closed, isFalse);
+        expect(announced.single.body, body);
+        expect(announced.single.category, isNotNull);
       });
     }
 
-    test('ends the send on a request of the turn Hermes ran ahead of the '
-        'prompt, and announces it', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+    test(
+      'waits on a request of the turn Hermes ran ahead of the prompt',
+      () async {
+        final pending = send();
+        await pumpEventQueue();
+        transport.sends.single
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const UnsolicitedEvent(ReplyStarted()))
+          ..emit(const UnsolicitedEvent(approval));
+
+        expect((await pending)['waiting'], 'approval');
+      },
+    );
+
+    test('a retry gets the reply once the turn is over', () async {
+      final first = send();
+      await pumpEventQueue();
+      final turn = transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+      await first;
+
+      final retry = send();
+      await pumpEventQueue();
+      turn.emit(const ReplyCompleted('Done.'));
+
+      expect(await retry, {
+        'ok': true,
+        'threadId': '/new-1',
+        'text': 'Done.',
+        'failed': false,
+      });
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('a retry answers again after the hold while it still waits', () async {
+      useHandler(hold: const Duration(milliseconds: 20));
+      final first = send();
       await pumpEventQueue();
       transport.sends.single
         ..emit(const ThreadBound('new-1'))
-        ..emit(const UnsolicitedEvent(ReplyStarted()))
-        ..emit(UnsolicitedEvent(requests['approval']!));
+        ..emit(approval);
+      await first;
+
+      expect(await send(), {
+        'ok': true,
+        'threadId': '/new-1',
+        'waiting': 'approval',
+      });
+    });
+
+    test('a retry says Hermes is working once the turn went on', () async {
+      useHandler(hold: const Duration(milliseconds: 20));
+      final first = send();
+      await pumpEventQueue();
+      final turn = transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+      await first;
+
+      final retry = send();
+      await pumpEventQueue();
+      turn.emit(const ReplyDelta('Deleting…'));
+
+      expect((await retry)['waiting'], 'working');
+    });
+
+    test('gives up later while it waits', () async {
+      useHandler(
+        sendTimeout: const Duration(milliseconds: 20),
+        waitingTimeout: const Duration(seconds: 5),
+      );
+      final first = send();
+      await pumpEventQueue();
+      final turn = transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+      await first;
+      final retry = send();
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      turn.emit(const ReplyCompleted('Done.'));
+
+      expect((await retry)['text'], 'Done.');
+    });
+
+    test('does not pass on what was asked for', () async {
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
 
       final reply = await pending;
 
-      expect(reply['text'], contains("watch can't answer"));
-      expect(announced.map((n) => n.body), [kApprovalBody]);
-    });
-
-    test('does not leak what was asked for', () async {
-      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
-      await pumpEventQueue();
-      transport.sends.single
-        ..emit(const ThreadBound('new-1'))
-        ..emit(requests['approval']!);
-
-      final text = (await pending)['text']! as String;
-
-      expect(text, isNot(contains('rm -rf')));
-      expect(text, isNot(contains('delete files')));
-      expect(announced.single.body, isNot(contains('rm -rf')));
+      expect(reply.values.join(), isNot(contains('rm -rf')));
+      expect(reply.values.join(), isNot(contains('delete files')));
     });
   });
 }
