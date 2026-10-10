@@ -321,6 +321,11 @@ void main() {
       support: support,
     );
 
+    test('says which engine it dictates with', () {
+      expect(onDevice().engine, DictationEngine.device);
+      expect(controller().engine, DictationEngine.hermes);
+    });
+
     test('shows what it hears and inserts the transcript', () async {
       speech.transcript = 'book a table';
       final dictation = onDevice();

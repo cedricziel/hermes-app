@@ -110,6 +110,9 @@ class DictationController extends ChangeNotifier {
   /// The text recognized so far, while recording live; not yet final.
   String get liveTranscript => _liveTranscript;
 
+  /// Who turns the speech into text.
+  DictationEngine get engine => _engine;
+
   /// Whether dictation is offered for the current profile and engine.
   bool get available =>
       _onTheDevice ? _model == OnDeviceModel.installed : _support.speechToText;

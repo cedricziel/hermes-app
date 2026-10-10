@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/on_device_speech.dart';
@@ -76,6 +78,25 @@ void main() {
       expect(progress, [0.25, 1.0]);
       expect(calls.single.method, 'install');
       expect(calls.single.arguments, {'locale': 'de-DE'});
+    });
+
+    test('a second install while one runs joins it', () async {
+      final done = Completer<void>();
+      answers['install'] = (_) => null;
+      messenger.setMockMethodCallHandler(OnDeviceSpeech.methods, (call) async {
+        calls.add(call);
+        await done.future;
+        return null;
+      });
+      final speech = OnDeviceSpeech();
+
+      final first = speech.install('de-DE');
+      final second = speech.install('de-DE');
+      await pumpEventQueue();
+      done.complete();
+      await Future.wait([first, second]);
+
+      expect(calls.where((c) => c.method == 'install'), hasLength(1));
     });
 
     test('tells listeners once a model is installed', () async {

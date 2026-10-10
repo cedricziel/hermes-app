@@ -13,6 +13,7 @@ import '../../voice/dictation_controller.dart';
 import '../../voice/dictation_view.dart';
 import '../../voice/widgets/dictation_notice.dart';
 import '../../voice/widgets/voice_waveform.dart';
+import '../../voice/dictation_settings.dart';
 
 /// The composer's text field, for finding it among other fields.
 const chatComposerFieldKey = Key('chat-composer-field');
@@ -322,6 +323,7 @@ class _ChatComposerState extends State<ChatComposer> {
                       elapsed: dictation.elapsed,
                       liveTranscript: dictation.liveTranscript,
                       settling: dictation.phase == DictationPhase.settling,
+                      onDevice: dictation.engine == DictationEngine.device,
                     )
                   else
                     TextField(

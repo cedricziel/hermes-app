@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -9,12 +8,6 @@ import '../widgets/grouped_dialog.dart';
 import 'dictation_settings.dart';
 import 'on_device_speech.dart';
 import 'widgets/dictation_settings_view.dart';
-
-/// Whether this platform has an on-device engine to offer (iOS, macOS).
-bool get dictationEngineOffered =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS);
 
 Future<void> showDictationDialog(BuildContext context) {
   final settings = context.read<DictationSettings>();
@@ -46,7 +39,9 @@ class _DictationDialog extends StatefulWidget {
 
 class _DictationDialogState extends State<_DictationDialog> {
   final _locale = OnDeviceSpeech.deviceLocale();
-  var _model = OnDeviceModel.unsupported;
+
+  /// Null until the platform answered.
+  OnDeviceModel? _model;
   double? _progress;
   var _failed = false;
   StreamSubscription<double>? _progressEvents;
@@ -70,8 +65,14 @@ class _DictationDialogState extends State<_DictationDialog> {
     final model = await widget.speech.status(_locale);
     if (!mounted) return;
     setState(() => _model = model);
-    // A download from an earlier visit goes on; wait for it here too.
-    if (model == OnDeviceModel.downloading) unawaited(_install());
+    // A download from an earlier visit goes on, so wait for it here too; a
+    // missing model for the chosen engine, or one picked before this answer
+    // came, downloads now.
+    final chosen = context.read<DictationSettings>().engine;
+    if (model == OnDeviceModel.downloading ||
+        (model == OnDeviceModel.missing && chosen == DictationEngine.device)) {
+      unawaited(_install());
+    }
   }
 
   void _pick(DictationEngine engine) {
@@ -105,17 +106,21 @@ class _DictationDialogState extends State<_DictationDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => GroupedDialog(
-    title: 'Dictation',
-    children: [
-      DictationSettingsView(
-        engine: context.watch<DictationSettings>().engine,
-        model: _model,
-        progress: _progress,
-        downloadFailed: _failed,
-        onEngine: _pick,
-        onRetryDownload: _install,
-      ),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final model = _model;
+    final chosen = context.watch<DictationSettings>().engine;
+    return GroupedDialog(
+      title: 'Dictation',
+      children: [
+        DictationSettingsView(
+          engine: effectiveDictationEngine(chosen, model),
+          model: model ?? OnDeviceModel.missing,
+          progress: _progress,
+          downloadFailed: _failed,
+          onEngine: _pick,
+          onRetryDownload: _install,
+        ),
+      ],
+    );
+  }
 }

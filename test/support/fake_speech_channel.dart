@@ -27,6 +27,9 @@ class FakeSpeechChannel {
   /// `installed`; `start` fails with `modelMissing` unless `installed`.
   String status = 'installed';
 
+  /// While set, `status` waits for it before answering.
+  Completer<void>? statusGate;
+
   /// What `finish` answers; a code here makes it fail with that code.
   String transcript = '';
   String? finishError;
@@ -77,6 +80,7 @@ class FakeSpeechChannel {
     calls.add(call);
     switch (call.method) {
       case 'status':
+        await statusGate?.future;
         return status;
       case 'install':
         status = 'downloading';

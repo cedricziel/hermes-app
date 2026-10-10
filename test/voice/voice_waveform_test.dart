@@ -25,6 +25,24 @@ void main() {
     expect(find.bySemanticsLabel('Recording'), findsOneWidget);
   });
 
+  for (final (onDevice, label) in [
+    (true, 'On this device'),
+    (false, 'Hermes'),
+  ]) {
+    testWidgets('names the engine: $label', (tester) async {
+      await pump(
+        tester,
+        VoiceWaveform(
+          levels: const [0.1, 0.9],
+          elapsed: const Duration(seconds: 3),
+          onDevice: onDevice,
+        ),
+      );
+
+      expect(find.text(label), findsOneWidget);
+    });
+  }
+
   testWidgets('settling drops the dot and says it is transcribing', (
     tester,
   ) async {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +76,7 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
   testWidgets('picking On this device downloads the model', (tester) async {
+    await tester.runAsync(() => settings.setEngine(DictationEngine.hermes));
     await openDialog(tester);
     expect(find.text('Downloads a speech model once'), findsOneWidget);
 
@@ -95,6 +98,55 @@ void main() {
     });
     expect(trail.recent.last.name, 'voice.model.install');
     expect(trail.recent.last.attributes, {'outcome': 'installed'});
+  }, variant: iOS);
+
+  testWidgets('with On this device chosen, a missing model downloads', (
+    tester,
+  ) async {
+    await tester.runAsync(() => settings.setEngine(DictationEngine.device));
+    await openDialog(tester);
+
+    expect(speech.calls.where((c) => c.method == 'install'), hasLength(1));
+    speech.completeInstall();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ready'), findsOneWidget);
+  }, variant: iOS);
+
+  testWidgets('a tap before the model is known is kept', (tester) async {
+    await tester.runAsync(() => settings.setEngine(DictationEngine.hermes));
+    final gate = speech.statusGate = Completer();
+    await openAccountMenu(tester);
+    await tester.tap(find.text('Dictation'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tap(device);
+    await tester.pump();
+    expect(settings.engine, DictationEngine.device);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(speech.calls.where((c) => c.method == 'install'), hasLength(1));
+  }, variant: iOS);
+
+  testWidgets('an unsupported device shows Hermes as the engine in use', (
+    tester,
+  ) async {
+    speech.status = 'unsupported';
+    await tester.runAsync(() => settings.setEngine(DictationEngine.device));
+    await openDialog(tester);
+
+    expect(
+      tester
+          .widget<RadioGroup<DictationEngine>>(
+            find.byType(RadioGroup<DictationEngine>),
+          )
+          .groupValue,
+      DictationEngine.hermes,
+    );
   }, variant: iOS);
 
   testWidgets('a failed download offers to try again', (tester) async {

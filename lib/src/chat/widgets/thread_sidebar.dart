@@ -15,6 +15,7 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../voice/dictation_dialog.dart';
+import '../../voice/dictation_settings.dart';
 import '../chat_models.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
@@ -748,7 +749,7 @@ class AccountFooter extends StatelessWidget {
                   value: 'notifications',
                   child: Text('Notifications'),
                 ),
-                if (dictationEngineOffered)
+                if (DictationSettings.offered)
                   const PopupMenuItem(
                     value: 'dictation',
                     child: Text('Dictation'),
