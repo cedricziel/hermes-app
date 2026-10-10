@@ -721,3 +721,26 @@ Right-click (or press and hold) the running app's Dock icon after each step:
   Chat brings it back with an empty one. A chat open in a conversation window
   comes to the front there and the main window stays hidden.
 - Sign out: the menu drops to Show Main Window at once.
+
+## Verify drag out (macOS)
+
+Seed the isolated backend with a chat whose reply names a downloadable file (a
+`MEDIA:` or absolute path under the throwaway home) and a Kanban task with an
+attachment. A synthetic drag needs mouse-event access that the session often
+lacks (`CGPreflightPostEventAccess()` false), so say so and do the drag by
+hand when it does.
+
+- Drag the attachment card of a chat onto a Finder window or the Desktop: a
+  file with the card's name and the server's bytes appears (compare `cmp` with
+  the file on the server side). Repeat with an image thumbnail.
+- Drag a task panel row of the Kanban inspector onto the Desktop: the file has
+  the attachment's name and bytes. Save and Remove on the row still work, and a
+  card dragged between columns still moves and starts no Finder drag.
+- Drag a file from Finder onto the chat: it still attaches (the drop side is
+  `desktop_drop`).
+- A click on a card still opens it, text beside a card can still be selected,
+  and the window still drags by its toolbar.
+- Delete the file on the server and drag again: no file appears and a
+  `drag_out.completed` event with `outcome: failed` is logged (with telemetry
+  on).
+- Clean up what you dropped on the Desktop.

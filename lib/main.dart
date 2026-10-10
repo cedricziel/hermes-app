@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app.dart';
+import 'src/drag_out/drag_out_source.dart';
+import 'src/drag_out/drag_out_telemetry.dart';
+import 'src/drag_out/mac_drag_out_source.dart';
 import 'src/handoff/handoff_controller.dart';
 import 'src/handoff/handoff_bridge.dart';
 import 'src/api/hermes_repositories.dart';
@@ -80,6 +83,19 @@ Future<void> main([List<String> args = const []]) async {
         Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
         Provider<GlobalShortcut?>(
           create: (_) => MacWindow.enabled ? ChannelGlobalShortcut() : null,
+        ),
+        // Null where nothing can be dragged out (every platform but macOS);
+        // rebuilt with the connection so a drop is logged against its server.
+        ProxyProvider2<HermesRepositories?, Breadcrumbs, DragOutSource?>(
+          update: (_, repositories, breadcrumbs, _) =>
+              MacDragOutSource.supported
+              ? MacDragOutSource(
+                  telemetry: DragOutTelemetry.forConnection(
+                    repositories?.telemetry ?? const ConnectionTelemetry(),
+                    breadcrumbs,
+                  ),
+                )
+              : null,
         ),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,

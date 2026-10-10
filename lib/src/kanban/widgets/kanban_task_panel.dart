@@ -404,6 +404,7 @@ class _KanbanTaskPanelState extends State<KanbanTaskPanel> {
             transferring: _task.transferring,
             onAttach: () => _run(_task.attach),
             onDownload: _download,
+            onRead: _task.readAttachment,
             onRemove: (a) => _confirmThen(
               'Remove ${a.filename}?',
               'Remove',

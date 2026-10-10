@@ -13,69 +13,80 @@ Goals: both file sources on macOS, content produced lazily on drop, one reusable
 
 ## Decisions
 
-### Use super_drag_and_drop for the drag side
+### A small Swift drag source behind a channel, not a plugin
 
-Candidates: write an `NSFilePromiseProvider` method channel by hand, or `super_drag_and_drop` (superlistapp, 0.9.1, Android/iOS/Linux/macOS/Web/Windows, about 577 likes and 100k downloads on pub.dev). CLAUDE.md prefers a mature plugin. This one gives virtual files (file promises on macOS) with a sink the app writes into when the receiver asks, lazy values, and a snapshot of the dragged widget. A hand-written promise provider would need Swift for the pasteboard, a drag source on the Flutter view and a cancellation path.
+The first candidate was `super_drag_and_drop` (superlistapp), which gives file promises, lazy values and drag previews. The spike (task 1.1) built it and found it too expensive for what it buys:
 
-Costs, all checked in the spike (task 1.1):
+- Version 0.9.1 does not resolve: its `super_native_extensions` pins `device_info_plus <12`, and `flutter_otel_device_info` needs `>=12.4`. Only the 0.10 pre-release (August 2026) resolves, and it needs a second direct dependency, `super_clipboard`, to name its format types.
+- The 0.10 line has no precompiled binaries: a build hook compiles its Rust core with `rustup` on every platform it is linked on. That puts a Rust toolchain on every developer machine and in every CI job (tests on Linux included, with GTK headers for the bindings), the Android, iOS and release builds and the `fastlane` archive, for a feature that only exists on macOS.
+- The plugin also overrides `mouseDown:`/`mouseUp:` on the Flutter view and `mouseDownCanMoveWindow`, which touches every click in the window.
 
-- Its last release is about 16 months old (checked on pub.dev while writing this) and 155 issues are open on the repository. Mitigation: all use goes through `DragOutSource`, so replacing it touches one adapter.
-- The native part is Rust (`super_native_extensions`). It downloads precompiled binaries when no Rust toolchain is present, otherwise builds with rustup. CI runners, the Android build (NDK, auto-installed) and the Linux package build will all pull it, because a Flutter plugin is linked on every platform it supports. The spike measures the change in CI time and bundle size, and confirms the macOS universal build and the App Store archive (`fastlane`) still work. If any of these fails, the fallback is a hand-written `hermes_app/drag_out` channel in `macos/Runner` (an `NSFilePromiseProvider` on the Flutter view), and this design is updated before any UI work. `mac-drag-out-text` inherits whichever result is recorded here.
-- Minimum macOS version is not listed on pub.dev. The app targets macOS 26, which is above anything the plugin should ask for; the spike confirms it builds.
+So the app does it itself: `macos/Runner/DragOut.swift` (about 200 lines, one Swift file in the Runner target, one registration line in `MainFlutterWindow`) and `lib/src/drag_out/mac_drag_out_source.dart`. Everything else goes through `DragOutSource`, so widgets and tests never see the platform. The spike's findings stay recorded here so nobody retries the plugin without them.
+
+How the native side works:
+
+- Flutter handles pointer events in Dart, so AppKit has no event for a drag Dart decides to start. A local `NSEvent` monitor on the main window remembers the latest left-button down and dragged events (and drops them on button up). It returns every event unchanged, so clicks, selection, `desktop_drop` and window dragging by the toolbar are not altered.
+- Dart watches the pointer over the wrapped widget (a `Listener`, not the gesture arena). When the primary mouse button has moved 6 logical pixels, it asks `item()` and, if there is one, calls `startDrag` on the `hermes_app/drag_out` channel. Swift checks that the button is still down and calls `beginDraggingSession(with:event:source:)` on the Flutter view with the remembered event.
+- A file goes out as an `NSFilePromiseProvider` (type: a UTI picked from the extension, `public.data` otherwise; name: the sanitized name). When the receiver asks, Swift calls `readFile` on Dart, which runs `DragOutFile.read` and returns the bytes (or fails the call), Swift writes them to the URL the receiver gave and reports `fileWritten`. Nothing is read at drag start.
+- Text goes out as an `NSPasteboardItem` with `public.utf8-plain-text` and `net.daringfireball.markdown`, both carrying the same string. It is first used by `mac-drag-out-text`.
+- The drag image is the file type's icon at the pointer. The session ends with `ended {copied}`.
+
+Not covered: a rich snapshot of the dragged widget as drag image, iOS/Android/Windows/Linux (non-goals), and multi-item drags.
 
 ### Interplay with desktop_drop
 
-Both plugins install themselves as drop destinations in the Flutter view on macOS. `desktop_drop` registers dragged types on a view above the Flutter view; `super_native_extensions` handles drag destinations through its own view and the drop side is only active when a `DropRegion` is in the tree. We use only the drag source side, so no `DropRegion` is added, and `desktop_drop` stays the only drop target. Starting a drag session does not need a destination.
-
-Unverified assumption: the two do not both claim the view's `registerForDraggedTypes`, which could break one of them. The spike has two checks: a Finder file still attaches in the chat after the plugin is added, and a drag out of the app works while `DropTarget` is mounted. If they conflict, switch the chat drop to `DropRegion` (small, because `AttachmentSource.dropTarget` is already an interface).
+`desktop_drop` registers a drag destination view for the chat. This change registers no drag destination at all: the controller only starts sessions. Dropping a Finder file on the chat is untouched. A drag started here can in principle be dropped back on the app's own `DropTarget`, which receives the promised file like any other; that is harmless.
 
 ### Interplay with the Kanban drag
 
-`Slidable` appears only in non-macOS rows, so it never shares a widget with drag-out. The Kanban card keeps `Draggable<KanbanTask>` for column moves; attachments in the task panel are not inside a card, and no card is made a native drag source. The native drag starts from a pointer-down recognizer of its own; the plugin's hit slop for desktop (raised in 0.9.0-dev.3) keeps a plain click or small move from starting a drag. The spike verifies a click on an attachment card, `SelectionArea` selection next to it and a Kanban card drag still behave.
+`Slidable` appears only in non-macOS rows, so it never shares a widget with drag-out. The Kanban card keeps `Draggable<KanbanTask>` for column moves; attachments in the task panel are not inside a card, and no card is made a native drag source. Because the starter listens to the pointer stream rather than joining the gesture arena, a tap, a `SelectionArea` selection beside it and a card drag are not competing with it; only the movement threshold starts a native drag.
 
 ### One drag-out layer
 
-`lib/src/drag_out/`:
+`lib/src/drag_out/` (all of it is what `mac-drag-out-text` builds on):
 
-- `DragOutItem`: sealed, a `name` (already sanitized) and either `DragOutText(text)` or `DragOutFile(name, read)` where `read` is `Future<Uint8List> Function()`, called only on drop. Nothing is fetched at drag start. `DragOutText` is defined here so the adapter is complete, and is first used by `mac-drag-out-text`.
-- `DragOutSource`: interface with `Widget wrap({required DragOutItem? Function() item, required DragOutKind kind, required Widget child})`. `PluginDragOutSource` implements it with `DragItemWidget` + `DraggableWidget`; `NoDragOutSource` returns the child. `PluginDragOutSource.supported` is `defaultTargetPlatform == macOS && !kIsWeb`.
-- Provided next to `AttachmentSource` in `main.dart`; widgets read `context.read<DragOutSource?>()` so Widgetbook and conversation windows pass none and see none. Conversation windows are separate engines that register few plugins (`MainFlutterWindow.swift`), so they do not register the plugin and get `NoDragOutSource`.
-- The adapter turns `DragOutFile` into `addVirtualFile`: it calls `read()`, writes the bytes to the sink (`sinkProvider(fileSize:)`), closes it, and reports progress. A thrown error closes the sink with an error and logs the event. Attachments are bounded by `kanbanAttachmentLimitBytes` (25 MB) and the media store's limits, so reading into memory is acceptable and matches `fetchKanbanAttachment`.
-- `sanitizeDragFileName(String, {String fallback, String extension})`: removes `/ \ : NUL` and control characters, strips leading dots and spaces, bounds the length at 120 characters, keeps the extension, and applies the fallback when empty. Unit tested including `../x`.
+- `DragOut(kind:, item:, child:)` is the widget to wrap with. It reads the `DragOutSource?` provider (`context.watch`, so a new connection's telemetry replaces the old) and returns `child` itself when there is none. `item` is called when a drag starts and may return null to cancel that drag.
+- `DragOutItem` is `DragOutFile(name:, read:)` (`read` is `Future<Uint8List> Function()`, called only on the drop) or `DragOutText(text)`. `DragOutKind` (`attachment`, `kanbanAttachment`) holds the slugs for telemetry: the text change adds `text` and `thread` to it, and `history` to `DragOutFailure`.
+- `DragOutSource.wrap({kind, item, child})` is the interface; `NoDragOutSource` returns the child; `MacDragOutSource` is the macOS implementation. `MacDragOutSource.supported` is the macOS gate and `main.dart` provides `null` elsewhere, so Widgetbook, conversation windows (separate engines that do not register the controller) and other platforms see no source.
+- `sanitizeDragFileName(String, {String fallback, String extension})`: removes `/ \ : NUL` and control characters, strips leading dots and spaces, bounds the length at 120 characters, keeps the extension, and applies the fallback when empty. `dragFileType(name)` maps an extension to a UTI.
+- Attachments are bounded by `kanbanAttachmentLimitBytes` (25 MB) and the media store's limits, so holding the bytes in memory while they cross the channel is acceptable and matches `fetchKanbanAttachment`.
+- Tests use `FakeDragOutSource` (`test/support/`), which records each wrap and lets a test call `item()` and `read()`. The catalog uses `CatalogDragOutSource` (`widgetbook/`), which shows a grab cursor and the file name on hover. `MacDragOutSource` is tested against a mocked channel and `DragOutTests.swift` tests the promises with a fake backend.
+- `DraggableAttachment` (chat) and `DraggableKanbanAttachment` (Kanban task panel) are the two wrappers; they sit around `AttachmentCard`/`AttachmentThumbnail` and the `ListTile` of a row without changing them.
+
+Deviation: a failed fetch on a drop is logged and ends the drop with no file, but the chat card does not show its "no longer available" notice. The drop happens in the receiver's time, and the card's notice lives in its own tap state; surfacing it would mean reaching into `AttachmentCard`, which `mac-quick-look` also changes.
 
 ### The two sources
 
-1. **Attachments.** In `AttachmentCard` and the image branch of `AttachmentThumbnail`, wrap the card. `read`: `bytes` if present, else `File(path).readAsBytes()`, else `MediaStore.file(fetchPath, name)` then read it. No source (relative `remotePath` only) gives `item() == null`, which cancels the drag. The tap/InkWell still gets the click because the plugin only claims a drag past the slop.
+1. **Attachments.** In `chat_builders.dart` the card and the thumbnail are wrapped in `DraggableAttachment`. `read`: `bytes` if present, else `File(path).readAsBytes()`, else `MediaStore.file(fetchPath, name)` then read it. No source (relative `remotePath` only) gives `item() == null`, which cancels the drag.
 2. **Kanban attachments.** `KanbanTaskAttachments` is a plain widget fed by callbacks, so the row takes an optional `onRead(KanbanAttachment)` future callback from the controller, wired to `downloadAttachment(id, board:)`. The row is wrapped when the callback is non-null; Widgetbook leaves it null.
 
 ### Affected platforms and native changes
 
-- macOS: required. No new entitlement, no Info.plist key, no change to `Release.entitlements`. Pods change from the new plugin (`macos/` Xcode files are rewritten on build; stage by name as CLAUDE.md says).
-- iOS, Android, Linux, Windows: the plugin links but is inert (`NoDragOutSource`). The spike measures build impact; if Android or Linux CI breaks or grows unacceptably, move to the fallback channel.
-- watchOS: unaffected.
+- macOS: required. A new Swift file in the Runner target (`pbxproj` entries added on purpose), one line in `MainFlutterWindow.awakeFromNib`, and `DragOutTests.swift` in `RunnerTests`. No new entitlement, no Info.plist key, no change to `Release.entitlements`, no new dependency.
+- iOS, Android, Linux, Windows: no source is provided, so nothing changes. watchOS: unaffected.
 
 ### Invariants touched
 
 - API layering: attachment reads go through `MediaSource`; Kanban bytes keep the hand-written `fetchKanbanAttachment`. No Dio calls in the drag layer, no generated client edit.
 - Auth: reads use the managed client, so refresh and the 401 rules are unchanged. A drop after sign-out fails the read and is logged as failed.
-- Telemetry must never break the app: logging in the adapter is wrapped in `safely`. If the plugin throws on a drag, the drag is dropped silently.
-- Tests use the real client against `FakeHermesServer`; only the plugin boundary (`DragOutSource`) is faked.
+- Telemetry must never break the app: logging in the adapter swallows its own errors. If the channel throws on a drag, the drag is dropped silently.
+- Tests use the real client against `FakeHermesServer`; only the platform boundary (`DragOutSource`) is faked.
 
 ### Observability
 
-- Breadcrumb `drag_out.started {kind}` in the adapter when the plugin's `dragItemProvider` returns an item. `Breadcrumbs` comes from context.
+- Breadcrumb `drag_out.started {kind}` in the adapter when Swift reports that a session began. `Breadcrumbs` comes from context.
 - Span `drag_out.promise {kind, hermes.* from the connection}` in the adapter around `read()`. Attributes carry kind and outcome only.
-- Log event `drag_out.completed {kind, outcome, failure}` through `AppEventLogger` after the sink is closed or the drop is cancelled.
+- Log event `drag_out.completed {kind, outcome, failure}` through `AppEventLogger` when the file was written, a read or write failed, or the session ended with no receiver.
 - None carries names, titles, text, ids, sizes or paths. A test asserts that the attributes of all three are in an allow-list.
 
 ## Risks / Trade-offs
 
-- Plugin staleness (16 months): isolated behind one interface; fallback is a small Swift channel.
-- Plugin conflicts with `desktop_drop` or Flutter version: spike first, no UI work before it passes.
-- Rust binary download on CI and offline builds: measured in the spike; CI must allow network for the plugin's binary download. If it cannot, the Rust toolchain is installed in the workflow.
+- The drag starts from the latest `NSEvent` the monitor saw, not from the event Dart reacted to. If the user releases the button between the two, no session starts (`startDrag` returns false) and the click stands. Real drags could not be driven in the build session; the hand checks are in the pull request.
+- Only one native drag session at a time; a second `startDrag` while one is active is refused.
 - Dragging a big attachment holds up to 25 MB in memory while it is written: accepted, same as Save.
-- A drop to a slow receiver that cancels mid-write: the sink is closed with an error; the partial file is the receiver's to remove.
+- A drop to a slow receiver that cancels mid-write: the receiver owns the partial file.
+- A promised file nobody asks for leaves one small entry in `MacDragOutSource` until the app restarts.
 
 ## Migration Plan
 
-None; no stored data. Rollback removes the plugin and the wraps. Merge this change before `mac-drag-out-text`.
+None; no stored data. Rollback removes the Swift file, its registration line and the wraps. Merge this change before `mac-drag-out-text`.
