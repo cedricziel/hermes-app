@@ -2273,6 +2273,22 @@ void main() {
       });
     });
 
+    test('a gateway without intent undoes without it', () async {
+      gateway.undoRejectsIntent = true;
+      gateway.undoRemoved = 2;
+
+      expect(await transport.undoLastTurn('stored-2', retry: true), 2);
+      expect(
+        gateway.requests
+            .where((r) => r['method'] == 'session.undo')
+            .map((r) => r['params']),
+        [
+          {'session_id': 'rt-2', 'intent': 'retry'},
+          {'session_id': 'rt-2'},
+        ],
+      );
+    });
+
     test('a gateway without session.undo reports null', () async {
       gateway.unknownMethods.add('session.undo');
 

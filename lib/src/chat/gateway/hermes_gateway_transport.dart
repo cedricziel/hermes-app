@@ -2446,14 +2446,24 @@ class HermesGatewayTransport implements ChatTransport {
   }) async {
     final client = await _client();
     final runtimeId = await _commandRuntime(client, threadId, profile);
-    try {
+    Future<int> undo({required bool withIntent}) async {
       final result = await _call(client, 'session.undo', {
         'session_id': runtimeId,
-        'intent': retry ? 'retry' : 'undo',
+        if (withIntent) 'intent': retry ? 'retry' : 'undo',
       });
       return (result['removed'] as num?)?.toInt() ?? 0;
+    }
+
+    try {
+      return await undo(withIntent: true);
     } on GatewayRpcException catch (error) {
       if (error.code == kGatewayMethodNotFound) return null;
+      // A gateway older than `intent` rejects the field; it undoes the same
+      // turn without it.
+      if (error.code == kGatewayInvalidParams &&
+          error.message.contains('intent')) {
+        return undo(withIntent: false);
+      }
       rethrow;
     }
   }

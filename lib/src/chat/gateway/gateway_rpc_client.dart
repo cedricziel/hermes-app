@@ -52,6 +52,10 @@ class GatewayServerRequest {
 /// the named profile does not exist (`ProfileUnavailableError` upstream).
 const kGatewayProfileUnavailable = 4064;
 
+/// The JSON-RPC error code the gateway answers a call with when its params do
+/// not fit the method's schema.
+const kGatewayInvalidParams = 4000;
+
 /// The JSON-RPC error code for a method the gateway does not have.
 const kGatewayMethodNotFound = -32601;
 

@@ -176,6 +176,10 @@ class FakeGateway {
   /// them answers.
   final unknownMethods = <String>{};
 
+  /// Whether `session.undo` rejects an `intent`, as a gateway that predates
+  /// it answers.
+  bool undoRejectsIntent = false;
+
   /// Attach calls that fail, by `<method> <file name>`: the JSON-RPC error
   /// code and message to answer with.
   final attachFailures = <String, (int, String)>{};
@@ -367,6 +371,18 @@ class FakeGateway {
         _send({
           'id': id,
           'error': {'code': -32601, 'message': 'unknown method'},
+        });
+      case 'session.undo'
+          when undoRejectsIntent &&
+              (request['params'] as Map).containsKey('intent'):
+        _send({
+          'id': id,
+          'error': {
+            'code': 4000,
+            'message':
+                'invalid params for session.undo: intent: Extra inputs are '
+                'not permitted',
+          },
         });
       case 'session.undo':
         _send({
