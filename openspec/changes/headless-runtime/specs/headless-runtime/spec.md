@@ -30,7 +30,7 @@ Headless work SHALL report to its caller one of four outcomes, so the caller can
 #### Scenario: Nobody signed in
 
 - **WHEN** no session is stored and background work runs
-- **THEN** the work ends without a request and reports signed out
+- **THEN** the work ends without a request that needs a session and reports signed out
 
 #### Scenario: Server unreachable
 

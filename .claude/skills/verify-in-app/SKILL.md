@@ -313,6 +313,21 @@ titles are empty and snippets gone, while counts and links stay. Sign out and
 the key reads `signedIn: false` with empty lists. It must never hold a token,
 the server address, or a command or question text.
 
+## Background work (iOS simulator)
+
+Code behind `withHeadlessHermes` (`lib/src/background/`) runs with no screen,
+often in a second Flutter engine, so there is nothing to look at: read the
+log. Start `scripts/dev-backend.sh`, build the app for the simulator
+(`flutter build ios --simulator -d <udid>`), sign in once, then call the work
+from a temporary debug-only hook (a second `FlutterEngine` running
+`prepareBackgroundIsolate` and a `withHeadlessHermes` read of the profiles,
+with `BackgroundPlugins.register(with:)` as its registrant) and read
+`xcrun simctl spawn <udid> log stream --predicate 'process == "Runner"'`.
+Check the run returns `HeadlessDone`, that tapping a notification afterwards
+opens the app once (a plugin registered in both engines would handle it twice),
+and that the app is still signed in. Remove the hook before committing. To
+see a refresh, start the dev backend with a short token lifetime and wait it out.
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against
