@@ -1375,7 +1375,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1405,7 +1405,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -1434,7 +1434,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.Complication;
+				PRODUCT_BUNDLE_IDENTIFIER = com.cedricziel.hermesApp.watchkitapp.widgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;

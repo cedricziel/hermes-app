@@ -13,7 +13,7 @@ The watch app only helps once the user opens it. A wrist glance should say wheth
 - The status covers every turn: replies sent from the phone, and turns sent from the watch (which run on the phone).
 - The Smart Stack widget raises its relevance while the turn waits for the user, and for ten minutes after a reply ends. A working or waiting status the phone has not renewed for 30 minutes is dropped, because a suspended phone app cannot say the turn ended.
 - While App Lock is on, the status carries the state only: no title and no thread id.
-- The App Group `group.com.cedricziel.hermesApp` is added to the watch app and the new extension. Signing for the new bundle ID (`com.cedricziel.hermesApp.watchkitapp.Complication`) is added to fastlane and the CI checks.
+- The App Group `group.com.cedricziel.hermesApp` is added to the watch app and the new extension. Signing for the new bundle ID (`com.cedricziel.hermesApp.watchkitapp.widgets`) is added to fastlane and the CI checks.
 
 Non-goals:
 
