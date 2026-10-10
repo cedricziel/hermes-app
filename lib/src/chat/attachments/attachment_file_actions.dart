@@ -4,11 +4,13 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../theme/hermes_theme.dart';
 import '../chat_models.dart';
 import '../media/media_source.dart';
 import '../media/media_store.dart';
 import '../media/quick_look.dart';
 import '../media/quick_look_telemetry.dart';
+import '../widgets/quick_look_target.dart';
 
 /// Whether [attachment] has a file to work with: the bytes the history
 /// embedded, the file the user picked, or a path Hermes can serve.
@@ -112,6 +114,35 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
     }
   }
 
+  /// Wraps [child] so that, on macOS, it is selected by a click, opened by
+  /// [onOpen] on a double-click, previewed with Space and offered the context
+  /// menu (see [QuickLookTarget]). Elsewhere it is [child].
+  Widget quickLookTarget({
+    required Widget child,
+    required VoidCallback? onOpen,
+  }) {
+    final available = attachmentHasFile(
+      attachment,
+      context.read<MediaStore?>(),
+    );
+    VoidCallback? preview(QuickLookTrigger trigger, {required bool toggle}) =>
+        !available
+        ? null
+        : () => useFile(
+            (store, file) =>
+                showInQuickLook(store, file, trigger: trigger, toggle: toggle),
+            preview: trigger,
+          );
+    return QuickLookTarget(
+      borderRadius: BorderRadius.circular(kHermesRadius),
+      onOpen: onOpen,
+      onToggle: preview(QuickLookTrigger.key, toggle: true),
+      onShow: preview(QuickLookTrigger.menu, toggle: false),
+      onSave: available ? () => useFile(saveToDevice) : null,
+      child: child,
+    );
+  }
+
   /// Hands [file] to the app the system has for its type.
   Future<void> openWithSystem(MediaStore store, File file) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -141,12 +172,7 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
   }) async {
     final messenger = ScaffoldMessenger.maybeOf(context);
     final telemetry = QuickLookTelemetry.of(context);
-    final outcome = toggle
-        ? await store.toggleQuickLook(file)
-        : await store.quickLook(file)
-        ? QuickLookToggle.shown
-        : QuickLookToggle.failed;
-    switch (outcome) {
+    switch (await store.showQuickLook(file, toggle: toggle)) {
       case QuickLookToggle.shown:
         telemetry.opened(QuickLookSource.chat, trigger);
       case QuickLookToggle.closed:

@@ -19,10 +19,6 @@ enum QuickLookToggle {
 /// The system's Quick Look panel, behind an interface so tests need no
 /// platform.
 abstract interface class QuickLook {
-  /// Whether this platform has a panel to show. When false, nothing in the
-  /// app offers a preview.
-  bool get available;
-
   /// Shows the file at [path], replacing what the panel shows if it is open.
   /// False when it could not be shown, for instance because the file is gone.
   Future<bool> preview(String path);
@@ -38,9 +34,6 @@ abstract interface class QuickLook {
 /// The Quick Look of platforms that have none, and of tests that do not care.
 class NoQuickLook implements QuickLook {
   const NoQuickLook();
-
-  @override
-  bool get available => false;
 
   @override
   Future<bool> preview(String path) async => false;
@@ -65,48 +58,33 @@ class MethodChannelQuickLook implements QuickLook {
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
-  @override
-  bool get available => supported;
-
-  @override
-  Future<bool> preview(String path) async {
+  /// What the panel answered, or null when it could not (a platform error, or
+  /// an engine that never installed the channel).
+  Future<Object?> _call(String method, [Map<String, String>? arguments]) async {
     try {
-      return await _channel.invokeMethod<bool>('preview', {'path': path}) ??
-          false;
+      return await _channel.invokeMethod<Object>(method, arguments);
     } on PlatformException {
-      return false;
+      return null;
     } on MissingPluginException {
-      return false;
+      return null;
     }
   }
 
   @override
-  Future<QuickLookToggle> toggle(String path) async {
-    try {
-      final answer = await _channel.invokeMethod<Object>('toggle', {
-        'path': path,
-      });
-      return switch (answer) {
+  Future<bool> preview(String path) async =>
+      await _call('preview', {'path': path}) == true;
+
+  @override
+  Future<QuickLookToggle> toggle(String path) async =>
+      switch (await _call('toggle', {'path': path})) {
         'shown' => QuickLookToggle.shown,
         'closed' => QuickLookToggle.closed,
         _ => QuickLookToggle.failed,
       };
-    } on PlatformException {
-      return QuickLookToggle.failed;
-    } on MissingPluginException {
-      return QuickLookToggle.failed;
-    }
-  }
 
   @override
   Future<void> close() async {
-    try {
-      await _channel.invokeMethod<void>('close');
-    } on PlatformException {
-      // Nothing to close.
-    } on MissingPluginException {
-      // Nothing to close.
-    }
+    await _call('close');
   }
 }
 

@@ -145,6 +145,8 @@ class _QuickLookTargetState extends State<QuickLookTarget> {
   Widget build(BuildContext context) {
     if (!quickLookTargetsAt(context)) return widget.child;
     return TapRegion(
+      // Only the selected target has anything to do on a click elsewhere.
+      enabled: _selected,
       onTapOutside: _outside,
       child: Focus(
         focusNode: _node,

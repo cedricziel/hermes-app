@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hermes_app/src/chat/media/media_source.dart';
 import 'package:hermes_app/src/chat/media/media_store.dart';
+import 'package:hermes_app/src/chat/media/quick_look.dart';
 
 import 'support/attachment_fixtures.dart';
 import 'support/fake_hermes_server.dart';
@@ -379,7 +380,10 @@ void main() {
       final opened = await store.file('/srv/report.pdf', 'report.pdf');
 
       final again = await store.file('/srv/report.pdf', 'report.pdf');
-      expect(await store.quickLook(again), isTrue);
+      expect(
+        await store.showQuickLook(again, toggle: false),
+        QuickLookToggle.shown,
+      );
 
       expect(downloads(), 1);
       expect(quickLook.shown, opened.path);
@@ -414,7 +418,7 @@ void main() {
   group('quick look', () {
     test('clear closes the panel', () async {
       final store = newStore();
-      await store.quickLook(File('${cache.path}/a.pdf'));
+      await store.showQuickLook(File('${cache.path}/a.pdf'), toggle: false);
 
       await store.clear();
 

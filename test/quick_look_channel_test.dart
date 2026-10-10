@@ -71,7 +71,6 @@ void main() {
 
   test('NoQuickLook shows nothing', () async {
     const none = NoQuickLook();
-    expect(none.available, isFalse);
     expect(await none.preview('/a'), isFalse);
     expect(await none.toggle('/a'), QuickLookToggle.failed);
   });
@@ -83,7 +82,6 @@ void main() {
     test('is the panel on macOS', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       expect(platformQuickLook(), isA<MethodChannelQuickLook>());
-      expect(platformQuickLook().available, isTrue);
     });
 
     for (final platform in [

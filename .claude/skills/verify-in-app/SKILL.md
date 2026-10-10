@@ -771,10 +771,11 @@ hand when it does.
   card dragged between columns still moves and starts no Finder drag.
 - Drag a file from Finder onto the chat: it still attaches (the drop side is
   `desktop_drop`).
-- A click on a card still opens it, text beside a card can still be selected,
-  and the window still drags by its toolbar.
-- After a drag-out (delivered or cancelled) the next click on a card opens it,
-  hover works again and no selection keeps growing: the session swallows the
+- A click on a card still selects it and a double-click opens it (see Verify
+  Quick Look), text beside a card can still be selected, and the window still
+  drags by its toolbar.
+- After a drag-out (delivered or cancelled) the next click on a card selects it
+  and a double-click opens it, hover works again and no selection keeps growing: the session swallows the
   real button up, so the controller posts a synthetic one.
 - Release a drag over the app's own window: nothing is attached to the
   composer and the drag snaps back.
@@ -797,3 +798,38 @@ hand when it does.
   still work.
 - Stop the backend and drag a chat: no file appears, and with telemetry on a
   `drag_out.completed` event says `kind: thread`, `failure: history`.
+
+## Verify Quick Look (macOS)
+
+Seed the isolated backend with a chat whose reply names an image, a PDF and a
+text file (a `MEDIA:` or absolute path under the throwaway home) and a Kanban
+task with an attachment. The panel is the system's `QLPreviewPanel`, so check
+it on the real window; a widget test only reaches the fake.
+
+- Click a file card: it gets an outline and a fill and nothing opens. Click the
+  composer: the selection ends and a typed space is a space. Click the empty
+  chat background: the selection ends.
+- Double-click the card: "Downloading…", then the file opens in its app. Click
+  an image thumbnail once: selected; double-click: the full-screen viewer.
+- Select a card, press Space: the panel opens on the file (image, PDF and text
+  all render). Space again with the main window key, Space or Escape with the
+  panel key, and its close button each close it, and the window that asked is
+  key again. Hold Space: one toggle.
+- With the panel open, select another card and press Space: the panel swaps to
+  that file.
+- Secondary-click a card: it is selected and the menu offers Quick Look, Open,
+  Save… in that order. Quick Look shows the panel; it does not toggle it shut.
+- Do the same on a Kanban task attachment row in the inspector: double-click
+  opens, Space and the menu preview, Save still opens the dialog. Open the same
+  file twice: the second time makes no request (`GET
+  /api/plugins/kanban/attachments/{id}` once in the dev backend's log).
+- Delete the file on the server and press Space: no panel, "This file is no
+  longer available." on the card, and Space tries again.
+- Open the chat in a conversation window (Open in New Window) and repeat Space
+  there: the panel opens over that window.
+- Sign out with the panel open: it closes and `hermes_media` in the app's
+  container cache is gone.
+- Drag a card out to the Desktop: nothing opens and the card ends up selected;
+  the next double-click still opens it.
+- Relaunch after leaving a file in the cache for more than a day (set its mtime
+  back with `touch -t`): it is gone after launch.

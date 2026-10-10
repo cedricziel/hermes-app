@@ -166,15 +166,17 @@ class MediaStore {
     }
   }
 
-  /// Whether the platform has a Quick Look panel.
-  bool get quickLookAvailable => _quickLook.available;
-
-  /// Shows [file] in the Quick Look panel; false when it could not.
-  Future<bool> quickLook(File file) => _quickLook.preview(file.path);
-
-  /// Closes the panel when it shows [file], else shows it.
-  Future<QuickLookToggle> toggleQuickLook(File file) =>
-      _quickLook.toggle(file.path);
+  /// Shows [file] in the Quick Look panel. With [toggle] the panel closes
+  /// instead when it already shows [file].
+  Future<QuickLookToggle> showQuickLook(
+    File file, {
+    required bool toggle,
+  }) async {
+    if (toggle) return _quickLook.toggle(file.path);
+    return await _quickLook.preview(file.path)
+        ? QuickLookToggle.shown
+        : QuickLookToggle.failed;
+  }
 
   Future<bool> open(File file) => _actions.open(file.path);
 

@@ -68,31 +68,11 @@ class KanbanTaskAttachments extends StatelessWidget {
             onQuickLook: onQuickLook,
             onToggleQuickLook: onToggleQuickLook,
             onDownload: onDownload,
-            child: ListTile(
-              dense: true,
-              contentPadding: quickLookTargetsAt(context)
-                  ? const EdgeInsets.symmetric(horizontal: 8)
-                  : EdgeInsets.zero,
-              leading: const AppIcon(AppIcons.attach),
-              title: Text(a.filename),
-              subtitle: Text(kanbanFileSize(a.size)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  NamedIconButton(
-                    label: 'Save ${a.filename}',
-                    tooltip: 'Save attachment',
-                    icon: AppIcons.download,
-                    onPressed: transferring ? null : () => onDownload(a),
-                  ),
-                  NamedIconButton(
-                    label: 'Remove ${a.filename}',
-                    tooltip: 'Remove attachment',
-                    icon: AppIcons.close,
-                    onPressed: transferring ? null : () => onRemove(a),
-                  ),
-                ],
-              ),
+            child: KanbanAttachmentRow(
+              attachment: a,
+              transferring: transferring,
+              onDownload: onDownload,
+              onRemove: onRemove,
             ),
           ),
         ),
@@ -105,6 +85,52 @@ class KanbanTaskAttachments extends StatelessWidget {
         ),
       ),
     ],
+  );
+}
+
+/// One attachment of a task: its name and size, with buttons to save and
+/// remove it. The buttons are off while a transfer runs.
+class KanbanAttachmentRow extends StatelessWidget {
+  const KanbanAttachmentRow({
+    super.key,
+    required this.attachment,
+    required this.onDownload,
+    required this.onRemove,
+    this.transferring = false,
+  });
+
+  final KanbanAttachment attachment;
+  final bool transferring;
+  final ValueChanged<KanbanAttachment> onDownload;
+  final ValueChanged<KanbanAttachment> onRemove;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    // Room for the outline of a selected row on macOS.
+    contentPadding: quickLookTargetsAt(context)
+        ? const EdgeInsets.symmetric(horizontal: 8)
+        : EdgeInsets.zero,
+    leading: const AppIcon(AppIcons.attach),
+    title: Text(attachment.filename),
+    subtitle: Text(kanbanFileSize(attachment.size)),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NamedIconButton(
+          label: 'Save ${attachment.filename}',
+          tooltip: 'Save attachment',
+          icon: AppIcons.download,
+          onPressed: transferring ? null : () => onDownload(attachment),
+        ),
+        NamedIconButton(
+          label: 'Remove ${attachment.filename}',
+          tooltip: 'Remove attachment',
+          icon: AppIcons.close,
+          onPressed: transferring ? null : () => onRemove(attachment),
+        ),
+      ],
+    ),
   );
 }
 
@@ -137,11 +163,7 @@ class _QuickLookRow extends StatelessWidget {
     borderRadius: BorderRadius.circular(8),
     onOpen: _bind(onOpen),
     onShow: _bind(onQuickLook),
-    onToggle: onToggleQuickLook == null
-        ? null
-        : () {
-            if (!transferring) onToggleQuickLook!(attachment);
-          },
+    onToggle: _bind(onToggleQuickLook),
     onSave: _bind(onDownload),
     child: child,
   );

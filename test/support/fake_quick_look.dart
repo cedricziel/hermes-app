@@ -2,10 +2,7 @@ import 'package:hermes_app/src/chat/media/quick_look.dart';
 
 /// Stands in for the Quick Look panel: remembers what it was asked to show.
 class FakeQuickLook implements QuickLook {
-  FakeQuickLook({this.available = true, this.shows = true});
-
-  @override
-  bool available;
+  FakeQuickLook({this.shows = true});
 
   /// Whether the panel manages to show a file.
   bool shows;

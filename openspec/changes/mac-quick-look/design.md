@@ -34,11 +34,11 @@ Apple's recommended route is `acceptsPreviewPanelControl`/`beginPreviewPanelCont
 Channel `hermes_app/quick_look`:
 
 - `preview({path})` -> `true` once the panel is ordered front, `false` when the file is gone. Replaces the item if the panel is open.
-- `toggle({path})` -> `"closed"` when the panel was visible on the same file URL and is now closed, `"shown"` after showing or replacing the item, `false` when the file is gone. Space uses it; the menu's Quick Look uses `preview`.
+- `toggle({path})` -> `"closed"` when the panel was visible on the same file URL and is now closed, `"shown"` after showing or replacing the item, `false` when the file is gone. Space uses it; the menu's Quick Look uses `preview`. (Dart maps these to `QuickLookToggle.closed`, `.shown` and `.failed`, so a caller can tell a failure from a close.)
 - `close()` -> closes the panel if it is ours. Called on sign-out.
 - `closed` (native -> Dart) is not needed: Dart holds no state that depends on the panel being open, so there is no event stream. Focus return comes from AppKit (the panel's previous key window becomes key again).
 
-The singleton is created once; `AppDelegate` installs it on the main engine's messenger and `ConversationWindow.registerPlugins` installs a channel handler on the conversation engine's messenger that forwards to the same singleton. Both engines get the Dart `MacQuickLook` implementation; the iOS/other implementation is a `NoQuickLook` that reports `available == false`. The source file `macos/Runner/QuickLookPanel.swift` needs an Xcode reference like `WebAuthSession.swift` (a `PBXFileReference`, a `PBXBuildFile` and the Runner group and Sources entries).
+The singleton is created once; `QuickLookPanel.register(messenger:)` installs a channel handler that forwards to it, one line in `MainFlutterWindow.awakeFromNib` for the main engine and one in `ConversationWindow.attach` for each conversation engine (the quick panel's engine is a conversation engine first, so it gets it too). Both engines get the Dart `MacQuickLook` implementation; the iOS/other implementation is a `NoQuickLook` that reports `available == false`. The source file `macos/Runner/QuickLookPanel.swift` needs an Xcode reference like `WebAuthSession.swift` (a `PBXFileReference`, a `PBXBuildFile` and the Runner group and Sources entries).
 
 Sandbox: `QLPreviewPanel` runs in-process and previews run in system extensions the OS grants read access to the item URL; a file in the app container's Caches is readable. No entitlement or Info.plist change. A file elsewhere (a picked file at its original path) might not be, so those are copied into the cache first.
 
@@ -50,7 +50,7 @@ Sandbox: `QLPreviewPanel` runs in-process and previews run in system extensions 
 abstract interface class QuickLook {
   bool get available;                    // false off macOS
   Future<bool> preview(String path);     // false: could not show
-  Future<bool> toggle(String path);      // true: now shown; false: closed or could not show
+  Future<QuickLookToggle> toggle(String path); // shown, closed or failed
   Future<void> close();
 }
 ```
@@ -58,7 +58,7 @@ abstract interface class QuickLook {
 `MethodChannelQuickLook` implements it for macOS; `NoQuickLook` elsewhere and in tests that do not care. `MediaStore` takes a `QuickLook` next to `MediaActions` and adds:
 
 - `Future<bool> quickLook(File file)` -> `_quickLook.preview(file.path)`.
-- `Future<File> stage(String key, String name, Future<Uint8List> Function() fetch)`: the body of `file()` with the source call replaced by `fetch`. `file(path, name)` becomes `stage(path, name, () => _source.file(path))`. Kanban uses key `kanban:<board>:<attachmentId>` and `() => repository.downloadAttachment(id, board:)`, so it shares the hashed folder, `_safeName`, in-flight deduplication, generation check on `clear()` and write-aside rename. Local sources use `stageBytes(key, name, bytes)` (bytes the history embedded) and `stageCopy(key, name, File)` (a picked file), keyed by their content-independent identity (`local:<path>`).
+- `Future<File> stage(String key, String name, Future<Uint8List> Function() fetch)`: the body of `file()` with the source call replaced by `fetch`. `file(path, name)` becomes `stage(path, name, () => _source.file(path))`. Kanban uses key `kanban:<board>:<attachmentId>` and `() => repository.downloadAttachment(id, board:)`, so it shares the hashed folder, `_safeName`, in-flight deduplication, generation check on `clear()` and write-aside rename. Local sources use `stageBytes(key, name, bytes)` (bytes the history embedded, keyed by their hash) and `stageCopy(name, File)` (a picked file, keyed by its path, size and modification time, so a changed file is copied again). An error the fetch throws reaches the caller as it is (Kanban needs its own `KanbanException`); a failure to write the file is `MediaFetchException(failed)`.
 - `Future<void> sweep(Duration maxAge)`: deletes entries under the media folder whose modified time is older than `maxAge`. Called once at construction time in `main.dart` after the store is created, not awaited, failures swallowed (`_quietly`). Sign-out `clear()` also calls `quickLook.close()`.
 
 Alternative considered: a second cache for Kanban in the repository. Rejected, it would copy the name sanitizing and the clear-on-sign-out wiring.
@@ -67,17 +67,17 @@ Alternative considered: a second cache for Kanban in the repository. Rejected, i
 
 A selected attachment is a focused attachment. Flutter already has this model, so no selection controller is added. Each `QuickLookTarget` owns one `FocusNode`; `hasFocus` is the selected state. At most one is selected because only one node is primary focus, and selecting a text field (the composer) or another target ends it.
 
-- `AttachmentCard`, `AttachmentThumbnail` and each Kanban attachment row are wrapped in a `QuickLookTarget` (`lib/src/chat/widgets/quick_look_target.dart`, a plain widget with `onOpen`, `onPreview`, `enabled`, `child`, and an optional `menuItems` builder). On macOS it is a `Focus` (`canRequestFocus: true`, `skipTraversal: false`) around a `Listener` and `GestureDetector`.
-- Pointer down (primary or secondary button) requests focus at once, so selection does not wait for the double-tap timeout. `GestureDetector.onDoubleTap` calls `onOpen`; there is no `onTap`, so a single click only selects. The secondary tap opens the context menu with `AdaptiveMenuController.open(at:)`.
+- `AttachmentCard`, `AttachmentThumbnail` and each Kanban attachment row are wrapped in a `QuickLookTarget` (`lib/src/chat/widgets/quick_look_target.dart`, a plain widget with `onOpen`, `onToggle` for Space, `onShow` and `onSave` for the menu, `borderRadius` and `child`; `QuickLookSelectionFrame` draws the selection so the catalog can show it without a focus). On macOS it is a `Focus` (`canRequestFocus: true`, `skipTraversal: false`) around a `RawGestureDetector` with one custom recognizer, `_ClickRecognizer`. A `GestureDetector.onDoubleTap` was rejected: it holds the gesture arena for the double-tap timeout, which would delay a Save button inside the row by 300 ms, and it counts the synthetic mouse up that `DragOut.swift` posts after a drag as a tap.
+- `_ClickRecognizer` never claims a gesture and holds no arena. Pointer down (primary or secondary button) requests focus at once, so selection does not wait for anything. On release it counts a click only when it won the arena by default (nothing else, such as an inner button, took the press) and the pointer moved less than `dragOutSlop` (the same distance after which a drag-out starts, so a drag never counts as a click, nor as the half of a double-click). Two primary clicks within `kDoubleTapTimeout` and `kDoubleTapSlop` call `onOpen`; a single click only selects. The secondary click opens the context menu with `AdaptiveMenuController.open(at:)` on a zero-size `AdaptivePopupMenuButton` anchor inside the target.
 - The surfaces stop opening on tap on macOS: `AttachmentCard`, `AttachmentThumbnail` and the Kanban row pass their old tap action to the target as `onOpen` and drop their own `onTap`/`InkWell` activation there. Off macOS the target returns `child` unchanged and the old tap stays.
 - Keyboard: Enter or numpad Enter on the selected target calls `onOpen`, replacing the activation `InkWell` gave. Accessibility: the target exposes a semantics tap action wired to `onOpen`, so VoiceOver activation still opens.
-- Deselecting: a `TapRegion` with `onTapOutside` unfocuses the target when it has focus, so a click on the chat background clears the selection as in Finder. Moving focus by Tab also clears it.
+- Deselecting: a `TapRegion` with `onTapOutside` unfocuses the target when it has focus (unless a menu or dialog is the current route, so choosing from the context menu keeps the selection; the unfocus runs in a microtask so a press on another target, which requests focus in the same event, wins), so a click on the chat background clears the selection as in Finder. Moving focus by Tab also clears it. While a menu or dialog covers the target and takes the focus, the outline stays; it ends when the focus does not come back.
 - Visual state: selected shows a 2 px outline in `colorScheme.primary` plus an 8% primary fill, with the surface's corner radius. Hover shows nothing extra and never selects. Loading while selected keeps the outline; the surface's own loading indicator is added to it.
 - The Kanban row had no click action; a double-click now runs the new Open (stage, then `MediaStore.open`), the same as the menu item.
 
 ### Keyboard handling
 
-`onKeyEvent` on the target's `Focus` runs only while that node is the primary focus or an ancestor of it, so it never sees keys typed into the composer (the `EditableText` is the primary focus there and consumes Space). Rules:
+`onKeyEvent` on the target's `Focus` acts only while that node itself is the primary focus (`hasPrimaryFocus`): a control inside the row (a Save button) that holds the focus keeps Space and Enter for itself, and the composer's `EditableText`, which is not below the target, never reaches it. Rules:
 
 - Act on `KeyDownEvent` for `LogicalKeyboardKey.space` with no Meta, Control or Alt (Shift is allowed, Finder treats Shift-Space the same). Ignore `KeyRepeatEvent` and `KeyUpEvent`. Return `KeyEventResult.handled` so the list does not scroll on Space and the key does not fall to the menu bar.
 - Space toggles. The target stages the file (a cache hit makes no request when it was shown or opened before) and calls the channel's `toggle`: if the panel is visible on that same file it closes, otherwise it shows or replaces the item.
@@ -94,7 +94,7 @@ A selected attachment is a focused attachment. Flutter already has this model, s
 Chat card: `_use` already sets `_busy`, shows "Downloading…" and maps `MediaFetchException` to the card's notice. Quick Look is a third continuation next to `_openFile` and `_saveFile`, and double-click runs `_openFile`:
 `_quickLookFile(store, file) => store.quickLook(file)` (`store.toggleQuickLook` for Space); a failed show shows the snackbar "Quick Look couldn't preview this file." For an attachment with `bytes` or a local `path`, the continuation is reached through `stageBytes`/`stageCopy` instead of `store.file`. `AttachmentThumbnail` gains the same path; while it runs it shows the existing `_ThumbnailPlaceholder` is not used (the picture is already on screen), so a 2 px `LinearProgressIndicator` along the thumbnail's bottom edge shows the wait. A thumbnail's image bytes are in `MediaStore`'s memory cache only, so preview downloads the file again through `file()`; it is cached afterwards. Acceptable because it happens on demand and images are capped by the server at 25 MB.
 
-Kanban: `KanbanTaskController` gains `Future<bool> preview(KanbanAttachment, {bool toggle})` and `open(KanbanAttachment)` that sets `transferring` (the busy bar and disabled buttons already exist), stages the file through `MediaStore.stage` and calls `quickLook`. The controller gets `MediaStore` and `QuickLook` through its constructor, defaulting to the provider values in `KanbanTaskPanel` (`context.read<MediaStore?>()`); with no store the row's Quick Look is disabled. Errors use `KanbanException`, shown on the panel's existing error line.
+Kanban: `KanbanTaskController` gains `Future<bool> preview(KanbanAttachment, {trigger, bool toggle})` and `open(KanbanAttachment)` that sets `transferring` (the busy bar and disabled buttons already exist), stages the file through `MediaStore.stage` and calls `quickLook`. The controller gets `MediaStore` and `QuickLook` through its constructor, defaulting to the provider values in `KanbanTaskPanel` (`context.read<MediaStore?>()`); with no store the row's Quick Look is disabled. Errors use `KanbanException`, shown on the panel's existing error line.
 
 A press while a request is running is ignored (`_busy` / `transferring`), which is what makes holding Space safe in addition to the key-repeat filter.
 
@@ -102,7 +102,7 @@ Late completion: after the download, the continuation checks `mounted` (chat) or
 
 ### Context menu
 
-`AdaptiveMenuItem`s built by `QuickLookTarget`'s `menuItems` builder: Quick Look (trailing shortcut text `Space`), Open (trailing text `Double-click`), Save…. The secondary click selects the target first. Kanban rows get an Open continuation that stages the file and calls `MediaStore.open` as the chat card does. Menu items act through `onTap` per the existing `AdaptiveMenuItem` convention. The menu is macOS only; other platforms keep their current controls.
+`AdaptiveMenuItem`s built inside `QuickLookTarget` from its `onShow`, `onOpen` and `onSave` callbacks (null disables the item): Quick Look (trailing shortcut text `Space`), Open (trailing text `Double-click`), Save…. The secondary click selects the target first. Kanban rows get an Open continuation that stages the file and calls `MediaStore.open` as the chat card does. Menu items act through `onTap` per the existing `AdaptiveMenuItem` convention. The menu is macOS only; other platforms keep their current controls.
 
 ### Platforms
 

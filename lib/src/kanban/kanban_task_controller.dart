@@ -340,12 +340,7 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
         throw const KanbanException('Could not download the attachment.');
       }
       if (disposed) return false;
-      final outcome = toggle
-          ? await store.toggleQuickLook(file)
-          : await store.quickLook(file)
-          ? QuickLookToggle.shown
-          : QuickLookToggle.failed;
-      switch (outcome) {
+      switch (await store.showQuickLook(file, toggle: toggle)) {
         case QuickLookToggle.shown:
           telemetry.opened(QuickLookSource.kanban, trigger);
           return true;

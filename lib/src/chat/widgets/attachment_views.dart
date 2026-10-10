@@ -11,7 +11,6 @@ import '../attachments/attachment_file_actions.dart';
 import '../chat_models.dart';
 import '../media/media_source.dart';
 import '../media/media_store.dart';
-import '../media/quick_look_telemetry.dart';
 import 'image_viewer.dart';
 import 'quick_look_target.dart';
 
@@ -117,7 +116,7 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
     if (_loading) return const _ThumbnailPlaceholder();
     final failure = _failure;
     if (failure != null) {
-      return _CardFrame(
+      return AttachmentCardFrame(
         attachment: _attachment,
         notice: mediaFailureMessage(failure),
         noticeIsError: true,
@@ -132,72 +131,18 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
         ? FileImage(File(path))
         : null;
     if (provider == null) return card;
-    final macTarget = quickLookTargetsAt(context);
-    final available = attachmentHasFile(
-      _attachment,
-      context.read<MediaStore?>(),
-    );
-    return QuickLookTarget(
-      borderRadius: BorderRadius.circular(kHermesRadius),
+    return quickLookTarget(
       onOpen: () => _open(provider, bytes),
-      onToggle: available
-          ? () => useFile(
-              (store, file) => showInQuickLook(
-                store,
-                file,
-                trigger: QuickLookTrigger.key,
-                toggle: true,
-              ),
-              preview: QuickLookTrigger.key,
-            )
-          : null,
-      onShow: available
-          ? () => useFile(
-              (store, file) => showInQuickLook(
-                store,
-                file,
-                trigger: QuickLookTrigger.menu,
-                toggle: false,
-              ),
-              preview: QuickLookTrigger.menu,
-            )
-          : null,
-      onSave: available ? () => useFile(saveToDevice) : null,
       child: GestureDetector(
         // On a Mac a click selects; opening is the double-click.
-        onTap: macTarget ? null : () => _open(provider, bytes),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(kHermesRadius),
-          child: Stack(
-            alignment: Alignment.bottomCenter,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: _thumbnailSize,
-                  maxHeight: _thumbnailSize,
-                ),
-                child: Image(
-                  // A photo can weigh 25 MB; decode it at the size it is shown.
-                  image: ResizeImage.resizeIfNeeded(
-                    (_thumbnailSize * MediaQuery.devicePixelRatioOf(context))
-                        .round(),
-                    null,
-                    provider,
-                  ),
-                  semanticLabel: _attachment.name,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => card,
-                ),
-              ),
-              if (busy)
-                const Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-            ],
-          ),
+        onTap: quickLookTargetsAt(context)
+            ? null
+            : () => _open(provider, bytes),
+        child: ImageThumbnailView(
+          image: provider,
+          name: _attachment.name,
+          loading: busy,
+          fallback: card,
         ),
       ),
     );
@@ -222,6 +167,58 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
       ),
     );
   }
+}
+
+/// The picture of an image attachment, scaled down to at most 240 logical
+/// pixels, with a thin progress bar along its bottom edge while [loading] a
+/// request for its file runs. [fallback] shows when [image] cannot be drawn.
+class ImageThumbnailView extends StatelessWidget {
+  const ImageThumbnailView({
+    super.key,
+    required this.image,
+    required this.name,
+    this.loading = false,
+    this.fallback,
+  });
+
+  final ImageProvider image;
+  final String name;
+  final bool loading;
+  final Widget? fallback;
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(kHermesRadius),
+    child: Stack(
+      alignment: Alignment.bottomCenter,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: _thumbnailSize,
+            maxHeight: _thumbnailSize,
+          ),
+          child: Image(
+            // A photo can weigh 25 MB; decode it at the size it is shown.
+            image: ResizeImage.resizeIfNeeded(
+              (_thumbnailSize * MediaQuery.devicePixelRatioOf(context)).round(),
+              null,
+              image,
+            ),
+            semanticLabel: name,
+            fit: BoxFit.cover,
+            errorBuilder: fallback == null ? null : (_, _, _) => fallback!,
+          ),
+        ),
+        if (loading)
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+      ],
+    ),
+  );
 }
 
 class _ThumbnailPlaceholder extends StatelessWidget {
@@ -277,36 +274,11 @@ class _AttachmentCardState extends State<AttachmentCard>
     final downloadable = attachment.fetchPath != null && store != null;
     // On a Mac any file the chat can make is Finder-like: it can be
     // previewed, opened and saved; elsewhere only a server file can.
-    final macTarget = quickLookTargetsAt(context);
     final available = attachmentHasFile(attachment, store);
     final failure = _failure;
-    return QuickLookTarget(
-      borderRadius: BorderRadius.circular(kHermesRadius),
+    return quickLookTarget(
       onOpen: available ? () => useFile(openWithSystem) : null,
-      onToggle: available
-          ? () => useFile(
-              (store, file) => showInQuickLook(
-                store,
-                file,
-                trigger: QuickLookTrigger.key,
-                toggle: true,
-              ),
-              preview: QuickLookTrigger.key,
-            )
-          : null,
-      onShow: available
-          ? () => useFile(
-              (store, file) => showInQuickLook(
-                store,
-                file,
-                trigger: QuickLookTrigger.menu,
-                toggle: false,
-              ),
-              preview: QuickLookTrigger.menu,
-            )
-          : null,
-      onSave: available ? () => useFile(saveToDevice) : null,
-      child: _CardFrame(
+      child: AttachmentCardFrame(
         attachment: attachment,
         notice: busy
             ? 'Downloading…'
@@ -315,7 +287,7 @@ class _AttachmentCardState extends State<AttachmentCard>
             : mediaFailureMessage(failure),
         noticeIsError: !busy && failure != null,
         // On a Mac a click selects; opening is the double-click.
-        onTap: !macTarget && downloadable && !busy
+        onTap: !quickLookTargetsAt(context) && downloadable && !busy
             ? () => useFile(openWithSystem)
             : null,
         trailing: !downloadable
@@ -340,8 +312,9 @@ class _AttachmentCardState extends State<AttachmentCard>
 
 /// The look of a file card: an icon, the name, and under it a [notice] or the
 /// size.
-class _CardFrame extends StatelessWidget {
-  const _CardFrame({
+class AttachmentCardFrame extends StatelessWidget {
+  const AttachmentCardFrame({
+    super.key,
     required this.attachment,
     this.notice,
     this.noticeIsError = false,
