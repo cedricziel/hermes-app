@@ -297,6 +297,7 @@ Future<void> main([List<String> args = const []]) async {
               store: store,
               appLock: context.read<AppLockController>(),
               signedOut: context.read<AuthController>().signedOut,
+              events: telemetry.events(),
             )..start();
           },
           dispose: (_, indexer) => indexer?.dispose(),
