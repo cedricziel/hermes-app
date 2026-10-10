@@ -34,11 +34,12 @@ struct CachingClient: HermesClient {
     return messages
   }
 
-  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+  func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
     let result = try await forgettingOnSignOut {
-      try await inner.send(threadId: threadId, text: text, sendId: sendId)
+      try await inner.send(threadId: threadId, text: text, sendId: sendId, retry: retry)
     }
-    if !result.failed, let boundId = result.threadId ?? threadId {
+    // A waiting answer is no turn yet; the final one is saved once.
+    if !result.failed, result.waiting == nil, let boundId = result.threadId ?? threadId {
       let turn = [
         ChatMessage(id: "local-\(sendId)", role: .user, content: text, at: Date()),
         ChatMessage(id: "local-\(sendId)-reply", role: .assistant, content: result.text, at: Date(), tools: result.tools),

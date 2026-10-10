@@ -83,6 +83,14 @@ final class CachingClientTests: XCTestCase {
     client = CachingClient(inner: inner, cache: cache)
   }
 
+  func testAWaitingAnswerIsNotSavedAsATurn() async throws {
+    inner.sendResult = .success(SendResult(threadId: "w/s1", text: "", failed: false, waiting: .approval))
+
+    _ = try await client.send(threadId: "w/s1", text: "Clean up", sendId: "m1")
+
+    XCTAssertNil(cache.savedMessages["w/s1"])
+  }
+
   func testTheListIsSavedAndReplacedByThePhonesAnswer() async {
     cache.savedThreads = [thread]
     let fresh = ThreadSummary(id: "w/s2", title: "New", updatedAt: nil, pinned: false)

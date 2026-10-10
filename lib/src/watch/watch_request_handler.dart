@@ -114,6 +114,7 @@ class WatchRequestHandler {
           request['sendId'],
           request['threadId'],
           request['text'],
+          retry: request['retry'] == true,
         ),
         'transcribe' => await _transcribe(
           request['audio'],
@@ -236,11 +237,17 @@ class WatchRequestHandler {
   ///
   /// A send that waits on the user answers early with `waiting`, and the
   /// watch retries to keep waiting: see [_poll].
+  ///
+  /// A [retry] is the watch asking again about a send that answered
+  /// `waiting`. When this phone app no longer knows it, as after iOS ended
+  /// the app meanwhile, the chat is read instead: sending it again would give
+  /// the agent the prompt twice.
   Future<Map<String, Object?>> _sendOnce(
     Object? id,
     Object? threadId,
-    Object? text,
-  ) async {
+    Object? text, {
+    bool retry = false,
+  }) async {
     if (id is! String || id.isEmpty) {
       final attempt = _SendAttempt();
       return attempt.reply = _send(threadId, text, attempt);
@@ -250,6 +257,14 @@ class WatchRequestHandler {
       if (!earlier.finished || reply['ok'] == true) return reply;
       if (earlier.reached) return _afterLostReply(earlier);
       _sends.remove(id);
+    } else if (retry) {
+      final thread = _unbind(threadId);
+      if (thread == null) return _error('failed');
+      return _afterLostReply(
+        _SendAttempt()
+          ..profile = thread.profile
+          ..threadId = thread.id,
+      );
     }
     final attempt = _SendAttempt();
     attempt.reply = _send(

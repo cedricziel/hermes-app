@@ -1214,6 +1214,48 @@ void main() {
       expect((await retry)['text'], 'Done.');
     });
 
+    test(
+      'a retry the phone has forgotten reads the chat instead of sending',
+      () async {
+        server.on(
+          'GET',
+          '/api/sessions/new-1/messages',
+          messageListBody('new-1', [
+            messageRow(id: 1, role: 'user', content: 'Clean up'),
+            messageRow(id: 2, role: 'assistant', content: 'Done.'),
+          ]),
+        );
+
+        final reply = await handler.handle({
+          'op': 'send',
+          'text': 'Clean up',
+          'sendId': 'gone',
+          'threadId': '/new-1',
+          'retry': true,
+        });
+
+        expect(reply, {
+          'ok': true,
+          'threadId': '/new-1',
+          'text': 'Done.',
+          'failed': false,
+        });
+        expect(transport.sends, isEmpty);
+      },
+    );
+
+    test('a forgotten retry without a chat is not sent again', () async {
+      final reply = await handler.handle({
+        'op': 'send',
+        'text': 'Clean up',
+        'sendId': 'gone',
+        'retry': true,
+      });
+
+      expect(reply, {'ok': false, 'error': 'failed'});
+      expect(transport.sends, isEmpty);
+    });
+
     test('does not pass on what was asked for', () async {
       final pending = send();
       await pumpEventQueue();

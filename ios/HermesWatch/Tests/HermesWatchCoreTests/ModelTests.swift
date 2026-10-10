@@ -11,13 +11,13 @@ final class FakeClient: HermesClient {
   /// Called with each send before it is answered.
   var onSend: () -> Void = {}
   var transcribeResult: Result<String, Error> = .success("")
-  private(set) var sends: [(threadId: String?, text: String, sendId: String)] = []
+  private(set) var sends: [(threadId: String?, text: String, sendId: String, retry: Bool)] = []
   private(set) var transcribed: [(audio: Data, mimeType: String)] = []
 
   func threads() async throws -> [ThreadSummary] { try threadsResult.get() }
   func messages(threadId: String) async throws -> [ChatMessage] { try messagesResult.get() }
-  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
-    sends.append((threadId, text, sendId))
+  func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
+    sends.append((threadId, text, sendId, retry))
     onSend()
     return try (sendResults.isEmpty ? sendResult : sendResults.removeFirst()).get()
   }
@@ -107,6 +107,8 @@ final class ConversationModelTests: XCTestCase {
 
     XCTAssertEqual(phases, [.sending, .waiting(.approval), .sending])
     XCTAssertEqual(Set(client.sends.map(\.sendId)).count, 1)
+    XCTAssertEqual(client.sends.map(\.retry), [false, true, true])
+    XCTAssertEqual(client.sends.map(\.threadId), [nil, "new-1", "new-1"])
     XCTAssertEqual(model.messages.map(\.content), ["Clean up", "Done."])
     XCTAssertEqual(model.threadId, "new-1")
     XCTAssertEqual(model.phase, .idle)

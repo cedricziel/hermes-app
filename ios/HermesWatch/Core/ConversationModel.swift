@@ -27,6 +27,10 @@ final class ConversationModel {
 
   private let client: HermesClient
 
+  /// How long a send keeps asking while Hermes waits; the phone gives up
+  /// after 15 minutes without an event.
+  static let waitingLimit: TimeInterval = 20 * 60
+
   init(client: HermesClient, threadId: String?) {
     self.client = client
     self.threadId = threadId
@@ -56,14 +60,16 @@ final class ConversationModel {
     let pending = ChatMessage(id: "local-\(UUID().uuidString)", role: .user, content: text, at: Date())
     messages.append(pending)
     do {
-      let target = threadId
-      var result = try await client.send(threadId: target, text: text, sendId: sendId)
+      var result = try await client.send(threadId: threadId, text: text, sendId: sendId)
       // The phone answers early while the turn waits on the user, and the
-      // same send id asked again picks up where it was.
+      // same send id asked again picks up where it was. A phone that has
+      // forgotten the send reads the bound chat instead of sending it again.
+      let deadline = Date().addingTimeInterval(Self.waitingLimit)
       while let waiting = result.waiting {
+        guard Date() < deadline else { throw HermesClientError.failed }
         threadId = result.threadId ?? threadId
         phase = waiting == .working ? .sending : .waiting(waiting)
-        result = try await client.send(threadId: target, text: text, sendId: sendId)
+        result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
       }
       threadId = result.threadId ?? threadId
       if result.failed {

@@ -101,8 +101,17 @@ final class RelayClientTests: XCTestCase {
 
     let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
 
+    XCTAssertNil(transport.requests.first?["retry"], "a first send is no retry")
     XCTAssertEqual(result.waiting, .approval)
     XCTAssertEqual(result.threadId, "new-1")
+  }
+
+  func testARetryOfAWaitingSendSaysSo() async throws {
+    transport.reply = .success(["ok": true, "threadId": "s1", "text": "Done", "failed": false])
+
+    _ = try await client.send(threadId: "s1", text: "Hello", sendId: "m1", retry: true)
+
+    XCTAssertEqual(transport.requests.first?["retry"] as? Bool, true)
   }
 
   func testAnUnknownWaitingStateCountsAsWorking() async throws {
