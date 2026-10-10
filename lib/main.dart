@@ -20,8 +20,7 @@ import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
 import 'src/notifications/request_answers.dart';
 import 'src/settings/theme_controller.dart';
-import 'src/share/share_controller.dart';
-import 'src/share/share_inbox.dart';
+import 'src/share/share_provider.dart';
 import 'src/telemetry/breadcrumbs.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
@@ -163,9 +162,7 @@ Future<void> main([List<String> args = const []]) async {
           },
           dispose: (_, answers) => answers?.dispose(),
         ),
-        ChangeNotifierProvider(
-          create: (_) => ShareController(createPlatformShareInbox())..start(),
-        ),
+        shareProvider(),
       ],
       child: HermesApp(updateChecker: createUpdateChecker()),
     ),

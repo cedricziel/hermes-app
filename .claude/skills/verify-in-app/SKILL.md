@@ -650,3 +650,35 @@ Backgrounding with app lock off should still allow continuation. Open another
 chat while a target loads and confirm the late result cannot change selection.
 Record any unavailable device or signing checks as outstanding. Do not mark
 the physical-device task complete from simulator or method-channel evidence.
+
+## Verify the Ask Hermes service (macOS)
+
+The Services menu entry "Ask Hermes" (`NSServices`, `AskHermesService.swift`)
+sends selected text to a new chat's composer. Use an isolated backend and
+invented text only.
+
+Refresh the system's list after a build, or the entry may be missing until
+logout: `/System/Library/CoreServices/pbs -update`. A dev build and an
+installed release build both list "Ask Hermes"; quit the release app or turn
+one entry off in System Settings > Keyboard > Keyboard Shortcuts > Services.
+
+Invoke the service without clicking through another app: put text on a unique
+pasteboard and call `NSPerformService` from a short script kept outside the
+repository, for example `swift /tmp/ask-svc/perform.swift "invented text"`:
+
+```swift
+import Cocoa
+let pb = NSPasteboard.withUniqueName()
+pb.clearContents()
+pb.setString(CommandLine.arguments[1], forType: .string)
+NSUpdateDynamicServices()
+print(NSPerformService("Ask Hermes", pb))
+```
+
+Check each spec scenario in `openspec/specs/mac-services`: with the app not
+running (cold start, then sign in and see the quote), signed out, app lock on
+and locked (only the lock screen until unlock), the main window closed with a
+conversation window open, a conversation window key (it keeps its chat and
+draft), the window minimized, and whitespace-only text (nothing changes).
+Confirm that nothing was sent (no new session on the dashboard) and that no
+file in the App Group container (`share/pending.json`) holds the text.

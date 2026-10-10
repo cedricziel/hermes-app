@@ -487,6 +487,27 @@ void main() {
     expect(find.text('https://example.com'), findsOneWidget);
   });
 
+  testWidgets('shared content dismisses a page pushed over Chat', (
+    tester,
+  ) async {
+    await pumpShell(tester, size: const Size(400, 800));
+    unawaited(
+      Navigator.of(tester.element(find.byType(AppShell))).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('a pushed page')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('a pushed page'), findsOneWidget);
+
+    inbox.emit([const SharedQuote('selected text')]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('a pushed page'), findsNothing);
+    expect(find.textContaining('selected text'), findsOneWidget);
+  });
+
   testWidgets('the board is not built until its tab is opened', (tester) async {
     kanbanPlugin(on: true);
     await pumpShell(tester, size: const Size(400, 800));

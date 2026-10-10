@@ -9,9 +9,13 @@ class FakeShareInbox implements ShareInbox {
   final List<SharedItem> initial;
   final _controller = StreamController<List<SharedItem>>.broadcast();
   int resetCount = 0;
+  int initialCalls = 0;
 
   @override
-  Future<List<SharedItem>> initialItems() async => initial;
+  Future<List<SharedItem>> initialItems() async {
+    initialCalls++;
+    return initial;
+  }
 
   @override
   Stream<List<SharedItem>> get items => _controller.stream;

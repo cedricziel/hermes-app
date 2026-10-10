@@ -52,4 +52,78 @@ class RunnerTests: XCTestCase {
     XCTAssertTrue(pending.take("w1"))
     XCTAssertFalse(pending.take("w1"))
   }
+
+  private func pasteboard(_ text: String?) -> NSPasteboard {
+    let pasteboard = NSPasteboard.withUniqueName()
+    pasteboard.clearContents()
+    if let text { pasteboard.setString(text, forType: .string) }
+    addTeardownBlock { pasteboard.releaseGlobally() }
+    return pasteboard
+  }
+
+  func testAskHermesQueuesSelectedTextOnce() {
+    let service = AskHermesService()
+    var notified = 0
+    service.notify = { notified += 1 }
+
+    XCTAssertNil(service.enqueue(from: pasteboard("\n  \n    indented()\n  more\n \n\n")))
+
+    XCTAssertEqual(notified, 1)
+    let entries = service.takeQueued()
+    XCTAssertEqual(entries.count, 1)
+    XCTAssertEqual(entries[0]["type"] as? String, "text")
+    XCTAssertEqual(entries[0]["intent"] as? String, "ask")
+    // Only blank lines around the selection go; its indentation stays.
+    XCTAssertEqual(entries[0]["text"] as? String, "    indented()\n  more")
+    XCTAssertEqual(entries[0]["truncated"] as? Bool, false)
+    XCTAssertTrue(service.takeQueued().isEmpty)
+  }
+
+  func testAskHermesShowsTheWindowOnlyForUsableText() {
+    let service = AskHermesService()
+    var shown = 0
+    service.showWindow = { shown += 1 }
+
+    _ = service.enqueue(from: pasteboard("   \n"))
+    XCTAssertEqual(shown, 0)
+
+    _ = service.enqueue(from: pasteboard("text"))
+    XCTAssertEqual(shown, 1)
+  }
+
+  func testAskHermesDropsWhitespaceAndNonText() {
+    let service = AskHermesService()
+
+    XCTAssertNotNil(service.enqueue(from: pasteboard(" \n\t ")))
+    XCTAssertNotNil(service.enqueue(from: pasteboard(nil)))
+
+    let entries = service.takeQueued()
+    XCTAssertEqual(entries.compactMap { $0["type"] as? String }, ["dropped", "dropped"])
+    XCTAssertEqual(entries.compactMap { $0["reason"] as? String }, ["empty", "no_text"])
+    XCTAssertNil(entries[0]["text"])
+  }
+
+  func testAskHermesCutsLongTextOnACharacterBoundary() {
+    let service = AskHermesService()
+    // "e" plus a combining accent is one character but two scalars.
+    let text = String(repeating: "e\u{301}", count: AskHermesService.characterLimit + 5)
+
+    XCTAssertNil(service.enqueue(from: pasteboard(text)))
+
+    let entry = service.takeQueued()[0]
+    let kept = entry["text"] as? String ?? ""
+    XCTAssertEqual(kept.count, AskHermesService.characterLimit)
+    XCTAssertEqual(entry["truncated"] as? Bool, true)
+  }
+
+  func testAskHermesKeepsEverythingFromTextAtTheLimit() {
+    let service = AskHermesService()
+    let text = String(repeating: "a", count: AskHermesService.characterLimit)
+
+    XCTAssertNil(service.enqueue(from: pasteboard(text)))
+
+    let entry = service.takeQueued()[0]
+    XCTAssertEqual((entry["text"] as? String)?.count, AskHermesService.characterLimit)
+    XCTAssertEqual(entry["truncated"] as? Bool, false)
+  }
 }

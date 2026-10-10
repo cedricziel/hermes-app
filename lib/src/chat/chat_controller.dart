@@ -279,7 +279,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (held == null) onShowChat?.call();
         if (_selectedId != launch.threadId) {
           if (fetchHeld) {
-            unawaited(_openMissing(launch));
+            _opening = _openMissing(launch);
           } else {
             _failOpen();
           }
@@ -529,7 +529,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       select(target.threadId);
       onOpened?.call();
     } else if (fetchMissing) {
-      unawaited(_openMissing(target, generation: generation));
+      _opening = _openMissing(target, generation: generation);
     } else {
       _failOpen();
     }
@@ -741,6 +741,22 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _openGeneration++;
     _selectedId = null;
     notifyListeners();
+  }
+
+  /// The last open of a chat that had to be fetched. It never throws.
+  Future<void> _opening = Future<void>.value();
+
+  /// Starts a new chat once a chat that was being opened has been opened, so
+  /// the new one stays in front. A new chat nothing was written in is reused
+  /// instead of adding a second empty one.
+  Future<void> newThreadWhenOpened() async {
+    await _opening.catchError((Object _) {});
+    if (disposed) return;
+    final selected = selectedThread;
+    if (selected != null && !selected.remote && selected.messages.isEmpty) {
+      return;
+    }
+    newThread();
   }
 
   void newThread() {
