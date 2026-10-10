@@ -370,6 +370,24 @@ void main() {
     expect(events.named('auth.session.expired'), isEmpty);
   });
 
+  test('requests rejected together all adopt the stored pair', () async {
+    await bootstrapWith(_session());
+    final other = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+    );
+    addTearDown(other.dispose);
+    await other.bootstrap();
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+
+    await Future.wait([other.api!.fetchMe(), other.api!.fetchMe()]);
+
+    expect(other.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());
     dashboard

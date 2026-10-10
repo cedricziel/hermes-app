@@ -704,9 +704,12 @@ class AuthController extends ChangeNotifier {
   /// signing the user out. Returns it, or null once signed out.
   Future<HermesSession?> _refreshRejected(HermesSession sent) async {
     final stored = await _tokenStore.read();
-    if (stored != null &&
-        stored.refreshToken != sent.refreshToken &&
-        _session?.refreshToken == sent.refreshToken) {
+    final current = _session;
+    // Another caller rejected with the same token got here first and took
+    // over a newer pair, or the session changed meanwhile.
+    if (current == null) return null;
+    if (current.refreshToken != sent.refreshToken) return current;
+    if (stored != null && stored.refreshToken != sent.refreshToken) {
       _session = stored;
       _events('auth.session.adopted', const {});
       return stored;
