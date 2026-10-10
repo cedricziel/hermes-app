@@ -624,7 +624,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     await _chat.newThreadWhenOpened();
     if (!mounted) return;
     _closeDrawerIfNarrow();
-    if (request.prompt case final prompt?) _draftFromLink(prompt);
+    if (request.prompt case final prompt?) _appendToComposer(prompt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _composerFocus.requestFocus();
     });
@@ -639,10 +639,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The chat holding the request that has waited longest, else the chat
   /// list: the drawer on a phone, the sidebar that is already there when wide.
   Future<void> _openOldestRequest() async {
-    widget.onShowChat?.call();
     if (_chat.openOldestRequest()) return;
-    final sidebar = MacSidebarScope.read(context);
+    widget.onShowChat?.call();
     if (hasMacSidebar(context)) {
+      final sidebar = MacSidebarScope.read(context);
       if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
         sidebar.toggle(compact: true);
       }
