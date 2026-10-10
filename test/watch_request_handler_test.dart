@@ -28,6 +28,7 @@ void main() {
   var signedOut = false;
   var connecting = false;
   String? profile;
+  String? serverUrl;
 
   setUp(() {
     server = FakeHermesServer();
@@ -35,6 +36,7 @@ void main() {
     signedOut = false;
     connecting = false;
     profile = null;
+    serverUrl = null;
     announced = [];
     posted = true;
     appLocked = false;
@@ -43,6 +45,7 @@ void main() {
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
+      serverUrl: () => serverUrl,
       connecting: () => connecting,
       announce: announce,
     );
@@ -221,6 +224,51 @@ void main() {
         'ok': false,
         'error': 'failed',
       });
+    });
+  });
+
+  group('threads: handoff fields', () {
+    setUp(() {
+      server.on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([sessionRow(id: 's1', title: 'A')]),
+      );
+    });
+
+    test(
+      'names the server, profile and raw session id of each thread',
+      () async {
+        profile = 'work';
+        serverUrl = 'https://hermes.test';
+
+        final reply = await handler.handle({'op': 'threads'});
+
+        final thread =
+            (reply['threads'] as List).single as Map<String, Object?>;
+        expect(thread['id'], 'work/s1');
+        expect(thread['serverUrl'], 'https://hermes.test');
+        expect(thread['profile'], 'work');
+        expect(thread['sessionId'], 's1');
+      },
+    );
+
+    test('leaves them out without a server or a profile', () async {
+      for (final (name, address) in [
+        (null, 'https://hermes.test'),
+        ('work', null),
+      ]) {
+        profile = name;
+        serverUrl = address;
+
+        final reply = await handler.handle({'op': 'threads'});
+
+        final thread =
+            (reply['threads'] as List).single as Map<String, Object?>;
+        expect(thread.keys, isNot(contains('serverUrl')));
+        expect(thread.keys, isNot(contains('profile')));
+        expect(thread.keys, isNot(contains('sessionId')));
+      }
     });
   });
 
