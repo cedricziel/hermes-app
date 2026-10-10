@@ -2440,6 +2440,33 @@ class HermesGatewayTransport implements ChatTransport {
     return result != null && result['status'] != 'expired';
   }
 
+  /// `request.answer` resolves an open server-to-client request by its id,
+  /// with no session attached, for a client that never received the frame.
+  @override
+  Future<bool> answerOpenRequest(
+    String requestId,
+    OpenRequestAnswer answer, {
+    String? profile,
+  }) async {
+    final result = switch (answer) {
+      ApprovalChoiceAnswer(:final choice) => {'choice': choice},
+      QuestionAnswer(:final questionId, :final values, :final multiSelect) => {
+        'answers': {
+          questionId: multiSelect
+              ? jsonEncode(values)
+              : (values.isEmpty ? '' : values.first),
+        },
+      },
+    };
+    final client = await _client();
+    final reply = await _call(client, 'request.answer', {
+      'id': requestId,
+      'result': result,
+      'profile': ?profile,
+    });
+    return reply['status'] == 'ok';
+  }
+
   @override
   Future<bool> answerVault(
     String requestId,

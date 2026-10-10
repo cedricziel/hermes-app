@@ -359,6 +359,32 @@ class AttachmentException implements Exception {
   String toString() => 'AttachmentException: $message';
 }
 
+/// An answer to a request given outside the chat, as from a notification.
+sealed class OpenRequestAnswer {
+  const OpenRequestAnswer();
+}
+
+/// One of the choices an approval offered: `once`, `session`, `always` or
+/// `deny`.
+final class ApprovalChoiceAnswer extends OpenRequestAnswer {
+  const ApprovalChoiceAnswer(this.choice);
+
+  final String choice;
+}
+
+/// The answer to the one question of a clarify request.
+final class QuestionAnswer extends OpenRequestAnswer {
+  const QuestionAnswer({
+    required this.questionId,
+    required this.values,
+    this.multiSelect = false,
+  });
+
+  final String questionId;
+  final List<String> values;
+  final bool multiSelect;
+}
+
 abstract interface class ChatTransport {
   /// Commands available in the current session or new-chat profile.
   Future<List<SlashCommand>> slashCommands({String? threadId, String? profile});
@@ -437,6 +463,16 @@ abstract interface class ChatTransport {
     List<String> values, {
     String? questionId,
     bool multiSelect = false,
+  });
+
+  /// Answers request [requestId] of [profile] although this transport may
+  /// never have seen it, as for an answer given in a notification while the
+  /// app was away. Returns false when the request is no longer pending, and
+  /// throws when the call itself fails.
+  Future<bool> answerOpenRequest(
+    String requestId,
+    OpenRequestAnswer answer, {
+    String? profile,
   });
 
   /// Answers a masked vault prompt: the login to save for [origin], the
