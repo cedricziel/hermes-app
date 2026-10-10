@@ -385,6 +385,22 @@ void main() {
         expect(plugin.cancelled, [plugin.posted.first.id]);
       });
 
+      test('withdraws nothing on Android, whose notifications have no '
+          'buttons', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        await service.show(_request(_approval));
+        plugin.active.add(
+          ActiveNotification(
+            id: plugin.posted.single.id,
+            payload: plugin.posted.single.payload,
+          ),
+        );
+
+        await service.withdrawAnswerable();
+
+        expect(plugin.cancelled, isEmpty);
+      });
+
       test('stays generic on Android', () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
 

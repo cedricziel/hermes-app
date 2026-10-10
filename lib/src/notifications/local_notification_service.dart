@@ -312,7 +312,8 @@ class LocalNotificationService implements NotificationService {
 
   @override
   Future<void> withdrawAnswerable() async {
-    if (!_supported) return;
+    // Only Apple's notifications carry buttons; Android's stay generic.
+    if (!_supported || !_darwin) return;
     try {
       await _initialize();
       for (final active in await _plugin.getActiveNotifications()) {

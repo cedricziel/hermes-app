@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show ValueNotifier;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -19,6 +20,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import 'support/fake_chat_transport.dart';
+import 'support/fake_device_authenticator.dart';
 import 'support/memory_token_store.dart';
 import 'support/fake_notification_service.dart';
 
@@ -398,6 +400,34 @@ void main() {
       );
 
       expect(alone, 0);
+    });
+  });
+
+  group('App Lock before its setting has loaded', () {
+    setUp(() {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
+    });
+
+    test('is waited for, so an answer at startup is not refused', () async {
+      final lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+      addTearDown(lock.dispose);
+
+      final on = appLockOnNow(lock);
+      await lock.load();
+
+      expect(await on, isFalse);
+    });
+
+    test('is read from the saved setting when it does not load', () async {
+      final lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+      addTearDown(lock.dispose);
+
+      expect(
+        await appLockOnNow(lock, wait: const Duration(milliseconds: 10)),
+        isFalse,
+      );
     });
   });
 

@@ -20,7 +20,6 @@ import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../telemetry/breadcrumbs.dart';
-import 'attention_notifier.dart';
 import 'attention_policy.dart';
 import 'local_notification_service.dart';
 import 'notification_service.dart';
@@ -65,6 +64,31 @@ bool authConnecting(AuthController auth) => switch (auth.state) {
   HermesConnectionState.connectionError => true,
   _ => false,
 };
+
+/// Whether App Lock is on, for an answer about to be sent. An answer handed
+/// over at startup may come before the saved setting has loaded: that is
+/// waited for, up to [wait], and read from the store when it never comes,
+/// so the answer is neither refused nor sent past the lock.
+Future<bool> appLockOnNow(
+  AppLockController? lock, {
+  Duration wait = const Duration(seconds: 5),
+}) async {
+  if (lock == null) return false;
+  if (!lock.loaded) {
+    final loaded = Completer<void>();
+    void check() {
+      if (lock.loaded && !loaded.isCompleted) loaded.complete();
+    }
+
+    lock.addListener(check);
+    try {
+      await loaded.future.timeout(wait, onTimeout: () {});
+    } finally {
+      lock.removeListener(check);
+    }
+  }
+  return lock.loaded ? lock.enabled : AppLockController.savedEnabled();
+}
 
 /// Completes once [auth] is no longer restoring its session, reaching the
 /// server or signing in, or after [timeout]. An action or a watch request
@@ -248,7 +272,7 @@ class RequestAnswers {
       ready: () => authSettled(auth),
       events: () => auth.connectionTelemetry.events,
       breadcrumbs: breadcrumbs,
-      locked: () async => appLockHidesRequests(appLock),
+      locked: () => appLockOnNow(appLock),
     ),
     service: service,
     signedOut: auth.signedOut,
@@ -319,6 +343,7 @@ class RequestAnswers {
 
   void dispose() {
     _appLock?.removeListener(_onAppLock);
+    if (_appLock case final _AppLockOn own) own.dispose();
     _answers?.cancel();
     _signOuts?.cancel();
     final port = _port;
@@ -512,10 +537,14 @@ Future<void> answerRequestInBackground(NotificationResponse response) async {
     await routeAnswer(
       response,
       alone: lone.answer,
-      unanswered: (answer) => RequestAnswerSender.tellFailed(
-        LocalNotificationService(background: true),
-        answer,
-      ),
+      unanswered: (answer) async {
+        final notifications = LocalNotificationService(background: true);
+        try {
+          await RequestAnswerSender.tellFailed(notifications, answer);
+        } finally {
+          await notifications.dispose();
+        }
+      },
       deadline: deadline,
     );
   } finally {
@@ -533,4 +562,10 @@ class _AppLockOn extends ChangeNotifier implements ValueListenable<bool> {
 
   @override
   bool get value => _lock.loaded && _lock.enabled;
+
+  @override
+  void dispose() {
+    _lock.removeListener(notifyListeners);
+    super.dispose();
+  }
 }
