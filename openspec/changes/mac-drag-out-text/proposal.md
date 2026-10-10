@@ -2,7 +2,7 @@
 
 On macOS nothing can be dragged out of the app. People expect to drag a reply into a notes app and a chat out of the sidebar to keep it as a file. Today they have to use Copy Transcript and a file dialog.
 
-This change depends on `mac-drag-out-files`, which chooses the drag plugin (spike), adds `lib/src/drag_out/` and lands first. It adds no dependency of its own.
+This change builds on `mac-drag-out-files` (merged), which added `lib/src/drag_out/` and the macOS drag source (`DragOut.swift` and `MacDragOutSource`). It adds no dependency and no native code.
 
 ## What Changes
 
@@ -23,10 +23,10 @@ None. Copy Transcript, text selection and the sidebar row gestures keep their be
 
 ## Impact
 
-- Wraps `MacThreadRow` (in `ThreadSidebar._row`) and `MessageActions` / the sent bubble. Adds a thread export function that builds `# <title>\n\n` plus `threadTranscript(messages)`.
+- Wraps `MacThreadRow` (in `ThreadSidebar._row`) and the message bubble (`_buildText`) in a hover grip; the action bar and the attachment widgets are untouched. Adds a thread export function that builds `# <title>\n\n` plus `threadTranscript(messages)`.
 - Reuses `threadTranscript`, `ThreadHousekeeping.history` and `AppIcons.dragHandle`. No new routes, no OpenAPI or generated client change, no dependency change.
 - Widgetbook use cases for the grip and the draggable thread row; tests against `FakeHermesServer` for the exported content.
-- Size: about 400 lines in one PR, after `mac-drag-out-files` is merged.
+- Size: about 400 lines in one PR.
 
 ### Non-goals
 

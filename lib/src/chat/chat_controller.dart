@@ -369,7 +369,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Every message of [thread]: what is loaded, plus the pages the dashboard
   /// holds beyond it. A thread whose messages were never loaded is read
   /// whole; an open one is not read again.
-  Future<List<ChatMessage>> _history(ChatThread thread) async {
+  Future<List<ChatMessage>> _history(
+    ChatThread thread, {
+    bool Function()? cancelled,
+  }) async {
     final repository = this.repository;
     if (repository == null || !_bound.contains(thread)) return thread.messages;
     await _loadingMessages[thread.id];
@@ -380,6 +383,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final profile = _profile;
     int? offset = loaded ? _olderRows[thread.id] : 0;
     while (offset != null) {
+      if (cancelled?.call() ?? false) throw StateError('history cancelled');
       final page = await repository.loadMessagePage(
         thread.id,
         profile: profile,

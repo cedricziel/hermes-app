@@ -17,6 +17,9 @@ import '../../theme/platform_chrome.dart';
 import '../../voice/dictation_dialog.dart';
 import '../../voice/dictation_settings.dart';
 import '../chat_models.dart';
+import '../../drag_out/drag_out_item.dart';
+import '../../drag_out/drag_out_source.dart';
+import '../thread_export.dart';
 import '../thread_housekeeping.dart';
 import '../thread_search.dart';
 import '../thread_sections.dart';
@@ -620,8 +623,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
       housekeeping: housekeeping,
       onOpenInNewWindow: onOpenInNewWindow,
     );
-    return MacThreadRow(
-      key: ValueKey('thread-${thread.id}'),
+    final row = MacThreadRow(
       title: thread.title,
       selected: thread.id == widget.selectedId,
       busy: widget.busy.contains(thread.id) || thread.isReplying,
@@ -635,6 +637,12 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
         canOpenInNewWindow: onOpenInNewWindow != null && thread.remote,
       ),
       onAction: run,
+    );
+    return DragOut(
+      key: ValueKey('thread-${thread.id}'),
+      kind: DragOutKind.thread,
+      item: () => threadDragItem(thread, housekeeping),
+      child: row,
     );
   }
 }

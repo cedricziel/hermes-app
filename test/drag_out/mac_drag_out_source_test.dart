@@ -155,6 +155,42 @@ void main() {
       expect(trail.recent, isEmpty);
     });
 
+    testWidgets('a drag that is let go near where it began is not a click', (
+      tester,
+    ) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Provider<DragOutSource?>.value(
+            value: source,
+            child: Center(
+              child: DragOut(
+                kind: DragOutKind.attachment,
+                item: () => DragOutFile(name: 'a.pdf', read: _noBytes),
+                child: GestureDetector(
+                  onTap: () => taps++,
+                  child: const SizedBox.square(
+                    dimension: 100,
+                    child: Text('card'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Past the drag slop, inside the tap slop, then released.
+      final gesture = await press(tester);
+      await gesture.moveBy(const Offset(dragOutSlop + 3, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(started, hasLength(1));
+      expect(taps, 0);
+    });
+
     testWidgets('a tap still reaches the widget underneath', (tester) async {
       var taps = 0;
       await tester.pumpWidget(
@@ -401,6 +437,99 @@ void main() {
       expect(events.single.$2['failure'], 'fetch');
     });
 
+    testWidgets('a read can name its own failure step', (tester) async {
+      await begin(
+        tester,
+        DragOutFile(
+          name: 'Chat.md',
+          read: () async => throw StateError('history 500'),
+          failure: DragOutFailure.history,
+        ),
+      );
+
+      await expectLater(
+        fromNative('readFile', 1),
+        throwsA(isA<PlatformException>()),
+      );
+
+      expect(events.single.$2, {
+        'kind': 'attachment',
+        'outcome': 'failed',
+        'failure': 'history',
+      });
+    });
+
+    testWidgets('a promise Swift gave up on stops the read and is a timeout', (
+      tester,
+    ) async {
+      var cancelled = 0;
+      await begin(
+        tester,
+        DragOutFile(
+          name: 'Chat.md',
+          read: _noBytes,
+          failure: DragOutFailure.history,
+          cancel: () => cancelled++,
+        ),
+      );
+
+      await fromNative('readTimedOut', 1);
+
+      expect(cancelled, 1);
+      expect(events.single.$2, {
+        'kind': 'attachment',
+        'outcome': 'failed',
+        'failure': 'timeout',
+      });
+    });
+
+    testWidgets('text and thread drags log only their kind, outcome and step', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        kind: DragOutKind.thread,
+        item: () => DragOutFile(
+          name: 'Secret plan.md',
+          read: () async => throw StateError('Secret plan: 500'),
+          failure: DragOutFailure.history,
+        ),
+      );
+      final gesture = await press(tester);
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await gesture.up();
+      await expectLater(
+        fromNative('readFile', 1),
+        throwsA(isA<PlatformException>()),
+      );
+
+      await pump(
+        tester,
+        kind: DragOutKind.text,
+        item: () => const DragOutText('Secret plan'),
+      );
+      final text = await press(tester);
+      await text.moveBy(const Offset(20, 0));
+      await tester.pump();
+      await text.up();
+      await fromNative('ended', {'id': 2, 'copied': true});
+
+      expect(events.map((e) => e.$2), [
+        {'kind': 'thread', 'outcome': 'failed', 'failure': 'history'},
+        {'kind': 'text', 'outcome': 'delivered'},
+      ]);
+      expect(
+        [
+          ...events.map((e) => e.$2),
+          ...trail.recent.map((c) => c.attributes),
+          ...tracer.spans.map((s) => s.attributes),
+        ].toString(),
+        isNot(contains('Secret')),
+      );
+      expect(trail.recent.map((c) => c.attributes['kind']), ['thread', 'text']);
+    });
+
     testWidgets('a promise Swift gave up on is logged once', (tester) async {
       final read = Completer<Uint8List>();
       await begin(tester, DragOutFile(name: 'a.pdf', read: () => read.future));
@@ -417,7 +546,7 @@ void main() {
       expect(events.single.$2, {
         'kind': 'attachment',
         'outcome': 'failed',
-        'failure': 'fetch',
+        'failure': 'timeout',
       });
     });
 
@@ -499,6 +628,11 @@ void main() {
         isNot(contains('secret')),
       );
     });
+  });
+
+  test('thread and text kinds are slugs', () {
+    expect(DragOutKind.text.slug, 'text');
+    expect(DragOutKind.thread.slug, 'thread');
   });
 
   test('is supported only on macOS', () {

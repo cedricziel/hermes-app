@@ -27,6 +27,7 @@ import 'attachment_views.dart';
 import 'clarify_card.dart';
 import 'following_chat_list.dart';
 import 'message_actions.dart';
+import 'message_drag_grip.dart';
 import '../starter_prompts.dart';
 import 'reasoning_block.dart';
 import 'review_summary_note.dart';
@@ -213,7 +214,15 @@ Widget _buildText(
           : EdgeInsets.zero,
     ),
   );
-  if (isSentByMe || message.metadata?[kMetaStreaming] == true) return bubble;
+  // The grip drags the text out where drag-out exists; a reply that is still
+  // streaming has no final text to hand out yet.
+  final streaming = message.metadata?[kMetaStreaming] == true;
+  final draggable = MessageDragGrip(
+    text: message.text,
+    enabled: !streaming,
+    child: bubble,
+  );
+  if (isSentByMe || streaming) return draggable;
 
   Widget actions(bool latest, TurnActionStatus status) => MessageActions(
     text: message.text,
@@ -232,7 +241,7 @@ Widget _buildText(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      if (message.text.isNotEmpty) bubble,
+      if (message.text.isNotEmpty) draggable,
       if (error != null) ReplyErrorNote(error),
       if (latestReplyId == null)
         below(false)

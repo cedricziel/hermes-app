@@ -16,16 +16,20 @@ class CatalogDragOutSource implements DragOutSource {
     required DragOutItem? Function() item,
     required Widget child,
   }) {
-    final name = switch (item()) {
-      DragOutFile(:final name) => name,
-      DragOutText() => 'text',
-      null => null,
+    // A file shows its name; text brings its own hint (the message grip).
+    final (name, hasItem) = switch (item()) {
+      DragOutFile(:final name) => (name, true),
+      DragOutText() => (null, true),
+      null => (null, false),
     };
-    if (name == null) return child;
-    return Tooltip(
-      message: 'Drags out as $name',
-      child: MouseRegion(cursor: SystemMouseCursors.grab, child: child),
+    if (!hasItem) return child;
+    final draggable = MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      child: child,
     );
+    return name == null
+        ? draggable
+        : Tooltip(message: 'Drags out as $name', child: draggable);
   }
 }
 

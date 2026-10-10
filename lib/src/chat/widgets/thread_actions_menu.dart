@@ -8,7 +8,12 @@ import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_popup_menu_button.dart';
 import '../chat_models.dart';
+import '../thread_export.dart';
 import '../thread_housekeeping.dart';
+
+// Where the transcript used to live; the conversation window still imports it
+// from here.
+export '../thread_export.dart' show threadTranscript;
 
 enum ThreadAction {
   openInNewWindow,
@@ -242,9 +247,7 @@ Future<void> _copyTranscript(
   final messenger = ScaffoldMessenger.maybeOf(context);
   final String text;
   try {
-    text = threadTranscript(
-      await (housekeeping?.history(thread) ?? Future.value(thread.messages)),
-    );
+    text = threadTranscript(await threadHistory(thread, housekeeping));
   } on Object {
     messenger?.showSnackBar(
       const SnackBar(content: Text('Could not copy the transcript')),
@@ -253,19 +256,6 @@ Future<void> _copyTranscript(
   }
   await Clipboard.setData(ClipboardData(text: text));
   messenger?.showSnackBar(const SnackBar(content: Text('Transcript copied')));
-}
-
-/// [messages] as Markdown for the clipboard: a heading per turn that has
-/// something to say, skipping ones that are only attachments or tool calls.
-String threadTranscript(Iterable<ChatMessage> messages) {
-  final parts = <String>[];
-  for (final message in messages) {
-    final text = message.content.trim();
-    if (text.isEmpty) continue;
-    final speaker = message.role == ChatRole.user ? 'You' : 'Hermes';
-    parts.add('## $speaker\n\n$text');
-  }
-  return parts.join('\n\n');
 }
 
 class _RenameDialog extends StatefulWidget {

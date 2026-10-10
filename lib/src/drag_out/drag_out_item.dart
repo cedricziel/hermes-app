@@ -4,7 +4,9 @@ import 'dart:typed_data';
 /// `kind`, so it is a fixed slug and never anything the user typed.
 enum DragOutKind {
   attachment('attachment'),
-  kanbanAttachment('kanban_attachment');
+  kanbanAttachment('kanban_attachment'),
+  text('text'),
+  thread('thread');
 
   const DragOutKind(this.slug);
 
@@ -26,7 +28,13 @@ sealed class DragOutItem {
 /// to the 25 MB attachment limit, for an embedded attachment or a Kanban
 /// download).
 final class DragOutFile extends DragOutItem {
-  const DragOutFile({required this.name, required this.read, this.localPath});
+  const DragOutFile({
+    required this.name,
+    required this.read,
+    this.localPath,
+    this.failure = DragOutFailure.fetch,
+    this.cancel,
+  });
 
   /// The file name the receiver proposes, already safe (see
   /// [sanitizeDragFileName]).
@@ -40,6 +48,14 @@ final class DragOutFile extends DragOutItem {
   /// null when there is none. Called once, only when the receiver wants the
   /// file. A throw ends the drop without a file.
   final Future<String?> Function()? localPath;
+
+  /// What a failed [read] or [localPath] is logged as: the step that got the
+  /// content, `history` for a thread export.
+  final DragOutFailure failure;
+
+  /// Called when the receiver gave up waiting (the promise timed out), so a
+  /// long read can stop. The drop is logged as [DragOutFailure.timeout].
+  final void Function()? cancel;
 }
 
 /// Text the receiver takes as plain text and as Markdown.
@@ -50,7 +66,7 @@ final class DragOutText extends DragOutItem {
 }
 
 /// Why a drop that was accepted produced no data, as logged.
-enum DragOutFailure { fetch, write }
+enum DragOutFailure { fetch, history, timeout, write }
 
 /// How a drop ended, as logged.
 enum DragOutOutcome { delivered, failed, cancelled }
