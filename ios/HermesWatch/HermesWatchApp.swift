@@ -21,7 +21,9 @@ struct HermesWatchApp: App {
     #if DEBUG
       if DemoClient.enabled { return DemoClient() }
     #endif
-    return RelayClient(transport: WCSessionTransport())
+    return RelayClient(
+      transport: ReportingTransport(inner: WCSessionTransport(), reports: DeliveryReports(defaults: .standard))
+    )
   }
 }
 

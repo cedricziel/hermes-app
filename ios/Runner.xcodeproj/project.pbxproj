@@ -12,6 +12,7 @@
 		A3BD8ABC8308525ED56E1791 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA4EDC232D777BB6CBD97EF5 /* PrivacyInfo.xcprivacy */; };
 		0AA3809677393A117BD4526D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F884F744E1BE6D3436E17C0A /* Assets.xcassets */; };
 		12AB7B237264DC0886E10BDB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9978D7CC9E15B585ACD0BBA0 /* Models.swift */; };
+		1E0043EFD5473B28A64732A9 /* ReportingTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8908571C5C02E62FE16C822C /* ReportingTransport.swift */; };
 		B5C5B4399AC38F8E77CEDD6A /* ChatCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AADC7C6CE97D1D351DAA04F /* ChatCache.swift */; };
 		1EEBDAE07238CB416F5A48E6 /* WatchMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AA96492324979FC244ABD9 /* WatchMarkdown.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
@@ -152,6 +153,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9978D7CC9E15B585ACD0BBA0 /* Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		8908571C5C02E62FE16C822C /* ReportingTransport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReportingTransport.swift; sourceTree = "<group>"; };
 		2AADC7C6CE97D1D351DAA04F /* ChatCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ChatCache.swift; sourceTree = "<group>"; };
 		66AA96492324979FC244ABD9 /* WatchMarkdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchMarkdown.swift; sourceTree = "<group>"; };
 		A03C428A6CC06D8682F0F623 /* ConversationModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationModel.swift; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				3DF22DC249C3DAEEF3763874 /* RelayClient.swift */,
 				73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */,
+				8908571C5C02E62FE16C822C /* ReportingTransport.swift */,
 				2AADC7C6CE97D1D351DAA04F /* ChatCache.swift */,
 				66AA96492324979FC244ABD9 /* WatchMarkdown.swift */,
 			);
@@ -619,6 +622,7 @@
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
 				3EC1A4A5266F115E826C5E0F /* RelayClient.swift in Sources */,
 				BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */,
+				1E0043EFD5473B28A64732A9 /* ReportingTransport.swift in Sources */,
 				B5C5B4399AC38F8E77CEDD6A /* ChatCache.swift in Sources */,
 				1EEBDAE07238CB416F5A48E6 /* WatchMarkdown.swift in Sources */,
 			);

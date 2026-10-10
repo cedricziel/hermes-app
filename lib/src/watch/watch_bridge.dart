@@ -172,6 +172,35 @@ class WatchBridge {
     }
   }
 
+  static String _operation(Object? op) => switch (op) {
+    'threads' || 'messages' || 'send' || 'transcribe' => op as String,
+    _ => 'unknown',
+  };
+
+  static final _failureReason = RegExp(
+    r'^(not_activated|not_reachable|delivery:-?\d{1,6})$',
+  );
+
+  /// The requests the watch could not get to the phone since it last could,
+  /// which it hands over with the next one that arrives: what it asked for,
+  /// why it failed and how long ago. Never anything the user wrote.
+  void _recordDeliveryFailures(Object? diagnostics) {
+    if (diagnostics is! List) return;
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    for (final entry in diagnostics) {
+      if (entry is! Map) continue;
+      final reason = entry['reason'];
+      final at = entry['at'];
+      _record('watch.delivery.failed', {
+        'watch.operation': _operation(entry['op']),
+        'watch.failure': reason is String && _failureReason.hasMatch(reason)
+            ? reason
+            : 'unknown',
+        if (at is num) 'watch.failure_age_s': now - at.toInt(),
+      });
+    }
+  }
+
   void start() => _channel.setMethodCallHandler(_onCall);
 
   void dispose() => _channel.setMethodCallHandler(null);
@@ -180,13 +209,8 @@ class WatchBridge {
     if (call.method != 'request') throw MissingPluginException();
     final arguments = call.arguments;
     final request = arguments is Map ? arguments : const {};
-    final operation = switch (request['op']) {
-      'threads' ||
-      'messages' ||
-      'send' ||
-      'transcribe' => request['op'] as String,
-      _ => 'unknown',
-    };
+    _recordDeliveryFailures(request['diagnostics']);
+    final operation = _operation(request['op']);
     final timer = Stopwatch()..start();
     _record('watch.request.started', {
       'watch.operation': operation,
