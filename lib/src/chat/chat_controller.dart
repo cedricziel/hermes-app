@@ -676,7 +676,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _unloaded.add(thread.id);
       }
       thread.botContext = context;
-      thread.title = BotModeChatRepository.title;
+      thread
+        ..title = BotModeChatRepository.title
+        ..named = true;
       select(thread.id);
       onOpened?.call();
     } on Object {
@@ -738,6 +740,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void dispose() {
     for (final reply in _replies) {
       reply.cancel();
+    }
+    for (final thread in _threads) {
+      watchStatus?.abandon(thread);
     }
     _stopFollowing();
     _cancelSettleWaits();
@@ -1445,6 +1450,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           unawaited(refreshActive());
         } else {
           _turnEnded(thread, halted: true);
+          watchStatus?.onEvent(
+            thread,
+            const ReplyCompleted('', failed: true),
+            title: _watchTitle(thread),
+            threadId: _watchThreadId(thread, profile),
+          );
           notifyListeners();
         }
       } else if (reply.isPending) {
@@ -1486,7 +1497,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     liveActivities?.begin(thread, profile: profile);
     watchStatus?.begin(
       thread,
-      title: thread.title,
+      title: _watchTitle(thread),
       threadId: _watchThreadId(thread, profile),
     );
     breadcrumbs('chat.reply.started', {
@@ -1597,7 +1608,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
             settle: false,
           );
         case ThreadTitled(:final title):
-          if (!thread.isCanonicalBotChat) thread.title = title;
+          _titled(thread, title);
           notifyListeners();
         case ThreadNeedsRefetch():
           _refetch.add(thread);
@@ -1619,7 +1630,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       return;
     }
-    _onReplyEvent(thread, open, event, profile, settles: false);
+    _onReplyEvent(thread, open, event, profile, settles: false, ownTurn: true);
     if (event is ReplyCompleted || idle) own.open = null;
   }
 
@@ -1650,6 +1661,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   }
 
   void _stopFollowing() {
+    // A turn nobody listens to any more can no longer say it ended.
+    for (final thread in _threads) {
+      if (_followingIds.contains(thread.id)) watchStatus?.abandon(thread);
+    }
     for (final subscription in _following) {
       subscription.cancel();
     }
@@ -1729,7 +1744,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (running == false) _turnEnded(thread, idleOnly: true);
         _onSessionInfo(thread, event);
       case ThreadTitled(:final title):
-        if (!thread.isCanonicalBotChat) thread.title = title;
+        _titled(thread, title);
         notifyListeners();
       case ReviewSummarized():
         _onReviewSummary(thread, event);
@@ -1836,13 +1851,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? profile, {
     bool announce = true,
     bool settles = true,
+    bool ownTurn = false,
   }) {
     var announced = event;
     switch (event) {
       case ThreadBound(:final threadId):
         _bindThread(thread, threadId);
       case ThreadTitled(:final title):
-        if (!thread.isCanonicalBotChat) thread.title = title;
+        _titled(thread, title);
         notifyListeners();
       case ReplyStarted() || UnsolicitedEvent():
         break;
@@ -1891,7 +1907,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         _updateReply(thread, reply, () => applyReplyEvent(reply, event));
     }
     _refetchIfIdle(thread);
-    _announce(thread, announced, profile, notify: announce);
+    _announce(thread, announced, profile, notify: announce, ownTurn: ownTurn);
   }
 
   /// Moves the chat's Live Activity and the watch's status along for
@@ -1903,14 +1919,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     ChatEvent event,
     String? profile, {
     bool notify = true,
+    bool ownTurn = false,
   }) {
     liveActivities?.onEvent(thread, event);
-    watchStatus?.onEvent(
-      thread,
-      event,
-      title: thread.title,
-      threadId: _watchThreadId(thread, profile),
-    );
+    // The turn Hermes ran ahead of the prompt ends before the prompt's own
+    // turn does, so its completion says nothing about the chat.
+    if (!(ownTurn && event is ReplyCompleted)) {
+      watchStatus?.onEvent(
+        thread,
+        event,
+        title: _watchTitle(thread),
+        threadId: _watchThreadId(thread, profile),
+      );
+    }
     if (!notify) return;
     _attention.announce(
       thread,
@@ -1919,6 +1940,17 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile: profile,
     );
   }
+
+  void _titled(ChatThread thread, String title) {
+    if (thread.isCanonicalBotChat) return;
+    thread
+      ..title = title
+      ..named = true;
+  }
+
+  /// The title the watch face may show: a name, never one made from the
+  /// prompt, a file name or the first message.
+  String? _watchTitle(ChatThread thread) => thread.named ? thread.title : null;
 
   /// The id the watch uses for [thread], once the dashboard stores it.
   String? _watchThreadId(ChatThread thread, String? profile) =>
@@ -2191,6 +2223,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
                 applyReplyEvent(reply, const ReplyCompleted('', stopped: true)),
           );
         }
+        watchStatus?.drop(thread);
         return;
       }
       // Nothing was running: the turn ended on its own. Only the stop that
