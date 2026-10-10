@@ -21,6 +21,25 @@ void main() {
       return settings;
     }
 
+    test('is not loaded until load completes', () async {
+      final settings = MenuBarExtraSettings();
+      expect(settings.loaded, isFalse);
+
+      await settings.load();
+
+      expect(settings.loaded, isTrue);
+    });
+
+    test('an edit made before the first load still counts as loaded', () async {
+      final settings = MenuBarExtraSettings();
+
+      await settings.setEnabled(false);
+      await settings.load();
+
+      expect(settings.loaded, isTrue);
+      expect(settings.enabled, isFalse);
+    });
+
     test('starts on', () async {
       expect((await relaunch()).enabled, isTrue);
     });

@@ -15,17 +15,19 @@ class MenuBarExtraSettings extends ChangeNotifier {
 
   final SharedPreferencesAsync _prefs;
   var _enabled = true;
+  var _loaded = false;
   var _edits = 0;
 
+  /// False until [load] has read the saved choice. The item stays hidden
+  /// until then, so a saved "off" never shows it for a moment.
+  bool get loaded => _loaded;
   bool get enabled => _enabled;
 
   Future<void> load() async {
     final editsBefore = _edits;
     final saved = await _prefs.getBool(_prefsEnabledKey);
-    if (_edits != editsBefore) return;
-    final enabled = saved ?? true;
-    if (enabled == _enabled) return;
-    _enabled = enabled;
+    if (_edits == editsBefore) _enabled = saved ?? true;
+    _loaded = true;
     notifyListeners();
   }
 

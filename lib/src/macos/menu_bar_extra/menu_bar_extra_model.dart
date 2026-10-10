@@ -58,6 +58,9 @@ class MenuBarRequest {
   final String requestId;
   final MenuBarRequestKind kind;
 
+  /// Names the request among the open ones of every chat.
+  String get key => '$threadId\u0000$requestId';
+
   /// What an approval would run, or what it is about when it has no command.
   final String command;
 

@@ -52,6 +52,20 @@ The menu SHALL list the chats this app is following live (replies sent from this
 - **WHEN** the user is signed out
 - **THEN** the menu shows only New Chat, Show Main Window and Quit, and the icon is idle
 
+### Requirement: The menu respects App Lock
+While the app is locked, the menu SHALL show only counts of running replies and waiting requests, an Unlock Hermes entry, New Chat, Show Main Window and Quit. It SHALL NOT show a chat title or a command, and SHALL NOT answer an approval. Unlock Hermes SHALL bring the main window forward and ask the device to confirm.
+
+#### Scenario: Locked with an approval waiting
+- **WHEN** the app is locked and a followed chat has an approval waiting
+- **THEN** the menu shows "1 request waiting" and "Unlock Hermes…", and no command or choice
+
+#### Scenario: A pick made before the lock
+- **WHEN** the user picked "Allow once" on a menu that was built before the app locked
+- **THEN** nothing is sent
+
+### Requirement: A pick does what its row said, once
+A pick that no longer matches a row of the menu SHALL do nothing. An approval SHALL be answered at most once: its choices are not offered while an answer is on its way, and a request answered elsewhere while the "always" question was open SHALL NOT be answered again.
+
 ### Requirement: Setting hides the menu bar item
 Settings SHALL offer a macOS-only switch to hide the menu bar item, kept across launches. Hiding it SHALL NOT change the stay-alive behaviour.
 

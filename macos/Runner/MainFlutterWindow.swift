@@ -454,6 +454,10 @@ final class MenuBarStatusItem: NSObject, NSMenuDelegate {
   private let channel: FlutterMethodChannel
   private let menu = NSMenu()
   private var item: NSStatusItem?
+  /// While the menu is open it is left alone, so a submenu does not close
+  /// under the cursor; the latest update is applied when it closes.
+  private var menuOpen = false
+  private var deferred: [String: Any]?
 
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: "hermes_app/menu_bar_extra", binaryMessenger: messenger)
@@ -473,6 +477,10 @@ final class MenuBarStatusItem: NSObject, NSMenuDelegate {
   deinit { hide() }
 
   private func update(_ args: [String: Any]) {
+    if menuOpen {
+      deferred = args
+      return
+    }
     guard args["visible"] as? Bool == true else { return hide() }
     let item = self.item ?? NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     self.item = item
@@ -530,7 +538,16 @@ final class MenuBarStatusItem: NSObject, NSMenuDelegate {
     channel.invokeMethod("selected", arguments: key)
   }
 
+  func menuDidClose(_: NSMenu) {
+    menuOpen = false
+    if let args = deferred {
+      deferred = nil
+      update(args)
+    }
+  }
+
   func menuWillOpen(_: NSMenu) {
+    menuOpen = true
     channel.invokeMethod("opened", arguments: nil)
   }
 }
