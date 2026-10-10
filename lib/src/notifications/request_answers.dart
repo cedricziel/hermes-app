@@ -134,6 +134,7 @@ class RequestAnswerSender {
             .answerOpenRequest(
               answer.request.requestId,
               answer.answer,
+              threadId: answer.target.threadId,
               profile: answer.target.profile,
             )
             .timeout(timeout);

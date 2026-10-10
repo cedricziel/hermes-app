@@ -467,11 +467,14 @@ abstract interface class ChatTransport {
 
   /// Answers request [requestId] of [profile] although this transport may
   /// never have seen it, as for an answer given in a notification while the
-  /// app was away. Returns false when the request is no longer pending, and
-  /// throws when the call itself fails.
+  /// app was away. [threadId] is the chat that asked; it is needed for a
+  /// request a server raised as an event rather than as a request. Returns
+  /// false when the request is no longer pending, and throws when the call
+  /// itself fails.
   Future<bool> answerOpenRequest(
     String requestId,
     OpenRequestAnswer answer, {
+    String? threadId,
     String? profile,
   });
 

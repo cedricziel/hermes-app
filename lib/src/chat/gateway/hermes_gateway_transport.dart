@@ -2415,9 +2415,7 @@ class HermesGatewayTransport implements ChatTransport {
     String? questionId,
     bool multiSelect = false,
   }) async {
-    final answer = multiSelect
-        ? jsonEncode(values)
-        : (values.isEmpty ? '' : values.first);
+    final answer = _clarifyValue(values, multiSelect: multiSelect);
     final open = _awaiting[requestId];
     if (open == null) {
       final client = await _client();
@@ -2442,30 +2440,61 @@ class HermesGatewayTransport implements ChatTransport {
 
   /// `request.answer` resolves an open server-to-client request by its id,
   /// with no session attached, for a client that never received the frame.
+  /// A server that raised the request as an event instead (`approval.request`,
+  /// `clarify.request`) only takes the older answers: `approval.respond` on
+  /// the resumed chat, `clarify.respond` for a question without an id.
   @override
   Future<bool> answerOpenRequest(
     String requestId,
     OpenRequestAnswer answer, {
+    String? threadId,
     String? profile,
   }) async {
-    final result = switch (answer) {
-      ApprovalChoiceAnswer(:final choice) => {'choice': choice},
-      QuestionAnswer(:final questionId, :final values, :final multiSelect) => {
-        'answers': {
-          questionId: multiSelect
-              ? jsonEncode(values)
-              : (values.isEmpty ? '' : values.first),
-        },
-      },
-    };
     final client = await _client();
-    final reply = await _call(client, 'request.answer', {
-      'id': requestId,
-      'result': result,
-      'profile': ?profile,
-    });
-    return reply['status'] == 'ok';
+    switch (answer) {
+      case QuestionAnswer(questionId: '', :final values, :final multiSelect):
+        final reply = await _call(client, 'clarify.respond', {
+          'request_id': requestId,
+          'answer': _clarifyValue(values, multiSelect: multiSelect),
+        });
+        return reply['status'] != 'expired';
+      case QuestionAnswer(:final questionId, :final values, :final multiSelect):
+        final reply = await _call(client, 'request.answer', {
+          'id': requestId,
+          'result': {
+            'answers': {
+              questionId: _clarifyValue(values, multiSelect: multiSelect),
+            },
+          },
+          'profile': ?profile,
+        });
+        return reply['status'] == 'ok';
+      case ApprovalChoiceAnswer(:final choice):
+        final reply = await _call(client, 'request.answer', {
+          'id': requestId,
+          'result': {'choice': choice},
+          'profile': ?profile,
+        });
+        if (reply['status'] == 'ok') return true;
+        if (threadId == null) return false;
+        final resumed = await _call(client, 'session.resume', {
+          'session_id': threadId,
+          'profile': ?profile,
+          'source': gatewaySessionSource,
+        });
+        final respond = await _call(client, 'approval.respond', {
+          'session_id': resumed['session_id'] as String? ?? threadId,
+          'request_id': requestId,
+          'choice': choice,
+        });
+        return ((respond['resolved'] as num?) ?? 0) > 0;
+    }
   }
+
+  static String _clarifyValue(
+    List<String> values, {
+    required bool multiSelect,
+  }) => multiSelect ? jsonEncode(values) : (values.isEmpty ? '' : values.first);
 
   @override
   Future<bool> answerVault(

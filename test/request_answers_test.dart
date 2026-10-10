@@ -75,6 +75,7 @@ void main() {
       expect(id, 'r1');
       expect((answer as ApprovalChoiceAnswer).choice, 'once');
       expect(profile, 'work');
+      expect(transport.openAnswerThreads.single, 's1');
       expect(transport.closed, isTrue);
       expect(notifications.shown, isEmpty);
     });
