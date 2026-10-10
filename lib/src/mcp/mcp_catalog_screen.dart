@@ -97,7 +97,7 @@ class _McpCatalogScreenState extends State<McpCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _catalog,
+      listenable: Listenable.merge([_catalog, widget.servers]),
       builder: (context, _) {
         final profile = widget.servers.profile;
         final entries = _catalog.entries;
