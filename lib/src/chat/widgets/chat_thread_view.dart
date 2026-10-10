@@ -165,8 +165,14 @@ class ChatThreadView extends StatelessWidget {
             commandRunning: commandRunning,
             sendTarget: sendTarget,
           ),
-          emptyChatListBuilder: welcome ? null : (_) => const SizedBox.shrink(),
         );
+    // copyWith takes a null builder as "none", so only the panel's case
+    // replaces the welcome view.
+    final shown = welcome
+        ? builders
+        : builders.copyWith(
+            emptyChatListBuilder: (_) => const SizedBox.shrink(),
+          );
 
     return Column(
       children: [
@@ -197,7 +203,7 @@ class ChatThreadView extends StatelessWidget {
                       onMessageSend: onSend,
                       onAttachmentTap: openAttachMenu,
                       theme: buildChatTheme(Theme.of(context)),
-                      builders: builders,
+                      builders: shown,
                     ),
                   ),
                 ),
