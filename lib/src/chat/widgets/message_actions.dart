@@ -7,11 +7,45 @@ import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 import '../../theme/platform_chrome.dart';
 import '../../widgets/named_icon_button.dart';
+import 'reply_error_note.dart';
+
+/// What the user asked to do with the last turn.
+enum TurnAction {
+  retry('Trying again…'),
+  edit('Taking the prompt back…');
+
+  const TurnAction(this.progress);
+
+  /// Said while the action runs.
+  final String progress;
+}
+
+/// The retry or edit running on the last turn, or why the last one failed.
+@immutable
+class TurnActionStatus {
+  const TurnActionStatus({this.running, this.problem});
+
+  static const idle = TurnActionStatus();
+
+  final TurnAction? running;
+  final String? problem;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TurnActionStatus &&
+      other.running == running &&
+      other.problem == problem;
+
+  @override
+  int get hashCode => Object.hash(running, problem);
+}
 
 /// The small row of actions under a finished reply — assistant-ui's action
 /// bar. Copy takes the reply's text; retry, when given, asks again, and edit
 /// takes the prompt back to change it. A reply the user [stopped] says so
-/// first, so it does not read as finished.
+/// first, so it does not read as finished. While [status] has an action
+/// running, it takes the place of retry and edit; a [TurnActionStatus.problem]
+/// is said below the bar.
 class MessageActions extends StatefulWidget {
   const MessageActions({
     super.key,
@@ -20,6 +54,7 @@ class MessageActions extends StatefulWidget {
     this.stopped = false,
     this.onRetry,
     this.onEdit,
+    this.status = TurnActionStatus.idle,
   });
 
   final String text;
@@ -29,6 +64,7 @@ class MessageActions extends StatefulWidget {
   final bool stopped;
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
+  final TurnActionStatus status;
 
   @override
   State<MessageActions> createState() => _MessageActionsState();
@@ -59,7 +95,8 @@ class _MessageActionsState extends State<MessageActions> {
     if (!widget.showCopy &&
         widget.onRetry == null &&
         widget.onEdit == null &&
-        !widget.stopped) {
+        !widget.stopped &&
+        widget.status == TurnActionStatus.idle) {
       return const SizedBox.shrink();
     }
     final color = context.hermesColors.subtleText;
@@ -76,7 +113,9 @@ class _MessageActionsState extends State<MessageActions> {
           constraints: BoxConstraints.tightFor(width: box, height: box),
           padding: EdgeInsets.zero,
         );
-    return Padding(
+    final running = widget.status.running;
+    final problem = widget.status.problem;
+    final bar = Padding(
       padding: EdgeInsets.only(top: touch ? 0 : 4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -93,12 +132,54 @@ class _MessageActionsState extends State<MessageActions> {
               _copied ? AppIcons.check : AppIcons.copyOutlined,
               _copy,
             ),
-          if (widget.onRetry case final retry?)
-            action('Try again', AppIcons.refresh, retry),
-          if (widget.onEdit case final edit?)
-            action('Edit prompt', AppIcons.edit, edit),
+          if (running != null)
+            Flexible(
+              child: Semantics(
+                liveRegion: true,
+                child: SizedBox(
+                  height: box,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(width: touch ? 12 : 8),
+                      SizedBox.square(
+                        dimension: 14,
+                        child: CircularProgressIndicator.adaptive(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(color),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          running.progress,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: color, fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            if (widget.onRetry case final retry?)
+              action('Try again', AppIcons.refresh, retry),
+            if (widget.onEdit case final edit?)
+              action('Edit prompt', AppIcons.edit, edit),
+          ],
         ],
       ),
+    );
+    if (problem == null || running != null) return bar;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Semantics(liveRegion: true, child: ReplyErrorNote(problem)),
+        bar,
+      ],
     );
   }
 }
