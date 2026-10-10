@@ -15,9 +15,39 @@ final class WatchRelay: NSObject, WCSessionDelegate {
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(name: Self.channelName, binaryMessenger: messenger)
     super.init()
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self, call.method == "complication", let payload = call.arguments as? [String: Any] else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self.sendComplication(payload, result: result)
+    }
     guard WCSession.isSupported() else { return }
     WCSession.default.delegate = self
     WCSession.default.activate()
+  }
+
+  /// Hands the watch's complications the latest turn's status. The budgeted
+  /// transfer wakes the watch app; with it spent the latest value goes as the
+  /// application context instead, which the watch reads when it next runs.
+  /// Answers how it went, or `none` when there is no watch to tell.
+  private func sendComplication(_ payload: [String: Any], result: FlutterResult) {
+    guard WCSession.isSupported() else { return result("none") }
+    let session = WCSession.default
+    guard session.activationState == .activated, session.isPaired, session.isWatchAppInstalled else {
+      return result("none")
+    }
+    if session.isComplicationEnabled, session.remainingComplicationUserInfoTransfers > 0 {
+      session.transferCurrentComplicationUserInfo(payload)
+      return result("complication")
+    }
+    do {
+      try session.updateApplicationContext(payload)
+      result("context")
+    } catch {
+      logger.error("Complication context failed code=\((error as NSError).code)")
+      result(FlutterError(code: "complication_failed", message: nil, details: nil))
+    }
   }
 
   func session(
