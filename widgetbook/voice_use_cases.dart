@@ -38,6 +38,23 @@ WidgetbookNode voiceNode() => WidgetbookFolder(
           ),
         ),
         _waveform(
+          'On this device',
+          const VoiceWaveform(
+            levels: dictationLevels,
+            elapsed: Duration(seconds: 9),
+            liveTranscript: dictationLiveTranscript,
+            onDevice: true,
+          ),
+        ),
+        _waveform(
+          'Through Hermes',
+          const VoiceWaveform(
+            levels: dictationLevels,
+            elapsed: Duration(seconds: 9),
+            onDevice: false,
+          ),
+        ),
+        _waveform(
           'Transcribing',
           const VoiceWaveform(
             levels: dictationLevels,

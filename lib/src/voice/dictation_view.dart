@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'dictation_controller.dart';
+import 'dictation_settings.dart';
 
 /// What the composer shows of a dictation, and what its controls do.
 class DictationView {
@@ -10,6 +11,7 @@ class DictationView {
     this.elapsed = Duration.zero,
     this.liveTranscript = '',
     this.canRetry = false,
+    this.engine = DictationEngine.hermes,
     required this.onStart,
     required this.onStop,
     required this.onCancel,
@@ -24,6 +26,7 @@ class DictationView {
     elapsed: controller.elapsed,
     liveTranscript: controller.liveTranscript,
     canRetry: controller.canRetry,
+    engine: controller.engine,
     onStart: controller.start,
     onStop: controller.stop,
     onCancel: controller.cancel,
@@ -38,6 +41,7 @@ class DictationView {
   final Duration elapsed;
   final String liveTranscript;
   final bool canRetry;
+  final DictationEngine engine;
   final VoidCallback onStart;
   final VoidCallback onStop;
   final VoidCallback onCancel;

@@ -6,7 +6,8 @@ import '../../theme/hermes_theme.dart';
 /// assistant-ui's `ComposerVoice`. While [settling] is false it shows a
 /// recording dot, the input [levels] as bars and the [elapsed] time; once the
 /// recording has stopped it shows "Transcribing…". The [liveTranscript], when
-/// there is one, is the not-yet-final text recognized so far.
+/// there is one, is the not-yet-final text recognized so far. Under the bars
+/// it names who turns the speech into text, when [onDevice] is known.
 class VoiceWaveform extends StatelessWidget {
   const VoiceWaveform({
     super.key,
@@ -14,6 +15,7 @@ class VoiceWaveform extends StatelessWidget {
     required this.elapsed,
     this.liveTranscript = '',
     this.settling = false,
+    this.onDevice,
   });
 
   /// Recent levels from 0 to 1, oldest first; the newest is drawn rightmost.
@@ -21,6 +23,9 @@ class VoiceWaveform extends StatelessWidget {
   final Duration elapsed;
   final String liveTranscript;
   final bool settling;
+
+  /// True for the on-device recognizer, false for Hermes.
+  final bool? onDevice;
 
   @override
   Widget build(BuildContext context) {
@@ -94,6 +99,14 @@ class VoiceWaveform extends StatelessWidget {
               ],
             ),
           ),
+          if (onDevice case final onDevice?)
+            Padding(
+              padding: const EdgeInsets.only(left: 18, top: 2),
+              child: Text(
+                onDevice ? 'On this device' : 'Hermes',
+                style: textTheme.labelSmall?.copyWith(color: subtle),
+              ),
+            ),
         ],
       ),
     );
