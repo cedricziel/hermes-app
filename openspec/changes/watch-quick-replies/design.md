@@ -4,7 +4,7 @@ Platforms: watchOS only. No entitlement, manifest or Xcode project change (no ne
 
 ## Chips
 
-A `QuickReplies` view in `ConversationView.swift` lists the four constant strings in a vertical stack of compact buttons, placed in the composer area above the text field. Each button calls the same `submit`-style path as the field: `model.send(text)`. `ConversationModel.send` already ignores a call while `phase` is `.sending` or `.loading`, so the same rules hold with no Core change; the chips are also `.disabled(busy)` like the field, so they look inactive. They are hidden while recording, when the composer shows "Stop and send".
+A `QuickReplies` view in `ConversationView.swift` lists the four constant strings in a two-column grid of compact buttons, placed in the composer area above the text field. Each button calls the same `submit`-style path as the field: `model.send(text)`. `ConversationModel.send` already ignores a call while `phase` is `.sending` or `.loading`, so the same rules hold with no Core change; the chips are also `.disabled(busy)` like the field, so they look inactive. They are hidden while recording, when the composer shows "Stop and send".
 
 Retry after a failed send keeps working: a chip text that fails is stored as `unsent`, and "Try again" resends it.
 
