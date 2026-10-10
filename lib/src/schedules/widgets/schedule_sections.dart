@@ -75,7 +75,8 @@ class ScheduleStatusRow extends StatelessWidget {
   }
 }
 
-/// A failure under a Mac status row, monospaced and selectable.
+/// A failure under a Mac status row, monospaced and selectable: GroupedRow's
+/// own error line, which cannot be selected, drawn as SelectableText.
 class _SelectableProblem extends StatelessWidget {
   const _SelectableProblem({
     required this.icon,

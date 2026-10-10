@@ -110,7 +110,7 @@ class _JobFormScreenState extends State<JobFormScreen> {
     if (!mounted) return;
     if (job != null) {
       Navigator.of(context).pop(job);
-    } else if (_form.error != null) {
+    } else {
       revealFormError(_scroll);
     }
   }

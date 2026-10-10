@@ -200,7 +200,7 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
     if (!mounted) return;
     if (job != null) {
       Navigator.of(context).pop(job);
-    } else if (_form.error != null || _form.fieldErrors.isNotEmpty) {
+    } else {
       revealFormError(_scroll);
     }
   }
@@ -300,16 +300,14 @@ class _BlueprintFormScreenState extends State<BlueprintFormScreen> {
           body: GroupedListView(
             controller: _scroll,
             children: [
-              if (_form.error case final error?)
+              if (_form.error ??
+                      (_form.fieldErrors.isEmpty
+                          ? null
+                          : 'Check the fields marked below.')
+                  case final error?)
                 GroupedFooter(
                   error,
                   key: const Key('blueprint-error'),
-                  error: true,
-                )
-              else if (_form.fieldErrors.isNotEmpty)
-                const GroupedFooter(
-                  'Check the fields marked below.',
-                  key: Key('blueprint-error'),
                   error: true,
                 ),
               if (blueprint.description.isNotEmpty)
