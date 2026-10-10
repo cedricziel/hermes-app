@@ -66,6 +66,22 @@ final class RelayClientTests: XCTestCase {
     XCTAssertEqual(messages.map(\.content), ["Hi", "Hello"])
   }
 
+  func testMessagesAndRepliesCarryTheToolsTheyUsed() async throws {
+    transport.reply = .success([
+      "ok": true,
+      "messages": [
+        ["id": "s1-1", "role": "assistant", "content": "Done", "at": 1, "tools": ["terminal", "read_file"]],
+        ["id": "s1-2", "role": "assistant", "content": "Hi", "at": 2],
+      ],
+    ])
+    let messages = try await client.messages(threadId: "s1")
+    XCTAssertEqual(messages.map(\.tools), [["terminal", "read_file"], []])
+
+    transport.reply = .success(["ok": true, "threadId": "s1", "text": "Ok", "tools": ["web_search"]])
+    let result = try await client.send(threadId: "s1", text: "Go", sendId: "m1")
+    XCTAssertEqual(result.tools, ["web_search"])
+  }
+
   func testSendToNewThreadOmitsThreadId() async throws {
     transport.reply = .success(["ok": true, "threadId": "new-1", "text": "Hi there", "failed": false])
 

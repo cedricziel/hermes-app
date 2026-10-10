@@ -12,6 +12,7 @@
 		A3BD8ABC8308525ED56E1791 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA4EDC232D777BB6CBD97EF5 /* PrivacyInfo.xcprivacy */; };
 		0AA3809677393A117BD4526D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F884F744E1BE6D3436E17C0A /* Assets.xcassets */; };
 		12AB7B237264DC0886E10BDB /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9978D7CC9E15B585ACD0BBA0 /* Models.swift */; };
+		1EEBDAE07238CB416F5A48E6 /* WatchMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AA96492324979FC244ABD9 /* WatchMarkdown.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		243E0384F034364349120A76 /* HermesWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 881128D4B7DE0DB07C68576B /* HermesWatchApp.swift */; };
 		288540103479AEF7E5E990EF /* receive-sharing-intent in Frameworks */ = {isa = PBXBuildFile; productRef = AA254FAAE9DAA66C9E1D9DA4 /* receive-sharing-intent */; };
@@ -150,6 +151,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9978D7CC9E15B585ACD0BBA0 /* Models.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		66AA96492324979FC244ABD9 /* WatchMarkdown.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchMarkdown.swift; sourceTree = "<group>"; };
 		A03C428A6CC06D8682F0F623 /* ConversationModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConversationModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B01 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1B2C3D4E5F60718293A4B02 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -278,6 +280,7 @@
 				9978D7CC9E15B585ACD0BBA0 /* Models.swift */,
 				3DF22DC249C3DAEEF3763874 /* RelayClient.swift */,
 				73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */,
+				66AA96492324979FC244ABD9 /* WatchMarkdown.swift */,
 			);
 			name = Core;
 			path = Core;
@@ -613,6 +616,7 @@
 				12AB7B237264DC0886E10BDB /* Models.swift in Sources */,
 				3EC1A4A5266F115E826C5E0F /* RelayClient.swift in Sources */,
 				BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */,
+				1EEBDAE07238CB416F5A48E6 /* WatchMarkdown.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -795,6 +799,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;

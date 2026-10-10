@@ -31,7 +31,13 @@ struct RelayClient: HermesClient {
     return rows.compactMap { row in
       guard let id = row["id"] as? String, let content = row["content"] as? String else { return nil }
       let role: ChatMessage.Role = row["role"] as? String == "user" ? .user : .assistant
-      return ChatMessage(id: id, role: role, content: content, at: Self.date(row["at"]))
+      return ChatMessage(
+        id: id,
+        role: role,
+        content: content,
+        at: Self.date(row["at"]),
+        tools: row["tools"] as? [String] ?? []
+      )
     }
   }
 
@@ -45,7 +51,8 @@ struct RelayClient: HermesClient {
     return SendResult(
       threadId: boundId,
       text: text,
-      failed: reply["failed"] as? Bool ?? false
+      failed: reply["failed"] as? Bool ?? false,
+      tools: reply["tools"] as? [String] ?? []
     )
   }
 
