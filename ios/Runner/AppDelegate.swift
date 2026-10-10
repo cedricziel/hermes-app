@@ -3,6 +3,8 @@ import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
 import flutter_local_notifications
+import flutter_secure_storage_darwin
+import shared_preferences_foundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -13,18 +15,18 @@ import flutter_local_notifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Set here, not with the engine: a launch for a notification button makes
+    // no scene, so no engine, and the button would find nothing to run it.
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
+      NotificationActions.registerPlugins(registry)
+    }
     // Lets a notification show while the app is in the foreground and lets a tap reach Flutter.
-    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
+    NotificationActions.shared.next = self as? UNUserNotificationCenterDelegate
+    UNUserNotificationCenter.current().delegate = NotificationActions.shared
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
-    // The engine the plugin starts for a notification button that answers in
-    // the background, without opening the app.
-    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
-      GeneratedPluginRegistrant.register(with: registry)
-      BackgroundTask.install(registry)
-    }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
@@ -35,27 +37,120 @@ import flutter_local_notifications
   }
 }
 
+/// Runs the notification buttons that answer in the background. The plugin
+/// only hears of a response through a Flutter engine's plugins, and a launch
+/// for such a button makes no scene and so no engine: the response would be
+/// dropped and its completion handler never called. So this, the center's
+/// delegate from launch on, starts the plugin's headless engine itself and
+/// hands it the response in the shape the plugin uses; everything else goes
+/// on to the app delegate, which passes it to the plugins.
+final class NotificationActions: NSObject, UNUserNotificationCenterDelegate {
+  static let shared = NotificationActions()
+  weak var next: UNUserNotificationCenterDelegate?
+  private let sink = ActionEventSink()
+  private let engines = FlutterEngineManager()
+
+  /// The plugins the headless engine needs to sign in and post a follow-up,
+  /// and the Runner's own channels for it.
+  static func registerPlugins(_ registry: FlutterPluginRegistry) {
+    if let registrar = registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin") {
+      FlutterLocalNotificationsPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "FlutterSecureStorageDarwinPlugin") {
+      FlutterSecureStorageDarwinPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "SharedPreferencesPlugin") {
+      SharedPreferencesPlugin.register(with: registrar)
+    }
+    if let registrar = registry.registrar(forPlugin: "HermesBackgroundTask") {
+      BackgroundTask.install(messenger: registrar.messenger())
+    }
+    if let registrar = registry.registrar(forPlugin: "HermesNotificationCategories") {
+      NotificationCategories.install(messenger: registrar.messenger())
+    }
+  }
+
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    if next?.userNotificationCenter?(center, willPresent: notification, withCompletionHandler: completionHandler) == nil {
+      completionHandler([.banner, .list, .sound])
+    }
+  }
+
+  func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    let action = response.actionIdentifier
+    guard action.hasPrefix("hermes.action."), action != "hermes.action.open" else {
+      if next?.userNotificationCenter?(center, didReceive: response, withCompletionHandler: completionHandler) == nil {
+        completionHandler()
+      }
+      return
+    }
+    // Begun before the engine starts: iOS may suspend the app as soon as the
+    // completion handler below has run.
+    BackgroundTask.begin()
+    var item: [String: Any] = [
+      "notificationId": Int(response.notification.request.identifier) ?? 0,
+      "actionId": action,
+      "notificationResponseType": 1,
+    ]
+    item["payload"] = response.notification.request.content.userInfo["payload"]
+    item["input"] = (response as? UNTextInputNotificationResponse)?.userText
+    sink.addItem(item)
+    engines.startEngineIfNeeded(sink) { registry in NotificationActions.registerPlugins(registry) }
+    completionHandler()
+  }
+}
+
 /// Registers the request notification categories with their hidden-preview
 /// placeholders, which flutter_local_notifications cannot set. Every launch
 /// the plugin replaces the whole set, so the categories made for single
 /// questions are remembered and added again, or a question still on screen
-/// would lose its buttons.
+/// would lose its buttons. Calls run one at a time, since each reads the set
+/// and writes it back.
 enum NotificationCategories {
   private static let rememberedKey = "hermes.requestCategories"
   private static let questionPrefix = "hermes.request.question."
   private static let remembered = 20
+  private static var busy = false
+  private static var queued: [(@escaping () -> Void) -> Void] = []
 
   static func install(messenger: FlutterBinaryMessenger) {
     FlutterMethodChannel(name: "hermes_app/notification_categories", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
-        guard call.method == "register",
-          let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
-        else { result(FlutterMethodNotImplemented); return }
-        register(specs) { result(nil) }
+        switch call.method {
+        case "register":
+          guard let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
+          else { result(FlutterMethodNotImplemented); return }
+          enqueue { done in register(specs) { result(nil); done() } }
+        case "forget":
+          enqueue { done in forget { result(nil); done() } }
+        default: result(FlutterMethodNotImplemented)
+        }
       }
   }
 
-  static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
+  private static func enqueue(_ work: @escaping (@escaping () -> Void) -> Void) {
+    queued.append(work)
+    runNext()
+  }
+
+  private static func runNext() {
+    guard !busy, !queued.isEmpty else { return }
+    busy = true
+    queued.removeFirst()({
+      busy = false
+      runNext()
+    })
+  }
+
+  private static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
     let defaults = UserDefaults.standard
     var kept = defaults.array(forKey: rememberedKey) as? [[String: Any]] ?? []
     let questions = specs.filter { ($0["id"] as? String)?.hasPrefix(questionPrefix) == true }
@@ -71,6 +166,17 @@ enum NotificationCategories {
         if let category = category(spec) { byId[category.identifier] = category }
       }
       center.setNotificationCategories(Set(byId.values))
+      DispatchQueue.main.async(execute: done)
+    }
+  }
+
+  /// Drops the remembered question categories, whose buttons carry the
+  /// choices the agent offered.
+  private static func forget(done: @escaping () -> Void) {
+    UserDefaults.standard.removeObject(forKey: rememberedKey)
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories { current in
+      center.setNotificationCategories(current.filter { !$0.identifier.hasPrefix(questionPrefix) })
       DispatchQueue.main.async(execute: done)
     }
   }
@@ -95,27 +201,33 @@ enum NotificationCategories {
   }
 }
 
-/// Lets the background isolate keep the app awake while it sends an answer:
-/// the plugin calls the system's completion handler before Dart runs.
+/// Keeps the app awake while the headless engine sends an answer. A task is
+/// begun for each button as it arrives and ended, oldest first, when Dart
+/// says an answer is done, or when its time runs out, whichever comes first.
 enum BackgroundTask {
-  static func install(_ registry: FlutterPluginRegistry) {
-    guard let registrar = registry.registrar(forPlugin: "HermesBackgroundTask") else { return }
-    FlutterMethodChannel(name: "hermes_app/background_task", binaryMessenger: registrar.messenger())
+  private static var pending: [UIBackgroundTaskIdentifier] = []
+
+  static func begin() {
+    var task = UIBackgroundTaskIdentifier.invalid
+    task = UIApplication.shared.beginBackgroundTask(withName: "notification-answer") {
+      end(task)
+    }
+    if task != .invalid { pending.append(task) }
+  }
+
+  /// Ends [task] once, whoever asks first.
+  private static func end(_ task: UIBackgroundTaskIdentifier) {
+    guard let index = pending.firstIndex(of: task) else { return }
+    pending.remove(at: index)
+    UIApplication.shared.endBackgroundTask(task)
+  }
+
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/background_task", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
-        switch call.method {
-        case "begin":
-          var task = UIBackgroundTaskIdentifier.invalid
-          task = UIApplication.shared.beginBackgroundTask(withName: "notification-answer") {
-            UIApplication.shared.endBackgroundTask(task)
-          }
-          result(task.rawValue)
-        case "end":
-          if let raw = call.arguments as? Int {
-            UIApplication.shared.endBackgroundTask(UIBackgroundTaskIdentifier(rawValue: raw))
-          }
-          result(nil)
-        default: result(FlutterMethodNotImplemented)
-        }
+        guard call.method == "end" else { result(FlutterMethodNotImplemented); return }
+        if let oldest = pending.first { end(oldest) }
+        result(nil)
       }
   }
 }
