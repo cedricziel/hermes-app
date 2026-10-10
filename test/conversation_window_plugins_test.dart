@@ -19,8 +19,9 @@ const _inConversationWindows = {
 /// Main engine only: notifications take the notification centre's delegate,
 /// secure storage holds the tokens a window must never read,
 /// macos_window_utils is bound to the main window, record and hermes_speech are
-/// left out because a conversation window offers no voice input, and the rest
-/// is unused in a conversation window.
+/// left out because a conversation window offers no voice input (the quick
+/// panel adds them, see below), and the rest is unused in a conversation
+/// window.
 const _mainEngineOnly = {
   'ConnectivityPlusPlugin',
   'DeviceInfoPlusMacosPlugin',
@@ -59,5 +60,16 @@ void main() {
     final end = window.indexOf('\n  }', start);
 
     expect(_registered(window.substring(start, end)), _inConversationWindows);
+  });
+
+  test('the quick panel adds only the dictation plugins', () {
+    final panel = File('macos/Runner/QuickPanel.swift').readAsStringSync();
+    final start = panel.indexOf('func registerPlugins');
+    final end = panel.indexOf('\n  }', start);
+
+    expect(_registered(panel.substring(start, end)), {
+      'RecordMacOsPlugin',
+      'HermesSpeechPlugin',
+    });
   });
 }

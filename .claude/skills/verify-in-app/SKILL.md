@@ -135,6 +135,22 @@ built, add `--skip-build` to the isolated command to avoid rebuilding them.
 - `flutter screenshot --type=skia` does not work here (Impeller), and there is
   no rasterizer type. Don't spend rounds on it.
 
+## The quick panel (macOS)
+
+- Record a shortcut in Settings… > Quick panel (the native recorder). Without
+  UI access, write one into the dev app's container instead and restart the
+  app fully (`dev-app.sh stop` then `start`; a hot restart does not re-read
+  it): `defaults write ~/Library/Containers/com.cedricziel.hermesApp.dev/Data/Library/Preferences/com.cedricziel.hermesApp.dev.plist KeyboardShortcuts_quickPanel -string '{"carbonKeyCode":40,"carbonModifiers":6400}'`
+  (⌃⌥⌘K). Delete the key when done; other worktrees share that container.
+- Pressing the chord needs a real key press: `osascript` keystrokes need
+  Accessibility for the terminal, and so does a synthetic key event. To
+  exercise the panel without it, temporarily call `_pressed()` from a
+  `Timer` in `QuickPanelShortcut.start` and watch `panel.*` reports in
+  `dev-app.sh logs`. Don't commit that.
+- Check it over another app and over a full-screen app: `lsappinfo front`
+  must keep naming the other app while the panel is shown, and Escape must
+  give that app the focus back.
+
 ## Driving the window
 
 When `cua_repl` is available, use it for native UI actions and screenshots.

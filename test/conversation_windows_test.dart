@@ -332,4 +332,109 @@ void main() {
     host.onCreate = (_) async => throw StateError('no window');
     expect(await windows.open('s2', profile: null, title: 'B'), isFalse);
   });
+
+  group('quick panel', () {
+    test('the first toggle creates the panel for the server', () async {
+      expect(await windows.togglePanel(), isTrue);
+
+      final launch = host.panels.values.single;
+      expect(launch.baseUrl, 'https://hermes.test');
+      expect(launch.authRequired, isTrue);
+      expect(host.panelToggles, 0);
+    });
+
+    test('later toggles show or hide the open panel', () async {
+      await windows.togglePanel();
+      await windows.togglePanel();
+
+      expect(host.panels, hasLength(1));
+      expect(host.panelToggles, 1);
+    });
+
+    test('presses while the panel is being created make one panel', () async {
+      await Future.wait([windows.togglePanel(), windows.togglePanel()]);
+
+      expect(host.panels, hasLength(1));
+    });
+
+    test('without a connection there is no panel', () async {
+      connection = null;
+
+      expect(await windows.togglePanel(), isFalse);
+      expect(host.panels, isEmpty);
+    });
+
+    test('is neither saved for the next launch nor listed', () async {
+      await windows.togglePanel();
+      await windows.open('s1', profile: null, title: 'A');
+
+      expect(windows.windows.map((w) => w.windowId), ['w1']);
+      final saved = await ConversationWindowStore(SharedPreferencesAsync())
+          .load();
+      expect(saved.map((w) => w.threadId), ['s1']);
+    });
+
+    test('sign-out closes it, and the next toggle makes a new one', () async {
+      await windows.togglePanel();
+
+      await windows.closeAll();
+      expect(host.panels, isEmpty);
+
+      await windows.togglePanel();
+      expect(host.panels.keys, ['p1']);
+    });
+
+    test('a panel closed natively is made again on the next toggle', () async {
+      await windows.togglePanel();
+      host.closed('p0');
+      await pumpEventQueue();
+
+      await windows.togglePanel();
+
+      expect(host.panels.keys, ['p1']);
+    });
+
+    test('answers the panel asking for headers', () async {
+      await windows.togglePanel();
+
+      final headers = await host.call('auth.headers', {'window_id': 'p0'});
+
+      expect(headers, {'Authorization': 'Bearer t'});
+    });
+
+    test('answers the current profile from the main window', () async {
+      await windows.togglePanel();
+      expect(await host.call('profile.current', {'window_id': 'p0'}), isNull);
+
+      windows.currentProfile = () => 'work';
+
+      expect(await host.call('profile.current', {'window_id': 'p0'}), 'work');
+    });
+
+    test('records shown and hidden without anything else', () async {
+      await windows.togglePanel();
+
+      await host.call('panel', {'window_id': 'p0', 'event': 'shown'});
+      await host.call('panel', {
+        'window_id': 'p0',
+        'event': 'hidden',
+        'reason': 'escape',
+      });
+      await host.call('panel', {
+        'window_id': 'p0',
+        'event': 'hidden',
+        'reason': 'typed secret text',
+      });
+
+      final crumbs = [
+        for (final c in trail.recent)
+          if (c.name.startsWith('panel.')) '${c.name} ${c.attributes}',
+      ];
+      expect(crumbs, [
+        'panel.shown {}',
+        'panel.hidden {reason: escape}',
+        'panel.hidden {reason: other}',
+      ]);
+    });
+  });
 }

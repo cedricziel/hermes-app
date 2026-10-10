@@ -6,6 +6,8 @@ import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
+import '../quick_panel/global_shortcut.dart';
+import '../quick_panel/widgets/quick_panel_shortcut_row.dart';
 import '../voice/dictation_dialog.dart';
 import '../voice/dictation_settings.dart';
 import '../widgets/grouped_dialog.dart';
@@ -51,6 +53,8 @@ Future<void> showSettingsDialog(BuildContext context) async {
       (lock) => _onOff(lock.enabled),
     ),
   };
+  // Provided only on a Mac, where the shortcut exists.
+  final shortcut = _maybeRead<GlobalShortcut?>(context);
   final picked = await showDialog<_Setting>(
     context: context,
     builder: (context) {
@@ -68,6 +72,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
               row(_Setting.appearance),
               row(_Setting.notifications),
               if (DictationSettings.offered) row(_Setting.dictation),
+              if (shortcut != null) QuickPanelShortcutRow(shortcut: shortcut),
               row(_Setting.appLock),
             ],
           ),
@@ -98,9 +103,15 @@ Future<void> showSettingsDialog(BuildContext context) async {
 String _onOff(bool on) => on ? 'On' : 'Off';
 
 /// What [describe] says about the provided [T], or null where there is none.
-String? _read<T>(BuildContext context, String Function(T value) describe) {
+String? _read<T>(BuildContext context, String Function(T value) describe) =>
+    switch (_maybeRead<T>(context)) {
+      final T value? => describe(value),
+      _ => null,
+    };
+
+T? _maybeRead<T>(BuildContext context) {
   try {
-    return describe(context.read<T>());
+    return context.read<T>();
   } on ProviderNotFoundException {
     return null;
   }

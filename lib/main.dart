@@ -19,6 +19,8 @@ import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
 import 'src/notifications/request_answers.dart';
+import 'src/quick_panel/global_shortcut.dart';
+import 'src/quick_panel/quick_panel_shortcut.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_provider.dart';
 import 'src/telemetry/breadcrumbs.dart';
@@ -74,6 +76,9 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, store) => store?.dispose(),
         ),
         Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
+        Provider<GlobalShortcut?>(
+          create: (_) => MacWindow.enabled ? ChannelGlobalShortcut() : null,
+        ),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,
           create: (context) {
@@ -100,6 +105,14 @@ Future<void> main([List<String> args = const []]) async {
             auth.signedOut.listen(
               (_) => windows.closeAll(forget: !auth.sessionExpired),
             );
+            if (context.read<GlobalShortcut?>() case final shortcut?) {
+              QuickPanelShortcut(
+                shortcut: shortcut,
+                windows: windows,
+                events: telemetry.events(),
+                breadcrumbs: context.read<Breadcrumbs>(),
+              ).start();
+            }
             return windows;
           },
         ),

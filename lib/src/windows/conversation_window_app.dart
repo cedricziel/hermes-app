@@ -13,6 +13,7 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/media/media_source.dart';
 import '../chat/media/media_store.dart';
 import '../macos/mac_window.dart';
+import '../quick_panel/quick_panel_app.dart';
 import '../settings/theme_controller.dart';
 import '../theme/hermes_theme.dart';
 import 'conversation_window_args.dart';
@@ -42,6 +43,9 @@ import 'window_auth_interceptor.dart';
 /// starts no telemetry, notifications, app lock or share inbox, and holds no
 /// session: every request gets its auth headers from the main window.
 Future<void> runConversationWindow(String windowId, String arguments) async {
+  if (QuickPanelLaunch.decode(arguments) case final panel?) {
+    return runQuickPanel(windowId, panel);
+  }
   final link = DesktopConversationWindowLink(windowId);
   final launch = ConversationWindowLaunch.decode(arguments);
   if (launch == null) return link.close();

@@ -1,0 +1,150 @@
+import Cocoa
+import FlutterMacOS
+import hermes_speech
+import record_macos
+
+/// A panel that takes key focus without activating the app, so typing into
+/// it leaves Hermes' other windows where they are.
+private final class QuickPanelWindow: NSPanel {
+  override var canBecomeKey: Bool { true }
+  override var canBecomeMain: Bool { false }
+}
+
+/// The quick panel: a floating, non-activating panel over every Space and
+/// full-screen app. desktop_multi_window makes a plain NSWindow for it, which
+/// could only be shown by activating the app (bringing the main window
+/// along), so its engine's view controller moves into a panel and the
+/// plugin's window stays ordered out, never closed, which would drop the
+/// engine. Hiding orders the panel out too, so the engine and its chat
+/// survive between presses.
+final class QuickPanel: NSObject, NSWindowDelegate {
+  private(set) static var shared: QuickPanel?
+
+  private static let width: CGFloat = 680
+  private static let height: CGFloat = 132
+
+  let windowId: String
+  private let panel: QuickPanelWindow
+  /// The plugin's window, kept so closing the panel closes it too and the
+  /// plugin forgets the engine.
+  private let hostWindow: NSWindow
+  private let channel: FlutterMethodChannel
+  private var shown = false
+
+  /// Moves [controller], which desktop_multi_window showed in [window], into
+  /// the panel. Called once, when the panel's engine first reports in.
+  static func adopt(
+    windowId: String, controller: FlutterViewController, window: NSWindow
+  ) {
+    shared?.close()
+    registerPlugins(controller)
+    shared = QuickPanel(windowId: windowId, controller: controller, window: window)
+    shared?.show()
+  }
+
+  /// Conversation windows leave out the dictation plugins on purpose; the
+  /// panel's composer dictates, so its engine gets them. hermes_speech keeps
+  /// its event sink per plugin instance, so the panel's listener does not
+  /// take the main engine's.
+  private static func registerPlugins(_ registry: FlutterPluginRegistry) {
+    RecordMacOsPlugin.register(with: registry.registrar(forPlugin: "RecordMacOsPlugin"))
+    HermesSpeechPlugin.register(with: registry.registrar(forPlugin: "HermesSpeechPlugin"))
+  }
+
+  private init(windowId: String, controller: FlutterViewController, window: NSWindow) {
+    self.windowId = windowId
+    hostWindow = window
+    channel = FlutterMethodChannel(
+      name: "hermes_app/window", binaryMessenger: controller.engine.binaryMessenger)
+    panel = QuickPanelWindow(
+      contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.height),
+      styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
+      backing: .buffered, defer: false)
+    super.init()
+    window.orderOut(nil)
+    window.contentViewController = nil
+    configure(panel)
+    panel.contentViewController = controller
+    panel.setContentSize(NSSize(width: Self.width, height: Self.height))
+    panel.delegate = self
+    channel.setMethodCallHandler { [weak self] call, result in
+      self?.handle(call, result: result) ?? result(nil)
+    }
+  }
+
+  private func configure(_ panel: NSPanel) {
+    panel.isFloatingPanel = true
+    panel.level = .floating
+    panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+    panel.hidesOnDeactivate = false
+    panel.isMovableByWindowBackground = true
+    panel.isReleasedWhenClosed = false
+    panel.titlebarAppearsTransparent = true
+    panel.titleVisibility = .hidden
+    panel.animationBehavior = .utilityWindow
+    for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+      panel.standardWindowButton(button)?.isHidden = true
+    }
+  }
+
+  private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "hidePanel":
+      hide(reason: call.arguments as? String ?? "escape")
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  /// Shows the panel, or hides it while it is the key window.
+  func toggle() {
+    if shown && panel.isKeyWindow {
+      hide(reason: "shortcut")
+    } else {
+      show()
+    }
+  }
+
+  func show() {
+    if !shown { place() }
+    shown = true
+    panel.makeKeyAndOrderFront(nil)
+    channel.invokeMethod("panelShown", arguments: nil)
+  }
+
+  func hide(reason: String) {
+    guard shown else { return }
+    shown = false
+    panel.orderOut(nil)
+    channel.invokeMethod("panelHidden", arguments: reason)
+  }
+
+  /// Closes the panel and its engine (sign-out, another server).
+  func close() {
+    shown = false
+    panel.delegate = nil
+    panel.orderOut(nil)
+    panel.contentViewController = nil
+    panel.close()
+    hostWindow.close()
+    if Self.shared === self { Self.shared = nil }
+  }
+
+  func windowDidResignKey(_ notification: Notification) {
+    hide(reason: "focus_lost")
+  }
+
+  /// On the screen with the pointer, centred, in its upper third.
+  private func place() {
+    let mouse = NSEvent.mouseLocation
+    let screen =
+      NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+    guard let area = screen?.visibleFrame else { return panel.center() }
+    let size = panel.frame.size
+    let origin = NSPoint(
+      x: area.midX - size.width / 2,
+      y: area.maxY - area.height / 3 - size.height / 2)
+    panel.setFrameOrigin(origin)
+  }
+}

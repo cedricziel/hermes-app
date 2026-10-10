@@ -136,3 +136,36 @@ class ConversationWindowLaunch {
     }
   }
 }
+
+/// What the quick panel's engine is started with: the server it talks to.
+/// Marked `kind: panel` so it is never taken for a conversation window.
+class QuickPanelLaunch {
+  const QuickPanelLaunch({required this.baseUrl, required this.authRequired});
+
+  final String baseUrl;
+  final bool authRequired;
+
+  static const _kind = 'panel';
+
+  String encode() => jsonEncode({
+    'kind': _kind,
+    'base_url': baseUrl,
+    'auth_required': authRequired,
+  });
+
+  /// Null for anything that is not the panel's arguments.
+  static QuickPanelLaunch? decode(String source) {
+    try {
+      final json = jsonDecode(source);
+      if (json is! Map || json['kind'] != _kind) return null;
+      final baseUrl = json['base_url'];
+      if (baseUrl is! String) return null;
+      return QuickPanelLaunch(
+        baseUrl: baseUrl,
+        authRequired: json['auth_required'] != false,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+}
