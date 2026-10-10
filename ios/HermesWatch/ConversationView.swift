@@ -48,6 +48,7 @@ struct ConversationView: View {
       await model.load()
     }
     .onDisappear { recorder.cancel() }
+    .advertisesHandoff(model.handoff)
     .onChange(of: recorder.state) { _, state in
       if state == .finished { Task { await submitRecording() } }
     }
@@ -172,6 +173,28 @@ private struct WorkingRow: View {
     HStack(spacing: 6) {
       ProgressView().frame(width: 18, height: 18)
       Text(text).foregroundStyle(.secondary)
+    }
+  }
+}
+
+extension View {
+  /// Lets a nearby iPhone or Mac continue the chat. The type is the one the
+  /// apps declare, merged into this target's Info.plist from the same
+  /// `HERMES_HANDOFF_TYPE` setting.
+  @ViewBuilder
+  fileprivate func advertisesHandoff(_ target: HandoffTarget?) -> some View {
+    if let type = (Bundle.main.object(forInfoDictionaryKey: "NSUserActivityTypes") as? [String])?.first {
+      userActivity(type, isActive: target != nil) { activity in
+        guard let target else { return }
+        activity.title = "Continue chat in Hermes"
+        activity.userInfo = target.userInfo
+        activity.requiredUserInfoKeys = HandoffTarget.requiredKeys
+        activity.isEligibleForHandoff = true
+        activity.isEligibleForSearch = false
+        activity.isEligibleForPublicIndexing = false
+      }
+    } else {
+      self
     }
   }
 }

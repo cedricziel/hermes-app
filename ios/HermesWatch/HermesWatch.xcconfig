@@ -1,3 +1,4 @@
-// Only the Flutter version variables, so the watch app is versioned with the
-// phone app it ships inside.
+// The Flutter version variables, so the watch app is versioned with the phone
+// app it ships inside, and the Handoff activity type it advertises.
 #include "../Flutter/Generated.xcconfig"
+#include "../Flutter/HandoffType.xcconfig"

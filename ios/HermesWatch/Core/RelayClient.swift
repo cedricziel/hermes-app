@@ -20,7 +20,8 @@ struct RelayClient: HermesClient {
         id: id,
         title: title,
         updatedAt: (row["updatedAt"] as? NSNumber).flatMap { $0.doubleValue > 0 ? Date(timeIntervalSince1970: $0.doubleValue) : nil },
-        pinned: row["pinned"] as? Bool ?? false
+        pinned: row["pinned"] as? Bool ?? false,
+        handoff: HandoffTarget(row: row)
       )
     }
   }
