@@ -178,12 +178,15 @@ class MacProfileDetail extends StatelessWidget {
                       metrics.rowPadding,
                       metrics.rowVerticalPadding + 4,
                     ),
-                    child: SelectableText(
-                      path,
-                      style: TextStyle(
-                        fontSize: metrics.footerSize,
-                        fontFamily: 'monospace',
-                        color: context.hermesColors.subtleText,
+                    // Selectable to copy, but read as text, not a field.
+                    child: SelectionArea(
+                      child: Text(
+                        path,
+                        style: TextStyle(
+                          fontSize: metrics.footerSize,
+                          fontFamily: 'monospace',
+                          color: context.hermesColors.subtleText,
+                        ),
                       ),
                     ),
                   ),

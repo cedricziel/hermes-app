@@ -172,14 +172,12 @@ void main() {
         ),
       );
 
-      final path = tester.widget<SelectableText>(
-        find.byWidgetPredicate(
-          (w) =>
-              w is SelectableText &&
-              w.data == '/home/hermes/.hermes/profiles/work',
-        ),
+      final path = find.text('/home/hermes/.hermes/profiles/work');
+      expect(tester.widget<Text>(path).style?.fontFamily, 'monospace');
+      expect(
+        find.ancestor(of: path, matching: find.byType(SelectionArea)),
+        findsOneWidget,
       );
-      expect(path.style?.fontFamily, 'monospace');
     });
 
     testWidgets('screen readers hear the name, not the initials', (
