@@ -30,4 +30,4 @@ This change is two PRs. PR A (sections 1-2) ships the native panel host and the 
 
 ## 6. Follow-up
 
-- [ ] 6.1 Move `ChatScreen` onto `ComposerDictation` (build one, call `configure(_chat.profile)` on profile changes and on resume, delete its inline `_refreshVoice`, `_downloadModel`, `_insertTranscript` and `_onDictation`), once the open changes to `chat_screen.dart` have landed. Switch its model pill to `composerModelPill` and its latest-reply tracking to `LatestReply` at the same time.
+- [x] 6.1 Move `ChatScreen` onto `ComposerDictation` (build one, call `configure(_chat.profile)` on profile changes and on resume, delete its inline `_refreshVoice`, `_downloadModel`, `_insertTranscript` and `_onDictation`), once the open changes to `chat_screen.dart` have landed. Switch its model pill to `composerModelPill` and its latest-reply tracking to `LatestReply` at the same time.

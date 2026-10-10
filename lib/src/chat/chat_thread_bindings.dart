@@ -6,6 +6,8 @@ import '../voice/dictation_controller.dart';
 import 'attachments/attachment_source.dart';
 import 'chat_controller.dart';
 import 'chat_models.dart';
+import 'slash_command.dart';
+import 'starter_prompts.dart';
 import 'widgets/chat_thread_view.dart';
 import 'widgets/message_actions.dart' show TurnActionStatus;
 
@@ -60,10 +62,12 @@ class LatestReply {
 }
 
 /// [ChatThreadView] for [thread] of [chat], with the chat's answers,
-/// retries, paging and queue bound to [chat].
+/// retries, paging and queue bound to [chat]. A null [thread] (a new chat)
+/// has none of them. Only the main window lets the last prompt be edited
+/// ([editable]) and offers [starterPrompts], slash commands and a [header].
 ChatThreadView boundChatThreadView({
   required ChatController chat,
-  required ChatThread thread,
+  required ChatThread? thread,
   required TextEditingController composerController,
   required FocusNode composerFocus,
   DictationController? dictation,
@@ -74,43 +78,75 @@ ChatThreadView boundChatThreadView({
   required ValueChanged<String> onSend,
   required LatestReply latestReply,
   bool welcome = true,
-}) => ChatThreadView(
-  thread: thread,
-  chatController: chat.controllerFor(thread),
-  composerController: composerController,
-  composerFocus: composerFocus,
-  dictation: dictation,
-  attachments: attachments,
-  attachmentSource: attachmentSource,
-  onAddAttachments: onAddAttachments,
-  onRemoveAttachment: onRemoveAttachment,
-  onSend: onSend,
-  onPickStarter: (_) {},
-  latestReplyId: latestReply.id,
-  turnActionStatus: latestReply.status,
-  welcome: welcome,
-  modelPill: composerModelPill(chat),
-  botContext: thread.botContext,
-  onRetry: chat.lastPromptText(thread) == null
-      ? null
-      : () => chat.retry(thread),
-  onLoadOlder: chat.hasOlder(thread.id)
-      ? () => chat.loadOlder(thread.id)
-      : null,
-  onAnswerApproval: (id, choice) => chat.answerApproval(thread, id, choice),
-  onAnswerClarify: (id, answers) => chat.answerClarify(thread, id, answers),
-  onSkipUnsupported: (id, kind) => chat.skipUnsupported(thread, id, kind),
-  onAnswerVault: (id, kind, {identifier = '', password = '', code = ''}) =>
-      chat.answerVaultRequest(
-        thread,
-        id,
-        kind,
-        identifier: identifier,
-        password: password,
-        code: code,
-      ),
-  onStop: chat.transport == null ? null : () => chat.stopReply(thread),
-  queued: chat.queuedIn(thread),
-  onRemoveQueued: (prompt) => chat.removeQueued(thread, prompt),
-  onSendQueued: chat.queuePaused(thread) ? () => chat.sendQueued(thread) : null,
-);
+  bool editable = false,
+  String? greetingName,
+  Object? Function()? sendTarget,
+  List<SlashCommand> slashCommands = const [],
+  bool commandRunning = false,
+  List<StarterPrompt>? starterPrompts,
+  ValueChanged<StarterPrompt>? onPickStarter,
+  Widget? header,
+}) {
+  final t = thread;
+  return ChatThreadView(
+    thread: t,
+    chatController: chat.controllerFor(t),
+    composerController: composerController,
+    composerFocus: composerFocus,
+    dictation: dictation,
+    attachments: attachments,
+    attachmentSource: attachmentSource,
+    onAddAttachments: onAddAttachments,
+    onRemoveAttachment: onRemoveAttachment,
+    onSend: onSend,
+    slashCommands: slashCommands,
+    commandRunning: commandRunning,
+    sendTarget: sendTarget,
+    starterPrompts: starterPrompts,
+    onPickStarter: onPickStarter ?? (_) {},
+    greetingName: greetingName,
+    header: header,
+    latestReplyId: latestReply.id,
+    turnActionStatus: latestReply.status,
+    welcome: welcome,
+    modelPill: composerModelPill(chat),
+    botContext: t?.botContext,
+    onRetry: t == null || chat.lastPromptText(t) == null
+        ? null
+        : () => chat.retry(t),
+    onEdit: !editable || t == null || !chat.canEditLastPrompt(t)
+        ? null
+        : () => chat.editLastPrompt(t),
+    onLoadOlder: t == null || !chat.hasOlder(t.id)
+        ? null
+        : () => chat.loadOlder(t.id),
+    onAnswerApproval: t == null
+        ? null
+        : (id, choice) => chat.answerApproval(t, id, choice),
+    onAnswerClarify: t == null
+        ? null
+        : (id, answers) => chat.answerClarify(t, id, answers),
+    onSkipUnsupported: t == null
+        ? null
+        : (id, kind) => chat.skipUnsupported(t, id, kind),
+    onAnswerVault: t == null
+        ? null
+        : (id, kind, {identifier = '', password = '', code = ''}) =>
+              chat.answerVaultRequest(
+                t,
+                id,
+                kind,
+                identifier: identifier,
+                password: password,
+                code: code,
+              ),
+    onStop: t == null || chat.transport == null
+        ? null
+        : () => chat.stopReply(t),
+    queued: t == null ? const [] : chat.queuedIn(t),
+    onRemoveQueued: t == null ? null : (prompt) => chat.removeQueued(t, prompt),
+    onSendQueued: t == null || !chat.queuePaused(t)
+        ? null
+        : () => chat.sendQueued(t),
+  );
+}
