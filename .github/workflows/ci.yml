@@ -98,7 +98,9 @@ jobs:
         run: flutter build apk --debug
 
   # The watch app's logic lives in a Swift package (ios/HermesWatch) so it can
-  # be tested on the Mac without a watch simulator.
+  # be tested on the Mac without a watch simulator. The system surfaces' shared
+  # package (ios/HermesSurfaceKit: snapshot reader, widget models) is tested
+  # here too.
   test-watch:
     name: Test watch core
     runs-on: macos-26
@@ -111,6 +113,10 @@ jobs:
 
       - name: swift test
         working-directory: ios/HermesWatch
+        run: swift test
+
+      - name: swift test (surface kit)
+        working-directory: ios/HermesSurfaceKit
         run: swift test
 
   # Builds the app together with its share extension and watch app. The extension links the

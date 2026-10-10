@@ -326,6 +326,24 @@ device (Device > Lock in Simulator, or Cmd-L) and search again: nothing from
 Hermes is found. Turn App Lock on, switch Spotlight off, sign out: each
 removes the results. Handoff must stay out of search.
 
+## Home Screen widgets (iOS simulator)
+
+The Recent chats, Needs you and Board widgets live in the `HermesLiveActivity`
+extension and draw only the snapshot above. Install the debug app, long-press
+the Home Screen, tap "+" and search "Hermes": add each widget in each size.
+The gallery shows made-up content; the placed widget shows the snapshot, so
+open a chat and let a reply finish, and it appears within a moment (the store
+reloads `HermesRecentChats`, `HermesNeedsYou` and `HermesBoard` after each
+write). Tap a chat row, the Needs you count and a failed job: each lands on its
+chat or tab. Lock the device (Cmd-L) and look at the lock screen or StandBy
+view: titles and snippets are redacted, counts stay. For App Lock turn it on,
+background the app and look at the unlocked Home Screen: rows show grey bars
+instead of titles, with ages, kinds and counts intact. Sign out
+and every widget reads "Open Hermes to sign in". Reload failures and the daily
+`widgets.installed` report show in the telemetry as `widgets.reload_failed` and
+`widgets.installed`. A quick look without the simulator: the pure models run
+with `swift test` in `ios/HermesSurfaceKit`.
+
 ## Background work (iOS simulator)
 
 Code behind `withHeadlessHermes` (`lib/src/background/`) runs with no screen,
