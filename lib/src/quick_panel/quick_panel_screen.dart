@@ -203,8 +203,6 @@ class _QuickPanelScreenState extends State<QuickPanelScreen> {
 
   void _changed() {
     if (!mounted) return;
-    // As in the chat screen: voice support follows the chat's profile.
-    _dictation?.followProfile();
     // Reply events keep the chat going; reloads and model options do not.
     if (_chat.selectedThread?.isReplying ?? false) {
       _session.touch(_chat.profile);

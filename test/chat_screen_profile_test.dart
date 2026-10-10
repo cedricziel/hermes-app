@@ -111,6 +111,17 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('voice support is read again for the profile switched to', (
+    tester,
+  ) async {
+    await pumpChat(tester);
+    expect(_voiceProfiles(server), isNot(contains('work')));
+
+    await switchProfile(tester, 'work');
+
+    expect(_voiceProfiles(server).last, 'work');
+  });
+
   testWidgets('lists the sessions of the active profile', (tester) async {
     activate('work', current: 'default');
     await pumpChat(tester);
@@ -311,3 +322,8 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 }
+
+List<Object?> _voiceProfiles(FakeHermesServer server) => [
+  for (final request in server.requestsTo('GET', '/api/audio/voice-config'))
+    request.queryParameters['profile'],
+];

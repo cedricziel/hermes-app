@@ -653,7 +653,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   void _addAttachments(List<SharedFile> files) {
-    final added = files.where((f) => !_attachments.contains(f)).toList();
+    final added = newAttachments(_attachments, files);
     if (added.isEmpty) return;
     setState(() => _attachments.addAll(added));
   }
