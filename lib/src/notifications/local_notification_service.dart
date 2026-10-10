@@ -222,10 +222,7 @@ class LocalNotificationService implements NotificationService {
   /// A tap on the notification, or a button that opens the app.
   static bool _opensApp(NotificationResponse response) {
     final action = response.actionId;
-    return action == null ||
-        action.isEmpty ||
-        action == kOtherAction ||
-        action == kOpenAction;
+    return action == null || action.isEmpty || action == kOpenAction;
   }
 
   @override

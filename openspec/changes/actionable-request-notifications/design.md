@@ -27,9 +27,10 @@ Actions reuse fixed ids, whatever their titles:
 | `hermes.action.allow-always`     | Always allow                      | authenticationRequired, destructive |
 | `hermes.action.deny`             | Deny                              | authenticationRequired, destructive |
 | `hermes.action.choice.0` to `.3` | the choice                        | authenticationRequired              |
-| `hermes.action.other`            | Other…                            | authenticationRequired, foreground  |
 | `hermes.action.reply`            | Reply (text input, button "Send") | authenticationRequired              |
-| `hermes.action.open`             | Open                              | authenticationRequired, foreground  |
+| `hermes.action.open`             | Open, or Other…                   | authenticationRequired, foreground  |
+
+"Other…" reuses the Open id: the plugin routes a response to the main isolate only for action ids it saw with the foreground option at `initialize`, and question categories with choices are registered later, natively.
 
 The builder is top-level in `lib/src/notifications/request_notifications.dart`: `requestCategoryFor(InputRequest)` and `staticRequestCategories()`, both plain values, so a background refresh can post request notifications through the same function.
 

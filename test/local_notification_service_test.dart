@@ -389,7 +389,7 @@ void main() {
         await service.show(_request(_question));
         final tapped = service.taps.first;
 
-        plugin.onResponse!(_action(plugin.posted.single.payload, kOtherAction));
+        plugin.onResponse!(_action(plugin.posted.single.payload, kOpenAction));
 
         expect((await tapped).threadId, 's1');
       });

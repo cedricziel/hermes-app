@@ -22,8 +22,10 @@ const kDenyAction = 'hermes.action.deny';
 
 /// Followed by the index of the choice among the buttons.
 const kChoiceActionPrefix = 'hermes.action.choice.';
-const kOtherAction = 'hermes.action.other';
 const kReplyAction = 'hermes.action.reply';
+
+/// Opens the chat. Titled Other… on a question with more choices than fit,
+/// so that one id is all the plugin has to know opens the app.
 const kOpenAction = 'hermes.action.open';
 
 /// The most choice buttons a question notification shows. Above it the
@@ -175,7 +177,7 @@ RequestCategory? requestCategoryFor(InputRequest request) {
           for (final (index, choice) in buttons.indexed)
             RequestAction('$kChoiceActionPrefix$index', choice),
           if (more)
-            const RequestAction(kOtherAction, 'Other…', foreground: true),
+            const RequestAction(kOpenAction, 'Other…', foreground: true),
           _reply,
         ],
       );

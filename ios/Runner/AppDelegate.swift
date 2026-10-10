@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import UniformTypeIdentifiers
 import UserNotifications
+import flutter_local_notifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -18,12 +19,104 @@ import UserNotifications
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    // The engine the plugin starts for a notification button that answers in
+    // the background, without opening the app.
+    FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in
+      GeneratedPluginRegistrant.register(with: registry)
+      BackgroundTask.install(registry)
+    }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     LiveActivityLaunch.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())
     ClipboardFiles.install(messenger: engineBridge.applicationRegistrar.messenger())
+  }
+}
+
+/// Registers the request notification categories with their hidden-preview
+/// placeholders, which flutter_local_notifications cannot set. Every launch
+/// the plugin replaces the whole set, so the categories made for single
+/// questions are remembered and added again, or a question still on screen
+/// would lose its buttons.
+enum NotificationCategories {
+  private static let rememberedKey = "hermes.requestCategories"
+  private static let questionPrefix = "hermes.request.question."
+  private static let remembered = 20
+
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/notification_categories", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "register",
+          let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
+        else { result(FlutterMethodNotImplemented); return }
+        register(specs) { result(nil) }
+      }
+  }
+
+  static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
+    let defaults = UserDefaults.standard
+    var kept = defaults.array(forKey: rememberedKey) as? [[String: Any]] ?? []
+    let questions = specs.filter { ($0["id"] as? String)?.hasPrefix(questionPrefix) == true }
+    let ids = Set(questions.compactMap { $0["id"] as? String })
+    kept.removeAll { ids.contains($0["id"] as? String ?? "") }
+    kept = Array((kept + questions).suffix(remembered))
+    defaults.set(kept, forKey: rememberedKey)
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories { current in
+      var byId = [String: UNNotificationCategory]()
+      for category in current { byId[category.identifier] = category }
+      for spec in kept + specs {
+        if let category = category(spec) { byId[category.identifier] = category }
+      }
+      center.setNotificationCategories(Set(byId.values))
+      DispatchQueue.main.async(execute: done)
+    }
+  }
+
+  private static func category(_ spec: [String: Any]) -> UNNotificationCategory? {
+    guard let id = spec["id"] as? String else { return nil }
+    let actions: [UNNotificationAction] = (spec["actions"] as? [[String: Any]] ?? []).compactMap { action in
+      guard let id = action["id"] as? String, let title = action["title"] as? String else { return nil }
+      let options = UNNotificationActionOptions(rawValue: (action["options"] as? NSNumber)?.uintValue ?? 0)
+      if let button = action["buttonTitle"] as? String {
+        return UNTextInputNotificationAction(
+          identifier: id, title: title, options: options,
+          textInputButtonTitle: button,
+          textInputPlaceholder: action["placeholder"] as? String ?? "")
+      }
+      return UNNotificationAction(identifier: id, title: title, options: options)
+    }
+    return UNNotificationCategory(
+      identifier: id, actions: actions, intentIdentifiers: [],
+      hiddenPreviewsBodyPlaceholder: spec["placeholder"] as? String ?? "",
+      options: [])
+  }
+}
+
+/// Lets the background isolate keep the app awake while it sends an answer:
+/// the plugin calls the system's completion handler before Dart runs.
+enum BackgroundTask {
+  static func install(_ registry: FlutterPluginRegistry) {
+    guard let registrar = registry.registrar(forPlugin: "HermesBackgroundTask") else { return }
+    FlutterMethodChannel(name: "hermes_app/background_task", binaryMessenger: registrar.messenger())
+      .setMethodCallHandler { call, result in
+        switch call.method {
+        case "begin":
+          var task = UIBackgroundTaskIdentifier.invalid
+          task = UIApplication.shared.beginBackgroundTask(withName: "notification-answer") {
+            UIApplication.shared.endBackgroundTask(task)
+          }
+          result(task.rawValue)
+        case "end":
+          if let raw = call.arguments as? Int {
+            UIApplication.shared.endBackgroundTask(UIBackgroundTaskIdentifier(rawValue: raw))
+          }
+          result(nil)
+        default: result(FlutterMethodNotImplemented)
+        }
+      }
   }
 }
 

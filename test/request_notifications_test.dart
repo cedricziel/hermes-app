@@ -137,7 +137,7 @@ void main() {
 
       expect(_titles(category), ['a', 'b', 'c', 'Other…', 'Reply']);
       final other = category!.actions[3];
-      expect(other.id, kOtherAction);
+      expect(other.id, kOpenAction);
       expect(other.foreground, isTrue);
     });
 
@@ -316,7 +316,7 @@ void main() {
 
     test('are none for an empty reply, Other…, Open or a stray action', () {
       expect(answerFor(question, kReplyAction, '  '), isNull);
-      expect(answerFor(question, kOtherAction, null), isNull);
+      expect(answerFor(question, kOpenAction, null), isNull);
       expect(answerFor(question, kOpenAction, null), isNull);
       expect(answerFor(question, '${kChoiceActionPrefix}7', null), isNull);
       expect(answerFor(approval, '${kChoiceActionPrefix}0', null), isNull);
