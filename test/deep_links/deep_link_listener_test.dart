@@ -72,6 +72,20 @@ void main() {
     expect(deepLinks.take()?.cold, isFalse);
   });
 
+  test('open takes a link from another source like a delivered one', () {
+    final link = deepLinks.open(Uri.parse('hermes://new?dictate=1'));
+
+    expect(link?.target, const NewChat(dictate: true));
+    expect(link?.cold, isTrue);
+    expect(deepLinks.take(), same(link));
+  });
+
+  test('open returns null for a link it ignores', () {
+    expect(deepLinks.open(Uri.parse('hermes://memory')), isNull);
+    expect(deepLinks.open(Uri.parse('https://example.com')), isNull);
+    expect(deepLinks.pending, isNull);
+  });
+
   test('keeps nothing for a malformed link', () {
     arrive('hermes://chat?profile=work');
 

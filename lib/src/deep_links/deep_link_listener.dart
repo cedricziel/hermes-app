@@ -37,28 +37,38 @@ class DeepLinks extends ChangeNotifier {
       (firstFrame ?? WidgetsBinding.instance.waitUntilFirstFrameRasterized)
           .then((_) => shown = true),
     );
-    var first = true;
-    _links = links.listen((uri) {
-      if (!isHermesLink(uri)) return;
-      final cold = first && !shown;
-      first = false;
-      _receive(uri, cold: cold);
-    }, onError: (Object _) => _ignored('malformed'));
+    _shown = () => shown;
+    _links = links.listen(
+      (uri) => open(uri),
+      onError: (Object _) => _ignored('malformed'),
+    );
     _signedOut = signedOut?.listen((_) => _drop());
   }
 
   final Breadcrumbs breadcrumbs;
   late final StreamSubscription<Uri> _links;
   StreamSubscription<void>? _signedOut;
+  late final bool Function() _shown;
+  var _first = true;
   PendingDeepLink? _pending;
 
   PendingDeepLink? get pending => _pending;
 
-  void _receive(Uri uri, {required bool cold}) {
+  /// Takes a link from another source than [links], such as an app icon
+  /// quick action, as if the platform had delivered it. Returns what the
+  /// shell will act on, or null when the link was ignored.
+  PendingDeepLink? open(Uri uri) {
+    if (!isHermesLink(uri)) return null;
+    final cold = _first && !_shown();
+    _first = false;
     final target = parseDeepLink(uri);
-    if (target == null) return _ignored(deepLinkIgnoredReason(uri));
-    _pending = PendingDeepLink(target, cold: cold);
+    if (target == null) {
+      _ignored(deepLinkIgnoredReason(uri));
+      return null;
+    }
+    final link = _pending = PendingDeepLink(target, cold: cold);
     notifyListeners();
+    return link;
   }
 
   void _ignored(String reason) =>

@@ -27,15 +27,19 @@ Alternative: short fixed types (`new`, `dictate`, `recent:<n>`) mapped in Dart. 
 `lib/src/quick_actions/quick_actions_controller.dart`, created in `main.dart` next to the other app-wide controllers on iOS and Android only:
 
 - `start()` calls `initialize` first (so a launch item is not lost), then subscribes to `SurfaceSnapshotStore` writes and applies the current snapshot.
-- `itemsFor(SurfaceSnapshot)` (pure): signed out → `[]`; otherwise New Chat, Dictate, then the first two `recentChats` whose title is not empty, titles trimmed to 40 characters. While App Lock is on, `surface-snapshot` writes every title empty, so no recent item is left and the menu holds only New Chat and Dictate; the controller needs no App Lock check of its own, and the next write after App Lock is turned off brings the recents back. On iOS the recent items carry the profile as `localizedSubtitle` when the snapshot holds more than one profile.
+- `itemsFor(SurfaceSnapshot)` (pure): signed out → `[]`; otherwise New Chat, Dictate, then the first two `recentChats` whose title is not empty, titles trimmed to 40 characters. While App Lock is on, `surface-snapshot` writes every title empty, so no recent item is left and the menu holds only New Chat and Dictate; the controller needs no App Lock check of its own, and the next write after App Lock is turned off brings the recents back. On iOS the recent items carry the profile as `localizedSubtitle` when the listed chats span more than one profile (as the spec says).
 - Only a change in the computed list reaches the plugin (compared by type and title), since every snapshot write would otherwise re-set the same items.
 - A `QuickActionsPort` interface wraps the plugin; tests use a fake. Every plugin call is wrapped so an error is logged and swallowed.
 
 Order follows the settled decision (static first). iOS shows four, so its menu holds two recent chats; the list is not reordered per platform, so both platforms keep the same meaning for the top items.
 
+### Entry point
+
+`DeepLinks.open(Uri)` is the app-level entry for links that do not come from `app_links`: it applies the same scheme check, first-link cold flag and ignore breadcrumb, and returns the pending link (null when ignored) so the controller can log the item's kind and `cold_start`. `QuickActionsController.forPlatform` returns null off iOS/Android or without a store or `DeepLinks`.
+
 ### Icons
 
-Template images `quick_new_chat` (square.and.pencil), `quick_dictate` (mic) and `quick_chat` (bubble.left) exported as PDF into `ios/Runner/Assets.xcassets`, and matching vector drawables in `android/app/src/main/res/drawable`. `quick_actions` cannot take SF Symbol names directly.
+Template images `quick_new_chat`, `quick_dictate` and `quick_chat` as SVG (Material icon paths, template rendering) in `ios/Runner/Assets.xcassets`, and matching vector drawables in `android/app/src/main/res/drawable`, kept from resource shrinking in `res/raw/keep.xml` since the plugin looks them up by name. `quick_actions` cannot take SF Symbol names directly.
 
 ### Platforms and native changes
 
