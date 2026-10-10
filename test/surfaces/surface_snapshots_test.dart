@@ -68,7 +68,10 @@ void main() {
       ..on('GET', '/api/dashboard/plugins', [])
       ..on('GET', '/api/cron/delivery-targets', {'detail': 'no'}, status: 404);
     storage = FakeSurfaceStorage();
-    store = SurfaceSnapshotStore(storage: storage);
+    store = SurfaceSnapshotStore(
+      storage: storage,
+      widgetKinds: const ['Recent'],
+    );
     tracer = RecordingTracer();
     signedOut = StreamController<void>.broadcast();
     snapshots = SurfaceSnapshots(

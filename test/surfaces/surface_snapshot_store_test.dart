@@ -253,7 +253,7 @@ void main() {
       final written = SurfaceSnapshot.fromJson(storage.saved.last)!;
       expect(written.signedIn, isFalse);
       expect(written.recentChats, isEmpty);
-      expect(storage.reloaded, ['Recent', 'Needs', 'Recent', 'Needs']);
+      expect(storage.reloaded, ['Recent', 'Recent']);
     });
 
     test('reads nothing back when it holds nothing', () async {
