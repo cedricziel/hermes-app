@@ -44,5 +44,5 @@ None.
 - Swift: extends the `ios/HermesSurfaceKit` package that `home-screen-widgets` creates (snapshot reader) with the deep-link builder, Chat and Profile entities and the three intents, compiled into the Runner and the `HermesLiveActivity` extension and tested with `swift test` on the Mac. An `AppShortcutsProvider` in the Runner only, and three controls added to the extension's `WidgetBundle`.
 - Dart: one call after each snapshot write that asks iOS to refresh the shortcut parameters, on the existing `hermes_app/…` channel pattern.
 - Xcode: file membership for the package in both targets; no new target, entitlement or Info.plist key.
-- Depends on `home-screen-widgets` (creates `ios/HermesSurfaceKit` and its snapshot reader), `surface-snapshot` (snapshot written, with `profiles`) and `deep-links` (URL scheme registered, links handled). `ask-hermes-intent` and `request-intents` build on the entities added here.
+- Depends on `home-screen-widgets` (creates `ios/HermesSurfaceKit` and its snapshot reader), `lock-screen-widgets` (adds the `DeepLink` builder), `surface-snapshot` (snapshot written, with `profiles`) and `deep-links` (URL scheme registered, links handled). `ask-hermes-intent` and `request-intents` build on the entities added here.
 - Backend: none.
