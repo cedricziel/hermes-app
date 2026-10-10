@@ -259,6 +259,44 @@ void main() {
       expect(request.queryParameters['profile'], 'work');
     });
 
+    test('shows the text of a turn that used tools and skips rows without '
+        'any', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'What is here?'),
+          messageRow(
+            id: 2,
+            role: 'assistant',
+            content: 'Let me look.',
+            toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+          ),
+          messageRow(
+            id: 3,
+            role: 'tool',
+            toolCallId: 'call_terminal',
+            content: 'a.txt',
+          ),
+          messageRow(
+            id: 4,
+            role: 'assistant',
+            content: '',
+            toolCalls: [functionCall('read_file', '{"path":"a.txt"}')],
+          ),
+          messageRow(id: 5, role: 'assistant', content: 'One file, a.txt.'),
+        ]),
+      );
+
+      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
+
+      final messages = (reply['messages']! as List).cast<Map>();
+      expect(
+        [for (final m in messages) m['content']],
+        ['What is here?', 'Let me look.', 'One file, a.txt.'],
+      );
+    });
+
     test('keeps only the last messages and cuts very long ones', () async {
       server.on(
         'GET',
