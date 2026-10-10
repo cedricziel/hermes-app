@@ -724,6 +724,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
+    _watchTurns.remove(thread);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -741,7 +742,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     for (final reply in _replies) {
       reply.cancel();
     }
-    for (final thread in _threads) {
+    for (final thread in _watchTurns) {
       watchStatus?.abandon(thread);
     }
     _stopFollowing();
@@ -1294,8 +1295,13 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       _threads.insert(0, thread);
       _selectedId = thread.id;
     }
-    if (thread.messages.isEmpty) {
-      thread.title = label.length > 48 ? '${label.substring(0, 48)}…' : label;
+    // A chat that has a name keeps it, even when its messages are not loaded
+    // or a retry or an edit emptied them; only a chat with none gets a title
+    // made from the prompt, which is not a name.
+    if (thread.messages.isEmpty && !thread.named) {
+      thread
+        ..title = label.length > 48 ? '${label.substring(0, 48)}…' : label
+        ..named = false;
     }
 
     final threadId = _bound.contains(thread) ? thread.id : null;
@@ -1495,6 +1501,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     liveActivities?.begin(thread, profile: profile);
+    _watchTurns.add(thread);
     watchStatus?.begin(
       thread,
       title: _watchTitle(thread),
@@ -1925,6 +1932,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
+      _watchTurns.add(thread);
       watchStatus?.onEvent(
         thread,
         event,
@@ -1940,6 +1948,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile: profile,
     );
   }
+
+  /// The threads the watch status was told about, whatever profile is in view:
+  /// a reply goes on in a profile that went out of view, and closing the chat
+  /// must end it on the watch too.
+  final _watchTurns = <ChatThread>{};
 
   void _titled(ChatThread thread, String title) {
     if (thread.isCanonicalBotChat) return;

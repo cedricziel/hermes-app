@@ -68,7 +68,14 @@ void main() {
           messageRow(id: 1, role: 'user', content: 'my private first words'),
         ]),
       )
-      ..on('DELETE', '/api/sessions/s1', {'ok': true});
+      ..on('DELETE', '/api/sessions/s1', {'ok': true})
+      ..on('PATCH', '/api/sessions/s1', {'title': ''})
+      ..on(
+        'GET',
+        '/api/sessions',
+        sessionListBody([]),
+        query: {'profile': 'work'},
+      );
     attention = AttentionNotifier(
       service: null,
       settings: null,
@@ -196,6 +203,82 @@ void main() {
     });
   });
 
+  group('the title of a named chat', () {
+    test('is kept when a retry empties its only turn', () async {
+      await chat.loadThreads();
+      chat.select('s1');
+      await pumpEventQueue();
+
+      await chat.retry(chat.selectedThread!);
+      await pumpEventQueue();
+
+      expect(sent, isNotEmpty);
+      expect(sent.last, containsPair('title', 'Run failure'));
+      expect(sent.join(), isNot(contains('Why did the run fail')));
+    });
+
+    test('is kept when an edit empties its only turn', () async {
+      await chat.loadThreads();
+      chat.select('s1');
+      await pumpEventQueue();
+
+      await chat.editLastPrompt(chat.selectedThread!);
+      chat.submit('my edited secret', const []);
+      await pumpEventQueue();
+
+      expect(sent, isNotEmpty);
+      expect(sent.last, containsPair('title', 'Run failure'));
+      expect(sent.join(), isNot(contains('secret')));
+    });
+
+    test('is kept when a send goes in before its messages load', () async {
+      await chat.loadThreads();
+      chat.select('s1');
+      chat.submit('my hasty secret', const []);
+      await pumpEventQueue();
+
+      expect(sent, isNotEmpty);
+      expect(sent.last, containsPair('title', 'Run failure'));
+      expect(sent.join(), isNot(contains('secret')));
+    });
+
+    test('is not kept once the rename cleared it', () async {
+      await chat.loadThreads();
+      chat.select('s1');
+      await pumpEventQueue();
+      final thread = chat.selectedThread!;
+
+      await chat.housekeeping!.rename(thread, '');
+      expect(thread.named, isFalse);
+      await chat.retry(thread);
+      await pumpEventQueue();
+
+      expect(sent.any((payload) => payload.containsKey('title')), isFalse);
+    });
+
+    test('follows what another window made of it', () async {
+      await chat.loadThreads();
+      final thread = chat.threads.firstWhere((t) => t.id == 's1');
+
+      chat.housekeeping!.adopt(
+        thread,
+        ChatThread(id: 's1', title: 'first words', updatedAt: DateTime.now()),
+      );
+      expect(thread.named, isFalse);
+
+      chat.housekeeping!.adopt(
+        thread,
+        ChatThread(
+          id: 's1',
+          title: 'Named',
+          updatedAt: DateTime.now(),
+          named: true,
+        ),
+      );
+      expect(thread.named, isTrue);
+    });
+  });
+
   group('a turn the user did not send from here', () {
     test('chained after the reply restarts the status', () async {
       final turn = await submitIn('s1');
@@ -297,6 +380,22 @@ void main() {
       expect(state(), 'working');
 
       await chat.loadThreads('work');
+      await pumpEventQueue();
+
+      expect(state(), 'none');
+    });
+
+    test('a reply of another profile when the chat is closed', () async {
+      final turn = await submitIn('s1');
+      await chat.loadThreads('work');
+      await pumpEventQueue();
+      // The reply goes on in the profile that is out of view.
+      turn.emit(const ReplyDelta('still going'));
+      await pumpEventQueue();
+      expect(state(), 'working');
+
+      disposedEarly = true;
+      chat.dispose();
       await pumpEventQueue();
 
       expect(state(), 'none');

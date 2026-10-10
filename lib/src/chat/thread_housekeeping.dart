@@ -104,17 +104,25 @@ class ThreadHousekeeping {
       return;
     }
     await _guarded(thread, (profile) async {
-      final previous = thread.title;
-      thread.title = title;
+      final previous = (title: thread.title, named: thread.named);
+      thread
+        ..title = title
+        ..named = title.trim().isNotEmpty;
       changed();
       try {
-        thread.title = await repository.renameThread(
+        final stored = await repository.renameThread(
           thread.id,
           title,
           profile: profile,
         );
+        // An empty title clears the name; what shows then is not one.
+        thread
+          ..title = stored
+          ..named = stored.trim().isNotEmpty;
       } on Object catch (error) {
-        thread.title = previous;
+        thread
+          ..title = previous.title
+          ..named = previous.named;
         report(_failure('Could not rename this chat', error));
       }
     });
@@ -179,6 +187,7 @@ class ThreadHousekeeping {
   void adopt(ChatThread thread, ChatThread fresh) {
     thread
       ..title = fresh.title
+      ..named = fresh.named
       ..pinned = fresh.pinned
       ..updatedAt = fresh.updatedAt;
     _sort();
