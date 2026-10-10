@@ -13,9 +13,14 @@ class FakeDockMenuBridge extends DockMenuBridge {
   @override
   Stream<DockMenuAction> get actions => picks.stream;
 
+  /// Whether the runner takes the next snapshots.
+  bool takes = true;
+
   @override
-  Future<void> update(DockMenuState state, List<DockChat> chats) async =>
-      updates.add((state, chats));
+  Future<bool> update(DockMenuState state, List<DockChat> chats) async {
+    updates.add((state, chats));
+    return takes;
+  }
 
   /// The chat ids of the latest list, in order.
   List<String> get shownIds => [for (final c in updates.last.$2) c.id];

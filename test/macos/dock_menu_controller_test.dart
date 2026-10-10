@@ -36,6 +36,7 @@ void main() {
   late Completer<bool>? prompt;
   late int unlockCalls;
   late DockMenuController dock;
+  final owner = Object();
   late List<String> opened;
   late int newChats;
   var open = (String id, String profile) async => DockOpenResult.inMain;
@@ -73,6 +74,7 @@ void main() {
       events: events.call,
     );
     dock.bind(
+      owner,
       open: (id, profile) => open(id, profile),
       newChat: () => newChats++,
     );
@@ -126,6 +128,15 @@ void main() {
       expect(titles[3], 'Plan the trip');
     });
 
+    test('equally new chats keep the order they came in', () {
+      dock.configure(DockMenuState.ready);
+      dock.setChats([
+        for (final id in ['a', 'b', 'c']) thread(id),
+      ], 'work');
+
+      expect([for (final c in bridge.updates.last.$2) c.id], ['a', 'b', 'c']);
+    });
+
     test('lists none while the profile is unresolved', () {
       dock.configure(DockMenuState.ready);
       dock.setChats([thread('a')], 'work');
@@ -174,13 +185,38 @@ void main() {
       expectLast(DockMenuState.off);
     });
 
-    test('clearChats empties the list and tells the runner', () {
+    test('releasing empties the list and tells the runner', () {
       dock.configure(DockMenuState.ready);
       dock.setChats([thread('a')], 'work');
 
-      dock.clearChats();
+      dock.release(owner);
 
       expectLast(DockMenuState.ready);
+    });
+
+    test('a late release cannot wipe the next owner\'s binding', () async {
+      dock.configure(DockMenuState.ready);
+      final next = Object();
+      dock.bind(next, open: (id, profile) async => DockOpenResult.inMain);
+      dock.setChats([thread('a')], 'work');
+
+      dock.release(owner);
+
+      expect(bridge.shownIds, ['a']);
+      bridge.picks.add(const DockOpenChat('a', 'work'));
+      await pumpEventQueue();
+      expect(opened, isEmpty, reason: 'the old open callback is gone');
+    });
+
+    test('a failed push is not retried and is logged once', () async {
+      bridge.takes = false;
+      dock.configure(DockMenuState.ready);
+      dock.setChats([thread('a')], 'work');
+      dock.configure(DockMenuState.locked);
+      await pumpEventQueue();
+
+      expect(events.namesStartingWith('dock.menu.push_failed'), hasLength(1));
+      expect(bridge.updates, hasLength(3), reason: 'each change once');
     });
 
     test('tells listeners when the state changes', () {
@@ -224,14 +260,30 @@ void main() {
       bridge.picks.add(const DockOpenChat('secret-id', 'work'));
       await pumpEventQueue();
 
-      open = (id, profile) async => throw StateError('offline');
+      open = (id, profile) async => DockOpenResult.network;
+      bridge.picks.add(const DockOpenChat('secret-id', 'work'));
+      await pumpEventQueue();
+
+      open = (id, profile) async => throw StateError('broken');
       bridge.picks.add(const DockOpenChat('secret-id', 'work'));
       await pumpEventQueue();
 
       expect(events.named('dock.menu.open_failed'), [
         {'reason': 'unavailable'},
         {'reason': 'network'},
+        {'reason': 'error'},
       ]);
+    });
+
+    test('a pick that was overtaken leaves no trace', () async {
+      dock.configure(DockMenuState.ready);
+      open = (id, profile) async => DockOpenResult.superseded;
+
+      bridge.picks.add(const DockOpenChat('a', 'work'));
+      await pumpEventQueue();
+
+      expect(events.named('dock.menu.open_failed'), isEmpty);
+      expect(crumbs('dock.menu.action'), isEmpty);
     });
 
     test('ignores a pick while locked or signed out', () async {
@@ -335,6 +387,25 @@ void main() {
       await pumpEventQueue();
 
       expect(newChats, 0);
+    });
+
+    test('runs what is bound after the wait, not before it', () async {
+      dock.configure(DockMenuState.locked);
+      prompt = Completer();
+      bridge.picks.add(const DockNewChat());
+      await pumpEventQueue();
+      var rebound = 0;
+      dock.bind(
+        Object(),
+        open: (id, profile) async => DockOpenResult.inMain,
+        newChat: () => rebound++,
+      );
+
+      dock.configure(DockMenuState.ready);
+      prompt!.complete(true);
+      await pumpEventQueue();
+
+      expect([newChats, rebound], [0, 1]);
     });
 
     test('a newer pick replaces the one that waits', () async {

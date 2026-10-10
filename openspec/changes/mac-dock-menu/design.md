@@ -85,7 +85,7 @@ macOS only: `DockMenu.swift`, `AppDelegate.swift` and the Dart bridge. iOS, Andr
 
 - `dock.menu.action` breadcrumb: recorded by `DockMenuController` when it runs a pick, with the result `ChatScreen`'s callback reports; attributes `action`, `window`, `deferred`. Show Main Window is native only and records none.
 - `dock.menu.deferred` breadcrumb: recorded by `DockMenuController` when a deferred New Chat ends; attribute `outcome` (`completed`, `cancelled`).
-- `dock.menu.open_failed` log event: recorded by `DockMenuController` when the open callback reports failure; attribute `reason` (`unavailable`, `network`). No chat data.
+- `dock.menu.open_failed` log event: recorded by `DockMenuController` when the open callback reports failure; attribute `reason` (`unavailable`, `network`, `error`). A pick that a newer open (another pick, a sidebar click) overtook is not a failure and records nothing. A push the runner did not take is not retried and logs `dock.menu.push_failed` once. No chat data.
 - No span, for the reason given in `proposal.md`.
 
 ## Risks / Trade-offs

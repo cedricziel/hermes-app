@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -12,6 +13,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_device_authenticator.dart';
+import '../support/fake_dock_menu_bridge.dart';
 import '../support/local_dashboard.dart';
 import '../support/memory_token_store.dart';
 
@@ -19,12 +21,14 @@ void main() {
   late AuthController auth;
   late AppLockController lock;
   late DockMenuController dock;
+  late FakeDeviceAuthenticator authenticator;
 
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     auth = AuthController(devServerUrl: '', tokenStore: MemoryTokenStore());
-    lock = AppLockController(authenticator: FakeDeviceAuthenticator());
+    authenticator = FakeDeviceAuthenticator();
+    lock = AppLockController(authenticator: authenticator);
     dock = DockMenuController(
       bridge: DockMenuBridge(enabled: false),
       unlock: lock.unlock,
@@ -90,6 +94,44 @@ void main() {
 
     lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
     expect(dock.state, DockMenuState.locked);
+  });
+
+  testWidgets('a New Chat picked while locked shares the resume prompt and '
+      'runs once the menu is ready', (tester) async {
+    await connect(tester);
+    await tester.runAsync(() => lock.setEnabled(true));
+    lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
+    final bridge = FakeDockMenuBridge();
+    var newChats = 0;
+    var stateWhenRun = DockMenuState.off;
+    dock.dispose();
+    dock = DockMenuController(bridge: bridge, unlock: lock.unlock)
+      ..bind(
+        Object(),
+        open: (id, profile) async => DockOpenResult.inMain,
+        newChat: () {
+          newChats++;
+          stateWhenRun = dock.state;
+        },
+      );
+    await pump(tester);
+    expect(dock.state, DockMenuState.locked);
+    authenticator.reasons.clear();
+    final prompt = Completer<bool>();
+    authenticator.answer = prompt.future;
+
+    // The window coming back starts a prompt; the Dock pick joins it.
+    lock.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    bridge.picks.add(const DockNewChat());
+    await tester.pump();
+    expect(newChats, 0);
+
+    prompt.complete(true);
+    await tester.pump();
+
+    expect(authenticator.reasons, ['Unlock Hermes']);
+    expect(newChats, 1);
+    expect(stateWhenRun, DockMenuState.ready);
   });
 
   testWidgets('is off again after the user leaves the server', (tester) async {

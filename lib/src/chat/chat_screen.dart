@@ -4,6 +4,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
+import 'package:dio/dio.dart' show DioException;
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
 import 'package:provider/provider.dart';
@@ -300,7 +301,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return shown.opened;
     });
     _dock = _maybeRead<DockMenuController?>()
-      ?..bind(open: _openFromDock, newChat: _newChatFromDock)
+      ?..bind(this, open: _openFromDock, newChat: _newChatFromDock)
       ..addListener(_syncDock);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _onOpenRequest();
@@ -326,12 +327,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     String profile,
     bool Function() valid, {
     bool raiseMain = false,
+    void Function(int generation)? onRestoring,
   }) async {
     final window = _windows?.windowFor(threadId, profile);
     if (window != null && await _windows!.focus(window.windowId)) {
       return (opened: true, inWindow: true);
     }
     if (raiseMain) unawaited(_windows?.showMainWindow());
+    // The restore takes the next generation synchronously.
+    onRestoring?.call(_chat.openGeneration + 1);
     final opened = await _chat.restoreHandoff(
       NotificationTarget(threadId: threadId, profile: profile),
       valid,
@@ -347,20 +351,28 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// chat that is gone reports the failure and creates nothing.
   Future<DockOpenResult> _openFromDock(String id, String profile) async {
     _handoff?.cancel();
+    int? started;
+    // A newer open (another pick, a sidebar click) has moved the generation on.
+    bool overtaken() => started != null && _chat.openGeneration != started;
     try {
       final shown = await _showChat(
         id,
         profile,
         () => mounted,
         raiseMain: true,
+        onRestoring: (generation) => started = generation,
       );
       if (shown.inWindow) return DockOpenResult.inWindow;
       if (shown.opened) return DockOpenResult.inMain;
+      if (overtaken()) return DockOpenResult.superseded;
       _showMessage(couldNotOpenChat);
       return DockOpenResult.unavailable;
-    } on Object {
+    } on Object catch (error) {
+      if (overtaken()) return DockOpenResult.superseded;
       _showMessage(couldNotOpenChat);
-      return DockOpenResult.failed;
+      return error is DioException
+          ? DockOpenResult.network
+          : DockOpenResult.failed;
     }
   }
 
@@ -642,8 +654,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _handoff?.advertise(null);
     _dock
       ?..removeListener(_syncDock)
-      ..bind()
-      ..clearChats();
+      ..release(this);
     _activeRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.chatProfiles?.attach(null);

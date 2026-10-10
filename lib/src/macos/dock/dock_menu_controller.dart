@@ -9,8 +9,16 @@ import '../../chat/chat_models.dart';
 import '../../telemetry/breadcrumbs.dart';
 import 'dock_menu_bridge.dart';
 
-/// How a chat picked in the Dock menu was opened.
-enum DockOpenResult { inWindow, inMain, unavailable, failed }
+/// How a chat picked in the Dock menu was opened, or why it was not.
+/// [superseded] is a pick that a newer open overtook: not a failure.
+enum DockOpenResult {
+  inWindow,
+  inMain,
+  superseded,
+  unavailable,
+  network,
+  failed,
+}
 
 typedef DockOpen = Future<DockOpenResult> Function(String id, String profile);
 
@@ -27,7 +35,7 @@ const _untitled = 'Untitled chat';
 /// them when it goes away ([clearChats]).
 ///
 /// The chat screen supplies the recent chats ([setChats]) and what a choice
-/// does ([bind]); this decides when a choice may run. A New Chat picked
+/// does ([bind], undone by [release]); this decides when a choice may run. A New Chat picked
 /// while the app is locked waits for the unlock and is dropped if the unlock
 /// fails or the state changes first.
 class DockMenuController extends ChangeNotifier {
@@ -49,17 +57,31 @@ class DockMenuController extends ChangeNotifier {
   DockMenuState _state = DockMenuState.off;
   List<DockChat> _chats = const [];
   ({DockMenuState state, List<DockChat> chats})? _pushed;
+  Object? _owner;
   DockOpen? _open;
   VoidCallback? _newChat;
+  bool _pushFailureLogged = false;
   Object? _pending;
   bool _disposed = false;
 
   DockMenuState get state => _state;
 
-  /// Takes the chat screen's way of opening a chat and starting a new one.
-  void bind({DockOpen? open, VoidCallback? newChat}) {
+  /// Takes [owner]'s way of opening a chat and starting a new one.
+  void bind(Object owner, {required DockOpen open, VoidCallback? newChat}) {
+    _owner = owner;
     _open = open;
     _newChat = newChat;
+  }
+
+  /// Gives back what [owner] bound and forgets the chats it supplied. Does
+  /// nothing when another owner has bound since, so a screen that goes away
+  /// late cannot wipe its successor's.
+  void release(Object owner) {
+    if (_owner != owner) return;
+    _owner = _open = _newChat = null;
+    if (_disposed || _chats.isEmpty) return;
+    _chats = const [];
+    _push();
   }
 
   /// Moves to [next]. Leaving [DockMenuState.ready] drops the chats, and
@@ -87,13 +109,6 @@ class DockMenuController extends ChangeNotifier {
     _push();
   }
 
-  /// Forgets the chats, as when the chat screen goes away.
-  void clearChats() {
-    if (_disposed || _chats.isEmpty) return;
-    _chats = const [];
-    _push();
-  }
-
   /// The newest saved chats of [profile] that a user created: hidden Bot
   /// Chat registries and local drafts are left out, pinning is ignored.
   @visibleForTesting
@@ -101,12 +116,21 @@ class DockMenuController extends ChangeNotifier {
     Iterable<ChatThread> threads,
     String profile,
   ) {
-    final chats = [
-      for (final thread in threads)
-        if (thread.remote && !thread.isCanonicalBotChat) thread,
-    ]..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    // One pass keeping the newest few, so a streamed token does not sort
+    // every thread. Ties keep their list order.
+    final newest = <ChatThread>[];
+    for (final thread in threads) {
+      if (!thread.remote || thread.isCanonicalBotChat) continue;
+      var at = newest.length;
+      while (at > 0 && thread.updatedAt.isAfter(newest[at - 1].updatedAt)) {
+        at--;
+      }
+      if (at >= _recentCount) continue;
+      newest.insert(at, thread);
+      if (newest.length > _recentCount) newest.removeLast();
+    }
     return [
-      for (final thread in chats.take(_recentCount))
+      for (final thread in newest)
         (id: thread.id, profile: profile, title: _menuTitle(thread.title)),
     ];
   }
@@ -128,7 +152,14 @@ class DockMenuController extends ChangeNotifier {
       return;
     }
     _pushed = next;
-    unawaited(bridge.update(next.state, next.chats));
+    unawaited(
+      bridge.update(next.state, next.chats).then((taken) {
+        // Not retried; one event says the menu may show an older copy.
+        if (taken || _pushFailureLogged) return;
+        _pushFailureLogged = true;
+        events('dock.menu.push_failed');
+      }),
+    );
   }
 
   void _onAction(DockMenuAction action) {
@@ -149,30 +180,29 @@ class DockMenuController extends ChangeNotifier {
     } on Object {
       result = DockOpenResult.failed;
     }
+    if (result == DockOpenResult.superseded) return;
     breadcrumbs('dock.menu.action', {
       'action': 'open_chat',
       'window': result == DockOpenResult.inWindow,
       'deferred': false,
     });
-    if (result == DockOpenResult.unavailable ||
-        result == DockOpenResult.failed) {
-      events('dock.menu.open_failed', {
-        'reason': result == DockOpenResult.unavailable
-            ? 'unavailable'
-            : 'network',
-      });
-    }
+    final reason = switch (result) {
+      DockOpenResult.unavailable => 'unavailable',
+      DockOpenResult.network => 'network',
+      DockOpenResult.failed => 'error',
+      _ => null,
+    };
+    if (reason != null) events('dock.menu.open_failed', {'reason': reason});
   }
 
   Future<void> _onNewChat() async {
-    final run = _newChat;
-    if (run == null) return;
+    if (_newChat == null) return;
     switch (_state) {
       case DockMenuState.off:
         return;
       case DockMenuState.ready:
         _recordNewChat(deferred: false);
-        run();
+        _newChat!();
       case DockMenuState.locked:
         if (_pending != null) _endPending('cancelled');
         final ticket = _pending = Object();
@@ -187,6 +217,9 @@ class DockMenuController extends ChangeNotifier {
         if (!unlocked || _state != DockMenuState.ready) {
           return _endPending('cancelled');
         }
+        // Whoever owns the action now, not who owned it when it was picked.
+        final run = _newChat;
+        if (run == null) return _endPending('cancelled');
         _endPending('completed');
         _recordNewChat(deferred: true);
         run();

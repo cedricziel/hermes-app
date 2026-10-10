@@ -15,6 +15,7 @@ import '../support/fake_conversation_window_host.dart';
 import '../support/fake_dock_menu_bridge.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/pump_chat.dart';
+import '../support/recorded_events.dart';
 
 /// The Dock menu's choices reaching the chat screen.
 void main() {
@@ -25,6 +26,7 @@ void main() {
   late DockMenuController dock;
   late ChatProfiles profiles;
   late Completer<bool> unlock;
+  late RecordedEvents events;
   var shown = 0;
 
   setUp(() {
@@ -71,8 +73,12 @@ void main() {
     unlock = Completer();
     bridge = FakeDockMenuBridge();
     profiles = ChatProfiles(HermesProfilesRepository(server.client().raw));
-    dock = DockMenuController(bridge: bridge, unlock: () => unlock.future)
-      ..configure(DockMenuState.ready);
+    events = RecordedEvents();
+    dock = DockMenuController(
+      bridge: bridge,
+      unlock: () => unlock.future,
+      events: events.call,
+    )..configure(DockMenuState.ready);
     addTearDown(dock.dispose);
     await pumpChatScreen(
       tester,
@@ -181,6 +187,62 @@ void main() {
 
     expect(find.text('From long ago'), findsOneWidget);
     expect(shown, 1);
+  });
+
+  /// A chat the loaded page does not hold, and a slow one whose answer the
+  /// test holds back.
+  Completer<void> routeSlowAndOld() {
+    final gate = Completer<void>();
+    server
+      ..onRequest('GET', '/api/sessions/slow', (_) async {
+        await gate.future;
+        return (status: 200, body: sessionRow(id: 'slow', title: 'Slow'));
+      })
+      ..on('GET', '/api/sessions/slow/messages', messageListBody('slow', []))
+      ..on('GET', '/api/sessions/old', sessionRow(id: 'old', title: 'Old one'))
+      ..on(
+        'GET',
+        '/api/sessions/old/messages',
+        messageListBody('old', [
+          messageRow(id: 1, role: 'user', content: 'From long ago'),
+        ]),
+      );
+    return gate;
+  }
+
+  testWidgets('a pick that a newer pick overtook is not a failure', (
+    tester,
+  ) async {
+    final gate = routeSlowAndOld();
+    await pump(tester);
+
+    bridge.picks.add(const DockOpenChat('slow', 'home'));
+    await tester.pump(const Duration(milliseconds: 100));
+    bridge.picks.add(const DockOpenChat('old', 'home'));
+    await tester.pumpAndSettle();
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('From long ago'), findsOneWidget);
+    expect(find.text('Could not open that chat.'), findsNothing);
+    expect(events.named('dock.menu.open_failed'), isEmpty);
+  });
+
+  testWidgets('a pick that a sidebar click overtook is not a failure', (
+    tester,
+  ) async {
+    final gate = routeSlowAndOld();
+    await pump(tester);
+
+    bridge.picks.add(const DockOpenChat('slow', 'home'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await openThread(tester, 'Trip plan');
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Where to?'), findsWidgets);
+    expect(find.text('Could not open that chat.'), findsNothing);
+    expect(events.named('dock.menu.open_failed'), isEmpty);
   });
 
   testWidgets('a chat that is gone reports it and creates nothing', (

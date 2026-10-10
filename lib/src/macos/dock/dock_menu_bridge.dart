@@ -44,8 +44,9 @@ class DockMenuBridge {
         .cast<DockMenuAction>();
   }
 
-  Future<void> update(DockMenuState state, List<DockChat> chats) async {
-    if (!enabled) return;
+  /// Whether the runner took the snapshot.
+  Future<bool> update(DockMenuState state, List<DockChat> chats) async {
+    if (!enabled) return true;
     try {
       await MacApp.setDockMenu({
         'state': state.name,
@@ -54,10 +55,11 @@ class DockMenuBridge {
             {'id': chat.id, 'profile': chat.profile, 'title': chat.title},
         ],
       });
+      return true;
     } on PlatformException {
-      return;
+      return false;
     } on MissingPluginException {
-      return;
+      return false;
     }
   }
 

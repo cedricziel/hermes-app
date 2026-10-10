@@ -87,6 +87,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final ChatTransport? transport;
   final BotModeChatRepository? botChats;
   int _openGeneration = 0;
+
+  /// Counts the chat opens so far; an open that was started earlier has been
+  /// overtaken once this has moved on.
+  int get openGeneration => _openGeneration;
   final AttentionNotifier _attention;
 
   /// Shows replies sent here as Live Activities; null where there are none.
