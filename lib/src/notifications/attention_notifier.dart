@@ -5,12 +5,14 @@ import 'package:flutter/widgets.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../live_activities/live_activities.dart';
+import '../shell/app_presence.dart';
 import 'attention_policy.dart';
 import 'notification_service.dart';
 import 'notification_settings.dart';
 
 /// Tells the user about a reply or request they would otherwise miss: it
-/// tracks whether the app is in front, posts what [attentionFor] asks for,
+/// tracks whether the app is focused (a hidden macOS app that runs without a
+/// window is not, so it still posts), posts what [attentionFor] asks for,
 /// asks for permission once, and reports which chat a notification or a Live
 /// Activity was tapped for. Without a [service] it does nothing.
 class AttentionNotifier with WidgetsBindingObserver {
@@ -20,8 +22,7 @@ class AttentionNotifier with WidgetsBindingObserver {
     required this.onOpen,
     this.activities,
   }) {
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _focused = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    _focused = AppPresence.focused(WidgetsBinding.instance.lifecycleState);
     WidgetsBinding.instance.addObserver(this);
     _launch = service?.launchTarget();
     _taps = service?.taps.listen(onOpen);
@@ -44,7 +45,7 @@ class AttentionNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _focused = state == AppLifecycleState.resumed;
+    _focused = AppPresence.focused(state);
   }
 
   /// The chat of the notification or Live Activity whose tap started the

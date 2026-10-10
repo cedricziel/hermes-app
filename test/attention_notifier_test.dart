@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -279,6 +280,31 @@ void main() {
       binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       announceOnScreen();
       expect(service.shown, hasLength(1));
+    });
+
+    test('posts while the macOS app runs with no window', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      build();
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      addTearDown(
+        () => binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed),
+      );
+
+      announceOnScreen();
+
+      expect(service.shown, hasLength(1));
+    });
+
+    test('stays silent for the focused thread on macOS', () {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      build();
+
+      announceOnScreen();
+
+      expect(service.shown, isEmpty);
     });
 
     test('stops following after dispose', () {

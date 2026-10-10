@@ -26,7 +26,7 @@ its own `HERMES_HOME`, and the app is told its server by a build flag.
    already running on this host, use the isolated-mode fallback below.
 3. `scripts/dev-app.sh start`. Prints `app up against <url>` when the app is
    running, and the app window stays open. A cold first build takes minutes,
-   a cached one under a minute. Don't close the window: closing it quits the app.
+   a cached one under a minute. Closing the window leaves the app running; quit it with `dev-app.sh stop`.
 4. `scripts/dev-app.sh screenshot` prints the path of a PNG under
    `.dart_tool/hermes-dev/shots/`; read that file.
 5. Compare with what the change was meant to do. Wrong or unclear?
@@ -223,6 +223,29 @@ moves the real mouse pointer, so tell the user first if they are working.
 - The `screenshot` command brings the app to the front and hands focus back,
   so key presses sent right after it can land in the wrong app. Send them
   after focusing the app (`set frontmost to true`).
+
+## With no window (macOS)
+
+Closing the last window leaves the app running with its Dock icon (the main
+window is hidden, never closed); only Cmd-Q, Hermes > Quit or
+`dev-app.sh stop` ends it. Check after a change to the lifecycle,
+notification or schedule code:
+
+- Close the window (Cmd-W or the red button) with a reply running: the
+  process stays (`kill -0 "$(cat .dart_tool/hermes-dev/flutter.pid)"`), the
+  Dock icon stays, and the reply's completion posts a notification.
+- Add a cron job that fires within a minute, close the window, and wait: the
+  run is announced within about 3 minutes. If App Nap delays the timer, the
+  `beginActivity` hold in `AppDelegate.refreshWindowless` is not taking
+  effect. That hold takes no sleep assertion, so `pmset -g assertions` does
+  not list it; look at the App Nap column in Activity Monitor (View > Columns).
+- Click the Dock icon, or tap a notification: the main window comes back with
+  its earlier state.
+- Cmd-Q with no window visible ends the process.
+- A full-screen main window leaves full screen on close and leaves no empty Space.
+- Open a conversation window, close the main window, then close the
+  conversation window: the app still runs, and ⌘0 brings the main window
+  back, after which a new conversation window still opens.
 
 ## When the screenshot can't be taken
 

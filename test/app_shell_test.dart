@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -202,6 +203,43 @@ void main() {
         ['app.lifecycle {state: paused}', 'app.lifecycle {state: resumed}'],
       );
     });
+
+    Future<void> runnerReportsWindowless(
+      WidgetTester tester, {
+      required bool windowless,
+    }) => tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+      'hermes_app/app',
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('windowless', windowless),
+      ),
+      (_) {},
+    );
+
+    testWidgets(
+      'record a macOS app that has no window, not one that is covered',
+      (tester) async {
+        kanbanPlugin(on: true);
+        final trail = BreadcrumbTrail();
+        await pumpShell(tester, size: const Size(900, 700), trail: trail);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        await tester.pumpAndSettle();
+        expect(trail.recent, isEmpty);
+
+        await runnerReportsWindowless(tester, windowless: true);
+        await runnerReportsWindowless(tester, windowless: false);
+        await tester.pumpAndSettle();
+
+        expect(
+          [for (final c in trail.recent) '${c.name} ${c.attributes}'],
+          ['app.lifecycle {state: windowless}'],
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
   });
 
   testWidgets('shows no navigation while the plugin is off', (tester) async {

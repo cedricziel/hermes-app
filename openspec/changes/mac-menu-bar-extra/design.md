@@ -8,7 +8,7 @@ Goals: keep running windowless, keep notifying and checking schedules, and show 
 
 ## Decisions
 
-1. **Stay-alive in Swift.** `applicationShouldTerminateAfterLastWindowClosed` returns false. Nothing else changes natively: reopen is already handled. The main window is hidden, never released, so its engine (and the gateway sockets in it) keeps running. Conversation windows are separate engines and close as before.
+1. **Stay-alive in Swift.** `applicationShouldTerminateAfterLastWindowClosed` returns false. Since a hidden window never closes, AppKit never asks that, so `AppDelegate.refreshWindowless()` decides: no visible or minimised window (and the app not hidden with Cmd-H) means windowless. It runs after the main window hides and on window key, minimise, deminiaturise and close notifications. Windowless takes a `ProcessInfo` activity (`.userInitiatedAllowingIdleSystemSleep`) so App Nap leaves the timers and sockets alone, and tells Dart over `hermes_app/app` (`windowless`). Any activation with no visible window (the Dock, a tapped notification, also Cmd-Tab) shows the main window; that is intended, even if a conversation window is only minimised. `MainFlutterWindow.close()` always hides the window instead of closing it (leaving full screen first, so no empty Space stays): a real close posts `willClose`, which makes `desktop_multi_window` drop the main engine. The main window is hidden, never released, so its engine (and the gateway sockets in it) keeps running. Conversation windows are separate engines and close as before.
 
 2. **"Windowless" is not "background" on macOS.** A new `AppPresence` (`lib/src/shell/app_presence.dart`) reports `foreground` as `resumed || (isMacOS && hidden/inactive)`, and `focused` as `resumed` only. On macOS a hidden or inactive app keeps running at full speed, so the watcher must not stop. `ScheduleWatcher` and `AppShell` read `foreground` from it. `AttentionNotifier` keeps reading `focused`, so notifications post while no window shows. That behaviour does not change; a test pins it. `paused` (the app quitting or the system suspending it) still stops the timer. On iOS and Android `foreground` equals `resumed`, so nothing changes there.
    - Alternative: an always-on timer on macOS. Rejected because the lifecycle would no longer govern the watcher at all.
@@ -34,7 +34,7 @@ macOS only. No entitlement change: the status item needs none in the sandbox. Xc
 
 ## Observability
 
-- `app.lifecycle` crumb `state: windowless`, recorded in `AppShell` when `AppPresence` goes from visible to hidden on macOS.
+- `app.lifecycle` crumb `state: windowless`, recorded in `AppShell` when the runner reports (`MacApp.windowlessChanges`) that no window is left. Flutter's `hidden` is not used: it also fires when the window is covered, on another Space or the app is hidden.
 - `menubar.opened` crumb (`replies`, `approvals`: counts) from `MenuBarExtra` on `onTrayIconMouseDown`.
 - `menubar.action` crumb (`kind`, and `choice` only for approve, one of once/session/always/deny) from `MenuBarExtra.onTrayMenuItemClick`.
 - `menubar.approval_answered` log (`choice`, `accepted`) from `MenuBarExtra` after `answerApproval` returns.
@@ -43,5 +43,5 @@ None of these carries a title, command, profile, server or id.
 ## Risks / Trade-offs
 
 - A windowless engine keeps its sockets open and uses some power. This is the point of the feature, and Quit is always available.
-- Flutter does not render while hidden, but timers and isolates run. A test cannot prove this for macOS App Nap. Task 1 adds a verify-in-app check that the watcher fires with the window closed for 3 minutes. If App Nap throttles it, the Swift side holds `ProcessInfo.beginActivity(.userInitiatedAllowingIdleSystemSleep)` while a reply runs.
+- Flutter does not render while hidden, but timers and isolates run. A test cannot prove this for macOS App Nap. Task 1 adds a verify-in-app check that the watcher fires with the window closed for 3 minutes. If App Nap throttles it, the hold (`ProcessInfo.beginActivity(.userInitiatedAllowingIdleSystemSleep)`, kept while no window is on screen) is the fix. It is already in, as a precaution.
 - A `tray_manager` menu is rebuilt in full on each change. With a handful of items that is cheap, and rebuilds are limited to model changes.

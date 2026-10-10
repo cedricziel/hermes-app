@@ -6,6 +6,7 @@ import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import '../shell/app_presence.dart';
 import 'hermes_cron_repository.dart';
 import 'schedule_models.dart';
 
@@ -80,9 +81,10 @@ List<AttentionNotification> alertsFor(
   ];
 }
 
-/// Looks at the server's jobs while the app is in front, and posts a
-/// notification for a run the user has not seen. Hermes cannot push to the
-/// app, so this only sees what happens while the app runs.
+/// Looks at the server's jobs while the app runs, and posts a notification
+/// for a run the user has not seen. Hermes cannot push to the app, so this
+/// only sees what happens while the app runs. On macOS that includes the time
+/// after the last window closed ([AppPresence]).
 class ScheduleWatcher with WidgetsBindingObserver {
   ScheduleWatcher({
     required this.repository,
@@ -91,8 +93,9 @@ class ScheduleWatcher with WidgetsBindingObserver {
     this.profiles,
     this.interval = const Duration(minutes: 1),
   }) {
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
+    _foreground = AppPresence.foreground(
+      WidgetsBinding.instance.lifecycleState,
+    );
     WidgetsBinding.instance.addObserver(this);
     settings.addListener(_settingsChanged);
     _wasEnabled = _enabled;
@@ -130,7 +133,11 @@ class ScheduleWatcher with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+    final foreground = AppPresence.foreground(state);
+    // A step between two states that both run the app (macOS: resumed,
+    // inactive, hidden) must not restart the timer and look again.
+    if (foreground == _foreground) return;
+    _foreground = foreground;
     _sync();
   }
 
