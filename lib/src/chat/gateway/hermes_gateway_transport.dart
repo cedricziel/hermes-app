@@ -666,6 +666,7 @@ class HermesGatewayTransport implements ChatTransport {
     bool queued = false,
   }) {
     final stopped = CancelFlag();
+    final step = _SendStep();
     return CancelAwareStream(
       _sendReply(
         threadId: threadId,
@@ -675,10 +676,36 @@ class HermesGatewayTransport implements ChatTransport {
         model: model,
         queued: queued,
         stopped: stopped,
+        step: step,
+      ).transform(
+        StreamTransformer.fromHandlers(
+          handleError: (error, stackTrace, sink) {
+            _sendFailed(step.name, error, newThread: threadId == null);
+            sink.addError(error, stackTrace);
+          },
+        ),
       ),
       stopped,
     );
   }
+
+  /// Logs that a send failed at [step], with what kind of error ended it:
+  /// never its message, which can quote the prompt.
+  void _sendFailed(String step, Object error, {required bool newThread}) =>
+      _record('gateway.send_failed', {
+        'step': step,
+        'new_thread': newThread,
+        ...switch (error) {
+          GatewayConnectionClosed() => {'cause': 'closed'},
+          GatewayRpcException(:final code) => {
+            'cause': 'rejected',
+            'code': code,
+          },
+          ProfileUnavailableException() => {'cause': 'profile'},
+          TimeoutException() => {'cause': 'timeout'},
+          _ => {'cause': 'other', 'error_type': '${error.runtimeType}'},
+        },
+      });
 
   Stream<ChatEvent> _sendReply({
     String? threadId,
@@ -688,8 +715,10 @@ class HermesGatewayTransport implements ChatTransport {
     ModelChoice? model,
     bool queued = false,
     required CancelFlag stopped,
+    required _SendStep step,
   }) async* {
     final client = await _client();
+    step.name = 'open';
     final scope = <String, Object?>{
       'profile': ?profile,
       'source': gatewaySessionSource,
@@ -847,12 +876,14 @@ class HermesGatewayTransport implements ChatTransport {
       final queuedImages = <String>[];
       final Map<String, Object?> submit;
       try {
+        step.name = 'attach';
         final references = await _attach(
           client,
           runtimeId,
           attachments,
           queuedImages,
         );
+        step.name = 'submit';
         submittedAt = clock.now();
         submit = await _call(client, 'prompt.submit', {
           'session_id': runtimeId,
@@ -863,6 +894,7 @@ class HermesGatewayTransport implements ChatTransport {
         await _detach(client, runtimeId, queuedImages);
         rethrow;
       }
+      step.name = 'reply';
       // What the session sent before it answered. A turn of Hermes' own in it
       // ends before the prompt's reply starts.
       final earlier = watch.stopRecording();
@@ -2618,4 +2650,10 @@ class HermesGatewayTransport implements ChatTransport {
       hint: fields['hint'] as String? ?? '',
     ),
   );
+}
+
+/// How far a send got: `connect`, `open` (the session), `attach`, `submit`,
+/// or `reply` once the prompt was taken.
+class _SendStep {
+  String name = 'connect';
 }
