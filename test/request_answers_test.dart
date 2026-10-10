@@ -328,6 +328,23 @@ void main() {
   });
 
   group('the running app', () {
+    test('forgets the question categories when the user signs out', () async {
+      final signedOut = StreamController<void>();
+      addTearDown(signedOut.close);
+      var forgotten = 0;
+      final answers = RequestAnswers(
+        sender,
+        signedOut: signedOut.stream,
+        forgetCategories: () async => forgotten++,
+      )..start();
+      addTearDown(answers.dispose);
+
+      signedOut.add(null);
+      await pumpEventQueue();
+
+      expect(forgotten, 1);
+    });
+
     test('sends what its notification service reports', () async {
       final answers = RequestAnswers(sender, service: notifications)..start();
       addTearDown(answers.dispose);

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -411,6 +411,26 @@ void main() {
         expect((await tapped).threadId, 's1');
       });
 
+      test('hands an answer that started the app over only once', () async {
+        await service.show(_request(_approval));
+        plugin.launchDetails = NotificationAppLaunchDetails(
+          true,
+          notificationResponse: _action(
+            plugin.posted.single.payload,
+            kDenyAction,
+          ),
+        );
+        final answers = <NotificationAnswer>[];
+        final sub = service.answers.listen(answers.add);
+        addTearDown(sub.cancel);
+
+        await service.launchTarget();
+        await service.launchTarget();
+        await pumpEventQueue();
+
+        expect(answers, hasLength(1));
+      });
+
       test('hands an answer that started the app to answers', () async {
         await service.show(_request(_approval));
         plugin.launchDetails = NotificationAppLaunchDetails(
@@ -538,6 +558,50 @@ void main() {
       expect(plugin.posted, isEmpty);
       expect(await service.launchTarget(), isNull);
       expect(plugin.initializeCalls, 0);
+    });
+  });
+
+  group('registerCategoriesNatively', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('hermes_app/notification_categories');
+
+    tearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+
+    test('hands the categories over one call at a time', () async {
+      final log = <String>[];
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            final n = ++calls;
+            log.add('start $n');
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+            log.add('end $n');
+            return null;
+          });
+      final categories = staticRequestCategories();
+
+      await Future.wait([
+        registerCategoriesNatively(categories),
+        registerCategoriesNatively(categories),
+      ]);
+
+      expect(log, ['start 1', 'end 1', 'start 2', 'end 2']);
+    });
+
+    test('tells the Runner to forget the question categories', () async {
+      final methods = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methods.add(call.method);
+            return null;
+          });
+
+      await forgetQuestionCategories();
+
+      expect(methods, ['forget']);
     });
   });
 }

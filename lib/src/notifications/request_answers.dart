@@ -192,7 +192,12 @@ class RequestAnswerSender {
 /// notification service reports (macOS) and what the iOS background isolate
 /// hands it through [kRequestAnswersPort].
 class RequestAnswers {
-  RequestAnswers(this._sender, {this._service});
+  RequestAnswers(
+    this._sender, {
+    this._service,
+    this._signedOut,
+    this._forgetCategories = forgetQuestionCategories,
+  });
 
   /// Answers on a fresh connection of whoever is signed in on [auth].
   factory RequestAnswers.forAuth(
@@ -209,15 +214,23 @@ class RequestAnswers {
       breadcrumbs: breadcrumbs,
     ),
     service: service,
+    signedOut: auth.signedOut,
   );
 
   final RequestAnswerSender _sender;
   final NotificationService? _service;
+
+  /// Fires when the session ends: the question categories the Runner keeps
+  /// hold the choices the agent offered, so they go too.
+  final Stream<void>? _signedOut;
+  final Future<void> Function() _forgetCategories;
   StreamSubscription<NotificationAnswer>? _answers;
+  StreamSubscription<void>? _signOuts;
   ReceivePort? _port;
 
   void start() {
     _answers = _service?.answers.listen((answer) => _sender.send(answer));
+    _signOuts = _signedOut?.listen((_) => _forgetCategories());
     final port = _port = ReceivePort();
     IsolateNameServer.removePortNameMapping(kRequestAnswersPort);
     IsolateNameServer.registerPortWithName(port.sendPort, kRequestAnswersPort);
@@ -252,6 +265,7 @@ class RequestAnswers {
 
   void dispose() {
     _answers?.cancel();
+    _signOuts?.cancel();
     final port = _port;
     if (port != null) {
       IsolateNameServer.removePortNameMapping(kRequestAnswersPort);
