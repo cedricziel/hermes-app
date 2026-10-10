@@ -15,6 +15,11 @@ const kApprovalCategoryPrefix = 'hermes.request.approval';
 /// with choices gets a category of its own under this prefix.
 const kQuestionCategory = 'hermes.request.question';
 
+/// No buttons, only the placeholder: a request the notification cannot
+/// answer, or any request while App Lock is on.
+const kApprovalPlaceholderCategory = 'hermes.request.approval';
+const kQuestionPlaceholderCategory = 'hermes.request.questions';
+
 const kAllowOnceAction = 'hermes.action.allow-once';
 const kAllowSessionAction = 'hermes.action.allow-session';
 const kAllowAlwaysAction = 'hermes.action.allow-always';
@@ -121,6 +126,16 @@ class RequestCategory {
 const _reply = RequestAction(kReplyAction, 'Reply', textInput: true);
 const _open = RequestAction(kOpenAction, 'Open', foreground: true);
 
+const _approvalPlaceholder = RequestCategory(
+  kApprovalPlaceholderCategory,
+  placeholder: kApprovalBody,
+);
+
+const _questionPlaceholder = RequestCategory(
+  kQuestionPlaceholderCategory,
+  placeholder: kQuestionBody,
+);
+
 const _openEnded = RequestCategory(
   kQuestionCategory,
   placeholder: kQuestionBody,
@@ -142,7 +157,7 @@ RequestCategory _approvalCategory(List<String> offered) => RequestCategory(
 );
 
 /// The categories registered at start: one per combination of approval
-/// choices, and the open-ended question's.
+/// choices, the open-ended question's and the two without buttons.
 List<RequestCategory> staticRequestCategories() {
   final choices = [for (final (choice, _, _) in _approvalActions) choice];
   return [
@@ -152,22 +167,37 @@ List<RequestCategory> staticRequestCategories() {
           if (mask & (1 << i) != 0) choices[i],
       ]),
     _openEnded,
+    _approvalPlaceholder,
+    _questionPlaceholder,
   ];
 }
 
-/// The category a notification for [request] is posted under, or null when
-/// it gets no buttons: a request with several questions, or one the app
-/// cannot answer.
-RequestCategory? requestCategoryFor(InputRequest request) {
+/// The category a notification for [request] is posted under, or null for a
+/// request the app cannot answer at all. An approval without a choice the
+/// app knows and a request with several questions get the placeholder alone,
+/// and so does every request while [appLock] is on: answering must not get
+/// past the lock.
+RequestCategory? requestCategoryFor(
+  InputRequest request, {
+  bool appLock = false,
+}) {
   switch (request) {
+    case ApprovalRequest() when appLock:
+      return _approvalPlaceholder;
+    case ClarifyRequest() when appLock:
+      return _questionPlaceholder;
     case ApprovalRequest(:final choices):
       final offered = [
         for (final (choice, _, _) in _approvalActions)
           if (choices.contains(choice)) choice,
       ];
-      return offered.isEmpty ? null : _approvalCategory(offered);
+      return offered.isEmpty
+          ? _approvalPlaceholder
+          : _approvalCategory(offered);
+    case ClarifyRequest(questions: [final question])
+        when question.multiSelect || question.choices.isEmpty:
+      return _openEnded;
     case ClarifyRequest(questions: [final question]):
-      if (question.multiSelect || question.choices.isEmpty) return _openEnded;
       final buttons = _choiceButtons(question.choices);
       final actions = [
         for (final (index, choice) in buttons.indexed)
@@ -184,6 +214,8 @@ RequestCategory? requestCategoryFor(InputRequest request) {
         placeholder: kQuestionBody,
         actions: actions,
       );
+    case ClarifyRequest():
+      return _questionPlaceholder;
     default:
       return null;
   }
@@ -215,9 +247,14 @@ class PendingRequest {
     this.questionId = '',
     this.multiSelect = false,
     this.choices = const [],
+    this.raisedAsEvent = false,
   });
 
   final String requestId;
+
+  /// The server raised it as an event rather than as a request to the
+  /// client, so it takes the older answer RPCs.
+  final bool raisedAsEvent;
   final PendingRequestKind kind;
   final String questionId;
   final bool multiSelect;
@@ -231,6 +268,7 @@ class PendingRequest {
     if (questionId.isNotEmpty) 'q': questionId,
     if (multiSelect) 'm': true,
     if (choices.isNotEmpty) 'c': choices,
+    if (raisedAsEvent) 'e': true,
   };
 
   static PendingRequest? fromJson(Object? json) {
@@ -249,18 +287,23 @@ class PendingRequest {
       choices: choices is List
           ? choices.whereType<String>().toList()
           : const [],
+      raisedAsEvent: json['e'] == true,
     );
   }
 }
 
 /// What a notification for [request] must remember to answer it, or null
 /// when it gets no buttons.
-PendingRequest? pendingRequestFor(InputRequest request) {
-  if (requestCategoryFor(request) == null) return null;
+PendingRequest? pendingRequestFor(
+  InputRequest request, {
+  bool raisedAsEvent = false,
+}) {
+  if (requestCategoryFor(request)?.actions.isEmpty ?? true) return null;
   return switch (request) {
     ApprovalRequest(:final requestId) => PendingRequest(
       requestId: requestId,
       kind: PendingRequestKind.approval,
+      raisedAsEvent: raisedAsEvent,
     ),
     ClarifyRequest(:final requestId, questions: [final question]) =>
       PendingRequest(
@@ -271,6 +314,7 @@ PendingRequest? pendingRequestFor(InputRequest request) {
         choices: question.multiSelect
             ? const []
             : _choiceButtons(question.choices),
+        raisedAsEvent: raisedAsEvent,
       ),
     _ => null,
   };

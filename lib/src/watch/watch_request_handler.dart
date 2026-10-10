@@ -29,6 +29,7 @@ class WatchRequestHandler {
     this.waitingTimeout = const Duration(minutes: 15),
     this.waitingHold = const Duration(seconds: 20),
     this.announce = _ignore,
+    this.appLock = _off,
     this.transcribeOnDevice,
   });
 
@@ -86,14 +87,20 @@ class WatchRequestHandler {
 
   /// Tells the user a turn they sent from the watch is over or waits on
   /// them. The watch may have lost sight of it by then, so it is called
-  /// whatever the phone shows.
-  final void Function(AttentionNotification notification) announce;
+  /// whatever the phone shows. Answers whether the notification was posted.
+  final Future<bool> Function(AttentionNotification notification) announce;
+
+  /// Whether App Lock is on: a request is then announced without its text
+  /// or buttons, so a watch send cannot wait for an answer to it.
+  final bool Function() appLock;
 
   /// What the phone's own recognizer heard in a voice message, or null when
   /// it is not the one to transcribe it; the server transcribes it then.
   final Future<String?> Function(Uint8List audio)? transcribeOnDevice;
 
-  static void _ignore(AttentionNotification _) {}
+  static Future<bool> _ignore(AttentionNotification _) async => false;
+
+  static bool _off() => false;
 
   static bool _never() => false;
 
@@ -115,6 +122,7 @@ class WatchRequestHandler {
           request['threadId'],
           request['text'],
           retry: request['retry'] == true,
+          waits: request['waits'] == true,
         ),
         'transcribe' => await _transcribe(
           request['audio'],
@@ -247,6 +255,7 @@ class WatchRequestHandler {
     Object? threadId,
     Object? text, {
     bool retry = false,
+    bool waits = false,
   }) async {
     if (id is! String || id.isEmpty) {
       final attempt = _SendAttempt();
@@ -266,7 +275,7 @@ class WatchRequestHandler {
           ..threadId = thread.id,
       );
     }
-    final attempt = _SendAttempt();
+    final attempt = _SendAttempt()..waits = waits;
     attempt.reply = _send(
       threadId,
       text,
@@ -288,7 +297,7 @@ class WatchRequestHandler {
     _SendAttempt attempt, {
     required bool fresh,
   }) async {
-    final shown = fresh ? null : attempt.waiting;
+    final shown = fresh ? null : attempt.reported;
     var held = false;
     final hold = !fresh && attempt.waited
         ? Future<void>.delayed(waitingHold).then((_) => held = true)
@@ -296,6 +305,7 @@ class WatchRequestHandler {
     while (true) {
       if (attempt.finished) return attempt.reply;
       if (attempt.waiting != shown || held) {
+        attempt.reported = attempt.waiting;
         return {
           'ok': true,
           ..._threadEntry(attempt.profile, attempt.threadId),
@@ -346,9 +356,12 @@ class WatchRequestHandler {
     var title = untitledChat;
     final streamed = StringBuffer();
     final tools = <String>{};
-    void announce(ChatEvent event) {
+
+    /// Posts what [event] deserves; answers whether it was posted with
+    /// buttons that answer a request.
+    Future<bool> announce(ChatEvent event) async {
       final id = boundId;
-      if (id == null) return;
+      if (id == null) return false;
       final notification = attentionFor(
         event: event,
         thread: ChatThread(id: id, title: title, updatedAt: DateTime.now()),
@@ -356,9 +369,19 @@ class WatchRequestHandler {
         selectedThreadId: null,
         enabled: true,
         profile: profile,
+        appLock: appLock(),
       );
-      if (notification != null) this.announce(notification);
+      if (notification == null) return false;
+      final posted = await this.announce(notification);
+      return posted && notification.request != null;
     }
+
+    Map<String, Object?> cannotAnswer() => {
+      'ok': true,
+      ..._threadEntry(profile, boundId),
+      'text': cannotAnswerText,
+      'failed': false,
+    };
 
     StreamIterator<ChatEvent>? events;
     try {
@@ -378,21 +401,27 @@ class WatchRequestHandler {
         // The turn Hermes ran ahead of the prompt asks too.
         final own = event is UnsolicitedEvent ? event.event : event;
         switch (own) {
-          case ApprovalRequested() || ClarifyRequested():
-            announce(own);
-            attempt.wait(own is ApprovalRequested ? 'approval' : 'question');
+          case ApprovalRequested(:final request):
+            // Announced either way; only an answerable notification, for a
+            // watch that can show it, is worth waiting for.
+            final answerable = await announce(own);
+            if (!attempt.waits || !answerable) return cannotAnswer();
+            attempt.open(request.requestId, 'approval');
+            continue;
+          case ClarifyRequested(:final request):
+            final answerable = await announce(own);
+            if (!attempt.waits || !answerable) return cannotAnswer();
+            attempt.open(request.requestId, 'question');
             continue;
           case VaultRequested() || UnsupportedRequested():
-            announce(own);
-            return {
-              'ok': true,
-              ..._threadEntry(profile, boundId),
-              'text': cannotAnswerText,
-              'failed': false,
-            };
-          case InputRequestExpired() || InputRequestsCancelled():
+            unawaited(announce(own));
+            return cannotAnswer();
+          case InputRequestExpired(:final requestId):
+            attempt.close([requestId]);
+          case InputRequestsCancelled(:final requestIds):
+            attempt.close(requestIds);
           case _ when beginsTurn(own):
-            attempt.wait(null);
+            attempt.progressed();
           default:
         }
         switch (event) {
@@ -406,7 +435,7 @@ class WatchRequestHandler {
           case ToolStarted(:final name):
             tools.add(name);
           case ReplyCompleted(:final text, :final failed):
-            announce(event);
+            unawaited(announce(event));
             return {
               'ok': true,
               ..._threadEntry(profile, boundId),
@@ -417,10 +446,10 @@ class WatchRequestHandler {
           default:
         }
       }
-      announce(const ReplyCompleted('', failed: true));
+      unawaited(announce(const ReplyCompleted('', failed: true)));
       return _error('failed');
     } on Object {
-      announce(const ReplyCompleted('', failed: true));
+      unawaited(announce(const ReplyCompleted('', failed: true)));
       rethrow;
     } finally {
       unawaited(events?.cancel());
@@ -482,8 +511,18 @@ class _SendAttempt {
   /// Hermes answered something, so it has the prompt.
   bool reached = false;
 
-  /// `approval` or `question` while the turn waits on the user.
-  String? waiting;
+  /// Whether the watch can be answered `waiting`; an older one cannot.
+  bool waits = false;
+
+  /// The requests the turn waits on, oldest first, with their kind.
+  final _open = <String, String>{};
+
+  /// `approval` or `question` while the turn waits on the user: the kind of
+  /// the newest open request.
+  String? get waiting => _open.isEmpty ? null : _open.values.last;
+
+  /// The state the watch was last told.
+  String? reported;
 
   /// Whether the turn ever waited on the user.
   bool waited = false;
@@ -493,10 +532,26 @@ class _SendAttempt {
   /// Completes when [waiting] next changes.
   Future<void> get changed => _changed.future;
 
-  void wait(String? kind) {
-    if (kind == waiting) return;
-    waiting = kind;
-    waited = waited || kind != null;
+  void open(String requestId, String kind) =>
+      _update(() => _open[requestId] = kind);
+
+  /// [requestIds] went away; none named means every one.
+  void close(List<String> requestIds) => _update(
+    () => requestIds.isEmpty ? _open.clear() : requestIds.forEach(_open.remove),
+  );
+
+  /// The turn went on, which an answered request lets it do. Which one is not
+  /// said, so this only counts when one request alone is open; with more,
+  /// their expiry or withdrawal closes them.
+  void progressed() => _update(() {
+    if (_open.length == 1) _open.clear();
+  });
+
+  void _update(void Function() change) {
+    final before = waiting;
+    change();
+    waited = waited || waiting != null;
+    if (waiting == before) return;
     final changed = _changed;
     _changed = Completer<void>();
     changed.complete();

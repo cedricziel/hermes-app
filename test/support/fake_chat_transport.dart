@@ -121,14 +121,32 @@ class FakeChatTransport implements ChatTransport {
   /// profile.
   final openAnswers = <(String, OpenRequestAnswer, String?)>[];
 
+  /// The thread each [answerOpenRequest] call named.
+  final openAnswerThreads = <String?>[];
+
+  /// Whether each [answerOpenRequest] call was for a request raised as an
+  /// event, and the deadline it was given.
+  final openAnswerEvents = <bool>[];
+  final openAnswerDeadlines = <DateTime?>[];
+
+  /// When set, [answerOpenRequest] waits on it after recording the call.
+  Completer<void>? openAnswerGate;
+
   @override
   Future<bool> answerOpenRequest(
     String requestId,
     OpenRequestAnswer answer, {
+    String? threadId,
     String? profile,
+    bool raisedAsEvent = false,
+    DateTime? deadline,
   }) async {
     if (answerError case final error?) throw error; // ignore: only_throw_errors
     openAnswers.add((requestId, answer, profile));
+    openAnswerEvents.add(raisedAsEvent);
+    openAnswerDeadlines.add(deadline);
+    openAnswerThreads.add(threadId);
+    await openAnswerGate?.future;
     return accepts;
   }
 

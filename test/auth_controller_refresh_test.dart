@@ -28,11 +28,17 @@ class _GatedDashboard {
   String validRefresh = 'refresh-1';
   int rotations = 0;
 
+  /// Every call to the refresh route, rotated or not.
+  int refreshCalls = 0;
+
   /// Status the refresh route answers with instead of rotating, if set.
   int? refreshFailure;
 
   /// Whether the refresh route leaves `expires_at` out of its answer.
   bool omitExpiresAt = false;
+
+  /// Whether the refresh route leaves `user_id` and `provider` out.
+  bool omitIdentity = false;
 
   /// The `expires_at` the refresh route answers with, when not an hour ahead.
   int? refreshExpiresAt;
@@ -68,6 +74,7 @@ class _GatedDashboard {
       case '/api/auth/providers':
         return _json(request, 200, {'providers': []});
       case '/auth/native/refresh':
+        refreshCalls++;
         final body = jsonDecode(
           await utf8.decoder.bind(request).join(),
         ) as Map<String, dynamic>;
@@ -99,8 +106,8 @@ class _GatedDashboard {
           'access_token': validAccess,
           'refresh_token': validRefresh,
           if (!omitExpiresAt) 'expires_at': refreshExpiresAt ?? _farFuture,
-          'provider': 'oidc',
-          'user_id': 'u1',
+          if (!omitIdentity) 'provider': 'oidc',
+          if (!omitIdentity) 'user_id': 'u1',
         });
       default:
         return _authed(request);
@@ -128,6 +135,20 @@ class _GatedDashboard {
   }
 }
 
+/// A store whose [write] lands only after [delay], like a keychain another
+/// isolate is still writing to.
+class _SlowWriteTokenStore extends MemoryTokenStore {
+  _SlowWriteTokenStore(super.session);
+
+  Duration delay = const Duration(milliseconds: 40);
+
+  @override
+  Future<void> write(HermesSession next) async {
+    await Future<void>.delayed(delay);
+    session = next;
+  }
+}
+
 /// A store whose [clear] empties it at once but reports back only after
 /// [releaseClear], like a keychain that is slow to answer.
 class _SlowClearTokenStore extends MemoryTokenStore {
@@ -152,12 +173,17 @@ HermesSession _session({
   String? refresh,
   int? expiresAt,
   bool unknownExpiry = false,
+  String userId = 'u1',
+  String? serverUrl,
+  int? mintedAt,
 }) => HermesSession(
   accessToken: access,
   refreshToken: refresh ?? 'refresh-1',
   expiresAt: unknownExpiry ? null : expiresAt ?? _farFuture,
   provider: 'oidc',
-  userId: 'u1',
+  userId: userId,
+  serverUrl: serverUrl,
+  mintedAt: mintedAt,
 );
 
 void main() {
@@ -181,6 +207,7 @@ void main() {
         ),
       ],
       telemetry: events.connection,
+      rejectionRecheck: const Duration(milliseconds: 20),
     );
     await controller.bootstrap();
   }
@@ -347,6 +374,220 @@ void main() {
     expect(events.named('auth.session.refreshed'), [
       {'trigger': 'after_401'},
     ]);
+  });
+
+  test('a rejected refresh adopts the pair another isolate stored', () async {
+    await bootstrapWith(_session());
+    // A second controller on the same keychain, as in the notification
+    // isolate, holding the pair both read at start.
+    final other = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+    );
+    addTearDown(other.dispose);
+    await other.bootstrap();
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+    expect(store.session?.refreshToken, 'refresh-2');
+
+    await other.api!.fetchMe();
+
+    expect(other.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('requests rejected together all adopt the stored pair', () async {
+    await bootstrapWith(_session());
+    final other = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+    );
+    addTearDown(other.dispose);
+    await other.bootstrap();
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+
+    await Future.wait([other.api!.fetchMe(), other.api!.fetchMe()]);
+
+    expect(other.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('takes a newer pair from the store instead of refreshing', () async {
+    await bootstrapWith(_session());
+    store.session = _session(
+      access: 'access-2',
+      refresh: 'refresh-2',
+      serverUrl: dashboard.url,
+      mintedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    dashboard
+      ..validAccess = 'access-2'
+      ..validRefresh = 'refresh-2';
+
+    await controller.api!.fetchMe();
+
+    expect(dashboard.refreshCalls, 0);
+    expect(controller.state, HermesConnectionState.ready);
+  });
+
+  test('a proactive refresh never sends a refresh token another isolate '
+      'spent', () async {
+    // Fresh at start, however slow it is, and due for a refresh after.
+    final soon =
+        DateTime.now()
+            .add(const Duration(seconds: 63))
+            .millisecondsSinceEpoch ~/
+        1000;
+    await bootstrapWith(_session(expiresAt: soon));
+    final due = DateTime.fromMillisecondsSinceEpoch((soon - 60) * 1000);
+    await Future<void>.delayed(
+      due.difference(DateTime.now()) + const Duration(milliseconds: 200),
+    );
+    store.session = _session(
+      access: 'access-2',
+      refresh: 'refresh-2',
+      serverUrl: dashboard.url,
+      mintedAt: DateTime.now().millisecondsSinceEpoch,
+    );
+    dashboard
+      ..validAccess = 'access-2'
+      ..validRefresh = 'refresh-2';
+
+    await controller.api!.fetchMe();
+
+    expect(dashboard.refreshCalls, 0);
+    expect(store.session?.refreshToken, 'refresh-2');
+  });
+
+  test('refreshes at the same moment as another isolate without signing '
+      'out', () async {
+    final slow = _SlowWriteTokenStore(_session());
+    AuthController controllerOn() => AuthController(
+      tokenStore: slow,
+      devServerUrl: dashboard.url,
+      telemetry: events.connection,
+      rejectionRecheck: const Duration(milliseconds: 150),
+    );
+    final first = controllerOn();
+    final second = controllerOn();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    await first.bootstrap();
+    await second.bootstrap();
+    dashboard.validAccess = 'expired';
+
+    await Future.wait([first.api!.fetchMe(), second.api!.fetchMe()]);
+
+    expect(first.state, HermesConnectionState.ready);
+    expect(second.state, HermesConnectionState.ready);
+    expect(dashboard.rotations, 1);
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  for (final (whose, foreign) in <(String, HermesSession Function(String))>[
+    (
+      "another server's",
+      (_) => _session(
+        refresh: 'refresh-9',
+        serverUrl: 'http://elsewhere:9119',
+        mintedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ),
+    (
+      "another user's",
+      (url) => _session(
+        refresh: 'refresh-9',
+        userId: 'u2',
+        serverUrl: url,
+        mintedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
+    ),
+  ]) {
+    test('never takes over $whose pair', () async {
+      await bootstrapWith(_session());
+      store.session = foreign(dashboard.url);
+      dashboard
+        ..validAccess = 'expired'
+        ..validRefresh = 'refresh-9';
+
+      await expectLater(
+        controller.api!.fetchMe(),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(controller.state, HermesConnectionState.needsLogin);
+      expect(dashboard.refreshCalls, 1);
+    });
+  }
+
+  test('a refresh whose answer could not be stored keeps the user signed in '
+      'through the next one', () async {
+    await bootstrapWith(_session());
+    store.failWrites = true;
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+    // The store still holds the spent pair the failed write left behind.
+    expect(store.session?.refreshToken, 'refresh-1');
+
+    store.failWrites = false;
+    dashboard.validAccess = 'expired-again';
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-3');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a session stored before the server was recorded still works after '
+      'the upgrade, and is recorded on its next refresh', () async {
+    await bootstrapWith(_session());
+    expect(store.session?.serverUrl, isNull);
+
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.serverUrl, controller.baseUrl);
+    expect(store.session?.mintedAt, isNotNull);
+  });
+
+  test('a refresh answer without the user keeps the one it replaced', () async {
+    await bootstrapWith(_session());
+    dashboard
+      ..omitIdentity = true
+      ..validAccess = 'expired';
+
+    await controller.api!.fetchMe();
+
+    expect(store.session?.userId, 'u1');
+    expect(store.session?.provider, 'oidc');
+  });
+
+  test('a changed redirect does not ask for a new sign-in', () async {
+    // The user saved this address; it now redirects to the dashboard.
+    final front = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => front.close(force: true));
+    front.listen((request) {
+      request.response
+        ..statusCode = HttpStatus.movedPermanently
+        ..headers.set('Location', '${dashboard.url}${request.uri.path}')
+        ..close();
+    });
+    final saved = 'http://127.0.0.1:${front.port}';
+    store = MemoryTokenStore(_session(serverUrl: saved));
+    controller = AuthController(
+      tokenStore: store,
+      devServerUrl: saved,
+      telemetry: events.connection,
+    );
+
+    await controller.bootstrap();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, dashboard.url);
   });
 
   test('signs the user out when the refresh token is rejected', () async {

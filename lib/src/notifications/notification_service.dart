@@ -70,6 +70,14 @@ abstract interface class NotificationService {
   /// app. On iOS they go to a background isolate instead.
   Stream<NotificationAnswer> get answers;
 
+  /// Removes the delivered notifications whose buttons answer a request, as
+  /// when App Lock goes on.
+  Future<void> withdrawAnswerable();
+
+  /// Whether the system lets the app post notifications now, without asking;
+  /// null where it cannot tell.
+  Future<bool?> allowed();
+
   /// The chat of the notification whose tap started the app, if one did.
   Future<NotificationTarget?> launchTarget();
 

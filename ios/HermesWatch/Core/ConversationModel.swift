@@ -24,6 +24,11 @@ final class ConversationModel {
   private var unsentId: String?
   /// A recording that could not be transcribed, so it can be tried again.
   private(set) var unsentVoice: Data?
+  /// The message of a send that waited on the user and then lost the phone.
+  /// Hermes has it, so it stays on screen and trying again only asks after it.
+  private var keptMessage: ChatMessage?
+  /// The send in progress; a send whose wait was stopped no longer is.
+  private var currentSend: UUID?
 
   private let client: HermesClient
 
@@ -53,26 +58,36 @@ final class ConversationModel {
   func send(_ text: String) async {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !text.isEmpty, !busy else { return }
-    let sendId = (text == unsent ? unsentId : nil) ?? UUID().uuidString
+    let again = text == unsent
+    // A send that waited reached Hermes: trying it again only asks after it.
+    let resuming = again && keptMessage != nil
+    let sendId = (again ? unsentId : nil) ?? UUID().uuidString
     unsent = nil
     unsentId = nil
     phase = .sending
-    let pending = ChatMessage(id: "local-\(UUID().uuidString)", role: .user, content: text, at: Date())
-    messages.append(pending)
+    let pending = resuming ? keptMessage! : ChatMessage(id: "local-\(UUID().uuidString)", role: .user, content: text, at: Date())
+    if !resuming { messages.append(pending) }
+    keptMessage = nil
+    let attempt = UUID()
+    currentSend = attempt
+    var waited = resuming
     do {
-      var result = try await client.send(threadId: threadId, text: text, sendId: sendId)
+      var result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: resuming)
       // The phone answers early while the turn waits on the user, and the
       // same send id asked again picks up where it was. A phone that has
       // forgotten the send reads the bound chat instead of sending it again.
       let deadline = Date().addingTimeInterval(Self.waitingLimit)
       while let waiting = result.waiting {
+        guard currentSend == attempt else { return }
         guard Date() < deadline else { throw HermesClientError.failed }
+        waited = true
         threadId = result.threadId ?? threadId
         phase = waiting == .working ? .sending : .waiting(waiting)
         result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
       }
       threadId = result.threadId ?? threadId
       if result.failed {
+        guard currentSend == attempt else { return }
         let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         // Hermes answered, so trying again is a new message.
         takeBack(pending, error: reason.isEmpty ? .failed : .replyFailed(reason), sendId: nil)
@@ -87,10 +102,24 @@ final class ConversationModel {
           tools: result.tools
         )
       )
-      phase = .idle
+      if currentSend == attempt { phase = .idle }
     } catch {
-      takeBack(pending, error: error as? HermesClientError ?? .failed, sendId: sendId)
+      guard currentSend == attempt else { return }
+      let reason = error as? HermesClientError ?? .failed
+      if waited {
+        keep(pending, error: reason, sendId: sendId)
+      } else {
+        takeBack(pending, error: reason, sendId: sendId)
+      }
     }
+  }
+
+  /// Stops waiting on the user's answer here: the message stays, the chat is
+  /// free again, and the reply shows when the chat is read next.
+  func stopWaiting() {
+    guard case .waiting = phase else { return }
+    currentSend = nil
+    phase = .idle
   }
 
   /// A message or a recording is on its way, or the chat is loading.
@@ -118,6 +147,15 @@ final class ConversationModel {
       unsentVoice = audio
       phase = .failed(error as? HermesClientError ?? .failed)
     }
+  }
+
+  /// Keeps a message Hermes has but whose reply did not come back, to ask
+  /// after it again.
+  private func keep(_ pending: ChatMessage, error: HermesClientError, sendId: String) {
+    keptMessage = pending
+    unsent = pending.content
+    unsentId = sendId
+    phase = .failed(error)
   }
 
   /// Drops a message that did not go through and keeps its text to try again.

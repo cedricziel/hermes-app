@@ -102,6 +102,7 @@ final class RelayClientTests: XCTestCase {
     let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
 
     XCTAssertNil(transport.requests.first?["retry"], "a first send is no retry")
+    XCTAssertEqual(transport.requests.first?["waits"] as? Bool, true, "this watch can wait")
     XCTAssertEqual(result.waiting, .approval)
     XCTAssertEqual(result.threadId, "new-1")
   }

@@ -292,8 +292,11 @@ void main() {
       await settings.load();
     });
 
-    test('shows the notification while notifications are on', () {
-      WatchBridge.announcer(service, settings)(notification);
+    test('shows the notification while notifications are on', () async {
+      expect(
+        await WatchBridge.announcer(service, settings)(notification),
+        isTrue,
+      );
 
       expect(service.shown, [notification]);
     });
@@ -301,41 +304,53 @@ void main() {
     test('shows nothing while notifications are off', () async {
       await settings.setEnabled(false);
 
-      WatchBridge.announcer(service, settings)(notification);
-
+      expect(
+        await WatchBridge.announcer(service, settings)(notification),
+        isFalse,
+      );
       expect(service.shown, isEmpty);
     });
 
-    test('shows nothing until the saved setting has loaded', () {
-      WatchBridge.announcer(service, NotificationSettings())(notification);
+    test('asks the system whether it may post, every time', () async {
+      service.allowedAnswer = false;
 
+      expect(
+        await WatchBridge.announcer(service, settings)(notification),
+        isFalse,
+      );
       expect(service.shown, isEmpty);
     });
 
-    test('shows the notification when there are no settings', () {
-      WatchBridge.announcer(service, null)(notification);
+    test('reads the saved setting first when it has not loaded', () async {
+      final fresh = NotificationSettings();
+
+      expect(await WatchBridge.announcer(service, fresh)(notification), isTrue);
+      expect(fresh.loaded, isTrue);
+    });
+
+    test('shows the notification when there are no settings', () async {
+      await WatchBridge.announcer(service, null)(notification);
 
       expect(service.shown, [notification]);
     });
 
-    test('does nothing without a service', () {
+    test('says nothing was posted without a service', () async {
       expect(
-        () => WatchBridge.announcer(null, settings)(notification),
-        returnsNormally,
+        await WatchBridge.announcer(null, settings)(notification),
+        isFalse,
       );
     });
 
-    test('never asks for permission', () {
-      WatchBridge.announcer(service, settings)(notification);
+    test('never asks for permission', () async {
+      await WatchBridge.announcer(service, settings)(notification);
 
       expect(service.permissionRequests, 0);
     });
 
-    test('a service that fails does not reach the caller', () async {
+    test('a service that fails says nothing was posted', () async {
       final announce = WatchBridge.announcer(_FailingService(), settings);
 
-      expect(() => announce(notification), returnsNormally);
-      await pumpEventQueue();
+      expect(await announce(notification), isFalse);
     });
   });
 }

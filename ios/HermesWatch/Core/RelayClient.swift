@@ -45,6 +45,8 @@ struct RelayClient: HermesClient {
     var message: [String: Any] = ["op": "send", "text": text, "sendId": sendId]
     if let threadId { message["threadId"] = threadId }
     if retry { message["retry"] = true }
+    // This watch understands a `waiting` answer; an older one ends the send.
+    message["waits"] = true
     let reply = try await call(message)
     let boundId = reply["threadId"] as? String
     if let waiting = reply["waiting"] as? String {

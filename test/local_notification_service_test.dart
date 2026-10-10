@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:flutter/services.dart' show MethodChannel, PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -66,6 +66,16 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     if (launchDetailsError case final error?) throw error;
     return launchDetails;
   }
+
+  final active = <ActiveNotification>[];
+  final cancelled = <int>[];
+
+  @override
+  Future<List<ActiveNotification>> getActiveNotifications() async => active;
+
+  @override
+  Future<void> cancel({required int id, String? tag}) async =>
+      cancelled.add(id);
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -360,10 +370,58 @@ void main() {
         expect(targetFromPayload(plugin.posted.single.payload)!.threadId, 's1');
       });
 
+      test('withdraws the delivered ones that can be answered', () async {
+        await service.show(_request(_approval));
+        await service.show(
+          const AttentionNotification(threadId: 's2', title: 't', body: 'b'),
+        );
+        plugin.active.addAll([
+          for (final posted in plugin.posted)
+            ActiveNotification(id: posted.id, payload: posted.payload),
+        ]);
+
+        await service.withdrawAnswerable();
+
+        expect(plugin.cancelled, [plugin.posted.first.id]);
+      });
+
+      test('withdraws nothing on Android, whose notifications have no '
+          'buttons', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+        await service.show(_request(_approval));
+        plugin.active.add(
+          ActiveNotification(
+            id: plugin.posted.single.id,
+            payload: plugin.posted.single.payload,
+          ),
+        );
+
+        await service.withdrawAnswerable();
+
+        expect(plugin.cancelled, isEmpty);
+      });
+
       test('stays generic on Android', () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
         await service.show(_request(_approval));
+
+        expect(plugin.posted.single.body, kApprovalBody);
+      });
+
+      test('stays generic on Android without a known choice', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+        await service.show(
+          _request(
+            const ApprovalRequest(
+              requestId: 'r9',
+              command: 'rm -rf build',
+              description: '',
+              choices: ['later'],
+            ),
+          ),
+        );
 
         expect(plugin.posted.single.body, kApprovalBody);
       });
@@ -392,6 +450,26 @@ void main() {
         plugin.onResponse!(_action(plugin.posted.single.payload, kOpenAction));
 
         expect((await tapped).threadId, 's1');
+      });
+
+      test('hands an answer that started the app over only once', () async {
+        await service.show(_request(_approval));
+        plugin.launchDetails = NotificationAppLaunchDetails(
+          true,
+          notificationResponse: _action(
+            plugin.posted.single.payload,
+            kDenyAction,
+          ),
+        );
+        final answers = <NotificationAnswer>[];
+        final sub = service.answers.listen(answers.add);
+        addTearDown(sub.cancel);
+
+        await service.launchTarget();
+        await service.launchTarget();
+        await pumpEventQueue();
+
+        expect(answers, hasLength(1));
       });
 
       test('hands an answer that started the app to answers', () async {
@@ -521,6 +599,50 @@ void main() {
       expect(plugin.posted, isEmpty);
       expect(await service.launchTarget(), isNull);
       expect(plugin.initializeCalls, 0);
+    });
+  });
+
+  group('registerCategoriesNatively', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('hermes_app/notification_categories');
+
+    tearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+
+    test('hands the categories over one call at a time', () async {
+      final log = <String>[];
+      var calls = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            final n = ++calls;
+            log.add('start $n');
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+            log.add('end $n');
+            return null;
+          });
+      final categories = staticRequestCategories();
+
+      await Future.wait([
+        registerCategoriesNatively(categories),
+        registerCategoriesNatively(categories),
+      ]);
+
+      expect(log, ['start 1', 'end 1', 'start 2', 'end 2']);
+    });
+
+    test('tells the Runner to forget the question categories', () async {
+      final methods = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            methods.add(call.method);
+            return null;
+          });
+
+      await forgetQuestionCategories();
+
+      expect(methods, ['forget']);
     });
   });
 }

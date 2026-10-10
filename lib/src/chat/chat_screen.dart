@@ -20,6 +20,7 @@ import '../mcp/mcp_servers_screen.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/composer_model_pill.dart';
 import '../live_activities/live_activities.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -213,11 +214,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     widget.openRequests?.addListener(_onOpenRequest);
     final liveActivities = _maybeRead<LiveActivities?>();
+    final appLock = _maybeRead<AppLockController>();
     _attention = AttentionNotifier(
       service: _maybeRead<NotificationService>(),
       settings: _maybeRead<NotificationSettings>(),
       onOpen: _openFromNotification,
       activities: liveActivities,
+      appLock: () => appLockHidesRequests(appLock),
     );
     final repositories = HermesRepositories.maybeOf(context);
     final api = repositories?.api;

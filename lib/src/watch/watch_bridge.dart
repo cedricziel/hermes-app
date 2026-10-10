@@ -6,8 +6,10 @@ import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
 import '../api/hermes_api_client.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../chat/hermes_chat_repository.dart';
+import '../notifications/attention_notifier.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
@@ -40,11 +42,13 @@ class WatchBridge {
   ///
   /// A turn sent from the watch is announced through [notifications], under
   /// the user's [settings]. A voice message is transcribed by [speech] while
-  /// [dictation] picks the device's recognizer.
+  /// [dictation] picks the device's recognizer. While [appLock] is on, a
+  /// request is announced without its text or buttons.
   static WatchBridge? forAuth(
     AuthController auth, {
     NotificationService? notifications,
     NotificationSettings? settings,
+    AppLockController? appLock,
     required OnDeviceSpeech speech,
     required DictationSettings dictation,
     AppEventLogger events = noopAppEventLogger,
@@ -56,6 +60,7 @@ class WatchBridge {
       handler: handlerFor(
         auth,
         announce: announcer(notifications, settings),
+        appLock: () => appLockHidesRequests(appLock),
         transcribeOnDevice: onDeviceTranscriber(speech, dictation),
         events: events,
       ),
@@ -76,26 +81,37 @@ class WatchBridge {
     return speech.transcribeFile(audio, locale: OnDeviceSpeech.deviceLocale());
   };
 
-  /// Posts what the relay announces, while notifications are on. It never asks
-  /// for permission: the prompt would appear on a phone the user is not
-  /// holding, so it stays with the chat on the phone. A notification that
-  /// cannot be shown is dropped.
-  static void Function(AttentionNotification) announcer(
+  /// Posts what the relay announces, while notifications are on, and answers
+  /// whether it was posted. A watch request can wake the app before the saved
+  /// setting was read, so it is read first. It never asks for permission:
+  /// the prompt would appear on a phone the user is not holding, so it stays
+  /// with the chat on the phone, and a permission the system now denies posts
+  /// nothing. A
+  /// notification that cannot be shown is dropped.
+  static Future<bool> Function(AttentionNotification) announcer(
     NotificationService? service,
     NotificationSettings? settings,
-  ) => (notification) {
-    if (service == null) return;
-    if (settings != null && !(settings.loaded && settings.enabled)) return;
+  ) => (notification) async {
+    if (service == null) return false;
     try {
-      unawaited(service.show(notification).catchError((Object _) {}));
+      if (settings != null) {
+        if (!settings.loaded) await settings.load();
+        if (!settings.enabled) return false;
+      }
+      // Asked each time: the user may have changed it in system settings
+      // since the app last recorded an answer.
+      if (await service.allowed() == false) return false;
+      await service.show(notification);
+      return true;
     } on Object {
-      // Dropped, like any notification that cannot be shown.
+      return false;
     }
   };
 
   static WatchRequestHandler handlerFor(
     AuthController auth, {
-    void Function(AttentionNotification) announce = _ignore,
+    Future<bool> Function(AttentionNotification) announce = _ignore,
+    bool Function() appLock = _off,
     Future<String?> Function(Uint8List)? transcribeOnDevice,
     AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
@@ -106,6 +122,7 @@ class WatchBridge {
 
     return WatchRequestHandler(
       announce: announce,
+      appLock: appLock,
       transcribeOnDevice: transcribeOnDevice,
       connecting: () => authConnecting(auth),
       ready: () => authSettled(auth, timeout: readyTimeout),
@@ -126,7 +143,9 @@ class WatchBridge {
     );
   }
 
-  static void _ignore(AttentionNotification _) {}
+  static Future<bool> _ignore(AttentionNotification _) async => false;
+
+  static bool _off() => false;
 
   static String _unknownAuthState() => 'unknown';
 

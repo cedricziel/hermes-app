@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/gateway/hermes_gateway_transport.dart';
@@ -72,5 +74,114 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('an expired request is not resumed or answered another way', () async {
+    gateway.answerStatus = 'expired';
+
+    final accepted = await transport.answerOpenRequest(
+      'r1',
+      const ApprovalChoiceAnswer('once'),
+      threadId: 's1',
+    );
+
+    expect(accepted, isFalse);
+    expect(gateway.methods, isNot(contains('session.resume')));
+    expect(gateway.methods, isNot(contains('approval.respond')));
+  });
+
+  test('nothing is sent once the deadline has passed', () async {
+    await expectLater(
+      transport.answerOpenRequest(
+        'r1',
+        const ApprovalChoiceAnswer('once'),
+        deadline: DateTime.now().subtract(const Duration(seconds: 1)),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+
+    expect(gateway.methods, isNot(contains('request.answer')));
+  });
+
+  group('a request raised as an event frame', () {
+    test(
+      'an approval is answered with approval.respond on the resumed chat',
+      () async {
+        final accepted = await transport.answerOpenRequest(
+          'r1',
+          const ApprovalChoiceAnswer('once'),
+          threadId: 's1',
+          profile: 'work',
+          raisedAsEvent: true,
+        );
+
+        expect(accepted, isTrue);
+        expect(gateway.methods, isNot(contains('request.answer')));
+        expect(
+          gateway.requestOf('session.resume')['params'],
+          containsPair('session_id', 's1'),
+        );
+        expect(gateway.requestOf('approval.respond')['params'], {
+          'session_id': 'rt-2',
+          'request_id': 'r1',
+          'choice': 'once',
+        });
+      },
+    );
+
+    test('so is one a server without request.answer raised', () async {
+      gateway.unknownMethods.add('request.answer');
+
+      final accepted = await transport.answerOpenRequest(
+        'r1',
+        const ApprovalChoiceAnswer('once'),
+        threadId: 's1',
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.methods, contains('approval.respond'));
+    });
+
+    test('a question is answered with clarify.respond', () async {
+      final accepted = await transport.answerOpenRequest(
+        'r2',
+        const QuestionAnswer(questionId: '', values: ['dev']),
+        threadId: 's1',
+        raisedAsEvent: true,
+      );
+
+      expect(accepted, isTrue);
+      expect(gateway.methods, isNot(contains('request.answer')));
+      expect(gateway.requestOf('clarify.respond')['params'], {
+        'request_id': 'r2',
+        'answer': 'dev',
+      });
+    });
+
+    test('an approval gone is not accepted', () async {
+      gateway.approvalsResolved = 0;
+
+      expect(
+        await transport.answerOpenRequest(
+          'r1',
+          const ApprovalChoiceAnswer('once'),
+          threadId: 's1',
+          raisedAsEvent: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('an approval without its chat is not answered', () async {
+      expect(
+        await transport.answerOpenRequest(
+          'r1',
+          const ApprovalChoiceAnswer('once'),
+          raisedAsEvent: true,
+        ),
+        isFalse,
+      );
+      expect(gateway.methods, isNot(contains('approval.respond')));
+    });
   });
 }

@@ -354,23 +354,45 @@ final class ConversationWindow: NSObject {
 /// placeholders, which flutter_local_notifications cannot set. Every launch
 /// the plugin replaces the whole set, so the categories made for single
 /// questions are remembered and added again, or a question still on screen
-/// would lose its buttons.
+/// would lose its buttons. Calls run one at a time, since each reads the set
+/// and writes it back.
 enum NotificationCategories {
   private static let rememberedKey = "hermes.requestCategories"
   private static let questionPrefix = "hermes.request.question."
   private static let remembered = 20
+  private static var busy = false
+  private static var queued: [(@escaping () -> Void) -> Void] = []
 
   static func install(messenger: FlutterBinaryMessenger) {
     FlutterMethodChannel(name: "hermes_app/notification_categories", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
-        guard call.method == "register",
-          let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
-        else { result(FlutterMethodNotImplemented); return }
-        register(specs) { result(nil) }
+        switch call.method {
+        case "register":
+          guard let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
+          else { result(FlutterMethodNotImplemented); return }
+          enqueue { done in register(specs) { result(nil); done() } }
+        case "forget":
+          enqueue { done in forget { result(nil); done() } }
+        default: result(FlutterMethodNotImplemented)
+        }
       }
   }
 
-  static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
+  private static func enqueue(_ work: @escaping (@escaping () -> Void) -> Void) {
+    queued.append(work)
+    runNext()
+  }
+
+  private static func runNext() {
+    guard !busy, !queued.isEmpty else { return }
+    busy = true
+    queued.removeFirst()({
+      busy = false
+      runNext()
+    })
+  }
+
+  private static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
     let defaults = UserDefaults.standard
     var kept = defaults.array(forKey: rememberedKey) as? [[String: Any]] ?? []
     let questions = specs.filter { ($0["id"] as? String)?.hasPrefix(questionPrefix) == true }
@@ -386,6 +408,17 @@ enum NotificationCategories {
         if let category = category(spec) { byId[category.identifier] = category }
       }
       center.setNotificationCategories(Set(byId.values))
+      DispatchQueue.main.async(execute: done)
+    }
+  }
+
+  /// Drops the remembered question categories, whose buttons carry the
+  /// choices the agent offered.
+  private static func forget(done: @escaping () -> Void) {
+    UserDefaults.standard.removeObject(forKey: rememberedKey)
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories { current in
+      center.setNotificationCategories(current.filter { !$0.identifier.hasPrefix(questionPrefix) })
       DispatchQueue.main.async(execute: done)
     }
   }

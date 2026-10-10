@@ -29,6 +29,7 @@ struct ConversationView: View {
           }
           if case .waiting(let waiting) = model.phase {
             WorkingRow(text: waiting == .question ? "Hermes has a question" : "Waiting for your approval")
+            Button("Stop waiting") { model.stopWaiting() }
           }
           if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }

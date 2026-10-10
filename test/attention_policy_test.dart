@@ -140,6 +140,12 @@ void main() {
       expect(n.request?.requestId, 'r1');
     });
 
+    test('remembers that an approval was raised as an event', () {
+      final n = _for(const ApprovalRequested(_approval, raisedAsEvent: true))!;
+
+      expect(n.request?.raisedAsEvent, isTrue);
+    });
+
     test('an approval without a command shows its description', () {
       const bare = ApprovalRequest(
         requestId: 'r1',
@@ -197,8 +203,29 @@ void main() {
       final n = _for(const ClarifyRequested(batch))!;
 
       expect(n.body, kQuestionBody);
-      expect(n.category, isNull);
+      expect(n.category?.actions, isEmpty);
       expect(n.request, isNull);
+    });
+
+    test('requests stay generic and cannot be answered under App Lock', () {
+      for (final (event, body) in [
+        (const ApprovalRequested(_approval) as ChatEvent, kApprovalBody),
+        (const ClarifyRequested(_question) as ChatEvent, kQuestionBody),
+      ]) {
+        final n = attentionFor(
+          event: event,
+          thread: _thread(),
+          appFocused: false,
+          selectedThreadId: null,
+          enabled: true,
+          appLock: true,
+        )!;
+
+        expect(n.body, body);
+        expect(n.category?.placeholder, body);
+        expect(n.category?.actions, isEmpty);
+        expect(n.request, isNull);
+      }
     });
 
     test('a request the app cannot answer stays generic', () {

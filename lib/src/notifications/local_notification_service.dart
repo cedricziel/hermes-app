@@ -85,6 +85,11 @@ NotificationAnswer? answerFromAction(
   );
 }
 
+/// Whether [payload] is that of a notification whose buttons answer a
+/// request.
+bool isAnswerablePayload(String? payload) =>
+    payload != null && PendingRequest.fromJson(_decode(payload)?['r']) != null;
+
 NotificationAnswer? answerFromResponse(NotificationResponse response) =>
     answerFromAction(response.payload, response.actionId, response.input);
 
@@ -114,16 +119,29 @@ const _categoryChannel = MethodChannel('hermes_app/notification_categories');
 
 /// Hands [categories] to the Runner, which merges them into the registered
 /// set with their placeholders. Does nothing where no Runner answers.
-Future<void> registerCategoriesNatively(
-  List<RequestCategory> categories,
-) async {
-  try {
-    await _categoryChannel.invokeMethod<void>('register', {
+///
+/// Calls go one at a time: each one reads the registered set and writes it
+/// back, so two at once could drop each other's categories.
+Future<void> registerCategoriesNatively(List<RequestCategory> categories) =>
+    _categoryCall('register', {
       'categories': [for (final category in categories) category.toChannel()],
     });
-  } on Object {
-    // Without it the buttons still work; only the placeholder is missing.
-  }
+
+/// Drops the question categories the Runner keeps across launches, whose
+/// buttons carry the choices the agent offered.
+Future<void> forgetQuestionCategories() => _categoryCall('forget');
+
+Future<void> _categoryCalls = Future.value();
+
+Future<void> _categoryCall(String method, [Object? arguments]) {
+  final call = _categoryCalls.then((_) async {
+    try {
+      await _categoryChannel.invokeMethod<void>(method, arguments);
+    } on Object {
+      // Without it the buttons still work; only the placeholder is missing.
+    }
+  });
+  return _categoryCalls = call;
 }
 
 /// [NotificationService] on `flutter_local_notifications`. On platforms other
@@ -145,6 +163,7 @@ class LocalNotificationService implements NotificationService {
   final _taps = StreamController<NotificationTarget>.broadcast();
   final _answers = StreamController<NotificationAnswer>.broadcast();
   Future<void>? _initialized;
+  var _launchAnswered = false;
 
   static bool get _supported =>
       !kIsWeb &&
@@ -292,6 +311,48 @@ class LocalNotificationService implements NotificationService {
   }
 
   @override
+  Future<void> withdrawAnswerable() async {
+    // Only Apple's notifications carry buttons; Android's stay generic.
+    if (!_supported || !_darwin) return;
+    try {
+      await _initialize();
+      for (final active in await _plugin.getActiveNotifications()) {
+        final id = active.id;
+        if (id != null && isAnswerablePayload(active.payload)) {
+          await _plugin.cancel(id: id);
+        }
+      }
+    } on Object {
+      // Nothing to withdraw where the plugin cannot list them.
+    }
+  }
+
+  @override
+  Future<bool?> allowed() async {
+    if (!_supported) return null;
+    try {
+      await _initialize();
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (ios != null) return (await ios.checkPermissions())?.isEnabled;
+      final mac = _plugin
+          .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin
+          >();
+      if (mac != null) return (await mac.checkPermissions())?.isEnabled;
+      return await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.areNotificationsEnabled();
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
   Future<NotificationTarget?> launchTarget() async {
     if (!_supported) return null;
     try {
@@ -301,8 +362,10 @@ class LocalNotificationService implements NotificationService {
       final response = details.notificationResponse;
       if (response == null) return null;
       if (!_opensApp(response)) {
-        // macOS starts the app for a button too; it is answered, not opened.
-        final answer = answerFromResponse(response);
+        // macOS starts the app for a button too; it is answered once, not
+        // opened, however many screens ask for the launch target.
+        final answer = _launchAnswered ? null : answerFromResponse(response);
+        _launchAnswered = true;
         if (answer != null) scheduleMicrotask(() => _answers.add(answer));
         return null;
       }

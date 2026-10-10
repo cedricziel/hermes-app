@@ -3,6 +3,7 @@
 /// its `/api/ws` JSON-RPC socket (`prompt.submit` → `message.delta` ...).
 library;
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../models/model_provider_option.dart';
@@ -200,16 +201,24 @@ final class ReviewSummarized extends ChatEvent {
 
 /// The agent is waiting for the user's consent to run something.
 final class ApprovalRequested extends ChatEvent {
-  const ApprovalRequested(this.request);
+  const ApprovalRequested(this.request, {this.raisedAsEvent = false});
 
   final ApprovalRequest request;
+
+  /// The server raised it as an `approval.request` event rather than as a
+  /// request to the client, so `request.answer` cannot resolve it.
+  final bool raisedAsEvent;
 }
 
 /// The agent is waiting for the user to answer one or more questions.
 final class ClarifyRequested extends ChatEvent {
-  const ClarifyRequested(this.request);
+  const ClarifyRequested(this.request, {this.raisedAsEvent = false});
 
   final ClarifyRequest request;
+
+  /// The server raised it as a `clarify.request` event rather than as a
+  /// request to the client, so `request.answer` cannot resolve it.
+  final bool raisedAsEvent;
 }
 
 /// The agent waits on a masked vault prompt this app renders itself.
@@ -467,12 +476,18 @@ abstract interface class ChatTransport {
 
   /// Answers request [requestId] of [profile] although this transport may
   /// never have seen it, as for an answer given in a notification while the
-  /// app was away. Returns false when the request is no longer pending, and
-  /// throws when the call itself fails.
+  /// app was away. [threadId] is the chat that asked; it is needed for a
+  /// request the server [raisedAsEvent] rather than as a request. Nothing is
+  /// sent after [deadline]: the call throws a [TimeoutException] instead.
+  /// Returns false when the request is no longer pending, and throws when the
+  /// call itself fails.
   Future<bool> answerOpenRequest(
     String requestId,
     OpenRequestAnswer answer, {
+    String? threadId,
     String? profile,
+    bool raisedAsEvent = false,
+    DateTime? deadline,
   });
 
   /// Answers a masked vault prompt: the login to save for [origin], the

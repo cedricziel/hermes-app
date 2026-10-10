@@ -258,7 +258,8 @@ void main() {
 
       expect(controller.state, HermesConnectionState.ready);
       expect(controller.identity?.userId, 'u1');
-      expect(store.session, session);
+      expect(store.session?.accessToken, session.accessToken);
+      expect(store.session?.serverUrl, controller.baseUrl);
       expect(events.named('auth.sign_in.succeeded'), hasLength(1));
     });
 

@@ -114,6 +114,42 @@ final class ConversationModelTests: XCTestCase {
     XCTAssertEqual(model.phase, .idle)
   }
 
+  func testTryingAgainAfterAWaitKeepsTheMessageAndAsksAgain() async {
+    let client = FakeClient()
+    client.sendResults = [
+      .success(SendResult(threadId: "new-1", text: "", failed: false, waiting: .approval)),
+      .failure(HermesClientError.phoneUnreachable),
+    ]
+    let model = ConversationModel(client: client, threadId: nil)
+    await model.send("Clean up")
+
+    XCTAssertEqual(model.messages.map(\.content), ["Clean up"])
+    XCTAssertEqual(model.phase, .failed(.phoneUnreachable))
+
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Done.", failed: false))
+    await model.send(model.unsent!)
+
+    XCTAssertEqual(client.sends.last?.retry, true)
+    XCTAssertEqual(client.sends.last?.threadId, "new-1")
+    XCTAssertEqual(Set(client.sends.map(\.sendId)).count, 1)
+    XCTAssertEqual(model.messages.map(\.content), ["Clean up", "Done."])
+    XCTAssertEqual(model.phase, .idle)
+  }
+
+  func testStoppingTheWaitKeepsTheMessageAndFreesTheChat() async {
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "", failed: false, waiting: .approval))
+    let model = ConversationModel(client: client, threadId: nil)
+    client.onSend = { if client.sends.count == 2 { model.stopWaiting() } }
+
+    await model.send("Clean up")
+
+    XCTAssertEqual(client.sends.count, 2)
+    XCTAssertEqual(model.messages.map(\.content), ["Clean up"])
+    XCTAssertEqual(model.phase, .idle)
+    XCTAssertFalse(model.busy)
+  }
+
   func testABlankMessageIsNotSent() async {
     let client = FakeClient()
     let model = ConversationModel(client: client, threadId: "s1")
