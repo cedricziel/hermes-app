@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/gateway/gateway_rpc_client.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
@@ -188,8 +189,39 @@ void main() {
 
     expect(transport.sends, isEmpty);
     expect(inTranscript('A connection reset.'), findsOneWidget);
-    expect(find.textContaining('Could not try again'), findsOneWidget);
-  }, arrange: () => transport.undoError = StateError('busy'));
+    expect(
+      find.text("Couldn't reach Hermes to try again. Check your connection."),
+      findsOneWidget,
+    );
+  }, arrange: () => transport.undoError = const GatewayConnectionClosed());
+
+  chatTest(
+    'an undo the server rejects is told without its error',
+    (tester) async {
+      await tester.tap(tryAgain);
+      await tester.pump();
+
+      expect(transport.sends, isEmpty);
+      expect(find.text("Hermes couldn't try again."), findsOneWidget);
+      expect(find.textContaining('invalid params'), findsNothing);
+    },
+    arrange: () => transport.undoError = const GatewayRpcException(
+      4000,
+      'invalid params for session.undo',
+    ),
+  );
+
+  chatTest('an edit that cannot reach Hermes says so', (tester) async {
+    await tester.tap(editPrompt);
+    await tester.pump();
+
+    expect(
+      find.text(
+        "Couldn't reach Hermes to edit the prompt. Check your connection.",
+      ),
+      findsOneWidget,
+    );
+  }, arrange: () => transport.undoError = const GatewayConnectionClosed());
 
   chatTest('editing puts the last prompt back in the composer', (tester) async {
     await tester.tap(editPrompt);
