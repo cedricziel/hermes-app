@@ -17,6 +17,8 @@ import '../notifications/attention_notifier.dart';
 import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
+import '../surfaces/chat_hints.dart';
+import '../surfaces/surface_snapshot.dart' show PendingKind, kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
@@ -56,6 +58,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onOpenJob,
     this.onOpened,
     this.onPrefill,
+    this.onSurfaceChange,
     this.breadcrumbs = Breadcrumbs.none,
   }) {
     final repository = this.repository;
@@ -110,6 +113,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Restores a draft returned by a command such as `/undo`.
   final ValueChanged<String>? onPrefill;
+
+  /// Told when the chat list loaded, a reply ended or an input request
+  /// opened, closed or expired, with what the system surfaces show of it.
+  final void Function(SurfaceTrigger trigger, ChatHints hints)? onSurfaceChange;
 
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
@@ -272,12 +279,14 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         ..clear()
         ..addAll(threads);
       _loadingThreads = false;
+      _touched.clear();
       _selectedId =
           _isOnProfile(launch, profile) &&
               threads.any((t) => t.id == launch!.threadId)
           ? launch!.threadId
           : null;
       notifyListeners();
+      _reportSurface(SurfaceTrigger.threads);
       if (launch != null) {
         // A held tap already put Chat in front when it arrived.
         if (held == null) onShowChat?.call();
@@ -1926,9 +1935,88 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     void Function() edit,
   ) {
     final before = chatMessageToFlyer(reply);
+    final wasPending = reply.isPending;
+    final openBefore = _openRequestIds(reply);
     edit();
     notifyListeners();
     syncMessage(controllerFor(thread), before, chatMessageToFlyer(reply));
+    if (onSurfaceChange == null) return;
+    final trigger = wasPending && !reply.isPending
+        ? SurfaceTrigger.reply
+        : _openRequestIds(reply) != openBefore
+        ? SurfaceTrigger.request
+        : null;
+    if (trigger == null) return;
+    _touched[thread] = DateTime.now();
+    _reportSurface(trigger);
+  }
+
+  String _openRequestIds(ChatMessage reply) => onSurfaceChange == null
+      ? ''
+      : [
+          for (final request in reply.inputRequests)
+            if (request.status == InputRequestStatus.pending) request.requestId,
+        ].join(',');
+
+  /// When a reply last ended or a request last changed in a chat, which the
+  /// list the server gave us does not know yet.
+  final _touched = <ChatThread, DateTime>{};
+
+  /// When each open request was first seen; Hermes sends no creation time.
+  final _requestSeen = <String, DateTime>{};
+
+  void _reportSurface(SurfaceTrigger trigger) =>
+      onSurfaceChange?.call(trigger, _surfaceHints());
+
+  ChatHints _surfaceHints() {
+    final now = DateTime.now();
+    final threads = <ThreadHint>[];
+    final requests = <RequestHint>[];
+    final seen = <String, DateTime>{};
+    for (final thread in _threads) {
+      if (!thread.remote || thread.isCanonicalBotChat) continue;
+      final touched = _touched[thread];
+      final snippet = thread.messages.lastOrNull?.content;
+      threads.add(
+        ThreadHint(
+          id: thread.id,
+          title: thread.title,
+          updatedAt: touched != null && touched.isAfter(thread.updatedAt)
+              ? touched
+              : thread.updatedAt,
+          snippet: snippet,
+        ),
+      );
+      for (final message in thread.messages) {
+        for (final request in message.inputRequests) {
+          if (request.status != InputRequestStatus.pending) continue;
+          final first = _requestSeen[request.requestId] ?? now;
+          seen[request.requestId] = first;
+          requests.add(
+            RequestHint(
+              threadId: thread.id,
+              threadTitle: thread.title,
+              kind: switch (request) {
+                ApprovalRequest() => PendingKind.approval,
+                ClarifyRequest() => PendingKind.question,
+                _ => PendingKind.input,
+              },
+              requestId: request.requestId,
+              seenAt: first,
+            ),
+          );
+        }
+      }
+    }
+    _requestSeen
+      ..clear()
+      ..addAll(seen);
+    threads.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return ChatHints(
+      profile: _profile,
+      threads: threads.take(kMaxRecentChats).toList(),
+      requests: requests,
+    );
   }
 
   ChatMessage? _replyAwaiting(ChatThread thread, String requestId) {

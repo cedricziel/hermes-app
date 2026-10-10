@@ -32,11 +32,11 @@ Trade-off: it reloads by widget kind, not all timelines. The store keeps `kSurfa
 - `surface_snapshot.dart`: immutable `SurfaceSnapshot` with `RecentChat`, `PendingRequest` (`kind`: `approval`, `question`, `input`), `KanbanSummary`, `ScheduleSummary`, `FailedJob`; `toJson`/`fromJson` exactly per Contract 2 (ISO-8601 UTC times, `version: 1`); `fromJson` is lenient (unknown version or bad JSON → null) and `SurfaceSnapshot.signedOut()` is the empty form. Caps are enforced in the constructor: 10 recent chats, snippets via `replyPreview`, titles cut at 80 characters.
 - `surface_snapshot_builder.dart`: `SurfaceSnapshotBuilder(HermesRepositories, {timeout: 5 s})` with `Future<SurfaceSnapshot> build({required SurfaceSnapshot? previous, ChatHints? chat, bool refreshRemote})`. With `refreshRemote`, it reads in parallel: profiles (their names become `profiles`, kept from `previous` on failure), then `loadThreads(limit: 10, profile: p)` per profile; `isKanbanEnabled` then `loadBoard`; `isAvailable` then `listJobs(profile: 'all')` (next run = earliest future `nextRunAt` of an enabled job; last failed = latest `lastRunAt` with `outcome != ok`). Each settles to "unknown" on error or timeout and then keeps `previous`'s section. "Unavailable" (Kanban off, no cron routes) sets the section to null. `ChatHints` (the open profile's threads with the last loaded message text, and its open requests) override the open profile's rows and pending entries without a request. Pending entries of other profiles come from `previous`.
 - `surface_snapshot_store.dart`: `SurfaceSnapshotStore` with `read()`, `write(snapshot)` (JSON, `saveWidgetData`, `updateWidget` per kind, then emit on `writes`), and `clear()` (writes `signedOut()`). Skips the native write when the JSON equals the last one written. Every native call is wrapped; a failure logs `surface.snapshot.write_failed` and still emits to listeners. A platform without the plugin (macOS, desktop, tests) gets an in-memory store.
-- `surface_snapshots.dart`: `SurfaceSnapshots`, the foreground updater provided in `main.dart` beside `HermesRepositories`. `chatChanged(ChatHints)` debounces 2 s and builds with `refreshRemote` only when the last remote read is older than 5 minutes; `didChangeAppLifecycleState(paused)` builds at once with `refreshRemote`; it listens to `AuthController.signedOut` and calls `store.clear()`. It reads `AppLockController.enabled` and passes `redact: true` to the builder, which then writes empty titles and no snippets or job names; counts, ids and links stay. One build at a time; a request during a build schedules one more.
+- `surface_snapshots.dart`: `SurfaceSnapshots`, the foreground updater provided in `main.dart` beside `HermesRepositories`. `chatChanged(ChatHints)` debounces 2 s and builds with `refreshRemote` only when the last remote read is older than 5 minutes; `didChangeAppLifecycleState(paused)` builds at once with `refreshRemote`; it listens to `AuthController.signedOut` and calls `store.clear()`. It reads `AppLockController.enabled` and passes `redact: true` to the builder, which then writes empty titles and no snippets or job names; counts, ids and links stay. One build at a time; a request during a build schedules one more. A move to the background first writes what is known without the network (hints, App Lock), then reads the remote sources and writes again, since iOS gives a suspended app little time. Turning App Lock on or off rebuilds at once without the network, so widgets never keep titles App Lock hides until the next background move. The store compares content without `updatedAt` when it skips an unchanged write, so `updatedAt` is the time the content last changed.
 
 ### Feeding it from `ChatController`
 
-`ChatController` gets an optional `void Function(ChatHints)? onSurfaceChange`, called after `loadThreads` finishes, when a reply ends (completion, failure, stop), and when an input request opens, is answered, expires or is withdrawn. `ChatHints` holds per thread: id, title, `updatedAt`, `replyPreview` of the last message text when loaded, and the open requests with the time the app first saw each (Hermes sends no creation time; see the spec). Conversation windows pass none, so only the main window writes.
+`ChatController` gets an optional `void Function(SurfaceTrigger, ChatHints)? onSurfaceChange`, called after `loadThreads` finishes, when a reply stops being pending (completion, failure, stop) and when the set of open input requests of a reply changes (opened, answered, expired, withdrawn). Both are detected in `_updateReply`, which every reply edit goes through, so no event type is listed twice. `ChatHints` holds per thread: id, title, `updatedAt`, `replyPreview` of the last message text when loaded, and the open requests with the time the app first saw each (Hermes sends no creation time; see the spec). Conversation windows pass none, so only the main window writes.
 
 ### Links
 
@@ -47,13 +47,20 @@ Platforms affected: iOS (App Group writes, WidgetKit reloads) and Android (plugi
 ### Invariants touched
 
 - Tokens: none in the snapshot; no server address or identity. Tested by a check that the JSON has no `token`, `http` or `@`.
-- Telemetry: span `surface.snapshot.build` in `SurfaceSnapshots` with `trigger` (`threads`, `reply`, `request`, `pause`, `sign_out`), `sources_failed` and the connection's `hermes.*`; log `surface.snapshot.write_failed` in the store with `error.type`. No titles, ids or profile names.
+- Telemetry: span `surface.snapshot.build` in `SurfaceSnapshots` with `trigger` (`threads`, `reply`, `request`, `pause`, `app_lock`), `sources_failed` and the connection's `hermes.*`; log `surface.snapshot.write_failed` in the store with `error.type`. No titles, ids or profile names.
 - API layering: only existing repositories, all on the generated client.
 - Tests: `FakeHermesServer` for the builder; a fake `HomeWidget` channel for the store.
 
 ### Dependencies
 
 None inside this set of changes (wave 1).
+
+### Deviations found while building
+
+- Kanban and schedules availability come from `isKanbanEnabled` and `isAvailable`, which turn every error into "unavailable". A transient failure of that one probe therefore sets the section to null until the next read (at most five minutes in front, or the next background move). The other reads keep their previous section as designed.
+- The store has a small `SurfaceStorage` interface (`HomeWidgetSurfaceStorage` on `home_widget`), so most store and updater tests use a fake storage; the plugin's channel is covered by its own tests.
+- Per-call timeouts: profiles then their chats are two sequential reads of at most five seconds each.
+- `bot` registry chats (`isCanonicalBotChat`) and chats without a server id are left out of the hints.
 
 ## Risks / Trade-offs
 

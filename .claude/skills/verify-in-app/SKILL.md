@@ -296,6 +296,23 @@ approval waiting:
 - Signed out (or on the sign-in screen) the menu shows only New Chat, Show
   Main Window and Quit Hermes.
 
+## The surface snapshot (iOS simulator)
+
+The snapshot widgets and shortcuts read is one JSON string in the App Group.
+Run the debug app in a simulator against `scripts/dev-backend.sh`, sign in,
+then read it:
+
+```bash
+xcrun simctl spawn booted defaults read group.com.cedricziel.hermesApp hermes.surface.v1
+```
+
+Open a chat and let a reply finish: within a few seconds it is the first
+`recentChats` entry. Background the app (home gesture) and the other profiles,
+Kanban and schedules appear. Turn App Lock on in Settings and background again:
+titles are empty and snippets gone, while counts and links stay. Sign out and
+the key reads `signedIn: false` with empty lists. It must never hold a token,
+the server address, or a command or question text.
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against

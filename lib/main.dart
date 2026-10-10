@@ -29,6 +29,8 @@ import 'src/quick_panel/global_shortcut.dart';
 import 'src/quick_panel/quick_panel_shortcut.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_provider.dart';
+import 'src/surfaces/surface_snapshot_store.dart';
+import 'src/surfaces/surface_snapshots.dart';
 import 'src/telemetry/breadcrumbs.dart';
 import 'src/telemetry/telemetry.dart';
 import 'src/telemetry/telemetry_config.dart';
@@ -184,6 +186,34 @@ Future<void> main([List<String> args = const []]) async {
         Provider<NotificationService>(
           create: (_) => LocalNotificationService(),
           dispose: (_, service) => service.dispose(),
+        ),
+        // Widgets, quick actions and shortcuts read what the app shares
+        // through the App Group; only phones have them.
+        Provider<SurfaceSnapshotStore?>(
+          create: (_) =>
+              defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.android
+              ? SurfaceSnapshotStore(events: telemetry.events())
+              : null,
+          dispose: (_, store) => store?.dispose(),
+        ),
+        ProxyProvider2<
+          HermesRepositories?,
+          SurfaceSnapshotStore?,
+          SurfaceSnapshots?
+        >(
+          lazy: false,
+          update: (context, repositories, store, previous) {
+            if (store == null) return null;
+            return (previous ??
+                  SurfaceSnapshots(
+                    store: store,
+                    signedOut: context.read<AuthController>().signedOut,
+                    appLock: context.read<AppLockController>(),
+                  ))
+              ..repositories = repositories;
+          },
+          dispose: (_, snapshots) => snapshots?.dispose(),
         ),
         // Read after the notification providers above: a provider only sees
         // the ones declared before it.

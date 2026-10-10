@@ -40,6 +40,7 @@ import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
+import '../surfaces/surface_snapshots.dart';
 import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_window_args.dart';
@@ -257,6 +258,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : null,
       attention: _attention,
       liveActivities: liveActivities,
+      onSurfaceChange: _maybeRead<SurfaceSnapshots?>()?.chatChanged,
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
