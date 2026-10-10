@@ -29,6 +29,7 @@ class MainFlutterWindow: NSWindow {
     NotificationCategories.install(messenger: flutterViewController.engine.binaryMessenger)
     QuickPanelShortcut.register(
       with: flutterViewController.registrar(forPlugin: "QuickPanelShortcut"))
+    DragOutController.register(with: flutterViewController)
 
     // Its engine owns the session that conversation windows borrow, so it
     // must outlive a close; see close().

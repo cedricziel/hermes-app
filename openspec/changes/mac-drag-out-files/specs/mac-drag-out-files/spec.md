@@ -6,14 +6,14 @@ Lets macOS users drag chat attachments and Kanban task attachments out of Hermes
 
 ### Requirement: Drag out is a macOS feature
 
-On macOS the app SHALL offer the drag sources below. On iOS, Android, Windows and Linux it SHALL offer no drag-out, and the affected widgets SHALL behave as before. The app SHALL work when the drag-out plugin is absent or fails to start a drag.
+On macOS the app SHALL offer the drag sources below. On iOS, Android, Windows and Linux it SHALL offer no drag-out, and the affected widgets SHALL behave as before. The app SHALL work when the native drag source is absent or fails to start a drag.
 
 #### Scenario: Other platform
 
 - **WHEN** the app runs on Windows, Linux, iOS or Android
 - **THEN** no drag affordance is shown and no drag session is started
 
-#### Scenario: Plugin cannot start a drag
+#### Scenario: The system cannot start a drag
 
 - **WHEN** the system refuses to start a drag
 - **THEN** the click or selection the user made still works and no error is shown
@@ -30,7 +30,7 @@ A file or image attachment card in a message SHALL be draggable to Finder, Mail 
 #### Scenario: Fetch fails
 
 - **WHEN** the receiver asks for the file and the server answers 404
-- **THEN** the drop produces no file, the card shows its existing "no longer available" notice and a `drag_out.completed` event with `outcome: failed` is logged
+- **THEN** the drop produces no file and a `drag_out.completed` event with `outcome: failed` is logged
 
 #### Scenario: Not downloadable
 
