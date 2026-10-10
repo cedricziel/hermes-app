@@ -92,14 +92,11 @@ void main() {
     handle.dispose();
   });
 
-  testWidgets('connection details has a name', (tester) async {
+  testWidgets('new chat has a name', (tester) async {
     final handle = tester.ensureSemantics();
-    await _pump(tester, ConnectionInfoButton(onPressed: () {}));
+    await _pump(tester, NewChatButton(onPressed: () {}));
 
-    expect(
-      tester.getSemantics(find.byIcon(Icons.info_outline)),
-      namedButton('Connection details'),
-    );
+    expect(tester.getSemantics(find.byType(Icon)), namedButton('New chat'));
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
     handle.dispose();
   });

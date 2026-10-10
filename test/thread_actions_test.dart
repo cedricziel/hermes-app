@@ -525,6 +525,17 @@ void main() {
       expect(inRow('s1', find.byKey(headerActions)), findsNothing);
     });
 
+    testWidgets('starts a new chat from the header', (tester) async {
+      await pumpChatScreen(tester, server: server);
+      await openThread(tester, 'Run failure');
+
+      await tester.tap(find.byKey(const Key('header-new-chat')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(headerActions), findsNothing);
+      expect(find.text(kStarterPrompts.first), findsOneWidget);
+    });
+
     testWidgets('has no menu for a local draft or mock thread', (tester) async {
       await pumpChatScreen(tester);
 

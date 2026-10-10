@@ -7,22 +7,22 @@ import 'thread_actions_menu.dart';
 import '../../widgets/named_icon_button.dart';
 
 /// The bar above a wide chat: the open thread's title, its actions once the
-/// dashboard knows it, and the connection details. A Mac window has
-/// `MacChatToolbar` instead.
+/// dashboard knows it, and New Chat. A Mac window has `MacChatToolbar`
+/// instead.
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
     required this.thread,
     this.housekeeping,
     this.displayTitle,
-    required this.onShowConnection,
+    required this.onNewChat,
   });
 
   /// The open thread, or null before one is picked.
   final ChatThread? thread;
   final ThreadHousekeeping? housekeeping;
   final String? displayTitle;
-  final VoidCallback onShowConnection;
+  final VoidCallback onNewChat;
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +43,7 @@ class ChatHeader extends StatelessWidget {
           housekeeping: housekeeping,
           includeCopyTranscript: true,
         ),
-      ConnectionInfoButton(onPressed: onShowConnection),
+      NewChatButton(onPressed: onNewChat),
     ];
     return SafeArea(
       bottom: false,
@@ -56,16 +56,17 @@ class ChatHeader extends StatelessWidget {
   }
 }
 
-/// Opens the connection details.
-class ConnectionInfoButton extends StatelessWidget {
-  const ConnectionInfoButton({super.key, required this.onPressed});
+/// Starts a new chat.
+class NewChatButton extends StatelessWidget {
+  const NewChatButton({super.key, required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => NamedIconButton(
-    label: 'Connection details',
-    icon: AppIcons.info,
+    key: const Key('header-new-chat'),
+    label: 'New chat',
+    icon: AppIcons.compose,
     onPressed: onPressed,
   );
 }
