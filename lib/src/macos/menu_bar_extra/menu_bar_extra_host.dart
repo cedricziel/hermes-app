@@ -4,6 +4,7 @@ import 'package:flutter_otel/flutter_otel.dart'
 import 'package:provider/provider.dart';
 
 import '../../api/hermes_repositories.dart';
+import '../../app_lock/app_lock_controller.dart';
 import '../../chat/widgets/approval_card.dart';
 import '../../telemetry/breadcrumbs.dart';
 import '../../windows/conversation_windows.dart';
@@ -64,6 +65,7 @@ class _MenuBarExtraHostState extends State<MenuBarExtraHost> {
         return window != null && await windows!.focus(window.windowId);
       },
       confirmAlways: _confirmAlways,
+      lock: _maybeRead<AppLockController>(),
       quit: MacApp.terminate,
       breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
       events: _events,
@@ -97,7 +99,7 @@ class _MenuBarExtraHostState extends State<MenuBarExtraHost> {
   @override
   Widget build(BuildContext context) =>
       InheritedProvider<MenuBarExtraLink?>.value(
-        value: _link,
+        value: _extra == null ? null : _link,
         child: widget.child,
       );
 }

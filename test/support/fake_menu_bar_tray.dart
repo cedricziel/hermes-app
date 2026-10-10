@@ -69,5 +69,11 @@ class FakeMenuBarTray implements MenuBarTray {
     await Future<void>.delayed(Duration.zero);
   }
 
+  /// Picks by key, as the runner reports a pick, without waiting for it.
+  void pickKey(String key) => _selections.add(key);
+
+  /// Lets whatever a pick started finish.
+  Future<void> settle() => Future<void>.delayed(Duration.zero);
+
   void openMenu() => _opened.add(null);
 }
