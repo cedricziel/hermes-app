@@ -69,11 +69,12 @@ final class RelayClientTests: XCTestCase {
   func testSendToNewThreadOmitsThreadId() async throws {
     transport.reply = .success(["ok": true, "threadId": "new-1", "text": "Hi there", "failed": false])
 
-    let result = try await client.send(threadId: nil, text: "Hello")
+    let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
 
     let request = try XCTUnwrap(transport.requests.first)
     XCTAssertEqual(request["op"] as? String, "send")
     XCTAssertEqual(request["text"] as? String, "Hello")
+    XCTAssertEqual(request["sendId"] as? String, "m1")
     XCTAssertNil(request["threadId"])
     XCTAssertEqual(result, SendResult(threadId: "new-1", text: "Hi there", failed: false))
   }
@@ -82,7 +83,7 @@ final class RelayClientTests: XCTestCase {
     transport.reply = .success(["ok": true, "text": "Hi there", "failed": false])
 
     do {
-      _ = try await client.send(threadId: nil, text: "Hello")
+      _ = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
       XCTFail("expected a throw")
     } catch {
       XCTAssertEqual(error as? HermesClientError, .failed)
@@ -92,7 +93,7 @@ final class RelayClientTests: XCTestCase {
   func testSendIntoAThreadPassesItsId() async throws {
     transport.reply = .success(["ok": true, "threadId": "s1", "text": "Done", "failed": true])
 
-    let result = try await client.send(threadId: "s1", text: "More")
+    let result = try await client.send(threadId: "s1", text: "More", sendId: "m2")
 
     XCTAssertEqual(transport.requests.first?["threadId"] as? String, "s1")
     XCTAssertTrue(result.failed)
