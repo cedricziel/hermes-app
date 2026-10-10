@@ -11,6 +11,10 @@ import '../notifications/attention_policy.dart';
 const kSurfaceSnapshotKey = 'hermes.surface.v1';
 
 const kSurfaceSnapshotVersion = 1;
+
+/// How long the widgets let a snapshot go unwritten before they say it may be
+/// behind (`surfaceStaleAfter` in `HermesSurfaceKit`).
+const kSurfaceStaleAfter = Duration(hours: 6);
 const kMaxRecentChats = 10;
 const kMaxSnippetLength = 120;
 const kMaxTitleLength = 80;

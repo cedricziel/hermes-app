@@ -100,12 +100,59 @@ void main() {
       addTearDown(store.dispose);
     });
 
-    test('does not write the same content again', () async {
+    test('stores the same content again with the newer time, '
+        'without reloading the widgets', () async {
+      final seen = <SurfaceSnapshot>[];
+      store.writes.listen(seen.add);
       await store.write(snapshot());
-      await store.write(snapshot(hour: 13));
 
-      expect(storage.saved, hasLength(1));
+      await store.write(snapshot(hour: 13));
+      await pumpEventQueue();
+
+      expect(storage.saved, hasLength(2));
+      expect(
+        SurfaceSnapshot.fromJson(storage.saved.last)!.updatedAt,
+        DateTime.utc(2026, 10, 10, 13),
+      );
       expect(storage.reloaded, ['Recent']);
+      expect(seen, hasLength(1));
+    });
+
+    test(
+      'does not store the same content with an older or equal time',
+      () async {
+        await store.write(snapshot(hour: 13));
+
+        await store.write(snapshot());
+        await store.write(snapshot(hour: 13));
+
+        expect(storage.saved, hasLength(1));
+      },
+    );
+
+    test('reloads the widgets when the stored time had gone stale', () async {
+      await store.write(snapshot());
+
+      await store.write(snapshot(hour: 18));
+      expect(storage.reloaded, [
+        'Recent',
+      ], reason: 'exactly six hours is fresh');
+
+      await store.write(snapshot(hour: 25));
+      expect(storage.reloaded, ['Recent', 'Recent']);
+    });
+
+    test('a failed refresh of the same content keeps what is stored', () async {
+      await store.write(snapshot());
+      storage.failure = StateError('no group');
+
+      await store.write(snapshot(hour: 13));
+      storage.failure = null;
+      await store.write(snapshot(hour: 14));
+
+      expect(storage.saved, hasLength(2));
+      expect(storage.reloaded, ['Recent']);
+      expect(events.named('surface.snapshot.write_failed'), hasLength(1));
     });
 
     test('writes a change', () async {
@@ -182,14 +229,14 @@ void main() {
       await store.write(snapshot());
       await store.write(snapshot(hour: 13));
 
-      expect(storage.saved, hasLength(1));
+      expect(storage.saved, hasLength(2));
       expect(events.named('surface.snapshot.write_failed'), isEmpty);
       expect(events.named('widgets.reload_failed'), [
         {'widget.kind': 'Recent', 'error.type': 'StateError'},
       ]);
     });
 
-    test('content already stored is not written again after a start', () async {
+    test('content already stored is only refreshed after a start', () async {
       await store.write(snapshot());
       final restarted = SurfaceSnapshotStore(
         storage: storage,
@@ -200,8 +247,8 @@ void main() {
       await restarted.write(snapshot(hour: 13));
       await restarted.write(snapshot(profile: 'work'));
 
-      expect(storage.saved, hasLength(2));
-      expect(storage.reloads, 2);
+      expect(storage.saved, hasLength(3));
+      expect(storage.reloads, 2, reason: 'the refresh reloads nothing');
     });
 
     test('writes land in the order they were asked for', () async {

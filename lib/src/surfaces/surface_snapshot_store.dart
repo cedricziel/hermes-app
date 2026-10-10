@@ -81,8 +81,11 @@ class SurfaceSnapshotStore {
     }
   }
 
-  /// Stores [snapshot] unless it says what the last one did, then reloads
-  /// the widgets. A storage that fails is logged and never throws.
+  /// Stores [snapshot] and reloads the widgets. Content the last write
+  /// already held is stored again only to move its time forward, so the
+  /// widgets do not call it out of date after the user opened the app; that
+  /// reloads them only when the time they hold had gone stale. A storage that
+  /// fails is logged and never throws.
   Future<void> write(SurfaceSnapshot snapshot) {
     final done = _tail.then((_) => _write(snapshot));
     _tail = done.then((_) {}, onError: (Object _) {});
@@ -95,18 +98,23 @@ class SurfaceSnapshotStore {
       _written = await read();
     }
     final written = _written;
-    if (written != null && written.sameContent(snapshot)) return;
+    final unchanged = written != null && written.sameContent(snapshot);
+    if (unchanged && !snapshot.updatedAt.isAfter(written.updatedAt)) return;
+    final reload =
+        !unchanged ||
+        snapshot.updatedAt.difference(written.updatedAt) > kSurfaceStaleAfter;
     try {
       await _storage.save(snapshot.encode());
       _written = snapshot;
     } on Object catch (error) {
-      _written = null;
+      if (!unchanged) _written = null;
       _log('surface.snapshot.write_failed', error);
+      if (unchanged) return;
     }
-    if (_written != null) {
+    if (_written != null && reload) {
       await Future.wait([for (final kind in widgetKinds) _reload(kind)]);
     }
-    if (!_writes.isClosed) _writes.add(snapshot);
+    if (!unchanged && !_writes.isClosed) _writes.add(snapshot);
   }
 
   /// A widget that cannot be reloaded must not keep the others stale, and
