@@ -172,6 +172,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final List<SharedFile> _attachments = [];
   late final AttachmentSource _attachmentSource;
   late final ShareController _share;
+
+  /// A quote came in while the threads were loading; its new chat opens when
+  /// they are there.
+  bool _quoteChatPending = false;
   late final AttentionNotifier _attention;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
@@ -319,7 +323,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _attachmentSource = widget.attachmentSource ?? PluginAttachmentSource();
     _share = context.read<ShareController>()..addListener(_onShared);
-    _absorbShared();
+    _absorbShared(held: true);
     _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
   }
@@ -405,6 +409,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_voiceProfile?.profile != _chat.profile) _refreshVoice();
     widget.chatProfiles?.showing(_chat.profile);
     setState(() {});
+    if (_quoteChatPending && !_chat.loadingThreads) {
+      _quoteChatPending = false;
+      _startQuoteChat();
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
@@ -517,19 +525,44 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(_absorbShared);
   }
 
-  void _absorbShared() {
+  /// Takes what was shared. [held] says it was waiting before this screen
+  /// existed, i.e. through setup, sign-in or a reconnect.
+  void _absorbShared({bool held = false}) {
     final items = _share.take();
     if (items.isEmpty) return;
 
     final shared = items.whereType<SharedText>().map((i) => i.text).join('\n');
     if (shared.isNotEmpty) _appendToComposer(shared);
     _attachments.addAll(items.whereType<SharedFile>());
+    final quote = items.whereType<SharedQuote>().lastOrNull;
+    if (quote != null) _openQuote(quote, held: held);
+  }
+
+  /// Puts text selected in another app, quoted, into the composer of a new
+  /// chat. Sends nothing.
+  void _openQuote(SharedQuote quote, {required bool held}) {
+    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('chat.share.quote', {
+      'held': held,
+    });
+    _appendToComposer(quote.asBlockQuote, separator: '\n\n');
+    if (_chat.loadingThreads) {
+      // Loading the threads replaces them, and the new chat with them.
+      _quoteChatPending = true;
+    } else {
+      _startQuoteChat();
+    }
+  }
+
+  void _startQuoteChat() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _newThread();
+    });
   }
 
   /// Adds [text] under whatever the user has already typed, sending nothing.
-  void _appendToComposer(String text) {
+  void _appendToComposer(String text, {String separator = '\n'}) {
     final draft = _composerController.text;
-    final combined = draft.isEmpty ? text : '$draft\n$text';
+    final combined = draft.isEmpty ? text : '$draft$separator$text';
     _composerController.value = TextEditingValue(
       text: combined,
       selection: TextSelection.collapsed(offset: combined.length),

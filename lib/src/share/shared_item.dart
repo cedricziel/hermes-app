@@ -16,6 +16,36 @@ final class SharedText extends SharedItem {
   int get hashCode => text.hashCode;
 }
 
+/// Text selected in another app and handed over by the macOS Services menu
+/// ("Ask Hermes"). Unlike [SharedText] it starts a new chat, with the text
+/// quoted in the composer. [truncated] says the native side cut it short.
+final class SharedQuote extends SharedItem {
+  const SharedQuote(this.text, {this.truncated = false});
+
+  final String text;
+  final bool truncated;
+
+  /// The text as a Markdown block quote followed by an empty line, with a
+  /// last line saying so when it was cut short.
+  String get asBlockQuote {
+    final lines = text
+        .trimRight()
+        .split(RegExp(r'\r\n|\r|\n'))
+        .map((line) => line.isEmpty ? '>' : '> $line');
+    return '${lines.join('\n')}${truncated ? '\n> [selection shortened]' : ''}'
+        '\n\n';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SharedQuote &&
+      other.text == text &&
+      other.truncated == truncated;
+
+  @override
+  int get hashCode => Object.hash(text, truncated);
+}
+
 /// A file (or image) copied into app-readable storage by the share
 /// extension.
 final class SharedFile extends SharedItem {

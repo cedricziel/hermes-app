@@ -164,7 +164,10 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, answers) => answers?.dispose(),
         ),
         ChangeNotifierProvider(
-          create: (_) => ShareController(createPlatformShareInbox())..start(),
+          create: (context) => ShareController(
+            createPlatformShareInbox(breadcrumbs: context.read<Breadcrumbs>()),
+            signedOut: context.read<AuthController>().signedOut,
+          )..start(),
         ),
       ],
       child: HermesApp(updateChecker: createUpdateChecker()),

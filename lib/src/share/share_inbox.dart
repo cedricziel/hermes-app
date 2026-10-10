@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../telemetry/breadcrumbs.dart';
 import 'macos_share_inbox.dart';
 import 'plugin_share_inbox.dart';
 import 'shared_item.dart';
@@ -32,11 +33,13 @@ class NoopShareInbox implements ShareInbox {
   Future<void> reset() async {}
 }
 
-ShareInbox createPlatformShareInbox() {
+ShareInbox createPlatformShareInbox({
+  Breadcrumbs breadcrumbs = Breadcrumbs.none,
+}) {
   if (kIsWeb) return const NoopShareInbox();
   return switch (defaultTargetPlatform) {
     TargetPlatform.iOS || TargetPlatform.android => PluginShareInbox(),
-    TargetPlatform.macOS => MacosShareInbox(),
+    TargetPlatform.macOS => MacosShareInbox(breadcrumbs: breadcrumbs),
     _ => const NoopShareInbox(),
   };
 }

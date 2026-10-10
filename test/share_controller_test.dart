@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/share/plugin_share_inbox.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
@@ -46,6 +48,61 @@ void main() {
       await controller.start();
 
       expect(controller.take(), const [SharedText('once')]);
+      expect(controller.hasPending, isFalse);
+      expect(controller.take(), isEmpty);
+    });
+
+    test('the latest of several quotes wins', () async {
+      final inbox = FakeShareInbox([
+        const SharedQuote('first'),
+        const SharedText('plain'),
+      ]);
+      final controller = ShareController(inbox);
+      await controller.start();
+
+      inbox.emit([const SharedQuote('second'), const SharedQuote('third')]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.take(), const [
+        SharedText('plain'),
+        SharedQuote('third'),
+      ]);
+    });
+
+    test('a quote waits through setup and login like other items', () async {
+      final inbox = FakeShareInbox();
+      final controller = ShareController(inbox);
+      await controller.start();
+
+      inbox.emit([const SharedQuote('held')]);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.hasPending, isTrue);
+      expect(controller.take(), const [SharedQuote('held')]);
+    });
+
+    test('discardQuotes drops quotes and keeps other items', () async {
+      final controller = ShareController(
+        FakeShareInbox([const SharedQuote('private'), const SharedText('url')]),
+      );
+      await controller.start();
+
+      controller.discardQuotes();
+
+      expect(controller.take(), const [SharedText('url')]);
+    });
+
+    test('a quote waiting at sign-out is gone for the next user', () async {
+      final signedOut = StreamController<void>.broadcast(sync: true);
+      addTearDown(signedOut.close);
+      final inbox = FakeShareInbox();
+      final controller = ShareController(inbox, signedOut: signedOut.stream);
+      await controller.start();
+      inbox.emit([const SharedQuote('private')]);
+      await Future<void>.delayed(Duration.zero);
+
+      signedOut.add(null);
+
       expect(controller.hasPending, isFalse);
       expect(controller.take(), isEmpty);
     });

@@ -14,15 +14,35 @@ class AppDelegate: FlutterAppDelegate {
     private var windowlessActivity: NSObjectProtocol?
     private var windowless = false
 
+    /// The "Ask Hermes" entry in the Services menu.
+    private let askService = AskHermesService()
+
+    /// The provider must be there before the system delivers a service call,
+    /// which it does as soon as it has launched the app for one.
+    override func applicationWillFinishLaunching(_ notification: Notification) {
+        askService.showWindow = { [weak self] in
+            guard let window = self?.mainWindow ?? self?.mainFlutterWindow else { return }
+            if window.isMiniaturized { window.deminiaturize(nil) }
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        askService.notify = { [weak self] in
+            self?.shareChannel?.invokeMethod("shared", arguments: nil)
+        }
+        NSApp.servicesProvider = askService
+        NSUpdateDynamicServices()
+        super.applicationWillFinishLaunching(notification)
+    }
+
     override func applicationDidFinishLaunching(_ notification: Notification) {
         mainWindow = mainFlutterWindow
         if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
             let channel = FlutterMethodChannel(
                 name: "hermes_app/share", binaryMessenger: controller.engine.binaryMessenger
             )
-            channel.setMethodCallHandler { call, result in
+            channel.setMethodCallHandler { [weak self] call, result in
                 if call.method == "take" {
-                    result(ShareHandoff.take())
+                    result(ShareHandoff.take() + (self?.askService.takeQueued() ?? []))
                 } else {
                     result(FlutterMethodNotImplemented)
                 }
