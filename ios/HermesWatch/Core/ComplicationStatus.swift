@@ -24,6 +24,14 @@ struct ComplicationStatus: Codable, Equatable {
     var finished: Bool { self == .ready || self == .failed }
   }
 
+  /// The most characters of a title a complication takes, more than any face
+  /// shows.
+  static let titleLimit = 80
+
+  static func clipped(_ title: String) -> String {
+    title.count > titleLimit ? String(title.prefix(titleLimit)) + "…" : title
+  }
+
   let state: State
   let updatedAt: Date
   /// Nil under App Lock, or for a chat the gateway has not named yet.
@@ -53,9 +61,19 @@ enum ComplicationUpdate: Equatable {
       else { return nil }
       return value
     }
+    let title = text("title").map(ComplicationStatus.clipped)
     let updatedAt = (payload["updatedAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) } ?? now
     self = .show(
-      ComplicationStatus(state: state, updatedAt: updatedAt, title: text("title"), threadId: text("threadId")))
+      ComplicationStatus(state: state, updatedAt: updatedAt, title: title, threadId: text("threadId")))
+  }
+}
+
+extension ComplicationUpdate {
+  /// The message's place in the phone's order, when it says one. The phone
+  /// numbers its messages upward (the clock in milliseconds, at least), and
+  /// they can arrive out of order.
+  static func seq(of payload: [String: Any]) -> Int64? {
+    (payload["seq"] as? NSNumber)?.int64Value
   }
 }
 
@@ -64,6 +82,7 @@ enum ComplicationUpdate: Equatable {
 struct ComplicationStore {
   static let appGroup = "group.com.cedricziel.hermesApp"
   static let key = "complication.status"
+  static let seqKey = "complication.seq"
 
   let defaults: UserDefaults
 
@@ -78,18 +97,25 @@ struct ComplicationStore {
     return try? decoder.decode(ComplicationStatus.self, from: data)
   }
 
-  /// Stores what [update] says. A chat the phone did not name takes the title
-  /// the watch saved for it, if [savedTitle] knows one.
-  func apply(_ update: ComplicationUpdate, savedTitle: (String) -> String? = { _ in nil }) {
+  /// Stores what [update] says, unless a message with a higher [seq] was
+  /// applied before it: the phone can deliver two messages out of order, and a
+  /// clear is remembered so a late status does not bring the chat back. A
+  /// message without a number is always taken. Answers whether it was.
+  @discardableResult
+  func apply(_ update: ComplicationUpdate, seq: Int64? = nil) -> Bool {
+    if let seq {
+      guard seq > Int64(defaults.integer(forKey: Self.seqKey)) else { return false }
+      defaults.set(Int(seq), forKey: Self.seqKey)
+    }
     switch update {
     case .clear:
       defaults.removeObject(forKey: Self.key)
-    case .show(var status):
-      if status.title == nil, let id = status.threadId { status.title = savedTitle(id) }
+    case .show(let status):
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .secondsSince1970
       defaults.set(try? encoder.encode(status), forKey: Self.key)
     }
+    return true
   }
 }
 
@@ -171,6 +197,11 @@ enum ComplicationLink: Equatable {
     return components.url
   }
 
+  private static func isChatId(_ id: String) -> Bool {
+    guard let slash = id.firstIndex(of: "/") else { return false }
+    return id.index(after: slash) < id.endIndex
+  }
+
   init?(url: URL) {
     guard url.scheme == Self.scheme else { return nil }
     switch url.host {
@@ -180,8 +211,9 @@ enum ComplicationLink: Equatable {
       self = .open
     case "chat":
       let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-      guard let id = items.first(where: { $0.name == "id" })?.value, !id.isEmpty else { return nil }
-      self = .chat(id: id, title: items.first(where: { $0.name == "title" })?.value)
+      // `<profile>/<session>`, the shape the phone gives every chat id.
+      guard let id = items.first(where: { $0.name == "id" })?.value, Self.isChatId(id) else { return nil }
+      self = .chat(id: id, title: items.first(where: { $0.name == "title" })?.value.map(ComplicationStatus.clipped))
     default:
       return nil
     }

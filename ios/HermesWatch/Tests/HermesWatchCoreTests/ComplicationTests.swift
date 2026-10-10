@@ -26,6 +26,21 @@ final class ComplicationUpdateTests: XCTestCase {
     }
   }
 
+  func testTheSequenceNumberIsRead() {
+    XCTAssertEqual(ComplicationUpdate.seq(of: ["v": 1, "state": "none", "seq": 1_791_000_000_123]), 1_791_000_000_123)
+    XCTAssertNil(ComplicationUpdate.seq(of: ["v": 1, "state": "none"]))
+    XCTAssertNil(ComplicationUpdate.seq(of: ["seq": "soon"]))
+  }
+
+  func testALongTitleIsCut() {
+    let update = ComplicationUpdate(
+      payload: ["v": 1, "state": "ready", "updatedAt": 5, "title": String(repeating: "a", count: 500)], now: now)
+
+    guard case .show(let status) = update else { return XCTFail("not shown") }
+    XCTAssertEqual(status.title?.count, ComplicationStatus.titleLimit + 1)
+    XCTAssertTrue(status.title?.hasSuffix("…") ?? false)
+  }
+
   func testNoneClears() {
     XCTAssertEqual(ComplicationUpdate(payload: ["v": 1, "state": "none"], now: now), .clear)
   }
@@ -116,28 +131,71 @@ final class ComplicationStoreTests: XCTestCase {
     XCTAssertEqual(store.status()?.state, .ready)
   }
 
-  func testAnUnnamedChatTakesTheTitleTheWatchSaved() {
+  func testAnUnnamedChatStaysUnnamed() {
     let store = ComplicationStore(defaults: defaults)
 
-    store.apply(.show(status(title: nil, threadId: "w/s1")), savedTitle: { $0 == "w/s1" ? "Trip" : nil })
-
-    XCTAssertEqual(store.status()?.title, "Trip")
-  }
-
-  func testAChatWithATitleKeepsIt() {
-    let store = ComplicationStore(defaults: defaults)
-
-    store.apply(.show(status(title: "Backup")), savedTitle: { _ in "Other" })
-
-    XCTAssertEqual(store.status()?.title, "Backup")
-  }
-
-  func testAChatWithoutAnIdHasNoSavedTitleToTake() {
-    let store = ComplicationStore(defaults: defaults)
-
-    store.apply(.show(status(title: nil, threadId: nil)), savedTitle: { _ in "Trip" })
+    store.apply(.show(status(title: nil, threadId: "w/s1")))
 
     XCTAssertNil(store.status()?.title)
+  }
+
+  func testAnOlderMessageIsIgnored() {
+    let store = ComplicationStore(defaults: defaults)
+    XCTAssertTrue(store.apply(.show(status(.ready)), seq: 20))
+
+    XCTAssertFalse(store.apply(.show(status(.working)), seq: 10))
+
+    XCTAssertEqual(store.status()?.state, .ready)
+  }
+
+  func testANewerMessageWins() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.show(status(.working)), seq: 10)
+
+    XCTAssertTrue(store.apply(.show(status(.ready)), seq: 11))
+
+    XCTAssertEqual(store.status()?.state, .ready)
+  }
+
+  func testTheSameMessageTwiceChangesNothing() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.show(status(.working)), seq: 10)
+
+    XCTAssertFalse(store.apply(.show(status(.ready)), seq: 10))
+
+    XCTAssertEqual(store.status()?.state, .working)
+  }
+
+  func testAClearThatArrivesLateDoesNotWipeANewerStatus() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.show(status(.working)), seq: 11)
+
+    XCTAssertFalse(store.apply(.clear, seq: 10))
+
+    XCTAssertEqual(store.status()?.state, .working)
+  }
+
+  func testAStatusThatArrivesLateDoesNotBringBackWhatWasCleared() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.clear, seq: 11)
+
+    XCTAssertFalse(store.apply(.show(status(.working)), seq: 10))
+
+    XCTAssertNil(store.status())
+  }
+
+  func testTheOrderSurvivesANewStore() {
+    ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: 20)
+
+    XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.working)), seq: 5))
+  }
+
+  func testAMessageWithoutANumberIsTakenAndLeavesTheOrderAlone() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.show(status(.working)), seq: 10)
+
+    XCTAssertTrue(store.apply(.show(status(.ready))))
+    XCTAssertFalse(store.apply(.show(status(.failed)), seq: 9))
   }
 
   func testGarbageInTheStoreIsNoStatus() {
@@ -264,6 +322,25 @@ final class ComplicationLinkTests: XCTestCase {
     let url = try XCTUnwrap(ComplicationLink.chat(id: "w/s1", title: nil).url)
 
     XCTAssertEqual(ComplicationLink(url: url), .chat(id: "w/s1", title: nil))
+  }
+
+  func testAChatIdNeedsAProfileAndASession() throws {
+    for id in ["nonsense", "w/", ""] {
+      var components = URLComponents()
+      components.scheme = "hermes-watch"
+      components.host = "chat"
+      components.queryItems = [URLQueryItem(name: "id", value: id)]
+      XCTAssertNil(ComplicationLink(url: try XCTUnwrap(components.url)), "id \(id)")
+    }
+    XCTAssertEqual(
+      ComplicationLink(url: try XCTUnwrap(URL(string: "hermes-watch://chat?id=/s1"))), .chat(id: "/s1", title: nil))
+  }
+
+  func testALongTitleInALinkIsCut() throws {
+    let url = try XCTUnwrap(ComplicationLink.chat(id: "w/s1", title: String(repeating: "a", count: 500)).url)
+
+    guard case .chat(_, let title)? = ComplicationLink(url: url) else { return XCTFail("not a chat link") }
+    XCTAssertEqual(title?.count, ComplicationStatus.titleLimit + 1)
   }
 
   func testOtherUrlsAreNotOurs() throws {
