@@ -35,7 +35,7 @@ The existing `hermes-activity` and `hermes-share` schemes SHALL keep their behav
 
 ### Requirement: Opening a chat
 
-A `chat` link SHALL open that chat the same way opening a run of a scheduled task does: it SHALL switch to the link's profile when it differs, SHALL fetch the chat when the loaded pages do not hold it, and SHALL show "Could not open that chat." when the chat cannot be found or the profile cannot be loaded. A `prompt` SHALL be put into that chat's composer, cut to 4000 characters, and SHALL NOT be sent; when the chat cannot be opened the prompt SHALL be dropped.
+A `chat` link SHALL open that chat the same way opening a run of a scheduled task does: it SHALL switch to the link's profile when it differs, SHALL fetch the chat when the loaded pages do not hold it, and SHALL show "Could not open that chat." when the chat cannot be found or the profile cannot be loaded. A `prompt` SHALL be added to that chat's composer under any draft already there, cut to 4000 characters, and SHALL NOT be sent; when the chat cannot be opened the prompt SHALL be dropped.
 
 #### Scenario: Older chat
 
@@ -54,7 +54,7 @@ A `chat` link SHALL open that chat the same way opening a run of a scheduled tas
 
 ### Requirement: Starting a new chat
 
-A `new` link SHALL start a new chat, in the link's profile when given. A `prompt` SHALL be put into the composer and SHALL NOT be sent; text longer than 4000 characters SHALL be cut to 4000. `dictate=1` (or `true`) SHALL start dictation when the composer offers the microphone for that profile and SHALL be ignored otherwise.
+A `new` link SHALL start a new chat, in the link's profile when given. A `prompt` SHALL be added to the composer under any draft already there and SHALL NOT be sent; text longer than 4000 characters SHALL be cut to 4000. `dictate=1` (or `true`) SHALL start dictation when the composer offers the microphone for that profile and SHALL be ignored otherwise.
 
 #### Scenario: Prompt prefilled, not sent
 
@@ -73,7 +73,7 @@ A `new` link SHALL start a new chat, in the link's profile when given. A `prompt
 
 ### Requirement: Opening the oldest request
 
-A `requests` link SHALL open the chat holding the open approval, question or input request that was raised first among the chats the app has loaded. When the app knows of no open request it SHALL show the chat list without opening a chat.
+A `requests` link SHALL open the chat holding the open approval, question or input request that was raised first among the chats the app has loaded, judged by when the reply holding the request began. When the app knows of no open request it SHALL show the chat list without opening a chat: on a phone it SHALL close the open chat and open the chat drawer, and where the list is always on screen it SHALL leave things as they are.
 
 #### Scenario: Two chats waiting
 

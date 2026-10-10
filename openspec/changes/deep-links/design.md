@@ -33,7 +33,7 @@ Alternatives: `uni_links` is discontinued; a hand-written `SceneDelegate` hook p
 - `deep_link_uri.dart`: `Uri deepLinkUri(DeepLinkTarget)` builds the same shapes with `Uri(scheme:, host:, queryParameters:)`, leaving out null parameters. Round trip `parse(build(t)) == t` is the core test.
 - `deep_link_listener.dart`: `DeepLinks` (a `ChangeNotifier` provided in `main.dart`) wraps `AppLinks().uriLinkStream`, parses, records `deeplink.ignored` for nulls, and keeps the latest target in `pending` with a `cold` flag (true for the first link when it arrived before the first frame). A fake source stream replaces `AppLinks` in tests.
 
-`DeepLinks` lives above `HermesApp`, so a link that arrives on the setup or login screen waits there. Sign-out clears `pending`, so a link does not leak into the next session.
+`DeepLinks` is provided as `DeepLinks?` (null where the scheme is not registered: web, Windows, Linux) and lives above `HermesApp`, so a link that arrives on the setup or login screen waits there. Sign-out clears `pending`, so a link does not leak into the next session.
 
 ### `AppShell` acts on targets
 
@@ -41,13 +41,15 @@ Alternatives: `uni_links` is discontinued; a hand-written `SceneDelegate` hook p
 
 - `OpenChat` → `_openRequests.request(NotificationTarget(threadId, profile), prompt:)` and `_showChat()`; once the chat is open, `ChatScreen` prefills the prompt into its composer without sending. Notification inline reply (`notification-inline-reply`) uses this to hand back text it could not send.
 - `NewChat` → `_openRequests.requestNew(profile:, prompt:, dictate:)`; `ChatScreen` loads the profile if it differs, calls `newThread()`, prefills, and starts dictation when the microphone is offered for that profile. When it is not, dictation is skipped silently (the composer shows no microphone either).
-- `OpenRequests` → `_openRequests.requestOldestPending()`; `ChatController` picks the loaded thread whose oldest pending `InputRequest` was raised first, opens it, or shows the chat list (phone: closes any open chat; wide layout: keeps the list visible and opens nothing). A later change makes it consult the surface snapshot first.
+- `OpenRequests` → `_openRequests.requestOldestPending()`; `ChatController.openOldestRequest` picks the loaded thread holding the reply with an open `InputRequest` that began first (a request carries no timestamp of its own), opens it, or `ChatScreen` shows the chat list (phone: closes any open chat; wide layout: keeps the list visible and opens nothing). A later change makes it consult the surface snapshot first.
 - `OpenKanban` → `_select(_Destination.kanban)` if `_kanban`; before `_detect()` has answered, kept in a `_pendingLink` like `_pendingJob`; after it answered false, ignored with `reason: unavailable`.
 - `OpenSchedules` → with a job, `_openJob(NotificationTarget.job(jobId, profile))` (which already waits for detection); without, `_select(_Destination.schedules)` under the same wait.
 
 Pushed routes are popped first (`popUntil(isFirst)`), as `_openJob` does. App Lock is not bypassed: the gate sits above the shell, so the target is applied underneath and shown after unlock.
 
 ### Native registration
+
+Flutter's own deep-link routing is switched off (`FlutterDeepLinkingEnabled` = false in `ios/Runner/Info.plist`, `flutter_deeplinking_enabled` = false in the manifest), as `app_links` documents: otherwise the engine also pushes the URL as an initial route, which the `home:`-based `MaterialApp` has no route for.
 
 `hermes` is added as a second `CFBundleURLTypes` entry in `ios/Runner/Info.plist` and `macos/Runner/Info.plist` (role Viewer, name `$(PRODUCT_BUNDLE_IDENTIFIER).deeplink`), and an `intent-filter` (`VIEW`, `DEFAULT`, `BROWSABLE`, `scheme="hermes"`) on the main activity, which is already `singleTop`. No entitlement change. `SceneDelegate` needs no change: app_links reads `connectionOptions.urlContexts` itself.
 
