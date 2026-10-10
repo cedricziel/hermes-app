@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
+import '../attachments/attachment_paste.dart';
 import '../../bot_mode/bot_chat_context.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
@@ -216,6 +217,7 @@ class _ChatComposerState extends State<ChatComposer> {
     final modelPill = widget.modelPill;
     final dictation = widget.dictation;
     final dictating = dictation != null && dictation.active;
+    final paste = AttachmentPaste.maybeOf(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -332,6 +334,8 @@ class _ChatComposerState extends State<ChatComposer> {
                       maxLines: 8,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.newline,
+                      contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
+                      contentInsertionConfiguration: paste?.contentInsertion,
                       decoration: InputDecoration(
                         hintText: widget.replying
                             ? 'Queue a message…'
@@ -398,6 +402,12 @@ class _ChatComposerState extends State<ChatComposer> {
     );
   }
 }
+
+/// `TextField`'s own default, which a null builder would not give.
+Widget _platformMenu(BuildContext context, EditableTextState state) =>
+    SystemContextMenu.isSupportedByField(state)
+    ? SystemContextMenu.editableText(editableTextState: state)
+    : AdaptiveTextSelectionToolbar.editableText(editableTextState: state);
 
 /// Starts dictation, or stops the recording while one runs. Hidden while the
 /// transcript settles.

@@ -42,6 +42,23 @@ void _putOnClipboard(WidgetTester tester, String text) {
   );
 }
 
+/// A clipboard without text, as with only an image on it.
+void _putNothingOnClipboard(WidgetTester tester) {
+  tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+    SystemChannels.platform,
+    (call) async => switch (call.method) {
+      'Clipboard.hasStrings' => <String, Object?>{'value': false},
+      _ => null,
+    },
+  );
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      null,
+    ),
+  );
+}
+
 /// The test binding checks that no override outlives the test body, which
 /// rules out `addTearDown`.
 Future<void> _on(TargetPlatform platform, Future<void> Function() body) async {
@@ -246,7 +263,7 @@ void main() {
     });
 
     testWidgets('a platform without drops gets no drop target', (tester) async {
-      final source = FakeAttachmentSource(acceptsDropAndPaste: false);
+      final source = FakeAttachmentSource(acceptsDrops: false);
       await pumpChatScreen(tester, attachmentSource: source);
 
       expect(source.hasDropTarget, isFalse);
@@ -258,6 +275,8 @@ void main() {
       (TargetPlatform.macOS, LogicalKeyboardKey.meta),
       (TargetPlatform.linux, LogicalKeyboardKey.control),
       (TargetPlatform.windows, LogicalKeyboardKey.control),
+      (TargetPlatform.iOS, LogicalKeyboardKey.meta),
+      (TargetPlatform.android, LogicalKeyboardKey.control),
     ]) {
       testWidgets(
         'an image on the clipboard is attached on $platform',
@@ -289,19 +308,63 @@ void main() {
       }),
     );
 
+    for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+      testWidgets(
+        'the text menu offers Paste for an image on $platform',
+        (tester) => _on(platform, () async {
+          final source = FakeAttachmentSource()..clipboard = [_shot];
+          _putNothingOnClipboard(tester);
+          await pumpChatScreen(tester, attachmentSource: source);
+          await tester.tap(composerField);
+          await tester.pump();
+
+          tester.state<EditableTextState>(composerField).showToolbar();
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Paste'));
+          await tester.pumpAndSettle();
+
+          expect(find.text(_shot.name), findsOneWidget);
+          expect(source.pasteReads, 1);
+        }),
+      );
+    }
+
     testWidgets(
-      'a platform without paste attachments pastes text only',
-      (tester) => _on(TargetPlatform.macOS, () async {
-        final source = FakeAttachmentSource(acceptsDropAndPaste: false)
-          ..clipboard = [_shot];
-        _putOnClipboard(tester, 'hello there');
+      'the text menu has no Paste with an empty clipboard',
+      (tester) => _on(TargetPlatform.android, () async {
+        final source = FakeAttachmentSource();
+        _putNothingOnClipboard(tester);
         await pumpChatScreen(tester, attachmentSource: source);
+        await tester.tap(composerField);
+        await tester.pump();
 
-        await _paste(tester, LogicalKeyboardKey.meta);
+        tester.state<EditableTextState>(composerField).showToolbar();
+        await tester.pumpAndSettle();
 
-        expect(source.pasteReads, 0);
-        expect(_composerText(tester), 'hello there');
-        expect(find.byType(InputChip), findsNothing);
+        expect(find.text('Paste'), findsNothing);
+      }),
+    );
+
+    testWidgets(
+      'an image from the keyboard is attached',
+      (tester) => _on(TargetPlatform.android, () async {
+        final source = FakeAttachmentSource()..keyboardImage = [_shot];
+        await pumpChatScreen(tester, attachmentSource: source);
+        await tester.tap(composerField);
+        await tester.pump();
+
+        tester
+            .state<EditableTextState>(composerField)
+            .insertContent(
+              const KeyboardInsertedContent(
+                mimeType: 'image/png',
+                uri: 'content://keyboard/1',
+              ),
+            );
+        await tester.pumpAndSettle();
+
+        expect(find.text(_shot.name), findsOneWidget);
+        expect(_composerText(tester), isEmpty);
       }),
     );
   });

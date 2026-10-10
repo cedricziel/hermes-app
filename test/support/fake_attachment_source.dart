@@ -12,13 +12,13 @@ class FakeAttachmentSource implements AttachmentSource {
       AttachOrigin.photos,
       AttachOrigin.camera,
     ],
-    this.acceptsDropAndPaste = true,
+    this.acceptsDrops = true,
   });
 
   @override
   final List<AttachOrigin> origins;
   @override
-  final bool acceptsDropAndPaste;
+  final bool acceptsDrops;
 
   /// What [pick] returns per origin; a missing entry means the user cancelled.
   final picks = <AttachOrigin, List<SharedFile>>{};
@@ -43,6 +43,16 @@ class FakeAttachmentSource implements AttachmentSource {
     if (failure != null) throw failure; // ignore: only_throw_errors
     return picks[origin] ?? const [];
   }
+
+  /// What [inserted] returns for any keyboard content.
+  List<SharedFile> keyboardImage = const [];
+
+  @override
+  Future<bool> hasFilesToPaste() async => clipboard.isNotEmpty;
+
+  @override
+  Future<List<SharedFile>> inserted(KeyboardInsertedContent content) async =>
+      keyboardImage;
 
   @override
   Future<List<SharedFile>> pasted() async {

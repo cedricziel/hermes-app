@@ -535,7 +535,7 @@ WidgetbookNode appNode() => WidgetbookFolder(
           WidgetbookUseCase(
             name: name,
             builder: (_) => AttachmentSurface(
-              source: FakeAttachmentSource(acceptsDropAndPaste: drops),
+              source: FakeAttachmentSource(acceptsDrops: drops),
               onAdd: (_) {},
               builder: (context, openMenu) => Scaffold(
                 body: const Center(child: Text('Drop a file on the chat')),

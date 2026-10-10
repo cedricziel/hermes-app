@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../share/shared_item.dart';
 import '../../theme/app_icons.dart';
+import 'attachment_paste.dart';
 import 'attachment_source.dart';
 
 const _couldNotAttach = 'Could not attach that.';
@@ -86,6 +87,15 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
     }
   }
 
+  Future<void> _inserted(KeyboardInsertedContent content) async {
+    try {
+      final files = await widget.source.inserted(content);
+      if (mounted && files.isNotEmpty) widget.onAdd(files);
+    } on Object {
+      _say(_couldNotAttach);
+    }
+  }
+
   void _dropped(List<SharedFile> files) {
     setState(() => _dragging = false);
     widget.onAdd(files);
@@ -94,32 +104,41 @@ class _AttachmentSurfaceState extends State<AttachmentSurface> {
   @override
   Widget build(BuildContext context) {
     final chat = widget.builder(context, _openMenu);
-    if (!widget.source.acceptsDropAndPaste) return chat;
-
-    final onMac = defaultTargetPlatform == TargetPlatform.macOS;
-    return Actions(
-      actions: {
-        _PasteAttachmentIntent: CallbackAction<_PasteAttachmentIntent>(
-          onInvoke: (_) => _paste(),
-        ),
-      },
-      child: Shortcuts(
-        shortcuts: {
-          SingleActivator(
-            LogicalKeyboardKey.keyV,
-            meta: onMac,
-            control: !onMac,
-          ): const _PasteAttachmentIntent(),
-        },
-        child: widget.source.dropTarget(
-          onHover: (over) => setState(() => _dragging = over),
-          onDrop: _dropped,
-          child: Stack(
-            children: [
-              chat,
-              if (_dragging) const Positioned.fill(child: _DropHint()),
-            ],
+    final source = widget.source;
+    final apple = switch (defaultTargetPlatform) {
+      TargetPlatform.macOS || TargetPlatform.iOS => true,
+      _ => false,
+    };
+    return AttachmentPaste(
+      hasFiles: source.hasFilesToPaste,
+      paste: _paste,
+      insert: _inserted,
+      child: Actions(
+        actions: {
+          _PasteAttachmentIntent: CallbackAction<_PasteAttachmentIntent>(
+            onInvoke: (_) => _paste(),
           ),
+        },
+        child: Shortcuts(
+          shortcuts: {
+            SingleActivator(
+              LogicalKeyboardKey.keyV,
+              meta: apple,
+              control: !apple,
+            ): const _PasteAttachmentIntent(),
+          },
+          child: !source.acceptsDrops
+              ? chat
+              : source.dropTarget(
+                  onHover: (over) => setState(() => _dragging = over),
+                  onDrop: _dropped,
+                  child: Stack(
+                    children: [
+                      chat,
+                      if (_dragging) const Positioned.fill(child: _DropHint()),
+                    ],
+                  ),
+                ),
         ),
       ),
     );
