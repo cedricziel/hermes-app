@@ -138,6 +138,28 @@ void main() {
     });
   });
 
+  test('a title made from the prompt never leaves the chat', () async {
+    final send = await sendHello();
+    reports.clear();
+
+    send.emit(const ApprovalRequested(approval));
+    await pumpEventQueue();
+
+    final (_, hints) = reports.single;
+    expect(hints.threads.single.title, 'New chat');
+    expect(hints.requests.single.threadTitle, 'New chat');
+  });
+
+  test('a title the dashboard gave is reported', () async {
+    final send = await sendHello();
+    send
+      ..emit(const ThreadTitled('Greeting'))
+      ..emit(const ReplyCompleted('Hi there'));
+    await pumpEventQueue();
+
+    expect(reports.last.$2.threads.single.title, 'Greeting');
+  });
+
   test('a finished reply is reported with its start as the snippet', () async {
     final send = await sendHello();
     reports.clear();
@@ -151,7 +173,7 @@ void main() {
     final thread = reports.single.$2.threads.single;
     expect(
       (thread.id, thread.title, thread.snippet),
-      ('s1', 'Hello', 'Hi there'),
+      ('s1', 'New chat', 'Hi there'),
     );
     expect(
       thread.updatedAt.isAfter(
@@ -204,7 +226,7 @@ void main() {
     final request = reports.single.$2.requests.single;
     expect(
       (request.threadId, request.threadTitle, request.kind, request.requestId),
-      ('s1', 'Hello', PendingKind.approval, 'r1'),
+      ('s1', 'New chat', PendingKind.approval, 'r1'),
     );
 
     reports.clear();
