@@ -70,6 +70,16 @@ final class WCSessionTransport: NSObject, RelayTransport, WCSessionDelegate {
     logger.notice("Activation completed state=\(activationState.rawValue) errorCode=\((error as NSError?)?.code ?? 0)")
   }
 
+  // What the phone pushes for the complications. The system starts the app in
+  // the background to deliver it.
+  func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any]) {
+    ComplicationUpdates.receive(userInfo)
+  }
+
+  func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+    ComplicationUpdates.receive(applicationContext)
+  }
+
   func sessionReachabilityDidChange(_ session: WCSession) {
     logger.notice("Reachability changed reachable=\(session.isReachable)")
   }

@@ -612,6 +612,7 @@ class ChatThread {
     this.pinned = false,
     this.folderPath,
     this.remote = false,
+    this.named = false,
     this.modelChoice,
     this.botContext,
     List<ChatMessage>? messages,
@@ -629,6 +630,11 @@ class ChatThread {
   /// Whether the Hermes dashboard holds this thread, as opposed to a local
   /// draft or mock data.
   bool remote;
+
+  /// Whether [title] is a name the gateway or the server gave the chat, as
+  /// opposed to one made from the prompt, a file name or the first message.
+  /// Only a name may leave the app for a watch face.
+  bool named;
   final List<ChatMessage> messages;
 
   /// The model picked for this thread; null runs the profile's default.

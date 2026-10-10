@@ -1,12 +1,34 @@
 import SwiftUI
+import WatchConnectivity
 
 @main
 struct HermesWatchApp: App {
   private let client: HermesClient = Self.makeClient()
 
+  init() {
+    #if DEBUG
+      DemoClient.seedComplication()
+    #endif
+  }
+
   var body: some Scene {
     WindowGroup {
       ThreadListView(model: ThreadListModel(client: client))
+        .onOpenURL { LaunchRequests.shared.open($0) }
+    }
+    // The phone's status for the complications wakes the app in the background
+    // and arrives through the session's delegate; the task is held until the
+    // system has nothing more to deliver, or for a while at most.
+    .backgroundTask(.watchConnectivity) {
+      // `hasContentPending` says nothing before the session is active.
+      let deadline = Date().addingTimeInterval(25)
+      let session = WCSession.default
+      while session.activationState != .activated, Date() < deadline {
+        try? await Task.sleep(for: .milliseconds(200))
+      }
+      while session.hasContentPending, Date() < deadline {
+        try? await Task.sleep(for: .milliseconds(500))
+      }
     }
   }
 

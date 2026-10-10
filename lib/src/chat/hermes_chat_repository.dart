@@ -223,6 +223,8 @@ class HermesChatRepository {
       pinned: row['pinned'] == true,
       folderPath: sessionFolderPath(row),
       remote: true,
+      named:
+          row['title'] is String && (row['title'] as String).trim().isNotEmpty,
     );
   }
 

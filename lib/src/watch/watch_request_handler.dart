@@ -5,6 +5,7 @@ import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../notifications/attention_policy.dart';
+import 'watch_complication.dart';
 
 /// Answers the requests the watch app relays through the phone. Requests and
 /// replies are plain maps of property-list types, the shape WatchConnectivity
@@ -32,6 +33,7 @@ class WatchRequestHandler {
     this.announce = _ignore,
     this.appLock = _off,
     this.transcribeOnDevice,
+    this.complication,
   });
 
   /// What the watch is told when the agent asks for something only the phone's
@@ -102,6 +104,9 @@ class WatchRequestHandler {
   /// What the phone's own recognizer heard in a voice message, or null when
   /// it is not the one to transcribe it; the server transcribes it then.
   final Future<String?> Function(Uint8List audio)? transcribeOnDevice;
+
+  /// Tells the watch's complications what a turn sent from here is doing.
+  final WatchComplicationStatus? complication;
 
   static Future<bool> _ignore(AttentionNotification _) async => false;
 
@@ -362,6 +367,9 @@ class WatchRequestHandler {
     String? profile;
     String? boundId;
     var title = untitledChat;
+    // Null until the gateway names the chat, so the watch can use the title
+    // its own list holds.
+    String? named;
     final streamed = StringBuffer();
     final tools = <String>{};
 
@@ -384,6 +392,19 @@ class WatchRequestHandler {
       return posted && notification.request != null;
     }
 
+    void track(ChatEvent event) {
+      // The turn Hermes ran ahead of the prompt ends before the prompt's own
+      // turn does, so its completion says nothing about the chat.
+      if (event is UnsolicitedEvent && event.event is ReplyCompleted) return;
+      complication?.onEvent(
+        attempt,
+        event is UnsolicitedEvent ? event.event : event,
+        title: named,
+        threadId: boundId == null ? null : _bind(profile, boundId),
+        fromWatch: true,
+      );
+    }
+
     Map<String, Object?> cannotAnswer() => {
       'ok': true,
       ..._threadEntry(profile, boundId),
@@ -398,6 +419,12 @@ class WatchRequestHandler {
       attempt
         ..profile = profile
         ..threadId = boundId;
+      complication?.begin(
+        attempt,
+        title: null,
+        threadId: boundId == null ? null : _bind(profile, boundId),
+        fromWatch: true,
+      );
       final turn = events = StreamIterator(
         chat.send(threadId: boundId, profile: profile, text: text),
       );
@@ -413,16 +440,20 @@ class WatchRequestHandler {
             // Announced either way; only an answerable notification, for a
             // watch that can show it, is worth waiting for.
             final answerable = await announce(own);
+            // Left unanswered here, it still waits for the user on the phone.
+            track(own);
             if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'approval');
             continue;
           case ClarifyRequested(:final request):
             final answerable = await announce(own);
+            track(own);
             if (!attempt.waits || !answerable) return cannotAnswer();
             attempt.open(request.requestId, 'question');
             continue;
           case VaultRequested() || UnsupportedRequested():
             unawaited(announce(own));
+            track(own);
             return cannotAnswer();
           case InputRequestExpired(:final requestId):
             attempt.close([requestId]);
@@ -432,12 +463,15 @@ class WatchRequestHandler {
             attempt.progressed();
           default:
         }
+        track(event);
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;
             attempt.threadId = threadId;
-          case ThreadTitled(title: final named):
-            title = named;
+            track(event);
+          case ThreadTitled(title: final newTitle):
+            title = named = newTitle;
+            track(event);
           case ReplyDelta(:final text):
             streamed.write(text);
           case ToolStarted(:final name):
@@ -454,9 +488,11 @@ class WatchRequestHandler {
           default:
         }
       }
+      track(const ReplyCompleted('', failed: true));
       unawaited(announce(const ReplyCompleted('', failed: true)));
       return _error('failed');
     } on Object {
+      track(const ReplyCompleted('', failed: true));
       unawaited(announce(const ReplyCompleted('', failed: true)));
       rethrow;
     } finally {
@@ -485,7 +521,7 @@ class WatchRequestHandler {
   }
 
   static String _bind(String? profile, String sessionId) =>
-      '${Uri.encodeComponent(profile ?? '')}/$sessionId';
+      boundThreadId(profile, sessionId);
 
   static _Thread? _unbind(Object? threadId) {
     if (threadId is! String) return null;

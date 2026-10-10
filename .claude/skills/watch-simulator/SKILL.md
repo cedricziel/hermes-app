@@ -45,3 +45,25 @@ xcrun simctl terminate $W $BID
   the `proxy.scrollTo("composer")` call disabled and restore the file after.
 - Building for the simulator does not touch the tracked Flutter `ios/` files,
   but check `git status` anyway before committing.
+
+## Complications
+
+The `HermesComplication` widget extension is embedded in the watch app
+(`PlugIns/`), so the compile check above builds it as a dependency; compile
+the Release configuration with `-sdk watchos` too, since an archive that
+inherits `SUPPORTED_PLATFORMS = iphoneos` fails there.
+
+- The watch app and the extension share the status through the App Group. A
+  simulator build only gets a real group container when its binary is signed
+  (ad hoc is enough): add `CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO
+  CODE_SIGNING_ALLOWED=YES CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=` to the
+  `xcodebuild` call, and `xcrun simctl get_app_container <udid> <bundle> groups`
+  shows the container.
+- `SIMCTL_CHILD_HERMES_WATCH_COMPLICATION=working|waiting|ready|failed|none`
+  (with `HERMES_WATCH_DEMO`) seeds the status as the phone would send it.
+- There is no Simulator.app here and `simctl` cannot put a widget on a face
+  or scroll the Smart Stack, so the widget itself is not reachable from the
+  command line. To look at the rectangular view, build once with a temporary
+  harness: drop `@main` from `HermesComplication.swift`, add that file to the
+  watch target's Sources, show `ChatStatusView(entry:)` from `HermesWatchApp`
+  under an environment variable, screenshot, then `git checkout` the files.
