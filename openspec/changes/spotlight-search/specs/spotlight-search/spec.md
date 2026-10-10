@@ -31,7 +31,7 @@ On iOS and iPadOS the app SHALL offer a "Show chats in Spotlight" switch, off by
 
 ### Requirement: What is indexed
 
-While the switch is on and a user is signed in, the system SHALL keep the recent chats of the app's surface snapshot (at most ten, across profiles) in Spotlight, each with the chat's title and its latest-message snippet of at most 120 characters. When the app records a new snapshot, chats that joined it SHALL be added, changed titles or snippets SHALL be updated, and chats no longer in it SHALL be removed. Nothing else SHALL be indexed: no older chat, no full message, no command, question or secret, no token or server address. Indexed items SHALL NOT be searchable while the device is locked.
+While the switch is on and a user is signed in, the system SHALL keep the recent chats of the app's surface snapshot (at most ten, across profiles) in Spotlight, each with the chat's title and its latest-message snippet of at most 120 characters. When the app records a new snapshot, chats that joined it SHALL be added, changed titles or snippets SHALL be updated, and chats no longer in it SHALL be removed. A chat that has no name yet (the dashboard or gateway has not titled it) SHALL NOT be indexed. Nothing else SHALL be indexed: no older chat, no full message, no command, question or secret, no token or server address. Indexed items SHALL NOT be searchable while the device is locked.
 
 #### Scenario: Turning it on
 

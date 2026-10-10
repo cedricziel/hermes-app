@@ -60,6 +60,59 @@ void main() {
     },
   );
 
+  test('update sends the changed items and the links to drop', () async {
+    expect(
+      await index.update(
+        'chat',
+        upsert: [item],
+        remove: ['hermes://chat?profile=default&id=old'],
+      ),
+      isTrue,
+    );
+
+    expect(calls.single.method, 'update');
+    expect(calls.single.arguments, {
+      'domain': 'chat',
+      'items': [
+        {
+          'url': 'hermes://chat?profile=default&id=abc',
+          'title': 'Trip plan',
+          'text': 'Booked the flights',
+        },
+      ],
+      'remove': ['hermes://chat?profile=default&id=old'],
+    });
+  });
+
+  test('isAvailable asks whether the device lets the index be used', () async {
+    answer = (call) => false;
+
+    expect(await index.isAvailable(), isFalse);
+    expect(calls.single.method, 'isAvailable');
+  });
+
+  test('a runner that cannot say counts as available', () async {
+    messenger.setMockMethodCallHandler(channel, null);
+
+    expect(await index.isAvailable(), isTrue);
+  });
+
+  test('a call from the runner says the index can be used again', () async {
+    var heard = 0;
+    index.becameAvailable.listen((_) => heard++);
+
+    await messenger.handlePlatformMessage(
+      channel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('becameAvailable'),
+      ),
+      (_) {},
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(heard, 1);
+  });
+
   test('deleteDomain and deleteAll name the domain or none', () async {
     expect(await index.deleteDomain('memory'), isTrue);
     expect(await index.deleteAll(), isTrue);
@@ -101,12 +154,18 @@ void main() {
     answer = (call) => throw PlatformException(code: 'index', message: 'boom');
 
     expect(await index.replace('chat', [item]), isFalse);
+    expect(await index.update('chat', upsert: [item], remove: []), isFalse);
     expect(await index.deleteDomain('chat'), isFalse);
     expect(await index.deleteAll(), isFalse);
 
     expect(events.named('spotlight.index_failed'), [
       {
         'operation': 'replace',
+        'spotlight.domain': 'chat',
+        'error.type': 'PlatformException',
+      },
+      {
+        'operation': 'update',
         'spotlight.domain': 'chat',
         'error.type': 'PlatformException',
       },

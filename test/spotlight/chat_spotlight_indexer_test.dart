@@ -5,6 +5,7 @@ import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/spotlight/chat_spotlight_indexer.dart';
 import 'package:hermes_app/src/spotlight/spotlight_index.dart';
 import 'package:hermes_app/src/spotlight/spotlight_settings.dart';
+import 'package:hermes_app/src/surfaces/chat_hints.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,37 @@ import 'package:shared_preferences_platform_interface/shared_preferences_async_p
 import '../support/fake_device_authenticator.dart';
 import '../support/fake_spotlight_index.dart';
 import '../support/fake_surface_storage.dart';
+import '../support/recorded_events.dart';
+
+const _flagKey = 'hermes.spotlight.dirty';
+
+/// Preferences whose writes of the indexer's flag can be made to fail.
+base class _FlakyPrefs extends InMemorySharedPreferencesAsync {
+  _FlakyPrefs() : super.empty();
+
+  var failing = false;
+
+  @override
+  Future<bool> setBool(
+    String key,
+    bool value,
+    SharedPreferencesOptions options,
+  ) async {
+    if (failing && key == _flagKey) throw StateError('disk full');
+    return super.setBool(key, value, options);
+  }
+}
+
+/// A storage whose read waits for [gate].
+class _SlowStorage extends FakeSurfaceStorage {
+  final gate = Completer<void>();
+
+  @override
+  Future<String?> load() async {
+    await gate.future;
+    return super.load();
+  }
+}
 
 final noon = DateTime.utc(2026, 10, 10, 12);
 
@@ -30,8 +62,16 @@ RecentChat chat(
   updatedAt: noon,
 );
 
-SurfaceSnapshot snapshot(List<RecentChat> chats, {bool signedIn = true}) =>
-    SurfaceSnapshot(updatedAt: noon, signedIn: signedIn, recentChats: chats);
+SurfaceSnapshot snapshot(
+  List<RecentChat> chats, {
+  bool signedIn = true,
+  bool kanban = false,
+}) => SurfaceSnapshot(
+  updatedAt: noon,
+  signedIn: signedIn,
+  recentChats: chats,
+  kanban: kanban ? const KanbanSummary(blocked: 1, review: 0) : null,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +84,7 @@ void main() {
   late AppLockController lock;
   late StreamController<void> signedOut;
   late ChatSpotlightIndexer indexer;
+  late RecordedEvents events;
 
   ChatSpotlightIndexer newIndexer() => ChatSpotlightIndexer(
     index: index,
@@ -52,6 +93,7 @@ void main() {
     appLock: lock,
     signedOut: signedOut.stream,
     prefs: prefs,
+    events: events.call,
   );
 
   Future<void> settle() => pumpEventQueue();
@@ -66,6 +108,7 @@ void main() {
         InMemorySharedPreferencesAsync.empty();
     prefs = SharedPreferencesAsync();
     index = FakeSpotlightIndex();
+    events = RecordedEvents();
     storage = FakeSurfaceStorage();
     store = SurfaceSnapshotStore(storage: storage);
     settings = SpotlightSettings(prefs: prefs);
@@ -170,8 +213,27 @@ void main() {
       expect([for (final i in index.items['chat']!) i.title], ['Groceries']);
     });
 
-    test('leaves out a chat without a title', () async {
-      await record(snapshot([chat('a', ''), chat('b', 'Groceries')]));
+    test('changes items in place and removes only the dropped ones', () async {
+      await record(snapshot([chat('a', 'Trip plan'), chat('b', 'Groceries')]));
+      index.calls.clear();
+      index.updates.clear();
+
+      await record(snapshot([chat('b', 'Groceries'), chat('c', 'Taxes')]));
+
+      expect(index.calls, ['update chat']);
+      final (upsert, remove) = index.updates.single;
+      expect([for (final i in upsert) i.title], ['Taxes']);
+      expect(remove, ['hermes://chat?profile=default&id=a']);
+    });
+
+    test('leaves out chats that have no real title', () async {
+      await record(
+        snapshot([
+          chat('a', kUnnamedChatLabel, snippet: 'Plan a trip to Lisbon'),
+          chat('b', 'Groceries'),
+          chat('c', ''),
+        ]),
+      );
 
       expect([for (final i in index.items['chat']!) i.title], ['Groceries']);
     });
@@ -327,7 +389,7 @@ void main() {
       expect(index.calls, isEmpty);
     });
 
-    test('is retried with the next change in the same run', () async {
+    test('is retried with the next snapshot', () async {
       await settings.setEnabled(true);
       await indexer.start();
       await record(snapshot([chat('a', 'Trip plan')]));
@@ -335,25 +397,116 @@ void main() {
       await record(snapshot([], signedIn: false));
       index.succeeds = true;
 
-      signedOut.add(null);
-      await settle();
+      await record(
+        SurfaceSnapshot(updatedAt: noon, signedIn: false, profile: 'other'),
+      );
 
       expect(index.items, isEmpty);
       expect(index.calls.where((c) => c == 'deleteAll'), hasLength(2));
     });
 
-    test('a failed index call is retried with the same chats', () async {
+    test('a failed index call is retried by the next snapshot', () async {
       await settings.setEnabled(true);
       await indexer.start();
       index.succeeds = false;
       await record(snapshot([chat('a', 'Trip plan')]));
       index.succeeds = true;
 
-      await settings.setEnabled(false);
-      await settings.setEnabled(true);
-      await settle();
+      await record(snapshot([chat('a', 'Trip plan')], kanban: true));
 
       expect(index.items['chat']!.single.title, 'Trip plan');
+    });
+  });
+
+  group('while the device is locked', () {
+    setUp(() async {
+      await settings.setEnabled(true);
+      await indexer.start();
+      await record(snapshot([chat('a', 'Trip plan')]));
+      index
+        ..calls.clear()
+        ..available = false;
+    });
+
+    test('makes no call and logs nothing', () async {
+      await record(snapshot([chat('b', 'Groceries')]));
+      await settings.setEnabled(false);
+      await settle();
+
+      expect(index.calls, isEmpty);
+      expect(events.named('spotlight.index_failed'), isEmpty);
+    });
+
+    test('catches up once the device is unlocked', () async {
+      await record(snapshot([chat('b', 'Groceries')]));
+
+      index.available = true;
+      index.becameAvailableController.add(null);
+      await settle();
+
+      expect([for (final i in index.items['chat']!) i.title], ['Groceries']);
+    });
+
+    test('removes everything after a sign-out once it is unlocked', () async {
+      signedOut.add(null);
+      await settle();
+      expect(index.calls, isEmpty);
+
+      index.available = true;
+      index.becameAvailableController.add(null);
+      await settle();
+
+      expect(index.calls, ['deleteAll']);
+    });
+  });
+
+  group('starting', () {
+    test('a sign-out during the read of the stored snapshot wins', () async {
+      final slow = _SlowStorage();
+      await slow.save(snapshot([chat('a', 'Trip plan')]).encode());
+      store = SurfaceSnapshotStore(storage: slow);
+      indexer.dispose();
+      indexer = newIndexer();
+      await settings.setEnabled(true);
+
+      final starting = indexer.start();
+      await settle();
+      signedOut.add(null);
+      slow.gate.complete();
+      await starting;
+      await settle();
+
+      expect(index.calls, isEmpty);
+    });
+  });
+
+  group('the flag that a removal is owed', () {
+    test('survives a failed write and is saved by a later change', () async {
+      final flaky = _FlakyPrefs();
+      SharedPreferencesAsyncPlatform.instance = flaky;
+      prefs = SharedPreferencesAsync();
+      indexer.dispose();
+      indexer = newIndexer();
+      flaky.failing = true;
+      await settings.setEnabled(true);
+      await indexer.start();
+
+      await record(snapshot([chat('a', 'Trip plan')]));
+
+      expect(index.items['chat'], isNotNull);
+      expect(await prefs.getBool(_flagKey), isNull);
+      expect(events.named('spotlight.index_failed'), [
+        {
+          'operation': 'save_flag',
+          'spotlight.domain': 'all',
+          'error.type': 'StateError',
+        },
+      ]);
+
+      flaky.failing = false;
+      await record(snapshot([chat('b', 'Groceries')]));
+
+      expect(await prefs.getBool(_flagKey), isTrue);
     });
   });
 }

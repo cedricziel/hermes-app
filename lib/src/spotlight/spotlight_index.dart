@@ -53,14 +53,29 @@ abstract interface class SpotlightIndex {
       ? ChannelSpotlightIndex(events: events)
       : const NoSpotlightIndex();
 
-  /// Makes [items] the whole of [domain]: new ones are added, changed ones
-  /// updated and the rest removed.
+  /// Makes [items] the whole of [domain]: whatever else it held is removed.
   Future<bool> replace(String domain, List<SpotlightItem> items);
+
+  /// Adds or changes [upsert] in [domain] and removes the items whose links
+  /// are in [remove], leaving the rest as it is.
+  Future<bool> update(
+    String domain, {
+    required List<SpotlightItem> upsert,
+    required List<String> remove,
+  });
 
   Future<bool> deleteDomain(String domain);
 
   /// Removes everything Hermes put in Spotlight, in every domain.
   Future<bool> deleteAll();
+
+  /// Whether the index can be used now. While the device is locked its
+  /// protected files are out of reach and every call would fail.
+  Future<bool> isAvailable();
+
+  /// Fires when the index can be used again: the device was unlocked or the
+  /// app came to the front.
+  Stream<void> get becameAvailable;
 
   /// The links of results tapped while the app runs.
   Stream<Uri> get opened;
@@ -79,10 +94,23 @@ class NoSpotlightIndex implements SpotlightIndex {
   Future<bool> replace(String domain, List<SpotlightItem> items) async => true;
 
   @override
+  Future<bool> update(
+    String domain, {
+    required List<SpotlightItem> upsert,
+    required List<String> remove,
+  }) async => true;
+
+  @override
   Future<bool> deleteDomain(String domain) async => true;
 
   @override
   Future<bool> deleteAll() async => true;
+
+  @override
+  Future<bool> isAvailable() async => true;
+
+  @override
+  Stream<void> get becameAvailable => const Stream.empty();
 
   @override
   Stream<Uri> get opened => const Stream.empty();
@@ -99,27 +127,59 @@ class NoSpotlightIndex implements SpotlightIndex {
 class ChannelSpotlightIndex implements SpotlightIndex {
   ChannelSpotlightIndex({this.events = noopAppEventLogger}) {
     _channel.setMethodCallHandler((call) async {
-      if (call.method != 'opened') return;
-      if (await takeLaunch() case final link?) _opened.add(link);
+      switch (call.method) {
+        case 'opened':
+          if (await takeLaunch() case final link?) _opened.add(link);
+        case 'becameAvailable':
+          _becameAvailable.add(null);
+      }
     });
   }
 
   final AppEventLogger events;
   final _channel = const MethodChannel('hermes_app/spotlight');
   final _opened = StreamController<Uri>.broadcast();
+  final _becameAvailable = StreamController<void>.broadcast();
 
   @override
   Stream<Uri> get opened => _opened.stream;
 
   @override
-  Future<bool> replace(String domain, List<SpotlightItem> items) =>
-      _call('replace', 'replace', domain, {
-        'domain': domain,
-        'items': [
-          for (final item in items)
-            {'url': item.url, 'title': item.title, 'text': item.text},
-        ],
-      });
+  Stream<void> get becameAvailable => _becameAvailable.stream;
+
+  static List<Map<String, String>> _rows(List<SpotlightItem> items) => [
+    for (final item in items)
+      {'url': item.url, 'title': item.title, 'text': item.text},
+  ];
+
+  @override
+  Future<bool> replace(String domain, List<SpotlightItem> items) => _call(
+    'replace',
+    'replace',
+    domain,
+    {'domain': domain, 'items': _rows(items)},
+  );
+
+  @override
+  Future<bool> update(
+    String domain, {
+    required List<SpotlightItem> upsert,
+    required List<String> remove,
+  }) => _call('update', 'update', domain, {
+    'domain': domain,
+    'items': _rows(upsert),
+    'remove': remove,
+  });
+
+  @override
+  Future<bool> isAvailable() async {
+    try {
+      return await _channel.invokeMethod<bool>('isAvailable') ?? true;
+    } on Object {
+      // A runner that cannot say gets the call; a failure is logged there.
+      return true;
+    }
+  }
 
   @override
   Future<bool> deleteDomain(String domain) =>
@@ -168,5 +228,6 @@ class ChannelSpotlightIndex implements SpotlightIndex {
   void dispose() {
     _channel.setMethodCallHandler(null);
     unawaited(_opened.close());
+    unawaited(_becameAvailable.close());
   }
 }
