@@ -18,7 +18,8 @@ import '../notifications/notification_service.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
-import '../surfaces/surface_snapshot.dart' show PendingKind, kMaxRecentChats;
+import '../surfaces/surface_snapshot.dart'
+    show PendingKind, SurfaceSnapshot, kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
 import '../watch/watch_complication.dart';
 import 'chat_controller_sync.dart';
@@ -61,6 +62,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
+    this.readSnapshot,
     this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
   }) {
@@ -124,6 +126,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Told when the chat list loaded, a reply ended or an input request
   /// opened, closed or expired, with what the system surfaces show of it.
   final void Function(SurfaceTrigger trigger, ChatHints hints)? onSurfaceChange;
+
+  /// The snapshot the system surfaces show, which knows the open requests of
+  /// every profile, as far as the last look at the server.
+  final Future<SurfaceSnapshot?> Function()? readSnapshot;
 
   /// Adds text from a link to the composer, under what is typed there. It is
   /// never sent.
@@ -630,6 +636,31 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
     breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
     return null;
+  }
+
+  /// Opens the chat of the open request the snapshot has had longest, in
+  /// whichever profile it is. False when the snapshot lists none.
+  Future<bool> openOldestStoredRequest() async {
+    final read = readSnapshot;
+    if (read == null) return false;
+    final SurfaceSnapshot? snapshot;
+    try {
+      snapshot = await read();
+    } on Object {
+      return false;
+    }
+    final waiting = snapshot?.pending;
+    if (waiting == null || waiting.isEmpty) return false;
+    final oldest = waiting.reduce(
+      (a, b) => b.createdAt.isBefore(a.createdAt) ? b : a,
+    );
+    final profile = await knownProfile(oldest.profile);
+    if (disposed) return true;
+    open(
+      NotificationTarget(threadId: oldest.threadId, profile: profile),
+      fetchMissing: true,
+    );
+    return true;
   }
 
   /// Opens the chat whose open approval, question or input request was
