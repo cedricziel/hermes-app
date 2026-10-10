@@ -126,4 +126,94 @@ class RunnerTests: XCTestCase {
     XCTAssertEqual((entry["text"] as? String)?.count, AskHermesService.characterLimit)
     XCTAssertEqual(entry["truncated"] as? Bool, false)
   }
+
+  private func snapshot(_ state: String, _ titles: [String] = []) -> [String: Any] {
+    [
+      "state": state,
+      "chats": titles.enumerated().map { ["id": "id\($0.offset)", "profile": "work", "title": $0.element] },
+    ]
+  }
+
+  private func titles(of menu: NSMenu) -> [String] {
+    menu.items.map { $0.isSeparatorItem ? "-" : $0.title }
+  }
+
+  func testDockMenuHoldsOnlyShowMainWindowUntilDartPushes() {
+    XCTAssertEqual(titles(of: DockMenu().menu()), ["Show Main Window"])
+  }
+
+  func testDockMenuListsNewChatAndChatsWhenReady() {
+    let dock = DockMenu()
+    dock.update(snapshot("ready", ["One", "Two"]))
+
+    XCTAssertEqual(titles(of: dock.menu()), ["New Chat", "One", "Two", "-", "Show Main Window"])
+  }
+
+  func testDockMenuCapsTheChatsAtFive() {
+    let dock = DockMenu()
+    dock.update(snapshot("ready", (0..<8).map { "Chat \($0)" }))
+
+    XCTAssertEqual(dock.menu().items.filter { $0.representedObject != nil }.count, 5)
+  }
+
+  func testDockMenuLockedOffersNewChatWithoutTitles() {
+    let dock = DockMenu()
+    dock.update(snapshot("ready", ["Secret"]))
+    dock.update(snapshot("locked", ["Secret"]))
+
+    XCTAssertEqual(titles(of: dock.menu()), ["New Chat", "-", "Show Main Window"])
+    XCTAssertTrue(dock.chats.isEmpty)
+  }
+
+  func testDockMenuClearsOnOffAndOnAMalformedArgument() {
+    let dock = DockMenu()
+    dock.update(snapshot("ready", ["Secret"]))
+    dock.update(snapshot("off"))
+    XCTAssertEqual(titles(of: dock.menu()), ["Show Main Window"])
+
+    dock.update(snapshot("ready", ["Secret"]))
+    dock.update("nonsense")
+    XCTAssertEqual(titles(of: dock.menu()), ["Show Main Window"])
+    XCTAssertTrue(dock.chats.isEmpty)
+  }
+
+  func testDockMenuSkipsChatsThatDoNotParse() {
+    let dock = DockMenu()
+    dock.update(["state": "ready", "chats": [["id": "a", "title": "No profile"], ["id": "b", "profile": "p", "title": "Fine"]]])
+
+    XCTAssertEqual(dock.chats.map { $0.title }, ["Fine"])
+  }
+
+  func testDockMenuTitlesAreNotFormatStringsOrShortcuts() {
+    let dock = DockMenu()
+    dock.update(snapshot("ready", ["100%@ done"]))
+
+    let entry = dock.menu().items[1]
+    XCTAssertEqual(entry.title, "100%@ done")
+    XCTAssertEqual(entry.keyEquivalent, "")
+  }
+
+  func testDockMenuChoicesReachDart() {
+    let dock = DockMenu()
+    var shown = 0
+    var sent: [(String, Any?)] = []
+    dock.showWindow = { shown += 1 }
+    dock.send = { sent.append(($0, $1)) }
+    dock.update(snapshot("ready", ["One"]))
+    let items = dock.menu().items
+
+    _ = items[0].target?.perform(items[0].action, with: items[0])
+    XCTAssertEqual(shown, 1)
+    XCTAssertEqual(sent.map { $0.0 }, ["dockNewChat"])
+
+    _ = items[1].target?.perform(items[1].action, with: items[1])
+    XCTAssertEqual(shown, 1, "a chat is raised by Dart, which knows its window")
+    XCTAssertEqual(sent.last?.0, "dockOpenChat")
+    XCTAssertEqual((sent.last?.1 as? [String: String])?["id"], "id0")
+    XCTAssertEqual((sent.last?.1 as? [String: String])?["profile"], "work")
+
+    let last = items[items.count - 1]
+    _ = last.target?.perform(last.action, with: last)
+    XCTAssertEqual(shown, 2)
+  }
 }

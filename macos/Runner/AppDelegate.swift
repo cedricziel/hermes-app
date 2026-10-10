@@ -17,15 +17,20 @@ class AppDelegate: FlutterAppDelegate {
     /// The "Ask Hermes" entry in the Services menu.
     private let askService = AskHermesService()
 
+    /// The Dock icon's menu; Dart pushes what it shows.
+    private let dockMenu = DockMenu()
+
+    private func bringMainWindowForward() {
+        guard let window = mainWindow ?? mainFlutterWindow else { return }
+        if window.isMiniaturized { window.deminiaturize(nil) }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     /// The provider must be there before the system delivers a service call,
     /// which it does as soon as it has launched the app for one.
     override func applicationWillFinishLaunching(_ notification: Notification) {
-        askService.showWindow = { [weak self] in
-            guard let window = self?.mainWindow ?? self?.mainFlutterWindow else { return }
-            if window.isMiniaturized { window.deminiaturize(nil) }
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-        }
+        askService.showWindow = { [weak self] in self?.bringMainWindowForward() }
         askService.notify = { [weak self] in
             self?.shareChannel?.invokeMethod("shared", arguments: nil)
         }
@@ -51,8 +56,15 @@ class AppDelegate: FlutterAppDelegate {
             let app = FlutterMethodChannel(
                 name: "hermes_app/app", binaryMessenger: controller.engine.binaryMessenger
             )
-            app.setMethodCallHandler { call, result in
-                if call.method == "terminate" {
+            dockMenu.showWindow = { [weak self] in self?.bringMainWindowForward() }
+            dockMenu.send = { [weak self] method, arguments in
+                self?.appChannel?.invokeMethod(method, arguments: arguments)
+            }
+            app.setMethodCallHandler { [weak self] call, result in
+                if call.method == DockMenu.updateMethod {
+                    self?.dockMenu.update(call.arguments)
+                    result(nil)
+                } else if call.method == "terminate" {
                     // terminate normally does not return, so answer first.
                     result(nil)
                     DispatchQueue.main.async { NSApp.terminate(nil) }
@@ -104,6 +116,10 @@ class AppDelegate: FlutterAppDelegate {
             main.makeKeyAndOrderFront(nil)
         }
         return true
+    }
+
+    override func applicationDockMenu(_: NSApplication) -> NSMenu? {
+        return dockMenu.menu()
     }
 
     /// A tapped notification activates the app without a reopen event, so a

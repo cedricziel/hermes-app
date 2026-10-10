@@ -7,6 +7,7 @@ import 'handoff/handoff_controller.dart';
 import 'handoff/handoff_gate.dart';
 import 'windows/conversation_windows_menu.dart';
 import 'auth/auth_controller.dart';
+import 'macos/dock/dock_menu_gate.dart';
 import 'macos/mac_menu_bar.dart';
 import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
@@ -55,7 +56,9 @@ class _HermesAppState extends State<HermesApp> {
         navigatorKey: _navigatorKey,
         child: ConversationWindowsMenu(
           child: MacWindowChrome(
-            child: AppLockGate(child: HandoffGate(child: child!)),
+            child: AppLockGate(
+              child: DockMenuGate(child: HandoffGate(child: child!)),
+            ),
           ),
         ),
       ),

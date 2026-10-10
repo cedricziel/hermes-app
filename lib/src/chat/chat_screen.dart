@@ -32,6 +32,7 @@ import '../settings/helper_models_screen.dart';
 import '../screens/home_screen.dart';
 import '../share/share_controller.dart';
 import '../share/shared_item.dart';
+import '../macos/dock/dock_menu_controller.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
 import '../shell/shell_navigation.dart';
@@ -149,6 +150,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final ChatController _chat;
   HandoffController? _handoff;
+  DockMenuController? _dock;
   HermesProfilesRepository? _profiles;
   HermesMessagingRepository? _messaging;
   HermesSkillsRepository? _skills;
@@ -294,24 +296,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
     _handoff = _maybeRead<HandoffController>();
     _handoff?.bind((activity, valid) async {
-      // A chat open in a conversation window continues there.
-      final window = _windows?.windowFor(activity.threadId, activity.profile);
-      if (window != null && await _windows!.focus(window.windowId)) {
-        return true;
-      }
-      final opened = await _chat.restoreHandoff(
-        NotificationTarget(
-          threadId: activity.threadId,
-          profile: activity.profile,
-        ),
-        valid,
-      );
-      if (opened && valid() && mounted) {
-        widget.onShowChat?.call();
-        _advertise();
-      }
-      return opened;
+      final shown = await _showChat(activity.threadId, activity.profile, valid);
+      return shown.opened;
     });
+    _dock = _maybeRead<DockMenuController?>()
+      ?..bind(open: _openFromDock, newChat: _newChatFromDock)
+      ..addListener(_syncDock);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _onOpenRequest();
     });
@@ -326,6 +316,61 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
   }
+
+  /// Shows a chat where it already is: in its conversation window when one is
+  /// open, otherwise in this window, including a chat outside the loaded
+  /// pages or on another profile. With [raiseMain] the main window comes
+  /// forward first, which may be hidden.
+  Future<({bool opened, bool inWindow})> _showChat(
+    String threadId,
+    String profile,
+    bool Function() valid, {
+    bool raiseMain = false,
+  }) async {
+    final window = _windows?.windowFor(threadId, profile);
+    if (window != null && await _windows!.focus(window.windowId)) {
+      return (opened: true, inWindow: true);
+    }
+    if (raiseMain) unawaited(_windows?.showMainWindow());
+    final opened = await _chat.restoreHandoff(
+      NotificationTarget(threadId: threadId, profile: profile),
+      valid,
+    );
+    if (opened && valid() && mounted) {
+      widget.onShowChat?.call();
+      _advertise();
+    }
+    return (opened: opened, inWindow: false);
+  }
+
+  /// A chat picked in the Dock menu. The menu may be a few seconds old, so a
+  /// chat that is gone reports the failure and creates nothing.
+  Future<DockOpenResult> _openFromDock(String id, String profile) async {
+    _handoff?.cancel();
+    try {
+      final shown = await _showChat(
+        id,
+        profile,
+        () => mounted,
+        raiseMain: true,
+      );
+      if (shown.inWindow) return DockOpenResult.inWindow;
+      if (shown.opened) return DockOpenResult.inMain;
+      _showMessage(couldNotOpenChat);
+      return DockOpenResult.unavailable;
+    } on Object {
+      _showMessage(couldNotOpenChat);
+      return DockOpenResult.failed;
+    }
+  }
+
+  /// New Chat from the Dock menu, which may have been picked on another page.
+  void _newChatFromDock() {
+    _newThread();
+    widget.onShowChat?.call();
+  }
+
+  void _syncDock() => _dock?.setChats(_chat.threads, _chat.profile);
 
   /// Reads again the chats of this profile that have been open in a
   /// conversation window, which may have changed them.
@@ -407,6 +452,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     if (_voiceProfile?.profile != _chat.profile) _refreshVoice();
     widget.chatProfiles?.showing(_chat.profile);
+    _syncDock();
     setState(() {});
     if (_pendingQuote != null && !_chat.loadingThreads) _deliverQuote();
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
@@ -594,6 +640,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   void dispose() {
     _handoff?.bind(null);
     _handoff?.advertise(null);
+    _dock
+      ?..removeListener(_syncDock)
+      ..bind()
+      ..clearChats();
     _activeRefreshTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.chatProfiles?.attach(null);

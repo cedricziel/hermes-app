@@ -10,6 +10,9 @@ class FakeDeviceAuthenticator implements DeviceAuthenticator {
   /// Runs while the prompt is up, as the app goes inactive under it.
   void Function()? onAuthenticate;
 
+  /// When set, the prompt stays up until this completes.
+  Future<bool>? answer;
+
   @override
   Future<bool> isAvailable() async => available;
 
@@ -17,6 +20,6 @@ class FakeDeviceAuthenticator implements DeviceAuthenticator {
   Future<bool> authenticate(String reason) async {
     reasons.add(reason);
     onAuthenticate?.call();
-    return succeeds;
+    return answer ?? succeeds;
   }
 }
