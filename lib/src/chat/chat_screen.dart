@@ -1139,7 +1139,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   thread: selected,
                   displayTitle: bot?.title,
                   housekeeping: chat.housekeeping,
-                  onShowConnection: _showConnection,
+                  onNewChat: _newThread,
                 ),
           onLoadOlder: selected == null || !chat.hasOlder(selected.id)
               ? null
@@ -1197,7 +1197,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                         housekeeping: chat.housekeeping,
                         includeCopyTranscript: true,
                       ),
-                    ConnectionInfoButton(onPressed: _showConnection),
+                    NewChatButton(onPressed: _newThread),
                   ],
                 ),
           body: macSplit

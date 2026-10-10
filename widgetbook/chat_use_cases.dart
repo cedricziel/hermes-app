@@ -87,7 +87,7 @@ WidgetbookUseCase _phoneBar(String name, TargetPlatform platform) =>
                 onPressed: () {},
               ),
               title: Text(threads[0].title),
-              actions: [ConnectionInfoButton(onPressed: () {})],
+              actions: [NewChatButton(onPressed: () {})],
             ),
           ),
         ),
@@ -211,15 +211,12 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ChatHeader',
       useCases: [
-        _tool('No thread', ChatHeader(thread: null, onShowConnection: () {})),
+        _tool('No thread', ChatHeader(thread: null, onNewChat: () {})),
         _tool(
           'Thread on the server',
-          ChatHeader(thread: threads[0], onShowConnection: () {}),
+          ChatHeader(thread: threads[0], onNewChat: () {}),
         ),
-        _tool(
-          'Local thread',
-          ChatHeader(thread: threads[2], onShowConnection: () {}),
-        ),
+        _tool('Local thread', ChatHeader(thread: threads[2], onNewChat: () {})),
       ],
     ),
     WidgetbookComponent(

@@ -731,6 +731,7 @@ class AccountFooter extends StatelessWidget {
                 if (value == 'dictation') showDictationDialog(context);
                 if (value == 'app-lock') showAppLockDialog(context);
                 if (value == 'about') showAppAboutDialog(context);
+                if (value == 'connection') showConnectionDetails(context);
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
@@ -755,6 +756,10 @@ class AccountFooter extends StatelessWidget {
                     child: Text('Dictation'),
                   ),
                 const PopupMenuItem(value: 'app-lock', child: Text('App lock')),
+                const PopupMenuItem(
+                  value: 'connection',
+                  child: Text('Connection details'),
+                ),
                 const PopupMenuItem(value: 'about', child: Text('About')),
                 if (auth.status?.authRequired ?? false)
                   const PopupMenuItem(
