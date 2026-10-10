@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 
+import '../deep_links/deep_link_target.dart';
+import '../deep_links/deep_link_uri.dart';
 import '../notifications/attention_policy.dart';
-import 'surface_links.dart';
 
 /// The key the snapshot is stored under in the App Group.
 const kSurfaceSnapshotKey = 'hermes.surface.v1';
@@ -65,7 +66,8 @@ class RecentChat {
   final String? snippet;
   final DateTime updatedAt;
 
-  String get url => chatLink(profile: profile, id: id);
+  String get url =>
+      deepLinkUri(OpenChat(profile: profile, threadId: id)).toString();
 
   RecentChat redacted() =>
       RecentChat(profile: profile, id: id, title: '', updatedAt: updatedAt);
@@ -122,7 +124,8 @@ class PendingRequest {
   /// When the app first learned of the request; Hermes reports none.
   final DateTime createdAt;
 
-  String get url => chatLink(profile: profile, id: threadId);
+  String get url =>
+      deepLinkUri(OpenChat(profile: profile, threadId: threadId)).toString();
 
   PendingRequest redacted() => PendingRequest(
     profile: profile,
@@ -215,7 +218,8 @@ class FailedJob {
   final String name;
   final DateTime at;
 
-  String get url => scheduleLink(profile: profile, jobId: jobId);
+  String get url =>
+      deepLinkUri(OpenSchedules(profile: profile, jobId: jobId)).toString();
 
   FailedJob redacted() =>
       FailedJob(profile: profile, jobId: jobId, name: '', at: at);

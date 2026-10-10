@@ -42,6 +42,13 @@ void main() {
     expect(deepLinkUri(const NewChat()).queryParameters, isEmpty);
   });
 
+  test('writes a space as %20 and a plus as %2B', () {
+    expect(
+      deepLinkUri(const NewChat(prompt: 'a b+c')).toString(),
+      'hermes://new?prompt=a%20b%2Bc',
+    );
+  });
+
   test('percent-encodes values', () {
     final text = deepLinkUri(const NewChat(prompt: 'a & b')).toString();
     expect(text, isNot(contains(' ')));

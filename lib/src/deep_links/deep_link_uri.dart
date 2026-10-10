@@ -3,15 +3,17 @@ import 'deep_link_target.dart';
 /// The `hermes://` link that opens [target]. Every producer of links builds
 /// them here, so they cannot drift from what `parseDeepLink` reads.
 Uri deepLinkUri(DeepLinkTarget target) {
+  // Uri(queryParameters:) writes a space as "+", which Swift's URLComponents
+  // reads back as a plus, so the query is built with %20 instead.
   Uri link(String host, Map<String, String?> parameters) {
-    final set = <String, String>{
-      for (final MapEntry(:key, :value) in parameters.entries) key: ?value,
-    };
-    // An empty map would still write a trailing `?`.
+    final pairs = [
+      for (final MapEntry(:key, :value) in parameters.entries)
+        if (value != null) '$key=${Uri.encodeComponent(value)}',
+    ];
     return Uri(
       scheme: 'hermes',
       host: host,
-      queryParameters: set.isEmpty ? null : set,
+      query: pairs.isEmpty ? null : pairs.join('&'),
     );
   }
 
