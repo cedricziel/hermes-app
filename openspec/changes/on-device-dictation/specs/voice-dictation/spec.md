@@ -76,7 +76,7 @@ With the on-device engine, the app SHALL record as described in "Recording state
 
 ### Requirement: Engine shown while recording
 
-While recording and while transcribing, the composer's controls row SHALL say which engine turns the speech into text: "On this device" or "Hermes".
+While recording, the composer's controls row SHALL say which engine turns the speech into text: "On this device" or "Hermes"; while transcribing it SHALL say "Transcribing" instead. Where the row is too narrow, the name MAY be left out before any control is.
 
 #### Scenario: Recording on the device
 
@@ -113,12 +113,22 @@ With the on-device engine, the app SHALL NOT send the recording, any part of it 
 
 ### Requirement: Send while dictating
 
-The send button SHALL stay available while recording and while transcribing. Tapping it SHALL stop the recording and, once the transcript lands, send the draft with the transcript in place. When nothing was heard, it SHALL send the draft as it was, if it has text. When transcription fails, the app SHALL send nothing and SHALL show the failure as described in "Inserting the transcript".
+The send button, and Enter on a hardware keyboard, SHALL stay available while recording and while transcribing. Using it SHALL stop the recording and, once the transcript lands, send the draft with the transcript in place, with any attachments. When nothing was heard, it SHALL send the draft as it was. When transcription fails, the dictation is cancelled (by the user, the app leaving the foreground, a profile or engine change), or the user opened another chat meanwhile, the app SHALL send nothing. Anything else that writes the draft while dictating, such as Edit on a sent prompt, SHALL win: the dictation is dropped and that text stays.
 
 #### Scenario: Send ends the recording
 
 - **WHEN** the user taps send while recording and the transcript "book a table" lands for the draft "Please"
 - **THEN** the app sends "Please book a table"
+
+#### Scenario: Cancel after send
+
+- **WHEN** the user taps send while recording and then cancel before the transcript lands
+- **THEN** nothing is sent and the draft reads as it did before recording
+
+#### Scenario: Another chat opened meanwhile
+
+- **WHEN** the user taps send while recording and opens another chat before the transcript lands
+- **THEN** nothing is sent
 
 #### Scenario: Send after a failed transcription
 
