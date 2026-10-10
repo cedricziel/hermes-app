@@ -6,6 +6,10 @@ final class FakeClient: HermesClient {
   var threadsResult: Result<[ThreadSummary], Error> = .success([])
   var messagesResult: Result<[ChatMessage], Error> = .success([])
   var sendResult: Result<SendResult, Error> = .success(SendResult(threadId: nil, text: "ok", failed: false))
+  /// Answered in turn before [sendResult].
+  var sendResults: [Result<SendResult, Error>] = []
+  /// Called with each send before it is answered.
+  var onSend: () -> Void = {}
   var transcribeResult: Result<String, Error> = .success("")
   private(set) var sends: [(threadId: String?, text: String, sendId: String)] = []
   private(set) var transcribed: [(audio: Data, mimeType: String)] = []
@@ -14,7 +18,8 @@ final class FakeClient: HermesClient {
   func messages(threadId: String) async throws -> [ChatMessage] { try messagesResult.get() }
   func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
     sends.append((threadId, text, sendId))
-    return try sendResult.get()
+    onSend()
+    return try (sendResults.isEmpty ? sendResult : sendResults.removeFirst()).get()
   }
   func transcribe(audio: Data, mimeType: String) async throws -> String {
     transcribed.append((audio, mimeType))
@@ -85,6 +90,26 @@ final class ConversationModelTests: XCTestCase {
 
     await model.send("More")
     XCTAssertEqual(client.sends.last?.threadId, "new-1")
+  }
+
+  func testAWaitingSendShowsWhatItWaitsOnAndAsksAgain() async {
+    let client = FakeClient()
+    client.sendResults = [
+      .success(SendResult(threadId: "new-1", text: "", failed: false, waiting: .approval)),
+      .success(SendResult(threadId: "new-1", text: "", failed: false, waiting: .working)),
+    ]
+    client.sendResult = .success(SendResult(threadId: "new-1", text: "Done.", failed: false))
+    let model = ConversationModel(client: client, threadId: nil)
+    var phases: [ConversationModel.Phase] = []
+    client.onSend = { phases.append(model.phase) }
+
+    await model.send("Clean up")
+
+    XCTAssertEqual(phases, [.sending, .waiting(.approval), .sending])
+    XCTAssertEqual(Set(client.sends.map(\.sendId)).count, 1)
+    XCTAssertEqual(model.messages.map(\.content), ["Clean up", "Done."])
+    XCTAssertEqual(model.threadId, "new-1")
+    XCTAssertEqual(model.phase, .idle)
   }
 
   func testABlankMessageIsNotSent() async {

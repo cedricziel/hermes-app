@@ -29,4 +29,15 @@ struct SendResult: Equatable {
   /// The turn ended in an error and [text] is the message.
   let failed: Bool
   var tools: [String] = []
+  /// Set while the turn is not over yet and the send must be asked again.
+  var waiting: Waiting?
+
+  enum Waiting: String, Equatable {
+    /// Hermes waits on the user's approval, which the notification asks for.
+    case approval
+    /// Hermes asked a question, answered from the notification.
+    case question
+    /// The turn went on and Hermes is replying.
+    case working
+  }
 }

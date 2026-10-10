@@ -96,6 +96,23 @@ final class RelayClientTests: XCTestCase {
     XCTAssertEqual(result, SendResult(threadId: "new-1", text: "Hi there", failed: false))
   }
 
+  func testAWaitingSendSaysWhatItWaitsOn() async throws {
+    transport.reply = .success(["ok": true, "threadId": "new-1", "waiting": "approval"])
+
+    let result = try await client.send(threadId: nil, text: "Hello", sendId: "m1")
+
+    XCTAssertEqual(result.waiting, .approval)
+    XCTAssertEqual(result.threadId, "new-1")
+  }
+
+  func testAnUnknownWaitingStateCountsAsWorking() async throws {
+    transport.reply = .success(["ok": true, "threadId": "s1", "waiting": "something_new"])
+
+    let result = try await client.send(threadId: "s1", text: "Hello", sendId: "m1")
+
+    XCTAssertEqual(result.waiting, .working)
+  }
+
   func testANewThreadReplyWithoutAThreadIdFails() async {
     transport.reply = .success(["ok": true, "text": "Hi there", "failed": false])
 
