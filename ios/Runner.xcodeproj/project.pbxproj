@@ -47,6 +47,7 @@
 		C0DC256A998B03F622796497 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */; };
 		B4C7A1D30F3E5A9C6B8D1E05 /* BackgroundPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */; };
 		DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */; };
+		6B2E1D3F8C4E5F7A01B2C3D4 /* KeyCommandMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1F0C2E7B3D4E6F90A1B2C3 /* KeyCommandMenu.swift */; };
 		F2CB0B8AC120A8E23B8820AE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF79B50BC0B3A3CBB709B7F /* ShareViewController.swift */; };
 		EA211A84368E30C977E4970D /* HermesComplication.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AFB76F3291A3FD93424EE6AE /* HermesComplication.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3DB3D9D223113CE3572DFF69 /* HermesComplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14B7EAA18D45D3E35EBE777 /* HermesComplication.swift */; };
@@ -196,6 +197,7 @@
 		C38423933E5F7974F5AAD4C4 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundPlugins.swift; sourceTree = "<group>"; };
 		C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebAuthSession.swift; sourceTree = "<group>"; };
+		5A1F0C2E7B3D4E6F90A1B2C3 /* KeyCommandMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeyCommandMenu.swift; sourceTree = "<group>"; };
 		E71B86F76BA7818BE17D62C1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E8CE00F2E3EF1A4E96AA892B /* ShareExtension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = ShareExtension.xcconfig; sourceTree = "<group>"; };
 		F884F744E1BE6D3436E17C0A /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -399,6 +401,7 @@
 				1B21F50268EC1F9DD82F2DF0 /* WatchRelay.swift */,
 				B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */,
 				C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */,
+				5A1F0C2E7B3D4E6F90A1B2C3 /* KeyCommandMenu.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -743,6 +746,7 @@
 				716D696945CB43F29555F6C9 /* WatchRelay.swift in Sources */,
 				B4C7A1D30F3E5A9C6B8D1E05 /* BackgroundPlugins.swift in Sources */,
 				DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */,
+				6B2E1D3F8C4E5F7A01B2C3D4 /* KeyCommandMenu.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
