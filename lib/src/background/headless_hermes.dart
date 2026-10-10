@@ -98,7 +98,7 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
         factory(const {}).tracer
             ?.startSpan('background.task', attributes: {'task': task}),
   );
-  final run = _Run<T>(wiring, factory);
+  final run = _Run(wiring, factory);
   var ended = _Ended<T>('failed', const HeadlessUnreachable());
   try {
     ended = await run
@@ -108,11 +108,7 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
           onTimeout: () => _Ended('timeout', const HeadlessUnreachable()),
         );
   } on Object catch (error) {
-    ended = _Ended(
-      'failed',
-      const HeadlessUnreachable(),
-      errorType: error.runtimeType.toString(),
-    );
+    ended = _Ended.failed(error);
   } finally {
     await run.close();
     if (span != null) {
@@ -158,13 +154,18 @@ class HeadlessHermes {
 class _Ended<T> {
   const _Ended(this.outcome, this.result, {this.errorType});
 
+  _Ended.failed(Object error)
+    : outcome = 'failed',
+      result = const HeadlessUnreachable(),
+      errorType = error.runtimeType.toString();
+
   /// The `outcome` the run's span records.
   final String outcome;
   final HeadlessOutcome<T> result;
   final String? errorType;
 }
 
-class _Run<T> {
+class _Run {
   _Run(this._deps, this._telemetry);
 
   final HeadlessDeps _deps;
@@ -174,21 +175,17 @@ class _Run<T> {
 
   Map<String, Object> serverAttributes = const {};
 
-  Future<_Ended<T>> execute(Future<T> Function(HeadlessHermes) body) async {
+  Future<_Ended<T>> execute<T>(Future<T> Function(HeadlessHermes) body) async {
     final opened = await _Connection.open(_deps, _telemetry);
     serverAttributes = opened.serverAttributes;
     final connection = opened.connection;
-    if (connection == null) return _refused(opened.refusal!);
+    if (connection == null) return _refused<T>(opened.refusal!);
     final hermes = HeadlessHermes._(connection, _openTransport);
     final bodyEnd = () async {
       try {
         return _Ended<T>('ok', HeadlessDone(await body(hermes)));
       } on Object catch (error) {
-        return _Ended<T>(
-          'failed',
-          const HeadlessUnreachable(),
-          errorType: error.runtimeType.toString(),
-        );
+        return _Ended<T>.failed(error);
       }
     }();
     final authEnd = connection.auth?.stopped.future.then(
@@ -205,7 +202,7 @@ class _Run<T> {
     return Future.any([bodyEnd, ?authEnd]);
   }
 
-  _Ended<T> _refused(String outcome) => _Ended(outcome, switch (outcome) {
+  _Ended<T> _refused<T>(String outcome) => _Ended(outcome, switch (outcome) {
     'no_server' || 'no_session' => const HeadlessSignedOut(),
     'locked' => const HeadlessLocked(),
     _ => const HeadlessUnreachable(),
@@ -314,10 +311,7 @@ class _Connection {
 
     HermesSession? held;
     if (status.authRequired) {
-      final session = switch (stored) {
-        SessionFound(:final session) => session,
-        _ => null,
-      };
+      final session = stored.session;
       // A session another dashboard minted is no use here (see
       // AuthController.connect for why the typed address counts too).
       final minter = session?.serverUrl;
@@ -489,10 +483,7 @@ class _HeadlessAuth {
 
   Future<HermesSession?> _stored() async {
     try {
-      return switch (await store.readState(repair: false)) {
-        SessionFound(:final session) => session,
-        _ => null,
-      };
+      return (await store.readState(repair: false)).session;
     } on Object {
       return null;
     }

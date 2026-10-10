@@ -36,10 +36,7 @@ class TokenStore {
   /// Whether the stored session was written again under the current options.
   bool _resaved = false;
 
-  Future<HermesSession?> read() async => switch (await readState()) {
-    SessionFound(:final session) => session,
-    _ => null,
-  };
+  Future<HermesSession?> read() async => (await readState()).session;
 
   /// Like [read], but says why there is no session: nothing is stored, or the
   /// keychain cannot be read right now (on iOS: before the first unlock since
@@ -110,12 +107,16 @@ class TokenStore {
 /// What [TokenStore.readState] found.
 sealed class SessionRead {
   const SessionRead();
+
+  /// The stored session, or null when there is none to use.
+  HermesSession? get session => null;
 }
 
 /// A stored session.
 final class SessionFound extends SessionRead {
   const SessionFound(this.session);
 
+  @override
   final HermesSession session;
 }
 
