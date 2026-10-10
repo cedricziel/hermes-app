@@ -45,6 +45,7 @@
 		BA0FA2136699F6B4CB9DC80B /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C38423933E5F7974F5AAD4C4 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BA159963514DA903AA879B46 /* ThreadListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F6E0EB55361B8174EFAF2C /* ThreadListModel.swift */; };
 		C0DC256A998B03F622796497 /* HermesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B70E86368FFE0C72E18ECB9 /* HermesClient.swift */; };
+		B4C7A1D30F3E5A9C6B8D1E05 /* BackgroundPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */; };
 		DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */; };
 		F2CB0B8AC120A8E23B8820AE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BF79B50BC0B3A3CBB709B7F /* ShareViewController.swift */; };
 /* End PBXBuildFile section */
@@ -169,6 +170,7 @@
 		A7C1D2E3F4051627384950C1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C3209CC4CC0AEEABCB8B7C61 /* HermesWatch.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = HermesWatch.xcconfig; sourceTree = "<group>"; };
 		C38423933E5F7974F5AAD4C4 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundPlugins.swift; sourceTree = "<group>"; };
 		C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebAuthSession.swift; sourceTree = "<group>"; };
 		E71B86F76BA7818BE17D62C1 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E8CE00F2E3EF1A4E96AA892B /* ShareExtension.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = ShareExtension.xcconfig; sourceTree = "<group>"; };
@@ -350,6 +352,7 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				44674DEA816FAA2B55FE0208 /* Runner.entitlements */,
 				1B21F50268EC1F9DD82F2DF0 /* WatchRelay.swift */,
+				B4C7A1D20F3E5A9C6B8D1E04 /* BackgroundPlugins.swift */,
 				C4012E9FD64BA9B0547065EB /* WebAuthSession.swift */,
 			);
 			path = Runner;
@@ -650,6 +653,7 @@
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				716D696945CB43F29555F6C9 /* WatchRelay.swift in Sources */,
+				B4C7A1D30F3E5A9C6B8D1E05 /* BackgroundPlugins.swift in Sources */,
 				DE381E177B356134B5F8DAC2 /* WebAuthSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
