@@ -63,16 +63,17 @@ jobs:
           path: build/workflow_screenshots
           if-no-files-found: ignore
 
-  # The required check. It passes only when analysis and every test shard did.
+  # The required check. It passes only when analysis, every test shard and the
+  # Swift package tests did.
   analyze-and-test:
     name: Analyze & test
     runs-on: ubuntu-latest
-    needs: [analyze, test]
+    needs: [analyze, test, test-watch]
     if: always()
     steps:
       - name: Check results
         run: |
-          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ]
+          [ "${{ needs.analyze.result }}" = success ] && [ "${{ needs.test.result }}" = success ] && [ "${{ needs.test-watch.result }}" = success ]
 
   build-android:
     name: Build Android (debug)
