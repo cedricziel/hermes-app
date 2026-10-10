@@ -24,12 +24,17 @@ The system SHALL let the watch app read and send chats by asking the paired phon
 
 ### Requirement: Handoff from a watch chat
 
-The phone SHALL add `serverUrl` (the canonical server address), `profile` and `sessionId` (the raw session id, not the bound thread id) to each chat of a `threads` answer, and SHALL leave all three out when it has no server address or no profile. While a chat that has them is open, the watch SHALL advertise an activity of the Handoff type the apps declare (`HERMES_HANDOFF_TYPE`) whose user info is the apps' version 1 payload (`version`, `serverUrl`, `profile`, `threadId` = the session id), and SHALL withdraw it when the chat closes. The activity SHALL carry no title text beyond the generic one, no message text and no credentials. A chat without the fields SHALL NOT be advertised.
+The phone SHALL add `serverUrl` (the canonical server address), `profile` and `sessionId` (the raw session id, not the bound thread id) to each chat of a `threads` answer and to every `send` answer that names a thread, and SHALL leave all three out when it has no server address or no profile. While a chat that has them is open, the watch SHALL advertise an activity of the Handoff type the apps declare (`HERMES_HANDOFF_TYPE`) whose user info is the apps' version 1 payload (`version`, `serverUrl`, `profile`, `threadId` = the session id), and SHALL withdraw it when the chat closes. The activity SHALL carry no title text beyond the generic one, no message text and no credentials. A chat without the fields SHALL NOT be advertised.
 
 #### Scenario: Open a listed chat
 
 - **WHEN** the user opens a chat that the phone listed with its server address and profile
 - **THEN** the watch advertises a Handoff activity with that address, profile and the chat's raw session id, and an iPhone or Mac signed in to that server can continue it
+
+#### Scenario: Chat started on the watch
+
+- **WHEN** the user's first message starts a new chat and the phone answers it
+- **THEN** the answer carries the fields and the watch advertises the chat without reloading the list
 
 #### Scenario: Close the chat
 

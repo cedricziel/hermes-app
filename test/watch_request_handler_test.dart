@@ -813,6 +813,24 @@ void main() {
       expect(transport.closed, isTrue);
     });
 
+    test('names the new chat for Handoff', () async {
+      profile = 'work';
+      serverUrl = 'https://hermes.test';
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+
+      final reply = await pending;
+
+      expect(reply['threadId'], 'work/new-1');
+      expect(reply['serverUrl'], 'https://hermes.test');
+      expect(reply['profile'], 'work');
+      expect(reply['sessionId'], 'new-1');
+    });
+
     test('names the tools the reply used', () async {
       final pending = handler.handle({'op': 'send', 'text': 'Hello'});
       await pumpEventQueue();

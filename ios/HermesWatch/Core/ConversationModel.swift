@@ -16,7 +16,7 @@ final class ConversationModel {
 
   private(set) var threadId: String?
   /// Where the open chat lives, if the phone said; nil for a new chat.
-  let handoff: HandoffTarget?
+  private(set) var handoff: HandoffTarget?
   private(set) var messages: [ChatMessage] = []
   private(set) var phase = Phase.idle
   /// Text of a message that did not go through, so it can be sent again.
@@ -85,10 +85,12 @@ final class ConversationModel {
         guard Date() < deadline else { throw HermesClientError.failed }
         waited = true
         threadId = result.threadId ?? threadId
+      handoff = result.handoff ?? handoff
         phase = waiting == .working ? .sending : .waiting(waiting)
         result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
       }
       threadId = result.threadId ?? threadId
+        handoff = result.handoff ?? handoff
       if result.failed {
         guard currentSend == attempt else { return }
         let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)

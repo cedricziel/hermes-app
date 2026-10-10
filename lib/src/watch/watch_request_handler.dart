@@ -467,8 +467,11 @@ class WatchRequestHandler {
 
   /// The `threadId` entry of a reply, left out when there is no thread: a null
   /// is not a property-list type and WatchConnectivity would refuse the reply.
-  static Map<String, Object?> _threadEntry(String? profile, String? id) =>
-      id == null ? const {} : {'threadId': _bind(profile, id)};
+  /// It also names the chat for Handoff, so a chat started on the watch can be
+  /// continued before the list is loaded again.
+  Map<String, Object?> _threadEntry(String? profile, String? id) => id == null
+      ? const {}
+      : {'threadId': _bind(profile, id), ..._handoff(profile, id)};
 
   /// What a Handoff to the phone or Mac needs, with the raw session id since
   /// the thread id the watch sees is bound to a profile. Left out unless the

@@ -64,6 +64,8 @@ struct SendResult: Equatable {
   var tools: [String] = []
   /// Set while the turn is not over yet and the send must be asked again.
   var waiting: Waiting?
+  /// Where the chat lives, so a chat started here can be handed off at once.
+  var handoff: HandoffTarget?
 
   enum Waiting: String, Equatable {
     /// Hermes waits on the user's approval, which the notification asks for.

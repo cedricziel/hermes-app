@@ -255,3 +255,30 @@ final class HandoffTargetTests: XCTestCase {
     XCTAssertNil(ConversationModel(client: FakeClient(), threadId: nil, handoff: target).handoff)
   }
 }
+
+@MainActor
+final class NewChatHandoffTests: XCTestCase {
+  func testRelayClientReadsTheTargetOfASend() async throws {
+    let transport = FakeTransport()
+    transport.reply = .success([
+      "ok": true, "threadId": "work/n1", "text": "Hi", "failed": false,
+      "serverUrl": "https://hermes.test", "profile": "work", "sessionId": "n1",
+    ])
+
+    let result = try await RelayClient(transport: transport).send(threadId: nil, text: "Hi", sendId: "x", retry: false)
+
+    XCTAssertEqual(result.handoff, HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "n1"))
+  }
+
+  func testANewChatAdoptsTheTargetOfItsFirstSend() async {
+    let target = HandoffTarget(serverUrl: "https://hermes.test", profile: "work", sessionId: "n1")
+    let client = FakeClient()
+    client.sendResult = .success(SendResult(threadId: "work/n1", text: "Hi", failed: false, handoff: target))
+    let model = ConversationModel(client: client, threadId: nil)
+    XCTAssertNil(model.handoff)
+
+    await model.send("Hello")
+
+    XCTAssertEqual(model.handoff, target)
+  }
+}
