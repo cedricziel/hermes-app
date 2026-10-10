@@ -9,12 +9,13 @@ import Quartz
 /// conversation window's) installs its own channel handler with `register`,
 /// and all of them reach `shared`.
 ///
-/// The panel is driven directly: `QuickLookPanel` makes itself the panel's data
-/// source and delegate when a file is shown. That is the documented fallback
-/// for code that cannot join the responder chain, and conversation windows,
-/// which `desktop_multi_window` creates, have no window class of ours to do it
-/// in. If the system hands the panel to another controller, the list shown
-/// here is dropped, which costs nothing because there is nothing else to keep.
+/// The panel is controlled the way AppKit wants it: each engine's Flutter view
+/// controller has a `QuickLookResponder` after it in the responder chain, which
+/// accepts control of the panel and makes `QuickLookPanel` its data source and
+/// delegate. A responder on the view controller, not on a window class of ours,
+/// because conversation windows come from `desktop_multi_window` and the quick
+/// panel's engine moves from one window to another. The panel shows one file at
+/// a time and keeps no list, so a hand-over between windows loses nothing.
 ///
 /// - `preview(path)` shows the file, replacing what the open panel shows, and
 ///   answers whether it could: false when the file is gone or unreadable.
@@ -22,9 +23,10 @@ import Quartz
 ///   `"closed"`; otherwise it shows it as `preview` does and answers `"shown"`,
 ///   or false when it could not.
 /// - `close()` closes the panel if it is ours.
+/// - `doubleClickInterval()` answers the system's double-click time in seconds.
 ///
-/// Closing by Space, Escape or the close button, and the return of focus to
-/// the window behind, are the panel's own.
+/// While the panel is key, Space and Escape close it (`previewPanel(_:handle:)`),
+/// and so does its close button; AppKit returns the focus to the window behind.
 final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
   static let channelName = "hermes_app/quick_look"
   static let shared = QuickLookPanel()
@@ -32,16 +34,23 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
   /// The file the panel shows, if it is ours.
   private(set) var item: URL?
 
+  /// The panel was ordered out and is still fading: it reports itself visible
+  /// for a moment, which must not count as open.
+  private var closing = false
+
   override private init() {
     super.init()
   }
 
-  /// Answers this engine's `hermes_app/quick_look` calls.
-  static func register(messenger: FlutterBinaryMessenger) {
-    FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
+  /// Answers `controller`'s engine's `hermes_app/quick_look` calls, and puts a
+  /// responder that can control the panel after `controller` in its responder
+  /// chain.
+  static func register(with controller: FlutterViewController) {
+    FlutterMethodChannel(name: channelName, binaryMessenger: controller.engine.binaryMessenger)
       .setMethodCallHandler { call, result in
         shared.handle(call, result: result)
       }
+    QuickLookResponder.install(after: controller)
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
@@ -53,6 +62,8 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
     case "close":
       close()
       result(nil)
+    case "doubleClickInterval":
+      result(NSEvent.doubleClickInterval)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -84,7 +95,7 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
     if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
       isShowing(url, in: panel)
     {
-      panel.orderOut(nil)
+      orderOut(panel)
       return "closed"
     }
     return show(url) ? "shown" : false
@@ -94,8 +105,13 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
     guard QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
       owns(panel)
     else { return }
-    panel.orderOut(nil)
+    orderOut(panel)
     item = nil
+  }
+
+  private func orderOut(_ panel: QLPreviewPanel) {
+    closing = true
+    panel.orderOut(nil)
   }
 
   private func owns(_ panel: QLPreviewPanel) -> Bool {
@@ -103,17 +119,64 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
   }
 
   private func isShowing(_ url: URL, in panel: QLPreviewPanel) -> Bool {
-    panel.isVisible && owns(panel) && item == url
+    panel.isVisible && !closing && owns(panel) && item == url
   }
 
   private func show(_ url: URL) -> Bool {
     guard let panel = QLPreviewPanel.shared() else { return false }
     item = url
-    panel.dataSource = self
-    panel.delegate = self
+    if panel.isVisible && !closing {
+      panel.updateController()
+    } else {
+      closing = false
+      // Ordering it in finds the responder that takes control of it.
+      panel.makeKeyAndOrderFront(nil)
+    }
+    // No responder in the key window's chain took it: there is nothing to
+    // show it for.
+    guard owns(panel) else {
+      orderOut(panel)
+      item = nil
+      return false
+    }
     panel.reloadData()
     panel.currentPreviewItemIndex = 0
-    panel.makeKeyAndOrderFront(nil)
+    panel.refreshCurrentPreviewItem()
+    return true
+  }
+
+  /// Called by `QuickLookResponder` when the panel starts to be controlled
+  /// from a window of this app.
+  func take(control panel: QLPreviewPanel) {
+    panel.dataSource = self
+    panel.delegate = self
+  }
+
+  /// Called when another responder takes the panel, or the last window goes.
+  func release(control panel: QLPreviewPanel) {
+    guard owns(panel) else { return }
+    panel.dataSource = nil
+    panel.delegate = nil
+  }
+
+  /// Whether a key press closes the panel while it is key: a bare Space or
+  /// Escape. The first press only: holding the key does not toggle it again.
+  static func closesPanel(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isRepeat: Bool) -> Bool {
+    let space: UInt16 = 49
+    let escape: UInt16 = 53
+    guard !isRepeat, modifiers.intersection([.command, .control, .option, .shift]).isEmpty
+    else { return false }
+    return keyCode == space || keyCode == escape
+  }
+
+  // MARK: QLPreviewPanelDelegate
+
+  func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+    guard event.type == .keyDown else { return false }
+    if event.isARepeat { return true }
+    guard Self.closesPanel(keyCode: event.keyCode, modifiers: event.modifierFlags, isRepeat: false)
+    else { return false }
+    orderOut(panel)
     return true
   }
 
@@ -125,5 +188,34 @@ final class QuickLookPanel: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDe
 
   func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
     item as NSURL?
+  }
+}
+
+/// What `QLPreviewPanel` looks for in the responder chain of the key window: a
+/// responder that accepts control of the panel. It puts `QuickLookPanel` in
+/// charge of it, whichever window asked.
+final class QuickLookResponder: NSResponder {
+  private static var installedKey = 0
+
+  /// Inserts a responder after `controller`, once. The chain does not retain
+  /// it, so the controller does.
+  static func install(after controller: NSViewController) {
+    guard objc_getAssociatedObject(controller, &installedKey) == nil else { return }
+    let responder = QuickLookResponder()
+    responder.nextResponder = controller.nextResponder
+    controller.nextResponder = responder
+    objc_setAssociatedObject(controller, &installedKey, responder, .OBJC_ASSOCIATION_RETAIN)
+  }
+
+  override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+    true
+  }
+
+  override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+    QuickLookPanel.shared.take(control: panel)
+  }
+
+  override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+    QuickLookPanel.shared.release(control: panel)
   }
 }

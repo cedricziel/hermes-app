@@ -1,11 +1,14 @@
-import 'dart:async';
+import 'dart:async' show scheduleMicrotask;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../drag_out/mac_drag_out_source.dart' show dragOutSlop;
 import '../../theme/platform_chrome.dart';
+import '../media/quick_look.dart' show doubleClickInterval;
 import '../../widgets/adaptive_popup_menu_button.dart';
 
 /// Whether attachments follow Finder's model here: click to select,
@@ -78,14 +81,15 @@ class _QuickLookTargetState extends State<QuickLookTarget> {
     if (!node.hasPrimaryFocus) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final keyboard = HardwareKeyboard.instance;
+    // A chord with Command, Control or Option belongs to the menu bar.
+    if (keyboard.isMetaPressed ||
+        keyboard.isControlPressed ||
+        keyboard.isAltPressed) {
+      return KeyEventResult.ignored;
+    }
     if (key == LogicalKeyboardKey.space) {
       final toggle = widget.onToggle;
-      if (toggle == null ||
-          keyboard.isMetaPressed ||
-          keyboard.isControlPressed ||
-          keyboard.isAltPressed) {
-        return KeyEventResult.ignored;
-      }
+      if (toggle == null) return KeyEventResult.ignored;
       // Only the first press acts; a held key neither repeats the toggle nor
       // scrolls the list.
       if (event is KeyDownEvent) toggle();
@@ -167,8 +171,15 @@ class _QuickLookTargetState extends State<QuickLookTarget> {
                 ),
           },
           child: Semantics(
+            button: true,
             selected: _selected,
             onTap: widget.onOpen,
+            // What the context menu offers, for a screen reader, which has no
+            // secondary click.
+            customSemanticsActions: {
+              CustomSemanticsAction(label: 'Quick Look'): ?widget.onShow,
+              CustomSemanticsAction(label: 'Save'): ?widget.onSave,
+            },
             child: QuickLookSelectionFrame(
               selected: _selected,
               borderRadius: widget.borderRadius,
@@ -235,6 +246,11 @@ class QuickLookSelectionFrame extends StatelessWidget {
   }
 }
 
+/// How far the second click of a double-click may be from the first, in
+/// logical pixels. A mouse holds still; a loose limit would pair two clicks
+/// on different attachments.
+const _doubleClickSlop = 8.0;
+
 /// Sees a press and a release of the primary or secondary button as a click,
 /// unless the pointer moved as far as a drag-out starts after, and two primary
 /// clicks close together as a double-click.
@@ -257,7 +273,10 @@ class _ClickRecognizer extends OneSequenceGestureRecognizer {
   var _accepted = false;
   Offset? _released;
 
-  Timer? _window;
+  var _pressedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// When and where the press of the click before this one began.
+  DateTime? _firstPressedAt;
   Offset? _firstClick;
 
   @override
@@ -274,6 +293,7 @@ class _ClickRecognizer extends OneSequenceGestureRecognizer {
     _moved = false;
     _accepted = false;
     _released = null;
+    _pressedAt = clock.now();
     startTrackingPointer(event.pointer, event.transform);
     onDown?.call();
   }
@@ -313,16 +333,18 @@ class _ClickRecognizer extends OneSequenceGestureRecognizer {
       onSecondaryClick?.call(at);
       return;
     }
+    // As the system counts it: from the first press to the second press.
     final first = _firstClick;
-    if (_window?.isActive == true &&
-        first != null &&
-        (at - first).distance < kDoubleTapSlop) {
+    final firstPressedAt = _firstPressedAt;
+    if (first != null &&
+        firstPressedAt != null &&
+        _pressedAt.difference(firstPressedAt) <= doubleClickInterval &&
+        (at - first).distance < _doubleClickSlop) {
       _forget();
       onDoubleClick?.call();
     } else {
       _firstClick = at;
-      _window?.cancel();
-      _window = Timer(kDoubleTapTimeout, _forget);
+      _firstPressedAt = _pressedAt;
     }
   }
 
@@ -335,15 +357,8 @@ class _ClickRecognizer extends OneSequenceGestureRecognizer {
   }
 
   void _forget() {
-    _window?.cancel();
-    _window = null;
+    _firstPressedAt = null;
     _firstClick = null;
-  }
-
-  @override
-  void dispose() {
-    _window?.cancel();
-    super.dispose();
   }
 
   @override

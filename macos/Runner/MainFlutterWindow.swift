@@ -32,7 +32,7 @@ class MainFlutterWindow: NSWindow {
       with: flutterViewController.registrar(forPlugin: "QuickPanelShortcut"))
     DragOutController.register(with: flutterViewController)
     menuBarStatusItem = MenuBarStatusItem(messenger: flutterViewController.engine.binaryMessenger)
-    QuickLookPanel.register(messenger: flutterViewController.engine.binaryMessenger)
+    QuickLookPanel.register(with: flutterViewController)
 
     // Its engine owns the session that conversation windows borrow, so it
     // must outlive a close; see close().
@@ -214,7 +214,7 @@ final class ConversationWindow: NSObject {
   static func attach(to controller: FlutterViewController) {
     registerPlugins(controller)
     MainFlutterWindow.registerClipboard(messenger: controller.engine.binaryMessenger)
-    QuickLookPanel.register(messenger: controller.engine.binaryMessenger)
+    QuickLookPanel.register(with: controller)
     guard let window = controller.view.window else { return }
     let conversation = ConversationWindow(window: window, controller: controller)
     open[ObjectIdentifier(window)] = conversation

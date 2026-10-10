@@ -15,6 +15,12 @@ class FakeQuickLook implements QuickLook {
 
   var closes = 0;
 
+  /// What the system says a double-click interval is; null when it cannot.
+  Duration? interval;
+
+  @override
+  Future<Duration?> doubleClickInterval() async => interval;
+
   @override
   Future<bool> preview(String path) async {
     if (!shows) return false;

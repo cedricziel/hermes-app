@@ -34,6 +34,10 @@ void main() {
   late BreadcrumbTrail trail;
   late RecordedEvents events;
 
+  // The keys no attachment took: what would reach the shortcuts and, from
+  // there, the system's unhandled-key beep.
+  late List<LogicalKeyboardKey> unhandledKeys;
+
   const route = '/api/plugins/kanban/attachments/3';
   final spec = Uint8List.fromList([37, 80, 68, 70, 1, 2, 3]);
 
@@ -44,6 +48,7 @@ void main() {
     cache = tempDir('kanban_quick_look');
     trail = BreadcrumbTrail();
     events = RecordedEvents();
+    unhandledKeys = [];
     server = FakeHermesServer()
       ..on(
         'GET',
@@ -99,11 +104,18 @@ void main() {
         child: MaterialApp(
           theme: buildHermesLightTheme().copyWith(platform: platform),
           home: Scaffold(
-            body: KanbanTaskPanel(
-              repository: KanbanRepository(server.client()),
-              files: files,
-              taskId: 't1',
-              board: 'ops',
+            body: Focus(
+              canRequestFocus: false,
+              onKeyEvent: (_, event) {
+                if (event is KeyDownEvent) unhandledKeys.add(event.logicalKey);
+                return KeyEventResult.ignored;
+              },
+              child: KanbanTaskPanel(
+                repository: KanbanRepository(server.client()),
+                files: files,
+                taskId: 't1',
+                board: 'ops',
+              ),
             ),
           ),
         ),
@@ -305,6 +317,31 @@ void main() {
 
     expect(fetches(), 1);
     expect(quickLook.previewed, hasLength(1));
+    expect(actions.opened, isEmpty);
+  });
+
+  testWidgets('Space and Enter during a transfer are taken and start nothing', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    server.onRequest('GET', route, (_) async {
+      await gate.future;
+      return (status: 200, body: spec);
+    });
+    await pumpPanel(tester);
+    await click(tester, row);
+    await pressSpace(tester);
+    await settle(tester);
+    unhandledKeys.clear();
+
+    await pressSpace(tester);
+    await tester.runAsync(() => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+    await tester.pump();
+    gate.complete();
+    await settle(tester);
+
+    expect(unhandledKeys, isEmpty);
+    expect(fetches(), 1);
     expect(actions.opened, isEmpty);
   });
 

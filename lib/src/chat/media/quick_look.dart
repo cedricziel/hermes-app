@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -29,6 +31,24 @@ abstract interface class QuickLook {
 
   /// Closes the panel. Safe when it is not open.
   Future<void> close();
+
+  /// The time the system allows between the two presses of a double-click, or
+  /// null when it cannot say.
+  Future<Duration?> doubleClickInterval();
+}
+
+/// How long may pass between the two presses of a double-click. The system's
+/// setting on macOS (see [readDoubleClickInterval]), half a second until that
+/// is known or where it is not.
+Duration doubleClickInterval = const Duration(milliseconds: 500);
+
+/// Asks [quickLook] for the system's double-click interval and keeps it in
+/// [doubleClickInterval]. Keeps the default when it cannot say.
+Future<void> readDoubleClickInterval(QuickLook quickLook) async {
+  final interval = await quickLook.doubleClickInterval();
+  if (interval != null && interval > Duration.zero) {
+    doubleClickInterval = interval;
+  }
 }
 
 /// The Quick Look of platforms that have none, and of tests that do not care.
@@ -43,6 +63,9 @@ class NoQuickLook implements QuickLook {
 
   @override
   Future<void> close() async {}
+
+  @override
+  Future<Duration?> doubleClickInterval() async => null;
 }
 
 /// Drives the macOS Quick Look panel over [quickLookChannelName]. Every
@@ -86,9 +109,22 @@ class MethodChannelQuickLook implements QuickLook {
   Future<void> close() async {
     await _call('close');
   }
+
+  @override
+  Future<Duration?> doubleClickInterval() async {
+    final seconds = await _call('doubleClickInterval');
+    return seconds is num
+        ? Duration(microseconds: (seconds * 1e6).round())
+        : null;
+  }
 }
 
 /// The Quick Look of this platform: the panel on macOS, none elsewhere.
-QuickLook platformQuickLook() => MethodChannelQuickLook.supported
-    ? const MethodChannelQuickLook()
-    : const NoQuickLook();
+///
+/// Each engine that asks also reads the system's double-click interval, once.
+QuickLook platformQuickLook() {
+  if (!MethodChannelQuickLook.supported) return const NoQuickLook();
+  const quickLook = MethodChannelQuickLook();
+  unawaited(readDoubleClickInterval(quickLook));
+  return quickLook;
+}

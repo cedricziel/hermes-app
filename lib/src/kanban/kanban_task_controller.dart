@@ -387,6 +387,7 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
 
   /// Saves an attachment to the device; whether it was saved.
   Future<bool> download(KanbanAttachment a) async {
+    if (_transferring) return false;
     _setTransferring(true);
     try {
       final bytes = await readAttachment(a);

@@ -361,6 +361,55 @@ void main() {
       expect(again.readAsBytesSync(), [9, 9]);
     });
 
+    test('reuse marks the file as used just now', () async {
+      final store = newStore();
+      final file = await store.stageBytes('k', 'a.pdf', pdf);
+      file.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 3)),
+      );
+
+      await store.stageBytes('k', 'a.pdf', pdf);
+
+      expect(
+        DateTime.now().difference(file.lastModifiedSync()),
+        lessThan(const Duration(minutes: 1)),
+      );
+    });
+
+    test('two stores over one folder can fill the same file at once', () async {
+      final big = Uint8List(2 * 1024 * 1024);
+      final stores = [newStore(), newStore(), newStore()];
+
+      final files = await Future.wait([
+        for (final store in stores) store.stageBytes('k', 'a.bin', big),
+      ]);
+
+      expect(files.map((f) => f.path).toSet(), hasLength(1));
+      expect(files.first.lengthSync(), big.length);
+      expect(
+        cache
+            .listSync(recursive: true)
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.part')),
+        isEmpty,
+      );
+    });
+
+    test('a very long name is cut and keeps its extension', () async {
+      final file = await newStore().stageBytes('k', '${'x' * 400}.pdf', pdf);
+
+      expect(file.uri.pathSegments.last.length, lessThan(200));
+      expect(file.path, endsWith('.pdf'));
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('a long name of wide characters is cut by bytes', () async {
+      final file = await newStore().stageBytes('k', '${'é' * 300}.txt', pdf);
+
+      expect(file.uri.pathSegments.last.length, lessThan(200));
+      expect(file.existsSync(), isTrue);
+    });
+
     test('stageCopy of a file that is gone is missing', () async {
       await expectLater(
         newStore().stageCopy('x.txt', File('${cache.path}/nothing.txt')),
@@ -408,6 +457,48 @@ void main() {
       expect(old.existsSync(), isFalse);
       expect(old.parent.existsSync(), isFalse);
       expect(fresh.existsSync(), isTrue);
+    });
+
+    test('leaves a file that was reused after it was downloaded', () async {
+      final store = newStore();
+      final file = await store.stageBytes('k', 'a.pdf', pdf);
+      file.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 3)),
+      );
+      await store.stageBytes('k', 'a.pdf', pdf);
+
+      await store.sweep(const Duration(hours: 24));
+
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('leaves a file that is asked for while it runs', () async {
+      final store = newStore();
+      final file = await store.stageBytes('k', 'a.pdf', pdf);
+      file.setLastModifiedSync(
+        DateTime.now().subtract(const Duration(days: 3)),
+      );
+
+      final sweeping = store.sweep(const Duration(hours: 24));
+      final reused = store.stageBytes('k', 'a.pdf', pdf);
+      await Future.wait([sweeping, reused]);
+
+      expect(file.existsSync(), isTrue);
+    });
+
+    test('does not remove the folder of a download in progress', () async {
+      final gate = Completer<void>();
+      final store = newStore();
+      final pending = store.stage('k', 'a.pdf', () async {
+        await gate.future;
+        return pdf;
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      await store.sweep(const Duration(hours: 24));
+      gate.complete();
+
+      expect((await pending).existsSync(), isTrue);
     });
 
     test('does nothing when nothing was ever cached', () async {

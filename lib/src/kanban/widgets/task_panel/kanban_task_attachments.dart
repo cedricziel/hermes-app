@@ -63,7 +63,6 @@ class KanbanTaskAttachments extends StatelessWidget {
           onRead: onRead,
           child: _QuickLookRow(
             attachment: a,
-            transferring: transferring,
             onOpen: onOpen,
             onQuickLook: onQuickLook,
             onToggleQuickLook: onToggleQuickLook,
@@ -134,12 +133,12 @@ class KanbanAttachmentRow extends StatelessWidget {
   );
 }
 
-/// Makes the row of [attachment] a [QuickLookTarget]. Its actions do nothing
-/// while a transfer runs.
+/// Makes the row of [attachment] a [QuickLookTarget]. Its actions are always
+/// there, so Space and Enter are taken while a transfer runs; the controller
+/// ignores a press then.
 class _QuickLookRow extends StatelessWidget {
   const _QuickLookRow({
     required this.attachment,
-    required this.transferring,
     required this.onOpen,
     required this.onQuickLook,
     required this.onToggleQuickLook,
@@ -148,7 +147,6 @@ class _QuickLookRow extends StatelessWidget {
   });
 
   final KanbanAttachment attachment;
-  final bool transferring;
   final ValueChanged<KanbanAttachment>? onOpen;
   final ValueChanged<KanbanAttachment>? onQuickLook;
   final ValueChanged<KanbanAttachment>? onToggleQuickLook;
@@ -156,7 +154,7 @@ class _QuickLookRow extends StatelessWidget {
   final Widget child;
 
   VoidCallback? _bind(ValueChanged<KanbanAttachment>? action) =>
-      action == null || transferring ? null : () => action(attachment);
+      action == null ? null : () => action(attachment);
 
   @override
   Widget build(BuildContext context) => QuickLookTarget(

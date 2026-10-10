@@ -142,7 +142,8 @@ class _AttachmentThumbnailState extends State<AttachmentThumbnail>
           image: provider,
           name: _attachment.name,
           loading: busy,
-          fallback: card,
+          // Not the whole card: this widget is already the target.
+          fallback: AttachmentCardFrame(attachment: _attachment),
         ),
       ),
     );
@@ -270,11 +271,9 @@ class _AttachmentCardState extends State<AttachmentCard>
 
   @override
   Widget build(BuildContext context) {
-    final store = context.read<MediaStore?>();
-    final downloadable = attachment.fetchPath != null && store != null;
-    // On a Mac any file the chat can make is Finder-like: it can be
-    // previewed, opened and saved; elsewhere only a server file can.
-    final available = attachmentHasFile(attachment, store);
+    // On a Mac any file the chat can make can be previewed, opened and saved,
+    // by the menu and by the button alike; elsewhere only a server file can.
+    final available = hasFile;
     final failure = _failure;
     return quickLookTarget(
       onOpen: available ? () => useFile(openWithSystem) : null,
@@ -287,10 +286,10 @@ class _AttachmentCardState extends State<AttachmentCard>
             : mediaFailureMessage(failure),
         noticeIsError: !busy && failure != null,
         // On a Mac a click selects; opening is the double-click.
-        onTap: !quickLookTargetsAt(context) && downloadable && !busy
+        onTap: !quickLookTargetsAt(context) && available && !busy
             ? () => useFile(openWithSystem)
             : null,
-        trailing: !downloadable
+        trailing: !available
             ? null
             : busy
             ? const SizedBox.square(

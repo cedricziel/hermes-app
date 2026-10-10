@@ -12,13 +12,15 @@ import '../media/quick_look.dart';
 import '../media/quick_look_telemetry.dart';
 import '../widgets/quick_look_target.dart';
 
-/// Whether [attachment] has a file to work with: the bytes the history
-/// embedded, the file the user picked, or a path Hermes can serve.
-bool attachmentHasFile(ChatAttachment attachment, MediaStore? store) =>
+/// Whether [attachment] has a file to work with: a path Hermes can serve and,
+/// with [local], the bytes the history embedded or the file the user picked.
+bool attachmentHasFile(
+  ChatAttachment attachment,
+  MediaStore? store, {
+  required bool local,
+}) =>
     store != null &&
-    (attachment.bytes != null ||
-        attachment.path != null ||
-        attachment.fetchPath != null);
+    (attachment.fetchPath != null || (local && _isLocal(attachment)));
 
 /// Whether making a file of [attachment] reads no server: the bytes or the
 /// picked file are on this device.
@@ -30,8 +32,14 @@ bool _isLocal(ChatAttachment attachment) =>
 /// there, a file the user picked is copied (the panel must not read outside
 /// the app's container), and the rest is downloaded, once: the same file the
 /// card's Open and a drag out of the app use.
-Future<File> stageAttachment(MediaStore store, ChatAttachment attachment) {
-  final bytes = attachment.bytes;
+///
+/// Without [local] only the server's file is considered, as before Quick Look.
+Future<File> stageAttachment(
+  MediaStore store,
+  ChatAttachment attachment, {
+  required bool local,
+}) {
+  final bytes = local ? attachment.bytes : null;
   if (bytes != null) {
     return store.stageBytes(
       'embedded:${sha256.convert(bytes)}',
@@ -39,7 +47,7 @@ Future<File> stageAttachment(MediaStore store, ChatAttachment attachment) {
       bytes,
     );
   }
-  final path = attachment.path;
+  final path = local ? attachment.path : null;
   final remote = attachment.fetchPath;
   if (path != null) {
     final copy = store.stageCopy(attachment.name, File(path));
@@ -66,6 +74,14 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
   bool get busy => _busy;
   var _busy = false;
 
+  /// Whether [attachment] has a file to open, save or preview. On a Mac that
+  /// includes files on this device; elsewhere only the server's.
+  bool get hasFile => attachmentHasFile(
+    attachment,
+    context.read<MediaStore?>(),
+    local: quickLookTargetsAt(context),
+  );
+
   /// Tells the user why the file could not be fetched.
   void failedToFetch(MediaFailure reason);
 
@@ -82,7 +98,8 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
     QuickLookTrigger? preview,
   }) async {
     final store = context.read<MediaStore?>();
-    if (store == null || _busy || !attachmentHasFile(attachment, store)) return;
+    if (store == null || _busy || !hasFile) return;
+    final local = quickLookTargetsAt(context);
     final messenger = ScaffoldMessenger.maybeOf(context);
     final telemetry = QuickLookTelemetry.of(context);
     setState(() {
@@ -90,7 +107,7 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
       clearFetchFailure();
     });
     try {
-      final file = await stageAttachment(store, attachment);
+      final file = await stageAttachment(store, attachment, local: local);
       if (!mounted) return;
       await then(store, file);
     } on MediaFetchException catch (e) {
@@ -121,10 +138,7 @@ mixin AttachmentFileActions<T extends StatefulWidget> on State<T> {
     required Widget child,
     required VoidCallback? onOpen,
   }) {
-    final available = attachmentHasFile(
-      attachment,
-      context.read<MediaStore?>(),
-    );
+    final available = hasFile;
     VoidCallback? preview(QuickLookTrigger trigger, {required bool toggle}) =>
         !available
         ? null

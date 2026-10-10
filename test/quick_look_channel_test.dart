@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/media/quick_look.dart';
 
+import 'support/fake_quick_look.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -67,6 +69,33 @@ void main() {
     answer((_) => null);
     await quickLook.close();
     expect(calls.single.method, 'close');
+  });
+
+  test('the double-click interval comes from the system in seconds', () async {
+    answer((_) => 0.35);
+    expect(
+      await quickLook.doubleClickInterval(),
+      const Duration(milliseconds: 350),
+    );
+    answer((_) => null);
+    expect(await quickLook.doubleClickInterval(), isNull);
+  });
+
+  group('readDoubleClickInterval', () {
+    tearDown(() => doubleClickInterval = const Duration(milliseconds: 500));
+
+    test('keeps what the system says', () async {
+      await readDoubleClickInterval(
+        FakeQuickLook()..interval = const Duration(milliseconds: 250),
+      );
+      expect(doubleClickInterval, const Duration(milliseconds: 250));
+    });
+
+    test('keeps half a second when it cannot say', () async {
+      await readDoubleClickInterval(FakeQuickLook());
+      await readDoubleClickInterval(const NoQuickLook());
+      expect(doubleClickInterval, const Duration(milliseconds: 500));
+    });
   });
 
   test('NoQuickLook shows nothing', () async {

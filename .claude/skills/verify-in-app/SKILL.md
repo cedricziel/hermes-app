@@ -817,6 +817,12 @@ it on the real window; a widget test only reaches the fake.
   key again. Hold Space: one toggle.
 - With the panel open, select another card and press Space: the panel swaps to
   that file.
+- Watch Console (`log stream --predicate 'process == "Hermes"'`) while doing
+  this: no "has no controller" or "will raise" line from QLPreviewPanel. Check
+  it from the main window, a conversation window and the quick panel.
+- Double-click at the pace you really do, slowly too (Settings > Accessibility >
+  Pointer Control > Double-click speed): it opens at any speed the system calls a
+  double-click.
 - Secondary-click a card: it is selected and the menu offers Quick Look, Open,
   Save… in that order. Quick Look shows the panel; it does not toggle it shut.
 - Do the same on a Kanban task attachment row in the inspector: double-click

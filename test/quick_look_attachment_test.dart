@@ -416,6 +416,81 @@ void main() {
     });
   });
 
+  group('the button and the menu agree', () {
+    final embedded = ChatAttachment(
+      name: 'notes.txt',
+      kind: AttachmentKind.file,
+      bytes: Uint8List.fromList([104, 105]),
+    );
+
+    testWidgets('on a Mac a file of the message has the Save button too', (
+      tester,
+    ) async {
+      await pump(tester, AttachmentCard(attachment: embedded));
+
+      await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
+      await settle(tester);
+
+      expect(actions.saved.single.name, 'notes.txt');
+      expect(actions.saved.single.bytes, [104, 105]);
+    });
+
+    testWidgets('elsewhere it has neither, as before Quick Look', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        AttachmentCard(attachment: embedded),
+        platform: TargetPlatform.iOS,
+      );
+
+      expect(find.byTooltip('Save'), findsNothing);
+    });
+
+    testWidgets('elsewhere a file with a server path comes from the server', (
+      tester,
+    ) async {
+      server.onDownload('/srv/notes.txt', [1, 2, 3]);
+      await pump(
+        tester,
+        AttachmentCard(
+          attachment: ChatAttachment(
+            name: 'notes.txt',
+            kind: AttachmentKind.file,
+            remotePath: '/srv/notes.txt',
+            bytes: Uint8List.fromList([104, 105]),
+          ),
+        ),
+        platform: TargetPlatform.iOS,
+      );
+
+      await tester.runAsync(() => tester.tap(find.byTooltip('Save')));
+      await settle(tester);
+
+      expect(downloads(), 1);
+      expect(actions.saved.single.bytes, [1, 2, 3]);
+    });
+  });
+
+  group('a picture that cannot be drawn', () {
+    testWidgets('is one target, not two nested', (tester) async {
+      await pump(
+        tester,
+        AttachmentThumbnail(
+          attachment: ChatAttachment(
+            name: 'broken.png',
+            kind: AttachmentKind.image,
+            bytes: Uint8List.fromList([1, 2, 3]),
+          ),
+        ),
+      );
+      await settle(tester);
+
+      expect(find.byType(QuickLookTarget), findsOneWidget);
+      expect(find.text('broken.png'), findsOneWidget);
+    });
+  });
+
   group('with drag-out', () {
     const channel = MethodChannel('test/quick_look_drag_out');
     late List<MethodCall> drags;

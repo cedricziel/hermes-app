@@ -1,7 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/chat/media/quick_look.dart';
 import 'package:hermes_app/src/chat/widgets/quick_look_target.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
 
@@ -101,7 +103,7 @@ void main() {
       await pump(tester, [target('a')]);
 
       await click(tester, find.text('a'));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 700));
       await click(tester, find.text('a'));
       await tester.pump(const Duration(milliseconds: 500));
 
@@ -172,6 +174,97 @@ void main() {
       await tester.pump();
       expect(selected(tester, 'a'), isFalse);
       expect(selected(tester, 'b'), isTrue);
+    });
+  });
+
+  group('double-click timing', () {
+    tearDown(() => doubleClickInterval = const Duration(milliseconds: 500));
+
+    // A press held for [hold], then [gap] of nothing, then another.
+    Future<void> twoPresses(
+      WidgetTester tester, {
+      required Duration hold,
+      required Duration gap,
+      Offset secondOffset = Offset.zero,
+    }) async {
+      final at = tester.getCenter(find.text('a'));
+      var gesture = await tester.startGesture(
+        at,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(hold);
+      await gesture.up();
+      await tester.pump(gap);
+      gesture = await tester.startGesture(
+        at + secondOffset,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump(hold);
+      await gesture.up();
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    testWidgets('counts from press to press, not from release to release', (
+      tester,
+    ) async {
+      await pump(tester, [target('a')]);
+
+      // 150 ms held and 250 ms apart: 400 ms between the presses, 550 ms
+      // between the releases.
+      await twoPresses(
+        tester,
+        hold: const Duration(milliseconds: 150),
+        gap: const Duration(milliseconds: 250),
+      );
+
+      expect(calls, ['open a']);
+    });
+
+    testWidgets('a second press after the interval is a new click', (
+      tester,
+    ) async {
+      await pump(tester, [target('a')]);
+
+      await twoPresses(
+        tester,
+        hold: const Duration(milliseconds: 50),
+        gap: const Duration(milliseconds: 600),
+      );
+
+      expect(calls, isEmpty);
+    });
+
+    testWidgets('follows the interval the system has', (tester) async {
+      await pump(tester, [target('a')]);
+      doubleClickInterval = const Duration(milliseconds: 200);
+
+      await twoPresses(
+        tester,
+        hold: const Duration(milliseconds: 50),
+        gap: const Duration(milliseconds: 300),
+      );
+      expect(calls, isEmpty);
+
+      doubleClickInterval = const Duration(milliseconds: 900);
+      await twoPresses(
+        tester,
+        hold: const Duration(milliseconds: 50),
+        gap: const Duration(milliseconds: 700),
+      );
+      expect(calls, ['open a']);
+    });
+
+    testWidgets('two clicks far apart are not a double-click', (tester) async {
+      await pump(tester, [target('a')]);
+
+      await twoPresses(
+        tester,
+        hold: const Duration(milliseconds: 20),
+        gap: const Duration(milliseconds: 50),
+        secondOffset: const Offset(40, 0),
+      );
+
+      expect(calls, isEmpty);
     });
   });
 
@@ -269,6 +362,20 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
 
       expect(calls, ['open a', 'open a']);
+    });
+
+    testWidgets('Enter with Command held is left to the menu bar', (
+      tester,
+    ) async {
+      await pump(tester, [target('a')]);
+      await click(tester, find.text('a'));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
+
+      expect(calls, isEmpty);
     });
 
     testWidgets('Escape does nothing', (tester) async {
@@ -429,6 +536,57 @@ void main() {
 
       expect(calls, isEmpty);
       expect(find.text('Open'), findsOneWidget);
+    });
+  });
+
+  group('for a screen reader', () {
+    testWidgets('is a button that opens, with Quick Look and Save as actions', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, [target('a')]);
+
+      final node = tester.getSemantics(
+        find.descendant(
+          of: find.byType(QuickLookTarget),
+          matching: find.text('a'),
+        ),
+      );
+      final data = node.getSemanticsData();
+      final labels = [
+        for (final id in data.customSemanticsActionIds!)
+          CustomSemanticsAction.getAction(id)!.label,
+      ];
+      expect(labels, ['Quick Look', 'Save']);
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.hasAction(SemanticsAction.tap), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('the actions run what the menu runs', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, [target('a')]);
+      final data = tester.getSemantics(find.text('a')).getSemanticsData();
+
+      final owner = tester.renderObject(find.text('a')).owner!.semanticsOwner!;
+      final node = tester.getSemantics(find.text('a'));
+      for (final id in data.customSemanticsActionIds!) {
+        owner.performAction(node.id, SemanticsAction.customAction, id);
+      }
+      owner.performAction(node.id, SemanticsAction.tap);
+
+      expect(calls, ['show a', 'save a', 'open a']);
+      handle.dispose();
+    });
+
+    testWidgets('an action that cannot run is not offered', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pump(tester, [target('a', save: false, show: false)]);
+
+      final data = tester.getSemantics(find.text('a')).getSemanticsData();
+
+      expect(data.customSemanticsActionIds ?? const <int>[], isEmpty);
+      handle.dispose();
     });
   });
 
