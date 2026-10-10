@@ -30,6 +30,7 @@ import 'queued_prompt.dart';
 import 'slash_command.dart';
 import 'thread_housekeeping.dart';
 import 'thread_search.dart';
+import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 
 const _couldNotOpenChat = 'Could not open that chat.';
 const _couldNotStop = 'Could not stop the reply. Try again.';
@@ -1002,7 +1003,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     final prompt = lastPromptText(thread);
     return transport != null &&
         _bound.contains(thread) &&
-        !_undoing.contains(thread) &&
+        !_undoing.containsKey(thread) &&
         !thread.isReplying &&
         !_queues.containsKey(thread) &&
         prompt != null &&
@@ -1015,16 +1016,16 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// undo get a new turn instead.
   Future<void> retry(ChatThread thread) async {
     final prompt = lastPromptText(thread);
-    if (prompt == null || _undoing.contains(thread)) return;
+    if (prompt == null || _undoing.containsKey(thread)) return;
     if (prompt.startsWith('/')) {
       unawaited(runSlashCommand(prompt));
       return;
     }
     if (canEditLastPrompt(thread) && _lastPrompt(thread)!.attachments.isEmpty) {
       try {
-        await _undoLastTurn(thread, retry: true);
+        await _undoLastTurn(thread, TurnAction.retry);
       } on Object catch (error) {
-        if (!disposed) report(_undoFailure(error, 'try again'));
+        if (!disposed) _failTurnAction(thread, error, 'try again');
         return;
       }
       if (disposed) return;
@@ -1039,9 +1040,9 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     if (prompt == null || !canEditLastPrompt(thread)) return;
     final bool undone;
     try {
-      undone = await _undoLastTurn(thread);
+      undone = await _undoLastTurn(thread, TurnAction.edit);
     } on Object catch (error) {
-      if (!disposed) report(_undoFailure(error, 'edit the prompt'));
+      if (!disposed) _failTurnAction(thread, error, 'edit the prompt');
       return;
     }
     if (disposed) return;
@@ -1052,33 +1053,46 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     onPrefill?.call(prompt);
   }
 
-  /// What to tell the user when taking back the last turn failed. The error
+  /// Says under the last reply why taking back its turn failed. The error
   /// itself is meant for developers, so only its kind goes to the crumb.
-  String _undoFailure(Object error, String action) {
+  void _failTurnAction(ChatThread thread, Object error, String action) {
     final rejected = error is GatewayRpcException;
     breadcrumbs('chat.undo.failed', {
       'cause': rejected ? 'rejected' : 'unreachable',
     });
-    return rejected
+    _turnProblems[thread] = rejected
         ? "Hermes couldn't $action."
         : "Couldn't reach Hermes to $action. Check your connection.";
+    notifyListeners();
   }
 
-  /// The threads whose last turn is being dropped, so a second tap does not
-  /// drop the turn before it too.
-  final _undoing = <ChatThread>{};
+  /// The retry or edit running on the last turn of [thread], or why the last
+  /// one failed.
+  TurnActionStatus turnActionStatus(ChatThread thread) => TurnActionStatus(
+    running: _undoing[thread],
+    problem: _turnProblems[thread],
+  );
+
+  /// The threads whose last turn is being dropped, and for what, so a second
+  /// tap does not drop the turn before it too.
+  final _undoing = <ChatThread, TurnAction>{};
+
+  /// Why the last retry or edit of a thread failed, until the next one or the
+  /// next prompt.
+  final _turnProblems = <ChatThread, String>{};
 
   /// Drops the last turn of [thread] on the server and then here. False when
   /// the server cannot undo.
-  Future<bool> _undoLastTurn(ChatThread thread, {bool retry = false}) async {
-    _undoing.add(thread);
+  Future<bool> _undoLastTurn(ChatThread thread, TurnAction action) async {
+    _undoing[thread] = action;
+    _turnProblems.remove(thread);
     notifyListeners();
     final int? removed;
     try {
       removed = await transport!.undoLastTurn(
         thread.id,
         profile: _profile,
-        retry: retry,
+        retry: action == TurnAction.retry,
       );
     } finally {
       _undoing.remove(thread);
@@ -1176,6 +1190,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     List<SharedFile> files, {
     String? displayText,
   }) {
+    _turnProblems.remove(selected);
     if (selected == null ||
         !selected.isReplying && !_queues.containsKey(selected)) {
       return _send(selected, typed, files, displayText: displayText);

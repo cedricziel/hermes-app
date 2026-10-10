@@ -10,6 +10,7 @@ import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../chat/widgets/chat_thread_view.dart';
+import '../chat/widgets/message_actions.dart' show TurnActionStatus;
 import '../chat/widgets/thread_actions_menu.dart';
 import '../models/hermes_models_repository.dart';
 import '../models/widgets/composer_model_pill.dart';
@@ -62,6 +63,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
   final _composerFocus = FocusNode();
   late final _attachments = <SharedFile>[...?widget.draft?.files];
   final _latestReplyId = ValueNotifier<String?>(null);
+  final _turnActionStatus = ValueNotifier(TurnActionStatus.idle);
   final _subscriptions = <StreamSubscription<Object?>>[];
 
   /// Whether the chat was shown; once it is, losing it (deleted or archived)
@@ -170,9 +172,16 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
 
   void _followLatestReply(ChatThread? thread) {
     final id = latestFinishedReplyId(thread);
-    if (_latestReplyId.value == id) return;
+    final status = thread == null
+        ? TurnActionStatus.idle
+        : _chat.turnActionStatus(thread);
+    if (_latestReplyId.value == id && _turnActionStatus.value == status) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _latestReplyId.value = id;
+      if (!mounted) return;
+      _latestReplyId.value = id;
+      _turnActionStatus.value = status;
     });
   }
 
@@ -194,6 +203,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
     _composerController.dispose();
     _composerFocus.dispose();
     _latestReplyId.dispose();
+    _turnActionStatus.dispose();
     super.dispose();
   }
 
@@ -239,6 +249,7 @@ class _ConversationWindowScreenState extends State<ConversationWindowScreen> {
         onSend: _send,
         onPickStarter: (_) {},
         latestReplyId: _latestReplyId,
+        turnActionStatus: _turnActionStatus,
         modelPill: modelOptions == null || modelOptions.providers.isEmpty
             ? null
             : ComposerModelPill(

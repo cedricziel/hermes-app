@@ -186,6 +186,7 @@ void main() {
   chatTest('a failed undo sends nothing and says so', (tester) async {
     await tester.tap(tryAgain);
     await tester.pump();
+    await tester.pump();
 
     expect(transport.sends, isEmpty);
     expect(inTranscript('A connection reset.'), findsOneWidget);
@@ -195,10 +196,51 @@ void main() {
     );
   }, arrange: () => transport.undoError = const GatewayConnectionClosed());
 
+  chatTest('a retry says so while Hermes takes the turn back', (tester) async {
+    final gate = transport.undoGate = Completer<void>();
+    await tester.tap(tryAgain);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Trying again…'), findsOneWidget);
+    expect(tryAgain, findsNothing);
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('Trying again…'), findsNothing);
+  });
+
+  chatTest('a failed retry is said under the reply, not in a snackbar', (
+    tester,
+  ) async {
+    await tester.tap(tryAgain);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(SnackBar), findsNothing);
+    expect(inTranscript("Couldn't reach Hermes to try again."), findsOneWidget);
+    expect(tryAgain, findsOneWidget);
+  }, arrange: () => transport.undoError = const GatewayConnectionClosed());
+
+  chatTest('the next prompt clears a failed retry', (tester) async {
+    await tester.tap(tryAgain);
+    await tester.pump();
+    await tester.pump();
+    transport.undoError = null;
+
+    await send(tester, 'Still there?');
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(inTranscript("Couldn't reach Hermes"), findsNothing);
+  }, arrange: () => transport.undoError = const GatewayConnectionClosed());
+
   chatTest(
     'an undo the server rejects is told without its error',
     (tester) async {
       await tester.tap(tryAgain);
+      await tester.pump();
       await tester.pump();
 
       expect(transport.sends, isEmpty);
@@ -213,6 +255,7 @@ void main() {
 
   chatTest('an edit that cannot reach Hermes says so', (tester) async {
     await tester.tap(editPrompt);
+    await tester.pump();
     await tester.pump();
 
     expect(

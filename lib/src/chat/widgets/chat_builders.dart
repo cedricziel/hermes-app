@@ -62,7 +62,8 @@ const double kChatItemGap = 8;
 ///
 /// A finished reply gets an action bar. [latestReplyId] names the one reply
 /// that can be asked again, and [onRetry] does it; while it is null nothing
-/// can. [onEdit] takes that reply's prompt back to change it. The welcome
+/// can. [onEdit] takes that reply's prompt back to change it, and
+/// [turnActionStatus] says while either runs or why it failed. The welcome
 /// view offers [starterPrompts], the generic ones when null, and hands a
 /// tapped one to [onPickPrompt].
 /// While [onLoadOlder] is set, scrolling to the top of the thread calls it.
@@ -73,6 +74,7 @@ Builders buildChatBuilders({
   String? greetingName,
   String? assistantName,
   ValueListenable<String?>? latestReplyId,
+  ValueListenable<TurnActionStatus>? turnActionStatus,
   VoidCallback? onRetry,
   VoidCallback? onEdit,
   Future<void> Function()? onLoadOlder,
@@ -104,6 +106,7 @@ Builders buildChatBuilders({
               isSentByMe: isSentByMe,
               groupStatus: groupStatus,
               latestReplyId: latestReplyId,
+              turnActionStatus: turnActionStatus,
               onRetry: onRetry,
               onEdit: onEdit,
               onLinkTap: onLinkTap,
@@ -177,6 +180,7 @@ Widget _buildText(
   required bool isSentByMe,
   MessageGroupStatus? groupStatus,
   ValueListenable<String?>? latestReplyId,
+  ValueListenable<TurnActionStatus>? turnActionStatus,
   VoidCallback? onRetry,
   VoidCallback? onEdit,
   void Function(String url, String title)? onLinkTap,
@@ -210,13 +214,20 @@ Widget _buildText(
   );
   if (isSentByMe || message.metadata?[kMetaStreaming] == true) return bubble;
 
-  Widget below(bool latest) => MessageActions(
+  Widget actions(bool latest, TurnActionStatus status) => MessageActions(
     text: message.text,
     showCopy: message.text.isNotEmpty,
     stopped: message.metadata?[kMetaStopped] == true,
     onRetry: latest ? onRetry : null,
     onEdit: latest ? onEdit : null,
+    status: status,
   );
+  Widget below(bool latest) => !latest || turnActionStatus == null
+      ? actions(latest, TurnActionStatus.idle)
+      : ValueListenableBuilder<TurnActionStatus>(
+          valueListenable: turnActionStatus,
+          builder: (_, status, _) => actions(true, status),
+        );
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [

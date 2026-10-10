@@ -15,7 +15,9 @@ import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:hermes_app/src/voice/dictation_view.dart';
 import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
+import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
+import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
 import 'package:hermes_app/src/chat/widgets/review_summary_note.dart';
@@ -455,6 +457,41 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool(
           'Stopped by the user',
           MessageActions(text: 'The job hit a', stopped: true, onRetry: () {}),
+        ),
+        _tool(
+          'Trying again',
+          MessageActions(
+            text: 'Timed out',
+            showCopy: false,
+            onRetry: () {},
+            status: const TurnActionStatus(running: TurnAction.retry),
+          ),
+        ),
+        _tool(
+          'Taking the prompt back',
+          MessageActions(
+            text: 'The build finished.',
+            onRetry: () {},
+            onEdit: () {},
+            status: const TurnActionStatus(running: TurnAction.edit),
+          ),
+        ),
+        _tool(
+          'Try again failed',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ReplyErrorNote(kReplyFailedMessage),
+              MessageActions(
+                text: 'Timed out',
+                showCopy: false,
+                onRetry: () {},
+                status: const TurnActionStatus(
+                  problem: "Couldn't reach Hermes to try again. Check your connection.",
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ),
