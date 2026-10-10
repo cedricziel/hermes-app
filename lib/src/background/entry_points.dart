@@ -9,6 +9,9 @@ import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import '../telemetry/telemetry.dart';
 import '../telemetry/telemetry_config.dart';
 
+/// How long telemetry may take to start: a run has about 30 seconds.
+const _telemetryBudget = Duration(seconds: 3);
+
 Telemetry? _telemetry;
 Future<void>? _prepared;
 
@@ -20,7 +23,8 @@ Future<void> _prepare() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   try {
-    _telemetry = await Telemetry.initialize(TelemetryConfig.fromEnvironment());
+    _telemetry = await Telemetry.initialize(TelemetryConfig.fromEnvironment())
+        .timeout(_telemetryBudget);
   } on Object {
     // Telemetry must never keep background work from running.
   }

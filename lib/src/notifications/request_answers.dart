@@ -475,6 +475,15 @@ class LoneAnswerer {
     NotificationAnswer answer,
     DateTime deadline,
   ) async {
+    // Before any request: with App Lock on, nothing may touch the server or
+    // the stored tokens, and the user is told to open the app.
+    if (await _appLocked()) {
+      return RequestAnswerSender(
+        transport: () => null,
+        notifications: _notifications,
+        locked: () async => true,
+      ).send(answer, route: 'background', deadline: deadline);
+    }
     final left = deadline.difference(DateTime.now());
     final outcome = await withHeadlessHermes<AnswerOutcome>(
       (hermes) => RequestAnswerSender(
@@ -495,6 +504,14 @@ class LoneAnswerer {
       HeadlessLocked() ||
       HeadlessUnreachable() => await _unanswered(answer, AnswerOutcome.failed),
     };
+  }
+
+  Future<bool> _appLocked() async {
+    try {
+      return await _locked();
+    } on Object {
+      return true;
+    }
   }
 
   Future<AnswerOutcome> _unanswered(

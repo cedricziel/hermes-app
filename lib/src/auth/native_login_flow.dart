@@ -215,7 +215,9 @@ Future<HermesSession> runNativeLogin(
 /// repeat of it.
 const _refreshAttemptTimeout = Duration(seconds: 12);
 
-/// Rotates a stored session's tokens via `/auth/native/refresh`.
+/// Rotates a stored session's tokens via `/auth/native/refresh`. Each attempt
+/// waits [attemptTimeout] for its answer, for a caller with less time than
+/// two of the default attempts.
 ///
 /// The identity provider may end the session when a spent refresh token
 /// comes back. An attempt whose answer never arrived may already have rotated
@@ -226,6 +228,7 @@ Future<HermesSession> refreshNativeSession(
   HermesSession session, {
   Dio? httpClient,
   void Function()? onRetry,
+  Duration attemptTimeout = _refreshAttemptTimeout,
 }) async {
   final dio = httpClient ?? Dio(BaseOptions(baseUrl: baseUrl));
   Future<Response<Map<String, dynamic>>> attempt() =>
@@ -236,8 +239,8 @@ Future<HermesSession> refreshNativeSession(
           'provider': session.provider,
         },
         options: Options(
-          sendTimeout: _refreshAttemptTimeout,
-          receiveTimeout: _refreshAttemptTimeout,
+          sendTimeout: attemptTimeout,
+          receiveTimeout: attemptTimeout,
         ),
       );
   try {

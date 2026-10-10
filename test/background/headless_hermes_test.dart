@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dart_otel_instrumentation_messaging/dart_otel_instrumentation_messaging.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
@@ -46,7 +47,8 @@ class _Store extends MemoryTokenStore {
 
   @override
   Future<SessionRead> readState({bool repair = true}) {
-    beforeRead?.call(reads++);
+    final read = reads++;
+    beforeRead?.call(read);
     return super.readState(repair: repair);
   }
 
@@ -72,12 +74,15 @@ class _Dashboard {
         '<script>window.__HERMES_SESSION_TOKEN__="page-token"</script>',
       )
       ..on('POST', '/api/auth/ws-ticket', {'ticket': 'tkt'})
-      ..onRequest('GET', '/api/profiles', (request) {
+      ..onRequest('GET', '/api/profiles', (request) async {
         final header = authRequired
             ? request.headers['Authorization']
             : request.headers['X-Hermes-Session-Token'];
         final expected = authRequired ? 'Bearer $validAccess' : 'page-token';
         if (header != expected) {
+          if (unauthorizedDelays.isNotEmpty) {
+            await Future<void>.delayed(unauthorizedDelays.removeAt(0));
+          }
           return (status: 401, body: {'detail': 'Unauthorized'});
         }
         return (
@@ -90,6 +95,7 @@ class _Dashboard {
       })
       ..onRequest('POST', '/auth/native/refresh', (request) async {
         refreshes++;
+        await Future<void>.delayed(refreshDelay);
         await duringRefresh?.call();
         if (refreshFailure case final DioException error) throw error;
         if (refreshStatus case final status?) {
@@ -106,7 +112,7 @@ class _Dashboard {
           body: {
             'access_token': 'access-$n',
             'refresh_token': 'refresh-$n',
-            'expires_at': 4102444800,
+            'expires_at': refreshExpiresAt,
             'provider': 'basic',
             'user_id': 'u1',
           },
@@ -121,6 +127,11 @@ class _Dashboard {
   int? refreshStatus;
   DioException? refreshFailure;
   bool rotateAccess = true;
+  Duration refreshDelay = Duration.zero;
+  int refreshExpiresAt = 4102444800;
+
+  /// How long the next 401 answers of the profiles route wait, in order.
+  final unauthorizedDelays = <Duration>[];
   Future<void> Function()? duringRefresh;
 }
 
@@ -141,24 +152,42 @@ void main() {
     gateway = FakeGateway();
   });
 
-  HeadlessDeps deps({String devServerUrl = ''}) => HeadlessDeps(
+  ConnectionTelemetry recorded(Map<String, Object> attributes) =>
+      ConnectionTelemetry(
+        events: events.connection(attributes).events,
+        tracer: tracer,
+        serverAttributes: attributes,
+      );
+
+  HeadlessDeps deps({
+    String devServerUrl = '',
+    ConnectionTelemetryFactory? telemetry,
+    Duration minRefreshBudget = Duration.zero,
+    Duration rejectionRecheck = Duration.zero,
+    Duration closeGrace = const Duration(seconds: 3),
+  }) => HeadlessDeps(
     tokenStore: store,
     prefs: SharedPreferencesAsync(),
     devServerUrl: devServerUrl,
     adapter: dashboard.server,
     openSocket: (_) => gateway.connect(),
-    telemetry: (attributes) => ConnectionTelemetry(
-      events: events.connection(attributes).events,
-      tracer: tracer,
-      serverAttributes: attributes,
-    ),
+    telemetry: telemetry ?? recorded,
+    minRefreshBudget: minRefreshBudget,
+    rejectionRecheck: rejectionRecheck,
+    closeGrace: closeGrace,
   );
 
   Future<HeadlessOutcome<T>> run<T>(
     Future<T> Function(HeadlessHermes hermes) body, {
     Duration timeout = const Duration(seconds: 5),
     String task = 'test_task',
-  }) => withHeadlessHermes(body, task: task, timeout: timeout, deps: deps());
+    HeadlessDeps? with_,
+  }) => withHeadlessHermes(
+    body,
+    task: task,
+    timeout: timeout,
+    deps: with_ ?? deps(),
+  );
 
   Future<List<String?>> readProfiles(HeadlessHermes hermes) =>
       hermes.profiles();
@@ -442,11 +471,11 @@ void main() {
     );
 
     test(
-      'a rejected refresh after the app rotated the pair is a conflict',
+      'a rejected refresh with a different pair in storage is a conflict',
       () async {
         store.session = _session(expiresAt: 1);
         dashboard.refreshStatus = 401;
-        final fromApp = _session(refresh: 'app-refresh', mintedAt: 9000);
+        final fromApp = _session(refresh: 'app-refresh', mintedAt: 10);
         dashboard.duringRefresh = () async => store.session = fromApp;
 
         final outcome = await run(readProfiles);
@@ -527,6 +556,236 @@ void main() {
     });
   });
 
+  group('ending the run', () {
+    test(
+      'an in-flight refresh that outlasts the budget still writes its pair',
+      () async {
+        store.session = _session(expiresAt: 1);
+        dashboard.refreshDelay = const Duration(milliseconds: 900);
+
+        final outcome = await run(
+          readProfiles,
+          timeout: const Duration(milliseconds: 600),
+        );
+
+        expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
+        expect(spanOutcome(), 'timeout');
+        expect(store.session!.refreshToken, 'refresh-2');
+      },
+    );
+
+    test('does not start a refresh it cannot finish', () async {
+      store.session = _session(expiresAt: 1);
+      final before = store.session;
+
+      final outcome = await run(
+        readProfiles,
+        timeout: const Duration(seconds: 1),
+        with_: deps(minRefreshBudget: const Duration(seconds: 4)),
+      );
+
+      expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
+      expect(dashboard.refreshes, 0);
+      expect(store.session, same(before));
+    });
+
+    test(
+      'a body that outlives the budget can no longer refresh or write',
+      () async {
+        store.session = _session(expiresAt: 1);
+        final before = store.session;
+        final late = Completer<void>();
+
+        final outcome = await run<void>((hermes) async {
+          await late.future;
+          await hermes.repositories.profiles.list();
+        }, timeout: const Duration(milliseconds: 100));
+        late.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(outcome, isA<HeadlessUnreachable<void>>());
+        expect(dashboard.refreshes, 0);
+        expect(store.writes, 0);
+        expect(store.session, same(before));
+        expect(dashboard.server.requestsTo('GET', '/api/profiles'), isEmpty);
+      },
+    );
+
+    test(
+      'a body that recovers from a failed refresh keeps its result',
+      () async {
+        store.session = _session(expiresAt: 1);
+        dashboard.refreshStatus = 401;
+
+        final outcome = await run((hermes) async {
+          try {
+            await hermes.repositories.profiles.list();
+          } on Object {
+            return 'recovered';
+          }
+          return 'unexpected';
+        });
+
+        expect((outcome as HeadlessDone).value, 'recovered');
+      },
+    );
+  });
+
+  group('storage around a refresh', () {
+    test(
+      'a rejected refresh adopts a newer pair that lands a moment later',
+      () async {
+        store.session = _session(expiresAt: 1);
+        dashboard
+          ..refreshStatus = 401
+          ..validAccess = 'access-7';
+        final fromApp = _session(
+          access: 'access-7',
+          refresh: 'refresh-7',
+          mintedAt: 9000,
+        );
+        store.beforeRead = (read) {
+          if (read == 3) store.session = fromApp;
+        };
+
+        final outcome = await run(
+          readProfiles,
+          with_: deps(rejectionRecheck: const Duration(milliseconds: 20)),
+        );
+
+        expect(outcome, isA<HeadlessDone<List<String?>>>());
+        expect(store.session, same(fromApp));
+        expect(dashboard.refreshes, 1);
+      },
+    );
+
+    test('a failed write is logged and does not fail the run', () async {
+      store.session = _session(expiresAt: 1);
+      store.failWrites = true;
+
+      final outcome = await run(readProfiles);
+
+      expect(outcome, isA<HeadlessDone<List<String?>>>());
+      expect(events.named('auth.session.store_failed'), [
+        {'error.type': 'UnsupportedError'},
+      ]);
+    });
+
+    test('a read error before the write does not skip it', () async {
+      store.session = _session(expiresAt: 1);
+      store.beforeRead = (read) {
+        if (read == 2) throw StateError('keychain');
+      };
+
+      await run(readProfiles);
+
+      expect(store.session!.refreshToken, 'refresh-2');
+    });
+
+    test(
+      'concurrent 401s refresh once and the late ones reuse the new token',
+      () async {
+        dashboard
+          ..validAccess = 'access-9'
+          ..unauthorizedDelays.addAll([
+            Duration.zero,
+            const Duration(milliseconds: 300),
+            const Duration(milliseconds: 300),
+          ]);
+
+        final outcome = await run((hermes) async {
+          final lists = await Future.wait([
+            hermes.repositories.profiles.list(),
+            hermes.repositories.profiles.list(),
+            hermes.repositories.profiles.list(),
+          ]);
+          return lists.map((profiles) => profiles.length).toList();
+        });
+
+        expect((outcome as HeadlessDone).value, [2, 2, 2]);
+        expect(dashboard.refreshes, 1);
+      },
+    );
+
+    test('a refreshed pair that is already expired is not re-read for every request', () async {
+      store.session = _session(expiresAt: 1);
+      dashboard.refreshExpiresAt = 1;
+
+      await run((hermes) async {
+        for (var i = 0; i < 5; i++) {
+          await hermes.repositories.profiles.list();
+        }
+      });
+
+      expect(store.reads, 3);
+    });
+  });
+
+  group('a keychain that cannot be read', () {
+    test('another read error is unreachable, not locked', () async {
+      store.unreadable = true;
+      store.unreadableLocked = false;
+
+      expect(
+        await run(readProfiles),
+        isA<HeadlessUnreachable<List<String?>>>(),
+      );
+      expect(dashboard.server.requests, isEmpty);
+    });
+  });
+
+  group('telemetry that breaks', () {
+    test(
+      'a factory that throws for the connection does not stop the work',
+      () async {
+        final outcome = await run(
+          readProfiles,
+          with_: deps(
+            telemetry: (attributes) {
+              if (attributes.isNotEmpty) throw StateError('telemetry');
+              return recorded(attributes);
+            },
+          ),
+        );
+
+        expect(outcome, isA<HeadlessDone<List<String?>>>());
+      },
+    );
+
+    test('gateway telemetry that throws does not stop a transport', () async {
+      gateway.activeSessions = {};
+
+      final outcome = await run((hermes) async {
+        await hermes.transport().request('session.active_list');
+        return 'done';
+      }, with_: deps(telemetry: (_) => const _BrokenGatewayTelemetry()));
+
+      expect((outcome as HeadlessDone).value, 'done');
+    });
+
+    test(
+      'an events logger that throws does not stop the conflict path',
+      () async {
+        store.session = _session(expiresAt: 1);
+        dashboard.refreshStatus = 401;
+        dashboard.duringRefresh = () async =>
+            store.session = _session(refresh: 'app-refresh', mintedAt: 10);
+
+        final outcome = await run(
+          readProfiles,
+          with_: deps(
+            telemetry: (_) => ConnectionTelemetry(
+              events: (name, [attributes = const {}]) =>
+                  throw StateError('logger'),
+            ),
+          ),
+        );
+
+        expect(outcome, isA<HeadlessUnreachable<List<String?>>>());
+      },
+    );
+  });
+
   group('telemetry', () {
     test(
       'records one background.task span with the server attributes',
@@ -567,4 +826,11 @@ class _ClearTrackingStore extends MemoryTokenStore {
     onClear();
     await super.clear();
   }
+}
+
+class _BrokenGatewayTelemetry extends ConnectionTelemetry {
+  const _BrokenGatewayTelemetry();
+
+  @override
+  MessagingConnectionTracer? gateway() => throw StateError('tracer');
 }

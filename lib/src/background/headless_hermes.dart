@@ -9,6 +9,7 @@ library;
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter_otel/flutter_otel.dart' show AppEventLogger;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -68,6 +69,9 @@ class HeadlessDeps {
     this.telemetry,
     this.adapter,
     this.openSocket,
+    this.minRefreshBudget = const Duration(seconds: 4),
+    this.rejectionRecheck = const Duration(seconds: 1),
+    this.closeGrace = const Duration(seconds: 3),
   });
 
   final TokenStore? tokenStore;
@@ -78,6 +82,19 @@ class HeadlessDeps {
   final ConnectionTelemetryFactory? telemetry;
   final HttpClientAdapter? adapter;
   final Future<StreamChannel<String>> Function(Uri uri)? openSocket;
+
+  /// The least time a run must have left for a refresh to start: a refresh
+  /// that the budget would cut off may rotate the refresh token without the
+  /// new pair ever being stored.
+  final Duration minRefreshBudget;
+
+  /// How long a rejected refresh waits for another isolate's write to land in
+  /// storage before the run gives up on the session.
+  final Duration rejectionRecheck;
+
+  /// How long ending a run waits for a refresh in flight to store its pair,
+  /// and for a body to settle after the session failed.
+  final Duration closeGrace;
 }
 
 /// Runs [body] against the saved server with the stored session, within
@@ -85,6 +102,11 @@ class HeadlessDeps {
 /// telemetry. Nothing is thrown: a failing [body] ends as
 /// [HeadlessUnreachable], since a background callback that throws is reported
 /// to the system as a failure.
+///
+/// A refresh that is under way when the run ends is waited for (up to
+/// [HeadlessDeps.closeGrace]) so the pair it rotated is stored before the
+/// caller lets the operating system suspend the app. After the run ends,
+/// nothing the body still does reaches the server.
 Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
   Future<T> Function(HeadlessHermes hermes) body, {
   required String task,
@@ -92,13 +114,17 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
   HeadlessDeps? deps,
 }) async {
   final wiring = deps ?? const HeadlessDeps();
-  final factory = wiring.telemetry ?? backgroundTelemetry;
-  final span = _quiet(
-    () =>
-        factory(const {}).tracer
-            ?.startSpan('background.task', attributes: {'task': task}),
+  final run = _Run(
+    wiring,
+    wiring.telemetry ?? backgroundTelemetry,
+    DateTime.now().add(timeout),
   );
-  final run = _Run(wiring, factory);
+  final span = _quiet(
+    () => run
+        .telemetry(const {})
+        .tracer
+        ?.startSpan('background.task', attributes: {'task': task}),
+  );
   var ended = _Ended<T>('failed', const HeadlessUnreachable());
   try {
     ended = await run
@@ -135,7 +161,8 @@ class HeadlessHermes {
   HermesRepositories get repositories => _connection.repositories;
 
   /// The server's profile names; `[null]`, the server's default profile, when
-  /// they cannot be read.
+  /// they cannot be read. Throws once the session has failed, so that the run
+  /// ends as signed out rather than with a default profile.
   Future<List<String?>> profiles() async {
     try {
       final names = [
@@ -143,6 +170,7 @@ class HeadlessHermes {
       ];
       return names.isEmpty ? const [null] : names;
     } on Object {
+      if (_connection.auth?.stopped.isCompleted ?? false) rethrow;
       return const [null];
     }
   }
@@ -166,20 +194,51 @@ class _Ended<T> {
 }
 
 class _Run {
-  _Run(this._deps, this._telemetry);
+  _Run(this._deps, ConnectionTelemetryFactory telemetry, this._deadline)
+    : telemetry = ((attributes) =>
+          _quiet(() => telemetry(attributes)) ?? const ConnectionTelemetry());
 
   final HeadlessDeps _deps;
-  final ConnectionTelemetryFactory _telemetry;
+
+  /// The factory for this run's connections; a throwing one yields none.
+  final ConnectionTelemetryFactory telemetry;
+  final DateTime _deadline;
   final _transports = <HermesGatewayTransport>[];
+  final _clients = <Dio>[];
+  _HeadlessAuth? _auth;
   var _closed = false;
 
   Map<String, Object> serverAttributes = const {};
 
+  /// A client for [baseUrl] that [close] shuts down.
+  Dio client(
+    String baseUrl,
+    ConnectionTelemetry connection, {
+    Duration receive = const Duration(seconds: 12),
+  }) {
+    if (_closed) throw StateError('The headless run has ended');
+    final client = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: const Duration(seconds: 5),
+        receiveTimeout: receive,
+      ),
+    );
+    if (_deps.adapter case final adapter?) client.httpClientAdapter = adapter;
+    client.interceptors.addAll([
+      RequestTimeoutInterceptor(),
+      ?connection.interceptor,
+    ]);
+    _clients.add(client);
+    return client;
+  }
+
   Future<_Ended<T>> execute<T>(Future<T> Function(HeadlessHermes) body) async {
-    final opened = await _Connection.open(_deps, _telemetry);
+    final opened = await _Connection.open(this, _deps, _deadline);
     serverAttributes = opened.serverAttributes;
     final connection = opened.connection;
     if (connection == null) return _refused<T>(opened.refusal!);
+    _auth = connection.auth;
     final hermes = HeadlessHermes._(connection, _openTransport);
     final bodyEnd = () async {
       try {
@@ -188,18 +247,24 @@ class _Run {
         return _Ended<T>.failed(error);
       }
     }();
-    final authEnd = connection.auth?.stopped.future.then(
-      (stop) => switch (stop) {
-        _Stop.signedOut => _Ended<T>('auth_failed', const HeadlessSignedOut()),
-        _Stop.unreachable => _Ended<T>(
-          'auth_failed',
-          const HeadlessUnreachable(),
-        ),
-      },
+    final stop = connection.auth?.stopped.future;
+    if (stop == null) return bodyEnd;
+    final first = await Future.any<_Ended<T>?>([
+      bodyEnd,
+      stop.then((_) => null),
+    ]);
+    if (first != null) return first;
+    // The session failed under the body. It is why a body that then fails
+    // did so, but one that got through anyway keeps its result.
+    final authEnded = _Ended<T>('auth_failed', switch (await stop) {
+      _Stop.signedOut => const HeadlessSignedOut(),
+      _Stop.unreachable => const HeadlessUnreachable(),
+    });
+    final settled = await bodyEnd.timeout(
+      _deps.closeGrace,
+      onTimeout: () => authEnded,
     );
-    // The auth ends first when it is why the body failed, so it names the
-    // outcome.
-    return Future.any([bodyEnd, ?authEnd]);
+    return settled.outcome == 'ok' ? settled : authEnded;
   }
 
   _Ended<T> _refused<T>(String outcome) => _Ended(outcome, switch (outcome) {
@@ -210,28 +275,36 @@ class _Run {
 
   HermesGatewayTransport _openTransport(_Connection connection) {
     if (_closed) throw StateError('The headless run has ended');
-    final telemetry = connection.repositories.telemetry.gateway();
+    final connectionTelemetry = connection.repositories.telemetry;
+    final tracer = _quiet(connectionTelemetry.gateway);
     final transport = HermesGatewayTransport(
       connect: hermesGatewayConnect(
         baseUrl: connection.baseUrl,
         authRequired: connection.authRequired,
         api: connection.repositories.api,
-        telemetry: telemetry,
+        telemetry: tracer,
         open: _deps.openSocket ?? openWebSocket,
       ),
-      telemetry: telemetry,
-      events: connection.repositories.telemetry.events,
+      telemetry: tracer,
+      events: _quietEvents(connectionTelemetry.events),
     );
     _transports.add(transport);
     return transport;
   }
 
+  /// Ends the run: no new refresh or request starts, a refresh in flight gets
+  /// to store its pair, then every socket and client is closed so that
+  /// nothing the body still does reaches the server.
   Future<void> close() async {
     _closed = true;
+    await _auth?.shutdown(_deps.closeGrace);
     await Future.wait([
       for (final transport in _transports)
         transport.close().catchError((Object _) {}),
     ]);
+    for (final client in _clients) {
+      client.close(force: true);
+    }
   }
 }
 
@@ -257,8 +330,9 @@ class _Connection {
   /// The server's answer to `/api/status`, the saved session, and everything
   /// built from them; or why there is none.
   static Future<_Opened> open(
+    _Run run,
     HeadlessDeps deps,
-    ConnectionTelemetryFactory telemetryFor,
+    DateTime deadline,
   ) async {
     final configured = deps.devServerUrl ?? kDevServerUrlDefine;
     final raw = configured.isNotEmpty
@@ -269,37 +343,19 @@ class _Connection {
     final typed = raw == null ? null : normalizeServerUrl(raw);
     if (typed == null) return const _Opened.refused('no_server');
 
-    final unconnected = telemetryFor(const {});
+    final unconnected = run.telemetry(const {});
     final store = deps.tokenStore ?? TokenStore(events: unconnected.events);
     // Read before any request: a locked keychain ends the run on its own.
     final stored = await store.readState(repair: false);
-    if (stored is SessionUnreadable) return const _Opened.refused('locked');
-
-    Dio dio(
-      String baseUrl,
-      ConnectionTelemetry telemetry, {
-      Duration receive = const Duration(seconds: 12),
-    }) {
-      final client = Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: receive,
-        ),
-      );
-      if (deps.adapter case final adapter?) client.httpClientAdapter = adapter;
-      return client
-        ..interceptors.addAll([
-          RequestTimeoutInterceptor(),
-          ?telemetry.interceptor,
-        ]);
+    if (stored is SessionUnreadable) {
+      return _Opened.refused(stored.locked ? 'locked' : 'unreachable');
     }
 
     final HermesStatus status;
     var normalized = typed;
     try {
       final probe = await HermesApiClient(
-        dio(typed, unconnected, receive: const Duration(seconds: 8)),
+        run.client(typed, unconnected, receive: const Duration(seconds: 8)),
       ).probeStatus();
       status = probe.status;
       normalized = probe.redirectedTo ?? typed;
@@ -307,7 +363,7 @@ class _Connection {
       return const _Opened.refused('unreachable');
     }
     final attributes = status.serverAttributes;
-    final telemetry = telemetryFor(attributes);
+    final telemetry = run.telemetry(attributes);
 
     HermesSession? held;
     if (status.authRequired) {
@@ -322,19 +378,24 @@ class _Connection {
       held = session.boundTo(normalized);
     }
 
-    final authed = dio(normalized, telemetry);
+    final authed = run.client(normalized, telemetry);
     _HeadlessAuth? auth;
     if (held != null) {
       auth = _HeadlessAuth(
         baseUrl: normalized,
         session: held,
         store: store,
-        tokenDio: dio(normalized, telemetry),
-        events: telemetry.events,
+        tokenDio: run.client(normalized, telemetry),
+        events: _quietEvents(telemetry.events),
+        deadline: deadline,
+        minRefreshBudget: deps.minRefreshBudget,
+        rejectionRecheck: deps.rejectionRecheck,
       );
       authed.interceptors.add(auth.interceptor(authed));
     } else {
-      final page = PageToken(HermesApiClient(dio(normalized, telemetry)));
+      final page = PageToken(
+        HermesApiClient(run.client(normalized, telemetry)),
+      );
       authed.interceptors.add(pageTokenInterceptor(authed, page));
     }
     return _Opened.connected(
@@ -360,6 +421,9 @@ class _Connection {
 /// Why the session ended a run.
 enum _Stop { signedOut, unreachable }
 
+/// The longest one attempt at a refresh waits, as in the app.
+const _maxRefreshAttempt = Duration(seconds: 12);
+
 /// Attaches the stored session's token and refreshes it at most once per run,
 /// writing the new pair back only when storage still holds the pair that was
 /// spent. It never clears or overwrites a session otherwise: the foreground
@@ -372,12 +436,18 @@ class _HeadlessAuth {
     required this.store,
     required this.tokenDio,
     required this.events,
+    required this.deadline,
+    required this.minRefreshBudget,
+    required this.rejectionRecheck,
   });
 
   final String baseUrl;
   final TokenStore store;
   final Dio tokenDio;
-  final void Function(String name, [Map<String, Object> attributes]) events;
+  final AppEventLogger events;
+  final DateTime deadline;
+  final Duration minRefreshBudget;
+  final Duration rejectionRecheck;
 
   HermesSession session;
 
@@ -385,38 +455,64 @@ class _HeadlessAuth {
   final stopped = Completer<_Stop>();
 
   var _refreshed = false;
+  var _proactiveTried = false;
+  var _closing = false;
   Future<HermesSession?>? _inFlight;
+
+  /// Whether the run is over, so nothing may start.
+  bool get _over => _closing || stopped.isCompleted;
+
+  /// Stops new refreshes and requests, then waits up to [grace] for a refresh
+  /// in flight, which must store the pair it rotated.
+  Future<void> shutdown(Duration grace) async {
+    _closing = true;
+    final running = _inFlight;
+    if (running == null) return;
+    try {
+      await running.timeout(grace);
+    } on Object {
+      // Gave up waiting; the refresh may still finish without being stored.
+    }
+  }
 
   Interceptor interceptor(Dio dio) => InterceptorsWrapper(
     onRequest: (options, handler) async {
-      if (session.needsRefresh() && session.refreshToken.isNotEmpty) {
-        await _renew(session);
-      }
-      if (stopped.isCompleted) {
-        return handler.reject(
-          DioException(
+      DioException? refusal;
+      try {
+        await _ensureFresh();
+        if (_over) {
+          refusal = DioException(
             requestOptions: options,
             type: DioExceptionType.cancel,
             error: 'The headless run has ended',
-          ),
-        );
+          );
+        } else {
+          options.headers['Authorization'] = 'Bearer ${session.accessToken}';
+        }
+      } on Object catch (error) {
+        refusal = DioException(requestOptions: options, error: error);
       }
-      options.headers['Authorization'] = 'Bearer ${session.accessToken}';
+      if (refusal != null) return handler.reject(refusal);
       handler.next(options);
     },
     onError: (error, handler) async {
       final options = error.requestOptions;
       if (error.response?.statusCode != 401 ||
           options.extra['hermes_retried'] == true ||
-          stopped.isCompleted ||
+          _over ||
           session.refreshToken.isEmpty) {
         return handler.next(error);
       }
-      // A request sent with a token another request has since rotated away
-      // only needs the new one.
-      final sentStale =
-          options.headers['Authorization'] != 'Bearer ${session.accessToken}';
-      final current = sentStale ? session : await _renew(session);
+      HermesSession? current;
+      try {
+        // A request sent with a token another request has since rotated away
+        // only needs the new one.
+        final sentStale =
+            options.headers['Authorization'] != 'Bearer ${session.accessToken}';
+        current = sentStale ? session : await _renew(session);
+      } on Object {
+        current = null;
+      }
       if (current == null) return handler.next(error);
       options
         ..headers['Authorization'] = 'Bearer ${current.accessToken}'
@@ -429,21 +525,45 @@ class _HeadlessAuth {
     },
   );
 
+  /// Refreshes ahead of a request when the access token is about to expire,
+  /// once per run: a pair that is still expiring after that (a skewed clock)
+  /// would otherwise read the keychain for every request.
+  Future<void> _ensureFresh() async {
+    if (_inFlight case final running?) {
+      await running;
+      return;
+    }
+    if (_proactiveTried ||
+        !session.needsRefresh() ||
+        session.refreshToken.isEmpty) {
+      return;
+    }
+    _proactiveTried = true;
+    await _renew(session);
+  }
+
   Future<HermesSession?> _renew(HermesSession rejected) =>
-      _inFlight ??= _renewOnce(rejected).whenComplete(() => _inFlight = null);
+      _inFlight ??= _renewOnce(rejected)
+          .then<HermesSession?>((s) => s, onError: (Object _) => null)
+          .whenComplete(() => _inFlight = null);
 
   Future<HermesSession?> _renewOnce(HermesSession held) async {
     final adopted = _newerStored(held, await _stored());
     if (adopted != null) return session = adopted;
-    if (_refreshed) return null;
+    if (_refreshed || _over) return null;
+    final remaining = deadline.difference(DateTime.now());
+    // Spending the refresh token needs time to store the new one.
+    if (remaining < minRefreshBudget) return _stop(_Stop.unreachable);
     _refreshed = true;
 
     final HermesSession refreshed;
     try {
+      final half = remaining ~/ 2;
       refreshed = (await refreshNativeSession(
         baseUrl,
         held,
         httpClient: tokenDio,
+        attemptTimeout: half < _maxRefreshAttempt ? half : _maxRefreshAttempt,
       )).rotatedFrom(held);
     } on NativeLoginException catch (e) {
       if (!e.rejected) return _stop(_Stop.unreachable);
@@ -453,22 +573,42 @@ class _HeadlessAuth {
     }
 
     session = refreshed;
-    final current = await _stored();
-    if (current?.refreshToken == held.refreshToken) {
-      try {
-        await store.write(refreshed);
-      } on Object {
-        // The app refreshes again from the pair it holds.
-      }
-    }
+    await _writeBack(held, refreshed);
     return refreshed;
   }
 
-  /// The server refused [held]'s refresh token. Storage is left as it is:
-  /// the app in front may have rotated the pair since, or will find out for
-  /// itself.
+  /// Stores [refreshed] unless storage no longer holds the pair [spent]
+  /// came from: the app may have rotated it or the user signed out since.
+  /// A storage that cannot be read is written anyway, since [spent] is gone
+  /// whatever it holds.
+  Future<void> _writeBack(HermesSession spent, HermesSession refreshed) async {
+    final current = await _storedState();
+    if (current is SessionEmpty) return;
+    if (current is SessionFound &&
+        current.session.refreshToken != spent.refreshToken) {
+      return;
+    }
+    try {
+      await store.write(refreshed);
+    } on Object catch (error) {
+      events('auth.session.store_failed', {
+        'error.type': error.runtimeType.toString(),
+      });
+    }
+  }
+
+  /// The server refused [held]'s refresh token. The app in front may have
+  /// rotated the pair, and its write may still be under way, so storage is
+  /// read again a moment later, as `AuthController` does. Storage is never
+  /// cleared: the app finds out for itself.
   Future<HermesSession?> _rejected(HermesSession held) async {
-    final current = await _stored();
+    HermesSession? current;
+    for (final wait in [Duration.zero, rejectionRecheck]) {
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+      current = await _stored();
+      final adopted = _newerStored(held, current);
+      if (adopted != null) return session = adopted;
+    }
     if (current != null && current.refreshToken != held.refreshToken) {
       events('background.refresh_conflict');
       return _stop(_Stop.unreachable);
@@ -481,9 +621,11 @@ class _HeadlessAuth {
       ? stored
       : null;
 
-  Future<HermesSession?> _stored() async {
+  Future<HermesSession?> _stored() async => (await _storedState())?.session;
+
+  Future<SessionRead?> _storedState() async {
     try {
-      return (await store.readState(repair: false)).session;
+      return await store.readState(repair: false);
     } on Object {
       return null;
     }
@@ -504,3 +646,6 @@ R? _quiet<R>(R Function() action) {
     return null;
   }
 }
+
+AppEventLogger _quietEvents(AppEventLogger events) =>
+    (name, [attributes = const {}]) => _quiet(() => events(name, attributes));

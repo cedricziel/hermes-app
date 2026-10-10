@@ -124,5 +124,10 @@ Where the build differed from the plan above:
 - `profiles()` returns `List<String?>` (`[null]` when the list fails or is empty), as designed; Contract 3 in the rollout notes says `List<String>`.
 - `BackgroundPlugins` also registers `device_info_plus` (the telemetry resource reads it) and has no `path_provider_foundation`, which is Dart-only on iOS. `NotificationActions.registerPlugins` calls it and adds the Runner's own channels.
 - `LoneAnswerer(transportFor:, deps:)` replaces `createAuth`/`transportFor(auth)`. `answerRequestInBackground` calls `prepareBackgroundIsolate()`, so telemetry is now initialized in that isolate too; its spans are exported in batches, so a run that iOS suspends first may lose its span.
-- A rejected refresh with a changed store ends the run as `HeadlessUnreachable` and logs `background.refresh_conflict`; it does not adopt the newer pair, which the next run or the app does.
+- A rejected refresh re-reads storage, again after `rejectionRecheck` (1 s), as `AuthController` does: a pair that `sameOwner` and `isNewerThan` is adopted; any other changed pair ends the run as `HeadlessUnreachable` and logs `background.refresh_conflict`.
+- Ending a run (`_Run.close`) stops new requests and refreshes, waits up to `closeGrace` (3 s) for a refresh in flight so its pair is stored before the caller lets iOS suspend the app, then closes every socket and `Dio`. A refresh only starts with at least `minRefreshBudget` (4 s) left and its attempts are cut to fit the budget, so the budget cannot end a run between the server rotating the token and the write. The storage read before the write-back does not skip it when the read fails, and a failed write logs `auth.session.store_failed`.
+- A body that gets through despite a failed session keeps its result; one that fails after it reports the auth outcome. `profiles()` throws once the session has failed.
+- Only a keychain that reports `errSecInteractionNotAllowed` (-25308) is `HeadlessLocked`; other read errors are `HeadlessUnreachable`.
+- Not done: the window between the write-back's read and its write cannot be closed without an atomic compare-and-set in the keychain, which the plugin lacks; the read is directly before the write.
+- `LoneAnswerer` checks App Lock before `withHeadlessHermes`, so a locked app never touches the server or the tokens.
 

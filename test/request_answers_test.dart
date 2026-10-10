@@ -544,6 +544,29 @@ void main() {
       expect(notifications.shown.single.body, kAnswerFailedBody);
     });
 
+    test(
+      'checks App Lock before it connects to a server that is down',
+      () async {
+        server.on('GET', '/api/status', {}, status: 503);
+
+        final outcome = await LoneAnswerer(
+          transportFor: (_) => transport,
+          notifications: notifications,
+          locked: () async => true,
+          deps: HeadlessDeps(
+            tokenStore: store,
+            prefs: SharedPreferencesAsync(),
+            devServerUrl: '',
+            adapter: server,
+          ),
+        ).answer(_approval, DateTime.now().add(const Duration(seconds: 5)));
+
+        expect(outcome, AnswerOutcome.locked);
+        expect(server.requests, isEmpty);
+        expect(notifications.shown.single.body, kOpenToAnswerBody);
+      },
+    );
+
     test('does not answer past App Lock, nor tell twice', () async {
       final outcome = await LoneAnswerer(
         transportFor: (_) => transport,
