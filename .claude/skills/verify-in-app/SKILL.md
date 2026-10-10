@@ -313,6 +313,19 @@ titles are empty and snippets gone, while counts and links stay. Sign out and
 the key reads `signedIn: false` with empty lists. It must never hold a token,
 the server address, or a command or question text.
 
+## Spotlight (iOS simulator)
+
+Run the debug app against `scripts/dev-backend.sh`, sign in and finish a reply
+in a chat so the snapshot holds it. Turn "Show chats in Spotlight" on (account
+menu, Spotlight), then swipe down on the home screen and search for the chat's
+title: a Hermes result with the latest-message snippet appears. Tap it with the
+app running and again after terminating it (`xcrun simctl terminate <udid>
+com.cedricziel.hermesApp.dev`): both open that chat in its profile. Rename the
+chat on the server and finish another reply: the result changes. Lock the
+device (Device > Lock in Simulator, or Cmd-L) and search again: nothing from
+Hermes is found. Turn App Lock on, switch Spotlight off, sign out: each
+removes the results. Handoff must stay out of search.
+
 ## Background work (iOS simulator)
 
 Code behind `withHeadlessHermes` (`lib/src/background/`) runs with no screen,
