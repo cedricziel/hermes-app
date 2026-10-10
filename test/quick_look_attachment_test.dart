@@ -24,6 +24,7 @@ import 'support/fake_hermes_server.dart';
 import 'support/fake_media_actions.dart';
 import 'support/fake_quick_look.dart';
 import 'support/recorded_events.dart';
+import 'support/wait_until.dart';
 
 void main() {
   late FakeHermesServer server;
@@ -597,7 +598,10 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => events.named('quick_look.failed').isNotEmpty,
+      );
 
       expect(events.named('quick_look.failed'), [
         {'stage': 'download', 'reason': 'missing'},
@@ -617,7 +621,10 @@ void main() {
       await select(tester);
 
       await pressSpace(tester);
-      await settle(tester);
+      await waitUntil(
+        tester,
+        () => events.named('quick_look.failed').isNotEmpty,
+      );
 
       expect(events.named('quick_look.failed'), [
         {'stage': 'native', 'reason': 'unavailable'},

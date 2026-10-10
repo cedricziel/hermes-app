@@ -28,6 +28,7 @@ import '../support/fake_media_actions.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 import '../support/pump_chat.dart';
+import '../support/wait_until.dart';
 
 const _unbrokenWord =
     'Supercalifragilisticexpialidocious_Supercalifragilisticexpialidocious_'
@@ -50,22 +51,6 @@ const _longFile =
 /// clock, so give it wall-clock time in between frames.
 Future<void> _settleIo(WidgetTester tester, {int rounds = 8}) async {
   for (var i = 0; i < rounds; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 25)),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-  }
-}
-
-/// Gives real I/O wall-clock time until [done] holds, so a busy machine
-/// fails only after [timeout], not after a fixed guess.
-Future<void> _waitUntil(
-  WidgetTester tester,
-  bool Function() done, {
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final deadline = DateTime.now().add(timeout);
-  while (!done() && DateTime.now().isBefore(deadline)) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 25)),
     );
@@ -517,7 +502,7 @@ void main() {
       await shots.capture(tester, 'file-downloading');
 
       gate.complete();
-      await _waitUntil(tester, () => actions.opened.isNotEmpty);
+      await waitUntil(tester, () => actions.opened.isNotEmpty);
       expect(actions.opened, hasLength(1));
 
       await tester.runAsync(() async {
