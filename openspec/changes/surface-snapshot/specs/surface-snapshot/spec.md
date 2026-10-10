@@ -100,7 +100,7 @@ When the user signs out, the session expires, or the user changes the server, th
 
 ### Requirement: Telemetry without content
 
-Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type, and a failed widget reload after a successful write as `surface.snapshot.reload_failed`. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
+Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type, and a failed reload of one widget kind after a successful write as `widgets.reload_failed` with the kind and the error type. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
 
 #### Scenario: Write fails
 
