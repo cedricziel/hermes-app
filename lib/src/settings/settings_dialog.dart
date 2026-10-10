@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../app_lock/app_lock_controller.dart';
 import '../app_lock/app_lock_dialog.dart';
 import '../auth/auth_controller.dart';
+import '../macos/menu_bar_extra/menu_bar_extra_settings.dart';
+import '../macos/menu_bar_extra/widgets/menu_bar_item_section.dart';
 import '../notifications/notification_settings.dart';
 import '../notifications/notifications_dialog.dart';
 import '../quick_panel/global_shortcut.dart';
@@ -55,6 +57,9 @@ Future<void> showSettingsDialog(BuildContext context) async {
   };
   // Provided only on a Mac, where the shortcut exists.
   final shortcut = _maybeRead<GlobalShortcut?>(context);
+  final menuBar = MenuBarExtraSettings.offered
+      ? _maybeRead<MenuBarExtraSettings>(context)
+      : null;
   final picked = await showDialog<_Setting>(
     context: context,
     builder: (context) {
@@ -76,6 +81,14 @@ Future<void> showSettingsDialog(BuildContext context) async {
               row(_Setting.appLock),
             ],
           ),
+          if (menuBar != null)
+            ListenableBuilder(
+              listenable: menuBar,
+              builder: (context, _) => MenuBarItemSection(
+                value: menuBar.enabled,
+                onChanged: menuBar.setEnabled,
+              ),
+            ),
           GroupedSection(
             children: [row(_Setting.about), row(_Setting.changeServer)],
           ),
