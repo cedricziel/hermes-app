@@ -112,4 +112,46 @@ void main() {
       isTrue,
     );
   });
+
+  group('on an iPad', () {
+    Future<void> pumpIpad(WidgetTester tester) => pumpChatScreen(
+      tester,
+      server: server,
+      commands: commands,
+      platform: TargetPlatform.iOS,
+    );
+
+    FocusNode searchFocus(WidgetTester tester) => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const Key('thread-search-field')),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .focusNode;
+
+    testWidgets('Find puts the cursor in the sidebar search', (tester) async {
+      await pumpIpad(tester);
+      expect(enabled(MacCommand.find), isTrue);
+      expect(searchFocus(tester).hasFocus, isFalse);
+
+      await run(tester, MacCommand.find);
+
+      expect(searchFocus(tester).hasFocus, isTrue);
+    });
+
+    testWidgets('Find is disabled while the sidebar is a drawer', (
+      tester,
+    ) async {
+      await pumpIpad(tester);
+      tester.view.physicalSize = const Size(600, 900);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('thread-search-field')), findsNothing);
+      expect(enabled(MacCommand.find), isFalse);
+
+      tester.view.physicalSize = const Size(1400, 900);
+      await tester.pumpAndSettle();
+      expect(enabled(MacCommand.find), isTrue);
+    });
+  });
 }

@@ -70,6 +70,7 @@ class ThreadSidebar extends StatelessWidget {
     this.onOpenHelperModels,
     this.onOpenInNewWindow,
     this.searchProfile,
+    this.searchFocus,
   });
 
   final List<ChatThread> threads;
@@ -101,6 +102,10 @@ class ThreadSidebar extends StatelessWidget {
   /// The profile [search] looks in by default; results from another one name
   /// theirs.
   final String? searchProfile;
+
+  /// Focus for the search field of the iOS and Material sidebar; the Mac
+  /// searches from its toolbar.
+  final FocusNode? searchFocus;
 
   @override
   Widget build(BuildContext context) => _ThreadListScope(
@@ -166,6 +171,7 @@ class ThreadSidebar extends StatelessWidget {
                     builder: (context, _) => ThreadSearchField(
                       query: search.query,
                       onChanged: search.update,
+                      focusNode: searchFocus,
                     ),
                   ),
                 ),

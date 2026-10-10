@@ -252,6 +252,18 @@ void main() {
     expect(find.byKey(const ValueKey('setting-appearance')), findsOneWidget);
   });
 
+  testWidgets('Settings in the menu bar opens the settings list on an iPad', (
+    tester,
+  ) async {
+    final registry = MacCommandRegistry();
+    addTearDown(registry.dispose);
+    await pump(tester, platform: TargetPlatform.iOS, registry: registry);
+
+    expect(registry.invoke(MacCommand.settings), isTrue);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('setting-appearance')), findsOneWidget);
+  });
+
   group('account commands in the menu bar', () {
     testWidgets('Connection Details opens the connection page', (tester) async {
       final registry = MacCommandRegistry();
@@ -282,6 +294,25 @@ void main() {
       await tester.tap(find.text('Sign Out'));
       await tester.pumpAndSettle();
       expect(signOuts, 1);
+    });
+
+    testWidgets('an iPad offers the same commands', (tester) async {
+      final registry = MacCommandRegistry();
+      addTearDown(registry.dispose);
+      await pump(tester, platform: TargetPlatform.iOS, registry: registry);
+
+      expect(registry.invoke(MacCommand.connectionDetails), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeScreen), findsOneWidget);
+      Navigator.of(tester.element(find.byType(HomeScreen))).pop();
+      await tester.pumpAndSettle();
+
+      expect(registry.invoke(MacCommand.signOut), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Sign out of the dashboard?'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(signOuts, 0);
     });
 
     testWidgets('the footer asks the same before signing out', (tester) async {

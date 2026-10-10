@@ -597,8 +597,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final built = _build(context);
-    if (platformChromeOf(context) != PlatformChrome.macos) return built;
-    if (!_macLoaded) {
+    final chrome = platformChromeOf(context);
+    if (!chrome.isApple) return built;
+    final mac = chrome == PlatformChrome.macos;
+    if (mac && !_macLoaded) {
       _macLoaded = true;
       _sidebar.load();
       _chatProfiles?.load();
@@ -620,7 +622,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               : null,
         ),
       },
-      child: MacSidebarScope(controller: _sidebar, child: built),
+      child: mac ? MacSidebarScope(controller: _sidebar, child: built) : built,
     );
   }
 
