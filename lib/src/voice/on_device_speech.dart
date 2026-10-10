@@ -98,6 +98,19 @@ class OnDeviceSpeech {
     return _sessions[id] = OnDeviceSession._(this, id);
   }
 
+  /// Everything heard in [audio], a whole recording (AAC, WAV and the other
+  /// formats the platform decodes); empty when it heard no speech.
+  Future<String> transcribeFile(
+    Uint8List audio, {
+    required String locale,
+  }) async {
+    final text = await _invoke<String>('transcribeFile', {
+      'audio': audio,
+      'locale': locale,
+    });
+    return text?.trim() ?? '';
+  }
+
   void _listen() {
     _events ??= events.receiveBroadcastStream().listen(
       _onEvent,
