@@ -36,8 +36,13 @@ class ThreadHousekeeping {
   final ValueChanged<ChatThread> removed;
 
   /// Every message of [thread], read from the dashboard when the sidebar has
-  /// not loaded them all.
-  final Future<List<ChatMessage>> Function(ChatThread thread) history;
+  /// not loaded them all. [cancelled], when given, is asked between pages: once
+  /// it answers true the read stops and throws.
+  final Future<List<ChatMessage>> Function(
+    ChatThread thread, {
+    bool Function()? cancelled,
+  })
+  history;
 
   final _busy = <String>{};
   int _nextOffset = 0;

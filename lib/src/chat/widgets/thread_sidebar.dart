@@ -641,7 +641,7 @@ class _SectionedThreadListState extends State<_SectionedThreadList> {
     return DragOut(
       key: ValueKey('thread-${thread.id}'),
       kind: DragOutKind.thread,
-      item: () => threadDragItem(thread, widget.housekeeping),
+      item: () => threadDragItem(thread, housekeeping),
       child: row,
     );
   }

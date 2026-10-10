@@ -6,17 +6,31 @@ import '../../drag_out/drag_out_source.dart';
 import '../../theme/app_icons.dart';
 import '../../theme/hermes_theme.dart';
 
-/// A message with a grip at its top end, shown under the pointer, that drags
-/// the message's Markdown [text] out of the app as plain text and as Markdown.
+/// The width reserved beside a message for its grip.
+const double kMessageGripGutter = 26;
+
+/// A message with a gutter beside it holding a grip, shown under the pointer,
+/// that drags the message's Markdown [text] out of the app as plain text and
+/// as Markdown.
 ///
 /// The text itself belongs to the `SelectionArea` inside [child], so it cannot
-/// be the handle. Where drag-out does not exist (any platform but macOS, the
-/// catalog, conversation windows) or [text] is empty, this is [child].
+/// be the handle, and the grip sits beside the message, not over it: nothing
+/// in it (a code block's copy button, the end of a line) is ever covered.
+/// With drag-out missing (any platform but macOS, a conversation window) or
+/// no [text], this is [child]. While [enabled] is false (a reply still
+/// streaming) the gutter stays, so the message does not jump when it ends, but
+/// there is no grip.
 class MessageDragGrip extends StatefulWidget {
-  const MessageDragGrip({super.key, required this.text, required this.child});
+  const MessageDragGrip({
+    super.key,
+    required this.text,
+    required this.child,
+    this.enabled = true,
+  });
 
   final String text;
   final Widget child;
+  final bool enabled;
 
   @override
   State<MessageDragGrip> createState() => _MessageDragGripState();
@@ -30,18 +44,19 @@ class _MessageDragGripState extends State<MessageDragGrip> {
     final available =
         widget.text.isNotEmpty && context.watch<DragOutSource?>() != null;
     if (!available) return widget.child;
+    final shown = widget.enabled && _hovered;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
-      child: Stack(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          widget.child,
-          if (_hovered)
-            PositionedDirectional(
-              top: 0,
-              end: 0,
-              child: _Grip(text: widget.text),
-            ),
+          Flexible(child: widget.child),
+          SizedBox(
+            width: kMessageGripGutter,
+            child: shown ? _Grip(text: widget.text) : null,
+          ),
         ],
       ),
     );
@@ -54,32 +69,25 @@ class _Grip extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return DragOut(
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.topEnd,
+    child: DragOut(
       kind: DragOutKind.text,
       item: () => DragOutText(text),
       child: MouseRegion(
         cursor: SystemMouseCursors.grab,
-        child: Semantics(
-          label: 'Drag message text',
-          child: Tooltip(
-            message: 'Drag message text',
-            child: Container(
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: AppIcon(
-                AppIcons.dragHandle,
-                size: 16,
-                color: context.hermesColors.subtleText,
-              ),
+        child: Tooltip(
+          message: 'Drag message text',
+          child: Padding(
+            padding: const EdgeInsets.all(3),
+            child: AppIcon(
+              AppIcons.dragHandle,
+              size: 16,
+              color: context.hermesColors.subtleText,
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

@@ -147,14 +147,20 @@ class MacDragOutSource implements DragOutSource {
     return found;
   }
 
-  /// Swift failed the promise because [_read] took too long.
+  /// Swift failed the promise because [_read] took too long: stop the read
+  /// and log the timeout as a step of its own.
   void _timedOut(int id) {
     final drag = _drags.remove(id);
     if (drag == null) return;
+    try {
+      drag.file?.cancel?.call();
+    } on Object {
+      // Stopping a read is best effort.
+    }
     telemetry.completed(
       drag.kind,
       DragOutOutcome.failed,
-      failure: drag.file?.failure ?? DragOutFailure.fetch,
+      failure: DragOutFailure.timeout,
     );
   }
 
@@ -249,7 +255,12 @@ class _DragStarterState extends State<_DragStarter> {
     // Once per press, whether or not there is anything to drag.
     _origin = null;
     final item = widget.item();
-    if (item != null) widget.onDrag(item);
+    if (item == null) return;
+    widget.onDrag(item);
+    // The native session takes the pointer from here on and posts its own
+    // button up where it ends; cancelled here, a release near the start does
+    // not count as a click on whatever is underneath.
+    GestureBinding.instance.cancelPointer(event.pointer);
   }
 
   void _end(PointerEvent event) => _origin = null;

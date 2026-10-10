@@ -488,11 +488,13 @@ WidgetbookNode chatNode() => WidgetbookFolder(
           ),
         ),
         _tool(
-          'Streaming reply, no grip',
-          const SizedBox(
-            width: double.infinity,
-            height: 72,
-            child: Text('The build is still runn'),
+          'Streaming reply (gutter kept, no grip)',
+          withCatalogDragOut(
+            const MessageDragGrip(
+              text: 'The build is still runn',
+              enabled: false,
+              child: Text('The build is still runn'),
+            ),
           ),
         ),
         _tool(

@@ -155,6 +155,42 @@ void main() {
       expect(trail.recent, isEmpty);
     });
 
+    testWidgets('a drag that is let go near where it began is not a click', (
+      tester,
+    ) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Provider<DragOutSource?>.value(
+            value: source,
+            child: Center(
+              child: DragOut(
+                kind: DragOutKind.attachment,
+                item: () => DragOutFile(name: 'a.pdf', read: _noBytes),
+                child: GestureDetector(
+                  onTap: () => taps++,
+                  child: const SizedBox.square(
+                    dimension: 100,
+                    child: Text('card'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Past the drag slop, inside the tap slop, then released.
+      final gesture = await press(tester);
+      await gesture.moveBy(const Offset(dragOutSlop + 3, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      expect(started, hasLength(1));
+      expect(taps, 0);
+    });
+
     testWidgets('a tap still reaches the widget underneath', (tester) async {
       var taps = 0;
       await tester.pumpWidget(
@@ -423,24 +459,28 @@ void main() {
       });
     });
 
-    testWidgets('the same step is logged when Swift gives up', (tester) async {
+    testWidgets('a promise Swift gave up on stops the read and is a timeout', (
+      tester,
+    ) async {
+      var cancelled = 0;
       await begin(
         tester,
         DragOutFile(
           name: 'Chat.md',
           read: _noBytes,
           failure: DragOutFailure.history,
+          cancel: () => cancelled++,
         ),
       );
 
       await fromNative('readTimedOut', 1);
 
-      expect(events.single.$2['failure'], 'history');
-    });
-
-    testWidgets('thread and text kinds are slugs', (tester) async {
-      expect(DragOutKind.text.slug, 'text');
-      expect(DragOutKind.thread.slug, 'thread');
+      expect(cancelled, 1);
+      expect(events.single.$2, {
+        'kind': 'attachment',
+        'outcome': 'failed',
+        'failure': 'timeout',
+      });
     });
 
     testWidgets('text and thread drags log only their kind, outcome and step', (
@@ -506,7 +546,7 @@ void main() {
       expect(events.single.$2, {
         'kind': 'attachment',
         'outcome': 'failed',
-        'failure': 'fetch',
+        'failure': 'timeout',
       });
     });
 
@@ -588,6 +628,11 @@ void main() {
         isNot(contains('secret')),
       );
     });
+  });
+
+  test('thread and text kinds are slugs', () {
+    expect(DragOutKind.text.slug, 'text');
+    expect(DragOutKind.thread.slug, 'thread');
   });
 
   test('is supported only on macOS', () {

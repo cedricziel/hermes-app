@@ -217,9 +217,11 @@ Widget _buildText(
   // The grip drags the text out where drag-out exists; a reply that is still
   // streaming has no final text to hand out yet.
   final streaming = message.metadata?[kMetaStreaming] == true;
-  final draggable = streaming
-      ? bubble
-      : MessageDragGrip(text: message.text, child: bubble);
+  final draggable = MessageDragGrip(
+    text: message.text,
+    enabled: !streaming,
+    child: bubble,
+  );
   if (isSentByMe || streaming) return draggable;
 
   Widget actions(bool latest, TurnActionStatus status) => MessageActions(

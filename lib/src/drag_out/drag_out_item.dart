@@ -33,6 +33,7 @@ final class DragOutFile extends DragOutItem {
     required this.read,
     this.localPath,
     this.failure = DragOutFailure.fetch,
+    this.cancel,
   });
 
   /// The file name the receiver proposes, already safe (see
@@ -51,6 +52,10 @@ final class DragOutFile extends DragOutItem {
   /// What a failed [read] or [localPath] is logged as: the step that got the
   /// content, `history` for a thread export.
   final DragOutFailure failure;
+
+  /// Called when the receiver gave up waiting (the promise timed out), so a
+  /// long read can stop. The drop is logged as [DragOutFailure.timeout].
+  final void Function()? cancel;
 }
 
 /// Text the receiver takes as plain text and as Markdown.
@@ -61,7 +66,7 @@ final class DragOutText extends DragOutItem {
 }
 
 /// Why a drop that was accepted produced no data, as logged.
-enum DragOutFailure { fetch, history, write }
+enum DragOutFailure { fetch, history, timeout, write }
 
 /// How a drop ended, as logged.
 enum DragOutOutcome { delivered, failed, cancelled }

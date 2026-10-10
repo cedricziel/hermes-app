@@ -5,7 +5,6 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/thread_export.dart';
 import 'package:hermes_app/src/chat/thread_housekeeping.dart';
-import 'package:hermes_app/src/chat/widgets/thread_actions_menu.dart';
 import 'package:hermes_app/src/drag_out/drag_out_item.dart';
 
 import 'support/fake_hermes_server.dart';
@@ -30,7 +29,8 @@ ChatThread _thread({
 );
 
 ThreadHousekeeping _housekeeping(
-  Future<List<ChatMessage>> Function(ChatThread) history,
+  Future<List<ChatMessage>> Function(ChatThread, {bool Function()? cancelled})
+  history,
 ) => ThreadHousekeeping(
   repository: HermesChatRepository(FakeHermesServer().client().raw),
   threads: () => const [],
@@ -74,6 +74,20 @@ void main() {
     test('a title with nothing in it is called Chat', () {
       expect(threadMarkdown('  ', const []), '# Chat');
     });
+
+    test('the heading is one line', () {
+      expect(
+        threadMarkdown('Plan\n\nthe   offline\tmode', const []),
+        '# Plan the offline mode',
+      );
+    });
+
+    test('a trailing hash is not a closing sequence', () {
+      expect(threadMarkdown('Issue #', const []), r'# Issue \#');
+      expect(threadMarkdown('Issue ##', const []), r'# Issue \##');
+      expect(threadMarkdown('#', const []), r'# \#');
+      expect(threadMarkdown('Issue#12', const []), '# Issue#12');
+    });
   });
 
   group('threadExportFileName', () {
@@ -95,6 +109,13 @@ void main() {
       expect(name, isNot(anyOf(contains('/'), contains('\\'), contains(':'))));
       expect(name, isNot(startsWith('.')));
       expect(name, endsWith('.md'));
+    });
+
+    test('a title of dots alone is called Chat.md', () {
+      expect(threadExportFileName('...'), 'Chat.md');
+      expect(threadExportFileName('..md'), 'Chat.md');
+      expect(threadExportFileName(' . '), 'Chat.md');
+      expect(threadExportFileName('.hidden'), 'hidden.md');
     });
 
     test('a dot in the title is not an extension', () {
@@ -122,7 +143,7 @@ void main() {
       final thread = _thread(messages: loaded);
       final item = threadDragItem(
         thread,
-        _housekeeping((_) async {
+        _housekeeping((_, {cancelled}) async {
           reads++;
           return all;
         }),
@@ -151,11 +172,42 @@ void main() {
     test('is named for the history step when it fails', () {
       final item = threadDragItem(
         _thread(),
-        _housekeeping((_) async => throw StateError('500')),
+        _housekeeping((_, {cancelled}) async => throw StateError('500')),
       )!;
 
       expect(item.failure, DragOutFailure.history);
       expect(_exported(item), throwsStateError);
+    });
+
+    test('cancelling tells the history read to stop', () async {
+      var stopped = false;
+      final item = threadDragItem(
+        _thread(),
+        _housekeeping((_, {cancelled}) async {
+          stopped = cancelled!();
+          return const [];
+        }),
+      )!;
+
+      item.cancel!();
+      await item.read();
+
+      expect(stopped, isTrue);
+    });
+
+    test('a read that was not cancelled is not told to stop', () async {
+      var stopped = true;
+      final item = threadDragItem(
+        _thread(),
+        _housekeeping((_, {cancelled}) async {
+          stopped = cancelled!();
+          return const [];
+        }),
+      )!;
+
+      await item.read();
+
+      expect(stopped, isFalse);
     });
 
     test('the file is UTF-8', () async {

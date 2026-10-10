@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_chat_core/flutter_chat_core.dart' hide MessageStatus;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart' show Chat;
 import 'package:flutter_test/flutter_test.dart';
@@ -24,17 +26,17 @@ void main() {
     mouse = null;
   });
 
-  Finder grip() => find.bySemanticsLabel('Drag message text');
+  Finder grip() => find.byTooltip('Drag message text');
 
-  Future<void> hover(WidgetTester tester, Finder target) async {
-    final at = tester.getCenter(target);
+  Future<void> hover(WidgetTester tester, Finder target, {Offset? at}) async {
+    final to = at ?? tester.getCenter(target);
     if (mouse == null) {
       final created = await tester.createGesture(kind: PointerDeviceKind.mouse);
       addTearDown(created.removePointer);
-      await created.addPointer(location: at);
+      await created.addPointer(location: to);
       mouse = created;
     } else {
-      await mouse!.moveTo(at);
+      await mouse!.moveTo(to);
     }
     await tester.pump();
   }
@@ -43,9 +45,11 @@ void main() {
     WidgetTester tester, {
     String text = '# Title\n\nSome **bold** text',
     bool withSource = true,
+    bool enabled = true,
   }) async {
     final child = MessageDragGrip(
       text: text,
+      enabled: enabled,
       child: const SizedBox(width: 300, height: 80, child: Text('message')),
     );
     await tester.pumpWidget(
@@ -64,14 +68,37 @@ void main() {
 
   group('MessageDragGrip', () {
     testWidgets('shows a grip on hover, not before', (tester) async {
-      final handle = tester.ensureSemantics();
       await pumpGrip(tester);
       expect(grip(), findsNothing);
 
       await hover(tester, find.text('message'));
 
       expect(grip(), findsOneWidget);
-      handle.dispose();
+    });
+
+    testWidgets('the grip is beside the message, never over it', (
+      tester,
+    ) async {
+      await pumpGrip(tester);
+      await hover(tester, find.text('message'));
+
+      final message = tester.getRect(
+        find
+            .ancestor(of: find.text('message'), matching: find.byType(SizedBox))
+            .first,
+      );
+      final handle = tester.getRect(grip());
+      expect(handle.left, greaterThanOrEqualTo(message.right));
+      expect(handle.width, lessThanOrEqualTo(kMessageGripGutter));
+    });
+
+    testWidgets('the grip can be reached from the message', (tester) async {
+      await pumpGrip(tester);
+      await hover(tester, find.text('message'));
+
+      await hover(tester, grip());
+
+      expect(grip(), findsOneWidget, reason: 'still shown over its own gutter');
     });
 
     testWidgets('drags out the Markdown source as text', (tester) async {
@@ -84,34 +111,56 @@ void main() {
       expect((item as DragOutText).text, '# Title\n\nSome **bold** text');
     });
 
-    testWidgets('has no grip without drag-out', (tester) async {
-      final handle = tester.ensureSemantics();
+    testWidgets('is the child itself without drag-out', (tester) async {
       await pumpGrip(tester, withSource: false);
+      final width = tester.getSize(find.byType(MessageDragGrip)).width;
       await hover(tester, find.text('message'));
 
       expect(grip(), findsNothing);
-      handle.dispose();
+      expect(width, 300, reason: 'no gutter is reserved');
     });
 
-    testWidgets('has no grip for a message with no text', (tester) async {
-      final handle = tester.ensureSemantics();
+    testWidgets('is the child itself for a message with no text', (
+      tester,
+    ) async {
       await pumpGrip(tester, text: '');
       await hover(tester, find.text('message'));
 
       expect(grip(), findsNothing);
       expect(source.wraps, isEmpty);
-      handle.dispose();
     });
 
-    testWidgets('the message stays selectable text underneath', (tester) async {
-      await pumpGrip(tester);
+    testWidgets('disabled it keeps the gutter but shows no grip', (
+      tester,
+    ) async {
+      await pumpGrip(tester, enabled: false);
+      await hover(tester, find.text('message'));
 
-      expect(find.text('message'), findsOneWidget);
+      expect(grip(), findsNothing);
+      expect(source.wraps, isEmpty);
+      expect(
+        tester.getSize(find.byType(MessageDragGrip)).width,
+        300 + kMessageGripGutter,
+        reason: 'the message does not jump when the reply finishes',
+      );
     });
   });
 
   group('in the transcript', () {
-    Future<void> pumpTranscript(
+    ChatMessage message(
+      String id,
+      ChatRole role,
+      String text, {
+      MessageStatus status = MessageStatus.sent,
+    }) => ChatMessage(
+      id: id,
+      role: role,
+      content: text,
+      createdAt: DateTime(2026, 1, 1),
+      status: status,
+    );
+
+    Future<InMemoryChatController> pumpTranscript(
       WidgetTester tester,
       List<ChatMessage> messages,
     ) async {
@@ -121,7 +170,7 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
-          theme: buildHermesLightTheme(),
+          theme: buildHermesLightTheme(platform: TargetPlatform.macOS),
           home: Provider<DragOutSource?>.value(
             value: source,
             child: Scaffold(
@@ -137,20 +186,11 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 500));
+      return controller;
     }
 
-    ChatMessage message(
-      String id,
-      ChatRole role,
-      String text, {
-      MessageStatus status = MessageStatus.sent,
-    }) => ChatMessage(
-      id: id,
-      role: role,
-      content: text,
-      createdAt: DateTime(2026, 1, 1),
-      status: status,
-    );
+    Finder text(String start) =>
+        find.textContaining(start, findRichText: true).first;
 
     List<String> dragged() => [
       for (final wrap in source.wraps)
@@ -164,16 +204,18 @@ void main() {
         message('1', ChatRole.user, 'Question'),
         message('2', ChatRole.assistant, 'Answer **bold**'),
       ]);
-      final handle = tester.ensureSemantics();
-      await hover(tester, find.text('Question'));
-      await hover(tester, find.textContaining('Answer', findRichText: true));
+
+      await hover(tester, text('Question'));
+      expect(grip(), findsOneWidget);
+      await hover(tester, text('Answer'));
+      expect(grip(), findsOneWidget);
 
       expect(dragged().toSet(), {'Question', 'Answer **bold**'});
-      handle.dispose();
     });
 
-    testWidgets('a reply still streaming has no grip', (tester) async {
-      await pumpTranscript(tester, [
+    testWidgets('a reply has a grip once it has finished, not while it '
+        'streams', (tester) async {
+      final controller = await pumpTranscript(tester, [
         message(
           '2',
           ChatRole.assistant,
@@ -181,26 +223,70 @@ void main() {
           status: MessageStatus.streaming,
         ),
       ]);
-
+      await hover(tester, text('Half'));
+      expect(grip(), findsNothing);
       expect(dragged(), isEmpty);
+
+      await controller.updateMessage(
+        controller.messages.single,
+        chatMessageToFlyer(message('2', ChatRole.assistant, 'Half an answer'))
+            .single,
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      // The row may be a new one: leave it and come back.
+      await hover(tester, find.byType(Chat), at: const Offset(2, 2));
+      await hover(tester, text('Half'));
+
+      expect(grip(), findsOneWidget);
+      expect(dragged(), ['Half an answer']);
     });
 
-    testWidgets('selecting text in a reply still works', (tester) async {
-      await pumpTranscript(tester, [
-        message('2', ChatRole.assistant, 'Answer one two three'),
-      ]);
+    testWidgets('text can be selected from its far end while the grip is '
+        'shown', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final copied = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final words = List.generate(60, (i) => 'word$i').join(' ');
+      await pumpTranscript(tester, [message('2', ChatRole.assistant, words)]);
+      final reply = text('word0');
+      final box = tester.getRect(reply);
 
-      final target = find.textContaining('Answer', findRichText: true);
-      final gesture = await tester.startGesture(
-        tester.getTopLeft(target) + const Offset(2, 8),
+      // Hover so the grip is shown, then select from the right end of the
+      // first line (where a grip laid over the text would sit) to its start.
+      await hover(tester, reply);
+      expect(grip(), findsOneWidget);
+      final start = Offset(box.right - 3, box.top + 8);
+      final selecting = await tester.startGesture(
+        start,
         kind: PointerDeviceKind.mouse,
       );
-      await gesture.moveBy(const Offset(60, 0));
-      await gesture.up();
+      await selecting.moveTo(Offset(box.left + 2, box.top + 8));
+      await selecting.up();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.meta);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.meta);
       await tester.pump();
 
-      expect(find.byType(SelectionArea), findsWidgets);
-      expect(tester.takeException(), isNull);
+      debugDefaultTargetPlatformOverride = null;
+
+      expect(copied, isNotEmpty);
+      expect(copied.last, startsWith('word0'));
+      expect(copied.last.split(' ').length, greaterThan(3));
     });
   });
 }
