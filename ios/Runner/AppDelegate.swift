@@ -24,10 +24,43 @@ import flutter_local_notifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // The commands of the iPad menu bar. Observed on the iPad simulator: Flutter
+  // sees a key press first and, finding nothing to do with it, UIKit then runs
+  // the command of an enabled item, once; the chord of a disabled item is not
+  // taken, so only Flutter sees it.
+  override func buildMenu(with builder: UIMenuBuilder) {
+    super.buildMenu(with: builder)
+    if builder.system == .main {
+      KeyCommandMenu.shared.build(with: builder, action: #selector(hermesCommand(_:)))
+    }
+  }
+
+  @objc func hermesCommand(_ sender: UICommand) {
+    if let command = sender.propertyList as? String { KeyCommandMenu.shared.invoke(command) }
+  }
+
+  override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+    guard action == #selector(hermesCommand(_:)) else {
+      return super.canPerformAction(action, withSender: sender)
+    }
+    guard let command = (sender as? UICommand)?.propertyList as? String else { return false }
+    return KeyCommandMenu.shared.isEnabled(command)
+  }
+
+  override func validate(_ command: UICommand) {
+    super.validate(command)
+    guard command.action == #selector(hermesCommand(_:)),
+      let name = command.propertyList as? String,
+      let title = KeyCommandMenu.shared.title(of: name)
+    else { return }
+    command.title = title
+  }
+
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     NotificationCategories.install(messenger: engineBridge.applicationRegistrar.messenger())
     ChatHandoff.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
+    KeyCommandMenu.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     LiveActivityLaunch.shared.install(messenger: engineBridge.applicationRegistrar.messenger())
     watchRelay = WatchRelay(messenger: engineBridge.applicationRegistrar.messenger())
     webAuth = WebAuthSession(messenger: engineBridge.applicationRegistrar.messenger())

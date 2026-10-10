@@ -891,3 +891,26 @@ than the first page, and one that is gone: "Could not open that chat."),
 applied after sign-in. With App Lock on, the chat is open behind the lock
 screen. With telemetry on, the breadcrumbs `deeplink.opened` and
 `deeplink.ignored` appear in a crash record and hold no URL, id or prompt.
+
+## Verify the iPad keyboard commands
+
+`ios/Runner/KeyCommandMenu.swift` puts the Mac commands into the iPadOS menu
+bar and the ⌘-hold list (`lib/src/macos/ipad_menu_bridge.dart`, channel
+`hermes_app/menu`). This Xcode may have no Simulator.app, and `simctl` cannot
+press keys, so drive the keyboard with an XCUITest instead:
+`app.typeKey("n", modifierFlags: .command)` in a throwaway UI-test bundle
+(outside the repo, built with `xcodebuild test -destination id=<ipad udid>` and
+`XCUIApplication(bundleIdentifier: "com.cedricziel.hermesApp")`). The first key
+after a launch is swallowed, so press a harmless chord first.
+
+- Install a debug build (`flutter build ios --simulator -d <udid> --debug`),
+  then `xcrun simctl spawn <udid> log stream --predicate 'eventMessage CONTAINS "..."'`
+  to read temporary `NSLog` lines (remove them afterwards). Flutter sees a key
+  first and UIKit runs the command of an enabled item once; a disabled item's
+  chord only reaches Flutter.
+- To look at the menu tree, log `builder.menu(for: .root)` recursively from
+  `buildMenu(with:)`; the rendered menu bar is not in the accessibility tree.
+- ⌘N starts a chat, ⌘F focuses the sidebar search (only while the sidebar is
+  beside the chat), ⇧⌘P is disabled with no chat, ⌘A/⌘C/⌘V still edit the
+  composer. Kanban retitles ⌘N to New Task. The chat screen needs a repository
+  for Find, so a mock-data ChatScreen shows ⌘F disabled.

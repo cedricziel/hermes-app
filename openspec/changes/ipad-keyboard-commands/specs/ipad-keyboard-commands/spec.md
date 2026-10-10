@@ -8,7 +8,7 @@ Describes the commands Hermes adds to the iPadOS menu bar and to the list shown 
 
 ### Requirement: iPad menu bar commands
 
-On iPadOS, and on an iPhone with a hardware keyboard where holding ⌘ lists the app's commands, the system SHALL add these items to the system menus, in this order:
+On iPadOS the system SHALL add these items to the system menus, in this order:
 
 - Hermes: About Hermes; Settings… (⌘,); Connection Details, Sign Out…
 - File: New Chat (⌘N)
@@ -52,6 +52,16 @@ An iPad item SHALL be enabled exactly when the screen on view offers its command
 - **WHEN** a settings page such as Skills is open and the user presses ⌘[
 - **THEN** the page closes; with no page to leave, Back is disabled
 
+#### Scenario: A dialog or sheet in front
+
+- **WHEN** a dialog or sheet covers the chat and the user presses ⌘N
+- **THEN** no chat is started behind it; the commands return when it closes
+
+#### Scenario: iPhone
+
+- **WHEN** the app runs on an iPhone with a hardware keyboard
+- **THEN** none of these items or chords is added
+
 ### Requirement: Find on iPad
 
 Find… SHALL put the cursor in the sidebar's chat search field when the sidebar is on screen, and SHALL be disabled when it is not.
@@ -74,6 +84,15 @@ The menu SHALL NOT bind ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z, ⇧⌘Z or ⌘⌫. The sys
 
 - **WHEN** the composer has focus and the user presses ⌘⌫
 - **THEN** the text before the cursor on that line is deleted and the selected chat is kept
+
+### Requirement: Input method composition
+
+A menu command SHALL NOT run while the focused text field holds marked text (an input method is composing).
+
+#### Scenario: Japanese composition
+
+- **WHEN** the user is composing text in the composer and presses ⌘N
+- **THEN** no chat is started
 
 ### Requirement: Backend contract
 

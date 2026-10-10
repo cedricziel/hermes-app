@@ -854,8 +854,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _closeDrawerIfNarrow();
   }
 
+  /// Puts the cursor in the sidebar's search field, which an iPad shows beside
+  /// the chat.
+  void _focusSidebarSearch() => _searchFocus.requestFocus();
+
   /// What the menu bar's File and Chat menus do here.
-  Map<MacCommand, MacCommandHandler> _menuCommands() {
+  Map<MacCommand, MacCommandHandler> _menuCommands({required bool ios}) {
     final thread = _chat.selectedThread;
     final housekeeping = _chat.housekeeping;
     final managed = thread != null && thread.remote && housekeeping != null;
@@ -874,9 +878,11 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             ? () => unawaited(_openInWindow(thread))
             : null,
       ),
-      MacCommand.find: MacCommandHandler(
-        _chat.search == null ? null : _beginSearch,
-      ),
+      // An iPad's Find is offered from the layout, where the sidebar is known.
+      if (!ios)
+        MacCommand.find: MacCommandHandler(
+          _chat.search == null ? null : _beginSearch,
+        ),
       MacCommand.pinThread: MacCommandHandler(
         on(ThreadAction.pin, when: managed),
         title: thread?.pinned ?? false ? 'Unpin' : 'Pin',
@@ -1126,8 +1132,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      MacCommandScope(commands: _menuCommands(), child: _buildScreen(context));
+  Widget build(BuildContext context) => MacCommandScope(
+    commands: _menuCommands(
+      ios: platformChromeOf(context) == PlatformChrome.ios,
+    ),
+    child: _buildScreen(context),
+  );
 
   Widget _buildScreen(BuildContext context) {
     final chat = _chat;
@@ -1185,6 +1195,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           housekeeping: chat.housekeeping,
           search: chat.search,
           onOpenHit: _openHit,
+          searchFocus: _searchFocus,
           searchProfile: chat.profile,
           onOpenProfiles: _profiles == null ? null : _openProfiles,
           onOpenMessaging: _messaging == null ? null : _openMessaging,
@@ -1249,7 +1260,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
         );
 
-        return Scaffold(
+        final scaffold = Scaffold(
           key: _scaffoldKey,
           drawer: isWide
               ? null
@@ -1289,6 +1300,15 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                     Expanded(child: threadView),
                   ],
                 ),
+        );
+        if (platformChromeOf(context) != PlatformChrome.ios) return scaffold;
+        return MacCommandScope(
+          commands: {
+            MacCommand.find: MacCommandHandler(
+              isWide && search != null ? _focusSidebarSearch : null,
+            ),
+          },
+          child: scaffold,
         );
       },
     );

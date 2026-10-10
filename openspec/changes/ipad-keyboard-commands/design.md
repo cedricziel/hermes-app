@@ -30,7 +30,7 @@ How keys reach Flutter on iOS: `FlutterViewController` overrides `pressesBegan`/
 
 `ios/Runner/KeyCommandMenu.swift` keeps the layout and state. `AppDelegate`:
 
-- `buildMenu(with:)` (main system only): removes `.find`, `.format`, `.newScene`; inserts About into `.about`, Settings… into `.preferences`, Connection Details and Sign Out… after it, New Chat at the start of `.file`, Back at the start of `.view`, a "Chat" menu after `.view`, Hermes Help into `.help`. Each item is a `UIKeyCommand(title:action:#selector(hermesCommand(_:)), input:modifierFlags:propertyList: commandName)`, or a `UICommand` without a chord.
+- `buildMenu(with:)` (main system only): removes `.find`, `.format`, `.newScene`, `.sidebar` and `.toolbar` (Show Sidebar, Customize Toolbar); replaces the system About and Settings items (`.about`, `.preferences`) with the layout's three Hermes groups, inserted at the start of `.application`; New Chat at the start of `.file`, Back at the start of `.view`, a "Chat" menu after `.view`, Hermes Help at the start of `.help`. Checked by logging the built tree on the iPad simulator. Each item is a `UIKeyCommand(title:action:#selector(hermesCommand(_:)), input:modifierFlags:propertyList: commandName)`, or a `UICommand` without a chord.
 - `canPerformAction` returns the Dart state's enabled flag for `hermesCommand(_:)`; `validate(_:)` sets the Dart title (Pin/Unpin, New Task).
 - `hermesCommand(_:)` calls `invoke(command)` on the channel; Dart runs `registry.invoke` and adds the breadcrumb.
 - `setState` calls `UIMenuSystem.main.setNeedsRevalidate()`; `setLayout` calls `setNeedsRebuild()`.
@@ -38,6 +38,10 @@ How keys reach Flutter on iOS: `FlutterViewController` overrides `pressesBegan`/
 ### iPad scopes
 
 `AppShell` offers Settings, Connection Details and Sign Out with iOS chrome too. `ChatScreen`'s Find on iOS focuses the sidebar's `ThreadSearchView` field (a new `FocusNode` parameter) when the sidebar is on screen, and is null otherwise, so ⌘F then reaches Flutter. Delete… on iPad has no chord.
+
+### Idiom, composition and covered screens
+
+The runner adds the menu and answers `canPerformAction` only when `UIDevice.userInterfaceIdiom == .pad`; an iPhone keeps the system menus. `IpadMenuBridge` ignores an `invoke` while the focused `EditableText` has a non-collapsed composing range. On iOS a `MacCommandScope` also offers nothing while its route is not current (`ModalRoute.isCurrentOf`), so a dialog or sheet over the chat takes its commands away; the Mac keeps the earlier behavior.
 
 ### Platforms and native changes
 
@@ -60,7 +64,7 @@ None holds user content.
 
 ## Risks / Trade-offs
 
-- [Key command precedence is not as described: Flutter sees the press as well, or first] → task 1.1 is a spike on the iPad simulator with a hardware keyboard: bind ⌘N natively, add a Flutter `HardwareKeyboard` logger, and record which side gets the press with and without a focused text field, and when the command is disabled. If Flutter also gets it, the bridge marks the chord handled in Dart (`HardwareKeyboard` handler that swallows chords of enabled commands) so each command runs once.
+- [Key command precedence is not as described: Flutter sees the press as well, or first] -> spiked on the iPad Air 11-inch (M4) simulator, iOS 26.5, with a debug build and ⌘N and ⌘F bound as `UIKeyCommand`s in `buildMenu(with:)`. The simulator app is missing from this Xcode, so the keys came from an XCUITest (`typeKey`), which injects hardware keyboard presses. Result: **Flutter sees every press first** (a temporary `HardwareKeyboard` handler logged ⌘ and N), returns false because nothing handles it, and UIKit then runs the command's action **once** (`canPerformAction` answered true). The same with the engine's text field focused. With `canPerformAction` returning false (checked with and without a focused field) the action was never called and Flutter alone saw the key, so a disabled item hands its chord on. ⌘A and ⌘C, unbound natively, reached Flutter only. Consequence: the order differs from the paragraph in Context, but the design holds as long as no Flutter-side handler acts on a chord the menu owns. On iOS none does (`ChatScreen` has no `HardwareKeyboard` handler, no default Flutter shortcut binds ⌘N, ⌘F, ⌘, ⌘[ or ⇧⌘P), so the bridge needs no swallowing handler; a Flutter handler added later for such a chord would run next to the menu item and must not be.
 - [A duplicate chord in the main menu makes UIKit log or throw] → the clashing system menus are removed first, and a Dart test asserts the iPad layout has no duplicate chord and none of ⌘C, ⌘V, ⌘X, ⌘A, ⌘Z, ⇧⌘Z, ⌘⌫.
 - [Revalidation lags a frame behind Dart] → acceptable; UIKit also asks `canPerformAction` when a chord is pressed, which reads the latest state.
 - [`MacCommand` naming on iPad] → kept; renaming the enum is a refactor for another day.

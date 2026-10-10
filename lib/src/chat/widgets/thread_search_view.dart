@@ -15,10 +15,14 @@ class ThreadSearchField extends StatefulWidget {
     super.key,
     required this.query,
     required this.onChanged,
+    this.focusNode,
   });
 
   final String query;
   final ValueChanged<String> onChanged;
+
+  /// Lets a caller put the cursor in the field, as Find does on an iPad.
+  final FocusNode? focusNode;
 
   @override
   State<ThreadSearchField> createState() => _ThreadSearchFieldState();
@@ -45,6 +49,7 @@ class _ThreadSearchFieldState extends State<ThreadSearchField> {
     return TextField(
       key: const Key('thread-search-field'),
       controller: _text,
+      focusNode: widget.focusNode,
       onChanged: widget.onChanged,
       textInputAction: TextInputAction.search,
       style: const TextStyle(fontSize: 13),
