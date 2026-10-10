@@ -14,6 +14,8 @@ import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
 import '../profiles/hermes_profiles_repository.dart';
+import '../voice/dictation_settings.dart';
+import '../voice/on_device_speech.dart';
 import 'watch_request_handler.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
@@ -38,11 +40,14 @@ class WatchBridge {
   /// null off iOS, where there is no watch to relay for.
   ///
   /// A turn sent from the watch is announced through [notifications], under
-  /// the user's [settings].
+  /// the user's [settings]. A voice message is transcribed by [speech] while
+  /// [dictation] picks the device's recognizer.
   static WatchBridge? forAuth(
     AuthController auth, {
     NotificationService? notifications,
     NotificationSettings? settings,
+    required OnDeviceSpeech speech,
+    required DictationSettings dictation,
     AppEventLogger events = noopAppEventLogger,
   }) {
     if (!Platform.isIOS) return null;
@@ -52,10 +57,25 @@ class WatchBridge {
       handler: handlerFor(
         auth,
         announce: announcer(notifications, settings),
+        transcribeOnDevice: onDeviceTranscriber(speech, dictation),
         events: events,
       ),
     );
   }
+
+  /// Transcribes a voice message with the phone's recognizer in its language
+  /// while the user's dictation engine is the device. Answers null, so the
+  /// server transcribes it, for the Hermes engine; the handler does the same
+  /// when recognition fails, such as for a language without a model.
+  static Future<String?> Function(Uint8List) onDeviceTranscriber(
+    OnDeviceSpeech speech,
+    DictationSettings dictation,
+  ) => (audio) async {
+    // A watch request can wake the app before the saved engine was read.
+    if (!dictation.loaded) await dictation.load();
+    if (dictation.engine != DictationEngine.device) return null;
+    return speech.transcribeFile(audio, locale: OnDeviceSpeech.deviceLocale());
+  };
 
   /// Posts what the relay announces, while notifications are on. It never asks
   /// for permission: the prompt would appear on a phone the user is not
@@ -77,6 +97,7 @@ class WatchBridge {
   static WatchRequestHandler handlerFor(
     AuthController auth, {
     void Function(AttentionNotification) announce = _ignore,
+    Future<String?> Function(Uint8List)? transcribeOnDevice,
     AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
   }) {
@@ -107,6 +128,7 @@ class WatchBridge {
 
     return WatchRequestHandler(
       announce: announce,
+      transcribeOnDevice: transcribeOnDevice,
       connecting: connecting,
       ready: ready,
       repository: () {
@@ -171,6 +193,8 @@ class WatchBridge {
       'auth.state': _authState(),
     });
     final reply = await _handler.handle(request);
+    // Only telemetry reads it; the watch gets the text alone.
+    final engine = reply['engine'];
     timer.stop();
     final result = reply['ok'] == true
         ? 'ok'
@@ -185,7 +209,8 @@ class WatchBridge {
       'auth.state': _authState(),
       'watch.result': result,
       'watch.duration_ms': timer.elapsedMilliseconds,
+      if (engine is String) 'watch.transcribe_engine': engine,
     });
-    return reply;
+    return {...reply}..remove('engine');
   }
 }
