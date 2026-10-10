@@ -38,8 +38,10 @@ class _NotificationsDialog extends StatelessWidget {
         GroupedSection(
           footer:
               'When a reply finishes or Hermes needs you, while the app is not '
-              'in front. Replies show a preview; requests only say that Hermes '
-              'is waiting.',
+              'in front. Replies show a preview. Approvals and questions show '
+              'the command or the question and can be answered from the '
+              'notification; the text stays hidden on a locked screen when '
+              'the system hides previews there.',
           children: [
             GroupedSwitchRow(
               key: const Key('notify-me'),

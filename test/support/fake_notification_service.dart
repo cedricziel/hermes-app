@@ -30,6 +30,13 @@ class FakeNotificationService implements NotificationService {
   final shown = <AttentionNotification>[];
   var permissionRequests = 0;
   final _taps = StreamController<NotificationTarget>.broadcast();
+  final _answers = StreamController<NotificationAnswer>.broadcast();
+
+  /// Simulates a button on a request notification that reached this isolate.
+  void answer(NotificationAnswer answer) => _answers.add(answer);
+
+  @override
+  Stream<NotificationAnswer> get answers => _answers.stream;
 
   void tap(String threadId, {String? profile}) =>
       _taps.add(NotificationTarget(threadId: threadId, profile: profile));
@@ -61,5 +68,8 @@ class FakeNotificationService implements NotificationService {
   }
 
   @override
-  Future<void> dispose() => _taps.close();
+  Future<void> dispose() async {
+    await _taps.close();
+    await _answers.close();
+  }
 }

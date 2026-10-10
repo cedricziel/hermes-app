@@ -18,6 +18,7 @@ import 'src/live_activities/live_activities.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
+import 'src/notifications/request_answers.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_controller.dart';
 import 'src/share/share_inbox.dart';
@@ -146,6 +147,21 @@ Future<void> main([List<String> args = const []]) async {
             dictation: context.read<DictationSettings>(),
           )?..start(),
           dispose: (_, bridge) => bridge?.dispose(),
+        ),
+        Provider<RequestAnswers?>(
+          lazy: false,
+          create: (context) {
+            if (defaultTargetPlatform != TargetPlatform.iOS &&
+                defaultTargetPlatform != TargetPlatform.macOS) {
+              return null;
+            }
+            return RequestAnswers.forAuth(
+              context.read<AuthController>(),
+              service: context.read<NotificationService>(),
+              breadcrumbs: context.read<Breadcrumbs>(),
+            )..start();
+          },
+          dispose: (_, answers) => answers?.dispose(),
         ),
         ChangeNotifierProvider(
           create: (_) => ShareController(createPlatformShareInbox())..start(),

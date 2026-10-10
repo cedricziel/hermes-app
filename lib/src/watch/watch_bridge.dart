@@ -7,12 +7,11 @@ import 'package:flutter_otel/flutter_otel.dart'
 
 import '../api/hermes_api_client.dart';
 import '../auth/auth_controller.dart';
-import '../chat/gateway/gateway_connection.dart';
-import '../chat/gateway/hermes_gateway_transport.dart';
 import '../chat/hermes_chat_repository.dart';
 import '../notifications/attention_policy.dart';
 import '../notifications/notification_service.dart';
 import '../notifications/notification_settings.dart';
+import '../notifications/request_answers.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
@@ -105,49 +104,16 @@ class WatchBridge {
     HermesApiClient? readyApi() =>
         auth.state == HermesConnectionState.ready ? auth.api : null;
 
-    bool connecting() => switch (auth.state) {
-      HermesConnectionState.initializing ||
-      HermesConnectionState.connecting ||
-      HermesConnectionState.signingIn ||
-      HermesConnectionState.connectionError => true,
-      _ => false,
-    };
-
-    Future<void> ready() {
-      final settled = Completer<void>();
-      void check() {
-        if (!connecting() && !settled.isCompleted) settled.complete();
-      }
-
-      auth.addListener(check);
-      check();
-      return settled.future
-          .timeout(readyTimeout, onTimeout: () {})
-          .whenComplete(() => auth.removeListener(check));
-    }
-
     return WatchRequestHandler(
       announce: announce,
       transcribeOnDevice: transcribeOnDevice,
-      connecting: connecting,
-      ready: ready,
+      connecting: () => authConnecting(auth),
+      ready: () => authSettled(auth, timeout: readyTimeout),
       repository: () {
         final api = readyApi();
         return api == null ? null : HermesChatRepository(api.raw);
       },
-      transport: () {
-        final api = readyApi();
-        final baseUrl = auth.baseUrl;
-        if (api == null || baseUrl == null) return null;
-        return HermesGatewayTransport(
-          connect: hermesGatewayConnect(
-            baseUrl: baseUrl,
-            authRequired: auth.status?.authRequired ?? true,
-            api: api,
-          ),
-          events: events,
-        );
-      },
+      transport: () => gatewayTransportFor(auth, events: events),
       activeProfile: () async {
         final api = readyApi();
         if (api == null) return null;

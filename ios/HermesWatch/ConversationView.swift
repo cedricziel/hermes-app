@@ -27,6 +27,9 @@ struct ConversationView: View {
           if model.phase == .sending {
             WorkingRow(text: "Hermes is thinking…")
           }
+          if case .waiting(let waiting) = model.phase {
+            WorkingRow(text: waiting == .question ? "Hermes has a question" : "Waiting for your approval")
+          }
           if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }
           }
@@ -49,9 +52,7 @@ struct ConversationView: View {
     }
   }
 
-  private var busy: Bool {
-    model.phase == .sending || model.phase == .loading || model.phase == .transcribing
-  }
+  private var busy: Bool { model.busy }
 
   @ViewBuilder
   private var composer: some View {

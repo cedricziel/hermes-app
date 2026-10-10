@@ -41,12 +41,18 @@ struct RelayClient: HermesClient {
     }
   }
 
-  func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+  func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
     var message: [String: Any] = ["op": "send", "text": text, "sendId": sendId]
     if let threadId { message["threadId"] = threadId }
+    if retry { message["retry"] = true }
     let reply = try await call(message)
-    guard let text = reply["text"] as? String else { throw HermesClientError.failed }
     let boundId = reply["threadId"] as? String
+    if let waiting = reply["waiting"] as? String {
+      return SendResult(
+        threadId: boundId, text: "", failed: false,
+        waiting: SendResult.Waiting(rawValue: waiting) ?? .working)
+    }
+    guard let text = reply["text"] as? String else { throw HermesClientError.failed }
     if threadId == nil, boundId == nil { throw HermesClientError.failed }
     return SendResult(
       threadId: boundId,

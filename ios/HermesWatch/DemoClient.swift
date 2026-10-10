@@ -38,7 +38,7 @@ import Foundation
       ]
     }
 
-    func send(threadId: String?, text: String, sendId: String) async throws -> SendResult {
+    func send(threadId: String?, text: String, sendId: String, retry: Bool) async throws -> SendResult {
       try await Task.sleep(for: .seconds(1))
       return SendResult(threadId: threadId ?? "d9", text: "Done. The next backup runs at **02:00**.", failed: false, tools: ["edit_file"])
     }

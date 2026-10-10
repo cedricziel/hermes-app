@@ -159,6 +159,9 @@ class FakeGateway {
   /// The `status` `clarify.lock` reports.
   String lockStatus = 'ok';
 
+  /// The `status` `request.answer` reports.
+  String answerStatus = 'ok';
+
   /// The `status` `sudo.respond` and `secret.respond` report.
   String skipStatus = 'ok';
 
@@ -393,6 +396,11 @@ class FakeGateway {
         _send({
           'id': id,
           'result': {'status': skipStatus},
+        });
+      case 'request.answer':
+        _send({
+          'id': id,
+          'result': {'status': answerStatus},
         });
       case 'clarify.lock':
         _send({

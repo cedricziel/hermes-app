@@ -149,7 +149,9 @@ void main() {
     expect(service.shown.single.threadId, 's1');
   });
 
-  testWidgets('an approval is announced without its command', (tester) async {
+  testWidgets('an approval is announced with its command and buttons', (
+    tester,
+  ) async {
     await pump(tester);
     final turn = await send(tester, 'Clean up');
     leaveTheApp(tester);
@@ -158,10 +160,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    expect(service.shown.single.body, kApprovalBody);
+    expect(service.shown.single.body, 'rm -rf build');
+    expect(service.shown.single.category?.placeholder, kApprovalBody);
   });
 
-  testWidgets('a clarify question is announced generically', (tester) async {
+  testWidgets('a clarify question is announced with the question', (
+    tester,
+  ) async {
     await pump(tester);
     final turn = await send(tester, 'Ask me');
     leaveTheApp(tester);
@@ -177,7 +182,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    expect(service.shown.single.body, kQuestionBody);
+    expect(service.shown.single.body, 'Which colour?');
+    expect(service.shown.single.category?.placeholder, kQuestionBody);
   });
 
   testWidgets('nothing is said when notifications are off', (tester) async {

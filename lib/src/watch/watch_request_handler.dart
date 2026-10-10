@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import '../chat/chat_models.dart';
@@ -25,6 +26,8 @@ class WatchRequestHandler {
     this.connecting = _never,
     this.ready = _alreadyReady,
     this.sendTimeout = const Duration(seconds: 60),
+    this.waitingTimeout = const Duration(minutes: 15),
+    this.waitingHold = const Duration(seconds: 20),
     this.announce = _ignore,
     this.transcribeOnDevice,
   });
@@ -72,8 +75,18 @@ class WatchRequestHandler {
   /// How long a send may go without an event before it is given up on.
   final Duration sendTimeout;
 
-  /// Tells the user a turn they sent from the watch is over. The watch may
-  /// have lost sight of it by then, so it is called whatever the phone shows.
+  /// The same while the turn waits on the user's approval or answer, which
+  /// they give from the notification.
+  final Duration waitingTimeout;
+
+  /// How long a retry of a send that waited on the user is held before it is
+  /// answered with the state again. Each answer must come within the phone's
+  /// background time, and the watch's next retry wakes the phone again.
+  final Duration waitingHold;
+
+  /// Tells the user a turn they sent from the watch is over or waits on
+  /// them. The watch may have lost sight of it by then, so it is called
+  /// whatever the phone shows.
   final void Function(AttentionNotification notification) announce;
 
   /// What the phone's own recognizer heard in a voice message, or null when
@@ -101,6 +114,7 @@ class WatchRequestHandler {
           request['sendId'],
           request['threadId'],
           request['text'],
+          retry: request['retry'] == true,
         ),
         'transcribe' => await _transcribe(
           request['audio'],
@@ -220,17 +234,37 @@ class WatchRequestHandler {
   /// A retry joins a send still running, repeats a reply already given, and
   /// for a send that failed after Hermes had the prompt reads the chat
   /// instead, so the agent never gets the prompt twice.
+  ///
+  /// A send that waits on the user answers early with `waiting`, and the
+  /// watch retries to keep waiting: see [_poll].
+  ///
+  /// A [retry] is the watch asking again about a send that answered
+  /// `waiting`. When this phone app no longer knows it, as after iOS ended
+  /// the app meanwhile, the chat is read instead: sending it again would give
+  /// the agent the prompt twice.
   Future<Map<String, Object?>> _sendOnce(
     Object? id,
     Object? threadId,
-    Object? text,
-  ) async {
-    if (id is! String || id.isEmpty) return _send(threadId, text);
+    Object? text, {
+    bool retry = false,
+  }) async {
+    if (id is! String || id.isEmpty) {
+      final attempt = _SendAttempt();
+      return attempt.reply = _send(threadId, text, attempt);
+    }
     if (_sends[id] case final earlier?) {
-      final reply = await earlier.reply;
-      if (reply['ok'] == true) return reply;
+      final reply = await _poll(earlier, fresh: false);
+      if (!earlier.finished || reply['ok'] == true) return reply;
       if (earlier.reached) return _afterLostReply(earlier);
       _sends.remove(id);
+    } else if (retry) {
+      final thread = _unbind(threadId);
+      if (thread == null) return _error('failed');
+      return _afterLostReply(
+        _SendAttempt()
+          ..profile = thread.profile
+          ..threadId = thread.id,
+      );
     }
     final attempt = _SendAttempt();
     attempt.reply = _send(
@@ -238,11 +272,38 @@ class WatchRequestHandler {
       text,
       attempt,
     ).catchError((Object _) => _error('failed'));
+    unawaited(attempt.reply.then((_) => attempt.finished = true));
     _sends[id] = attempt;
     while (_sends.length > sendMemory) {
       _sends.remove(_sends.keys.first);
     }
-    return attempt.reply;
+    return _poll(attempt, fresh: true);
+  }
+
+  /// The reply of [attempt] once it is over, or its waiting state as soon as
+  /// that is news to the watch: on a [fresh] send when it starts waiting, on
+  /// a retry when the state changes. A retry of a send that has waited is
+  /// also answered after [waitingHold] with the state as it is.
+  Future<Map<String, Object?>> _poll(
+    _SendAttempt attempt, {
+    required bool fresh,
+  }) async {
+    final shown = fresh ? null : attempt.waiting;
+    var held = false;
+    final hold = !fresh && attempt.waited
+        ? Future<void>.delayed(waitingHold).then((_) => held = true)
+        : null;
+    while (true) {
+      if (attempt.finished) return attempt.reply;
+      if (attempt.waiting != shown || held) {
+        return {
+          'ok': true,
+          ..._threadEntry(attempt.profile, attempt.threadId),
+          'waiting': attempt.waiting ?? 'working',
+        };
+      }
+      await Future.any([attempt.changed, attempt.reply, ?hold]);
+    }
   }
 
   /// What the chat of a send that failed after reaching Hermes holds now:
@@ -272,9 +333,9 @@ class WatchRequestHandler {
 
   Future<Map<String, Object?>> _send(
     Object? threadId,
-    Object? text, [
-    _SendAttempt? attempt,
-  ]) async {
+    Object? text,
+    _SendAttempt attempt,
+  ) async {
     if (text is! String || text.trim().isEmpty) return _error('bad_request');
     final thread = threadId == null ? null : _unbind(threadId);
     if (threadId != null && thread == null) return _error('bad_request');
@@ -285,7 +346,7 @@ class WatchRequestHandler {
     var title = untitledChat;
     final streamed = StringBuffer();
     final tools = <String>{};
-    void announceEnd(ChatEvent event) {
+    void announce(ChatEvent event) {
       final id = boundId;
       if (id == null) return;
       final notification = attentionFor(
@@ -296,24 +357,48 @@ class WatchRequestHandler {
         enabled: true,
         profile: profile,
       );
-      if (notification != null) announce(notification);
+      if (notification != null) this.announce(notification);
     }
 
+    StreamIterator<ChatEvent>? events;
     try {
       profile = thread != null ? thread.profile : await activeProfile();
       boundId = thread?.id;
       attempt
-        ?..profile = profile
+        ..profile = profile
         ..threadId = boundId;
-      final events = chat
-          .send(threadId: boundId, profile: profile, text: text)
-          .timeout(sendTimeout);
-      await for (final event in events) {
-        attempt?.reached = true;
+      final turn = events = StreamIterator(
+        chat.send(threadId: boundId, profile: profile, text: text),
+      );
+      while (await turn.moveNext().timeout(
+        attempt.waiting == null ? sendTimeout : waitingTimeout,
+      )) {
+        final event = turn.current;
+        attempt.reached = true;
+        // The turn Hermes ran ahead of the prompt asks too.
+        final own = event is UnsolicitedEvent ? event.event : event;
+        switch (own) {
+          case ApprovalRequested() || ClarifyRequested():
+            announce(own);
+            attempt.wait(own is ApprovalRequested ? 'approval' : 'question');
+            continue;
+          case VaultRequested() || UnsupportedRequested():
+            announce(own);
+            return {
+              'ok': true,
+              ..._threadEntry(profile, boundId),
+              'text': cannotAnswerText,
+              'failed': false,
+            };
+          case InputRequestExpired() || InputRequestsCancelled():
+          case _ when beginsTurn(own):
+            attempt.wait(null);
+          default:
+        }
         switch (event) {
           case ThreadBound(:final threadId):
             boundId = threadId;
-            attempt?.threadId = threadId;
+            attempt.threadId = threadId;
           case ThreadTitled(title: final named):
             title = named;
           case ReplyDelta(:final text):
@@ -321,7 +406,7 @@ class WatchRequestHandler {
           case ToolStarted(:final name):
             tools.add(name);
           case ReplyCompleted(:final text, :final failed):
-            announceEnd(event);
+            announce(event);
             return {
               'ok': true,
               ..._threadEntry(profile, boundId),
@@ -329,33 +414,16 @@ class WatchRequestHandler {
               'failed': failed,
               if (tools.isNotEmpty) 'tools': [...tools],
             };
-          case ApprovalRequested() ||
-              ClarifyRequested() ||
-              VaultRequested() ||
-              UnsupportedRequested() ||
-              // The turn Hermes ran ahead of the prompt asks too.
-              UnsolicitedEvent(
-                event: ApprovalRequested() ||
-                    ClarifyRequested() ||
-                    VaultRequested() ||
-                    UnsupportedRequested(),
-              ):
-            announceEnd(event is UnsolicitedEvent ? event.event : event);
-            return {
-              'ok': true,
-              ..._threadEntry(profile, boundId),
-              'text': cannotAnswerText,
-              'failed': false,
-            };
           default:
         }
       }
-      announceEnd(const ReplyCompleted('', failed: true));
+      announce(const ReplyCompleted('', failed: true));
       return _error('failed');
     } on Object {
-      announceEnd(const ReplyCompleted('', failed: true));
+      announce(const ReplyCompleted('', failed: true));
       rethrow;
     } finally {
+      unawaited(events?.cancel());
       await chat.close();
     }
   }
@@ -407,11 +475,32 @@ class WatchRequestHandler {
 
 class _SendAttempt {
   late final Future<Map<String, Object?>> reply;
+  bool finished = false;
   String? profile;
   String? threadId;
 
   /// Hermes answered something, so it has the prompt.
   bool reached = false;
+
+  /// `approval` or `question` while the turn waits on the user.
+  String? waiting;
+
+  /// Whether the turn ever waited on the user.
+  bool waited = false;
+
+  var _changed = Completer<void>();
+
+  /// Completes when [waiting] next changes.
+  Future<void> get changed => _changed.future;
+
+  void wait(String? kind) {
+    if (kind == waiting) return;
+    waiting = kind;
+    waited = waited || kind != null;
+    final changed = _changed;
+    _changed = Completer<void>();
+    changed.complete();
+  }
 }
 
 class _Thread {

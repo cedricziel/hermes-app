@@ -8,6 +8,7 @@ import open_file_mac
 import pasteboard
 import shared_preferences_foundation
 import url_launcher_macos
+import UserNotifications
 
 class MainFlutterWindow: NSWindow {
   /// The one main window, whose engine owns the session.
@@ -25,6 +26,7 @@ class MainFlutterWindow: NSWindow {
     RegisterGeneratedPlugins(registry: flutterViewController)
 
     Self.registerClipboard(messenger: flutterViewController.engine.binaryMessenger)
+    NotificationCategories.install(messenger: flutterViewController.engine.binaryMessenger)
 
     // Its engine owns the session that conversation windows borrow, so it
     // must outlive a close; see close().
@@ -324,5 +326,65 @@ final class ConversationWindow: NSObject {
       x: x, y: view.isFlipped ? y : view.bounds.height - y - height, width: width,
       height: height)
     NSSharingServicePicker(items: [text]).show(relativeTo: rect, of: view, preferredEdge: .minY)
+  }
+}
+
+/// The same as the iOS Runner's: registers the request notification categories with their hidden-preview
+/// placeholders, which flutter_local_notifications cannot set. Every launch
+/// the plugin replaces the whole set, so the categories made for single
+/// questions are remembered and added again, or a question still on screen
+/// would lose its buttons.
+enum NotificationCategories {
+  private static let rememberedKey = "hermes.requestCategories"
+  private static let questionPrefix = "hermes.request.question."
+  private static let remembered = 20
+
+  static func install(messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "hermes_app/notification_categories", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        guard call.method == "register",
+          let specs = (call.arguments as? [String: Any])?["categories"] as? [[String: Any]]
+        else { result(FlutterMethodNotImplemented); return }
+        register(specs) { result(nil) }
+      }
+  }
+
+  static func register(_ specs: [[String: Any]], done: @escaping () -> Void) {
+    let defaults = UserDefaults.standard
+    var kept = defaults.array(forKey: rememberedKey) as? [[String: Any]] ?? []
+    let questions = specs.filter { ($0["id"] as? String)?.hasPrefix(questionPrefix) == true }
+    let ids = Set(questions.compactMap { $0["id"] as? String })
+    kept.removeAll { ids.contains($0["id"] as? String ?? "") }
+    kept = Array((kept + questions).suffix(remembered))
+    defaults.set(kept, forKey: rememberedKey)
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories { current in
+      var byId = [String: UNNotificationCategory]()
+      for category in current { byId[category.identifier] = category }
+      for spec in kept + specs {
+        if let category = category(spec) { byId[category.identifier] = category }
+      }
+      center.setNotificationCategories(Set(byId.values))
+      DispatchQueue.main.async(execute: done)
+    }
+  }
+
+  private static func category(_ spec: [String: Any]) -> UNNotificationCategory? {
+    guard let id = spec["id"] as? String else { return nil }
+    let actions: [UNNotificationAction] = (spec["actions"] as? [[String: Any]] ?? []).compactMap { action in
+      guard let id = action["id"] as? String, let title = action["title"] as? String else { return nil }
+      let options = UNNotificationActionOptions(rawValue: (action["options"] as? NSNumber)?.uintValue ?? 0)
+      if let button = action["buttonTitle"] as? String {
+        return UNTextInputNotificationAction(
+          identifier: id, title: title, options: options,
+          textInputButtonTitle: button,
+          textInputPlaceholder: action["placeholder"] as? String ?? "")
+      }
+      return UNNotificationAction(identifier: id, title: title, options: options)
+    }
+    return UNNotificationCategory(
+      identifier: id, actions: actions, intentIdentifiers: [],
+      hiddenPreviewsBodyPlaceholder: spec["placeholder"] as? String ?? "",
+      options: [])
   }
 }

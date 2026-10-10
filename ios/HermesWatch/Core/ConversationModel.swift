@@ -9,6 +9,8 @@ final class ConversationModel {
     case idle
     case transcribing
     case sending
+    /// The send waits on the user's answer to an approval or a question.
+    case waiting(SendResult.Waiting)
     case failed(HermesClientError)
   }
 
@@ -24,6 +26,10 @@ final class ConversationModel {
   private(set) var unsentVoice: Data?
 
   private let client: HermesClient
+
+  /// How long a send keeps asking while Hermes waits; the phone gives up
+  /// after 15 minutes without an event.
+  static let waitingLimit: TimeInterval = 20 * 60
 
   init(client: HermesClient, threadId: String?) {
     self.client = client
@@ -46,7 +52,7 @@ final class ConversationModel {
 
   func send(_ text: String) async {
     let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !text.isEmpty, phase != .sending, phase != .loading else { return }
+    guard !text.isEmpty, !busy else { return }
     let sendId = (text == unsent ? unsentId : nil) ?? UUID().uuidString
     unsent = nil
     unsentId = nil
@@ -54,7 +60,17 @@ final class ConversationModel {
     let pending = ChatMessage(id: "local-\(UUID().uuidString)", role: .user, content: text, at: Date())
     messages.append(pending)
     do {
-      let result = try await client.send(threadId: threadId, text: text, sendId: sendId)
+      var result = try await client.send(threadId: threadId, text: text, sendId: sendId)
+      // The phone answers early while the turn waits on the user, and the
+      // same send id asked again picks up where it was. A phone that has
+      // forgotten the send reads the bound chat instead of sending it again.
+      let deadline = Date().addingTimeInterval(Self.waitingLimit)
+      while let waiting = result.waiting {
+        guard Date() < deadline else { throw HermesClientError.failed }
+        threadId = result.threadId ?? threadId
+        phase = waiting == .working ? .sending : .waiting(waiting)
+        result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
+      }
       threadId = result.threadId ?? threadId
       if result.failed {
         let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -77,9 +93,17 @@ final class ConversationModel {
     }
   }
 
+  /// A message or a recording is on its way, or the chat is loading.
+  var busy: Bool {
+    switch phase {
+    case .sending, .loading, .transcribing, .waiting: true
+    case .idle, .failed: false
+    }
+  }
+
   /// Sends what the dashboard hears in a recording as the next message.
   func sendVoice(_ audio: Data, mimeType: String) async {
-    guard phase != .sending, phase != .loading, phase != .transcribing else { return }
+    guard !busy else { return }
     unsentVoice = nil
     phase = .transcribing
     do {
