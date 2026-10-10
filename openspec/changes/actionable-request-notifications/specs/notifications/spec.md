@@ -32,7 +32,7 @@ For a completed reply the notification body SHALL be a one-line preview of the r
 #### Scenario: App Lock on
 
 - **WHEN** App Lock is on and the agent asks for approval to run `rm -rf build`
-- **THEN** the body is "Waiting for your approval" and the notification has no actions"
+- **THEN** the body is "Waiting for your approval" and the notification has no actions
 
 #### Scenario: Secret or sudo request
 
@@ -170,4 +170,4 @@ An answer SHALL be sent with the gateway's `request.answer` RPC (`{id, result, p
 #### Scenario: App Lock on
 
 - **WHEN** App Lock is on and the agent asks a question
-- **THEN** the notification says "Has a question for you" and carries no actions"
+- **THEN** the notification says "Has a question for you" and carries no actions
