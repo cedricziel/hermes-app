@@ -24,4 +24,4 @@
 ## 5. Docs and verify
 
 - [x] 5.1 Update CLAUDE.md (notifications, watch).
-- [ ] 5.2 Run `openspec validate actionable-request-notifications --strict`, `dart format`, `flutter analyze`, the touched tests, the watch core tests and a watch compile check. Background behaviour on a device is left for a manual check.
+- [x] 5.2 Run `openspec validate actionable-request-notifications --strict`, `dart format`, `flutter analyze`, the touched tests, the watch core tests and a watch compile check. Background behaviour on a device is left for a manual check.
