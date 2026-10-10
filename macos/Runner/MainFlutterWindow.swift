@@ -76,17 +76,12 @@ class MainFlutterWindow: NSWindow {
     super.awakeFromNib()
   }
 
-  /// With conversation windows open, closing the main window only hides it,
-  /// so it never posts willClose: desktop_multi_window would drop the main
-  /// engine on that and stop telling it when windows open or close. ⌘0 and
-  /// the Dock icon bring it back. Without them it closes, and the app quits
-  /// as before.
+  /// Closing the main window only hides it, so it never posts willClose:
+  /// desktop_multi_window would drop the main engine on that and stop telling
+  /// it when windows open or close. The app keeps running without a window
+  /// (see AppDelegate); ⌘0 and the Dock icon bring the window back.
   override func close() {
-    if ConversationWindow.isEmpty {
-      super.close()
-    } else {
-      orderOut(nil)
-    }
+    orderOut(nil)
   }
 
   /// Tells the main engine that conversation window [id] closed, then runs
@@ -98,12 +93,6 @@ class MainFlutterWindow: NSWindow {
       return
     }
     channel.invokeMethod("conversationClosed", arguments: id) { _ in done() }
-  }
-
-  /// Closes the hidden main window once its last conversation window is
-  /// gone, so the app quits as it would have.
-  func closeIfHidden() {
-    if !isVisible && !isMiniaturized { super.close() }
   }
 
   /// Answers the composer's question for the files on the clipboard, in
@@ -232,10 +221,7 @@ final class ConversationWindow: NSObject {
     ) { [weak self] _ in
       let id = self?.windowId
       ConversationWindow.open.removeValue(forKey: ObjectIdentifier(window))
-      let last = ConversationWindow.open.isEmpty
-      MainFlutterWindow.shared?.conversationClosed(id: id) {
-        if last { MainFlutterWindow.shared?.closeIfHidden() }
-      }
+      MainFlutterWindow.shared?.conversationClosed(id: id) {}
     }
     channel.setMethodCallHandler { [weak self] call, result in
       self?.handle(call, result: result) ?? result(nil)

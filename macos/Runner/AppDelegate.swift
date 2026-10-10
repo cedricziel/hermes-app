@@ -8,6 +8,10 @@ class AppDelegate: FlutterAppDelegate {
     /// Holds the main window while it is closed (hidden), since the outlet is
     /// weak and conversation windows depend on its engine.
     private var mainWindow: NSWindow?
+    private var appChannel: FlutterMethodChannel?
+    /// Kept while no window is visible, so App Nap does not slow the timers
+    /// and sockets that deliver replies and schedule alerts.
+    private var windowlessActivity: NSObjectProtocol?
 
     override func applicationDidFinishLaunching(_ notification: Notification) {
         mainWindow = mainFlutterWindow
@@ -23,6 +27,18 @@ class AppDelegate: FlutterAppDelegate {
                 }
             }
             shareChannel = channel
+            let app = FlutterMethodChannel(
+                name: "hermes_app/app", binaryMessenger: controller.engine.binaryMessenger
+            )
+            app.setMethodCallHandler { call, result in
+                if call.method == "terminate" {
+                    NSApp.terminate(nil)
+                    result(nil)
+                } else {
+                    result(FlutterMethodNotImplemented)
+                }
+            }
+            appChannel = app
             webAuth = WebAuthSession(messenger: controller.engine.binaryMessenger)
             ChatHandoff.shared.install(messenger: controller.engine.binaryMessenger)
         }
@@ -54,11 +70,39 @@ class AppDelegate: FlutterAppDelegate {
         if let main = mainWindow, !main.isVisible {
             main.makeKeyAndOrderFront(nil)
         }
+        endWindowlessHold()
         return true
     }
 
+    /// A tapped notification activates the app without a reopen event, so a
+    /// windowless app would answer the tap with nothing on screen.
+    override func applicationDidBecomeActive(_ notification: Notification) {
+        super.applicationDidBecomeActive(notification)
+        guard let main = mainWindow, !main.isMiniaturized, !NSApp.isHidden else { return }
+        if !NSApp.windows.contains(where: { $0.isVisible && $0.canBecomeMain }) {
+            main.makeKeyAndOrderFront(nil)
+        }
+        if main.isVisible { endWindowlessHold() }
+    }
+
+    private func endWindowlessHold() {
+        if let activity = windowlessActivity {
+            ProcessInfo.processInfo.endActivity(activity)
+            windowlessActivity = nil
+        }
+    }
+
+    /// Closing the last window leaves the app running with its Dock icon;
+    /// Cmd-Q and the Quit menu item still end it. The main window is hidden,
+    /// not released, so its engine keeps serving replies and schedule checks.
     override func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
-        return true
+        if windowlessActivity == nil {
+            windowlessActivity = ProcessInfo.processInfo.beginActivity(
+                options: .userInitiatedAllowingIdleSystemSleep,
+                reason: "Hermes keeps running replies and schedule checks without a window"
+            )
+        }
+        return false
     }
 
     override func applicationSupportsSecureRestorableState(_: NSApplication) -> Bool {

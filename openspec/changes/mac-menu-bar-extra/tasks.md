@@ -1,10 +1,10 @@
 ## 1. PR 1: `feat(macos): keep running after the last window closes`
 
-- [ ] 1.1 Start with failing tests for `AppPresence`: on macOS, `hidden` and `inactive` count as foreground and not as focused, and `paused` counts as neither. On other platforms foreground equals `resumed`. Add `lib/src/shell/app_presence.dart`.
-- [ ] 1.2 Start with failing tests showing that `ScheduleWatcher` keeps its one-minute timer while the macOS app is hidden and stops on `paused`, and that `AttentionNotifier` still posts for a hidden app and stays silent for the focused thread. Wire `ScheduleWatcher` and `AppShell` (`_schedulesController?.foreground`) to `AppPresence.foreground`.
-- [ ] 1.3 Return false from `applicationShouldTerminateAfterLastWindowClosed` in `macos/Runner/AppDelegate.swift`. Add the `hermes_app/app` channel with `terminate`, which PR 2 uses. Add a test for the channel's Dart side.
-- [ ] 1.4 Observability: start with a failing test for the `app.lifecycle` `state: windowless` crumb in `AppShell`. Implement it with fixed values only.
-- [ ] 1.5 Update `.claude/skills/verify-in-app/SKILL.md` with the windowless checks: close the window, reply finishes and notifies, a schedule run is announced within 3 minutes, Dock reopen, Cmd-Q. If App Nap delays the timer, add the `beginActivity` hold described in the design.
+- [x] 1.1 Start with failing tests for `AppPresence`: on macOS, `hidden` and `inactive` count as foreground and not as focused, and `paused` counts as neither. On other platforms foreground equals `resumed`. Add `lib/src/shell/app_presence.dart`.
+- [x] 1.2 Start with failing tests showing that `ScheduleWatcher` keeps its one-minute timer while the macOS app is hidden and stops on `paused`, and that `AttentionNotifier` still posts for a hidden app and stays silent for the focused thread. Wire `ScheduleWatcher` and `AppShell` (`_schedulesController?.foreground`) to `AppPresence.foreground`.
+- [x] 1.3 Return false from `applicationShouldTerminateAfterLastWindowClosed` in `macos/Runner/AppDelegate.swift`. Add the `hermes_app/app` channel with `terminate`, which PR 2 uses. Add a test for the channel's Dart side. `MainFlutterWindow.close()` now always hides the main window, since closing it would drop its engine from `desktop_multi_window`, and the runner shows the window again when a tap activates the app with none visible.
+- [x] 1.4 Observability: start with a failing test for the `app.lifecycle` `state: windowless` crumb in `AppShell`. Implement it with fixed values only.
+- [x] 1.5 Update `.claude/skills/verify-in-app/SKILL.md` with the windowless checks: close the window, reply finishes and notifies, a schedule run is announced within 3 minutes, Dock reopen, Cmd-Q. The `beginActivity` hold from the design is in `AppDelegate` from the start (the 3-minute check was not run in this PR, so it stays as a precaution).
 - [ ] 1.6 Verify: `dart format`, `flutter analyze`, `flutter test`, and verify-in-app on macOS against `scripts/dev-backend.sh`.
 
 ## 2. PR 2: `feat(macos): add a menu bar item for replies and approvals`

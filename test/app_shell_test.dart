@@ -202,6 +202,25 @@ void main() {
         ['app.lifecycle {state: paused}', 'app.lifecycle {state: resumed}'],
       );
     });
+
+    testWidgets('record a macOS app that runs with its last window closed', (
+      tester,
+    ) async {
+      kanbanPlugin(on: true);
+      final trail = BreadcrumbTrail();
+      await pumpShell(tester, size: const Size(900, 700), trail: trail);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        [for (final c in trail.recent) '${c.name} ${c.attributes}'],
+        ['app.lifecycle {state: windowless}', 'app.lifecycle {state: resumed}'],
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   testWidgets('shows no navigation while the plugin is off', (tester) async {

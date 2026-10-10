@@ -443,5 +443,64 @@ void main() {
       // The timer would otherwise outlive the test.
       watcher.dispose();
     });
+
+    group('on macOS', () {
+      Future<(ScheduleWatcher, int Function())> watch(
+        WidgetTester tester,
+      ) async {
+        SharedPreferencesAsyncPlatform.instance =
+            InMemorySharedPreferencesAsync.empty();
+        final server = FakeHermesServer()
+          ..on('GET', '/api/cron/jobs', [ran('2026-09-20T08:00:00+00:00')]);
+        final settings = NotificationSettings();
+        await settings.load();
+        final watcher = ScheduleWatcher(
+          repository: HermesCronRepository(server.client().raw),
+          service: FakeNotificationService(),
+          settings: settings,
+        );
+        watcher.available = true;
+        await tester.pumpAndSettle();
+        return (
+          watcher,
+          () => server.requests.where((r) => r.path == '/api/cron/jobs').length,
+        );
+      }
+
+      testWidgets('keeps looking every minute while the window is closed', (
+        tester,
+      ) async {
+        final (watcher, requests) = await watch(tester);
+        expect(requests(), 1);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        await tester.pump(const Duration(minutes: 1));
+        await tester.pumpAndSettle();
+        expect(requests(), 2);
+
+        await tester.pump(const Duration(minutes: 1));
+        await tester.pumpAndSettle();
+        expect(requests(), 3);
+
+        // The timer would otherwise outlive the test.
+        watcher.dispose();
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+      testWidgets('stops when the system pauses the app', (tester) async {
+        final (_, requests) = await watch(tester);
+
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await tester.pump(const Duration(minutes: 3));
+        await tester.pumpAndSettle();
+        expect(requests(), 1);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+    });
   });
 }

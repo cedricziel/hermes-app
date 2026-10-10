@@ -43,6 +43,7 @@ import '../schedules/schedules_screen.dart';
 import '../theme/app_icons.dart';
 import '../theme/platform_chrome.dart';
 import '../windows/conversation_windows.dart';
+import 'app_presence.dart';
 import 'shell_navigation.dart';
 
 enum _Destination { chat, bots, kanban, schedules, profiles }
@@ -198,8 +199,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed ||
         state == AppLifecycleState.paused) {
       _breadcrumbs('app.lifecycle', {'state': state.name});
+    } else if (AppPresence.windowless(state)) {
+      // The app goes on without a window, which a crash report should show.
+      _breadcrumbs('app.lifecycle', {'state': 'windowless'});
     }
-    _schedulesController?.foreground = state == AppLifecycleState.resumed;
+    _schedulesController?.foreground = AppPresence.foreground(state);
     if (state == AppLifecycleState.resumed) _detect();
   }
 
