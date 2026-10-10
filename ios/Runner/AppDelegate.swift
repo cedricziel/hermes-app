@@ -94,17 +94,30 @@ final class NotificationActions: NSObject, UNUserNotificationCenterDelegate {
     }
     // Begun before the engine starts: iOS may suspend the app as soon as the
     // completion handler below has run.
-    BackgroundTask.begin()
+    let task = BackgroundTask.begin()
     var item: [String: Any] = [
       "notificationId": Int(response.notification.request.identifier) ?? 0,
       "actionId": action,
       "notificationResponseType": 1,
     ]
-    item["payload"] = response.notification.request.content.userInfo["payload"]
+    item["payload"] = Self.handover(
+      response.notification.request.content.userInfo["payload"] as? String, task: task)
     item["input"] = (response as? UNTextInputNotificationResponse)?.userText
     sink.addItem(item)
     engines.startEngineIfNeeded(sink) { registry in NotificationActions.registerPlugins(registry) }
     completionHandler()
+  }
+
+  /// The payload with when the button arrived and the background task begun
+  /// for it, which the Dart side works to and ends.
+  private static func handover(_ payload: String?, task: UIBackgroundTaskIdentifier?) -> String? {
+    guard let payload, let data = payload.data(using: .utf8),
+      var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    else { return payload }
+    json["_at"] = Int(Date().timeIntervalSince1970 * 1000)
+    if let task { json["_task"] = task.rawValue }
+    guard let out = try? JSONSerialization.data(withJSONObject: json) else { return payload }
+    return String(data: out, encoding: .utf8) ?? payload
   }
 }
 
@@ -202,23 +215,25 @@ enum NotificationCategories {
 }
 
 /// Keeps the app awake while the headless engine sends an answer. A task is
-/// begun for each button as it arrives and ended, oldest first, when Dart
-/// says an answer is done, or when its time runs out, whichever comes first.
+/// begun for each button as it arrives; its id travels with the button to
+/// Dart, which ends it when that answer is done, unless its time ran out
+/// first.
 enum BackgroundTask {
-  private static var pending: [UIBackgroundTaskIdentifier] = []
+  private static var pending = Set<UIBackgroundTaskIdentifier>()
 
-  static func begin() {
+  static func begin() -> UIBackgroundTaskIdentifier? {
     var task = UIBackgroundTaskIdentifier.invalid
     task = UIApplication.shared.beginBackgroundTask(withName: "notification-answer") {
       end(task)
     }
-    if task != .invalid { pending.append(task) }
+    guard task != .invalid else { return nil }
+    pending.insert(task)
+    return task
   }
 
   /// Ends [task] once, whoever asks first.
   private static func end(_ task: UIBackgroundTaskIdentifier) {
-    guard let index = pending.firstIndex(of: task) else { return }
-    pending.remove(at: index)
+    guard pending.remove(task) != nil else { return }
     UIApplication.shared.endBackgroundTask(task)
   }
 
@@ -226,7 +241,7 @@ enum BackgroundTask {
     FlutterMethodChannel(name: "hermes_app/background_task", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
         guard call.method == "end" else { result(FlutterMethodNotImplemented); return }
-        if let oldest = pending.first { end(oldest) }
+        if let raw = call.arguments as? Int { end(UIBackgroundTaskIdentifier(rawValue: raw)) }
         result(nil)
       }
   }

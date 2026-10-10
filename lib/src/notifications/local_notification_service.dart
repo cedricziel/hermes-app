@@ -85,6 +85,11 @@ NotificationAnswer? answerFromAction(
   );
 }
 
+/// Whether [payload] is that of a notification whose buttons answer a
+/// request.
+bool isAnswerablePayload(String? payload) =>
+    payload != null && PendingRequest.fromJson(_decode(payload)?['r']) != null;
+
 NotificationAnswer? answerFromResponse(NotificationResponse response) =>
     answerFromAction(response.payload, response.actionId, response.input);
 
@@ -302,6 +307,47 @@ class LocalNotificationService implements NotificationService {
       );
     } on Object {
       return;
+    }
+  }
+
+  @override
+  Future<void> withdrawAnswerable() async {
+    if (!_supported) return;
+    try {
+      await _initialize();
+      for (final active in await _plugin.getActiveNotifications()) {
+        final id = active.id;
+        if (id != null && isAnswerablePayload(active.payload)) {
+          await _plugin.cancel(id: id);
+        }
+      }
+    } on Object {
+      // Nothing to withdraw where the plugin cannot list them.
+    }
+  }
+
+  @override
+  Future<bool?> allowed() async {
+    if (!_supported) return null;
+    try {
+      await _initialize();
+      final ios = _plugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (ios != null) return (await ios.checkPermissions())?.isEnabled;
+      final mac = _plugin
+          .resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin
+          >();
+      if (mac != null) return (await mac.checkPermissions())?.isEnabled;
+      return await _plugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.areNotificationsEnabled();
+    } on Object {
+      return null;
     }
   }
 

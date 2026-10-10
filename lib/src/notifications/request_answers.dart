@@ -3,20 +3,24 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:isolate';
 import 'dart:ui' show DartPluginRegistrant, IsolateNameServer;
 
+import 'package:flutter/foundation.dart' show ChangeNotifier, ValueListenable;
 import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
 
+import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../chat/chat_transport.dart';
 import '../chat/gateway/gateway_connection.dart';
 import '../chat/gateway/hermes_gateway_transport.dart';
 import '../telemetry/breadcrumbs.dart';
+import 'attention_notifier.dart';
 import 'attention_policy.dart';
 import 'local_notification_service.dart';
 import 'notification_service.dart';
@@ -30,7 +34,8 @@ const kRequestAnswersPort = 'hermes_app.request_answers';
 /// so that a failure can still be told.
 const kAnswerBudget = Duration(seconds: 25);
 
-enum AnswerOutcome { ok, expired, failed, signedOut }
+/// How an answer went; `locked` when App Lock kept it from being sent.
+enum AnswerOutcome { ok, expired, failed, signedOut, locked }
 
 /// A fresh gateway transport on [auth]'s connection, or null while nobody is
 /// signed in.
@@ -91,6 +96,7 @@ class RequestAnswerSender {
     this.breadcrumbs = Breadcrumbs.none,
     this.timeout = const Duration(seconds: 20),
     this.followUpMargin = const Duration(seconds: 3),
+    this.locked = _unlocked,
   });
 
   /// A new transport for each answer; null while nobody is signed in.
@@ -107,6 +113,11 @@ class RequestAnswerSender {
   /// still gets posted in time.
   final Duration followUpMargin;
 
+  /// Whether App Lock is on: nothing is answered past it.
+  final Future<bool> Function() locked;
+
+  static Future<bool> _unlocked() async => false;
+
   static Future<void> _readyNow() async {}
 
   static AppEventLogger _noEvents() => noopAppEventLogger;
@@ -118,6 +129,10 @@ class RequestAnswerSender {
     String route = 'main',
     DateTime? deadline,
   }) async {
+    if (await _lockedNow()) {
+      await _tell(notifications, answer, kOpenToAnswerBody);
+      return AnswerOutcome.locked;
+    }
     // Past it nothing may go out any more: the follow-up says it did not.
     final cutoff = deadline?.subtract(followUpMargin);
     final left = cutoff?.difference(DateTime.now());
@@ -173,10 +188,24 @@ class RequestAnswerSender {
     }
   }
 
+  Future<bool> _lockedNow() async {
+    try {
+      return await locked();
+    } on Object {
+      return true;
+    }
+  }
+
   /// Posts the follow-up that sends the user to [answer]'s chat.
   static Future<void> tellFailed(
     NotificationService? notifications,
     NotificationAnswer answer,
+  ) => _tell(notifications, answer, kAnswerFailedBody);
+
+  static Future<void> _tell(
+    NotificationService? notifications,
+    NotificationAnswer answer,
+    String body,
   ) async {
     try {
       await notifications?.show(
@@ -184,7 +213,7 @@ class RequestAnswerSender {
           threadId: answer.target.threadId,
           profile: answer.target.profile,
           title: answer.title,
-          body: kAnswerFailedBody,
+          body: body,
         ),
       );
     } on Object {
@@ -202,12 +231,14 @@ class RequestAnswers {
     this._service,
     this._signedOut,
     this._forgetCategories = forgetQuestionCategories,
+    this._appLock,
   });
 
   /// Answers on a fresh connection of whoever is signed in on [auth].
   factory RequestAnswers.forAuth(
     AuthController auth, {
     required NotificationService service,
+    AppLockController? appLock,
     Breadcrumbs breadcrumbs = Breadcrumbs.none,
   }) => RequestAnswers(
     RequestAnswerSender(
@@ -217,9 +248,11 @@ class RequestAnswers {
       ready: () => authSettled(auth),
       events: () => auth.connectionTelemetry.events,
       breadcrumbs: breadcrumbs,
+      locked: () async => appLockHidesRequests(appLock),
     ),
     service: service,
     signedOut: auth.signedOut,
+    appLock: appLock == null ? null : _AppLockOn(appLock),
   );
 
   final RequestAnswerSender _sender;
@@ -229,6 +262,11 @@ class RequestAnswers {
   /// hold the choices the agent offered, so they go too.
   final Stream<void>? _signedOut;
   final Future<void> Function() _forgetCategories;
+
+  /// Whether App Lock is on; when it goes on, notifications whose buttons
+  /// would answer past it are withdrawn.
+  final ValueListenable<bool>? _appLock;
+  var _wasLocked = false;
   StreamSubscription<NotificationAnswer>? _answers;
   StreamSubscription<void>? _signOuts;
   ReceivePort? _port;
@@ -236,6 +274,8 @@ class RequestAnswers {
   void start() {
     _answers = _service?.answers.listen((answer) => _sender.send(answer));
     _signOuts = _signedOut?.listen((_) => _forgetCategories());
+    _wasLocked = _appLock?.value ?? false;
+    _appLock?.addListener(_onAppLock);
     final port = _port = ReceivePort();
     IsolateNameServer.removePortNameMapping(kRequestAnswersPort);
     IsolateNameServer.registerPortWithName(port.sendPort, kRequestAnswersPort);
@@ -250,7 +290,14 @@ class RequestAnswers {
     if (reply is! SendPort || deadline is! int) return;
     final confirm = ReceivePort();
     reply.send([_offer, confirm.sendPort]);
-    final go = await confirm.first.timeout(_confirmWait, onTimeout: () => null);
+    // Until the deadline: a confirmation still on its way must not be
+    // missed, or neither isolate would send the answer or tell the user.
+    final due = DateTime.fromMillisecondsSinceEpoch(deadline);
+    final wait = due.difference(DateTime.now());
+    final go = await confirm.first.timeout(
+      wait.isNegative ? Duration.zero : wait,
+      onTimeout: () => null,
+    );
     confirm.close();
     if (go != _go) return;
     final answer = answerFromAction(
@@ -260,15 +307,18 @@ class RequestAnswers {
     );
     final outcome = answer == null
         ? AnswerOutcome.failed
-        : await _sender.send(
-            answer,
-            route: 'background',
-            deadline: DateTime.fromMillisecondsSinceEpoch(deadline),
-          );
+        : await _sender.send(answer, route: 'background', deadline: due);
     reply.send(outcome.name);
   }
 
+  void _onAppLock() {
+    final locked = _appLock?.value ?? false;
+    if (locked && !_wasLocked) unawaited(_service?.withdrawAnswerable());
+    _wasLocked = locked;
+  }
+
   void dispose() {
+    _appLock?.removeListener(_onAppLock);
     _answers?.cancel();
     _signOuts?.cancel();
     final port = _port;
@@ -287,8 +337,6 @@ const _offer = 'offer';
 /// answer and tells the user if it fails.
 const _go = 'go';
 
-const _confirmWait = Duration(seconds: 2);
-
 /// Hands the action to the running app and otherwise runs [alone], by
 /// [deadline] (now plus [kAnswerBudget] when not given).
 ///
@@ -299,7 +347,8 @@ const _confirmWait = Duration(seconds: 2);
 /// gone offers nothing, and an offer that comes too late finds no one to
 /// confirm it, so the answer never goes out twice. Once confirmed, the app
 /// posts any follow-up itself; this waits for its outcome until the deadline
-/// and [reportGrace] after.
+/// and [reportGrace] after, and calls [unanswered] when none came, so the
+/// user hears of an answer that may not have gone out.
 Future<AnswerOutcome> routeAnswer(
   NotificationResponse response, {
   required Future<AnswerOutcome> Function(
@@ -307,6 +356,7 @@ Future<AnswerOutcome> routeAnswer(
     DateTime deadline,
   )
   alone,
+  required Future<void> Function(NotificationAnswer answer) unanswered,
   SendPort? Function() lookup = _lookupApp,
   DateTime? deadline,
   Duration pollFor = const Duration(seconds: 3),
@@ -350,7 +400,10 @@ Future<AnswerOutcome> routeAnswer(
       wait.isNegative ? Duration.zero : wait,
       onTimeout: () => false,
     );
-    if (!reported) return AnswerOutcome.failed;
+    if (!reported) {
+      await unanswered(answer);
+      return AnswerOutcome.failed;
+    }
     return AnswerOutcome.values.firstWhere(
       (outcome) => outcome.name == replies.current,
       orElse: () => AnswerOutcome.failed,
@@ -371,7 +424,9 @@ class LoneAnswerer {
     AuthController Function()? createAuth,
     ChatTransport? Function(AuthController auth)? transportFor,
     NotificationService? notifications,
+    Future<bool> Function()? locked,
   }) : _createAuth = createAuth ?? AuthController.new,
+       _locked = locked ?? AppLockController.savedEnabled,
        _transportFor = transportFor ?? gatewayTransportFor,
        _notifications =
            notifications ?? LocalNotificationService(background: true);
@@ -379,6 +434,7 @@ class LoneAnswerer {
   final AuthController Function() _createAuth;
   final ChatTransport? Function(AuthController auth) _transportFor;
   final NotificationService _notifications;
+  final Future<bool> Function() _locked;
   Future<void> _last = Future.value();
 
   Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) {
@@ -400,6 +456,7 @@ class LoneAnswerer {
         transport: () => _transportFor(auth),
         notifications: _notifications,
         ready: auth.bootstrap,
+        locked: _locked,
       ).send(answer, route: 'background', deadline: deadline);
     } finally {
       auth.dispose();
@@ -409,11 +466,31 @@ class LoneAnswerer {
 
 const _backgroundTask = MethodChannel('hermes_app/background_task');
 
-/// Tells the Runner an answer is done, so it ends the background task it
-/// began when iOS handed the button over.
-Future<void> _endBackgroundTask() async {
+/// What the Runner adds to a button's payload as it hands it over: when it
+/// arrived (milliseconds since the epoch) and the background task begun for
+/// it.
+({DateTime? receivedAt, int? task}) handoverOf(String? payload) {
+  if (payload == null) return (receivedAt: null, task: null);
   try {
-    await _backgroundTask.invokeMethod<void>('end');
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map) return (receivedAt: null, task: null);
+    final at = decoded['_at'];
+    final task = decoded['_task'];
+    return (
+      receivedAt: at is int ? DateTime.fromMillisecondsSinceEpoch(at) : null,
+      task: task is int ? task : null,
+    );
+  } on FormatException {
+    return (receivedAt: null, task: null);
+  }
+}
+
+/// Tells the Runner the answer for [task] is done, so it ends that
+/// background task.
+Future<void> _endBackgroundTask(int? task) async {
+  if (task == null) return;
+  try {
+    await _backgroundTask.invokeMethod<void>('end', task);
   } on Object {
     // The system ends it when its time runs out.
   }
@@ -427,11 +504,33 @@ LoneAnswerer? _loneAnswerer;
 Future<void> answerRequestInBackground(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
-  final deadline = DateTime.now().add(kAnswerBudget);
+  final handover = handoverOf(response.payload);
+  // From when iOS handed the button over: the background time started then.
+  final deadline = (handover.receivedAt ?? DateTime.now()).add(kAnswerBudget);
   final lone = _loneAnswerer ??= LoneAnswerer();
   try {
-    await routeAnswer(response, alone: lone.answer, deadline: deadline);
+    await routeAnswer(
+      response,
+      alone: lone.answer,
+      unanswered: (answer) => RequestAnswerSender.tellFailed(
+        LocalNotificationService(background: true),
+        answer,
+      ),
+      deadline: deadline,
+    );
   } finally {
-    await _endBackgroundTask();
+    await _endBackgroundTask(handover.task);
   }
+}
+
+/// App Lock's on state as the hand-off watches it.
+class _AppLockOn extends ChangeNotifier implements ValueListenable<bool> {
+  _AppLockOn(this._lock) {
+    _lock.addListener(notifyListeners);
+  }
+
+  final AppLockController _lock;
+
+  @override
+  bool get value => _lock.loaded && _lock.enabled;
 }

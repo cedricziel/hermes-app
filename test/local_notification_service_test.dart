@@ -67,6 +67,16 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     return launchDetails;
   }
 
+  final active = <ActiveNotification>[];
+  final cancelled = <int>[];
+
+  @override
+  Future<List<ActiveNotification>> getActiveNotifications() async => active;
+
+  @override
+  Future<void> cancel({required int id, String? tag}) async =>
+      cancelled.add(id);
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -358,6 +368,21 @@ void main() {
         expect(answer.request.requestId, 'r1');
         expect((answer.answer as ApprovalChoiceAnswer).choice, 'once');
         expect(targetFromPayload(plugin.posted.single.payload)!.threadId, 's1');
+      });
+
+      test('withdraws the delivered ones that can be answered', () async {
+        await service.show(_request(_approval));
+        await service.show(
+          const AttentionNotification(threadId: 's2', title: 't', body: 'b'),
+        );
+        plugin.active.addAll([
+          for (final posted in plugin.posted)
+            ActiveNotification(id: posted.id, payload: posted.payload),
+        ]);
+
+        await service.withdrawAnswerable();
+
+        expect(plugin.cancelled, [plugin.posted.first.id]);
       });
 
       test('stays generic on Android', () async {

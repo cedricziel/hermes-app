@@ -11,6 +11,7 @@ const kApprovalBody = 'Waiting for your approval';
 const kQuestionBody = 'Has a question for you';
 const kNeedsYouBody = 'Waiting for you in Hermes';
 const kAnswerFailedBody = "Couldn't send your answer. Open Hermes to answer.";
+const kOpenToAnswerBody = 'Open Hermes to answer.';
 
 /// The most characters of a command or a question a request notification
 /// shows.

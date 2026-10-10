@@ -45,6 +45,14 @@ void main() {
   }
 
   group('AppLockController', () {
+    test('tells an isolate without the controller whether it is on', () async {
+      expect(await AppLockController.savedEnabled(), isFalse);
+
+      await enabledLock();
+
+      expect(await AppLockController.savedEnabled(), isTrue);
+    });
+
     test('is off and unlocked on a fresh install', () async {
       final lock = await relaunched();
 

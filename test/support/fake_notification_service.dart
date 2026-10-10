@@ -28,6 +28,18 @@ class FakeNotificationService implements NotificationService {
   String? launchJob;
 
   final shown = <AttentionNotification>[];
+
+  /// How many times [withdrawAnswerable] was called.
+  var withdrawals = 0;
+
+  /// What [allowed] answers.
+  bool? allowedAnswer = true;
+
+  @override
+  Future<void> withdrawAnswerable() async => withdrawals++;
+
+  @override
+  Future<bool?> allowed() async => allowedAnswer;
   var permissionRequests = 0;
   final _taps = StreamController<NotificationTarget>.broadcast();
   final _answers = StreamController<NotificationAnswer>.broadcast();

@@ -159,6 +159,7 @@ Future<void> main([List<String> args = const []]) async {
             return RequestAnswers.forAuth(
               context.read<AuthController>(),
               service: context.read<NotificationService>(),
+              appLock: context.read<AppLockController>(),
               breadcrumbs: context.read<Breadcrumbs>(),
             )..start();
           },
