@@ -6,8 +6,15 @@ struct HermesWatchApp: App {
 
   var body: some Scene {
     WindowGroup {
-      ThreadListView(model: ThreadListModel(client: client))
+      ThreadListView(model: ThreadListModel(client: client, cache: Self.cache))
     }
+  }
+
+  private static var cache: ChatCache {
+    #if DEBUG
+      if DemoClient.enabled { return NoChatCache() }
+    #endif
+    return FileChatCache.standard
   }
 
   private static func makeClient() -> HermesClient {

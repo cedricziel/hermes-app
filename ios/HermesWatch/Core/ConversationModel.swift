@@ -24,11 +24,18 @@ final class ConversationModel {
   private(set) var unsentVoice: Data?
 
   private let client: HermesClient
+  private let cache: ChatCache
 
-  init(client: HermesClient, threadId: String?) {
+  /// Shows the messages [cache] saved for the chat until [load] brings them
+  /// up to date.
+  init(client: HermesClient, threadId: String?, cache: ChatCache = NoChatCache()) {
     self.client = client
+    self.cache = cache
     self.threadId = threadId
-    if threadId != nil { phase = .loading }
+    if let threadId {
+      phase = .loading
+      messages = cache.messages(threadId: threadId) ?? []
+    }
   }
 
   func load() async {
@@ -36,6 +43,7 @@ final class ConversationModel {
     do {
       messages = try await client.messages(threadId: threadId)
       phase = .idle
+      cache.save(messages: messages, threadId: threadId)
     } catch {
       phase = .failed(error as? HermesClientError ?? .failed)
     }
@@ -69,6 +77,7 @@ final class ConversationModel {
         )
       )
       phase = .idle
+      if let threadId { cache.save(messages: messages, threadId: threadId) }
     } catch {
       takeBack(pending, error: error as? HermesClientError ?? .failed, sendId: sendId)
     }

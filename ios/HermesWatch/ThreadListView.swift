@@ -37,14 +37,14 @@ struct ThreadListView: View {
       .navigationDestination(for: Route.self) { route in
         switch route {
         case .newChat:
-          ConversationView(model: ConversationModel(client: model.client, threadId: nil))
+          ConversationView(model: ConversationModel(client: model.client, threadId: nil, cache: model.cache))
         case .voiceChat:
           ConversationView(
-            model: ConversationModel(client: model.client, threadId: nil),
+            model: ConversationModel(client: model.client, threadId: nil, cache: model.cache),
             startRecording: true
           )
         case .thread(let id, let title):
-          ConversationView(model: ConversationModel(client: model.client, threadId: id), title: title)
+          ConversationView(model: ConversationModel(client: model.client, threadId: id, cache: model.cache), title: title)
         }
       }
     }
@@ -80,6 +80,16 @@ struct ThreadListView: View {
       }
     }
     .refreshable { await model.load() }
+    .safeAreaInset(edge: .bottom) {
+      if let failure = model.refreshFailure {
+        Text("Saved chats. \(failure.message)")
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal)
+          .background(.background)
+      }
+    }
   }
 }
 
