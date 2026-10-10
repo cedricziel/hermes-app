@@ -100,6 +100,117 @@ void main() {
 
   tearDown(() => transport.close());
 
+  group('A send retries until its prompt is submitted', () {
+    void completes(FakeGateway g, String sid) =>
+        g.event('message.complete', sid, {'text': 'Hi', 'status': 'complete'});
+
+    test('a socket that fails to open is opened again', () {
+      fake((async) {
+        final waits = <Duration>[];
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          sleep: (delay) async => waits.add(delay),
+          connect: () async {
+            if (opened++ == 0) throw StateError('network down');
+            return gateway.connect();
+          },
+        );
+        gateway.turn = completes;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(seen.events.whereType<ReplyCompleted>(), hasLength(1));
+        expect(waits, const [Duration(milliseconds: 300)]);
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('a resume the dead socket never answers is sent on a new one', () {
+      fake((async) {
+        gateway.silent.add('session.resume');
+        gateway.turn = completes;
+
+        final seen = _listen(transport.send(threadId: 'stored-2', text: 'hi'));
+        async.elapse(const Duration(seconds: 30));
+        gateway.silent.clear();
+        async.elapse(const Duration(seconds: 1));
+
+        expect(seen.error, isNull);
+        expect(seen.done, isTrue);
+        expect(
+          gateway.methods.where((m) => m == 'session.resume'),
+          hasLength(2),
+        );
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('a prompt the dead socket never answers is not sent again', () {
+      fake((async) {
+        gateway.silent.add('prompt.submit');
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 31));
+
+        expect(seen.error, isA<GatewayConnectionClosed>());
+        expect(
+          gateway.methods.where((m) => m == 'prompt.submit'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('an answer from the gateway is not retried', () {
+      fake((async) {
+        gateway.sessionErrorCode = 4064;
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.elapse(const Duration(seconds: 5));
+
+        expect(seen.error, isA<ProfileUnavailableException>());
+        expect(
+          gateway.methods.where((m) => m == 'session.create'),
+          hasLength(1),
+        );
+      });
+    });
+
+    test('a gateway that stays unreachable fails the send after 3 tries', () {
+      fake((async) {
+        final waits = <Duration>[];
+        var opened = 0;
+        transport = HermesGatewayTransport(
+          random: _FixedRandom(0.5),
+          sleep: (delay) async => waits.add(delay),
+          connect: () async {
+            opened++;
+            throw StateError('network down');
+          },
+        );
+
+        final seen = _listen(transport.send(text: 'hi'));
+        async.flushMicrotasks();
+
+        expect(seen.error, isA<StateError>());
+        expect(opened, 3);
+        expect(waits, const [
+          Duration(milliseconds: 300),
+          Duration(milliseconds: 600),
+        ]);
+      });
+    });
+  });
+
   group('Replay fills the gap', () {
     test(
       'Replay fills the gap: seqs 8 to 12 are delivered once, then the live 13',
