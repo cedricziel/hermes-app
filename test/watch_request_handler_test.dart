@@ -17,6 +17,14 @@ void main() {
   late FakeChatTransport transport;
   late WatchRequestHandler handler;
   late List<AttentionNotification> announced;
+  var posted = true;
+  var appLocked = false;
+
+  Future<bool> announce(AttentionNotification notification) async {
+    announced.add(notification);
+    return posted;
+  }
+
   var signedOut = false;
   var connecting = false;
   String? profile;
@@ -28,13 +36,15 @@ void main() {
     connecting = false;
     profile = null;
     announced = [];
+    posted = true;
+    appLocked = false;
     handler = WatchRequestHandler(
       repository: () =>
           signedOut ? null : HermesChatRepository(server.client().raw),
       transport: () => signedOut ? null : transport,
       activeProfile: () async => profile,
       connecting: () => connecting,
-      announce: announced.add,
+      announce: announce,
     );
   });
 
@@ -996,7 +1006,7 @@ void main() {
         transport: () => transport,
         activeProfile: () async => profile,
         sendTimeout: const Duration(milliseconds: 20),
-        announce: announced.add,
+        announce: announce,
       );
 
       final pending = handler.handle({
@@ -1086,8 +1096,30 @@ void main() {
       ),
     );
 
-    Future<Map<String, Object?>> send() =>
-        handler.handle({'op': 'send', 'text': 'Hello', 'sendId': 'a'});
+    Future<Map<String, Object?>> send() => handler.handle({
+      'op': 'send',
+      'text': 'Hello',
+      'sendId': 'a',
+      'waits': true,
+    });
+
+    Future<Map<String, Object?>> waitOn(ChatEvent request) async {
+      final first = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(request);
+      return first;
+    }
+
+    const second = ApprovalRequested(
+      ApprovalRequest(
+        requestId: 'r9',
+        command: 'git push',
+        description: '',
+        choices: ['once', 'deny'],
+      ),
+    );
 
     void useHandler({
       Duration sendTimeout = const Duration(seconds: 60),
@@ -1098,7 +1130,8 @@ void main() {
         repository: () => HermesChatRepository(server.client().raw),
         transport: () => transport,
         activeProfile: () async => profile,
-        announce: announced.add,
+        announce: announce,
+        appLock: () => appLocked,
         sendTimeout: sendTimeout,
         waitingTimeout: waitingTimeout,
         waitingHold: hold,
@@ -1254,6 +1287,71 @@ void main() {
 
       expect(reply, {'ok': false, 'error': 'failed'});
       expect(transport.sends, isEmpty);
+    });
+
+    for (final (why, setUpCase) in [
+      ('no notification could be posted', () => posted = false),
+      ('App Lock is on', () => appLocked = true),
+    ]) {
+      test('ends the send as before when $why', () async {
+        useHandler();
+        setUpCase();
+
+        final reply = await waitOn(approval);
+
+        expect(reply['text'], WatchRequestHandler.cannotAnswerText);
+        expect(transport.closed, isTrue);
+      });
+    }
+
+    test('ends the send as before for a watch that cannot wait', () async {
+      final pending = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+
+      expect((await pending)['text'], WatchRequestHandler.cannotAnswerText);
+    });
+
+    test('keeps waiting while another request is still open', () async {
+      useHandler(hold: const Duration(milliseconds: 20));
+      await waitOn(approval);
+      final turn = transport.sends.single..emit(second);
+
+      final retry = send();
+      await pumpEventQueue();
+      turn.emit(const ToolStarted(name: 'terminal'));
+
+      expect((await retry)['waiting'], 'approval');
+    });
+
+    test('an expired request leaves the others open', () async {
+      useHandler(hold: const Duration(milliseconds: 20));
+      await waitOn(question);
+      final turn = transport.sends.single..emit(second);
+      await pumpEventQueue();
+
+      final retry = send();
+      await pumpEventQueue();
+      turn.emit(const InputRequestExpired('r2'));
+
+      expect((await retry)['waiting'], 'approval');
+    });
+
+    test('a retry tells what changed since the last answer at once', () async {
+      useHandler(hold: const Duration(seconds: 10));
+      await waitOn(approval);
+      transport.sends.single.emit(const ReplyDelta('Deleting…'));
+      await pumpEventQueue();
+
+      final reply = await send().timeout(const Duration(seconds: 2));
+
+      expect(reply['waiting'], 'working');
     });
 
     test('does not pass on what was asked for', () async {

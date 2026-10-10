@@ -143,6 +143,7 @@ Future<void> main([List<String> args = const []]) async {
             events: telemetry.events(),
             notifications: context.read<NotificationService>(),
             settings: context.read<NotificationSettings>(),
+            appLock: context.read<AppLockController>(),
             speech: context.read<OnDeviceSpeech>(),
             dictation: context.read<DictationSettings>(),
           )?..start(),
