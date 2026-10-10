@@ -41,6 +41,7 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
   bool _locked = false;
   bool _authenticating = false;
   bool _inactive = false;
+  Future<bool>? _unlocking;
 
   /// False until [load] has read the saved choice. The app stays covered
   /// until then so a locked app never shows its content for a moment.
@@ -101,11 +102,20 @@ class AppLockController extends ChangeNotifier with WidgetsBindingObserver {
     return true;
   }
 
-  Future<void> unlock() async {
-    if (!_locked || _authenticating) return;
-    if (!await _confirm('Unlock Hermes')) return;
+  /// Asks the device to confirm the person, and returns whether the app is
+  /// unlocked afterwards. A call made while a prompt is already up joins it
+  /// instead of returning early, so two callers share one prompt and one
+  /// answer.
+  Future<bool> unlock() {
+    if (!_locked) return Future.value(true);
+    return _unlocking ??= _unlockOnce().whenComplete(() => _unlocking = null);
+  }
+
+  Future<bool> _unlockOnce() async {
+    if (_authenticating || !await _confirm('Unlock Hermes')) return false;
     _locked = false;
     notifyListeners();
+    return true;
   }
 
   Future<bool> _confirm(String reason) async {

@@ -698,3 +698,26 @@ conversation window open, a conversation window key (it keeps its chat and
 draft), the window minimized, and whitespace-only text (nothing changes).
 Confirm that nothing was sent (no new session on the dashboard) and that no
 file in the App Group container (`share/pending.json`) holds the text.
+
+## Verify the Dock menu (macOS)
+
+The Dock icon menu (`DockMenu.swift`, `lib/src/macos/dock/`) holds New Chat,
+up to five recent chats of the shown profile and Show Main Window. Use an
+isolated backend with invented chats; the builder itself has XCTests in
+`macos/RunnerTests` (`xcodebuild test -workspace macos/Runner.xcworkspace
+-scheme Runner -destination 'platform=macOS' -only-testing:RunnerTests`).
+
+Right-click (or press and hold) the running app's Dock icon after each step:
+
+- Signed out or not connected: only Show Main Window.
+- Signed in: New Chat, the newest chats first (a finished reply moves its chat
+  to the top; switching the sidebar profile changes the list), Show Main
+  Window. Titles stop at 40 characters.
+- App lock on and locked: New Chat and Show Main Window, no titles. Pick New
+  Chat and dismiss the prompt: nothing opens, and unlocking later with the
+  Unlock button does not open a chat. Pick it again and unlock: an empty new
+  chat opens.
+- Main window hidden (Cmd-W): a chat pick brings it back with that chat; New
+  Chat brings it back with an empty one. A chat open in a conversation window
+  comes to the front there and the main window stays hidden.
+- Sign out: the menu drops to Show Main Window at once.

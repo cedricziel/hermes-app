@@ -31,6 +31,7 @@
 		33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 33CC10F42044A3C60003C045 /* MainMenu.xib */; };
 		33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33CC11122044BFA00003C045 /* MainFlutterWindow.swift */; };
 		A5E1D0C7B2F44E1A9C3D7B62 /* AskHermesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5E1D0C7B2F44E1A9C3D7B61 /* AskHermesService.swift */; };
+		D0C4E7A91B3F4C58A2E6F1B4 /* DockMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C4E7A91B3F4C58A2E6F1B3 /* DockMenu.swift */; };
 		5C2413EF62352F130028AD44 /* WebAuthSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF974F06499C4ED8C4491C6E /* WebAuthSession.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
 		8418356BFFEC07EB0152C239 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 132EB2B997822C76E37901D4 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -119,6 +120,7 @@
 		B2375242AD57971B3E3775AC /* ShareViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		C1D2DE11CD7B5B5DA408263B /* ShareHandoff.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareHandoff.swift; sourceTree = "<group>"; };
 		A5E1D0C7B2F44E1A9C3D7B61 /* AskHermesService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskHermesService.swift; sourceTree = "<group>"; };
+		D0C4E7A91B3F4C58A2E6F1B3 /* DockMenu.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DockMenu.swift; sourceTree = "<group>"; };
 		CF974F06499C4ED8C4491C6E /* WebAuthSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WebAuthSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -220,6 +222,7 @@
 			children = (
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				A5E1D0C7B2F44E1A9C3D7B61 /* AskHermesService.swift */,
+				D0C4E7A91B3F4C58A2E6F1B3 /* DockMenu.swift */,
 				CF974F06499C4ED8C4491C6E /* WebAuthSession.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				4B5C0A012F00000000000006 /* QuickPanel.swift */,
@@ -475,6 +478,7 @@
 				4B5C0A012F00000000000005 /* QuickPanelShortcut.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				A5E1D0C7B2F44E1A9C3D7B62 /* AskHermesService.swift in Sources */,
+				D0C4E7A91B3F4C58A2E6F1B4 /* DockMenu.swift in Sources */,
 				5C2413EF62352F130028AD44 /* WebAuthSession.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 				AA28CFE8BDC5BC315CFD7121 /* ShareHandoff.swift in Sources */,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
@@ -207,6 +209,38 @@ void main() {
         expect(lock.locked, isFalse);
       },
     );
+
+    test('unlock reports whether the app is unlocked afterwards', () async {
+      final lock = await relaunched();
+      expect(await lock.unlock(), isTrue, reason: 'nothing to unlock');
+
+      await lock.setEnabled(true);
+      lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
+      authenticator.succeeds = false;
+      expect(await lock.unlock(), isFalse);
+      expect(lock.locked, isTrue);
+
+      authenticator.succeeds = true;
+      expect(await lock.unlock(), isTrue);
+      expect(lock.locked, isFalse);
+    });
+
+    test('unlock joins an attempt that is already in flight', () async {
+      final lock = await enabledLock();
+      lock.didChangeAppLifecycleState(AppLifecycleState.hidden);
+      authenticator.reasons.clear();
+      final prompt = Completer<bool>();
+      authenticator.answer = prompt.future;
+
+      final first = lock.unlock();
+      final second = lock.unlock();
+      prompt.complete(true);
+
+      expect(await first, isTrue);
+      expect(await second, isTrue);
+      expect(authenticator.reasons, ['Unlock Hermes']);
+      expect(lock.locked, isFalse);
+    });
 
     test('turning it off is remembered', () async {
       final lock = await enabledLock();

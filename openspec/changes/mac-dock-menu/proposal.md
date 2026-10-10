@@ -25,7 +25,7 @@ None. Conversation windows and Handoff keep their requirements; the Dock menu is
 ## Impact
 
 - `lib/src/app_lock/app_lock_controller.dart` (`unlock()` returns `Future<bool>`; existing callers ignore it).
-- `macos/Runner/AppDelegate.swift` (the menu and a `hermes_app/dock_menu` channel); no new Swift file is required, though a `DockMenu` class in the same file keeps the delegate small.
+- `macos/Runner/DockMenu.swift` (a new file in the Runner target) holds the menu; `macos/Runner/AppDelegate.swift` routes the `dockMenu` call on the existing `hermes_app/app` channel and overrides `applicationDockMenu(_:)`.
 - Dart: a `DockMenuBridge` and `DockMenuController` under `lib/src/macos/dock/`, a `DockMenuGate` beside `HandoffGate` in `lib/src/app.dart`, and a push from `ChatScreen` when its thread list changes.
 - Reuse of the open-in-window-or-main logic that `ChatScreen` binds for Handoff, extracted so both callers share it.
 - Widgetbook: none. The menu is native AppKit, so there is no Flutter widget to catalog.

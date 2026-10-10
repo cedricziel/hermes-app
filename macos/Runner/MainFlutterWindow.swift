@@ -46,6 +46,7 @@ class MainFlutterWindow: NSWindow {
         }
         result(nil)
       case "show":
+        if self?.isMiniaturized == true { self?.deminiaturize(nil) }
         self?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         result(nil)

@@ -32,7 +32,7 @@ import 'thread_housekeeping.dart';
 import 'thread_search.dart';
 import 'widgets/message_actions.dart' show TurnAction, TurnActionStatus;
 
-const _couldNotOpenChat = 'Could not open that chat.';
+const couldNotOpenChat = 'Could not open that chat.';
 const _couldNotStop = 'Could not stop the reply. Try again.';
 
 /// The chat's state without its screen: the threads of the active profile,
@@ -87,6 +87,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   final ChatTransport? transport;
   final BotModeChatRepository? botChats;
   int _openGeneration = 0;
+
+  /// Counts the chat opens so far; an open that was started earlier has been
+  /// overtaken once this has moved on.
+  int get openGeneration => _openGeneration;
   final AttentionNotifier _attention;
 
   /// Shows replies sent here as Live Activities; null where there are none.
@@ -120,7 +124,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   void _failOpen() {
     _openFailed = true;
     breadcrumbs('chat.open.failed');
-    report(_couldNotOpenChat);
+    report(couldNotOpenChat);
     notifyListeners();
   }
 

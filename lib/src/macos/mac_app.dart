@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 abstract final class MacApp {
   static const _channel = MethodChannel('hermes_app/app');
   static final _windowless = StreamController<bool>.broadcast();
+  static final _dockMenuCalls = StreamController<MethodCall>.broadcast();
   static var _listening = false;
 
   /// Quits the app as Cmd-Q does, for callers that have no menu item to
@@ -17,14 +18,30 @@ abstract final class MacApp {
   /// runner sees it, emitted when that changes. Covered, hidden or
   /// full-screen windows on another Space do not count.
   static Stream<bool> get windowlessChanges {
-    if (!_listening) {
-      _listening = true;
-      _channel.setMethodCallHandler((call) async {
-        if (call.method == 'windowless' && call.arguments is bool) {
-          _windowless.add(call.arguments as bool);
-        }
-      });
-    }
+    _listen();
     return _windowless.stream;
+  }
+
+  /// Gives the runner what its Dock menu shows. AppKit asks for that menu
+  /// synchronously, so the runner keeps this copy in memory.
+  static Future<void> setDockMenu(Map<String, Object?> snapshot) =>
+      _channel.invokeMethod<void>('dockMenu', snapshot);
+
+  /// The Dock menu choices the runner reports (`dockNewChat`, `dockOpenChat`).
+  static Stream<MethodCall> get dockMenuCalls {
+    _listen();
+    return _dockMenuCalls.stream;
+  }
+
+  static void _listen() {
+    if (_listening) return;
+    _listening = true;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'windowless' && call.arguments is bool) {
+        _windowless.add(call.arguments as bool);
+      } else if (call.method.startsWith('dock')) {
+        _dockMenuCalls.add(call);
+      }
+    });
   }
 }

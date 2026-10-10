@@ -12,6 +12,8 @@ import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
 import 'src/chat/media/media_store.dart';
+import 'src/macos/dock/dock_menu_bridge.dart';
+import 'src/macos/dock/dock_menu_controller.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
 import 'src/live_activities/live_activities.dart';
@@ -128,6 +130,17 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider(
           lazy: false,
           create: (_) => AppLockController()..load(),
+        ),
+        ChangeNotifierProvider<DockMenuController?>(
+          lazy: false,
+          create: (context) => MacWindow.enabled
+              ? DockMenuController(
+                  bridge: DockMenuBridge(),
+                  unlock: context.read<AppLockController>().unlock,
+                  breadcrumbs: context.read<Breadcrumbs>(),
+                  events: telemetry.events(),
+                )
+              : null,
         ),
         Provider<LiveActivities?>(
           lazy: false,

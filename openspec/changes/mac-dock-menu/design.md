@@ -23,12 +23,12 @@ I searched pub.dev for a Dock-menu plugin. None implements `applicationDockMenu`
 
 ### Dart pushes a snapshot; native owns the menu
 
-Channel `hermes_app/dock_menu`, installed in `applicationDidFinishLaunching` on the main engine's messenger, like `ChatHandoff`.
+The menu rides the existing `hermes_app/app` channel (`MacApp`, answered by `AppDelegate`), which the main engine already owns; a second channel would need its own handler on the same messenger for no gain.
 
-- Dart to native `update`: `{state: "ready" | "locked" | "off", chats: [{id, profile, title}]}`. Only `ready` carries chats; `locked`, `off` and any malformed argument clear the stored chats. Native keeps the last value in memory only.
-- Native to Dart `newChat` and `openChat` `{id, profile}`.
+- Dart to native `dockMenu`: `{state: "ready" | "locked" | "off", chats: [{id, profile, title}]}`. Only `ready` carries chats; `locked`, `off` and any malformed argument clear the stored chats. Native keeps the last value in memory only.
+- Native to Dart `dockNewChat` and `dockOpenChat` `{id, profile}`.
 
-`applicationDockMenu` builds a fresh `NSMenu` from the stored snapshot on every call: New Chat when the state is `ready` or `locked`, the chats only when `ready`, then Show Main Window always. Show Main Window is native only (`makeKeyAndOrderFront` plus `NSApp.activate`), so it works signed out and when the Dart side is not ready. Chat items carry the id and profile as a `representedObject`; titles are used as `NSMenuItem.title` (never as a format string, no key equivalents) and cut to 40 characters on the Dart side, with an empty title shown as "Untitled chat". New Chat and chat items first show the main window, because a pick that opens the chat in the hidden main window must be seen; the conversation-window case focuses that window instead (Dart decides, see below).
+`applicationDockMenu` builds a fresh `NSMenu` from the stored snapshot on every call: New Chat when the state is `ready` or `locked`, the chats only when `ready`, then Show Main Window always. The menu logic is a `DockMenu` class in its own file, `macos/Runner/DockMenu.swift`, added to the Runner target; `AppDelegate` only owns an instance, routes the `dockMenu` call and overrides `applicationDockMenu(_:)`. Show Main Window is native only (`makeKeyAndOrderFront` plus `NSApp.activate`), so it works signed out and when the Dart side is not ready. Chat items carry the id and profile as a `representedObject`; titles are used as `NSMenuItem.title` (never as a format string, no key equivalents) and cut to 40 characters on the Dart side, with an empty title shown as "Untitled chat". New Chat shows the main window natively before it reports the pick, because the unlock prompt and the new chat live there. A chat item does not: Dart decides whether the chat's conversation window or the main window comes forward (see below), so a chat open in its own window leaves the main window alone.
 
 A pick when the Dart handler is not installed yet cannot happen: the menu holds no chat items and no New Chat until Dart has pushed `ready` or `locked`.
 
@@ -40,7 +40,7 @@ The list follows the profile the chat screen shows, so switching profile in the 
 
 ### Eligibility: signed in, connected, unlocked
 
-`DockMenuGate` (a widget in `app.dart`'s builder, next to `HandoffGate`) watches `AuthController.state` and `AppLockController.covered` and calls `DockMenuController.configure(state)`: `off` unless signed in and connected, `locked` when connected and covered, otherwise `ready`. Leaving `ready` drops the controller's list and pushes the new state, so a locked menu never holds titles. When `ChatScreen` disposes (sign-out removes the shell), it clears its list. Showing titles again after unlock needs the next `_changed` from the chat, so `ChatScreen` pushes once when the state flips back to `ready`. Platforms: the controller is constructed with the same macOS-only `enabled` default as `HandoffBridge`.
+`DockMenuGate` (a widget in `app.dart`'s builder, next to `HandoffGate`) listens to `AuthController` and `AppLockController` and calls `DockMenuController.configure(state)`: `off` unless signed in and connected, `locked` when connected and covered, otherwise `ready`. Leaving `ready` drops the controller's list and pushes the new state, so a locked menu never holds titles. When `ChatScreen` disposes (sign-out removes the shell), it clears its list. Showing titles again after unlock needs the next `_changed` from the chat, so `ChatScreen` pushes once when the state flips back to `ready`. Platforms: the controller is constructed with the same macOS-only `enabled` default as `HandoffBridge`.
 
 ### Opening a chat
 
@@ -49,7 +49,7 @@ Picking a chat runs in `ChatScreen`, with the logic Handoff already uses, extrac
 1. If `ConversationWindows.windowFor(threadId, profile)` exists, `focus` it and stop.
 2. Otherwise bring the main window forward, call `AppShell`'s show-chat callback (`onShowChat`) and `ChatController.restoreHandoff`-style loading so a chat outside the loaded page or on another profile still opens.
 
-Using the Handoff restore rather than a plain `select` matters for the second case: the menu snapshot may be a few seconds old. Failure (chat deleted since, network) goes through the existing chat-open failure presentation and the `dock.menu.open_failed` event.
+Using the Handoff restore rather than a plain `select` matters for the second case: the menu snapshot may be a few seconds old. A pick that has no window first asks `ConversationWindows.showMainWindow()` to raise the main window, since it may be hidden. Failure (chat deleted since, network) shows the existing "Could not open that chat." snackbar and the `dock.menu.open_failed` event.
 
 New Chat calls `_newThread()` after the same show-main step (when the app is locked, see the next section); if the key window is a conversation window, New Chat still creates the chat in the main window, as File > New Chat does from there.
 
@@ -72,7 +72,7 @@ Another change owns a cross-platform URL scheme and a Dart router with open chat
 
 ## Platforms
 
-macOS only: `AppDelegate.swift` and the Dart bridge. iOS, Android, Windows, Linux and watchOS get a no-op bridge. No entitlement, Info.plist, Xcode project or deployment-target change; the Swift code goes into an existing file, so no source reference is added. Conversation-window engines do not register the channel (like `ChatHandoff`), only the main engine does.
+macOS only: `DockMenu.swift`, `AppDelegate.swift` and the Dart bridge. iOS, Android, Windows, Linux and watchOS get a no-op bridge. No entitlement, Info.plist or deployment-target change; the new Swift file is added to the Runner target in `project.pbxproj`. Conversation-window engines do not register the app channel (like `ChatHandoff`), only the main engine does.
 
 ## Invariants touched
 
@@ -83,9 +83,9 @@ macOS only: `AppDelegate.swift` and the Dart bridge. iOS, Android, Windows, Linu
 
 ## Observability placement
 
-- `dock.menu.action` breadcrumb: recorded in `ChatScreen` where the channel action is handled; attributes `action`, `window`, `deferred`.
+- `dock.menu.action` breadcrumb: recorded by `DockMenuController` when it runs a pick, with the result `ChatScreen`'s callback reports; attributes `action`, `window`, `deferred`. Show Main Window is native only and records none.
 - `dock.menu.deferred` breadcrumb: recorded by `DockMenuController` when a deferred New Chat ends; attribute `outcome` (`completed`, `cancelled`).
-- `dock.menu.open_failed` log event: recorded by `DockMenuController` when the open callback reports failure; attribute `reason` (`unavailable`, `network`). No chat data.
+- `dock.menu.open_failed` log event: recorded by `DockMenuController` when the open callback reports failure; attribute `reason` (`unavailable`, `network`, `error`). A pick that a newer open (another pick, a sidebar click) overtook is not a failure and records nothing. A push the runner did not take is not retried and logs `dock.menu.push_failed` once. No chat data.
 - No span, for the reason given in `proposal.md`.
 
 ## Risks / Trade-offs
