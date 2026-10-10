@@ -139,18 +139,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   bool get openFailed => _openFailed;
   bool _openFailed = false;
 
-  /// The text of the link that is opening a chat, for its composer once the
-  /// chat is open.
-  String? _pendingPrompt;
-
-  void _deliverPrompt() {
-    final prompt = _pendingPrompt;
-    _pendingPrompt = null;
-    if (prompt != null) onDraft?.call(prompt);
-  }
-
   void _failOpen() {
-    _pendingPrompt = null;
     _openFailed = true;
     breadcrumbs('chat.open.failed');
     report(couldNotOpenChat);
@@ -231,6 +220,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// session the loaded threads do not hold, unlike a notification tap.
   bool _pendingFetch = false;
 
+  /// The text a link brought with the held tap, for its composer once the
+  /// chat is open.
+  String? _pendingTapPrompt;
+
   ChatThread? get selectedThread {
     for (final thread in _threads) {
       if (thread.id == _selectedId) return thread;
@@ -268,8 +261,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final held = _pendingTap;
       final fetchHeld = held != null && _pendingFetch;
       final launch = held ?? launched;
+      final heldPrompt = _pendingTapPrompt;
       _pendingTap = null;
       _pendingFetch = false;
+      _pendingTapPrompt = null;
       final threads = housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       _stopFollowing();
@@ -314,12 +309,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (held == null) onShowChat?.call();
         if (_selectedId != launch.threadId) {
           if (fetchHeld) {
-            _opening = _openMissing(launch);
+            _opening = _openMissing(launch, prompt: heldPrompt);
           } else {
             _failOpen();
           }
-        } else if (held != null) {
-          _deliverPrompt();
+        } else if (heldPrompt != null) {
+          onDraft?.call(heldPrompt);
         }
       }
       if (_selectedId != null) {
@@ -565,19 +560,19 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     String? prompt,
   }) {
     final generation = ++_openGeneration;
-    _pendingPrompt = prompt;
     breadcrumbs('chat.open.requested', {'fetch_missing': fetchMissing});
     onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
       _pendingFetch = fetchMissing;
+      _pendingTapPrompt = prompt;
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
       select(target.threadId);
       onOpened?.call();
-      _deliverPrompt();
+      if (prompt != null) onDraft?.call(prompt);
     } else if (fetchMissing) {
-      _opening = _openMissing(target, generation: generation);
+      _opening = _openMissing(target, generation: generation, prompt: prompt);
     } else {
       _failOpen();
     }
@@ -588,6 +583,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> _openMissing(
     NotificationTarget target, {
     int? generation,
+    String? prompt,
   }) async {
     generation ??= _openGeneration;
     final repository = this.repository;
@@ -612,10 +608,28 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       select(target.threadId);
       onOpened?.call();
-      _deliverPrompt();
+      if (prompt != null) onDraft?.call(prompt);
     } on Object {
       if (!disposed) _failOpen();
     }
+  }
+
+  /// [profile] if the server has it, else null (and a note), so a link never
+  /// moves the chat to a profile that does not exist. The current profile and
+  /// a chat with no profiles to ask are taken as they are; a profile list that
+  /// cannot be read counts as not knowing the profile.
+  Future<String?> knownProfile(String? profile) async {
+    final profiles = this.profiles;
+    if (profile == null || profile == _profile || profiles == null) {
+      return profile;
+    }
+    try {
+      if ((await profiles.list()).any((p) => p.name == profile)) return profile;
+    } on Object {
+      // Falls through: an unreadable list cannot vouch for the profile.
+    }
+    breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
+    return null;
   }
 
   /// Opens the chat whose open approval, question or input request was

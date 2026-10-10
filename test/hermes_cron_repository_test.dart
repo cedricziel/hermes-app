@@ -28,6 +28,15 @@ void main() {
       server.on('GET', '/api/cron/delivery-targets', {}, status: 404);
       expect(await repository.isAvailable(), isFalse);
     });
+
+    test('availability is unknown when the server could not answer', () async {
+      server.on('GET', '/api/cron/delivery-targets', {}, status: 404);
+      expect(await repository.availability(), isFalse);
+
+      server.on('GET', '/api/cron/delivery-targets', {}, status: 503);
+      expect(await repository.availability(), isNull);
+      expect(await repository.isAvailable(), isFalse);
+    });
   });
 
   group('listJobs', () {

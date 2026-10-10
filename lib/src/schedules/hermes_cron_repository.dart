@@ -49,10 +49,17 @@ class HermesCronRepository {
   /// Whether the server has the cron routes. Any failure, including a server
   /// too old to have them, reads as no: the app never offers a feature it
   /// cannot confirm.
-  Future<bool> isAvailable() async {
+  Future<bool> isAvailable() async => await availability() ?? false;
+
+  /// Like [isAvailable], but null when the server could not be asked
+  /// (offline, timed out, a server error), as opposed to lacking the routes.
+  Future<bool?> availability() async {
     try {
       await _api.getCronDeliveryTargetsApiCronDeliveryTargetsGet();
       return true;
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      return status == null || status >= 500 ? null : false;
     } on Object catch (_) {
       return false;
     }

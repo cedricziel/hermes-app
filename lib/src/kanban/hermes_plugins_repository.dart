@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:hermes_api/hermes_api.dart';
 
 /// Asks the dashboard which of its optional plugins are switched on.
@@ -13,12 +14,20 @@ class HermesPluginsRepository {
   /// Whether the bundled Kanban plugin is on. Any failure, including a server
   /// too old to have the route, reads as off: the app never offers a feature
   /// it cannot confirm.
-  Future<bool> isKanbanEnabled() async {
+  Future<bool> isKanbanEnabled() async => await kanbanStatus() ?? false;
+
+  /// Like [isKanbanEnabled], but null when the server could not be asked
+  /// (offline, timed out, a server error), as opposed to answering that the
+  /// plugin is off.
+  Future<bool?> kanbanStatus() async {
     try {
       final response = await _api.getDashboardPluginsApiDashboardPluginsGet();
       final data = response.data;
       if (data is! List) return false;
       return data.any((p) => p is Map && p['name'] == kanbanPluginName);
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      return status == null || status >= 500 ? null : false;
     } on Object catch (_) {
       return false;
     }

@@ -9,12 +9,20 @@ sealed class ChatOpenRequest {
 }
 
 /// A session, such as one run of a scheduled task. A [prompt] is put in its
-/// composer once it is open and is never sent.
+/// composer once it is open and is never sent. A request [fromLink] comes
+/// from outside the app, so its profile is checked and a window that shows
+/// the chat takes it.
 class OpenSessionRequest extends ChatOpenRequest {
-  const OpenSessionRequest(this.target, this.bot, {this.prompt});
+  const OpenSessionRequest(
+    this.target,
+    this.bot, {
+    this.prompt,
+    this.fromLink = false,
+  });
   final NotificationTarget target;
   final BotChatContext? bot;
   final String? prompt;
+  final bool fromLink;
 }
 
 /// A new chat, in [profile] when given. A [prompt] is put in its composer and
@@ -44,7 +52,9 @@ class ChatOpenRequests extends ChangeNotifier {
     NotificationTarget target, {
     BotChatContext? bot,
     String? prompt,
-  }) => _ask(OpenSessionRequest(target, bot, prompt: prompt));
+    bool fromLink = false,
+  }) =>
+      _ask(OpenSessionRequest(target, bot, prompt: prompt, fromLink: fromLink));
 
   void requestNew({String? profile, String? prompt, bool dictate = false}) =>
       _ask(NewChatRequest(profile: profile, prompt: prompt, dictate: dictate));

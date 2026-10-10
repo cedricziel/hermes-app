@@ -404,6 +404,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         _openRequests.request(
           NotificationTarget(threadId: threadId, profile: profile),
           prompt: prompt,
+          fromLink: true,
         );
         _showChat();
       case NewChat(:final profile, :final dictate, :final prompt):

@@ -578,21 +578,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final request = widget.openRequests?.takeRequest();
     if (request == null) return;
     _handoff?.cancel();
+    // The latest request wins over any earlier one still waiting or running.
+    final link = ++_linkSeq;
+    _whenLoaded = null;
     switch (request) {
       case OpenSessionRequest(:final bot?):
         unawaited(_chat.openBot(bot));
+      case OpenSessionRequest(:final target, :final prompt, fromLink: true):
+        unawaited(_openLinkedChat(target, prompt, link));
       case OpenSessionRequest(:final target, :final prompt):
         _chat.open(target, fetchMissing: true, prompt: prompt);
       case NewChatRequest():
-        _afterThreadsLoad(() => _openNewChat(request));
+        _afterThreadsLoad(() => _openNewChat(request, link));
       case OldestPendingRequest():
         _afterThreadsLoad(_openOldestRequest);
     }
   }
 
+  /// Counts the requests taken, so work for an earlier one can tell it was
+  /// overtaken.
+  var _linkSeq = 0;
+
   /// Work a link asked for on the thread list. Loading replaces that list and
   /// would drop a new chat made meanwhile, so it waits for the load to end.
-  /// A later request replaces one still waiting.
   Future<void> Function()? _whenLoaded;
 
   void _afterThreadsLoad(Future<void> Function() work) {
@@ -606,23 +614,51 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (work != null) unawaited(work());
   }
 
-  /// A new chat from a link: in its profile, with its text in the composer,
-  /// sending nothing, and with dictation running when asked for and offered.
-  Future<void> _openNewChat(NewChatRequest request) async {
+  /// A chat from a link. A profile the server lacks is ignored. A chat that
+  /// has a window of its own is shown there; otherwise the main window comes
+  /// back if it was hidden, and the chat opens in it.
+  Future<void> _openLinkedChat(
+    NotificationTarget target,
+    String? prompt,
+    int link,
+  ) async {
+    final profile = await _chat.knownProfile(target.profile);
+    if (!mounted || link != _linkSeq) return;
+    final windows = _windows;
+    if (windows?.windowFor(target.threadId, profile ?? _chat.profile)
+        case final window?) {
+      if (await windows!.focus(window.windowId)) return;
+      if (!mounted || link != _linkSeq) return;
+    }
+    unawaited(windows?.showMainWindow());
+    _chat.open(
+      NotificationTarget(threadId: target.threadId, profile: profile),
+      fetchMissing: true,
+      prompt: prompt,
+    );
+  }
+
+  /// A new chat from a link: in its profile if the server has it, with its
+  /// text in the composer, sending nothing, and with dictation running when
+  /// asked for and offered.
+  Future<void> _openNewChat(NewChatRequest request, int link) async {
+    bool overtaken() => !mounted || link != _linkSeq;
+    unawaited(_windows?.showMainWindow());
     widget.onShowChat?.call();
-    final profile = request.profile;
+    final profile = await _chat.knownProfile(request.profile);
+    if (overtaken()) return;
     if (profile != null &&
         _chat.repository != null &&
         profile != _chat.profile) {
       await _chat.loadThreads(profile);
-      if (!mounted) return;
+      if (overtaken()) return;
       if (_chat.profile != profile) {
         _showMessage('Could not switch profile');
         return;
       }
     }
     await _chat.newThreadWhenOpened();
-    if (!mounted) return;
+    if (overtaken()) return;
     _closeDrawerIfNarrow();
     if (request.prompt case final prompt?) _appendToComposer(prompt);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -631,7 +667,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     final dictation = _dictation;
     if (!request.dictate || dictation == null) return;
     await dictation.refresh();
-    if (mounted && dictation.controller.available) {
+    if (!overtaken() && dictation.controller.available) {
       unawaited(dictation.controller.start());
     }
   }
@@ -639,6 +675,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The chat holding the request that has waited longest, else the chat
   /// list: the drawer on a phone, the sidebar that is already there when wide.
   Future<void> _openOldestRequest() async {
+    unawaited(_windows?.showMainWindow());
     if (_chat.openOldestRequest()) return;
     widget.onShowChat?.call();
     if (hasMacSidebar(context)) {

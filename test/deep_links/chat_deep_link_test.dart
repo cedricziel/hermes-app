@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
@@ -10,12 +13,16 @@ import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/profiles/hermes_profiles_repository.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
+import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
+import 'package:hermes_app/src/windows/conversation_windows.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/fake_chat_transport.dart';
+import '../support/fake_conversation_window_host.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_share_inbox.dart';
 import '../support/fake_voice_recorder.dart';
@@ -35,6 +42,9 @@ void main() {
   late FakeChatTransport transport;
   late FakeVoiceRecorder recorder;
   late ChatOpenRequests requests;
+  late BreadcrumbTrail trail;
+  FakeConversationWindowHost? host;
+  ConversationWindows? windows;
 
   void seedProfile(String profile, List<Map<String, Object?>> sessions) =>
       server.on(
@@ -65,6 +75,9 @@ void main() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
     requests = ChatOpenRequests();
+    trail = BreadcrumbTrail(capacity: 50);
+    host = null;
+    windows = null;
     transport = FakeChatTransport();
     recorder = FakeVoiceRecorder();
     server = FakeHermesServer()
@@ -106,6 +119,9 @@ void main() {
           ChangeNotifierProvider<ShareController>(
             create: (_) => ShareController(FakeShareInbox()),
           ),
+          Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+          if (windows case final windows?)
+            ChangeNotifierProvider<ConversationWindows?>.value(value: windows),
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
@@ -252,6 +268,7 @@ void main() {
       requests.request(
         const NotificationTarget(threadId: 'older', profile: 'work'),
         prompt: 'Yes, book it',
+        fromLink: true,
       );
       await tester.pumpAndSettle();
 
@@ -272,6 +289,7 @@ void main() {
       requests.request(
         const NotificationTarget(threadId: 'ancient', profile: 'work'),
         prompt: 'Still there?',
+        fromLink: true,
       );
       await tester.pumpAndSettle();
 
@@ -286,6 +304,7 @@ void main() {
       requests.request(
         const NotificationTarget(threadId: 'gone', profile: 'work'),
         prompt: 'Hello?',
+        fromLink: true,
       );
       await tester.pumpAndSettle();
 
@@ -298,6 +317,7 @@ void main() {
       requests.request(
         const NotificationTarget(threadId: 'older', profile: 'work'),
         prompt: 'Early bird',
+        fromLink: true,
       );
       await tester.pumpAndSettle();
 
@@ -312,10 +332,12 @@ void main() {
       requests.request(
         const NotificationTarget(threadId: 'older', profile: 'work'),
         prompt: 'Stale',
+        fromLink: true,
       );
       await tester.pump();
       requests.request(
         const NotificationTarget(threadId: 'recent', profile: 'work'),
+        fromLink: true,
       );
       await tester.pumpAndSettle();
 
@@ -384,6 +406,183 @@ void main() {
 
       expect(find.byType(ThreadSidebar), findsOneWidget);
       expect(selectedId(tester), isNull);
+    });
+  });
+
+  List<String> crumbs() => [
+    for (final c in trail.recent) '${c.name} ${c.attributes}',
+  ];
+
+  group('a profile that does not exist', () {
+    testWidgets('is ignored by a chat link, which opens in the current one', (
+      tester,
+    ) async {
+      await pumpChat(tester);
+
+      requests.request(
+        const NotificationTarget(threadId: 'older', profile: 'ghost'),
+        prompt: 'Hi',
+        fromLink: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'older');
+      expect(composerText(tester), 'Hi');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .map((r) => r.queryParameters['profile']),
+        ['work'],
+      );
+      expect(crumbs(), contains('deeplink.ignored {reason: unknown_profile}'));
+    });
+
+    testWidgets('is ignored by a new chat link', (tester) async {
+      await pumpChat(tester);
+
+      requests.requestNew(profile: 'ghost', prompt: 'Hi');
+      await tester.pumpAndSettle();
+
+      expect(newChatRows(), findsNWidgets(2));
+      expect(composerText(tester), 'Hi');
+      expect(
+        server
+            .requestsTo('GET', '/api/sessions')
+            .map((r) => r.queryParameters['profile']),
+        ['work'],
+      );
+      expect(crumbs(), contains('deeplink.ignored {reason: unknown_profile}'));
+    });
+
+    testWidgets('is still honoured for a request that is not a link', (
+      tester,
+    ) async {
+      server.on('GET', '/api/sessions/x', {'detail': 'x'}, status: 404);
+      await pumpChat(tester);
+
+      requests.request(
+        const NotificationTarget(threadId: 'x', profile: 'ghost'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        crumbs(),
+        isNot(contains('deeplink.ignored {reason: unknown_profile}')),
+      );
+    });
+  });
+
+  group('the latest link', () {
+    testWidgets('replaces a new chat still waiting for the threads', (
+      tester,
+    ) async {
+      await pumpChat(tester, settle: false);
+      requests.requestNew(prompt: 'First');
+      requests.request(
+        const NotificationTarget(threadId: 'older', profile: 'work'),
+        fromLink: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(selectedId(tester), 'older');
+      expect(composerText(tester), isEmpty);
+      expect(newChatRows(), findsOneWidget);
+    });
+
+    testWidgets('replaces a chat link with a new chat', (tester) async {
+      await pumpChat(tester, settle: false);
+      requests.request(
+        const NotificationTarget(threadId: 'older', profile: 'work'),
+        prompt: 'Stale',
+        fromLink: true,
+      );
+      requests.requestNew(prompt: 'Fresh');
+      await tester.pumpAndSettle();
+
+      expect(composerText(tester), 'Fresh');
+      expect(newChatRows(), findsNWidgets(2));
+    });
+  });
+
+  testWidgets('a prompt does not outlive the open that carried it', (
+    tester,
+  ) async {
+    final gate = Completer<FakeResponse>();
+    server.onRequest('GET', '/api/sessions/ancient', (_) => gate.future);
+    seedMessages('ancient', 'work', 'long ago');
+    await pumpChat(tester);
+
+    requests.request(
+      const NotificationTarget(threadId: 'ancient', profile: 'work'),
+      prompt: 'Too late',
+      fromLink: true,
+    );
+    await tester.pump();
+    await openThread(tester, 'Recent chat');
+    gate.complete((
+      status: 200,
+      body: sessionRow(id: 'ancient', title: 'Ancient chat'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(selectedId(tester), 'recent');
+    expect(composerText(tester), isEmpty);
+  });
+
+  group('on a Mac with conversation windows', () {
+    Future<void> pumpWithWindows(WidgetTester tester) async {
+      host = FakeConversationWindowHost();
+      windows = ConversationWindows(
+        host: host!,
+        store: ConversationWindowStore(SharedPreferencesAsync()),
+        connection: () => (baseUrl: 'https://hermes.test', authRequired: true),
+        headers: ({rejected}) async => const {},
+      );
+      addTearDown(() {
+        windows!.dispose();
+        host!.dispose();
+      });
+      await pumpChat(tester);
+    }
+
+    testWidgets('a chat that has a window is focused there', (tester) async {
+      await pumpWithWindows(tester);
+      await windows!.open('older', profile: 'work', title: 'Older chat');
+
+      requests.request(
+        const NotificationTarget(threadId: 'older', profile: 'work'),
+        fromLink: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(host!.focused, ['w0']);
+      expect(host!.mainShown, 0);
+      expect(selectedId(tester), isNull);
+    });
+
+    testWidgets('another chat opens in the main window, brought back', (
+      tester,
+    ) async {
+      await pumpWithWindows(tester);
+
+      requests.request(
+        const NotificationTarget(threadId: 'older', profile: 'work'),
+        fromLink: true,
+      );
+      await tester.pumpAndSettle();
+
+      expect(host!.mainShown, 1);
+      expect(selectedId(tester), 'older');
+    });
+
+    testWidgets('a new chat brings the main window back', (tester) async {
+      await pumpWithWindows(tester);
+
+      requests.requestNew(prompt: 'Hi');
+      await tester.pumpAndSettle();
+
+      expect(host!.mainShown, 1);
+      expect(composerText(tester), 'Hi');
     });
   });
 }
