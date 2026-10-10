@@ -213,6 +213,50 @@ void main() {
     });
   });
 
+  group('gateway.send_failed', () {
+    test('a socket that cannot open fails the send at connect', () async {
+      transport = HermesGatewayTransport(
+        connect: () async => throw const GatewayConnectionClosed(),
+        events: events.call,
+      );
+
+      await expectLater(reply(), throwsA(isA<GatewayConnectionClosed>()));
+
+      expect(events.named('gateway.send_failed'), [
+        {'step': 'connect', 'new_thread': true, 'cause': 'closed'},
+      ]);
+    });
+
+    test(
+      'a rejected prompt is logged with its code, not its message',
+      () async {
+        gateway.rejectSubmit = true;
+
+        await expectLater(reply(), throwsA(isA<GatewayRpcException>()));
+
+        expect(events.named('gateway.send_failed'), [
+          {
+            'step': 'submit',
+            'new_thread': true,
+            'cause': 'rejected',
+            'code': 4009,
+          },
+        ]);
+      },
+    );
+
+    test('a send that succeeds logs nothing', () async {
+      gateway.turn = (g, sid) => g.event('message.complete', sid, {
+        'text': 'Hi',
+        'status': 'complete',
+      });
+
+      await reply();
+
+      expect(events.named('gateway.send_failed'), isEmpty);
+    });
+  });
+
   group('gateway.reconnect', () {
     test('a replay that fills the gap is reported with its size', () {
       fake((async) {

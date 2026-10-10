@@ -281,6 +281,12 @@ The gateway spans SHALL record only method names, event type names, request ids,
 - **WHEN** telemetry is disabled and the chat sends a message
 - **THEN** no gateway span is recorded and the chat behaves as usual
 
+#### Scenario: A failed send says where it stopped
+
+- **WHEN** a send fails, before or after the prompt was submitted
+- **THEN** the system logs `gateway.send_failed` with `step` (`connect`, `open`, `attach`, `submit` or `reply`), `new_thread`, and `cause` (`closed`, `rejected` with the gateway's `code`, `profile`, `timeout`, or `other` with the exception's type name)
+- **AND** the record carries no prompt text, error message or session id
+
 ### Requirement: Sign-in and session events are logged with coarse values
 
 When telemetry is enabled the connection controller SHALL log app events as info log records whose body is the event name and whose attributes are fixed names and coarse values only. Callers SHALL NOT pass a URL, host, user identity, token or exception message, and SHALL NOT name the provider used for a sign-in attempt. The server's `hermes.*` attributes, including its list of configured providers, are added as described in "HTTP and connection telemetry carries the connected server's attributes" and are not affected by this rule. The events are:
@@ -336,7 +342,7 @@ When telemetry is enabled the system SHALL keep the last 40 breadcrumbs in memor
 - `chat.open.requested` with `fetch_missing`, when a notification, handoff or search asks for a chat; `chat.open.failed` when it could not be opened.
 - `chat.reply.started` with `queued` and `attachments` (a count); `chat.reply.ended` with `outcome` (`completed`, `stopped`, `failed` or `folded`).
 - `window.opened` and `window.closed`, each with `open` (how many conversation windows are open), and `window.key` with `conversation` (a conversation window rather than the main window is key), on macOS.
-- The `gateway.reconnect`, `gateway.turn_settled` and `gateway.event_unmapped` app events, which are also breadcrumbs.
+- The `gateway.reconnect`, `gateway.turn_settled`, `gateway.event_unmapped` and `gateway.send_failed` app events, which are also breadcrumbs.
 
 #### Scenario: Moving between destinations
 
@@ -546,7 +552,7 @@ When telemetry is enabled the system SHALL add the `hermes.*` attributes of a co
 
 - every span of the chat gateway sockets (`/api/ws`) opened on that connection: the upgrade span, request spans and event spans;
 - every span of the Kanban events socket (`/api/plugins/kanban/events`) opened on that connection: the upgrade span and event spans;
-- the app events logged by the gateway transport (`gateway.reconnect`, `gateway.turn_settled`, `gateway.event_unmapped`), the Kanban board (`kanban.events.reconnect`), the plugin, catalog and provider screens (`plugins.*`) and the skills hub (`skills.job`) while they work against that connection.
+- the app events logged by the gateway transport (`gateway.reconnect`, `gateway.turn_settled`, `gateway.event_unmapped`, `gateway.send_failed`), the Kanban board (`kanban.events.reconnect`), the plugin, catalog and provider screens (`plugins.*`) and the skills hub (`skills.job`) while they work against that connection.
 
 A socket keeps the attributes of the connection it was opened on for as long as it lives, including across its own reconnects. Attributes a span or log record sets itself SHALL take precedence. Breadcrumbs of these events SHALL NOT carry `hermes.*` attributes. Events of the watch bridge and the token store SHALL NOT carry them. While telemetry is disabled no attribute is computed and the sockets behave as before.
 
