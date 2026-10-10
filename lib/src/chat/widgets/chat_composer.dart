@@ -145,15 +145,23 @@ class _ChatComposerState extends State<ChatComposer> {
         _chooseSlash(_suggestions[_selectedSlash % _suggestions.length]);
         return KeyEventResult.handled;
       }
-      _send();
+      if (_dictating) {
+        if (!widget.commandRunning) widget.dictation!.onSend?.call();
+      } else {
+        _send();
+      }
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
+  bool get _dictating => widget.dictation?.active == true;
+
   List<SlashCommand> get _suggestions {
     final text = widget.controller.text;
-    if (_dismissSlash ||
+    // The field holds dictated words, which pick no command.
+    if (_dictating ||
+        _dismissSlash ||
         !text.startsWith('/') ||
         text.contains(RegExp(r'\s'))) {
       return const [];
@@ -175,14 +183,15 @@ class _ChatComposerState extends State<ChatComposer> {
     _focusNode.requestFocus();
   }
 
-  List<BotMention> get _mentions =>
-      widget.botContext?.suggestions(
-        widget.controller.text,
-        widget.controller.selection.baseOffset < 0
-            ? widget.controller.text.length
-            : widget.controller.selection.baseOffset,
-      ) ??
-      const [];
+  List<BotMention> get _mentions => _dictating
+      ? const []
+      : widget.botContext?.suggestions(
+              widget.controller.text,
+              widget.controller.selection.baseOffset < 0
+                  ? widget.controller.text.length
+                  : widget.controller.selection.baseOffset,
+            ) ??
+            const [];
 
   void _chooseMention(BotMention mention) {
     final replacement = '@${mention.handle} ';
@@ -404,7 +413,9 @@ class _ChatComposerState extends State<ChatComposer> {
                             disabledForegroundColor: subtle,
                           ),
                           onPressed: dictating
-                              ? dictation.onSend
+                              ? (widget.commandRunning
+                                    ? null
+                                    : dictation.onSend)
                               : _canSend
                               ? _send
                               : null,

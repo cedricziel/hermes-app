@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'dart:convert';
 
 import 'package:fake_async/fake_async.dart';
@@ -516,6 +518,62 @@ void main() {
 
       expect(dictation.phase, DictationPhase.idle);
       expect(dictation.canRetry, isFalse);
+    });
+  });
+
+  group('ending', () {
+    test('says how the last dictation ended', () async {
+      final dictation = controller(support: _uploadOnly);
+      await dictation.start();
+      await dictation.cancel();
+
+      expect(dictation.lastOutcome, 'cancelled');
+
+      await dictation.start();
+      recorder.speak([5]);
+      await pumpEventQueue();
+      await dictation.stop();
+
+      expect(dictation.lastOutcome, 'inserted');
+    });
+
+    test('whenSettled completes when the controller is disposed', () async {
+      final dictation = controller(support: _uploadOnly);
+      await dictation.start();
+      var settled = false;
+      unawaited(dictation.whenSettled().then((_) => settled = true));
+
+      dictation.dispose();
+      await pumpEventQueue();
+
+      expect(settled, isTrue);
+    });
+
+    test('a failure drops the partial text', () async {
+      server.on('POST', '/api/audio/transcribe', {'detail': 'x'}, status: 500);
+      final dictation = controller();
+      await dictation.start();
+      serverSends({'type': 'partial', 'text': 'book a'});
+      recorder.speak([5]);
+      await pumpEventQueue();
+      final stopping = dictation.stop();
+      await pumpEventQueue();
+      serverSends({'type': 'final', 'transcript': ''});
+      await stopping;
+
+      expect(dictation.phase, DictationPhase.failed);
+      expect(dictation.liveTranscript, '');
+    });
+
+    test('becoming unavailable cancels a recording', () async {
+      final dictation = controller();
+      await dictation.start();
+
+      dictation.configure(profile: 'work', support: VoiceSupport.none);
+      await pumpEventQueue();
+
+      expect(dictation.phase, DictationPhase.idle);
+      expect(recorder.recording, isFalse);
     });
   });
 }

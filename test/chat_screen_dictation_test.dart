@@ -293,6 +293,44 @@ void main() {
       expect(_draft(tester), isEmpty);
     });
 
+    testWidgets('cancel after send sends nothing', (tester) async {
+      speech.statusGate = null;
+      await startDictating(tester);
+      // The device recognizer takes its time with the final text.
+      final finishing = Completer<void>();
+      speech.finishGate = finishing;
+
+      await tester.tap(find.bySemanticsLabel('Send'));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('Cancel voice input'));
+      finishing.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Please'), findsOneWidget, reason: 'only the draft');
+      expect(_draft(tester), 'Please');
+    });
+
+    testWidgets('text written into the field while dictating is kept', (
+      tester,
+    ) async {
+      await startDictating(tester);
+      await tester.runAsync(() async {
+        speech.hears('book a');
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      await tester.pump();
+
+      // As Edit does with a prompt, or a starter prompt.
+      tester.widget<EditableText>(composerField).controller.text =
+          'Edited prompt';
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      expect(_draft(tester), 'Edited prompt');
+      expect(find.bySemanticsLabel('Cancel voice input'), findsNothing);
+    });
+
     testWidgets('send after a failed transcription sends nothing', (
       tester,
     ) async {

@@ -648,22 +648,37 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The draft as the running dictation found it; null when none runs.
   DictationDraft? _dictationDraft;
 
+  /// The text this dictation last put in the field.
+  String? _dictationShown;
+
   /// Shows the words recognized so far in the field while dictating, and
   /// gives the draft back when the dictation ends without a transcript.
   /// The transcript itself arrives through [_insertTranscript].
+  ///
+  /// Anything else that writes the field meanwhile (Edit, a starter prompt,
+  /// shared text, Open in New Window) wins: the dictation is dropped and that
+  /// text stays.
   void _onDictation() {
     final dictation = _dictation!;
+    final current = _composerController.value;
     if (dictation.busy) {
-      final draft = _dictationDraft ??= DictationDraft(
-        _composerController.value,
-      );
-      final shown = draft.showing(dictation.liveTranscript);
-      if (shown != _composerController.value) {
-        _composerController.value = shown;
+      if (_dictationShown case final shown? when shown != current.text) {
+        _dictationDraft = null;
+        _dictationShown = null;
+        unawaited(dictation.cancel());
+        return;
       }
-    } else if (_dictationDraft case final draft?) {
-      _dictationDraft = null;
-      _composerController.value = draft.original;
+      final draft = _dictationDraft ??= DictationDraft(current);
+      final shown = draft.showing(dictation.liveTranscript);
+      // Only the text: a selection made in the field stays.
+      if (shown.text != current.text) _composerController.value = shown;
+      _dictationShown = _composerController.text;
+    } else {
+      _dictationShown = null;
+      if (_dictationDraft case final draft?) {
+        _dictationDraft = null;
+        _composerController.value = draft.original;
+      }
     }
   }
 
@@ -1058,6 +1073,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           ),
           thread: selected,
           botContext: bot,
+          sendTarget: () => (_chat.profile, _chat.selectedId),
           chatController: chat.controllerFor(selected),
           composerController: _composerController,
           composerFocus: _composerFocus,

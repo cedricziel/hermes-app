@@ -45,8 +45,8 @@ enum DictationPhase {
 /// live over `/api/audio/transcribe-stream` when its provider can, else (or
 /// when that fails) by uploading the recording to `POST /api/audio/transcribe`.
 /// With [DictationEngine.device] the operating system's recognizer does it,
-/// and nothing goes to the server. The transcript goes to [onTranscript]; it
-/// is never sent.
+/// and nothing goes to the server. The transcript goes to [onTranscript]; the
+/// composer sends it only when the user asks.
 class DictationController extends ChangeNotifier {
   DictationController({
     required this._repository,
@@ -135,6 +135,9 @@ class DictationController extends ChangeNotifier {
     _support = support;
     _engine = engine;
     _model = model;
+    // The composer hides dictation while it is unavailable; a recording
+    // left running would have no controls.
+    if (busy && !available) unawaited(cancel());
     notifyListeners();
   }
 
@@ -206,21 +209,29 @@ class DictationController extends ChangeNotifier {
   }
 
   /// Completes once no recording or transcription is in progress.
-  Future<void> whenSettled() async {
-    while (busy) {
-      final settled = Completer<void>();
-      void check() {
-        if (!busy && !settled.isCompleted) settled.complete();
-      }
-
-      addListener(check);
-      try {
-        await settled.future;
-      } finally {
-        removeListener(check);
-      }
-    }
+  /// Completes once no recording or transcription is in progress, or the
+  /// controller is disposed; [lastOutcome] then says how it ended.
+  Future<void> whenSettled() {
+    if (!busy || _disposed) return Future.value();
+    final settled = Completer<void>();
+    _settledWaiters.add(settled);
+    return settled.future;
   }
+
+  final _settledWaiters = <Completer<void>>[];
+
+  void _completeSettledWaiters() {
+    for (final waiter in _settledWaiters) {
+      waiter.complete();
+    }
+    _settledWaiters.clear();
+  }
+
+  /// How the last dictation ended, as its breadcrumb records it:
+  /// `inserted`, `empty`, `cancelled`, `failed`, `denied` or
+  /// `model_missing`; null before the first one ended.
+  String? get lastOutcome => _lastOutcome;
+  String? _lastOutcome;
 
   /// Ends the recording and inserts its transcript.
   Future<void> stop() async {
@@ -347,6 +358,9 @@ class DictationController extends ChangeNotifier {
   /// Releases the lease, records how the dictation ended and moves to
   /// [phase].
   void _end(DictationPhase phase, String outcome, {String? path}) {
+    _lastOutcome = outcome;
+    // A partial from a dictation that ended must not show again on retry.
+    _liveTranscript = '';
     _releaseLease();
     _breadcrumbs('voice.dictation.ended', {
       'engine': _engine.name,
@@ -396,6 +410,7 @@ class DictationController extends ChangeNotifier {
   void _setPhase(DictationPhase phase) {
     _phase = phase;
     notifyListeners();
+    if (!busy) _completeSettledWaiters();
   }
 
   var _disposed = false;
@@ -408,6 +423,8 @@ class DictationController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _lastOutcome = 'cancelled';
+    _completeSettledWaiters();
     unawaited(cancel().whenComplete(_recorder.dispose));
     super.dispose();
   }

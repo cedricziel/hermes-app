@@ -42,55 +42,59 @@ class VoiceWaveform extends StatelessWidget {
     final dotOn = (elapsed.inMilliseconds ~/ 500).isEven;
     return SizedBox(
       height: 40,
-      child: Row(
-        children: [
-          if (!settling) ...[
-            Semantics(
-              label: 'Recording',
-              child: AnimatedOpacity(
-                opacity: dotOn ? 1 : 0.3,
-                duration: const Duration(milliseconds: 200),
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: scheme.error,
-                    shape: BoxShape.circle,
+      // A narrow row (small phone, large text) drops the name before it
+      // crowds the controls beside it.
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          children: [
+            if (!settling) ...[
+              Semantics(
+                label: 'Recording',
+                child: AnimatedOpacity(
+                  opacity: dotOn ? 1 : 0.3,
+                  duration: const Duration(milliseconds: 200),
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: scheme.error,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: ExcludeSemantics(
+                child: CustomPaint(
+                  size: const Size(double.infinity, 24),
+                  painter: _BarsPainter(
+                    levels: levels,
+                    color: settling
+                        ? subtle.withValues(alpha: 0.4)
+                        : scheme.onSurface,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: ExcludeSemantics(
-              child: CustomPaint(
-                size: const Size(double.infinity, 24),
-                painter: _BarsPainter(
-                  levels: levels,
-                  color: settling
-                      ? subtle.withValues(alpha: 0.4)
-                      : scheme.onSurface,
+            if (label != null && constraints.maxWidth >= 160) ...[
+              const SizedBox(width: 8),
+              // Narrow rows (large text, small phones) cut the name short
+              // rather than the controls around it.
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: subtle),
                 ),
               ),
-            ),
-          ),
-          if (label != null) ...[
-            const SizedBox(width: 8),
-            // Narrow rows (large text, small phones) cut the name short
-            // rather than the controls around it.
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 110),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium
-                    ?.copyWith(color: subtle),
-              ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
