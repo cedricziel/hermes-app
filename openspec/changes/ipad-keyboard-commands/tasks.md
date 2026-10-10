@@ -13,7 +13,7 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 3. Bridge (TDD)
 
-- [ ] 3.1 Write failing tests in `test/macos/ipad_menu_bridge_test.dart` with a mocked `hermes_app/menu` channel: the layout is sent once with iOS chrome and never with Mac or Material chrome; a scope change sends `setState` with enabled flags and titles (New Task, Unpin); a hidden page's scope sends nothing enabled; an `invoke` from native runs the handler once; a channel error is swallowed. Implement `ipad_menu_bridge.dart` and mount it in `MacMenuBar`; verify.
+- [x] 3.1 Write failing tests in `test/macos/ipad_menu_bridge_test.dart` with a mocked `hermes_app/menu` channel: the layout is sent once with iOS chrome and never with Mac or Material chrome; a scope change sends `setState` with enabled flags and titles (New Task, Unpin); a hidden page's scope sends nothing enabled; an `invoke` from native runs the handler once; a channel error is swallowed. Implement `ipad_menu_bridge.dart` and mount it in `MacMenuBar`; verify.
 - [ ] 3.2 Write failing tests that with iOS chrome `AppShell` offers Settings, Connection Details and Sign Out, and `ChatScreen`'s Find focuses the sidebar search field in the wide layout and is disabled in the narrow one. Implement (a `FocusNode` for `ThreadSearchView`); verify.
 
 ## 4. Native side
@@ -22,7 +22,7 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 5. Observability
 
-- [ ] 5.1 Write failing tests with a recording `Breadcrumbs` trail and `AppEventLogger`: an `invoke` adds `menu.command` (`command`, `platform`); a rejected `setLayout`/`setState` logs `ipad_menu.sync_failed` (`operation`, `error.type`); nothing else is attached. Implement; verify.
+- [x] 5.1 Write failing tests with a recording `Breadcrumbs` trail and `AppEventLogger`: an `invoke` adds `menu.command` (`command`, `platform`); a rejected `setLayout`/`setState` logs `ipad_menu.sync_failed` (`operation`, `error.type`); nothing else is attached. Implement; verify.
 
 ## 6. Docs and skills
 

@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_otel/flutter_otel.dart' show noopAppEventLogger;
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../api/hermes_repositories.dart';
 import '../settings/about_dialog.dart';
+import '../telemetry/breadcrumbs.dart';
 import '../theme/platform_chrome.dart';
+import 'ipad_menu_bridge.dart';
 import 'mac_commands.dart';
 import 'mac_window.dart';
 import 'menu_layout.dart';
@@ -46,16 +51,45 @@ class _MacMenuBarState extends State<MacMenuBar> {
   /// the registry changes, not when a theme animation rebuilds this widget.
   List<PlatformMenuItem>? _menus;
 
+  IpadMenuBridge? _ipad;
+
   @override
   void initState() {
     super.initState();
     _registry.addListener(_registryChanged);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ios = platformChromeOf(context) == PlatformChrome.ios;
+    if (ios && _ipad == null) {
+      _ipad = IpadMenuBridge(
+        registry: _registry,
+        breadcrumbs: _maybeRead<Breadcrumbs>() ?? Breadcrumbs.none,
+        events: () =>
+            HermesRepositories.maybeOf(context)?.telemetry.events ??
+            noopAppEventLogger,
+      )..start();
+    } else if (!ios) {
+      _ipad?.dispose();
+      _ipad = null;
+    }
+  }
+
+  T? _maybeRead<T>() {
+    try {
+      return context.read<T>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
   void _registryChanged() => setState(() => _menus = null);
 
   @override
   void dispose() {
+    _ipad?.dispose();
     _registry.dispose();
     super.dispose();
   }
