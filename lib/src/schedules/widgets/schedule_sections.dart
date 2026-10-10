@@ -37,6 +37,8 @@ class ScheduleStatusRow extends StatelessWidget {
       warning: mac ? null : warning,
     );
     if (!mac || (failure == null && warning == null)) return row;
+    // The Mac shows the whole error, a traceback included, to copy.
+    final fullFailure = failure == null ? null : job.lastError?.trim();
     final metrics = GroupedMetrics.of(context);
     return MergeSemantics(
       child: Column(
@@ -50,23 +52,25 @@ class ScheduleStatusRow extends StatelessWidget {
               metrics.rowPadding,
               metrics.rowVerticalPadding,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: 4,
-              children: [
-                if (failure != null)
-                  _SelectableProblem(
-                    icon: AppIcons.error,
-                    text: failure,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                if (warning != null)
-                  _SelectableProblem(
-                    icon: AppIcons.warning,
-                    text: warning,
-                    color: context.hermesColors.warning,
-                  ),
-              ],
+            child: SelectionArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 4,
+                children: [
+                  if (fullFailure != null && fullFailure.isNotEmpty)
+                    _SelectableProblem(
+                      icon: AppIcons.error,
+                      text: fullFailure,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  if (warning != null)
+                    _SelectableProblem(
+                      icon: AppIcons.warning,
+                      text: warning,
+                      color: context.hermesColors.warning,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -75,8 +79,9 @@ class ScheduleStatusRow extends StatelessWidget {
   }
 }
 
-/// A failure under a Mac status row, monospaced and selectable: GroupedRow's
-/// own error line, which cannot be selected, drawn as SelectableText.
+/// A failure under a Mac status row, monospaced: GroupedRow's own error
+/// line, drawn here so the [SelectionArea] around it can select it. Plain
+/// text, so a screen reader reads it rather than offering a text field.
 class _SelectableProblem extends StatelessWidget {
   const _SelectableProblem({
     required this.icon,
@@ -100,7 +105,7 @@ class _SelectableProblem extends StatelessWidget {
           child: AppIcon(icon, size: size, color: color),
         ),
         Expanded(
-          child: SelectableText(
+          child: Text(
             text,
             style: TextStyle(
               fontSize: size,
