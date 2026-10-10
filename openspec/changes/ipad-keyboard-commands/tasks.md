@@ -4,7 +4,7 @@ One PR, `feat(ios): add Hermes commands to the iPad menu bar`. Wave 1, independe
 
 ## 1. Spike
 
-- [ ] 1.1 On the iPad simulator with a hardware keyboard, bind ⌘N as a `UIKeyCommand` in `AppDelegate.buildMenu(with:)` and log presses in Flutter with a temporary `HardwareKeyboard` handler. Record in design.md (Risks) who gets ⌘N: with nothing focused, with the composer focused, and with `canPerformAction` returning false. Remove the temporary code.
+- [x] 1.1 On the iPad simulator with a hardware keyboard, bind ⌘N as a `UIKeyCommand` in `AppDelegate.buildMenu(with:)` and log presses in Flutter with a temporary `HardwareKeyboard` handler. Record in design.md (Risks) who gets ⌘N: with nothing focused, with the composer focused, and with `canPerformAction` returning false. Remove the temporary code.
 
 ## 2. Shared layout (refactor, then TDD)
 
