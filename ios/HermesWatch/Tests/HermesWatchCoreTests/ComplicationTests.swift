@@ -190,6 +190,22 @@ final class ComplicationStoreTests: XCTestCase {
     XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.working)), seq: 5))
   }
 
+  func testANumberAboveInt32IsKeptWhole() {
+    let store = ComplicationStore(defaults: defaults)
+    let seq = Int64(Int32.max) + 1_791_000_000_000
+    store.apply(.show(status(.working)), seq: seq)
+
+    XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq - 1))
+    XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq))
+    XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq & 0xFFFF_FFFF))
+    XCTAssertTrue(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq + 1))
+  }
+
+  func testANumberAboveInt32IsReadFromAPayload() {
+    let seq: Int64 = 4_294_967_296 + 5
+    XCTAssertEqual(ComplicationUpdate.seq(of: ["seq": NSNumber(value: seq)]), seq)
+  }
+
   func testAMessageWithoutANumberIsTakenAndLeavesTheOrderAlone() {
     let store = ComplicationStore(defaults: defaults)
     store.apply(.show(status(.working)), seq: 10)

@@ -104,8 +104,10 @@ struct ComplicationStore {
   @discardableResult
   func apply(_ update: ComplicationUpdate, seq: Int64? = nil) -> Bool {
     if let seq {
-      guard seq > Int64(defaults.integer(forKey: Self.seqKey)) else { return false }
-      defaults.set(Int(seq), forKey: Self.seqKey)
+      // A Double, since `Int` is 32 bits on the older watches and the number is
+      // the clock in milliseconds; a Double holds it exactly.
+      guard seq > Int64(defaults.double(forKey: Self.seqKey)) else { return false }
+      defaults.set(Double(seq), forKey: Self.seqKey)
     }
     switch update {
     case .clear:
