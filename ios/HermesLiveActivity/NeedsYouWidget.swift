@@ -54,6 +54,7 @@ private struct Count: View {
           .font(.caption)
           .foregroundStyle(.secondary)
       }
+      .accessibilityElement(children: .combine)
     }
   }
 }

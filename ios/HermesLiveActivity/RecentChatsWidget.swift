@@ -34,7 +34,7 @@ struct RecentChatsView: View {
           }
           if model.showsOpenRow {
             Link(destination: SurfaceFallbackURL.newChat) {
-              Label("Open Hermes", systemImage: "arrow.up.right")
+              Label("New chat", systemImage: "plus")
                 .font(.caption.weight(.medium))
             }
           }

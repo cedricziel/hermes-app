@@ -61,6 +61,7 @@ struct RedactedLine: View {
     Text(String(repeating: "x", count: width))
       .redacted(reason: .placeholder)
       .lineLimit(1)
+      .accessibilityLabel("Hidden")
   }
 }
 
