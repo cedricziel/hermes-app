@@ -134,6 +134,15 @@ class _RenderShrinkToFit extends RenderProxyBox {
   }
 
   @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      false;
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final child = this.child;
+    if (child == null) return false;
+    final transform = Matrix4.identity();
+    applyPaintTransform(child, transform);
+    return result.addWithPaintTransform(
+      transform: transform,
+      position: position,
+      hitTest: (result, position) => child.hitTest(result, position: position),
+    );
+  }
 }

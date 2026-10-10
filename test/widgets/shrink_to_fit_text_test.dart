@@ -61,4 +61,12 @@ void main() {
       tester.getCenter(find.byType(ShrinkToFitText)),
     );
   });
+
+  testWidgets('a tap on a shrunk label reaches it', (tester) async {
+    WidgetController.hitTestWarningShouldBeFatal = true;
+    addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
+    await _pump(tester, 54);
+
+    await tester.tap(find.text('Weekly'));
+  });
 }
