@@ -83,6 +83,33 @@ void main() {
     expect(snapshot.recentChats.first.title, 'Quarterly numbers');
   });
 
+  test('a chat the server has not named shows a fixed title, not its '
+      'preview', () async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(
+          id: 'w2',
+          preview: 'Email the board the secret numbers',
+          lastActive: epoch(DateTime.utc(2026, 10, 10, 11, 30)),
+        ),
+      ]),
+      query: {'profile': 'work'},
+    );
+
+    final snapshot = await build();
+
+    expect(
+      snapshot.recentChats.firstWhere((c) => c.id == 'w2').title,
+      'New chat',
+    );
+    expect(
+      snapshot.recentChats.firstWhere((c) => c.id == 'd1').title,
+      'Trip plan',
+    );
+  });
+
   test('reads at most ten chats of a profile', () async {
     await build();
 

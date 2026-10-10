@@ -88,7 +88,7 @@ class SurfaceSnapshotStore {
   /// the widgets. A storage that fails is logged and never throws.
   Future<void> write(SurfaceSnapshot snapshot) {
     final done = _tail.then((_) => _write(snapshot));
-    _tail = done;
+    _tail = done.then((_) {}, onError: (Object _) {});
     return done;
   }
 

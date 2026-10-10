@@ -197,6 +197,18 @@ void main() {
       );
     });
 
+    test('a write that throws does not stop the ones after it', () async {
+      await store.write(snapshot());
+
+      await expectLater(
+        store.write(_Unreadable(DateTime.utc(2026, 10, 10, 12))),
+        throwsStateError,
+      );
+      await store.write(snapshot(profile: 'work'));
+
+      expect(storage.saved, hasLength(2));
+    });
+
     test('clear writes the signed-out form', () async {
       await store.write(snapshot());
 
@@ -212,4 +224,12 @@ void main() {
       expect(await store.read(), isNull);
     });
   });
+}
+
+/// A snapshot that cannot be compared, which makes a write throw.
+class _Unreadable extends SurfaceSnapshot {
+  _Unreadable(DateTime updatedAt) : super(updatedAt: updatedAt);
+
+  @override
+  Map<String, Object?> toJson() => throw StateError('unreadable');
 }

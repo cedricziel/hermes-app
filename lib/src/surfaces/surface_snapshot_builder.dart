@@ -160,7 +160,8 @@ class SurfaceSnapshotBuilder {
       RecentChat(
         profile: profile,
         id: thread.id,
-        title: thread.title,
+        // An unnamed session's title is the preview of its first prompt.
+        title: thread.named ? thread.title : kUnnamedChatLabel,
         updatedAt: thread.updatedAt,
       ),
   ];
