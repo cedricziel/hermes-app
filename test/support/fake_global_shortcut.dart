@@ -8,6 +8,10 @@ class FakeGlobalShortcut implements GlobalShortcut {
   FakeGlobalShortcut({this.recorded = false});
 
   bool recorded;
+
+  /// When set, [isSet] answers only once this completes, like a channel
+  /// reply that is still on its way.
+  Completer<bool>? pendingIsSet;
   final _presses = StreamController<void>.broadcast(sync: true);
   final _changes = StreamController<bool>.broadcast(sync: true);
 
@@ -18,7 +22,7 @@ class FakeGlobalShortcut implements GlobalShortcut {
   Stream<bool> get changes => _changes.stream;
 
   @override
-  Future<bool> isSet() async => recorded;
+  Future<bool> isSet() async => pendingIsSet?.future ?? recorded;
 
   void press() => _presses.add(null);
 

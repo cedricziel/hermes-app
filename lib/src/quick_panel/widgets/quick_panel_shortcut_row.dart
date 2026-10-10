@@ -23,13 +23,24 @@ class QuickPanelShortcutRow extends StatefulWidget {
 
 class _QuickPanelShortcutRowState extends State<QuickPanelShortcutRow> {
   var _set = false;
+
+  /// Whether the recorder reported a change, which is newer than the first
+  /// read's answer whenever that answer arrives.
+  var _changed = false;
   late final StreamSubscription<bool> _changes;
 
   @override
   void initState() {
     super.initState();
-    _changes = widget.shortcut.changes.listen(_update);
-    unawaited(widget.shortcut.isSet().then(_update));
+    _changes = widget.shortcut.changes.listen((set) {
+      _changed = true;
+      _update(set);
+    });
+    unawaited(
+      widget.shortcut.isSet().then((set) {
+        if (!_changed) _update(set);
+      }),
+    );
   }
 
   void _update(bool set) {

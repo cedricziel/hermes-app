@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/quick_panel/widgets/quick_panel_shortcut_row.dart';
@@ -59,6 +61,22 @@ void main() {
     await tester.pump();
     expect(
       find.text('Record a shortcut to ask Hermes from any app.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a late answer to the first read does not undo a recording', (
+    tester,
+  ) async {
+    shortcut.pendingIsSet = Completer<bool>();
+    await pumpRow(tester);
+
+    shortcut.change(set: true);
+    shortcut.pendingIsSet!.complete(false);
+    await tester.pump();
+
+    expect(
+      find.text('Press the shortcut in any app to ask Hermes.'),
       findsOneWidget,
     );
   });
