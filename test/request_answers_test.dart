@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/auth/auth_controller.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
@@ -11,7 +14,11 @@ import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/request_answers.dart';
 import 'package:hermes_app/src/notifications/request_notifications.dart';
 
+import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
+
 import 'support/fake_chat_transport.dart';
+import 'support/memory_token_store.dart';
 import 'support/fake_notification_service.dart';
 
 const _approval = NotificationAnswer(
@@ -123,28 +130,32 @@ void main() {
     });
   });
 
+  test('gives up in time to post the follow-up before the deadline', () async {
+    transport.openAnswerGate = Completer<void>();
+    sender = RequestAnswerSender(
+      transport: () => transport,
+      notifications: notifications,
+      followUpMargin: const Duration(milliseconds: 10),
+    );
+
+    final outcome = await sender.send(
+      _approval,
+      deadline: DateTime.now().add(const Duration(milliseconds: 60)),
+    );
+
+    expect(outcome, AnswerOutcome.failed);
+    expect(notifications.shown.single.body, kAnswerFailedBody);
+  });
+
   group('routing a background action', () {
-    test('hands it to the running app and reports its outcome', () async {
-      final app = ReceivePort();
-      addTearDown(app.close);
-      app.listen((message) {
-        final [payload, actionId, input, SendPort reply] = message as List;
-        final answer = answerFromAction(
-          payload as String?,
-          actionId as String?,
-          input as String?,
-        );
-        expect((answer!.answer as ApprovalChoiceAnswer).choice, 'deny');
-        reply
-          ..send('taken')
-          ..send('ok');
-      });
+    test('hands it to the running app, which sends it', () async {
+      final app = RequestAnswers(sender)..start();
+      addTearDown(app.dispose);
       var alone = 0;
 
       final outcome = await routeAnswer(
         _action(kDenyAction),
-        lookup: () => app.sendPort,
-        alone: (_) async {
+        alone: (_, _) async {
           alone++;
           return AnswerOutcome.ok;
         },
@@ -152,18 +163,40 @@ void main() {
 
       expect(outcome, AnswerOutcome.ok);
       expect(alone, 0);
+      final (_, answer, _) = transport.openAnswers.single;
+      expect((answer as ApprovalChoiceAnswer).choice, 'deny');
     });
 
-    test('answers alone when the app is not running', () async {
+    test("waits a moment for the app's port to appear", () async {
+      final app = RequestAnswers(sender)..start();
+      addTearDown(app.dispose);
+      var lookups = 0;
+
+      final outcome = await routeAnswer(
+        _action(kAllowOnceAction),
+        lookup: () => ++lookups < 3
+            ? null
+            : IsolateNameServer.lookupPortByName(kRequestAnswersPort),
+        alone: (_, _) async => AnswerOutcome.failed,
+        pollEvery: const Duration(milliseconds: 5),
+      );
+
+      expect(outcome, AnswerOutcome.ok);
+      expect(transport.openAnswers, hasLength(1));
+    });
+
+    test('answers alone when no app is running', () async {
       NotificationAnswer? sent;
 
       final outcome = await routeAnswer(
         _action(kAllowOnceAction),
         lookup: () => null,
-        alone: (answer) async {
+        alone: (answer, _) async {
           sent = answer;
           return AnswerOutcome.expired;
         },
+        pollFor: const Duration(milliseconds: 20),
+        pollEvery: const Duration(milliseconds: 5),
       );
 
       expect(outcome, AnswerOutcome.expired);
@@ -176,36 +209,67 @@ void main() {
       addTearDown(stale.close);
       var alone = 0;
 
-      final outcome = await routeAnswer(
+      await routeAnswer(
         _action(kAllowOnceAction),
         lookup: () => stale.sendPort,
-        alone: (_) async {
+        alone: (_, _) async {
           alone++;
           return AnswerOutcome.ok;
         },
         takeTimeout: const Duration(milliseconds: 20),
       );
 
-      expect(outcome, AnswerOutcome.ok);
       expect(alone, 1);
+    });
+
+    test('an offer that comes too late is never confirmed', () async {
+      final app = ReceivePort();
+      addTearDown(app.close);
+      final confirmed = <Object?>[];
+      app.listen((message) async {
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        final confirm = ReceivePort();
+        confirm.listen(confirmed.add);
+        ((message as List).last as SendPort).send(['offer', confirm.sendPort]);
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        confirm.close();
+      });
+      var alone = 0;
+
+      await routeAnswer(
+        _action(kAllowOnceAction),
+        lookup: () => app.sendPort,
+        alone: (_, _) async {
+          alone++;
+          return AnswerOutcome.ok;
+        },
+        takeTimeout: const Duration(milliseconds: 10),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      expect(alone, 1);
+      expect(confirmed, isEmpty);
     });
 
     test('leaves the follow-up to the app once it took the answer', () async {
       final app = ReceivePort();
       addTearDown(app.close);
-      app.listen(
-        (message) => ((message as List).last as SendPort).send('taken'),
-      );
+      app.listen((message) {
+        final confirm = ReceivePort();
+        addTearDown(confirm.close);
+        ((message as List).last as SendPort).send(['offer', confirm.sendPort]);
+      });
       var alone = 0;
 
       final outcome = await routeAnswer(
         _action(kAllowOnceAction),
         lookup: () => app.sendPort,
-        alone: (_) async {
+        alone: (_, _) async {
           alone++;
           return AnswerOutcome.ok;
         },
-        timeout: const Duration(milliseconds: 20),
+        deadline: DateTime.now().add(const Duration(milliseconds: 20)),
+        reportGrace: Duration.zero,
       );
 
       expect(outcome, AnswerOutcome.failed);
@@ -218,7 +282,7 @@ void main() {
       await routeAnswer(
         _action(kOpenAction),
         lookup: () => null,
-        alone: (_) async {
+        alone: (_, _) async {
           alone++;
           return AnswerOutcome.ok;
         },
@@ -226,6 +290,41 @@ void main() {
 
       expect(alone, 0);
     });
+  });
+
+  group('answering alone', () {
+    setUp(
+      () => SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty(),
+    );
+
+    test(
+      'two answers at once share one sign-in and go one at a time',
+      () async {
+        var signIns = 0;
+        final lone = LoneAnswerer(
+          createAuth: () {
+            signIns++;
+            return AuthController(tokenStore: MemoryTokenStore());
+          },
+          transportFor: (_) => transport,
+          notifications: notifications,
+        );
+        final gate = transport.openAnswerGate = Completer<void>();
+        final deadline = DateTime.now().add(const Duration(seconds: 5));
+
+        final first = lone.answer(_approval, deadline);
+        final second = lone.answer(_approval, deadline);
+        await pumpEventQueue();
+        expect(transport.openAnswers, hasLength(1));
+        gate.complete();
+
+        expect(await first, AnswerOutcome.ok);
+        expect(await second, AnswerOutcome.ok);
+        expect(transport.openAnswers, hasLength(2));
+        expect(signIns, 1);
+      },
+    );
   });
 
   group('the running app', () {
@@ -236,19 +335,6 @@ void main() {
       notifications.answer(_approval);
       await pumpEventQueue();
 
-      expect(transport.openAnswers.single.$1, 'r1');
-    });
-
-    test('answers what the background isolate hands it', () async {
-      final answers = RequestAnswers(sender)..start();
-      addTearDown(answers.dispose);
-
-      final outcome = await routeAnswer(
-        _action(kAllowOnceAction),
-        alone: (_) async => AnswerOutcome.failed,
-      );
-
-      expect(outcome, AnswerOutcome.ok);
       expect(transport.openAnswers.single.$1, 'r1');
     });
   });

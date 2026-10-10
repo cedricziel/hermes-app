@@ -25,6 +25,11 @@ import 'notification_service.dart';
 /// background isolate can hand it an answer.
 const kRequestAnswersPort = 'hermes_app.request_answers';
 
+/// How long the answer to one button may take, from the moment iOS hands it
+/// over, in either isolate: inside the 30 seconds or so of background time,
+/// so that a failure can still be told.
+const kAnswerBudget = Duration(seconds: 25);
+
 enum AnswerOutcome { ok, expired, failed, signedOut }
 
 /// A fresh gateway transport on [auth]'s connection, or null while nobody is
@@ -85,6 +90,7 @@ class RequestAnswerSender {
     this.events = _noEvents,
     this.breadcrumbs = Breadcrumbs.none,
     this.timeout = const Duration(seconds: 20),
+    this.followUpMargin = const Duration(seconds: 3),
   });
 
   /// A new transport for each answer; null while nobody is signed in.
@@ -97,15 +103,30 @@ class RequestAnswerSender {
   final Breadcrumbs breadcrumbs;
   final Duration timeout;
 
+  /// How long before a deadline the answer is given up on, so the follow-up
+  /// still gets posted in time.
+  final Duration followUpMargin;
+
   static Future<void> _readyNow() async {}
 
   static AppEventLogger _noEvents() => noopAppEventLogger;
 
+  /// Sends [answer]; with a [deadline], gives up on it in time to post the
+  /// follow-up before then.
   Future<AnswerOutcome> send(
     NotificationAnswer answer, {
     String route = 'main',
+    DateTime? deadline,
   }) async {
-    final outcome = await _send(answer);
+    final left = deadline == null
+        ? null
+        : deadline.difference(DateTime.now()) - followUpMargin;
+    final outcome = left == null
+        ? await _send(answer)
+        : await _send(answer).timeout(
+            left.isNegative ? Duration.zero : left,
+            onTimeout: () => AnswerOutcome.failed,
+          );
     final kind = answer.request.kind.name;
     try {
       events()('notification.answer', {
@@ -203,12 +224,17 @@ class RequestAnswers {
     port.listen(_onMessage);
   }
 
+  /// Offers to take an action over and sends it only once the background
+  /// isolate confirms: it may have stopped waiting and answered alone.
   Future<void> _onMessage(Object? message) async {
-    if (message is! List || message.length != 4) return;
-    final [payload, actionId, input, reply] = message;
-    if (reply is! SendPort) return;
-    // Taken: from here on this isolate tells the user if it fails.
-    reply.send(_taken);
+    if (message is! List || message.length != 5) return;
+    final [payload, actionId, input, deadline, reply] = message;
+    if (reply is! SendPort || deadline is! int) return;
+    final confirm = ReceivePort();
+    reply.send([_offer, confirm.sendPort]);
+    final go = await confirm.first.timeout(_confirmWait, onTimeout: () => null);
+    confirm.close();
+    if (go != _go) return;
     final answer = answerFromAction(
       payload as String?,
       actionId as String?,
@@ -216,7 +242,11 @@ class RequestAnswers {
     );
     final outcome = answer == null
         ? AnswerOutcome.failed
-        : await _sender.send(answer, route: 'background');
+        : await _sender.send(
+            answer,
+            route: 'background',
+            deadline: DateTime.fromMillisecondsSinceEpoch(deadline),
+          );
     reply.send(outcome.name);
   }
 
@@ -230,25 +260,51 @@ class RequestAnswers {
   }
 }
 
-/// What the running app answers first, once it has taken an action over.
-const _taken = 'taken';
+/// The running app's offer to take an action over, with the port to confirm
+/// it on.
+const _offer = 'offer';
 
-/// Hands the action to the running app when it registered its port and takes
-/// it within [takeTimeout], and otherwise runs [alone]: a port left behind by
-/// an isolate that is gone takes nothing. Once the app took it, the app
-/// reports a failure itself, so waiting longer than [timeout] for how it went
-/// only gives up on the background time.
+/// The background isolate's confirmation: from here on the app sends the
+/// answer and tells the user if it fails.
+const _go = 'go';
+
+const _confirmWait = Duration(seconds: 2);
+
+/// Hands the action to the running app and otherwise runs [alone], by
+/// [deadline] (now plus [kAnswerBudget] when not given).
+///
+/// The app's port is looked for over [pollFor], since an app started by the
+/// same launch may register it a moment later. The hand-off takes two
+/// steps: the app offers to take the action within [takeTimeout], and only
+/// sends it once this isolate confirms. A port left by an isolate that is
+/// gone offers nothing, and an offer that comes too late finds no one to
+/// confirm it, so the answer never goes out twice. Once confirmed, the app
+/// posts any follow-up itself; this waits for its outcome until the deadline
+/// and [reportGrace] after.
 Future<AnswerOutcome> routeAnswer(
   NotificationResponse response, {
-  required Future<AnswerOutcome> Function(NotificationAnswer answer) alone,
+  required Future<AnswerOutcome> Function(
+    NotificationAnswer answer,
+    DateTime deadline,
+  )
+  alone,
   SendPort? Function() lookup = _lookupApp,
+  DateTime? deadline,
+  Duration pollFor = const Duration(seconds: 3),
+  Duration pollEvery = const Duration(milliseconds: 200),
   Duration takeTimeout = const Duration(seconds: 3),
-  Duration timeout = const Duration(seconds: 25),
+  Duration reportGrace = const Duration(seconds: 2),
 }) async {
   final answer = answerFromResponse(response);
   if (answer == null) return AnswerOutcome.failed;
-  final app = lookup();
-  if (app == null) return alone(answer);
+  final due = deadline ?? DateTime.now().add(kAnswerBudget);
+  var app = lookup();
+  final searchEnds = DateTime.now().add(pollFor);
+  while (app == null && DateTime.now().isBefore(searchEnds)) {
+    await Future<void>.delayed(pollEvery);
+    app = lookup();
+  }
+  if (app == null) return alone(answer, due);
   final reply = ReceivePort();
   final replies = StreamIterator(reply);
   try {
@@ -256,15 +312,23 @@ Future<AnswerOutcome> routeAnswer(
       response.payload,
       response.actionId,
       response.input,
+      due.millisecondsSinceEpoch,
       reply.sendPort,
     ]);
-    final taken = await replies.moveNext().timeout(
+    final offered = await replies.moveNext().timeout(
       takeTimeout,
       onTimeout: () => false,
     );
-    if (!taken || replies.current != _taken) return await alone(answer);
+    final offer = offered ? replies.current : null;
+    if (offer is! List || offer.first != _offer || offer.last is! SendPort) {
+      // A late offer must find no one listening.
+      reply.close();
+      return await alone(answer, due);
+    }
+    (offer.last as SendPort).send(_go);
+    final wait = due.difference(DateTime.now()) + reportGrace;
     final reported = await replies.moveNext().timeout(
-      timeout,
+      wait.isNegative ? Duration.zero : wait,
       onTimeout: () => false,
     );
     if (!reported) return AnswerOutcome.failed;
@@ -280,47 +344,56 @@ Future<AnswerOutcome> routeAnswer(
 SendPort? _lookupApp() =>
     IsolateNameServer.lookupPortByName(kRequestAnswersPort);
 
+/// Answers in the iOS background isolate when the app's own isolate is not
+/// running. One sign-in serves every answer of the isolate, and answers go
+/// one at a time, so two of them never refresh the token pair at once.
+class LoneAnswerer {
+  LoneAnswerer({
+    AuthController Function()? createAuth,
+    ChatTransport? Function(AuthController auth)? transportFor,
+    NotificationService? notifications,
+  }) : _createAuth = createAuth ?? AuthController.new,
+       _transportFor = transportFor ?? gatewayTransportFor,
+       _notifications =
+           notifications ?? LocalNotificationService(background: true);
+
+  final AuthController Function() _createAuth;
+  final ChatTransport? Function(AuthController auth) _transportFor;
+  final NotificationService _notifications;
+  AuthController? _auth;
+  Future<void> _last = Future.value();
+
+  Future<AnswerOutcome> answer(NotificationAnswer answer, DateTime deadline) {
+    final run = _last.then((_) => _answer(answer, deadline));
+    _last = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
+
+  Future<AnswerOutcome> _answer(NotificationAnswer answer, DateTime deadline) {
+    final auth = _auth ??= _createAuth();
+    return RequestAnswerSender(
+      transport: () => _transportFor(auth),
+      notifications: _notifications,
+      ready: () async {
+        if (auth.state != HermesConnectionState.ready) await auth.bootstrap();
+      },
+    ).send(answer, route: 'background', deadline: deadline);
+  }
+}
+
 const _backgroundTask = MethodChannel('hermes_app/background_task');
 
-/// Runs [work] inside a UIKit background task, so iOS does not suspend the
-/// app halfway: the plugin completes the system's handler before Dart runs.
-Future<T> _inBackgroundTask<T>(Future<T> Function() work) async {
-  Object? task;
+/// Tells the Runner an answer is done, so it ends the background task it
+/// began when iOS handed the button over.
+Future<void> _endBackgroundTask() async {
   try {
-    task = await _backgroundTask.invokeMethod<Object>('begin');
+    await _backgroundTask.invokeMethod<void>('end');
   } on Object {
-    task = null;
-  }
-  try {
-    return await work();
-  } finally {
-    if (task != null) {
-      try {
-        await _backgroundTask.invokeMethod<void>('end', task);
-      } on Object {
-        // The system ends it when its time runs out.
-      }
-    }
+    // The system ends it when its time runs out.
   }
 }
 
-/// Signs in from the stored session, as the app does at start, and sends
-/// [answer]. Only runs while the app's own isolate is not running, so the two
-/// never refresh the token pair at once.
-Future<AnswerOutcome> _answerAlone(NotificationAnswer answer) async {
-  final auth = AuthController();
-  final notifications = LocalNotificationService(background: true);
-  try {
-    await auth.bootstrap();
-    return await RequestAnswerSender(
-      transport: () => gatewayTransportFor(auth),
-      notifications: notifications,
-    ).send(answer, route: 'background');
-  } finally {
-    auth.dispose();
-    await notifications.dispose();
-  }
-}
+LoneAnswerer? _loneAnswerer;
 
 /// Where iOS delivers a button that does not open the app, in an isolate of
 /// its own.
@@ -328,5 +401,11 @@ Future<AnswerOutcome> _answerAlone(NotificationAnswer answer) async {
 Future<void> answerRequestInBackground(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
-  await _inBackgroundTask(() => routeAnswer(response, alone: _answerAlone));
+  final deadline = DateTime.now().add(kAnswerBudget);
+  final lone = _loneAnswerer ??= LoneAnswerer();
+  try {
+    await routeAnswer(response, alone: lone.answer, deadline: deadline);
+  } finally {
+    await _endBackgroundTask();
+  }
 }
