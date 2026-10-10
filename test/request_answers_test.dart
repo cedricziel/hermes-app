@@ -134,7 +134,9 @@ void main() {
           input as String?,
         );
         expect((answer!.answer as ApprovalChoiceAnswer).choice, 'deny');
-        reply.send('ok');
+        reply
+          ..send('taken')
+          ..send('ok');
       });
       var alone = 0;
 
@@ -145,7 +147,6 @@ void main() {
           alone++;
           return AnswerOutcome.ok;
         },
-        unanswered: (_) async {},
       );
 
       expect(outcome, AnswerOutcome.ok);
@@ -162,7 +163,6 @@ void main() {
           sent = answer;
           return AnswerOutcome.expired;
         },
-        unanswered: (_) async {},
       );
 
       expect(outcome, AnswerOutcome.expired);
@@ -170,21 +170,45 @@ void main() {
       expect(sent!.target.profile, 'work');
     });
 
-    test('tells the user when the app never says how it went', () async {
+    test('answers alone when a port is left but nobody takes it', () async {
+      final stale = ReceivePort();
+      addTearDown(stale.close);
+      var alone = 0;
+
+      final outcome = await routeAnswer(
+        _action(kAllowOnceAction),
+        lookup: () => stale.sendPort,
+        alone: (_) async {
+          alone++;
+          return AnswerOutcome.ok;
+        },
+        takeTimeout: const Duration(milliseconds: 20),
+      );
+
+      expect(outcome, AnswerOutcome.ok);
+      expect(alone, 1);
+    });
+
+    test('leaves the follow-up to the app once it took the answer', () async {
       final app = ReceivePort();
       addTearDown(app.close);
-      NotificationAnswer? unanswered;
+      app.listen(
+        (message) => ((message as List).last as SendPort).send('taken'),
+      );
+      var alone = 0;
 
       final outcome = await routeAnswer(
         _action(kAllowOnceAction),
         lookup: () => app.sendPort,
-        alone: (_) async => AnswerOutcome.ok,
-        unanswered: (answer) async => unanswered = answer,
+        alone: (_) async {
+          alone++;
+          return AnswerOutcome.ok;
+        },
         timeout: const Duration(milliseconds: 20),
       );
 
       expect(outcome, AnswerOutcome.failed);
-      expect(unanswered!.title, 'Cleanup');
+      expect(alone, 0);
     });
 
     test('does nothing for a button that answers nothing', () async {
@@ -197,7 +221,6 @@ void main() {
           alone++;
           return AnswerOutcome.ok;
         },
-        unanswered: (_) async {},
       );
 
       expect(alone, 0);
@@ -222,7 +245,6 @@ void main() {
       final outcome = await routeAnswer(
         _action(kAllowOnceAction),
         alone: (_) async => AnswerOutcome.failed,
-        unanswered: (_) async {},
       );
 
       expect(outcome, AnswerOutcome.ok);

@@ -206,6 +206,8 @@ class RequestAnswers {
     if (message is! List || message.length != 4) return;
     final [payload, actionId, input, reply] = message;
     if (reply is! SendPort) return;
+    // Taken: from here on this isolate tells the user if it fails.
+    reply.send(_taken);
     final answer = answerFromAction(
       payload as String?,
       actionId as String?,
@@ -227,14 +229,19 @@ class RequestAnswers {
   }
 }
 
-/// Hands the action to the running app when it registered its port, and
-/// otherwise runs [alone]. Waits at most [timeout] for the app to say how it
-/// went, and calls [unanswered] when it never does.
+/// What the running app answers first, once it has taken an action over.
+const _taken = 'taken';
+
+/// Hands the action to the running app when it registered its port and takes
+/// it within [takeTimeout], and otherwise runs [alone]: a port left behind by
+/// an isolate that is gone takes nothing. Once the app took it, the app
+/// reports a failure itself, so waiting longer than [timeout] for how it went
+/// only gives up on the background time.
 Future<AnswerOutcome> routeAnswer(
   NotificationResponse response, {
   required Future<AnswerOutcome> Function(NotificationAnswer answer) alone,
-  required Future<void> Function(NotificationAnswer answer) unanswered,
   SendPort? Function() lookup = _lookupApp,
+  Duration takeTimeout = const Duration(seconds: 3),
   Duration timeout = const Duration(seconds: 25),
 }) async {
   final answer = answerFromResponse(response);
@@ -242,6 +249,7 @@ Future<AnswerOutcome> routeAnswer(
   final app = lookup();
   if (app == null) return alone(answer);
   final reply = ReceivePort();
+  final replies = StreamIterator(reply);
   try {
     app.send([
       response.payload,
@@ -249,14 +257,20 @@ Future<AnswerOutcome> routeAnswer(
       response.input,
       reply.sendPort,
     ]);
-    final name = await reply.first.timeout(timeout);
+    final taken = await replies.moveNext().timeout(
+      takeTimeout,
+      onTimeout: () => false,
+    );
+    if (!taken || replies.current != _taken) return await alone(answer);
+    final reported = await replies.moveNext().timeout(
+      timeout,
+      onTimeout: () => false,
+    );
+    if (!reported) return AnswerOutcome.failed;
     return AnswerOutcome.values.firstWhere(
-      (outcome) => outcome.name == name,
+      (outcome) => outcome.name == replies.current,
       orElse: () => AnswerOutcome.failed,
     );
-  } on TimeoutException {
-    await unanswered(answer);
-    return AnswerOutcome.failed;
   } finally {
     reply.close();
   }
@@ -307,23 +321,11 @@ Future<AnswerOutcome> _answerAlone(NotificationAnswer answer) async {
   }
 }
 
-Future<void> _tellUnanswered(NotificationAnswer answer) async {
-  final notifications = LocalNotificationService(background: true);
-  try {
-    await RequestAnswerSender.tellFailed(notifications, answer);
-  } finally {
-    await notifications.dispose();
-  }
-}
-
 /// Where iOS delivers a button that does not open the app, in an isolate of
 /// its own.
 @pragma('vm:entry-point')
 Future<void> answerRequestInBackground(NotificationResponse response) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
-  await _inBackgroundTask(
-    () =>
-        routeAnswer(response, alone: _answerAlone, unanswered: _tellUnanswered),
-  );
+  await _inBackgroundTask(() => routeAnswer(response, alone: _answerAlone));
 }
