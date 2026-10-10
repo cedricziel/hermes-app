@@ -119,6 +119,8 @@ void main() {
     late OnDeviceSpeech onDevice;
 
     setUp(() {
+      SharedPreferencesAsyncPlatform.instance =
+          InMemorySharedPreferencesAsync.empty();
       speech = FakeSpeechChannel();
       settings = DictationSettings();
       onDevice = OnDeviceSpeech();
@@ -235,6 +237,73 @@ void main() {
       expect(_dictate, findsOneWidget);
       expect(server.requestsTo('GET', '/api/audio/voice-config'), hasLength(1));
       expect(speech.methods, isNot(contains('install')));
+    });
+
+    Future<FakeVoiceRecorder> startDictating(WidgetTester tester) async {
+      final recorder = FakeVoiceRecorder();
+      await pump(tester, recorder: recorder);
+      await tester.enterText(composerField, 'Please');
+      await tester.tap(_dictate);
+      await tester.pump(const Duration(milliseconds: 300));
+      recorder.speak(List.filled(160, 4000));
+      await tester.pump(const Duration(milliseconds: 300));
+      return recorder;
+    }
+
+    testWidgets('the words appear in the field as they are heard', (
+      tester,
+    ) async {
+      await startDictating(tester);
+
+      await tester.runAsync(() async {
+        speech.hears('book a');
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(_draft(tester), 'Please book a');
+    });
+
+    testWidgets('cancel gives the draft back', (tester) async {
+      await startDictating(tester);
+      await tester.runAsync(() async {
+        speech.hears('book a');
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pump();
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel('Cancel voice input'));
+      await tester.pumpAndSettle();
+
+      expect(_draft(tester), 'Please');
+    });
+
+    testWidgets('send while recording sends the draft with the transcript', (
+      tester,
+    ) async {
+      speech.transcript = 'book a table';
+      await startDictating(tester);
+
+      await tester.tap(find.bySemanticsLabel('Send'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Please book a table'), findsWidgets);
+      expect(_draft(tester), isEmpty);
+    });
+
+    testWidgets('send after a failed transcription sends nothing', (
+      tester,
+    ) async {
+      speech.finishError = 'failed';
+      await startDictating(tester);
+
+      await tester.tap(find.bySemanticsLabel('Send'));
+      await tester.pumpAndSettle();
+
+      expect(_draft(tester), 'Please');
+      expect(find.text('Couldn’t transcribe the recording.'), findsOneWidget);
     });
 
     testWidgets('dictates into the draft without asking the server', (

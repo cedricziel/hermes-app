@@ -60,10 +60,33 @@ WidgetBuilder buildChatComposer({
             builder: (context, _) => composer(
               onSend,
               onAttach,
-              dictation.available ? DictationView.of(dictation) : null,
+              dictation.available
+                  ? DictationView.of(
+                      dictation,
+                      onSend: () =>
+                          _sendAfterDictation(dictation, controller, onSend),
+                    )
+                  : null,
             ),
           ),
   );
+}
+
+/// Ends [dictation] and sends the draft once its transcript is in place.
+/// Nothing is sent when transcribing failed, so the failure stays on screen.
+Future<void> _sendAfterDictation(
+  DictationController dictation,
+  TextEditingController controller,
+  ValueChanged<String> onSend,
+) async {
+  await dictation.stop();
+  await dictation.whenSettled();
+  if (dictation.phase != DictationPhase.idle &&
+      dictation.phase != DictationPhase.noSpeech) {
+    return;
+  }
+  final text = controller.text.trim();
+  if (text.isNotEmpty) onSend(text);
 }
 
 /// Pins the composer to the bottom of the `Chat` stack and reports its

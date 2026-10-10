@@ -204,6 +204,23 @@ class DictationController extends ChangeNotifier {
     _level = _levelOf(chunk);
   }
 
+  /// Completes once no recording or transcription is in progress.
+  Future<void> whenSettled() async {
+    while (_busy) {
+      final settled = Completer<void>();
+      void check() {
+        if (!_busy && !settled.isCompleted) settled.complete();
+      }
+
+      addListener(check);
+      try {
+        await settled.future;
+      } finally {
+        removeListener(check);
+      }
+    }
+  }
+
   /// Ends the recording and inserts its transcript.
   Future<void> stop() async {
     if (_phase != DictationPhase.recording) return;

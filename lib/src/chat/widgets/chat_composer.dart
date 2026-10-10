@@ -319,38 +319,31 @@ class _ChatComposerState extends State<ChatComposer> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (dictating)
-                    VoiceWaveform(
-                      levels: dictation.levels,
-                      elapsed: dictation.elapsed,
-                      liveTranscript: dictation.liveTranscript,
-                      settling: dictation.phase == DictationPhase.settling,
-                      onDevice: dictation.engine == DictationEngine.device,
-                    )
-                  else
-                    TextField(
-                      key: chatComposerFieldKey,
-                      controller: widget.controller,
-                      focusNode: _focusNode,
-                      minLines: 1,
-                      maxLines: 8,
-                      textCapitalization: TextCapitalization.sentences,
-                      textInputAction: TextInputAction.newline,
-                      contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
-                      contentInsertionConfiguration: paste?.contentInsertion,
-                      decoration: InputDecoration(
-                        hintText: widget.replying
-                            ? 'Queue a message…'
-                            : widget.botContext == null
-                            ? 'Message Hermes…'
-                            : 'Message ${widget.botContext!.title}…',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
-                      ),
+                  TextField(
+                    key: chatComposerFieldKey,
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    // The recognized words go in while dictating.
+                    readOnly: dictating,
+                    minLines: 1,
+                    maxLines: 8,
+                    textCapitalization: TextCapitalization.sentences,
+                    textInputAction: TextInputAction.newline,
+                    contextMenuBuilder: paste?.contextMenu ?? _platformMenu,
+                    contentInsertionConfiguration: paste?.contentInsertion,
+                    decoration: InputDecoration(
+                      hintText: widget.replying
+                          ? 'Queue a message…'
+                          : widget.botContext == null
+                          ? 'Message Hermes…'
+                          : 'Message ${widget.botContext!.title}…',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
                     ),
+                  ),
                   Row(
                     children: [
                       if (dictating)
@@ -368,11 +361,21 @@ class _ChatComposerState extends State<ChatComposer> {
                           onPressed: onAttach,
                         ),
                       Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: modelPill,
-                        ),
+                        child: dictating
+                            ? VoiceWaveform(
+                                levels: dictation.levels,
+                                elapsed: dictation.elapsed,
+                                settling:
+                                    dictation.phase == DictationPhase.settling,
+                                onDevice:
+                                    dictation.engine == DictationEngine.device,
+                              )
+                            : Align(
+                                alignment: Alignment.centerLeft,
+                                child: modelPill,
+                              ),
                       ),
+                      if (dictating) const SizedBox(width: 8),
                       if (dictation != null)
                         _DictationButton(dictation: dictation, color: subtle),
                       ListenableBuilder(
@@ -390,7 +393,11 @@ class _ChatComposerState extends State<ChatComposer> {
                                 .withValues(alpha: 0.08),
                             disabledForegroundColor: subtle,
                           ),
-                          onPressed: _canSend ? _send : null,
+                          onPressed: dictating
+                              ? dictation.onSend
+                              : _canSend
+                              ? _send
+                              : null,
                         ),
                       ),
                     ],
