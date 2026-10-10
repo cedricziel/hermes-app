@@ -9,9 +9,10 @@ import '../schedule_widgets.dart';
 import 'run_history_empty.dart';
 import 'run_history_pending.dart';
 
-/// How [job] is doing as the first row of its detail: the status and the
-/// next run, then why the last run failed and an undelivered result, wrapped
-/// in full (and selectable on a Mac). A paused or finished job keeps them.
+/// How [job] is doing as the first row of its detail: the status, the next
+/// run, why the last run failed on the error line and an undelivered result
+/// on the warning line. A paused or finished job keeps them. On a Mac they
+/// are monospaced and selectable, so a failure can be copied.
 class ScheduleStatusRow extends StatelessWidget {
   const ScheduleStatusRow({super.key, required this.job, required this.now});
 
@@ -28,11 +29,14 @@ class ScheduleStatusRow extends StatelessWidget {
         : undelivered
         ? deliveryError
         : 'Delivery failed: $deliveryError';
+    final mac = platformChromeOf(context) == PlatformChrome.macos;
     final row = GroupedRow(
       title: statusText(job, now),
       subtitle: nextRunText(job, now),
+      error: mac ? null : failure,
+      warning: mac ? null : warning,
     );
-    if (failure == null && warning == null) return row;
+    if (!mac || (failure == null && warning == null)) return row;
     final metrics = GroupedMetrics.of(context);
     return MergeSemantics(
       child: Column(
@@ -51,13 +55,13 @@ class ScheduleStatusRow extends StatelessWidget {
               spacing: 4,
               children: [
                 if (failure != null)
-                  _ProblemLine(
+                  _SelectableProblem(
                     icon: AppIcons.error,
                     text: failure,
                     color: Theme.of(context).colorScheme.error,
                   ),
                 if (warning != null)
-                  _ProblemLine(
+                  _SelectableProblem(
                     icon: AppIcons.warning,
                     text: warning,
                     color: context.hermesColors.warning,
@@ -71,10 +75,9 @@ class ScheduleStatusRow extends StatelessWidget {
   }
 }
 
-/// A failure under the status, wrapped in full: on a Mac in a monospaced
-/// font that can be selected and copied.
-class _ProblemLine extends StatelessWidget {
-  const _ProblemLine({
+/// A failure under a Mac status row, monospaced and selectable.
+class _SelectableProblem extends StatelessWidget {
+  const _SelectableProblem({
     required this.icon,
     required this.text,
     required this.color,
@@ -87,7 +90,6 @@ class _ProblemLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = GroupedMetrics.of(context).subtitleSize;
-    final mac = platformChromeOf(context) == PlatformChrome.macos;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 4,
@@ -97,19 +99,14 @@ class _ProblemLine extends StatelessWidget {
           child: AppIcon(icon, size: size, color: color),
         ),
         Expanded(
-          child: mac
-              ? SelectableText(
-                  text,
-                  style: TextStyle(
-                    fontSize: size,
-                    fontFamily: 'monospace',
-                    color: color,
-                  ),
-                )
-              : Text(
-                  text,
-                  style: TextStyle(fontSize: size, color: color),
-                ),
+          child: SelectableText(
+            text,
+            style: TextStyle(
+              fontSize: size,
+              fontFamily: 'monospace',
+              color: color,
+            ),
+          ),
         ),
       ],
     );

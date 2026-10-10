@@ -59,17 +59,6 @@ void main() {
     expect(find.text('Telegram refused the message'), findsOneWidget);
   });
 
-  testWidgets('the failure wraps instead of being cut off', (tester) async {
-    await _pump(
-      tester,
-      cronJobRow(lastStatus: 'error', lastError: '$_reason\nTraceback ...'),
-    );
-
-    final text = tester.widget<Text>(find.text(_reason));
-    expect(text.maxLines, isNull);
-    expect(text.overflow, isNot(TextOverflow.ellipsis));
-  });
-
   testWidgets('on a Mac the failure can be selected and copied', (
     tester,
   ) async {
