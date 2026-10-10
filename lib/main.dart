@@ -34,6 +34,7 @@ import 'src/quick_panel/global_shortcut.dart';
 import 'src/quick_panel/quick_panel_shortcut.dart';
 import 'src/settings/theme_controller.dart';
 import 'src/share/share_provider.dart';
+import 'src/quick_actions/quick_actions_controller.dart';
 import 'src/surfaces/surface_snapshot_store.dart';
 import 'src/surfaces/surface_snapshots.dart';
 import 'src/telemetry/breadcrumbs.dart';
@@ -253,6 +254,17 @@ Future<void> main([List<String> args = const []]) async {
               ..sessionChanged();
           },
           dispose: (_, snapshots) => snapshots?.dispose(),
+        ),
+        Provider<QuickActionsController?>(
+          lazy: false,
+          create: (context) => QuickActionsController.forPlatform(
+            store: context.read<SurfaceSnapshotStore?>(),
+            deepLinks: context.read<DeepLinks?>(),
+            platform: defaultTargetPlatform,
+            events: telemetry.events(),
+            breadcrumbs: context.read<Breadcrumbs>(),
+          )?..start(),
+          dispose: (_, controller) => controller?.dispose(),
         ),
         Provider<WatchComplicationStatus?>(
           lazy: false,

@@ -914,3 +914,20 @@ after a launch is swallowed, so press a harmless chord first.
   beside the chat), ⇧⌘P is disabled with no chat, ⌘A/⌘C/⌘V still edit the
   composer. Kanban retitles ⌘N to New Task. The chat screen needs a repository
   for Find, so a mock-data ChatScreen shows ⌘F disabled.
+
+## Verify the app icon quick actions (iOS, Android)
+
+The items are set by the app (not Info.plist), so sign in once first. On a
+simulator, long-press the icon: Simulator has no 3D Touch, so use a device,
+or press and hold the icon on the Home Screen (iOS 13+ shows the menu).
+Android: `adb shell cmd shortcut get-shortcuts com.cedricziel.hermes_app`
+lists the dynamic shortcuts (the Android SDK and an emulator are needed).
+
+Check: New Chat, Dictate and the two newest named chats appear, in that
+order (iOS shows four items at most). Pick each with the app running and
+after quitting it (cold start; the iOS plugin must deliver the launch item
+under `FlutterSceneDelegate`, so confirm that once on a device). A reply
+finished in a new chat moves it to the top. With App Lock on only New Chat and
+Dictate remain; signed out, none do. With telemetry on, `quick_action.used`
+holds `kind` only and the breadcrumb `quick_action.opened` holds `kind` and
+`cold_start`.
