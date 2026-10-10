@@ -7,6 +7,8 @@ import record_macos
 /// it leaves Hermes' other windows where they are.
 private final class QuickPanelWindow: NSPanel {
   override var canBecomeKey: Bool { true }
+  /// Also keeps the panel out of AppDelegate's windowless check, so showing
+  /// it does not count as a window that ends running windowless.
   override var canBecomeMain: Bool { false }
 }
 
