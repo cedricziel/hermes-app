@@ -552,19 +552,17 @@ class AuthController extends ChangeNotifier {
           final sentStaleToken =
               options.headers['Authorization'] !=
               'Bearer ${session.accessToken}';
-          final HermesSession current;
-          if (sentStaleToken) {
-            current = session;
-          } else {
+          HermesSession? current = session;
+          if (!sentStaleToken) {
             try {
               current = await _refreshSession(session, trigger: 'after_401');
             } on NativeLoginException catch (e) {
-              if (e.rejected) await _handleSessionExpired('refresh_rejected');
-              return handler.next(error);
+              current = e.rejected ? await _refreshRejected(session) : null;
             } on Object {
-              return handler.next(error);
+              current = null;
             }
           }
+          if (current == null) return handler.next(error);
 
           options
             ..headers['Authorization'] = 'Bearer ${current.accessToken}'
@@ -613,7 +611,7 @@ class AuthController extends ChangeNotifier {
       final refreshed = await _refreshSession(session, trigger: 'window_401');
       return {'Authorization': 'Bearer ${refreshed.accessToken}'};
     } on NativeLoginException catch (e) {
-      if (e.rejected) await _handleSessionExpired('refresh_rejected');
+      if (e.rejected) await _refreshRejected(session);
     } on Object {
       // Kept signed in; the window's request fails with its 401.
     }
@@ -698,6 +696,23 @@ class AuthController extends ChangeNotifier {
             });
     _refreshInFlight = future;
     return future;
+  }
+
+  /// The server refused [sent]'s refresh token. Another isolate on the same
+  /// keychain, such as the one that answers notification buttons, may have
+  /// rotated it already: a newer pair in the store is taken over instead of
+  /// signing the user out. Returns it, or null once signed out.
+  Future<HermesSession?> _refreshRejected(HermesSession sent) async {
+    final stored = await _tokenStore.read();
+    if (stored != null &&
+        stored.refreshToken != sent.refreshToken &&
+        _session?.refreshToken == sent.refreshToken) {
+      _session = stored;
+      _events('auth.session.adopted', const {});
+      return stored;
+    }
+    await _handleSessionExpired('refresh_rejected');
+    return null;
   }
 
   Future<void> _handleSessionExpired(String cause) async {

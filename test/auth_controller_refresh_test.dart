@@ -349,6 +349,27 @@ void main() {
     ]);
   });
 
+  test('a rejected refresh adopts the pair another isolate stored', () async {
+    await bootstrapWith(_session());
+    // A second controller on the same keychain, as in the notification
+    // isolate, holding the pair both read at start.
+    final other = AuthController(
+      tokenStore: store,
+      devServerUrl: dashboard.url,
+    );
+    addTearDown(other.dispose);
+    await other.bootstrap();
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+    expect(store.session?.refreshToken, 'refresh-2');
+
+    await other.api!.fetchMe();
+
+    expect(other.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-2');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());
     dashboard
