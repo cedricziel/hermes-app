@@ -320,11 +320,13 @@ class WatchRequestHandler {
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
+              VaultRequested() ||
               UnsupportedRequested() ||
               // The turn Hermes ran ahead of the prompt asks too.
               UnsolicitedEvent(
                 event: ApprovalRequested() ||
                     ClarifyRequested() ||
+                    VaultRequested() ||
                     UnsupportedRequested(),
               ):
             announceEnd(event is UnsolicitedEvent ? event.event : event);

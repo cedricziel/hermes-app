@@ -941,6 +941,7 @@ void main() {
       'question': kQuestionBody,
       'secret': kNeedsYouBody,
       'sudo': kNeedsYouBody,
+      'vault': kNeedsYouBody,
     };
     const requests = <String, ChatEvent>{
       'approval': ApprovalRequested(
@@ -962,6 +963,9 @@ void main() {
       ),
       'sudo': UnsupportedRequested(
         UnsupportedRequest(requestId: 'r4', kind: UnsupportedKind.sudo),
+      ),
+      'vault': VaultRequested(
+        VaultRequest(requestId: 'r5', kind: VaultKind.saveLogin),
       ),
     };
 
