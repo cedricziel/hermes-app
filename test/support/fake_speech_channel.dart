@@ -30,6 +30,9 @@ class FakeSpeechChannel {
   /// While set, `status` waits for it before answering.
   Completer<void>? statusGate;
 
+  /// While set, `finish` waits for it before answering.
+  Completer<void>? finishGate;
+
   /// What `finish` answers; a code here makes it fail with that code.
   String transcript = '';
   String? finishError;
@@ -95,6 +98,7 @@ class FakeSpeechChannel {
         audio.addAll((call.arguments as Map)['pcm'] as Uint8List);
         return null;
       case 'finish':
+        await finishGate?.future;
         if (finishError case final code?) throw PlatformException(code: code);
         return transcript;
     }

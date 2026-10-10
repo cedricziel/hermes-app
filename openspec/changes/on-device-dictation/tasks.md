@@ -114,3 +114,21 @@ As in the Claude app: the words appear in the field as they are recognized, and 
   Wire `DictationDraft` and send-while-dictating into `ChatScreen` until they pass.
 - [x] 5.5 Update `CLAUDE.md`'s Voice paragraph. Run `dart format`, `flutter analyze`, `flutter test` and `openspec validate on-device-dictation --strict`, and render the composer states on a phone width.
 
+## 6. PR 6: `fix(voice): send only a finished dictation, and let other edits win`
+
+A review of PR 5 after it merged found two bugs and a handful of rough edges.
+
+- [x] 6.1 A cancelled dictation sent its draft after ↑ (cancel, backgrounding or a profile change during "Transcribing…"). Send now requires `lastOutcome` `inserted` or `empty` and the same chat. Covered by a `ChatScreen` test.
+- [x] 6.2 Other writes to the field while dictating (Edit, starter prompts, the macOS share inbox, Open in New Window) were overwritten every tick. They now win and drop the dictation; the slash and mention pickers stay closed while dictating. Covered by a `ChatScreen` test.
+- [x] 6.3 Cancel the dictation when it becomes unavailable, so the controls never vanish under a live microphone. Also:
+  - clear a stale partial on failure;
+  - complete `whenSettled` on dispose;
+  - Enter sends while dictating;
+  - keep the selection;
+  - drop the engine name on narrow rows;
+  - attachments-only sends;
+  - clear the no-speech notice after sending;
+  - respect a running slash command.
+
+  Each has a controller, composer or waveform test.
+

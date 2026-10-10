@@ -55,7 +55,8 @@ class DictationView {
   final VoidCallback onRetry;
   final VoidCallback onDismiss;
 
-  /// Whether the waveform stands in for the text field.
+  /// Whether a recording or its transcription is in progress, so the
+  /// field is read-only and the controls row shows the waveform.
   bool get active =>
       phase == DictationPhase.recording || phase == DictationPhase.settling;
 }

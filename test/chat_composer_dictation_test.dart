@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/theme/hermes_theme.dart';
@@ -97,6 +98,16 @@ void main() {
     await pump(tester, view(DictationPhase.recording));
 
     await tester.tap(button('Send'));
+
+    expect(calls, ['stop and send']);
+  });
+
+  testWidgets('Enter while recording stops and sends', (tester) async {
+    text.text = 'Please';
+    await pump(tester, view(DictationPhase.recording));
+    await tester.tap(find.byKey(chatComposerFieldKey));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
 
     expect(calls, ['stop and send']);
   });

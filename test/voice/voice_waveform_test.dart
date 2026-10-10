@@ -78,4 +78,31 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a narrow row at large text drops the name, not the controls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildHermesDarkTheme(),
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.6)),
+          child: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 110,
+                child: VoiceWaveform(
+                  levels: const [0.1, 0.9],
+                  elapsed: Duration.zero,
+                  onDevice: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+  });
 }

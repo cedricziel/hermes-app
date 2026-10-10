@@ -29,6 +29,7 @@ WidgetBuilder buildChatComposer({
   List<SlashCommand> slashCommands = const [],
   bool commandRunning = false,
   BotChatContext? botContext,
+  Object? Function()? sendTarget,
 }) {
   Widget composer(
     ValueChanged<String> onSend,
@@ -63,8 +64,12 @@ WidgetBuilder buildChatComposer({
               dictation.available
                   ? DictationView.of(
                       dictation,
-                      onSend: () =>
-                          _sendAfterDictation(dictation, controller, onSend),
+                      onSend: () => _sendAfterDictation(
+                        dictation,
+                        controller,
+                        onSend,
+                        sendTarget,
+                      ),
                     )
                   : null,
             ),
@@ -73,20 +78,27 @@ WidgetBuilder buildChatComposer({
 }
 
 /// Ends [dictation] and sends the draft once its transcript is in place.
-/// Nothing is sent when transcribing failed, so the failure stays on screen.
+///
+/// Only a dictation that settled with a transcript, or heard nothing, sends:
+/// not one that was cancelled (by the user, the app leaving the foreground or
+/// a profile change) or failed, whose failure stays on screen. Nor does it
+/// send when [sendTarget] (the chat) changed while the transcript was on its
+/// way.
 Future<void> _sendAfterDictation(
   DictationController dictation,
   TextEditingController controller,
   ValueChanged<String> onSend,
+  Object? Function()? sendTarget,
 ) async {
+  final target = sendTarget?.call();
   await dictation.stop();
   await dictation.whenSettled();
-  if (dictation.phase != DictationPhase.idle &&
-      dictation.phase != DictationPhase.noSpeech) {
-    return;
-  }
-  final text = controller.text.trim();
-  if (text.isNotEmpty) onSend(text);
+  final outcome = dictation.lastOutcome;
+  if (outcome != 'inserted' && outcome != 'empty') return;
+  if (sendTarget != null && sendTarget() != target) return;
+  if (outcome == 'empty') dictation.dismiss();
+  // The chat sends attachments without text too, and ignores an empty send.
+  onSend(controller.text.trim());
 }
 
 /// Pins the composer to the bottom of the `Chat` stack and reports its
