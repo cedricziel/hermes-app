@@ -263,6 +263,33 @@ notification or schedule code:
   conversation window: the app still runs, and ⌘0 brings the main window
   back, after which a new conversation window still opens.
 
+### The menu bar item
+
+The item lives in the system menu bar, so only a capture of the whole screen
+(`screencapture -x`, which needs Screen Recording permission) shows it; the
+`dev-app.sh screenshot` window capture does not. Without that permission,
+`CGWindowListCopyWindowInfo` does not list status items on macOS 26, so it
+proves nothing either way. What does work: a temporary `NSLog` in
+`MenuBarStatusItem.update` that prints `item.button?.window?.frame` about a
+second after creation (a placed item has a non-zero height, about 33 pt, at
+the top of the screen, and `isVisible` is true; read at once it is still
+`{0,0}`). Remove it before committing. Check, with a reply running or an
+approval waiting:
+
+- The icon is `bubble.left` when idle, `ellipsis.bubble` while a reply runs
+  and `exclamationmark.bubble` while an approval or question waits, dark on a
+  light menu bar and light on a dark one.
+- Open the menu: running replies, "Needs you" rows, then New Chat, Show Main
+  Window and Quit Hermes. An approval is a submenu with its command and the
+  choices the card offers; picking "Allow once" answers it and the card shows
+  it answered.
+- With the main window closed, picking a reply or New Chat brings the window
+  back on that chat; Quit Hermes ends the process.
+- Settings > Menu bar item off removes the item at once and keeps it off after
+  a relaunch; closing the last window still leaves the app running.
+- Signed out (or on the sign-in screen) the menu shows only New Chat, Show
+  Main Window and Quit Hermes.
+
 ## When the screenshot can't be taken
 
 To set up state the screen needs (a second profile, say), use the CLI against

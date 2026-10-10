@@ -16,6 +16,7 @@ class MainFlutterWindow: NSWindow {
 
   private var keyObserver: WindowKeyObserver?
   private var channel: FlutterMethodChannel?
+  private var menuBarStatusItem: MenuBarStatusItem?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -29,6 +30,7 @@ class MainFlutterWindow: NSWindow {
     NotificationCategories.install(messenger: flutterViewController.engine.binaryMessenger)
     QuickPanelShortcut.register(
       with: flutterViewController.registrar(forPlugin: "QuickPanelShortcut"))
+    menuBarStatusItem = MenuBarStatusItem(messenger: flutterViewController.engine.binaryMessenger)
 
     // Its engine owns the session that conversation windows borrow, so it
     // must outlive a close; see close().
@@ -441,5 +443,117 @@ enum NotificationCategories {
       identifier: id, actions: actions, intentIdentifiers: [],
       hiddenPreviewsBodyPlaceholder: spec["placeholder"] as? String ?? "",
       options: [])
+  }
+}
+
+/// The app's menu bar item. The Dart side owns what it shows (`update`
+/// sends the icon state and the whole menu) and hears of a pick by key
+/// (`selected`) and of the menu opening (`opened`). Only the main window's
+/// engine creates one: a status item belongs to the app, not to a window.
+final class MenuBarStatusItem: NSObject, NSMenuDelegate {
+  private let channel: FlutterMethodChannel
+  private let menu = NSMenu()
+  private var item: NSStatusItem?
+  /// While the menu is open it is left alone, so a submenu does not close
+  /// under the cursor; the latest update is applied when it closes.
+  private var menuOpen = false
+  private var deferred: [String: Any]?
+
+  init(messenger: FlutterBinaryMessenger) {
+    channel = FlutterMethodChannel(name: "hermes_app/menu_bar_extra", binaryMessenger: messenger)
+    super.init()
+    menu.autoenablesItems = false
+    menu.delegate = self
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "update", let args = call.arguments as? [String: Any] else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.update(args)
+      result(nil)
+    }
+  }
+
+  deinit { hide() }
+
+  private func update(_ args: [String: Any]) {
+    if menuOpen {
+      // A lock cannot wait: the open menu would keep showing what it hides.
+      guard args["urgent"] as? Bool == true else {
+        deferred = args
+        return
+      }
+      menu.cancelTracking()
+      menuOpen = false
+      deferred = nil
+    }
+    guard args["visible"] as? Bool == true else { return hide() }
+    let item = self.item ?? NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    self.item = item
+    let state = args["state"] as? String ?? "idle"
+    let (symbol, label) =
+      switch state {
+      case "working": ("ellipsis.bubble", "Hermes, a reply is running")
+      case "attention": ("exclamationmark.bubble", "Hermes needs your attention")
+      default: ("bubble.left", "Hermes")
+      }
+    if let button = item.button {
+      let image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+      image?.isTemplate = true
+      button.image = image
+      button.setAccessibilityLabel(label)
+      button.toolTip = label
+    }
+    menu.removeAllItems()
+    fill(menu, with: args["items"] as? [[String: Any]] ?? [])
+    item.menu = menu
+  }
+
+  private func hide() {
+    guard let item else { return }
+    NSStatusBar.system.removeStatusItem(item)
+    self.item = nil
+  }
+
+  private func fill(_ menu: NSMenu, with entries: [[String: Any]]) {
+    for entry in entries {
+      if entry["separator"] as? Bool == true {
+        menu.addItem(.separator())
+        continue
+      }
+      let key = entry["key"] as? String
+      let menuItem = NSMenuItem(
+        title: entry["title"] as? String ?? "",
+        action: key == nil ? nil : #selector(picked(_:)),
+        keyEquivalent: "")
+      menuItem.target = self
+      menuItem.representedObject = key
+      menuItem.isEnabled = entry["enabled"] as? Bool ?? true
+      if let children = entry["children"] as? [[String: Any]] {
+        let submenu = NSMenu(title: menuItem.title)
+        submenu.autoenablesItems = false
+        fill(submenu, with: children)
+        menuItem.submenu = submenu
+      }
+      menu.addItem(menuItem)
+    }
+  }
+
+  @objc private func picked(_ sender: NSMenuItem) {
+    guard let key = sender.representedObject as? String else { return }
+    channel.invokeMethod("selected", arguments: key)
+  }
+
+  func menuDidClose(_: NSMenu) {
+    menuOpen = false
+    if let args = deferred {
+      deferred = nil
+      update(args)
+    }
+  }
+
+  func menuWillOpen(_: NSMenu) {
+    menuOpen = true
+    channel.invokeMethod("opened", arguments: nil)
   }
 }

@@ -9,6 +9,7 @@ import 'windows/conversation_windows_menu.dart';
 import 'auth/auth_controller.dart';
 import 'macos/dock/dock_menu_gate.dart';
 import 'macos/mac_menu_bar.dart';
+import 'macos/menu_bar_extra/menu_bar_extra_host.dart';
 import 'macos/mac_window.dart';
 import 'screens/login_screen.dart';
 import 'screens/server_setup_screen.dart';
@@ -52,12 +53,15 @@ class _HermesAppState extends State<HermesApp> {
       theme: widget.lightTheme ?? buildHermesLightTheme(),
       darkTheme: widget.darkTheme ?? buildHermesDarkTheme(),
       themeMode: context.select<ThemeController, ThemeMode>((t) => t.mode),
-      builder: (context, child) => MacMenuBar(
+      builder: (context, child) => MenuBarExtraHost(
         navigatorKey: _navigatorKey,
-        child: ConversationWindowsMenu(
-          child: MacWindowChrome(
-            child: AppLockGate(
-              child: DockMenuGate(child: HandoffGate(child: child!)),
+        child: MacMenuBar(
+          navigatorKey: _navigatorKey,
+          child: ConversationWindowsMenu(
+            child: MacWindowChrome(
+              child: AppLockGate(
+                child: DockMenuGate(child: HandoffGate(child: child!)),
+              ),
             ),
           ),
         ),
