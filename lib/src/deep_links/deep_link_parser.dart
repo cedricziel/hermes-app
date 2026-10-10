@@ -3,6 +3,14 @@ import 'deep_link_target.dart';
 /// The longest prompt a link may put in the composer.
 const deepLinkPromptLimit = 4000;
 
+/// Why [parseDeepLink] returned null for [uri], as the fixed word a breadcrumb
+/// carries: a known kind of link with a missing required parameter is
+/// `malformed`, anything else `unknown`.
+String deepLinkIgnoredReason(Uri uri) =>
+    uri.scheme.toLowerCase() == 'hermes' && uri.host.toLowerCase() == 'chat'
+    ? 'malformed'
+    : 'unknown';
+
 /// The `hermes://` link [uri] stands for, or null when it is not one the app
 /// knows. The host is the kind of link; query values are decoded once, empty
 /// ones count as absent and unknown keys are ignored.

@@ -1,3 +1,4 @@
+import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MethodChannel;
@@ -15,6 +16,7 @@ import 'src/api/hermes_repositories.dart';
 import 'src/app_lock/app_lock_controller.dart';
 import 'src/auth/auth_controller.dart';
 import 'src/chat/media/media_source.dart';
+import 'src/deep_links/deep_link_listener.dart';
 import 'src/chat/media/media_store.dart';
 import 'src/chat/media/quick_look.dart';
 import 'src/macos/dock/dock_menu_bridge.dart';
@@ -92,6 +94,24 @@ Future<void> main([List<String> args = const []]) async {
           dispose: (_, store) => store?.dispose(),
         ),
         Provider<Breadcrumbs>.value(value: telemetry.breadcrumbs()),
+        // Above the screens, so a link opened on the sign-in screen waits for
+        // the shell. Only where the `hermes` scheme is registered.
+        ChangeNotifierProvider<DeepLinks?>(
+          lazy: false,
+          create: (context) {
+            if (kIsWeb ||
+                (defaultTargetPlatform != TargetPlatform.iOS &&
+                    defaultTargetPlatform != TargetPlatform.macOS &&
+                    defaultTargetPlatform != TargetPlatform.android)) {
+              return null;
+            }
+            return DeepLinks(
+              links: AppLinks().uriLinkStream,
+              signedOut: context.read<AuthController>().signedOut,
+              breadcrumbs: context.read<Breadcrumbs>(),
+            );
+          },
+        ),
         Provider<GlobalShortcut?>(
           create: (_) => MacWindow.enabled ? ChannelGlobalShortcut() : null,
         ),
