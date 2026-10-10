@@ -4,12 +4,22 @@
 
 ### Requirement: Dictation engine setting
 
-On iOS and macOS the app SHALL offer a Dictation setting, reached from the app's settings, with two engines: "Hermes", which transcribes on the chat profile's server, and "On this device", which transcribes with the operating system's on-device recognizer. "Hermes" SHALL be the default. The choice SHALL apply to every profile and server and SHALL be kept across launches. On other platforms the app SHALL NOT show the setting and SHALL use the Hermes engine. The setting SHALL say that with "On this device" speech does not leave the device.
+On iOS and macOS the app SHALL offer a Dictation setting, reached from the app's settings, with two engines: "Hermes", which transcribes on the chat profile's server, and "On this device", which transcribes with the operating system's on-device recognizer. On iOS and macOS "On this device" SHALL be the default; a choice the user made SHALL win over the default. The choice SHALL apply to every profile and server and SHALL be kept across launches. When the device language or the device cannot recognize on the device, dictation SHALL use the Hermes engine and the setting SHALL show Hermes as the engine in use. On other platforms the app SHALL NOT show the setting and SHALL use the Hermes engine. The setting SHALL say that with "On this device" speech does not leave the device.
 
 #### Scenario: Default engine
 
-- **WHEN** the user has never changed the Dictation setting
-- **THEN** dictation uses the Hermes engine
+- **WHEN** the user has never changed the Dictation setting on an iPhone whose language can be recognized on the device
+- **THEN** dictation uses the on-device recognizer
+
+#### Scenario: Default without on-device support
+
+- **WHEN** the user has never changed the Dictation setting and the device language has no on-device recognition
+- **THEN** dictation uses the Hermes engine, and the setting shows Hermes as the engine in use
+
+#### Scenario: Choice kept over the default
+
+- **WHEN** the user picked "Hermes" in the Dictation setting
+- **THEN** dictation uses the Hermes engine after a restart
 
 #### Scenario: Choice kept
 
@@ -23,7 +33,7 @@ On iOS and macOS the app SHALL offer a Dictation setting, reached from the app's
 
 ### Requirement: On-device speech model
 
-The on-device engine SHALL recognize speech in the language the device's settings prefer. The setting SHALL show the model's state for that language: not supported on this device (the language, or the device's hardware, cannot recognize on the device), not downloaded, downloading with progress, or ready. Picking "On this device" while the model is not downloaded SHALL start the download. A failed download SHALL be shown with a way to try again. A download SHALL go on when the dialog closes or the app goes to the background, and SHALL show its progress again when the dialog reopens. When the language or device is not supported, the setting SHALL say so and dictation SHALL stay on Hermes.
+The on-device engine SHALL recognize speech in the language the device's settings prefer. While the on-device engine is chosen and the model is not downloaded, the chat screen SHALL start the download by itself, without asking. The setting SHALL show the model's state for that language: not supported on this device (the language, or the device's hardware, cannot recognize on the device), not downloaded, downloading with progress, or ready. Picking "On this device" while the model is not downloaded SHALL start the download. A failed download SHALL be shown with a way to try again. A download SHALL go on when the dialog closes or the app goes to the background, and SHALL show its progress again when the dialog reopens. When the language or device is not supported, the setting SHALL say so and dictation SHALL stay on Hermes.
 
 #### Scenario: Model download
 
@@ -63,6 +73,20 @@ With the on-device engine, the app SHALL record as described in "Recording state
 
 - **WHEN** the user taps the microphone and the device language's model is no longer installed
 - **THEN** no recording starts and the composer says the speech model needs downloading in the Dictation setting
+
+### Requirement: Engine shown while recording
+
+While recording and while transcribing, the composer SHALL say which engine turns the speech into text: "On this device" or "Hermes".
+
+#### Scenario: Recording on the device
+
+- **WHEN** the user records with the on-device engine
+- **THEN** the waveform says "On this device"
+
+#### Scenario: Recording through Hermes
+
+- **WHEN** the user records with the Hermes engine
+- **THEN** the waveform says "Hermes"
 
 ### Requirement: Changing the engine
 

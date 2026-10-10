@@ -79,3 +79,19 @@
     - the permission prompts;
     - backgrounding during a recording cancels it;
     - backgrounding during a download resumes its progress when the dialog reopens.
+
+## 4. PR 4: `feat(voice): dictate on the device by default`
+
+On a TestFlight iPhone, dictation still went to Hermes: the engine defaulted to Hermes and the switch is two menus deep. Nothing showed which engine was listening.
+
+- [x] 4.1 Write failing `DictationSettings` tests: the default is `device` on iOS and macOS and `hermes` elsewhere, and a saved choice wins. Implement them.
+- [x] 4.2 Write failing `ChatScreen` tests:
+  - an unsupported model falls back to Hermes and reads `voice-config`;
+  - a missing model is downloaded without a tap, then the microphone shows;
+  - a failed download leaves the microphone hidden.
+
+  Implement them.
+- [x] 4.3 Write failing dialog tests: an early tap on On this device is kept and downloads once the model state is known, and an unsupported model shows Hermes as the checked engine. Implement them.
+- [x] 4.4 Add the engine label to `VoiceWaveform` with Widgetbook use cases (On this device, Hermes), then pass it from the composer. Verify with the widget and Widgetbook tests.
+- [x] 4.5 Update `CLAUDE.md`'s Voice paragraph for the new default. Then run `dart format`, `flutter analyze`, `flutter test` and `openspec validate on-device-dictation --strict`.
+

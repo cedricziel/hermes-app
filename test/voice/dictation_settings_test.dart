@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/voice/dictation_settings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,11 +36,40 @@ void main() {
     expect(told, 1);
   });
 
-  test('dictates through Hermes until the user picks otherwise', () async {
-    final settings = DictationSettings();
-    await settings.load();
+  for (final (platform, engine) in [
+    (TargetPlatform.iOS, DictationEngine.device),
+    (TargetPlatform.macOS, DictationEngine.device),
+    (TargetPlatform.android, DictationEngine.hermes),
+    (TargetPlatform.windows, DictationEngine.hermes),
+    (TargetPlatform.linux, DictationEngine.hermes),
+  ]) {
+    test(
+      'on ${platform.name} dictates with $engine until the user picks',
+      () async {
+        debugDefaultTargetPlatformOverride = platform;
+        try {
+          final settings = DictationSettings();
+          await settings.load();
 
-    expect(settings.engine, DictationEngine.hermes);
+          expect(settings.engine, engine);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
+
+  test('a saved Hermes pick wins over the on-device default', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      await DictationSettings().setEngine(DictationEngine.hermes);
+      final relaunched = DictationSettings();
+      await relaunched.load();
+
+      expect(relaunched.engine, DictationEngine.hermes);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   test('keeps the pick across launches', () async {
@@ -63,7 +93,7 @@ void main() {
     expect(settings.engine, DictationEngine.hermes);
   });
 
-  test('an unknown saved value falls back to Hermes', () async {
+  test('an unknown saved value falls back to the default', () async {
     await SharedPreferencesAsync().setString(
       'hermes.dictation_engine',
       'cloud',

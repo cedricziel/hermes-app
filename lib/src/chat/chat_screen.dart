@@ -594,21 +594,42 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         mounted && _chat.profile == profile && _dictationEngine == engine;
     if (engine == DictationEngine.device) {
       // Speech stays on the device, so the server's voice config is not read.
-      final model = await _onDeviceSpeech!.status(
-        OnDeviceSpeech.deviceLocale(),
-      );
+      final locale = OnDeviceSpeech.deviceLocale();
+      final model = await _onDeviceSpeech!.status(locale);
       if (!current()) return;
-      dictation.configure(
-        profile: profile,
-        support: VoiceSupport.none,
-        engine: engine,
-        model: model,
-      );
-      return;
+      if (model == OnDeviceModel.missing) unawaited(_downloadModel(locale));
+      if (effectiveDictationEngine(engine, model) == engine) {
+        dictation.configure(
+          profile: profile,
+          support: VoiceSupport.none,
+          engine: engine,
+          model: model,
+        );
+        return;
+      }
     }
     final support = await repository.voiceSupport(profile: profile);
     if (!current()) return;
     dictation.configure(profile: profile, support: support);
+  }
+
+  var _modelDownloadFailed = false;
+
+  /// Fetches the device's speech model; [OnDeviceSpeech.installed] then
+  /// shows the microphone. After a failure only the Dictation setting tries
+  /// again, so a metered connection is not hit on every refresh.
+  Future<void> _downloadModel(String locale) async {
+    if (_modelDownloadFailed) return;
+    var installed = true;
+    try {
+      await _onDeviceSpeech!.install(locale);
+    } on OnDeviceSpeechException {
+      installed = false;
+      _modelDownloadFailed = true;
+    }
+    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('voice.model.install', {
+      'outcome': installed ? 'installed' : 'failed',
+    });
   }
 
   /// The chosen dictation engine; Hermes without an on-device recognizer.

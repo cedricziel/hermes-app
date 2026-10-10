@@ -67,7 +67,7 @@ Future<void> showSettingsDialog(BuildContext context) async {
             children: [
               row(_Setting.appearance),
               row(_Setting.notifications),
-              if (dictationEngineOffered) row(_Setting.dictation),
+              if (DictationSettings.offered) row(_Setting.dictation),
               row(_Setting.appLock),
             ],
           ),

@@ -129,8 +129,9 @@ void main() {
       WidgetTester tester, {
       DictationEngine engine = DictationEngine.device,
       FakeVoiceRecorder? recorder,
+      bool serverStt = false,
     }) async {
-      final server = _server(sttDisabled: true);
+      final server = _server(sttDisabled: !serverStt);
       unawaited(settings.setEngine(engine));
       await pumpChatScreen(
         tester,
@@ -199,18 +200,41 @@ void main() {
       expect(_dictate, findsOneWidget);
     });
 
-    testWidgets('a finished download shows the microphone', (tester) async {
+    testWidgets('downloads a missing model without a tap', (tester) async {
       speech.status = 'missing';
       await pump(tester);
       expect(_dictate, findsNothing);
+      expect(speech.methods, contains('install'));
 
-      final installing = onDevice.install('en-US');
-      await tester.pump();
       speech.completeInstall();
-      await installing;
       await tester.pumpAndSettle();
 
       expect(_dictate, findsOneWidget);
+      expect(speech.methods.where((m) => m == 'install'), hasLength(1));
+    });
+
+    testWidgets('a failed download keeps the microphone hidden', (
+      tester,
+    ) async {
+      speech.status = 'missing';
+      final server = await pump(tester, serverStt: true);
+
+      speech.failInstall('failed');
+      await tester.pumpAndSettle();
+
+      expect(_dictate, findsNothing);
+      expect(server.requestsTo('GET', '/api/audio/voice-config'), isEmpty);
+    });
+
+    testWidgets('falls back to Hermes where the device cannot recognize', (
+      tester,
+    ) async {
+      speech.status = 'unsupported';
+      final server = await pump(tester, serverStt: true);
+
+      expect(_dictate, findsOneWidget);
+      expect(server.requestsTo('GET', '/api/audio/voice-config'), hasLength(1));
+      expect(speech.methods, isNot(contains('install')));
     });
 
     testWidgets('dictates into the draft without asking the server', (

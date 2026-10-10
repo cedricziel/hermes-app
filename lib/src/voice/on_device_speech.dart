@@ -48,6 +48,7 @@ class OnDeviceSpeech {
   final _sessions = <int, OnDeviceSession>{};
   final _progress = StreamController<double>.broadcast();
   final _installed = StreamController<void>.broadcast();
+  final _installing = <String, Future<void>>{};
   StreamSubscription<Object?>? _events;
 
   /// How far a model download is, from 0 to 1, for whoever installs it.
@@ -71,12 +72,17 @@ class OnDeviceSpeech {
   /// again.
   Stream<void> get installed => _installed.stream;
 
-  /// Downloads [locale]'s model; completes once it is installed.
-  Future<void> install(String locale) async {
-    _listen();
-    await _invoke('install', {'locale': locale});
-    _installed.add(null);
-  }
+  /// Downloads [locale]'s model; completes once it is installed. A second
+  /// call while one runs joins it.
+  Future<void> install(String locale) => _installing[locale] ??= () async {
+    try {
+      _listen();
+      await _invoke('install', {'locale': locale});
+      _installed.add(null);
+    } finally {
+      unawaited(_installing.remove(locale));
+    }
+  }();
 
   /// Opens a session that recognizes 16-bit mono PCM at [sampleRate].
   Future<OnDeviceSession> start({
