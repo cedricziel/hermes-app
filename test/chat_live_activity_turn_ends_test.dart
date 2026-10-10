@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_controller.dart';
+import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/live_activities/live_activities.dart';
@@ -24,6 +25,15 @@ void main() {
   late AttentionNotifier attention;
   late ChatController chat;
   var disposedEarly = false;
+
+  const approval = ApprovalRequested(
+    ApprovalRequest(
+      requestId: 'r1',
+      command: 'rm -rf build',
+      description: 'delete files',
+      choices: ['once', 'deny'],
+    ),
+  );
 
   setUp(() async {
     SharedPreferencesAsyncPlatform.instance =
@@ -186,6 +196,49 @@ void main() {
         expect(service.activities.single.dismissAt, isNotNull);
       },
     );
+  });
+
+  group('the turn Hermes runs ahead of the prompt', () {
+    test('ending does not finish the prompt, which waits', () async {
+      chat.newThread();
+      chat.submit('Plan it', const []);
+      final turn = transport.sends.last..emit(const ThreadBound('n1'));
+      turn
+        ..emit(const UnsolicitedEvent(ReplyStarted()))
+        ..emit(const UnsolicitedEvent(ReplyDelta('resumed work')))
+        ..emit(const UnsolicitedEvent(ReplyCompleted('resumed work')));
+      await pumpEventQueue();
+
+      expect(service.running.single.state, 'working');
+
+      turn.emit(const ReplyCompleted('Planned.'));
+      await pumpEventQueue();
+      expect(service.activities.single.state, 'ready');
+    });
+
+    test('failing does not fail the prompt', () async {
+      chat.newThread();
+      chat.submit('Plan it', const []);
+      final turn = transport.sends.last..emit(const ThreadBound('n1'));
+      turn
+        ..emit(const UnsolicitedEvent(ReplyStarted()))
+        ..emit(const UnsolicitedEvent(ReplyCompleted('', failed: true)));
+      await pumpEventQueue();
+
+      expect(service.running.single.state, 'working');
+    });
+
+    test('asking shows the user is needed', () async {
+      chat.newThread();
+      chat.submit('Plan it', const []);
+      transport.sends.last
+        ..emit(const ThreadBound('n1'))
+        ..emit(const UnsolicitedEvent(ReplyStarted()))
+        ..emit(const UnsolicitedEvent(approval));
+      await pumpEventQueue();
+
+      expect(service.running.single.state, 'approval');
+    });
   });
 
   test('a turn chained after a finished reply leaves its activity', () async {

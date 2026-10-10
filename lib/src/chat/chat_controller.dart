@@ -1946,11 +1946,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool notify = true,
     bool ownTurn = false,
   }) {
-    liveActivities?.onEvent(thread, event);
     // The turn Hermes ran ahead of the prompt ends before the prompt's own
     // turn does, so its completion says nothing about the chat.
     if (!(ownTurn && event is ReplyCompleted)) {
       _announcedTurns.add(thread);
+      liveActivities?.onEvent(thread, event);
       watchStatus?.onEvent(
         thread,
         event,
