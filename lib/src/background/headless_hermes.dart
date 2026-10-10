@@ -9,7 +9,6 @@ library;
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stream_channel/stream_channel.dart';
 
@@ -59,9 +58,8 @@ final class HeadlessUnreachable<T> extends HeadlessOutcome<T> {
   const HeadlessUnreachable();
 }
 
-/// What a headless run is wired to; tests replace the parts that would touch
-/// the device.
-@visibleForTesting
+/// What a headless run is wired to. A run uses the device's own parts unless
+/// told otherwise, which only tests do.
 class HeadlessDeps {
   const HeadlessDeps({
     this.tokenStore,
@@ -91,7 +89,7 @@ Future<HeadlessOutcome<T>> withHeadlessHermes<T>(
   Future<T> Function(HeadlessHermes hermes) body, {
   required String task,
   Duration timeout = const Duration(seconds: 25),
-  @visibleForTesting HeadlessDeps? deps,
+  HeadlessDeps? deps,
 }) async {
   final wiring = deps ?? const HeadlessDeps();
   final factory = wiring.telemetry ?? backgroundTelemetry;
