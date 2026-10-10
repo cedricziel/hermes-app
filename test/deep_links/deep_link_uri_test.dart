@@ -11,6 +11,7 @@ void main() {
     const NewChat(),
     const NewChat(profile: 'work', dictate: true, prompt: 'Plan a trip & 🚀'),
     const NewChat(prompt: 'a=b?c#d'),
+    const NewChat(prompt: 'C++'),
     const OpenRequests(),
     const OpenKanban(),
     const OpenSchedules(),
@@ -46,6 +47,13 @@ void main() {
     expect(
       deepLinkUri(const NewChat(prompt: 'a b+c')).toString(),
       'hermes://new?prompt=a%20b%2Bc',
+    );
+  });
+
+  test('writes a plus as %2B, which Swift and Dart both read as a plus', () {
+    expect(
+      deepLinkUri(const NewChat(prompt: 'C++')).toString(),
+      'hermes://new?prompt=C%2B%2B',
     );
   });
 

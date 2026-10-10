@@ -99,6 +99,13 @@ void main() {
       expect(target.prompt, hasLength(4000));
     });
 
+    test('never splits a character when cutting the prompt', () {
+      final long = '${'a' * 3999}😀😀';
+      final prompt = (parse('hermes://new?prompt=$long') as NewChat).prompt!;
+      expect(prompt, '${'a' * 3999}😀');
+      expect(prompt.runes.last, 0x1F600);
+    });
+
     test('cuts the prompt of a chat link too', () {
       final long = 'b' * 4500;
       final target = parse('hermes://chat?id=x&prompt=$long') as OpenChat;
@@ -129,6 +136,13 @@ void main() {
     });
   });
 
+  group('plus signs', () {
+    test('a plus in a query reads as a space, so producers write %2B', () {
+      expect((parse('hermes://new?prompt=a+b') as NewChat).prompt, 'a b');
+      expect((parse('hermes://new?prompt=C%2B%2B') as NewChat).prompt, 'C++');
+    });
+  });
+
   group('ignored', () {
     test('unknown host', () {
       expect(parse('hermes://memory'), isNull);
@@ -142,6 +156,11 @@ void main() {
     test('path-style link', () {
       expect(parse('hermes:chat?id=abc'), isNull);
       expect(parse('hermes:///chat?id=abc'), isNull);
+    });
+
+    test('an invalid percent escape is malformed, not a crash', () {
+      expect(parse('hermes://new?prompt=%E2%82'), isNull);
+      expect(parse('hermes://chat?id=%E2%82'), isNull);
     });
 
     test('scheme is case-insensitive as URIs are', () {

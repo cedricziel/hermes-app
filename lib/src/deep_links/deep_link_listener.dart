@@ -39,10 +39,11 @@ class DeepLinks extends ChangeNotifier {
     );
     var first = true;
     _links = links.listen((uri) {
+      if (!isHermesLink(uri)) return;
       final cold = first && !shown;
       first = false;
       _receive(uri, cold: cold);
-    });
+    }, onError: (Object _) => _ignored('malformed'));
     _signedOut = signedOut?.listen((_) => _drop());
   }
 
@@ -55,13 +56,13 @@ class DeepLinks extends ChangeNotifier {
 
   void _receive(Uri uri, {required bool cold}) {
     final target = parseDeepLink(uri);
-    if (target == null) {
-      breadcrumbs('deeplink.ignored', {'reason': deepLinkIgnoredReason(uri)});
-      return;
-    }
+    if (target == null) return _ignored(deepLinkIgnoredReason(uri));
     _pending = PendingDeepLink(target, cold: cold);
     notifyListeners();
   }
+
+  void _ignored(String reason) =>
+      breadcrumbs('deeplink.ignored', {'reason': reason});
 
   void _drop() {
     if (_pending == null) return;

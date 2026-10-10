@@ -102,13 +102,45 @@ void main() {
     test('say why a link was ignored, with no part of the link', () {
       arrive('hermes://memory?secret=1');
       arrive('hermes://chat?profile=work&prompt=private');
-      arrive('https://example.com/hermes');
+      arrive('hermes:chat?id=1');
 
       expect(crumbs(), [
         'deeplink.ignored {reason: unknown}',
         'deeplink.ignored {reason: malformed}',
-        'deeplink.ignored {reason: unknown}',
+        'deeplink.ignored {reason: malformed}',
       ]);
     });
+
+    test('call an invalid escape malformed and keep nothing', () {
+      arrive('hermes://new?prompt=%E2%82');
+
+      expect(crumbs(), ['deeplink.ignored {reason: malformed}']);
+      expect(deepLinks.pending, isNull);
+    });
+
+    test('survive an error on the link stream', () {
+      links.addError(const FormatException('bad'));
+      arrive('hermes://kanban');
+
+      expect(crumbs(), ['deeplink.ignored {reason: malformed}']);
+      expect(deepLinks.take()?.target, const OpenKanban());
+    });
+
+    test('say nothing of the other schemes app_links also delivers', () {
+      arrive('hermes-activity://chat?id=abc');
+      arrive('hermes-share://x');
+      arrive('ShareMedia-com.example://dataUrl=x');
+      arrive('https://example.com/hermes');
+
+      expect(crumbs(), isEmpty);
+      expect(deepLinks.pending, isNull);
+    });
+  });
+
+  test('another scheme is not the first link, so it cannot make one cold', () {
+    arrive('hermes-activity://chat?id=abc');
+    arrive('hermes://kanban');
+
+    expect(deepLinks.take()?.cold, isTrue);
   });
 }
