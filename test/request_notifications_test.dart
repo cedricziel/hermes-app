@@ -90,8 +90,26 @@ void main() {
       expect(category!.actions.any((action) => action.foreground), isFalse);
     });
 
-    test('are left out for an approval without a known choice', () {
-      expect(requestCategoryFor(_approval(['later'])), isNull);
+    test(
+      'show only the placeholder for an approval without a known choice',
+      () {
+        final category = requestCategoryFor(_approval(['later']))!;
+
+        expect(category.id, kApprovalPlaceholderCategory);
+        expect(category.actions, isEmpty);
+        expect(category.placeholder, kApprovalBody);
+        expect(pendingRequestFor(_approval(['later'])), isNull);
+      },
+    );
+
+    test('show only the placeholder while App Lock is on', () {
+      final category = requestCategoryFor(
+        _approval(['once', 'deny']),
+        appLock: true,
+      )!;
+
+      expect(category.id, kApprovalPlaceholderCategory);
+      expect(category.actions, isEmpty);
     });
 
     test('exist for every combination at start', () {
@@ -100,8 +118,10 @@ void main() {
       expect(ids, contains('hermes.request.approval.once-session-always-deny'));
       expect(ids, contains('hermes.request.approval.deny'));
       expect(ids, contains(kQuestionCategory));
+      expect(ids, contains(kApprovalPlaceholderCategory));
+      expect(ids, contains(kQuestionPlaceholderCategory));
       expect(
-        ids.where((id) => id.startsWith(kApprovalCategoryPrefix)).length,
+        ids.where((id) => id.startsWith('$kApprovalCategoryPrefix.')).length,
         15,
       );
       for (final choices in [
@@ -175,7 +195,15 @@ void main() {
       expect(category.actions.last.foreground, isTrue);
     });
 
-    test('are left out for a request with several questions', () {
+    test('show only the placeholder while App Lock is on', () {
+      final category = requestCategoryFor(_question(['a']), appLock: true)!;
+
+      expect(category.id, kQuestionPlaceholderCategory);
+      expect(category.actions, isEmpty);
+      expect(category.placeholder, kQuestionBody);
+    });
+
+    test('show only the placeholder for a request with several questions', () {
       const batch = ClarifyRequest(
         requestId: 'r2',
         batch: true,
@@ -185,7 +213,8 @@ void main() {
         ],
       );
 
-      expect(requestCategoryFor(batch), isNull);
+      expect(requestCategoryFor(batch)!.id, kQuestionPlaceholderCategory);
+      expect(pendingRequestFor(batch), isNull);
     });
   });
 

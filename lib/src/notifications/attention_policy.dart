@@ -75,7 +75,8 @@ String _cut(String text, int length) {
 /// off. An approval shows its command and a question the question, with the
 /// buttons that answer them; their category's placeholder hides the text
 /// while the system hides previews, as on a locked screen. Anything else the
-/// agent asks for stays generic.
+/// agent asks for stays generic, and so does every request while [appLock]
+/// is on, without buttons: the app asks to be unlocked before it shows one.
 AttentionNotification? attentionFor({
   required ChatEvent event,
   required ChatThread thread,
@@ -83,6 +84,7 @@ AttentionNotification? attentionFor({
   required String? selectedThreadId,
   required bool enabled,
   String? profile,
+  bool appLock = false,
 }) {
   if (!enabled) return null;
   if (appFocused && selectedThreadId == thread.id) return null;
@@ -92,6 +94,8 @@ AttentionNotification? attentionFor({
       failed
           ? kReplyFailedBody
           : (replyPreview(text).isEmpty ? kReplyReadyBody : replyPreview(text)),
+    ApprovalRequested() when appLock => kApprovalBody,
+    ClarifyRequested() when appLock => kQuestionBody,
     ApprovalRequested(:final request) => _requestBody([
       request.command,
       request.description,
@@ -115,8 +119,10 @@ AttentionNotification? attentionFor({
     title: thread.title,
     body: body,
     profile: profile,
-    category: request == null ? null : requestCategoryFor(request),
-    request: request == null ? null : pendingRequestFor(request),
+    category: request == null
+        ? null
+        : requestCategoryFor(request, appLock: appLock),
+    request: request == null || appLock ? null : pendingRequestFor(request),
   );
 }
 

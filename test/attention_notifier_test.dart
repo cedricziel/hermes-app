@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_notifier.dart';
+import 'package:hermes_app/src/notifications/attention_policy.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_settings.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
@@ -68,6 +69,34 @@ void main() {
       expect(n.title, 'Run failure');
       expect(n.body, 'Nothing new.');
       expect(n.profile, 'work');
+    });
+
+    test('keeps a request generic while App Lock is on', () {
+      notifier = AttentionNotifier(
+        service: service,
+        settings: settings,
+        onOpen: opened.add,
+        appLock: () => true,
+      );
+      leaveTheApp();
+
+      notifier.announce(
+        thread,
+        const ApprovalRequested(
+          ApprovalRequest(
+            requestId: 'r1',
+            command: 'rm -rf build',
+            description: '',
+            choices: ['once'],
+          ),
+        ),
+        selectedThreadId: null,
+        profile: null,
+      );
+
+      final n = service.shown.single;
+      expect(n.body, kApprovalBody);
+      expect(n.request, isNull);
     });
 
     test('says nothing about the thread that is on screen', () {

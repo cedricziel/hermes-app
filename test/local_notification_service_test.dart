@@ -368,6 +368,23 @@ void main() {
         expect(plugin.posted.single.body, kApprovalBody);
       });
 
+      test('stays generic on Android without a known choice', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+        await service.show(
+          _request(
+            const ApprovalRequest(
+              requestId: 'r9',
+              command: 'rm -rf build',
+              description: '',
+              choices: ['later'],
+            ),
+          ),
+        );
+
+        expect(plugin.posted.single.body, kApprovalBody);
+      });
+
       test('reports an answer button on answers, not taps', () async {
         debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
         await service.show(_request(_question));

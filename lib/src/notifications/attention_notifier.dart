@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../chat/chat_models.dart';
 import '../chat/chat_transport.dart';
 import '../live_activities/live_activities.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../shell/app_presence.dart';
 import 'attention_policy.dart';
 import 'notification_service.dart';
@@ -21,6 +22,7 @@ class AttentionNotifier with WidgetsBindingObserver {
     required this.settings,
     required this.onOpen,
     this.activities,
+    this.appLock = _off,
   }) {
     _focused = AppPresence.focused(WidgetsBinding.instance.lifecycleState);
     WidgetsBinding.instance.addObserver(this);
@@ -32,6 +34,12 @@ class AttentionNotifier with WidgetsBindingObserver {
   final NotificationService? service;
   final NotificationSettings? settings;
   final LiveActivities? activities;
+
+  /// Whether App Lock is on: requests are then announced without their text
+  /// or buttons.
+  final bool Function() appLock;
+
+  static bool _off() => false;
 
   /// Called with the chat of a notification the user tapped.
   final void Function(NotificationTarget target) onOpen;
@@ -75,6 +83,7 @@ class AttentionNotifier with WidgetsBindingObserver {
       selectedThreadId: selectedThreadId,
       enabled: settings == null || (settings.loaded && settings.enabled),
       profile: profile,
+      appLock: appLock(),
     );
     if (notification == null) return;
     final pending = _permissionRequest;
@@ -123,3 +132,8 @@ class AttentionNotifier with WidgetsBindingObserver {
     _activityTaps = null;
   }
 }
+
+/// Whether [lock] keeps requests out of notifications: while App Lock is on,
+/// and until its saved choice has loaded.
+bool appLockHidesRequests(AppLockController? lock) =>
+    lock != null && (!lock.loaded || lock.enabled);

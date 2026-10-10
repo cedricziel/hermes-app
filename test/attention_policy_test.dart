@@ -197,8 +197,29 @@ void main() {
       final n = _for(const ClarifyRequested(batch))!;
 
       expect(n.body, kQuestionBody);
-      expect(n.category, isNull);
+      expect(n.category?.actions, isEmpty);
       expect(n.request, isNull);
+    });
+
+    test('requests stay generic and cannot be answered under App Lock', () {
+      for (final (event, body) in [
+        (const ApprovalRequested(_approval) as ChatEvent, kApprovalBody),
+        (const ClarifyRequested(_question) as ChatEvent, kQuestionBody),
+      ]) {
+        final n = attentionFor(
+          event: event,
+          thread: _thread(),
+          appFocused: false,
+          selectedThreadId: null,
+          enabled: true,
+          appLock: true,
+        )!;
+
+        expect(n.body, body);
+        expect(n.category?.placeholder, body);
+        expect(n.category?.actions, isEmpty);
+        expect(n.request, isNull);
+      }
     });
 
     test('a request the app cannot answer stays generic', () {
