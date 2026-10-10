@@ -7,12 +7,16 @@ import 'package:hermes_app/src/surfaces/surface_snapshot_store.dart';
 class FakeSurfaceStorage implements SurfaceStorage {
   final saved = <String>[];
   var reloads = 0;
+  final reloaded = <String>[];
 
   /// Thrown by [save] while set.
   Error? failure;
 
   /// Thrown by [reload] while set.
   Error? reloadFailure;
+
+  /// The kinds whose [reload] throws.
+  final failingKinds = <String>{};
 
   /// Holds back the next [save] until it completes.
   Completer<void>? saveGate;
@@ -40,8 +44,10 @@ class FakeSurfaceStorage implements SurfaceStorage {
   }
 
   @override
-  Future<void> reload(List<String> kinds) async {
+  Future<void> reload(String kind) async {
     if (reloadFailure case final error?) throw error;
+    if (failingKinds.contains(kind)) throw StateError('no such widget');
     reloads++;
+    reloaded.add(kind);
   }
 }

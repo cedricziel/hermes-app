@@ -160,14 +160,14 @@ public struct NeedsYouModel: Equatable, Sendable {
       return
     }
     var seen = Set<String>()
-    rows = oldestFirst.compactMap { request in
+    let perChat = oldestFirst.compactMap { request -> Row? in
       let id = "\(request.profile)/\(request.threadId)"
       guard seen.insert(id).inserted else { return nil }
       return Row(
         id: id, title: shownTitle(request.threadTitle), kind: request.kind,
         createdAt: request.createdAt, url: request.url)
     }
-    .prefix(3).map { $0 }
+    rows = Array(perChat.prefix(3))
   }
 }
 

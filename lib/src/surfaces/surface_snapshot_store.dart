@@ -7,21 +7,20 @@ import 'package:home_widget/home_widget.dart';
 import '../live_activities/live_activity_service.dart'
     show kLiveActivityAppGroup;
 import 'surface_snapshot.dart';
+import 'widget_kinds.dart';
+
+export 'widget_kinds.dart';
 
 /// The App Group the Runner and its extensions share.
 const kSurfaceAppGroup = kLiveActivityAppGroup;
-
-/// The WidgetKit kinds that read the snapshot and are reloaded after each
-/// write. The widget changes add theirs.
-const kSurfaceWidgetKinds = <String>[];
 
 /// Where the snapshot's JSON lives: the shared storage the widgets read.
 abstract interface class SurfaceStorage {
   Future<void> save(String json);
   Future<String?> load();
 
-  /// Asks the system to reload the widgets of these [kinds].
-  Future<void> reload(List<String> kinds);
+  /// Asks the system to reload the widgets of this [kind].
+  Future<void> reload(String kind);
 }
 
 /// [SurfaceStorage] on the `home_widget` plugin: the App Group's
@@ -43,10 +42,8 @@ class HomeWidgetSurfaceStorage implements SurfaceStorage {
   );
 
   @override
-  Future<void> reload(List<String> kinds) async {
-    for (final kind in kinds) {
-      await HomeWidget.updateWidget(iOSName: kind);
-    }
+  Future<void> reload(String kind) async {
+    await HomeWidget.updateWidget(iOSName: kind);
   }
 }
 
@@ -107,18 +104,24 @@ class SurfaceSnapshotStore {
       _log('surface.snapshot.write_failed', error);
     }
     if (_written != null) {
-      try {
-        await _storage.reload(widgetKinds);
-      } on Object catch (error) {
-        _log('surface.snapshot.reload_failed', error);
-      }
+      await Future.wait([for (final kind in widgetKinds) _reload(kind)]);
     }
     if (!_writes.isClosed) _writes.add(snapshot);
   }
 
-  void _log(String name, Object error) {
+  /// A widget that cannot be reloaded must not keep the others stale, and
+  /// the snapshot is stored either way.
+  Future<void> _reload(String kind) async {
     try {
-      events(name, {'error.type': error.runtimeType.toString()});
+      await _storage.reload(kind);
+    } on Object catch (error) {
+      _log('widgets.reload_failed', error, {'widget.kind': kind});
+    }
+  }
+
+  void _log(String name, Object error, [Map<String, Object> extra = const {}]) {
+    try {
+      events(name, {...extra, 'error.type': error.runtimeType.toString()});
     } on Object {
       // Telemetry must not break the app.
     }

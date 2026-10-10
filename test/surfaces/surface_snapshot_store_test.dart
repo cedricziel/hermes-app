@@ -65,6 +65,17 @@ void main() {
       );
     });
 
+    test('reloads the three Home Screen widgets by default', () async {
+      await SurfaceSnapshotStore().write(snapshot());
+
+      expect(
+        calls
+            .where((c) => c.method == 'updateWidget')
+            .map((c) => (c.arguments as Map)['ios']),
+        ['HermesRecentChats', 'HermesNeedsYou', 'HermesBoard'],
+      );
+    });
+
     test('reads what was saved', () async {
       answer = (call) =>
           call.method == 'getWidgetData' ? snapshot().encode() : null;
@@ -94,7 +105,7 @@ void main() {
       await store.write(snapshot(hour: 13));
 
       expect(storage.saved, hasLength(1));
-      expect(storage.reloads, 1);
+      expect(storage.reloaded, ['Recent']);
     });
 
     test('writes a change', () async {
@@ -130,6 +141,31 @@ void main() {
       ]);
     });
 
+    test(
+      'a failing reload is logged by kind, the others still reload',
+      () async {
+        final several = SurfaceSnapshotStore(
+          storage: storage,
+          events: events.call,
+          widgetKinds: const ['Recent', 'Needs'],
+        );
+        addTearDown(several.dispose);
+        storage.failingKinds.add('Recent');
+        final seen = <SurfaceSnapshot>[];
+        several.writes.listen(seen.add);
+
+        await several.write(snapshot());
+        await pumpEventQueue();
+
+        expect(storage.reloaded, ['Needs']);
+        expect(events.named('widgets.reload_failed'), [
+          {'widget.kind': 'Recent', 'error.type': 'StateError'},
+        ]);
+        expect(events.named('surface.snapshot.write_failed'), isEmpty);
+        expect(seen, hasLength(1));
+      },
+    );
+
     test('a failed write is tried again', () async {
       storage.failure = StateError('no group');
       await store.write(snapshot());
@@ -148,8 +184,8 @@ void main() {
 
       expect(storage.saved, hasLength(1));
       expect(events.named('surface.snapshot.write_failed'), isEmpty);
-      expect(events.named('surface.snapshot.reload_failed'), [
-        {'error.type': 'StateError'},
+      expect(events.named('widgets.reload_failed'), [
+        {'widget.kind': 'Recent', 'error.type': 'StateError'},
       ]);
     });
 
@@ -217,7 +253,7 @@ void main() {
       final written = SurfaceSnapshot.fromJson(storage.saved.last)!;
       expect(written.signedIn, isFalse);
       expect(written.recentChats, isEmpty);
-      expect(storage.reloads, 2);
+      expect(storage.reloaded, ['Recent', 'Needs', 'Recent', 'Needs']);
     });
 
     test('reads nothing back when it holds nothing', () async {
