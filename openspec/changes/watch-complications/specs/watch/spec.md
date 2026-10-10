@@ -4,7 +4,7 @@
 
 The watch app SHALL offer a Voice Chat complication in the `accessoryCircular` and `accessoryCorner` families, and a chat status complication in the `accessoryRectangular` family, which is also the Smart Stack widget. Voice Chat SHALL open the watch app on a new voice message. The chat status SHALL show the title of the latest chat and one of "Working", "Waiting for you", "Reply ready" and "Failed", and a tap SHALL open that chat; with nothing to show it SHALL say "No recent chat" and a tap SHALL open the app.
 
-The phone SHALL send the watch the latest turn's status when a turn starts, waits for the user (an approval, a question, a request only the phone can answer), or ends, for a reply sent from the phone and for a turn sent from the watch. It SHALL send it with `transferCurrentComplicationUserInfo` while the day's budget lasts, and with `updateApplicationContext` otherwise, and only when the status changed. The status SHALL consist of the state, a timestamp, an ordering number, the chat's title and the watch's thread id for the chat. The title SHALL be one the gateway or the server gave the chat, never one made from the prompt, a file name, a command or the first message. It SHALL NOT contain message, command, question or reply text. A chat that finished SHALL show the next turn it opens, or a request it raises, as working or waiting. A request the watch cannot answer in a turn it sent SHALL leave the chat waiting. The watch SHALL ignore a message older than the newest it applied, and the phone SHALL spend `transferCurrentComplicationUserInfo` only on a change of state of a turn it ran itself. A turn waiting for the user SHALL be the one shown, before any other. A reply the user stopped SHALL NOT be shown. Signing out SHALL clear the status. While App Lock is on, the status SHALL carry the state and timestamp only.
+The phone SHALL send the watch the latest turn's status when a turn starts, waits for the user (an approval, a question, a request only the phone can answer), or ends, for a reply sent from the phone and for a turn sent from the watch. It SHALL send it with `transferCurrentComplicationUserInfo` while the day's budget lasts, and with `updateApplicationContext` otherwise, and only when the status changed. The status SHALL consist of the state, a timestamp, an ordering number, the chat's title and the watch's thread id for the chat. The title SHALL be one the gateway or the server gave the chat, never one made from the prompt, a file name, a command or the first message. It SHALL NOT contain message, command, question or reply text. A chat that finished SHALL show the next turn it opens, or a request it raises, as working or waiting. A request the watch cannot answer in a turn it sent SHALL leave the chat waiting. The watch SHALL ignore a message older than the newest it applied, and the phone SHALL spend `transferCurrentComplicationUserInfo` on a change of state (a stop, a removed chat and a sign-out included) and on taking a title off for App Lock, but not on a new title or chat id. A chat that keeps a name SHALL keep it when a retry or an edit empties its messages. A working or waiting turn that was not renewed for 30 minutes SHALL not be shown, and a new turn on a chat SHALL replace the earlier ones of that chat. A turn waiting for the user SHALL be the one shown, before any other. A reply the user stopped SHALL NOT be shown. Signing out SHALL clear the status. While App Lock is on, the status SHALL carry the state and timestamp only.
 
 The watch app SHALL keep the received status in an App Group shared with the widget extension and reload the widget timelines when a status arrives. The widget SHALL raise its Smart Stack relevance while the turn waits for the user and for ten minutes after a turn ends, SHALL lower it afterwards, and SHALL treat a working or waiting status that was not renewed for 30 minutes as nothing to show, since a suspended phone app cannot report the end of a turn.
 
@@ -22,6 +22,16 @@ The watch app SHALL keep the received status in an App Group shared with the wid
 
 - **WHEN** a chat shows "Reply ready" and Hermes continues it on its own
 - **THEN** the chat status shows "Working" again
+
+#### Scenario: Retry of a single-turn chat
+
+- **WHEN** the user retries the only turn of a chat the server has named "Run failure"
+- **THEN** the status still carries "Run failure", never the prompt
+
+#### Scenario: Watch turn left waiting
+
+- **WHEN** a turn sent from the watch ends because the watch cannot answer its request, and a later turn starts on the same chat
+- **THEN** the chat status shows the later turn
 
 #### Scenario: Messages out of order
 
