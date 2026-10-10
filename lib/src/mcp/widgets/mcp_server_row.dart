@@ -56,10 +56,8 @@ class McpServerRow extends StatelessWidget {
     // by the server.
     return GroupedRow(
       title: server.name,
-      leading: ExcludeSemantics(
-        child: GroupedTile(
-          child: Text(server.name.characters.first.toUpperCase()),
-        ),
+      leading: GroupedTile(
+        child: Text(server.name.characters.first.toUpperCase()),
       ),
       subtitle: subtitle.isEmpty ? null : subtitle,
       monospaceSubtitle: server.transport == McpTransport.command,

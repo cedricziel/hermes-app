@@ -543,9 +543,7 @@ class _BotModeRosterScreenState extends State<BotModeRosterScreen> {
   );
 
   Widget _initialTile(BotModeBot bot) => GroupedTile(
-    child: ExcludeSemantics(
-      child: Text(bot.title.characters.firstOrNull?.toUpperCase() ?? '?'),
-    ),
+    child: Text(bot.title.characters.firstOrNull?.toUpperCase() ?? '?'),
   );
 
   Widget _notice(String title, {String? detail}) => StateMessage(
