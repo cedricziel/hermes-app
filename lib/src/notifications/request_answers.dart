@@ -237,11 +237,7 @@ Future<AnswerOutcome> routeAnswer(
   SendPort? Function() lookup = _lookupApp,
   Duration timeout = const Duration(seconds: 25),
 }) async {
-  final answer = answerFromAction(
-    response.payload,
-    response.actionId,
-    response.input,
-  );
+  final answer = answerFromResponse(response);
   if (answer == null) return AnswerOutcome.failed;
   final app = lookup();
   if (app == null) return alone(answer);

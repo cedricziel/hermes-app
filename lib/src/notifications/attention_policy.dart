@@ -59,11 +59,15 @@ class AttentionNotification {
 }
 
 /// The start of [text] on one line, for a notification body.
-String replyPreview(String text) {
-  final flat = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-  final characters = flat.characters;
-  if (characters.length <= kPreviewLength) return flat;
-  return '${characters.take(kPreviewLength).toString().trimRight()}…';
+String replyPreview(String text) =>
+    _cut(text.replaceAll(RegExp(r'\s+'), ' ').trim(), kPreviewLength);
+
+/// [text] cut at [length] user-perceived characters, with an ellipsis when
+/// cut.
+String _cut(String text, int length) {
+  final characters = text.characters;
+  if (characters.length <= length) return text;
+  return '${characters.take(length).toString().trimRight()}…';
 }
 
 /// The notification [event] on [thread] deserves, or null. Nothing is said
@@ -118,11 +122,9 @@ AttentionNotification? attentionFor({
 
 /// The first of [texts] that is not blank, cut at [kRequestBodyLength], or
 /// [fallback].
-String _requestBody(List<String> texts, String fallback) {
-  final text = texts
+String _requestBody(List<String> texts, String fallback) => _cut(
+  texts
       .map((text) => text.trim())
-      .firstWhere((text) => text.isNotEmpty, orElse: () => fallback);
-  final characters = text.characters;
-  if (characters.length <= kRequestBodyLength) return text;
-  return '${characters.take(kRequestBodyLength).toString().trimRight()}…';
-}
+      .firstWhere((text) => text.isNotEmpty, orElse: () => fallback),
+  kRequestBodyLength,
+);

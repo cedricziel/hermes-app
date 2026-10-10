@@ -171,7 +171,7 @@ RequestCategory? requestCategoryFor(InputRequest request) {
       final buttons = _choiceButtons(question.choices);
       final more = question.choices.length > buttons.length;
       return RequestCategory(
-        '$kQuestionCategory.${_hash(buttons)}',
+        '$kQuestionCategory.${fnv1a(buttons.join('\u0000')).toRadixString(16).padLeft(8, '0')}',
         placeholder: kQuestionBody,
         actions: [
           for (final (index, choice) in buttons.indexed)
@@ -193,12 +193,13 @@ List<String> _choiceButtons(List<String> choices) =>
 
 /// FNV-1a over the button titles, so two questions with the same buttons
 /// share a category.
-String _hash(List<String> titles) {
+/// 32-bit FNV-1a of [key]: stable across Dart releases, unlike `hashCode`.
+int fnv1a(String key) {
   var hash = 0x811c9dc5;
-  for (final unit in titles.join('\u0000').codeUnits) {
+  for (final unit in key.codeUnits) {
     hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
   }
-  return hash.toRadixString(16).padLeft(8, '0');
+  return hash;
 }
 
 enum PendingRequestKind { approval, question }

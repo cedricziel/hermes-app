@@ -85,6 +85,9 @@ NotificationAnswer? answerFromAction(
   );
 }
 
+NotificationAnswer? answerFromResponse(NotificationResponse response) =>
+    answerFromAction(response.payload, response.actionId, response.input);
+
 Map<Object?, Object?>? _decode(String payload) {
   try {
     final decoded = jsonDecode(payload);
@@ -98,20 +101,8 @@ Map<Object?, Object?>? _decode(String payload) {
 /// rather than `hashCode`, which Dart does not keep stable between releases.
 /// Masked to 31 bits: non-negative, and a signed 32-bit int as Android needs.
 /// Without a [profile] the id is that of the bare [threadId].
-int notificationIdFor(String threadId, {String? profile}) {
-  var hash = 0x811c9dc5;
-  final key = profile == null ? threadId : '$profile\u0000$threadId';
-  for (final unit in key.codeUnits) {
-    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
-  }
-  return hash & 0x7fffffff;
-}
-
-const _darwinSettings = DarwinInitializationSettings(
-  requestAlertPermission: false,
-  requestBadgePermission: false,
-  requestSoundPermission: false,
-);
+int notificationIdFor(String threadId, {String? profile}) =>
+    fnv1a(profile == null ? threadId : '$profile\u0000$threadId') & 0x7fffffff;
 
 /// Registers request categories with the system, each with its hidden-preview
 /// placeholder, which the plugin cannot set.
@@ -192,8 +183,8 @@ class LocalNotificationService implements NotificationService {
     await _plugin.initialize(
       settings: InitializationSettings(
         android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: _background ? _darwinSettings : darwin,
-        macOS: _background ? _darwinSettings : darwin,
+        iOS: darwin,
+        macOS: darwin,
       ),
       onDidReceiveNotificationResponse: _onResponse,
       onDidReceiveBackgroundNotificationResponse:
@@ -205,11 +196,7 @@ class LocalNotificationService implements NotificationService {
   }
 
   void _onResponse(NotificationResponse response) {
-    final answer = answerFromAction(
-      response.payload,
-      response.actionId,
-      response.input,
-    );
+    final answer = answerFromResponse(response);
     if (answer != null) {
       _answers.add(answer);
       return;
@@ -315,11 +302,7 @@ class LocalNotificationService implements NotificationService {
       if (response == null) return null;
       if (!_opensApp(response)) {
         // macOS starts the app for a button too; it is answered, not opened.
-        final answer = answerFromAction(
-          response.payload,
-          response.actionId,
-          response.input,
-        );
+        final answer = answerFromResponse(response);
         if (answer != null) scheduleMicrotask(() => _answers.add(answer));
         return null;
       }
