@@ -58,6 +58,18 @@ class DesktopConversationWindowHost implements ConversationWindowHost {
   }
 
   @override
+  Future<String> createPanel(QuickPanelLaunch launch) async {
+    final controller = await WindowController.create(
+      WindowConfiguration(arguments: launch.encode()),
+    );
+    return controller.windowId;
+  }
+
+  @override
+  Future<bool> togglePanel() async =>
+      await _nativeWindow.invokeMethod<bool>('togglePanel') ?? false;
+
+  @override
   Future<void> focus(String windowId) =>
       WindowController.fromWindowId(windowId).show();
 
@@ -236,4 +248,46 @@ class DesktopConversationWindowLink implements ConversationWindowLink {
       debugPrint('Conversation window call failed: $error');
     }
   }
+}
+
+/// What the quick panel's engine (window [windowId]) asks of its native
+/// panel. Tells the main window each time the panel shows or hides, for its
+/// breadcrumbs.
+class DesktopQuickPanelLink {
+  DesktopQuickPanelLink(this.windowId) {
+    _nativeWindow.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'panelShown':
+          _shown.add(null);
+          _report({'event': 'shown'});
+        case 'panelHidden':
+          _report({'event': 'hidden', 'reason': call.arguments});
+      }
+    });
+  }
+
+  final String windowId;
+  final _shown = StreamController<void>.broadcast();
+
+  void _report(Map<String, Object?> args) => unawaited(
+    DesktopConversationWindowLink._quietly(
+      _mainChannel.invokeMethod<void>('panel', {
+        'window_id': windowId,
+        ...args,
+      }),
+    ),
+  );
+
+  /// Fires each time the panel is shown.
+  Stream<void> get shown => _shown.stream;
+
+  /// Moves the engine into its panel and shows it; once, at start.
+  Future<void> present() => DesktopConversationWindowLink._quietly(
+    _nativeWindow.invokeMethod<void>('presentPanel', {'window_id': windowId}),
+  );
+
+  /// Hides the panel; [reason] is one of the fixed hide reasons.
+  Future<void> hide(String reason) => DesktopConversationWindowLink._quietly(
+    _nativeWindow.invokeMethod<void>('hidePanel', reason),
+  );
 }

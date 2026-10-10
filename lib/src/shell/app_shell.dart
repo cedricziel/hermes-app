@@ -119,6 +119,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// check was done.
   NotificationTarget? _pendingJob;
   StreamSubscription<void>? _showInMain;
+  ConversationWindows? _windows;
 
   @override
   void initState() {
@@ -171,8 +172,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _windowlessChanges = MacApp.windowlessChanges.listen(_onWindowless);
     }
     _detect();
-    final windows = _maybeRead<ConversationWindows?>();
+    final windows = _windows = _maybeRead<ConversationWindows?>();
     if (windows != null) {
+      windows.currentProfile = () => _chatProfiles?.current;
       _showInMain = windows.showInMainRequests.listen((chat) {
         _openRequests.request(
           NotificationTarget(threadId: chat.threadId, profile: chat.profile),
@@ -196,6 +198,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _showInMain?.cancel();
     _windowlessChanges?.cancel();
+    _windows?.currentProfile = null;
     _watcher?.dispose();
     _chatProfiles?.dispose();
     _sidebar.dispose();

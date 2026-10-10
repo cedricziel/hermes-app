@@ -27,6 +27,8 @@ class MainFlutterWindow: NSWindow {
 
     Self.registerClipboard(messenger: flutterViewController.engine.binaryMessenger)
     NotificationCategories.install(messenger: flutterViewController.engine.binaryMessenger)
+    QuickPanelShortcut.register(
+      with: flutterViewController.registrar(forPlugin: "QuickPanelShortcut"))
 
     // Its engine owns the session that conversation windows borrow, so it
     // must outlive a close; see close().
@@ -61,6 +63,11 @@ class MainFlutterWindow: NSWindow {
       case "closeConversations":
         ConversationWindow.closeAll()
         result(nil)
+      case "togglePanel":
+        // False while there is no panel yet, so Dart creates one.
+        guard let panel = QuickPanel.shared else { return result(false) }
+        panel.toggle()
+        result(true)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -138,10 +145,14 @@ final class WindowKeyObserver {
     observers = [
       center.addObserver(
         forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
-      ) { _ in channel.invokeMethod("keyChanged", arguments: true) },
+      ) { _ in
+        if !QuickPanel.switchingKey { channel.invokeMethod("keyChanged", arguments: true) }
+      },
       center.addObserver(
         forName: NSWindow.didResignKeyNotification, object: window, queue: .main
-      ) { _ in channel.invokeMethod("keyChanged", arguments: false) },
+      ) { _ in
+        if !QuickPanel.switchingKey { channel.invokeMethod("keyChanged", arguments: false) }
+      },
     ]
   }
 
@@ -177,6 +188,9 @@ final class ConversationWindow: NSObject {
 
   static func close(id: String?) {
     guard let id else { return }
+    if let panel = QuickPanel.shared, panel.windowId == id {
+      return panel.close()
+    }
     if let conversation = open.values.first(where: { $0.windowId == id }) {
       conversation.window?.close()
     } else {
@@ -186,6 +200,7 @@ final class ConversationWindow: NSObject {
 
   static func closeAll() {
     for conversation in open.values { conversation.window?.close() }
+    QuickPanel.shared?.close()
   }
   private let channel: FlutterMethodChannel
   private var keyObserver: WindowKeyObserver?
@@ -272,6 +287,19 @@ final class ConversationWindow: NSObject {
       if !name.isEmpty { window.setFrameAutosaveName(name) }
       window.makeKeyAndOrderFront(nil)
       NSApp.activate(ignoringOtherApps: true)
+      result(nil)
+    case "presentPanel":
+      // The quick panel's engine: it leaves the conversation windows and
+      // moves into a panel of its own.
+      guard let controller, let windowId = args["window_id"] as? String else {
+        return result(nil)
+      }
+      Self.open.removeValue(forKey: ObjectIdentifier(window))
+      if Self.closeOnPresent.take(windowId) {
+        window.close()
+        return result(nil)
+      }
+      QuickPanel.adopt(windowId: windowId, controller: controller, window: window)
       result(nil)
     case "setTitle":
       window.title = call.arguments as? String ?? ""

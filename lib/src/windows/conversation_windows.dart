@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -27,6 +28,14 @@ abstract interface class ConversationWindowHost {
     ConversationWindowArgs args, {
     ConversationDraft? draft,
   });
+
+  /// Starts the quick panel's engine for [launch] and returns its window id.
+  /// The panel shows itself once its engine runs.
+  Future<String> createPanel(QuickPanelLaunch launch);
+
+  /// Shows the quick panel, or hides it while it is key; false when there
+  /// is no panel to toggle.
+  Future<bool> togglePanel();
 
   /// Brings the window to the front; throws for a window that is gone.
   Future<void> focus(String windowId);
@@ -160,6 +169,19 @@ class ConversationWindows extends ChangeNotifier {
   /// Window").
   Stream<ConversationRef> get showInMainRequests => _showInMain.stream;
 
+  /// The main window's current profile, which the quick panel sends to;
+  /// set by the shell that owns the profiles.
+  String? Function()? currentProfile;
+
+  /// The quick panel. It is kept apart from [windows]: it is neither saved
+  /// nor listed.
+  _QuickPanel? _panel;
+
+  /// How long a new panel's engine has to start and show the panel before a
+  /// press gives up on it and makes another.
+  static const _panelStartup = Duration(seconds: 15);
+  Future<bool>? _creatingPanel;
+
   bool _restored = false;
 
   /// Windows being created, whose ids are not known yet. A new window can ask
@@ -252,6 +274,57 @@ class ConversationWindows extends ChangeNotifier {
     return true;
   }
 
+  /// Shows the quick panel, creating it on first use, or hides it while it
+  /// is key. False without a connection.
+  Future<bool> togglePanel() async {
+    final creating = _creatingPanel;
+    if (creating != null) return creating;
+    if (_panel case final panel?) {
+      // Until its engine reports in, natively there is no panel to toggle,
+      // and the press must not start a second engine.
+      if (!panel.presented) {
+        if (clock.now().difference(panel.createdAt) < _panelStartup) {
+          return true;
+        }
+        _panel = null;
+        await _host.close(panel.id);
+      } else if (await _host.togglePanel()) {
+        return true;
+      }
+    }
+    final connection = _connection();
+    if (connection == null) return false;
+    final created = _createPanel(
+      QuickPanelLaunch(
+        baseUrl: connection.baseUrl,
+        authRequired: connection.authRequired,
+      ),
+    );
+    _creatingPanel = created;
+    try {
+      return await created;
+    } finally {
+      _creatingPanel = null;
+    }
+  }
+
+  Future<bool> _createPanel(QuickPanelLaunch launch) async {
+    final generation = _generation;
+    final String windowId;
+    try {
+      windowId = await _host.createPanel(launch);
+    } on Object catch (error) {
+      debugPrint('Could not open the quick panel: $error');
+      return false;
+    }
+    if (generation != _generation || _connection()?.baseUrl != launch.baseUrl) {
+      await _host.close(windowId);
+      return false;
+    }
+    _panel = _QuickPanel(windowId, launch.baseUrl, clock.now());
+    return true;
+  }
+
   /// Brings [windowId] to the front. A window that went away without the
   /// main window hearing of it is dropped, and false is returned.
   Future<bool> focus(String windowId) async {
@@ -312,6 +385,7 @@ class ConversationWindows extends ChangeNotifier {
     _generation++;
     if (_windows.isNotEmpty) _breadcrumbs('window.closed', {'open': 0});
     _windows.clear();
+    _panel = null;
     _touched.clear();
     _setKey(null);
     if (forget) {
@@ -323,17 +397,23 @@ class ConversationWindows extends ChangeNotifier {
     await _host.closeAll();
   }
 
-  void _retain(Set<String> live) =>
-      unawaited(_removeWhere((w) => !live.contains(w.windowId)));
+  void _retain(Set<String> live) {
+    if (!live.contains(_panel?.id)) _panel = null;
+    unawaited(_removeWhere((w) => !live.contains(w.windowId)));
+  }
 
   Future<Object?> _handle(String method, Map<String, Object?> args) async {
     final windowId = args['window_id'];
     switch (method) {
       case 'auth.headers':
         // Only a window of the server signed in to gets its credentials.
-        if (_entry(windowId) == null) await Future.wait([..._creating]);
-        final window = _entry(windowId);
-        if (window == null || !_isCurrent(window.args)) {
+        if (_entry(windowId) == null && windowId != _panel?.id) {
+          await Future.wait([..._creating, ?_creatingPanel]);
+        }
+        final baseUrl = windowId == _panel?.id
+            ? _panel?.baseUrl
+            : _entry(windowId)?.args.baseUrl;
+        if (baseUrl == null || _connection()?.baseUrl != baseUrl) {
           if (windowId is String) {
             unawaited(_drop(windowId));
             unawaited(_host.close(windowId));
@@ -378,11 +458,37 @@ class ConversationWindows extends ChangeNotifier {
         await _host.showMain();
       case 'showMain':
         await _host.showMain();
+      case 'profile.current':
+        return currentProfile?.call();
+      case 'panel':
+        if (args['event'] == 'shown' && windowId == _panel?.id) {
+          _panel?.presented = true;
+        }
+        _recordPanel(args['event'], args['reason']);
       case 'closed':
         // The native side waits for this before the app may quit.
         if (windowId is String) await _drop(windowId);
     }
     return null;
+  }
+
+  static const _hideReasons = {
+    'escape',
+    'shortcut',
+    'focus_lost',
+    'open_in_hermes',
+  };
+
+  /// Crumbs for what the panel reports, with only fixed values.
+  void _recordPanel(Object? event, Object? reason) {
+    switch (event) {
+      case 'shown':
+        _breadcrumbs('panel.shown');
+      case 'hidden':
+        _breadcrumbs('panel.hidden', {
+          'reason': _hideReasons.contains(reason) ? reason! : 'other',
+        });
+    }
   }
 
   void _setKey(String? windowId) {
@@ -407,4 +513,16 @@ class ConversationWindows extends ChangeNotifier {
     _showInMain.close();
     super.dispose();
   }
+}
+
+/// The quick panel's window and the server it was started for.
+class _QuickPanel {
+  _QuickPanel(this.id, this.baseUrl, this.createdAt);
+
+  final String id;
+  final String baseUrl;
+  final DateTime createdAt;
+
+  /// Whether its engine has started and shown the panel.
+  bool presented = false;
 }

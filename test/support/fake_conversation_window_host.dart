@@ -16,6 +16,14 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   /// The windows closed natively, by id; `*` for all at once.
   final closedNatively = <String>[];
   var mainShown = 0;
+
+  /// The quick panels created, by id, and how often the open one was
+  /// toggled.
+  final panels = <String, QuickPanelLaunch>{};
+  var panelToggles = 0;
+
+  /// The panels whose engine has started and shown them; see [present].
+  final presentedPanels = <String>{};
   var _next = 0;
   final _live = StreamController<Set<String>>.broadcast(sync: true);
   final _mainFocus = StreamController<void>.broadcast(sync: true);
@@ -36,6 +44,22 @@ class FakeConversationWindowHost implements ConversationWindowHost {
     return id;
   }
 
+  @override
+  Future<String> createPanel(QuickPanelLaunch launch) async {
+    final id = 'p${_next++}';
+    panels[id] = launch;
+    return id;
+  }
+
+  /// Like the native side, false until a panel's engine has started and
+  /// presented it.
+  @override
+  Future<bool> togglePanel() async {
+    if (!panels.keys.any(presentedPanels.contains)) return false;
+    panelToggles++;
+    return true;
+  }
+
   /// Like the plugin, fails for a window it no longer knows.
   @override
   Future<void> focus(String windowId) async {
@@ -53,12 +77,14 @@ class FakeConversationWindowHost implements ConversationWindowHost {
   Future<void> close(String windowId) async {
     closedNatively.add(windowId);
     created.remove(windowId);
+    panels.remove(windowId);
   }
 
   @override
   Future<void> closeAll() async {
     closedNatively.add('*');
     created.clear();
+    panels.clear();
   }
 
   @override
@@ -75,13 +101,20 @@ class FakeConversationWindowHost implements ConversationWindowHost {
 
   void closed(String id) {
     created.remove(id);
-    _live.add({'main', ...created.keys});
+    panels.remove(id);
+    _live.add({'main', ...created.keys, ...panels.keys});
   }
 
   /// The window went away without the main engine hearing of it.
   void vanished(String id) => created.remove(id);
 
   void focusMain() => _mainFocus.add(null);
+
+  /// Panel [id]'s engine started, moved into its panel and showed it.
+  Future<void> present(String id) async {
+    presentedPanels.add(id);
+    await call('panel', {'window_id': id, 'event': 'shown'});
+  }
 
   void dispose() {
     _live.close();

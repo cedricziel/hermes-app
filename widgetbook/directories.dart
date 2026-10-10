@@ -22,6 +22,7 @@ import 'palette_use_cases.dart';
 import 'platform_hint_use_cases.dart';
 import 'plugins_screen_use_cases.dart';
 import 'plugins_use_cases.dart';
+import 'quick_panel_use_cases.dart';
 import 'schedules_mac_use_cases.dart';
 import 'schedules_screen_use_cases.dart';
 import 'settings_chrome_use_cases.dart';
@@ -58,6 +59,7 @@ final List<WidgetbookNode> directories = [
   macSidebarNode(),
   threadGroupingNode(),
   conversationWindowNode(),
+  quickPanelNode(),
   modelNode(),
   kanbanNode(),
   schedulesNode(),
