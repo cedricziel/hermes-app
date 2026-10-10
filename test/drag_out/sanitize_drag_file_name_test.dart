@@ -1,3 +1,4 @@
+import 'package:characters/characters.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/drag_out/sanitize_drag_file_name.dart';
 
@@ -59,5 +60,30 @@ void main() {
   test('bounds a name whose extension is absurdly long', () {
     final name = sanitizeDragFileName('a.${'x' * 300}');
     expect(name.length, dragFileNameLimit);
+  });
+
+  test('removes characters that reorder or hide text', () {
+    final name = sanitizeDragFileName(
+      'invoice\u202Efdp.exe\u2066x\u200F\u061C',
+    );
+
+    expect(name, 'invoicefdp.exex');
+  });
+
+  test('never splits a surrogate pair or a family emoji', () {
+    final emoji = '\u{1F600}' * 200;
+    final cut = sanitizeDragFileName('$emoji.pdf');
+
+    expect(cut.characters.length, dragFileNameLimit);
+    expect(cut, endsWith('.pdf'));
+    expect(String.fromCharCodes(cut.runes), cut, reason: 'valid UTF-16');
+
+    final family = '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}' * 200;
+    final cutFamily = sanitizeDragFileName(family);
+    expect(cutFamily.characters.length, dragFileNameLimit);
+    expect(
+      cutFamily.characters.last,
+      '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}',
+    );
   });
 }

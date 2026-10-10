@@ -740,6 +740,11 @@ hand when it does.
   `desktop_drop`).
 - A click on a card still opens it, text beside a card can still be selected,
   and the window still drags by its toolbar.
+- After a drag-out (delivered or cancelled) the next click on a card opens it,
+  hover works again and no selection keeps growing: the session swallows the
+  real button up, so the controller posts a synthetic one.
+- Release a drag over the app's own window: nothing is attached to the
+  composer and the drag snaps back.
 - Delete the file on the server and drag again: no file appears and a
   `drag_out.completed` event with `outcome: failed` is logged (with telemetry
   on).

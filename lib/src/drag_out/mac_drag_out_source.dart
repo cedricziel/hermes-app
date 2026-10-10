@@ -13,6 +13,10 @@ import 'drag_out_telemetry.dart';
 /// The channel `macos/Runner/DragOut.swift` listens on.
 const dragOutChannelName = 'hermes_app/drag_out';
 
+/// How long a drag that a receiver took, but that never asked for its file,
+/// stays known before it is forgotten.
+const pendingExpiry = Duration(minutes: 5);
+
 /// How far the pointer moves with the button down before a drag starts, in
 /// logical pixels. A click, or a small slip while clicking, stays a click.
 const dragOutSlop = 6.0;
@@ -34,7 +38,9 @@ class MacDragOutSource implements DragOutSource {
     _channel.setMethodCallHandler(_onCall);
   }
 
-  final DragOutTelemetry telemetry;
+  /// Replaced when the connection changes, so a drag in flight survives a
+  /// reconnect and later drops are logged against the new server.
+  DragOutTelemetry telemetry;
   final MethodChannel _channel;
   final _drags = <int, _Drag>{};
   var _lastId = 0;
@@ -54,6 +60,15 @@ class MacDragOutSource implements DragOutSource {
     onDrag: (item) => unawaited(_begin(kind, item)),
     child: child,
   );
+
+  /// Stops listening to the channel; the source is not used afterwards.
+  void dispose() {
+    _channel.setMethodCallHandler(null);
+    for (final drag in _drags.values) {
+      drag.expiry?.cancel();
+    }
+    _drags.clear();
+  }
 
   Future<void> _begin(DragOutKind kind, DragOutItem item) async {
     final id = ++_lastId;
@@ -86,6 +101,8 @@ class MacDragOutSource implements DragOutSource {
     switch (call.method) {
       case 'readFile':
         return _read(arguments as int);
+      case 'readTimedOut':
+        _timedOut(arguments as int);
       case 'fileWritten':
         _written(arguments as Map);
       case 'ended':
@@ -96,26 +113,29 @@ class MacDragOutSource implements DragOutSource {
     return null;
   }
 
-  /// The receiver asked for a promised file: produce its bytes, or fail the
-  /// request so the receiver gets no file.
-  Future<Uint8List> _read(int id) async {
+  /// The receiver asked for a promised file: produce a local file or the
+  /// bytes, or fail the request so the receiver gets no file.
+  Future<Object> _read(int id) async {
     final drag = _drags[id];
     final file = drag?.file;
     if (drag == null || file == null) {
       throw PlatformException(code: 'gone');
     }
     drag.reading = true;
-    Uint8List? bytes;
+    drag.expiry?.cancel();
+    Object? content;
     await telemetry.promise(drag.kind, () async {
       try {
-        bytes = await file.read();
+        content = await file.localPath?.call() ?? await file.read();
         return DragOutOutcome.delivered;
       } on Object {
         return DragOutOutcome.failed;
       }
     });
-    final read = bytes;
-    if (read == null) {
+    // Swift gave up while this was running: it has been logged already.
+    if (!identical(_drags[id], drag)) throw PlatformException(code: 'gone');
+    final found = content;
+    if (found == null) {
       _drags.remove(id);
       telemetry.completed(
         drag.kind,
@@ -124,7 +144,18 @@ class MacDragOutSource implements DragOutSource {
       );
       throw PlatformException(code: 'fetch');
     }
-    return read;
+    return found;
+  }
+
+  /// Swift failed the promise because [_read] took too long.
+  void _timedOut(int id) {
+    final drag = _drags.remove(id);
+    if (drag == null) return;
+    telemetry.completed(
+      drag.kind,
+      DragOutOutcome.failed,
+      failure: DragOutFailure.fetch,
+    );
   }
 
   void _written(Map arguments) {
@@ -139,18 +170,30 @@ class MacDragOutSource implements DragOutSource {
   }
 
   /// The session ended. Text is done: a receiver took it or none did. A file
-  /// is done only when no receiver took it; otherwise it waits for the write.
+  /// is done when no receiver took it. When one did, the file is written
+  /// next, normally at once; an entry nobody asks for is dropped after
+  /// [pendingExpiry].
   void _ended(Map arguments) {
     final id = arguments['id'];
     final drag = _drags[id];
     if (drag == null) return;
     final copied = arguments['copied'] == true;
-    if (drag.file != null && (copied || drag.reading)) return;
+    if (drag.file != null && drag.reading) return;
+    if (drag.file != null && copied) {
+      drag.expiry = Timer(pendingExpiry, () => _expire(id));
+      return;
+    }
     _drags.remove(id);
     telemetry.completed(
       drag.kind,
       copied ? DragOutOutcome.delivered : DragOutOutcome.cancelled,
     );
+  }
+
+  void _expire(Object? id) {
+    final drag = _drags.remove(id);
+    if (drag == null) return;
+    telemetry.completed(drag.kind, DragOutOutcome.cancelled);
   }
 }
 
@@ -162,8 +205,11 @@ class _Drag {
   /// Null for text.
   final DragOutFile? file;
 
-  /// The receiver has asked for the bytes.
+  /// The receiver has asked for the content.
   var reading = false;
+
+  /// Drops the entry when a receiver took the drag but never asked.
+  Timer? expiry;
 }
 
 /// Watches the pointer over its child and starts a drag when the primary

@@ -37,7 +37,12 @@ class DraggableAttachment extends StatelessWidget {
 }
 
 /// What dragging [attachment] carries, or null when there is nothing to hand
-/// out. Reads nothing until the item's `read` is called.
+/// out. Reads nothing until the receiver asks.
+///
+/// A file on this device (the picked file, or the copy in the media cache,
+/// downloaded first if need be) is named as `localPath` and copied natively, so
+/// its bytes are never loaded. Only an attachment the message embedded has no
+/// file; its bytes are held in memory while they are handed over.
 DragOutFile? attachmentDragItem(ChatAttachment attachment, MediaStore? store) {
   final bytes = attachment.bytes;
   final path = attachment.path;
@@ -58,11 +63,19 @@ DragOutFile? attachmentDragItem(ChatAttachment attachment, MediaStore? store) {
     return (await store!.file(remote!, attachment.name)).readAsBytes();
   }
 
+  Future<String?> localPath() async {
+    if (bytes != null) return null;
+    if (path != null && await File(path).exists()) return path;
+    if (!fetchable) return null;
+    return (await store.file(remote, attachment.name)).path;
+  }
+
   return DragOutFile(
     name: sanitizeDragFileName(
       fileNameOf(attachment.name),
       fallback: 'Attachment',
     ),
     read: read,
+    localPath: localPath,
   );
 }

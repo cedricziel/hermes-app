@@ -48,6 +48,7 @@ void main() {
   });
 
   tearDown(() {
+    source.dispose();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, null);
   });
@@ -327,8 +328,11 @@ void main() {
       await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
 
       await fromNative('ended', {'id': 1, 'copied': true});
-
       expect(events, isEmpty);
+
+      await fromNative('readFile', 1);
+      await tester.pump(pendingExpiry * 2);
+      expect(events, isEmpty, reason: 'waiting for the write');
     });
 
     testWidgets('text is complete when the session ends', (tester) async {
@@ -341,6 +345,134 @@ void main() {
       await fromNative('ended', {'id': 1, 'copied': true});
 
       expect(events.single.$2, {'kind': 'attachment', 'outcome': 'delivered'});
+    });
+
+    testWidgets('a local file is handed over by path, not read', (
+      tester,
+    ) async {
+      var reads = 0;
+      await begin(
+        tester,
+        DragOutFile(
+          name: 'a.pdf',
+          read: () async {
+            reads++;
+            return Uint8List(1);
+          },
+          localPath: () async => '/cache/a.pdf',
+        ),
+      );
+
+      expect(await fromNative('readFile', 1), '/cache/a.pdf');
+      expect(reads, 0);
+    });
+
+    testWidgets('with no local file the bytes are read', (tester) async {
+      await begin(
+        tester,
+        DragOutFile(
+          name: 'a.pdf',
+          read: () async => Uint8List.fromList([7]),
+          localPath: () async => null,
+        ),
+      );
+
+      expect(await fromNative('readFile', 1), Uint8List.fromList([7]));
+    });
+
+    testWidgets('a local file that cannot be produced is a fetch failure', (
+      tester,
+    ) async {
+      await begin(
+        tester,
+        DragOutFile(
+          name: 'a.pdf',
+          read: _noBytes,
+          localPath: () async => throw StateError('404'),
+        ),
+      );
+
+      await expectLater(
+        fromNative('readFile', 1),
+        throwsA(
+          isA<PlatformException>().having((e) => e.code, 'code', 'fetch'),
+        ),
+      );
+      expect(events.single.$2['failure'], 'fetch');
+    });
+
+    testWidgets('a promise Swift gave up on is logged once', (tester) async {
+      final read = Completer<Uint8List>();
+      await begin(tester, DragOutFile(name: 'a.pdf', read: () => read.future));
+      final asked = fromNative('readFile', 1);
+      await tester.pump();
+
+      await fromNative('readTimedOut', 1);
+      read.complete(Uint8List(1));
+
+      await expectLater(
+        asked,
+        throwsA(isA<PlatformException>().having((e) => e.code, 'code', 'gone')),
+      );
+      expect(events.single.$2, {
+        'kind': 'attachment',
+        'outcome': 'failed',
+        'failure': 'fetch',
+      });
+    });
+
+    testWidgets('a drop nobody asks a file for is forgotten', (tester) async {
+      await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
+
+      await fromNative('ended', {'id': 1, 'copied': true});
+      await tester.pump(pendingExpiry - const Duration(seconds: 1));
+      expect(events, isEmpty);
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(events.single.$2, {'kind': 'attachment', 'outcome': 'cancelled'});
+      await expectLater(
+        fromNative('readFile', 1),
+        throwsA(isA<PlatformException>()),
+      );
+    });
+
+    testWidgets('a file that is asked for is not forgotten meanwhile', (
+      tester,
+    ) async {
+      await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
+      await fromNative('ended', {'id': 1, 'copied': true});
+      await fromNative('readFile', 1);
+
+      await tester.pump(pendingExpiry * 2);
+      expect(events, isEmpty);
+
+      await fromNative('fileWritten', {'id': 1, 'ok': true});
+      expect(events.single.$2['outcome'], 'delivered');
+    });
+
+    testWidgets('a reconnect keeps the drop in flight and logs on the new '
+        'server', (tester) async {
+      await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
+      await fromNative('readFile', 1);
+      final reconnected = <(String, Map<String, Object>)>[];
+      source.telemetry = DragOutTelemetry(
+        events: (name, [attributes = const {}]) =>
+            reconnected.add((name, attributes)),
+      );
+
+      await fromNative('fileWritten', {'id': 1, 'ok': true});
+
+      expect(events, isEmpty);
+      expect(reconnected.single.$2['outcome'], 'delivered');
+    });
+
+    testWidgets('a disposed source forgets everything', (tester) async {
+      await begin(tester, DragOutFile(name: 'a.pdf', read: _noBytes));
+
+      source.dispose();
+
+      // Nobody answers on the channel any more.
+      await expectLater(fromNative('readFile', 1), throwsA(anything));
     });
 
     testWidgets('only slugs reach telemetry', (tester) async {

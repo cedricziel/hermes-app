@@ -84,18 +84,25 @@ Future<void> main([List<String> args = const []]) async {
         Provider<GlobalShortcut?>(
           create: (_) => MacWindow.enabled ? ChannelGlobalShortcut() : null,
         ),
-        // Null where nothing can be dragged out (every platform but macOS);
-        // rebuilt with the connection so a drop is logged against its server.
+        // Null where nothing can be dragged out (every platform but macOS).
+        // One source for the engine: a reconnect only swaps its telemetry, so
+        // a drop in flight is still answered and later drops are logged
+        // against the new server.
         ProxyProvider2<HermesRepositories?, Breadcrumbs, DragOutSource?>(
-          update: (_, repositories, breadcrumbs, _) =>
-              MacDragOutSource.supported
-              ? MacDragOutSource(
-                  telemetry: DragOutTelemetry.forConnection(
-                    repositories?.telemetry ?? const ConnectionTelemetry(),
-                    breadcrumbs,
-                  ),
-                )
-              : null,
+          update: (_, repositories, breadcrumbs, previous) {
+            if (!MacDragOutSource.supported) return null;
+            final telemetry = DragOutTelemetry.forConnection(
+              repositories?.telemetry ?? const ConnectionTelemetry(),
+              breadcrumbs,
+            );
+            if (previous case final MacDragOutSource source) {
+              return source..telemetry = telemetry;
+            }
+            return MacDragOutSource(telemetry: telemetry);
+          },
+          dispose: (_, source) {
+            if (source case final MacDragOutSource mac) mac.dispose();
+          },
         ),
         ChangeNotifierProvider<ConversationWindows?>(
           lazy: false,

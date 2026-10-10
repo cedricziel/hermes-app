@@ -18,17 +18,28 @@ sealed class DragOutItem {
   const DragOutItem();
 }
 
-/// A file the receiver creates by asking for its bytes.
+/// A file the receiver creates when it asks for the content.
+///
+/// Prefer [localPath] when the content already is a file: the app copies it
+/// natively and the bytes never cross the platform channel. Without one, [read]
+/// supplies the bytes, which are held in memory while they are handed over (up
+/// to the 25 MB attachment limit, for an embedded attachment or a Kanban
+/// download).
 final class DragOutFile extends DragOutItem {
-  const DragOutFile({required this.name, required this.read});
+  const DragOutFile({required this.name, required this.read, this.localPath});
 
   /// The file name the receiver proposes, already safe (see
   /// [sanitizeDragFileName]).
   final String name;
 
   /// Produces the content; called once, only when the receiver wants the
-  /// file. A throw ends the drop without a file.
+  /// file and [localPath] gave none. A throw ends the drop without a file.
   final Future<Uint8List> Function() read;
+
+  /// The path of a file that holds the content, fetching it first if need be;
+  /// null when there is none. Called once, only when the receiver wants the
+  /// file. A throw ends the drop without a file.
+  final Future<String?> Function()? localPath;
 }
 
 /// Text the receiver takes as plain text and as Markdown.

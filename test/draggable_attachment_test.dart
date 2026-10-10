@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -197,6 +198,86 @@ void main() {
     final name = source.lastFile.name;
     expect(name, isNot(anyOf(contains('/'), contains(':'), startsWith('.'))));
     expect(name, endsWith('.pdf'));
+  });
+
+  // The path of the local file the drop would copy, if there is one.
+  Future<String?> localPathOfLast(WidgetTester tester) async {
+    final localPath = source.lastFile.localPath!;
+    final result = await tester.runAsync(() async {
+      try {
+        return await localPath();
+      } on Object catch (e) {
+        return e;
+      }
+    });
+    if (result is String?) return result;
+    Error.throwWithStackTrace(result, StackTrace.current);
+  }
+
+  testWidgets('a picked file is copied from where it is', (tester) async {
+    final file = writeTemp(tempDir('picked_local'), 'notes.txt', [1, 2, 3]);
+    await pumpAttachment(
+      tester,
+      ChatAttachment(
+        name: 'notes.txt',
+        kind: AttachmentKind.file,
+        path: file.path,
+      ),
+    );
+
+    expect(await localPathOfLast(tester), file.path);
+    expect(server.requests, isEmpty);
+  });
+
+  testWidgets('a file only the server has is downloaded to the cache and '
+      'copied from there', (tester) async {
+    server.onDownload('/srv/report.pdf', [37, 80, 68, 70]);
+    await pumpAttachment(
+      tester,
+      const ChatAttachment(
+        name: 'report.pdf',
+        kind: AttachmentKind.file,
+        remotePath: '/srv/report.pdf',
+      ),
+    );
+
+    final path = await localPathOfLast(tester);
+
+    expect(path, endsWith('report.pdf'));
+    expect(File(path!).readAsBytesSync(), [37, 80, 68, 70]);
+    expect(server.requestsTo('GET', '/api/files/download'), hasLength(1));
+  });
+
+  testWidgets('embedded bytes have no local file', (tester) async {
+    await pumpAttachment(
+      tester,
+      ChatAttachment(
+        name: 'chart.png',
+        kind: AttachmentKind.image,
+        bytes: kTinyPng,
+      ),
+    );
+
+    expect(await localPathOfLast(tester), isNull);
+  });
+
+  testWidgets('a picked file that is gone falls back to the server', (
+    tester,
+  ) async {
+    server.onDownload('/srv/a.txt', [7]);
+    await pumpAttachment(
+      tester,
+      const ChatAttachment(
+        name: 'a.txt',
+        kind: AttachmentKind.file,
+        path: '/no/such/dir/a.txt',
+        remotePath: '/srv/a.txt',
+      ),
+    );
+
+    final path = await localPathOfLast(tester);
+
+    expect(File(path!).readAsBytesSync(), [7]);
   });
 
   testWidgets('a server path as the name drags out as its file name', (
