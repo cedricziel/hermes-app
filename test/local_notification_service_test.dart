@@ -5,17 +5,21 @@ import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:hermes_app/src/chat/chat_models.dart';
+import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/notifications/request_notifications.dart';
 import 'package:hermes_app/src/notifications/local_notification_service.dart';
 import 'package:hermes_app/src/notifications/notification_service.dart';
 
 class _Posted {
-  _Posted(this.id, this.title, this.body, this.payload);
+  _Posted(this.id, this.title, this.body, this.payload, this.details);
 
   final int id;
   final String? title;
   final String? body;
   final String? payload;
+  final NotificationDetails? details;
 }
 
 class _FakePlugin implements FlutterLocalNotificationsPlugin {
@@ -26,6 +30,8 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
   NotificationAppLaunchDetails? launchDetails;
   Exception? launchDetailsError;
   DidReceiveNotificationResponseCallback? onResponse;
+  DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse;
+  InitializationSettings? settings;
 
   @override
   Future<bool?> initialize({
@@ -37,6 +43,8 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     initializeCalls++;
     if (initializeError case final error?) throw error;
     onResponse = onDidReceiveNotificationResponse;
+    onBackgroundResponse = onDidReceiveBackgroundNotificationResponse;
+    this.settings = settings;
     return true;
   }
 
@@ -49,7 +57,7 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
     String? payload,
   }) async {
     if (showError case final error?) throw error;
-    posted.add(_Posted(id, title, body, payload));
+    posted.add(_Posted(id, title, body, payload, notificationDetails));
   }
 
   @override
@@ -66,6 +74,45 @@ class _FakePlugin implements FlutterLocalNotificationsPlugin {
 NotificationResponse _response(String? payload) => NotificationResponse(
   notificationResponseType: NotificationResponseType.selectedNotification,
   payload: payload,
+);
+
+NotificationResponse _action(
+  String? payload,
+  String actionId, [
+  String? input,
+]) => NotificationResponse(
+  notificationResponseType: NotificationResponseType.selectedNotificationAction,
+  payload: payload,
+  actionId: actionId,
+  input: input,
+);
+
+AttentionNotification _request(InputRequest request) => attentionFor(
+  event: switch (request) {
+    ApprovalRequest() => ApprovalRequested(request),
+    ClarifyRequest() => ClarifyRequested(request),
+    _ => throw ArgumentError(request),
+  },
+  thread: ChatThread(id: 's1', title: 'Cleanup', updatedAt: DateTime(2026)),
+  appFocused: false,
+  selectedThreadId: null,
+  enabled: true,
+  profile: 'work',
+)!;
+
+const _approval = ApprovalRequest(
+  requestId: 'r1',
+  command: 'rm -rf build',
+  description: '',
+  choices: ['once', 'deny'],
+);
+
+const _question = ClarifyRequest(
+  requestId: 'r2',
+  batch: true,
+  questions: [
+    ClarifyQuestion(qid: 'q1', question: 'Which?', choices: ['a', 'b']),
+  ],
 );
 
 void main() {
@@ -204,10 +251,16 @@ void main() {
   group('LocalNotificationService', () {
     late _FakePlugin plugin;
     late LocalNotificationService service;
+    late List<List<String>> registered;
 
     setUp(() {
       plugin = _FakePlugin();
-      service = LocalNotificationService(plugin);
+      registered = [];
+      service = LocalNotificationService(
+        plugin: plugin,
+        registerCategories: (categories) async =>
+            registered.add([for (final c in categories) c.id]),
+      );
     });
 
     tearDown(() async {
@@ -251,6 +304,113 @@ void main() {
       expect(target.isJob, isTrue);
       expect(target.jobId, 'j1');
       expect(target.profile, 'work');
+    });
+
+    group('a request', () {
+      setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.iOS);
+
+      test('registers the fixed categories at start', () async {
+        await service.show(_request(_approval));
+
+        final darwin = plugin.settings!.iOS!.notificationCategories;
+        expect(
+          darwin.map((c) => c.identifier),
+          staticRequestCategories().map((c) => c.id),
+        );
+        expect(registered.first, staticRequestCategories().map((c) => c.id));
+        expect(plugin.onBackgroundResponse, isNotNull);
+      });
+
+      test('is posted under its category with the command', () async {
+        await service.show(_request(_approval));
+
+        final posted = plugin.posted.single;
+        expect(posted.body, 'rm -rf build');
+        expect(
+          posted.details!.iOS!.categoryIdentifier,
+          'hermes.request.approval.once-deny',
+        );
+      });
+
+      test("registers a question's own category before posting it", () async {
+        final note = _request(_question);
+
+        await service.show(note);
+
+        expect(registered.last, [note.category!.id]);
+        expect(
+          plugin.posted.single.details!.iOS!.categoryIdentifier,
+          note.category!.id,
+        );
+      });
+
+      test('carries what answering it needs', () async {
+        await service.show(_request(_approval));
+
+        final answer = answerFromAction(
+          plugin.posted.single.payload,
+          kAllowOnceAction,
+          null,
+        )!;
+        expect(answer.target.threadId, 's1');
+        expect(answer.target.profile, 'work');
+        expect(answer.title, 'Cleanup');
+        expect(answer.request.requestId, 'r1');
+        expect((answer.answer as ApprovalChoiceAnswer).choice, 'once');
+        expect(targetFromPayload(plugin.posted.single.payload)!.threadId, 's1');
+      });
+
+      test('stays generic on Android', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+        await service.show(_request(_approval));
+
+        expect(plugin.posted.single.body, kApprovalBody);
+      });
+
+      test('reports an answer button on answers, not taps', () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        await service.show(_request(_question));
+        final taps = <NotificationTarget>[];
+        final sub = service.taps.listen(taps.add);
+        final answered = service.answers.first;
+
+        plugin.onResponse!(
+          _action(plugin.posted.single.payload, '${kChoiceActionPrefix}1'),
+        );
+
+        final answer = (await answered).answer as QuestionAnswer;
+        expect(answer.values, ['b']);
+        await sub.cancel();
+        expect(taps, isEmpty);
+      });
+
+      test('takes Other… and Open as a tap', () async {
+        await service.show(_request(_question));
+        final tapped = service.taps.first;
+
+        plugin.onResponse!(_action(plugin.posted.single.payload, kOtherAction));
+
+        expect((await tapped).threadId, 's1');
+      });
+
+      test('hands an answer that started the app to answers', () async {
+        await service.show(_request(_approval));
+        plugin.launchDetails = NotificationAppLaunchDetails(
+          true,
+          notificationResponse: _action(
+            plugin.posted.single.payload,
+            kDenyAction,
+          ),
+        );
+        final answered = service.answers.first;
+
+        expect(await service.launchTarget(), isNull);
+        expect(
+          ((await answered).answer as ApprovalChoiceAnswer).choice,
+          'deny',
+        );
+      });
     });
 
     test('drops a notification the plugin cannot show', () async {

@@ -1,4 +1,6 @@
+import '../chat/chat_transport.dart';
 import 'attention_policy.dart';
+import 'request_notifications.dart';
 
 /// What the system said when asked for permission to post notifications.
 enum NotificationPermission {
@@ -31,6 +33,24 @@ class NotificationTarget {
   bool get isJob => jobId != null;
 }
 
+/// An answer the user gave with a request notification's button.
+class NotificationAnswer {
+  const NotificationAnswer({
+    required this.target,
+    required this.title,
+    required this.request,
+    required this.answer,
+  });
+
+  /// The chat the request was raised in.
+  final NotificationTarget target;
+
+  /// The chat's title, for a follow-up notification.
+  final String title;
+  final PendingRequest request;
+  final OpenRequestAnswer answer;
+}
+
 /// Posts local notifications and reports when the user taps one.
 abstract interface class NotificationService {
   /// Asks the system for permission to post. [NotificationPermission.denied]
@@ -44,6 +64,11 @@ abstract interface class NotificationService {
 
   /// The chats of notifications the user tapped while the app ran.
   Stream<NotificationTarget> get taps;
+
+  /// Answers the user gave with a request notification's buttons that reach
+  /// this isolate: on macOS all of them, including the one that started the
+  /// app. On iOS they go to a background isolate instead.
+  Stream<NotificationAnswer> get answers;
 
   /// The chat of the notification whose tap started the app, if one did.
   Future<NotificationTarget?> launchTarget();
