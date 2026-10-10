@@ -320,8 +320,8 @@ void main() {
     });
   });
 
-  group('messages across a profile change', () {
-    test('refuses a thread that was listed under another profile', () async {
+  group('messages after a profile switch', () {
+    test('reads a thread in the profile it was listed under', () async {
       profile = 'work';
       server.on(
         'GET',
@@ -334,8 +334,27 @@ void main() {
         'threadId': 'home/s1',
       });
 
-      expect(reply, {'ok': false, 'error': 'bad_request'});
-      expect(server.requests, isEmpty);
+      expect(reply['ok'], isTrue);
+      final request = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single;
+      expect(request.queryParameters['profile'], 'home');
+    });
+
+    test('reads a thread listed without a profile unscoped', () async {
+      profile = 'work';
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [messageRow(id: 1, role: 'user', content: 'Hi')]),
+      );
+
+      await handler.handle({'op': 'messages', 'threadId': '/s1'});
+
+      final request = server
+          .requestsTo('GET', '/api/sessions/s1/messages')
+          .single;
+      expect(request.queryParameters, isNot(contains('profile')));
     });
   });
 
@@ -763,17 +782,22 @@ void main() {
       expect(reply['text'], 'Done');
     });
 
-    test('refuses to send into a thread from another profile', () async {
+    test('sends into a thread in the profile it was listed under', () async {
       profile = 'work';
 
-      final reply = await handler.handle({
+      final pending = handler.handle({
         'op': 'send',
         'threadId': 'home/s1',
         'text': 'More',
       });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ReplyCompleted('Done'))
+        ..finish();
+      final reply = await pending;
 
-      expect(reply, {'ok': false, 'error': 'bad_request'});
-      expect(transport.sends, isEmpty);
+      expect(transport.sends.single.profile, 'home');
+      expect(reply['threadId'], 'home/s1');
     });
 
     test('gives up on a reply that never comes', () async {
@@ -946,9 +970,7 @@ void main() {
     );
 
     test('announces nothing for a turn that was refused', () async {
-      profile = 'work';
-
-      await handler.handle({'op': 'send', 'text': 'x', 'threadId': 'home/s1'});
+      await handler.handle({'op': 'send', 'text': 'x', 'threadId': 'no-slash'});
 
       expect(announced, isEmpty);
     });
