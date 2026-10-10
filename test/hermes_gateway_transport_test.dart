@@ -871,7 +871,7 @@ void main() {
     ]);
   });
 
-  test('a failed connection attempt is retried by the next send', () async {
+  test('a failed connection attempt is retried within the send', () async {
     var attempts = 0;
     transport = HermesGatewayTransport(
       connect: () async {
@@ -881,10 +881,10 @@ void main() {
     );
     gateway.turn = plainReply;
 
-    await expectLater(reply(), throwsStateError);
     final events = await reply();
 
     expect(events.last, isA<ReplyCompleted>());
+    expect(attempts, 2);
   });
 
   test('the socket dropping mid-reply fails the stream', () async {
@@ -2671,12 +2671,14 @@ void main() {
     );
 
     test(
-      'a session the gateway never answers fails instead of hanging',
+      'a session the gateway never answers is opened on a new connection',
       () async {
         await send();
         gateways.single.silent.add('session.create');
 
-        await expectLater(send(), throwsA(isA<GatewayConnectionClosed>()));
+        await send();
+
+        expect(gateways, hasLength(2));
       },
     );
   });

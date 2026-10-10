@@ -1347,6 +1347,30 @@ The system SHALL record the highest `seq` seen for each runtime session. When th
 - **WHEN** reconnecting fails
 - **THEN** the system waits a jittered, growing delay (300 ms base, 15 s cap) between attempts, and after 5 attempts or 60 seconds marks the reply as broken
 
+### Requirement: Retrying a send before its prompt is submitted
+
+When a send cannot open its socket, or the socket never answers its `session.create` or `session.resume`, the system SHALL try the socket and session again on a new connection, up to 3 attempts in all, waiting the reconnect backoff between them. An error the gateway answered with SHALL NOT be retried. `prompt.submit` SHALL NOT be sent again, since the gateway may have taken the prompt. A session call is safe to repeat: Hermes stores a session only on its first prompt.
+
+#### Scenario: Network back within the retries
+
+- **WHEN** the first attempt to open the socket fails and the second succeeds
+- **THEN** the prompt is submitted once and the reply streams as usual
+
+#### Scenario: Gateway rejects the session
+
+- **WHEN** the gateway answers `session.create` with an error, such as an unknown profile
+- **THEN** the send fails at once without another attempt
+
+#### Scenario: Prompt never answered
+
+- **WHEN** the gateway never answers `prompt.submit`
+- **THEN** the send fails after the request timeout and the prompt is not sent again
+
+#### Scenario: Still unreachable
+
+- **WHEN** the socket cannot be opened on any of the 3 attempts
+- **THEN** the send fails with the last error
+
 ### Requirement: Connection heartbeat
 
 The system SHALL send `gateway.ping` every 15 seconds on an open connection while a reply is in flight or a thread is listened to, and SHALL treat the connection as dead when no frame of any kind has arrived for 45 seconds.

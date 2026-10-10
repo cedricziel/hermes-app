@@ -42,6 +42,9 @@ const _unsupportedImage = 4016;
 /// How many reconnect attempts follow a drop before the reply gives up.
 const _maxReconnectAttempts = 5;
 
+/// How many times a send opens its socket and session before it fails.
+const _sendOpenAttempts = 3;
+
 /// How long one reconnect may take, from the drop, before the reply gives up.
 const _reconnectBudget = Duration(seconds: 60);
 
@@ -717,42 +720,63 @@ class HermesGatewayTransport implements ChatTransport {
     required CancelFlag stopped,
     required _SendStep step,
   }) async* {
-    final client = await _client();
-    step.name = 'open';
     final scope = <String, Object?>{
       'profile': ?profile,
       'source': gatewaySessionSource,
     };
-    // Listening starts before the resume is sent, so a frame the gateway pushes
-    // ahead of its answer is kept for this session.
-    // What the ledger held before this send's first frame: a frame the tap
-    // buffers may already have been observed by a watch that was listening.
-    final before = _ledger.snapshot();
-    final tap = _Tap(client);
-    final Map<String, Object?> session;
-    try {
-      session = threadId == null
-          ? await _call(client, 'session.create', {
-              ...scope,
-              if (model != null) ...{
-                'model': model.modelId,
-                'provider': model.providerId,
-                'reasoning_effort': ?model.effort,
-              },
-            })
-          : await _call(client, 'session.resume', {
-              'session_id': threadId,
-              ...scope,
-            });
-    } on GatewayRpcException catch (error) {
-      tap.close();
-      if (error.code == kGatewayProfileUnavailable) {
-        throw const ProfileUnavailableException();
+    // Nothing is submitted until the prompt is, so a socket that will not
+    // open, or a session call it never answers, is tried again on a new one.
+    // Hermes stores a session only on its first prompt: a create that did
+    // arrive leaves nothing behind.
+    late GatewayRpcClient client;
+    late ReplayLedger before;
+    late _Tap tap;
+    late Map<String, Object?> session;
+    for (var attempt = 0; ; attempt++) {
+      if (attempt > 0) await _sleep(reconnectDelay(attempt, _random));
+      if (stopped.value) return;
+      step.name = 'connect';
+      try {
+        client = await _client();
+        step.name = 'open';
+        // Listening starts before the resume is sent, so a frame the gateway
+        // pushes ahead of its answer is kept for this session.
+        // What the ledger held before this send's first frame: a frame the
+        // tap buffers may already have been observed by a watch that was
+        // listening.
+        before = _ledger.snapshot();
+        tap = _Tap(client);
+        try {
+          session = threadId == null
+              ? await _call(client, 'session.create', {
+                  ...scope,
+                  if (model != null) ...{
+                    'model': model.modelId,
+                    'provider': model.providerId,
+                    'reasoning_effort': ?model.effort,
+                  },
+                })
+              : await _call(client, 'session.resume', {
+                  'session_id': threadId,
+                  ...scope,
+                });
+        } on GatewayRpcException catch (error) {
+          tap.close();
+          if (error.code == kGatewayProfileUnavailable) {
+            throw const ProfileUnavailableException();
+          }
+          rethrow;
+        } on Object {
+          tap.close();
+          rethrow;
+        }
+        break;
+      } on Object catch (error) {
+        final answered =
+            error is GatewayRpcException ||
+            error is ProfileUnavailableException;
+        if (answered || attempt + 1 >= _sendOpenAttempts) rethrow;
       }
-      rethrow;
-    } on Object {
-      tap.close();
-      rethrow;
     }
     var runtimeId = '';
     var storedId = '';
