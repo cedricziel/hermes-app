@@ -6,7 +6,7 @@ import 'package:hermes_app/src/surfaces/surface_snapshot_builder.dart';
 import '../support/fake_hermes_server.dart';
 
 void main() {
-  test('a chat without a server title shows the fixed label', () async {
+  test('a chat without a server title is left out of the menu', () async {
     const prompt = 'Email the board the secret quarterly numbers';
     final server = FakeHermesServer()
       ..on('GET', '/api/profiles', {
@@ -32,7 +32,7 @@ void main() {
 
     final items = quickActionItems(built.snapshot);
 
-    expect(items.last.localizedTitle, 'New chat');
+    expect(items.map((i) => i.localizedTitle), ['New Chat', 'Dictate']);
     expect(
       [for (final i in items) i.localizedTitle].join(),
       isNot(contains('secret')),

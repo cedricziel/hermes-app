@@ -2,6 +2,7 @@ import 'package:characters/characters.dart';
 
 import '../deep_links/deep_link_target.dart';
 import '../deep_links/deep_link_uri.dart';
+import '../surfaces/chat_hints.dart' show kUnnamedChatLabel;
 import '../surfaces/surface_snapshot.dart';
 import 'quick_actions_port.dart';
 
@@ -22,7 +23,8 @@ List<ShortcutItem> quickActionItems(
   if (!snapshot.signedIn) return const [];
   final recents = <(RecentChat, String)>[
     for (final chat in snapshot.recentChats)
-      if (_cut(chat.title) case final title when title.isNotEmpty)
+      if (_cut(chat.title) case final title
+          when title.isNotEmpty && title != kUnnamedChatLabel)
         (chat, title),
   ].take(kQuickActionRecents).toList();
   final showProfile =

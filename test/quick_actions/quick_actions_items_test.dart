@@ -1,6 +1,7 @@
 import 'package:characters/characters.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/quick_actions/quick_actions_items.dart';
+import 'package:hermes_app/src/surfaces/chat_hints.dart';
 import 'package:hermes_app/src/surfaces/surface_snapshot.dart';
 
 RecentChat chat(String id, String title, int minute, {String profile = 'a'}) =>
@@ -57,6 +58,22 @@ void main() {
     );
 
     expect([for (final i in items.skip(2)) i.localizedTitle], ['Taxes', 'x']);
+  });
+
+  test('unnamed chats are skipped for the next titled ones', () {
+    final items = quickActionItems(
+      snapshot([
+        chat('1', kUnnamedChatLabel, 4),
+        chat('2', 'Taxes', 3),
+        chat('3', kUnnamedChatLabel, 2),
+        chat('4', 'Trip plan', 1),
+      ]),
+    );
+
+    expect(
+      [for (final i in items.skip(2)) i.localizedTitle],
+      ['Taxes', 'Trip plan'],
+    );
   });
 
   test('under App Lock only New Chat and Dictate are left', () {
