@@ -169,17 +169,20 @@ RequestCategory? requestCategoryFor(InputRequest request) {
     case ClarifyRequest(questions: [final question]):
       if (question.multiSelect || question.choices.isEmpty) return _openEnded;
       final buttons = _choiceButtons(question.choices);
-      final more = question.choices.length > buttons.length;
+      final actions = [
+        for (final (index, choice) in buttons.indexed)
+          RequestAction('$kChoiceActionPrefix$index', choice),
+        if (question.choices.length > buttons.length)
+          const RequestAction(kOpenAction, 'Other…', foreground: true),
+        _reply,
+      ];
+      // Named after every title, so two questions share a category only
+      // when their buttons are the same.
+      final key = actions.map((action) => action.title).join('\u0000');
       return RequestCategory(
-        '$kQuestionCategory.${fnv1a(buttons.join('\u0000')).toRadixString(16).padLeft(8, '0')}',
+        '$kQuestionCategory.${fnv1a(key).toRadixString(16).padLeft(8, '0')}',
         placeholder: kQuestionBody,
-        actions: [
-          for (final (index, choice) in buttons.indexed)
-            RequestAction('$kChoiceActionPrefix$index', choice),
-          if (more)
-            const RequestAction(kOpenAction, 'Other…', foreground: true),
-          _reply,
-        ],
+        actions: actions,
       );
     default:
       return null;
@@ -191,8 +194,6 @@ List<String> _choiceButtons(List<String> choices) =>
     ? choices
     : choices.take(kMaxChoiceActions - 1).toList();
 
-/// FNV-1a over the button titles, so two questions with the same buttons
-/// share a category.
 /// 32-bit FNV-1a of [key]: stable across Dart releases, unlike `hashCode`.
 int fnv1a(String key) {
   var hash = 0x811c9dc5;

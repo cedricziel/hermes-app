@@ -150,6 +150,11 @@ void main() {
         requestCategoryFor(_question(['a', 'b']))!.id,
         isNot(requestCategoryFor(_question(['a', 'c']))!.id),
       );
+      expect(
+        requestCategoryFor(_question(['a', 'b', 'c']))!.id,
+        isNot(requestCategoryFor(_question(['a', 'b', 'c', 'd', 'e']))!.id),
+        reason: 'only one of them has Other…',
+      );
     });
 
     test('offer only Reply and Open for a multi-select question', () {
