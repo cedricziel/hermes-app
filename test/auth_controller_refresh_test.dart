@@ -37,6 +37,9 @@ class _GatedDashboard {
   /// Whether the refresh route leaves `expires_at` out of its answer.
   bool omitExpiresAt = false;
 
+  /// Whether the refresh route leaves `user_id` and `provider` out.
+  bool omitIdentity = false;
+
   /// The `expires_at` the refresh route answers with, when not an hour ahead.
   int? refreshExpiresAt;
 
@@ -103,8 +106,8 @@ class _GatedDashboard {
           'access_token': validAccess,
           'refresh_token': validRefresh,
           if (!omitExpiresAt) 'expires_at': refreshExpiresAt ?? _farFuture,
-          'provider': 'oidc',
-          'user_id': 'u1',
+          if (!omitIdentity) 'provider': 'oidc',
+          if (!omitIdentity) 'user_id': 'u1',
         });
       default:
         return _authed(request);
@@ -172,6 +175,7 @@ HermesSession _session({
   bool unknownExpiry = false,
   String userId = 'u1',
   String? serverUrl,
+  int? mintedAt,
 }) => HermesSession(
   accessToken: access,
   refreshToken: refresh ?? 'refresh-1',
@@ -179,6 +183,7 @@ HermesSession _session({
   provider: 'oidc',
   userId: userId,
   serverUrl: serverUrl,
+  mintedAt: mintedAt,
 );
 
 void main() {
@@ -416,6 +421,7 @@ void main() {
       access: 'access-2',
       refresh: 'refresh-2',
       serverUrl: dashboard.url,
+      mintedAt: DateTime.now().millisecondsSinceEpoch,
     );
     dashboard
       ..validAccess = 'access-2'
@@ -444,6 +450,7 @@ void main() {
       access: 'access-2',
       refresh: 'refresh-2',
       serverUrl: dashboard.url,
+      mintedAt: DateTime.now().millisecondsSinceEpoch,
     );
     dashboard
       ..validAccess = 'access-2'
@@ -483,11 +490,20 @@ void main() {
   for (final (whose, foreign) in <(String, HermesSession Function(String))>[
     (
       "another server's",
-      (_) => _session(refresh: 'refresh-9', serverUrl: 'http://elsewhere:9119'),
+      (_) => _session(
+        refresh: 'refresh-9',
+        serverUrl: 'http://elsewhere:9119',
+        mintedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
     ),
     (
       "another user's",
-      (url) => _session(refresh: 'refresh-9', userId: 'u2', serverUrl: url),
+      (url) => _session(
+        refresh: 'refresh-9',
+        userId: 'u2',
+        serverUrl: url,
+        mintedAt: DateTime.now().millisecondsSinceEpoch,
+      ),
     ),
   ]) {
     test('never takes over $whose pair', () async {
@@ -506,6 +522,73 @@ void main() {
       expect(dashboard.refreshCalls, 1);
     });
   }
+
+  test('a refresh whose answer could not be stored keeps the user signed in '
+      'through the next one', () async {
+    await bootstrapWith(_session());
+    store.failWrites = true;
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+    // The store still holds the spent pair the failed write left behind.
+    expect(store.session?.refreshToken, 'refresh-1');
+
+    store.failWrites = false;
+    dashboard.validAccess = 'expired-again';
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.refreshToken, 'refresh-3');
+    expect(events.named('auth.session.expired'), isEmpty);
+  });
+
+  test('a session stored before the server was recorded still works after '
+      'the upgrade, and is recorded on its next refresh', () async {
+    await bootstrapWith(_session());
+    expect(store.session?.serverUrl, isNull);
+
+    dashboard.validAccess = 'expired';
+    await controller.api!.fetchMe();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(store.session?.serverUrl, controller.baseUrl);
+    expect(store.session?.mintedAt, isNotNull);
+  });
+
+  test('a refresh answer without the user keeps the one it replaced', () async {
+    await bootstrapWith(_session());
+    dashboard
+      ..omitIdentity = true
+      ..validAccess = 'expired';
+
+    await controller.api!.fetchMe();
+
+    expect(store.session?.userId, 'u1');
+    expect(store.session?.provider, 'oidc');
+  });
+
+  test('a changed redirect does not ask for a new sign-in', () async {
+    // The user saved this address; it now redirects to the dashboard.
+    final front = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => front.close(force: true));
+    front.listen((request) {
+      request.response
+        ..statusCode = HttpStatus.movedPermanently
+        ..headers.set('Location', '${dashboard.url}${request.uri.path}')
+        ..close();
+    });
+    final saved = 'http://127.0.0.1:${front.port}';
+    store = MemoryTokenStore(_session(serverUrl: saved));
+    controller = AuthController(
+      tokenStore: store,
+      devServerUrl: saved,
+      telemetry: events.connection,
+    );
+
+    await controller.bootstrap();
+
+    expect(controller.state, HermesConnectionState.ready);
+    expect(controller.baseUrl, dashboard.url);
+  });
 
   test('signs the user out when the refresh token is rejected', () async {
     await bootstrapWith(_session());

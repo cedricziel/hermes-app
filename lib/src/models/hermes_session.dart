@@ -11,6 +11,7 @@ class HermesSession {
     required this.provider,
     required this.userId,
     this.serverUrl,
+    this.mintedAt,
   });
 
   factory HermesSession.fromTokenResponse(Map<String, dynamic> json) {
@@ -35,6 +36,7 @@ class HermesSession {
       provider: json['provider'] as String? ?? '',
       userId: json['userId'] as String? ?? '',
       serverUrl: json['serverUrl'] as String?,
+      mintedAt: (json['mintedAt'] as num?)?.toInt(),
     );
   }
 
@@ -58,6 +60,11 @@ class HermesSession {
   /// before it was recorded.
   final String? serverUrl;
 
+  /// When this app received the tokens, in milliseconds since the epoch, so
+  /// that of two pairs of one user the newer is known. Null for a session
+  /// stored before it was recorded.
+  final int? mintedAt;
+
   /// The same tokens, recorded as minted by [serverUrl].
   HermesSession boundTo(String? serverUrl) => HermesSession(
     accessToken: accessToken,
@@ -66,7 +73,35 @@ class HermesSession {
     provider: provider,
     userId: userId,
     serverUrl: serverUrl,
+    mintedAt: mintedAt,
   );
+
+  /// These tokens, just received by signing in at [serverUrl].
+  HermesSession mintedBy(String serverUrl) => HermesSession(
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    expiresAt: expiresAt,
+    provider: provider,
+    userId: userId,
+    serverUrl: serverUrl,
+    mintedAt: DateTime.now().millisecondsSinceEpoch,
+  );
+
+  /// These tokens, just received by refreshing [previous]: the same owner,
+  /// whose user and provider carry over when the answer leaves them out.
+  HermesSession rotatedFrom(HermesSession previous) => HermesSession(
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    expiresAt: expiresAt,
+    provider: provider.isEmpty ? previous.provider : provider,
+    userId: userId.isEmpty ? previous.userId : userId,
+    serverUrl: previous.serverUrl,
+    mintedAt: DateTime.now().millisecondsSinceEpoch,
+  );
+
+  /// Whether this pair was received after [other], so it replaced it.
+  bool isNewerThan(HermesSession other) =>
+      (mintedAt ?? 0) > (other.mintedAt ?? 0);
 
   /// Whether [other] holds tokens of the same user on the same dashboard, so
   /// one may stand in for the other.
@@ -83,6 +118,7 @@ class HermesSession {
     'provider': provider,
     'userId': userId,
     'serverUrl': ?serverUrl,
+    'mintedAt': ?mintedAt,
   };
 
   /// True when the access token is at or near expiry and should be refreshed

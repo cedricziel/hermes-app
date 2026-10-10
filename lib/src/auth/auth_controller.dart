@@ -279,9 +279,12 @@ class AuthController extends ChangeNotifier {
 
     final storedSession = await _tokenStore.read();
     if (stale()) return;
-    // A session another dashboard minted is no use here.
+    // A session another dashboard minted is no use here. The address the
+    // connect started from counts as well as the one it was redirected to:
+    // a proxy that starts redirecting elsewhere is still the same dashboard.
+    final minter = storedSession?.serverUrl;
     if (storedSession == null ||
-        (storedSession.serverUrl ?? normalized) != normalized) {
+        (minter != null && minter != normalized && minter != typed)) {
       _setState(HermesConnectionState.needsLogin);
       return;
     }
@@ -378,7 +381,7 @@ class AuthController extends ChangeNotifier {
         provider: provider.name,
         httpClient: _tokenDio,
         cancelled: cancel.future,
-      )).boundTo(url);
+      )).mintedBy(url);
       if (abandoned()) return;
       // The session is neither in use nor stored until the server has
       // accepted its token, so a failure leaves nothing behind.
@@ -679,7 +682,7 @@ class AuthController extends ChangeNotifier {
                 onRetry: () => _events('auth.session.refresh_retried', {
                   'trigger': trigger,
                 }),
-              )).boundTo(current.serverUrl),
+              )).rotatedFrom(current),
         )
         .then((refreshed) async {
           if (identical(refreshed, _session)) return refreshed;
@@ -740,8 +743,8 @@ class AuthController extends ChangeNotifier {
   }
 
   /// Takes over the stored pair when it replaced [sent]: the same user on the
-  /// same dashboard as this controller, with another refresh token, while
-  /// this controller still holds [sent]. Null otherwise.
+  /// same dashboard as this controller, received after [sent], while this
+  /// controller still holds [sent]. Null otherwise.
   Future<HermesSession?> _adoptStored(HermesSession sent) async {
     final HermesSession? stored;
     try {
@@ -752,7 +755,8 @@ class AuthController extends ChangeNotifier {
     if (stored == null ||
         !stored.sameOwner(sent) ||
         stored.serverUrl != _baseUrl ||
-        stored.refreshToken == sent.refreshToken ||
+        // An older pair is no replacement: it is what a failed write left.
+        !stored.isNewerThan(sent) ||
         _session?.refreshToken != sent.refreshToken) {
       return null;
     }
