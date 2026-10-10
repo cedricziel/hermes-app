@@ -220,8 +220,12 @@ class SettingsScaffold extends StatelessWidget {
     final search = this.search;
     final canPop = Navigator.canPop(context);
     void back() => Navigator.maybePop(context);
+    // With a dialog or sheet over the page, ⌘[ would close that instead.
+    final inFront = ModalRoute.of(context)?.isCurrent ?? true;
     return MacCommandScope(
-      commands: {if (canPop) MacCommand.back: MacCommandHandler(back)},
+      commands: {
+        if (canPop && inFront) MacCommand.back: MacCommandHandler(back),
+      },
       child: Scaffold(
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
