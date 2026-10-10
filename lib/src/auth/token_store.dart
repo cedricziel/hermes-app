@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_otel/flutter_otel.dart'
     show AppEventLogger, noopAppEventLogger;
@@ -59,7 +60,7 @@ class TokenStore {
       }
       // A keychain that cannot be read right now (locked, unavailable) says
       // nothing about the stored session, so it is left alone.
-      return const SessionUnreadable();
+      return SessionUnreadable(locked: _isLocked(error));
     }
     if (raw == null || raw.isEmpty) return const SessionEmpty();
     try {
@@ -81,6 +82,14 @@ class TokenStore {
       return const SessionEmpty();
     }
   }
+
+  /// `errSecInteractionNotAllowed`: the plugin reports the status in the
+  /// message and details of its "Unexpected security result code" error.
+  static bool _isLocked(Object error) =>
+      error is PlatformException &&
+      (error.code == '-25308' ||
+          error.details == -25308 ||
+          (error.message?.contains('-25308') ?? false));
 
   /// A session saved by an older version keeps the options it was saved
   /// with until it is written again.
@@ -127,5 +136,9 @@ final class SessionEmpty extends SessionRead {
 
 /// The keychain could not be read, so nothing is known about the session.
 final class SessionUnreadable extends SessionRead {
-  const SessionUnreadable();
+  const SessionUnreadable({this.locked = false});
+
+  /// Whether the keychain is locked, as on iOS before the first unlock since
+  /// the device started, rather than failing for another reason.
+  final bool locked;
 }

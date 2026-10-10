@@ -14,6 +14,10 @@ class MemoryTokenStore extends TokenStore {
   /// is locked before the first unlock.
   bool unreadable = false;
 
+  /// Whether an [unreadable] store is locked, as before the first unlock,
+  /// rather than failing for another reason.
+  bool unreadableLocked = true;
+
   /// Makes [read] hand out a copy, like a keychain does, instead of the
   /// stored object.
   final bool copyOnRead;
@@ -27,7 +31,7 @@ class MemoryTokenStore extends TokenStore {
 
   @override
   Future<SessionRead> readState({bool repair = true}) async {
-    if (unreadable) return const SessionUnreadable();
+    if (unreadable) return SessionUnreadable(locked: unreadableLocked);
     return switch (await read()) {
       final session? => SessionFound(session),
       null => const SessionEmpty(),

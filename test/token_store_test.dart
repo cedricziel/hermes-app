@@ -219,6 +219,23 @@ void main() {
       expect(storage.value, _stored());
     });
 
+    test('knows a locked keychain from another read failure', () async {
+      final locked = await TokenStore(
+        storage: _FakeStorage(
+          readError: PlatformException(
+            code: 'Unexpected security result code',
+            message: 'Code: -25308, Message: User interaction is not allowed.',
+          ),
+        ),
+      ).readState();
+      final other = await TokenStore(
+        storage: _FakeStorage(readError: PlatformException(code: 'other')),
+      ).readState();
+
+      expect((locked as SessionUnreadable).locked, isTrue);
+      expect((other as SessionUnreadable).locked, isFalse);
+    });
+
     test('without repair neither saves nor clears what it reads', () async {
       final good = _FakeStorage(value: _stored());
       final bad = _FakeStorage(value: '{not json');
