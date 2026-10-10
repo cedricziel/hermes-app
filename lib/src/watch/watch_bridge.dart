@@ -18,6 +18,7 @@ import '../notifications/request_answers.dart';
 import '../profiles/hermes_profiles_repository.dart';
 import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
+import 'watch_complication.dart';
 import 'watch_request_handler.dart';
 
 /// The Dart end of the watch relay. The iOS runner receives what the watch
@@ -52,6 +53,7 @@ class WatchBridge {
     AppLockController? appLock,
     required OnDeviceSpeech speech,
     required DictationSettings dictation,
+    WatchComplicationStatus? complication,
     AppEventLogger events = noopAppEventLogger,
   }) {
     if (!Platform.isIOS) return null;
@@ -63,6 +65,7 @@ class WatchBridge {
         announce: announcer(notifications, settings),
         appLock: () => appLockHidesRequests(appLock),
         transcribeOnDevice: onDeviceTranscriber(speech, dictation),
+        complication: complication,
         events: events,
       ),
     );
@@ -114,6 +117,7 @@ class WatchBridge {
     Future<bool> Function(AttentionNotification) announce = _ignore,
     bool Function() appLock = _off,
     Future<String?> Function(Uint8List)? transcribeOnDevice,
+    WatchComplicationStatus? complication,
     AppEventLogger events = noopAppEventLogger,
     Duration readyTimeout = const Duration(seconds: 20),
   }) {
@@ -125,6 +129,7 @@ class WatchBridge {
       announce: announce,
       appLock: appLock,
       transcribeOnDevice: transcribeOnDevice,
+      complication: complication,
       connecting: () => authConnecting(auth),
       ready: () => authSettled(auth, timeout: readyTimeout),
       repository: () {

@@ -20,6 +20,7 @@ import '../share/shared_item.dart';
 import '../surfaces/chat_hints.dart';
 import '../surfaces/surface_snapshot.dart' show PendingKind, kMaxRecentChats;
 import '../telemetry/breadcrumbs.dart';
+import '../watch/watch_complication.dart';
 import 'chat_controller_sync.dart';
 import 'chat_message_mapper.dart';
 import 'chat_models.dart';
@@ -53,6 +54,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.botChats,
     required this._attention,
     this.liveActivities,
+    this.watchStatus,
     required this.report,
     this.onShowChat,
     this.onOpenJob,
@@ -98,6 +100,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
 
   /// Shows replies sent here as Live Activities; null where there are none.
   final LiveActivities? liveActivities;
+
+  /// Tells the watch's complications what a reply sent here is doing; null
+  /// where there is no watch.
+  final WatchComplicationStatus? watchStatus;
 
   /// Tells the user something went wrong.
   final ValueChanged<String> report;
@@ -715,6 +721,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _settleTimers.remove(thread)?.cancel();
     _refetch.remove(thread);
     liveActivities?.endChat(thread.id, _profile);
+    watchStatus?.drop(thread);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -1477,6 +1484,11 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     }
 
     liveActivities?.begin(thread, profile: profile);
+    watchStatus?.begin(
+      thread,
+      title: thread.title,
+      threadId: _watchThreadId(thread, profile),
+    );
     breadcrumbs('chat.reply.started', {
       'queued': queued,
       'attachments': attachments.length,
@@ -1882,10 +1894,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     _announce(thread, announced, profile, notify: announce);
   }
 
-  /// [profile] is the one the turn was sent under: the thread on screen only
-  /// counts when the chat is still on that profile.
-  /// Moves the chat's Live Activity along for [event], and posts the
-  /// notification it deserves unless [notify] is false.
+  /// Moves the chat's Live Activity and the watch's status along for
+  /// [event], and posts the notification it deserves unless [notify] is
+  /// false. [profile] is the one the turn was sent under: the thread on
+  /// screen only counts when the chat is still on that profile.
   void _announce(
     ChatThread thread,
     ChatEvent event,
@@ -1893,6 +1905,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     bool notify = true,
   }) {
     liveActivities?.onEvent(thread, event);
+    watchStatus?.onEvent(
+      thread,
+      event,
+      title: thread.title,
+      threadId: _watchThreadId(thread, profile),
+    );
     if (!notify) return;
     _attention.announce(
       thread,
@@ -1901,6 +1919,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       profile: profile,
     );
   }
+
+  /// The id the watch uses for [thread], once the dashboard stores it.
+  String? _watchThreadId(ChatThread thread, String? profile) =>
+      thread.remote ? boundThreadId(profile, thread.id) : null;
 
   /// Gives a thread created here the id the dashboard stored it under, so it
   /// stays one row and later sends continue that session.
