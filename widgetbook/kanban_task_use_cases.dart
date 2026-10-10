@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:hermes_app/src/kanban/kanban_models.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_actions.dart';
@@ -10,6 +12,7 @@ import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_runs.dart';
 import 'package:hermes_app/src/kanban/widgets/task_panel/kanban_task_sheet.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 
@@ -321,6 +324,36 @@ List<WidgetbookComponent> kanbanTaskComponents() => [
             onRemove: (_) {},
           ),
         ),
+      _use(
+        'Draggable on macOS (hover shows the file name)',
+        withCatalogDragOut(
+          KanbanTaskAttachments(
+            attachments: const [
+              KanbanAttachment(id: 1, filename: 'layout.png', size: 245760),
+              KanbanAttachment(id: 2, filename: 'notes.txt', size: 812),
+            ],
+            onAttach: () {},
+            onDownload: (_) {},
+            onRemove: (_) {},
+            onRead: (_) async => Uint8List(8),
+          ),
+        ),
+      ),
+      _use(
+        'Draggable while transferring',
+        withCatalogDragOut(
+          KanbanTaskAttachments(
+            attachments: const [
+              KanbanAttachment(id: 1, filename: 'layout.png', size: 245760),
+            ],
+            transferring: true,
+            onAttach: () {},
+            onDownload: (_) {},
+            onRemove: (_) {},
+            onRead: (_) async => Uint8List(8),
+          ),
+        ),
+      ),
     ],
   ),
   WidgetbookComponent(

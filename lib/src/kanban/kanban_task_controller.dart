@@ -281,11 +281,17 @@ class KanbanTaskController extends ChangeNotifier with SafeNotifier {
     }
   }
 
+  /// The bytes of an attachment, for a drag out of the app. Unlike
+  /// [download] it does not mark the task as transferring: a drop is the
+  /// receiver's wait, and the panel stays usable meanwhile.
+  Future<Uint8List> readAttachment(KanbanAttachment a) =>
+      repository.downloadAttachment(a.id, board: board);
+
   /// Saves an attachment to the device; whether it was saved.
   Future<bool> download(KanbanAttachment a) async {
     _setTransferring(true);
     try {
-      final bytes = await repository.downloadAttachment(a.id, board: board);
+      final bytes = await readAttachment(a);
       return await files.save(a.filename, bytes);
     } finally {
       _setTransferring(false);

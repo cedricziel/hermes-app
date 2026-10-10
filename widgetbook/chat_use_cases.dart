@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/chat/attachments/draggable_attachment.dart';
 import 'package:hermes_app/src/chat/chat_models.dart'
-    show ThreadSearchHit, ToolCallStatus;
+    show AttachmentKind, ChatAttachment, ThreadSearchHit, ToolCallStatus;
 import 'package:hermes_app/src/chat/media/media_store.dart';
 import 'package:hermes_app/src/chat/queued_prompt.dart';
 import 'package:hermes_app/src/chat/slash_command.dart';
@@ -37,6 +40,7 @@ import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:provider/provider.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 
@@ -58,6 +62,14 @@ Future<void> _vaultFails(
   String password,
   String code,
 ) async => throw StateError('offline');
+
+// A file whose bytes the message holds, so it can be dragged out.
+final _draggableAttachment = ChatAttachment(
+  name: 'quarterly-report.pdf',
+  kind: AttachmentKind.file,
+  size: 482113,
+  bytes: Uint8List(8),
+);
 
 Widget _noStore(Widget child) =>
     Provider<MediaStore?>.value(value: null, child: child);
@@ -516,6 +528,28 @@ WidgetbookNode chatNode() => WidgetbookFolder(
         _tool(
           'Size unknown',
           _noStore(const AttachmentCard(attachment: relativeAttachment)),
+        ),
+        _tool(
+          'Draggable on macOS (hover shows the file name)',
+          withCatalogDragOut(
+            _noStore(
+              DraggableAttachment(
+                attachment: _draggableAttachment,
+                child: AttachmentCard(attachment: _draggableAttachment),
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Not downloadable, so not draggable',
+          withCatalogDragOut(
+            _noStore(
+              const DraggableAttachment(
+                attachment: relativeAttachment,
+                child: AttachmentCard(attachment: relativeAttachment),
+              ),
+            ),
+          ),
         ),
       ],
     ),

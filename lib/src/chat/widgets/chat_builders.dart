@@ -21,6 +21,7 @@ import '../chat_models.dart'
         UnsupportedRequest,
         VaultKind,
         VaultRequest;
+import '../attachments/draggable_attachment.dart';
 import 'approval_card.dart';
 import 'attachment_views.dart';
 import 'clarify_card.dart';
@@ -247,9 +248,12 @@ Widget _buildText(
 Widget _buildAttachment(Map<String, dynamic>? metadata, {required bool image}) {
   final attachment = metadata?[kMetaAttachment];
   if (attachment is! ChatAttachment) return const SizedBox.shrink();
-  return image
-      ? AttachmentThumbnail(attachment: attachment)
-      : AttachmentCard(attachment: attachment);
+  return DraggableAttachment(
+    attachment: attachment,
+    child: image
+        ? AttachmentThumbnail(attachment: attachment)
+        : AttachmentCard(attachment: attachment),
+  );
 }
 
 Widget _buildCustom(
