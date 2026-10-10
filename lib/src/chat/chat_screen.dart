@@ -62,6 +62,7 @@ import 'starter_context_loader.dart';
 import 'starter_prompts.dart';
 import 'widgets/chat_app_bar.dart';
 import 'widgets/chat_thread_view.dart';
+import 'widgets/message_actions.dart' show TurnActionStatus;
 import 'widgets/chat_header.dart';
 import 'widgets/mac_chat_toolbar.dart';
 import 'widgets/thread_actions_menu.dart';
@@ -184,6 +185,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// The reply of the open thread that can be asked again: its last message,
   /// once that is a finished reply.
   final _latestReplyId = ValueNotifier<String?>(null);
+  final _turnActionStatus = ValueNotifier(TurnActionStatus.idle);
 
   StarterContextLoader? _starterLoader;
 
@@ -576,6 +578,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _composerController.dispose();
     _composerFocus.dispose();
     _latestReplyId.dispose();
+    _turnActionStatus.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
@@ -989,9 +992,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   /// are built in this one.
   void _followLatestReply(ChatThread? thread) {
     final id = latestFinishedReplyId(thread);
-    if (_latestReplyId.value == id) return;
+    final status = thread == null
+        ? TurnActionStatus.idle
+        : _chat.turnActionStatus(thread);
+    if (_latestReplyId.value == id && _turnActionStatus.value == status) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _latestReplyId.value = id;
+      if (!mounted) return;
+      _latestReplyId.value = id;
+      _turnActionStatus.value = status;
     });
   }
 
@@ -1089,6 +1099,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           starterPrompts: _showsWelcome ? _starterPrompts() : null,
           onPickStarter: _pickStarter,
           latestReplyId: _latestReplyId,
+          turnActionStatus: _turnActionStatus,
           modelPill: modelOptions == null || modelOptions.providers.isEmpty
               ? null
               : ComposerModelPill(

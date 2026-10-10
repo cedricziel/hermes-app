@@ -19,6 +19,7 @@ import '../starter_prompts.dart';
 import 'chat_builders.dart';
 import '../../voice/dictation_controller.dart';
 import 'chat_composer_builder.dart';
+import 'message_actions.dart' show TurnActionStatus;
 
 /// The id of [thread]'s last message once it is a finished reply, the one
 /// that can be asked again; null otherwise.
@@ -52,6 +53,7 @@ class ChatThreadView extends StatelessWidget {
     this.starterPrompts,
     required this.onPickStarter,
     required this.latestReplyId,
+    this.turnActionStatus,
     this.modelPill,
     this.header,
     this.onRetry,
@@ -90,6 +92,7 @@ class ChatThreadView extends StatelessWidget {
   final List<StarterPrompt>? starterPrompts;
   final ValueChanged<StarterPrompt> onPickStarter;
   final ValueListenable<String?> latestReplyId;
+  final ValueListenable<TurnActionStatus>? turnActionStatus;
   final VoidCallback? onRetry;
   final VoidCallback? onEdit;
   final Widget? modelPill;
@@ -131,6 +134,7 @@ class ChatThreadView extends StatelessWidget {
           greetingName: greetingName,
           assistantName: botContext?.title,
           latestReplyId: latestReplyId,
+          turnActionStatus: turnActionStatus,
           onRetry: onRetry,
           onEdit: onEdit,
           onLoadOlder: onLoadOlder,
