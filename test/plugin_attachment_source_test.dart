@@ -57,7 +57,7 @@ void main() {
           AttachOrigin.photos,
           AttachOrigin.camera,
         ], reason: '$platform');
-        expect(source.acceptsDropAndPaste, isFalse, reason: '$platform');
+        expect(source.acceptsDrops, isFalse, reason: '$platform');
       }
     });
 
@@ -69,7 +69,7 @@ void main() {
       ]) {
         final source = PluginAttachmentSource(platform: platform);
         expect(source.origins, [AttachOrigin.files], reason: '$platform');
-        expect(source.acceptsDropAndPaste, isTrue, reason: '$platform');
+        expect(source.acceptsDrops, isTrue, reason: '$platform');
       }
     });
   });
@@ -110,7 +110,148 @@ void main() {
     });
   });
 
+  group('pasting on a phone', () {
+    const channel = MethodChannel('hermes_app/clipboard');
+
+    void answer(Object? Function(MethodCall call) handler) {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        channel,
+        (call) async => handler(call),
+      );
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    }
+
+    test('asks the runner whether the clipboard holds files', () async {
+      final calls = <String>[];
+      answer((call) {
+        calls.add(call.method);
+        return true;
+      });
+
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+        final source = PluginAttachmentSource(platform: platform);
+        expect(await source.hasFilesToPaste(), isTrue, reason: '$platform');
+      }
+      expect(calls, ['hasFiles', 'hasFiles']);
+    });
+
+    test('a runner that cannot answer has no files', () async {
+      answer((_) => throw PlatformException(code: 'gone'));
+      final source = PluginAttachmentSource(platform: TargetPlatform.iOS);
+
+      expect(await source.hasFilesToPaste(), isFalse);
+      expect(await source.pasted(), isEmpty);
+    });
+
+    test(
+      'does not read a clipboard without files, which would prompt',
+      () async {
+        final calls = <String>[];
+        answer((call) {
+          calls.add(call.method);
+          return call.method == 'hasFiles' ? false : const [];
+        });
+        final source = PluginAttachmentSource(platform: TargetPlatform.iOS);
+
+        expect(await source.pasted(), isEmpty);
+        expect(calls, ['hasFiles']);
+      },
+    );
+
+    test('keeps the names and types the runner reports', () async {
+      answer(
+        (call) => call.method == 'hasFiles'
+            ? true
+            : [
+                {
+                  'path': '/tmp/pasted/1/Report.pdf',
+                  'name': 'Report.pdf',
+                  'mimeType': 'application/pdf',
+                },
+                {
+                  'path': '/tmp/pasted/1/pasted-1.jpeg',
+                  'mimeType': 'image/jpeg',
+                },
+                {'name': 'no path'},
+              ],
+      );
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.android,
+        clock: () => DateTime(2026, 10, 10, 9, 5, 1, 2),
+      );
+
+      final pasted = await source.pasted();
+
+      expect(pasted, [
+        const SharedFile(
+          path: '/tmp/pasted/1/Report.pdf',
+          name: 'Report.pdf',
+          mimeType: 'application/pdf',
+        ),
+        const SharedFile(
+          path: '/tmp/pasted/1/pasted-1.jpeg',
+          name: 'pasted-20261010-090501-002.jpeg',
+          mimeType: 'image/jpeg',
+          isImage: true,
+        ),
+      ]);
+    });
+
+    test('an image from the keyboard becomes a file', () async {
+      final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
+      addTearDown(() => dir.delete(recursive: true));
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.android,
+        pasteDirectory: dir,
+        clock: () => DateTime(2026, 10, 10, 9, 5, 1, 2),
+      );
+
+      final files = await source.inserted(
+        KeyboardInsertedContent(
+          mimeType: 'image/gif',
+          uri: 'content://keyboard/1',
+          data: _png,
+        ),
+      );
+
+      expect(files.single.name, 'pasted-20261010-090501-002.gif');
+      expect(files.single.isImage, isTrue);
+      expect(File(files.single.path).readAsBytesSync(), _png);
+    });
+
+    test('keyboard content without data is ignored', () async {
+      final source = PluginAttachmentSource(platform: TargetPlatform.android);
+
+      final files = await source.inserted(
+        const KeyboardInsertedContent(
+          mimeType: 'image/png',
+          uri: 'content://keyboard/1',
+        ),
+      );
+
+      expect(files, isEmpty);
+    });
+  });
+
   group('pasting', () {
+    test('desktops look at the clipboard itself', () async {
+      final source = PluginAttachmentSource(
+        platform: TargetPlatform.windows,
+        clipboardImage: () async => _png,
+        clipboardFiles: () async => const [],
+      );
+      final empty = PluginAttachmentSource(
+        platform: TargetPlatform.windows,
+        clipboardImage: () async => null,
+        clipboardFiles: () async => ['/no/such/file'],
+      );
+
+      expect(await source.hasFilesToPaste(), isTrue);
+      expect(await empty.hasFilesToPaste(), isFalse);
+    });
+
     test('an image on the clipboard becomes a timestamped png file', () async {
       final dir = await Directory.systemTemp.createTemp('hermes-paste-test');
       addTearDown(() => dir.delete(recursive: true));

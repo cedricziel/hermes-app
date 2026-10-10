@@ -22,16 +22,23 @@ abstract interface class AttachmentSource {
   /// The entries of the attach menu, in order.
   List<AttachOrigin> get origins;
 
-  /// Whether the platform lets the user drop files onto the chat and paste
-  /// them into the composer.
-  bool get acceptsDropAndPaste;
+  /// Whether the platform lets the user drop files onto the chat.
+  bool get acceptsDrops;
 
   /// Lets the user choose from [origin]. Empty when they cancel. Throws
   /// [AttachmentUnavailable] when the origin cannot be used.
   Future<List<SharedFile>> pick(AttachOrigin origin);
 
+  /// Whether the clipboard may hold an image or files, answered without
+  /// reading them: on iOS a read asks the user first.
+  Future<bool> hasFilesToPaste();
+
   /// The image or the files on the clipboard, or empty when it holds neither.
+  /// Asks [hasFilesToPaste] itself where a read would prompt.
   Future<List<SharedFile>> pasted();
+
+  /// The image a keyboard inserted into the composer, kept as a file.
+  Future<List<SharedFile>> inserted(KeyboardInsertedContent content);
 
   /// Wraps [child] so files dragged over it report through [onHover] and files
   /// dropped on it through [onDrop]. Returns [child] where drops are not
