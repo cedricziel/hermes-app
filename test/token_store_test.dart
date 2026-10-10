@@ -195,4 +195,41 @@ void main() {
       expect(await TokenStore(storage: storage).read(), isNull);
     });
   });
+
+  group('TokenStore.readState', () {
+    test('tells a stored session from an empty store', () async {
+      final found = await TokenStore(storage: _FakeStorage(value: _stored()))
+          .readState();
+      final empty = await TokenStore(storage: _FakeStorage()).readState();
+
+      expect((found as SessionFound).session.accessToken, 'access');
+      expect(empty, isA<SessionEmpty>());
+    });
+
+    test('tells a keychain that cannot be read from an empty one', () async {
+      final storage = _FakeStorage(
+        value: _stored(),
+        readError: PlatformException(code: '-25308'),
+      );
+
+      expect(
+        await TokenStore(storage: storage).readState(),
+        isA<SessionUnreadable>(),
+      );
+      expect(storage.value, _stored());
+    });
+
+    test('without repair neither saves nor clears what it reads', () async {
+      final good = _FakeStorage(value: _stored());
+      final bad = _FakeStorage(value: '{not json');
+
+      final found = await TokenStore(storage: good).readState(repair: false);
+      final empty = await TokenStore(storage: bad).readState(repair: false);
+
+      expect(found, isA<SessionFound>());
+      expect(good.writes, isEmpty);
+      expect(empty, isA<SessionEmpty>());
+      expect(bad.value, '{not json');
+    });
+  });
 }
