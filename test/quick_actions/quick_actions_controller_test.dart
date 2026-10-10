@@ -36,6 +36,7 @@ void main() {
   late RecordedEvents events;
   late BreadcrumbTrail trail;
   late QuickActionsController controller;
+  late DateTime clock;
 
   setUp(() {
     port = FakeQuickActionsPort();
@@ -45,7 +46,9 @@ void main() {
     deepLinks = DeepLinks(links: links.stream, firstFrame: firstFrame.future);
     events = RecordedEvents();
     trail = BreadcrumbTrail();
+    clock = DateTime.utc(2026);
     controller = QuickActionsController(
+      now: () => clock,
       port: port,
       store: store,
       open: deepLinks.open,
@@ -132,6 +135,30 @@ void main() {
     });
   });
 
+  test('a write that arrives while the stored one is read wins', () async {
+    final gated = GatedStorage();
+    final racing = SurfaceSnapshotStore(storage: gated);
+    final other = QuickActionsController(
+      port: port,
+      store: racing,
+      open: deepLinks.open,
+    );
+    addTearDown(() async {
+      await other.dispose();
+      await racing.dispose();
+    });
+
+    final started = other.start();
+    await Future<void>.delayed(Duration.zero);
+    await racing.write(snapshot([chat('2', 'Fresh', 2)]));
+    gated.release(snapshot([chat('1', 'Stale', 1)]).encode());
+    await started;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(titles(), ['New Chat', 'Dictate', 'Fresh']);
+    expect(port.sets, hasLength(1));
+  });
+
   group('picking', () {
     setUp(() async {
       await controller.start();
@@ -174,6 +201,24 @@ void main() {
       port.pick(typeOf('New Chat'));
 
       expect(deepLinks.pending?.cold, isFalse);
+    });
+
+    test('a launch item delivered twice runs once', () {
+      port.pick(typeOf('New Chat'));
+      deepLinks.take();
+      port.pick(typeOf('New Chat'));
+
+      expect(deepLinks.pending, isNull);
+      expect(events.named('quick_action.used'), hasLength(1));
+    });
+
+    test('the same item picked again later runs again', () {
+      port.pick(typeOf('New Chat'));
+      deepLinks.take();
+      clock = clock.add(const Duration(seconds: 3));
+      port.pick(typeOf('New Chat'));
+
+      expect(deepLinks.pending?.target, const NewChat());
     });
 
     test('an unknown type is ignored', () {
@@ -233,4 +278,24 @@ void main() {
       );
     });
   });
+}
+
+/// Holds back the first load, which is the controller's own read.
+class GatedStorage implements SurfaceStorage {
+  final _loaded = Completer<String?>();
+  var _loads = 0;
+
+  void release(String json) => _loaded.complete(json);
+
+  @override
+  Future<String?> load() {
+    if (_loads++ == 0) return _loaded.future;
+    return Future.value();
+  }
+
+  @override
+  Future<void> save(String json) async {}
+
+  @override
+  Future<void> reload(List<String> kinds) async {}
 }

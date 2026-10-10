@@ -37,6 +37,10 @@ Order follows the settled decision (static first). iOS shows four, so its menu h
 
 `DeepLinks.open(Uri)` is the app-level entry for links that do not come from `app_links`: it applies the same scheme check, first-link cold flag and ignore breadcrumb, and returns the pending link (null when ignored) so the controller can log the item's kind and `cold_start`. `QuickActionsController.forPlatform` returns null off iOS/Android or without a store or `DeepLinks`.
 
+### Launch items and races
+
+Android hands a launch item over twice (`onNewIntent`, then the launch action), so `_onPick` ignores the same type again within 2 s. `start()` drops the stored snapshot it reads when a write arrived while reading.
+
 ### Icons
 
 Template images `quick_new_chat`, `quick_dictate` and `quick_chat` as SVG (Material icon paths, template rendering) in `ios/Runner/Assets.xcassets`, and matching vector drawables in `android/app/src/main/res/drawable`, kept from resource shrinking in `res/raw/keep.xml` since the plugin looks them up by name. `quick_actions` cannot take SF Symbol names directly.

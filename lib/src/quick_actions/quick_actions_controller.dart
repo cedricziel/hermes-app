@@ -22,6 +22,7 @@ class QuickActionsController {
     this.ios = false,
     this.events = noopAppEventLogger,
     this.breadcrumbs = Breadcrumbs.none,
+    this.now = DateTime.now,
   });
 
   /// The app's controller, or null where there is no icon menu to fill or no
@@ -60,6 +61,14 @@ class QuickActionsController {
   final bool ios;
   final AppEventLogger events;
   final Breadcrumbs breadcrumbs;
+  final DateTime Function() now;
+
+  /// Android hands a launch item over twice (`onNewIntent`, then the launch
+  /// action), so the same type again this soon is the same pick.
+  static const _samePick = Duration(seconds: 2);
+  String? _lastType;
+  DateTime? _lastPickAt;
+  var _written = false;
 
   StreamSubscription<SurfaceSnapshot>? _writes;
   Future<void> _applying = Future.value();
@@ -73,9 +82,13 @@ class QuickActionsController {
     } on Object catch (error) {
       _failed(error);
     }
-    _writes = store.writes.listen(_enqueue);
+    _writes = store.writes.listen((snapshot) {
+      _written = true;
+      _enqueue(snapshot);
+    });
     final current = await store.read();
-    if (current != null) _enqueue(current);
+    // A write that arrived while reading is newer than what was read.
+    if (current != null && !_written) _enqueue(current);
   }
 
   void _enqueue(SurfaceSnapshot snapshot) {
@@ -98,6 +111,14 @@ class QuickActionsController {
   }
 
   void _onPick(String type) {
+    final at = now();
+    final repeated =
+        type == _lastType &&
+        _lastPickAt != null &&
+        at.difference(_lastPickAt!) < _samePick;
+    _lastType = type;
+    _lastPickAt = at;
+    if (repeated) return;
     final Uri link;
     try {
       link = Uri.parse(type);

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:quick_actions/quick_actions.dart';
 
 export 'package:quick_actions/quick_actions.dart' show ShortcutItem;
@@ -18,12 +17,6 @@ class PluginQuickActionsPort implements QuickActionsPort {
   const PluginQuickActionsPort([this._plugin = const QuickActions()]);
 
   final QuickActions _plugin;
-
-  /// Whether the platform has an icon menu this app fills.
-  static bool get supported =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.android);
 
   @override
   Future<void> initialize(void Function(String type) onPick) =>
