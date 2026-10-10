@@ -536,6 +536,19 @@ void main() {
       expect(find.text(kStarterPrompts.first), findsOneWidget);
     });
 
+    testWidgets('keeps connection details for wide windows only', (
+      tester,
+    ) async {
+      await pumpChatScreen(tester);
+      expect(find.byKey(const Key('header-connection')), findsOneWidget);
+
+      tester.view.physicalSize = const Size(400, 800);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('header-connection')), findsNothing);
+      expect(find.byKey(const Key('header-new-chat')), findsOneWidget);
+    });
+
     testWidgets('has no menu for a local draft or mock thread', (tester) async {
       await pumpChatScreen(tester);
 

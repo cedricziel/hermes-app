@@ -211,12 +211,26 @@ WidgetbookNode chatNode() => WidgetbookFolder(
     WidgetbookComponent(
       name: 'ChatHeader',
       useCases: [
-        _tool('No thread', ChatHeader(thread: null, onNewChat: () {})),
+        _tool(
+          'No thread',
+          ChatHeader(thread: null, onShowConnection: () {}, onNewChat: () {}),
+        ),
         _tool(
           'Thread on the server',
-          ChatHeader(thread: threads[0], onNewChat: () {}),
+          ChatHeader(
+            thread: threads[0],
+            onShowConnection: () {},
+            onNewChat: () {},
+          ),
         ),
-        _tool('Local thread', ChatHeader(thread: threads[2], onNewChat: () {})),
+        _tool(
+          'Local thread',
+          ChatHeader(
+            thread: threads[2],
+            onShowConnection: () {},
+            onNewChat: () {},
+          ),
+        ),
       ],
     ),
     WidgetbookComponent(
