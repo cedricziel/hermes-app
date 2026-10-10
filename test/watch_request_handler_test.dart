@@ -297,6 +297,48 @@ void main() {
       );
     });
 
+    test('names the tools a reply used before it, once each', () async {
+      server.on(
+        'GET',
+        '/api/sessions/s1/messages',
+        messageListBody('s1', [
+          messageRow(id: 1, role: 'user', content: 'What is here?'),
+          messageRow(
+            id: 2,
+            role: 'assistant',
+            content: 'Let me look.',
+            toolCalls: [functionCall('terminal', '{"command":"ls"}')],
+          ),
+          messageRow(
+            id: 3,
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              functionCall('read_file', '{"path":"a.txt"}'),
+              functionCall('terminal', '{"command":"wc a.txt"}'),
+            ],
+          ),
+          messageRow(id: 4, role: 'assistant', content: 'One file, a.txt.'),
+          messageRow(id: 5, role: 'user', content: 'Thanks'),
+          messageRow(id: 6, role: 'assistant', content: 'Any time.'),
+        ]),
+      );
+
+      final reply = await handler.handle({'op': 'messages', 'threadId': '/s1'});
+
+      final messages = (reply['messages']! as List).cast<Map>();
+      expect(
+        [for (final m in messages) m['tools']],
+        [
+          null,
+          null,
+          ['terminal', 'read_file'],
+          null,
+          null,
+        ],
+      );
+    });
+
     test('keeps only the last messages and cuts very long ones', () async {
       server.on(
         'GET',
@@ -716,6 +758,20 @@ void main() {
         'failed': false,
       });
       expect(transport.closed, isTrue);
+    });
+
+    test('names the tools the reply used', () async {
+      final pending = handler.handle({'op': 'send', 'text': 'Hello'});
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ToolStarted(name: 'terminal'))
+        ..emit(const ToolStarted(name: 'read_file'))
+        ..emit(const ToolStarted(name: 'terminal'))
+        ..emit(const ReplyCompleted('Done'))
+        ..finish();
+
+      expect((await pending)['tools'], ['terminal', 'read_file']);
     });
 
     test('says so when a successful reply has no text', () async {

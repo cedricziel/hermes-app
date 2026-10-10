@@ -140,18 +140,26 @@ class WatchRequestHandler {
     if (thread == null) return _error('bad_request');
     final repo = repository();
     if (repo == null) return _noSession();
-    final messages = [
-      for (final message in await repo.loadMessages(
-        thread.id,
-        profile: thread.profile,
-      ))
-        if (_text(message) case final text when text.isNotEmpty)
-          (message: message, text: text),
-    ];
+    final messages =
+        <({ChatMessage message, String text, List<String> tools})>[];
+    // Tools called since the last text, named on the text that follows them.
+    final used = <String>{};
+    for (final message in await repo.loadMessages(
+      thread.id,
+      profile: thread.profile,
+    )) {
+      if (message.role == ChatRole.user) used.clear();
+      final text = _text(message);
+      if (text.isNotEmpty) {
+        messages.add((message: message, text: text, tools: [...used]));
+        used.clear();
+      }
+      used.addAll(message.toolCalls.map((call) => call.name));
+    }
     return {
       'ok': true,
       'messages': [
-        for (final (:message, :text) in messages.skip(
+        for (final (:message, :text, :tools) in messages.skip(
           messages.length > messageLimit ? messages.length - messageLimit : 0,
         ))
           {
@@ -159,6 +167,7 @@ class WatchRequestHandler {
             'role': message.role == ChatRole.user ? 'user' : 'assistant',
             'content': _cut(text),
             'at': message.createdAt.millisecondsSinceEpoch ~/ 1000,
+            if (tools.isNotEmpty) 'tools': tools,
           },
       ],
     };
@@ -275,6 +284,7 @@ class WatchRequestHandler {
     String? boundId;
     var title = untitledChat;
     final streamed = StringBuffer();
+    final tools = <String>{};
     void announceEnd(ChatEvent event) {
       final id = boundId;
       if (id == null) return;
@@ -308,6 +318,8 @@ class WatchRequestHandler {
             title = named;
           case ReplyDelta(:final text):
             streamed.write(text);
+          case ToolStarted(:final name):
+            tools.add(name);
           case ReplyCompleted(:final text, :final failed):
             announceEnd(event);
             return {
@@ -315,6 +327,7 @@ class WatchRequestHandler {
               ..._threadEntry(profile, boundId),
               'text': _cut(failed ? text : _shown(text, streamed.toString())),
               'failed': failed,
+              if (tools.isNotEmpty) 'tools': [...tools],
             };
           case ApprovalRequested() ||
               ClarifyRequested() ||
