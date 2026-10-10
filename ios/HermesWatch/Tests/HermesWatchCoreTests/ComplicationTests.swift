@@ -190,6 +190,36 @@ final class ComplicationStoreTests: XCTestCase {
     XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.working)), seq: 5))
   }
 
+  func testAClockThatMovedBackIsAcceptedWhenTheHeldNumberIsADayAhead() {
+    let store = ComplicationStore(defaults: defaults)
+    let day: Int64 = 24 * 3600 * 1000
+    store.apply(.show(status(.working)), seq: 5 * day)
+
+    XCTAssertFalse(store.apply(.show(status(.ready)), seq: 5 * day - day + 1))
+    XCTAssertTrue(store.apply(.show(status(.ready)), seq: 5 * day - day - 1))
+
+    XCTAssertEqual(store.status()?.state, .ready)
+    XCTAssertTrue(store.apply(.show(status(.failed)), seq: 5 * day - day))
+  }
+
+  func testAStatusWithANewerTimeButALowerNumberIsAccepted() {
+    let store = ComplicationStore(defaults: defaults)
+    let held = ComplicationStatus(state: .working, updatedAt: Date(timeIntervalSince1970: 500), title: nil, threadId: nil)
+    let newer = ComplicationStatus(state: .ready, updatedAt: Date(timeIntervalSince1970: 600), title: nil, threadId: nil)
+    store.apply(.show(held), seq: 20)
+
+    XCTAssertTrue(store.apply(.show(newer), seq: 10))
+
+    XCTAssertEqual(store.status()?.state, .ready)
+  }
+
+  func testAStatusWithTheSameTimeAndALowerNumberIsStillLate() {
+    let store = ComplicationStore(defaults: defaults)
+    store.apply(.show(status(.ready)), seq: 20)
+
+    XCTAssertFalse(store.apply(.show(status(.working)), seq: 10))
+  }
+
   func testANumberAboveInt32IsKeptWhole() {
     let store = ComplicationStore(defaults: defaults)
     let seq = Int64(Int32.max) + 1_791_000_000_000
@@ -197,7 +227,6 @@ final class ComplicationStoreTests: XCTestCase {
 
     XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq - 1))
     XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq))
-    XCTAssertFalse(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq & 0xFFFF_FFFF))
     XCTAssertTrue(ComplicationStore(defaults: defaults).apply(.show(status(.ready)), seq: seq + 1))
   }
 

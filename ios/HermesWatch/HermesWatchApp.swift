@@ -20,8 +20,13 @@ struct HermesWatchApp: App {
     // and arrives through the session's delegate; the task is held until the
     // system has nothing more to deliver, or for a while at most.
     .backgroundTask(.watchConnectivity) {
+      // `hasContentPending` says nothing before the session is active.
       let deadline = Date().addingTimeInterval(25)
-      while WCSession.default.hasContentPending, Date() < deadline {
+      let session = WCSession.default
+      while session.activationState != .activated, Date() < deadline {
+        try? await Task.sleep(for: .milliseconds(200))
+      }
+      while session.hasContentPending, Date() < deadline {
         try? await Task.sleep(for: .milliseconds(500))
       }
     }

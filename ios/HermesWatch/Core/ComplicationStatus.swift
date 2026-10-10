@@ -83,6 +83,9 @@ struct ComplicationStore {
   static let appGroup = "group.com.cedricziel.hermesApp"
   static let key = "complication.status"
   static let seqKey = "complication.seq"
+  /// A day in milliseconds: the lead of a held number over a new one that no
+  /// delivery delay explains.
+  static let clockJump: Int64 = 24 * 3600 * 1000
 
   let defaults: UserDefaults
 
@@ -100,13 +103,29 @@ struct ComplicationStore {
   /// Stores what [update] says, unless a message with a higher [seq] was
   /// applied before it: the phone can deliver two messages out of order, and a
   /// clear is remembered so a late status does not bring the chat back. A
-  /// message without a number is always taken. Answers whether it was.
+  /// message without a number is always taken. The numbers are the phone's
+  /// clock, so a lower one is taken all the same when the held one is more
+  /// than a day ahead, or when its status is newer than the held status: the
+  /// clock moved back, and refusing it would freeze the complication. Answers
+  /// whether the message was taken.
   @discardableResult
   func apply(_ update: ComplicationUpdate, seq: Int64? = nil) -> Bool {
     if let seq {
       // A Double, since `Int` is 32 bits on the older watches and the number is
       // the clock in milliseconds; a Double holds it exactly.
-      guard seq > Int64(defaults.double(forKey: Self.seqKey)) else { return false }
+      let held = Int64(defaults.double(forKey: Self.seqKey))
+      var newer = seq > held
+      if !newer {
+        let clockMovedBack: Bool
+        switch update {
+        case .show(let status):
+          clockMovedBack = held - seq > Self.clockJump || self.status().map { status.updatedAt > $0.updatedAt } ?? false
+        case .clear:
+          clockMovedBack = held - seq > Self.clockJump
+        }
+        newer = clockMovedBack
+      }
+      guard newer else { return false }
       defaults.set(Double(seq), forKey: Self.seqKey)
     }
     switch update {
