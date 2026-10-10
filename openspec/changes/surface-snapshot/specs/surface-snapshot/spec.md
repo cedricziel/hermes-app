@@ -54,7 +54,7 @@ The snapshot SHALL list the server's profile names in `profiles`, read with the 
 
 ### Requirement: App Lock omits titles and snippets
 
-While App Lock is on, the snapshot SHALL write every chat title and thread title empty and SHALL leave out every snippet and job name. Counts, kinds, times, ids, profile names and links SHALL stay, so surfaces can still show how many chats and requests there are and open them through the app. When App Lock is turned on or off, the app SHALL rewrite the snapshot at once, without waiting for the next change, so that titles and snippets appear or disappear. When App Lock is turned off, that write SHALL include titles and snippets again.
+While App Lock is on, the snapshot SHALL write every chat title and thread title empty and SHALL leave out every snippet and job name. Counts, kinds, times, ids, profile names and links SHALL stay, so surfaces can still show how many chats and requests there are and open them through the app. When App Lock is turned on or off, the app SHALL rewrite the snapshot at once, without waiting for the next change, so that titles and snippets appear or disappear. Turning it on SHALL NOT wait for a server read, and a build that finishes afterwards SHALL respect the state at the time it is written. When App Lock is turned off, that write SHALL include titles and snippets again, for every profile.
 
 #### Scenario: App Lock on
 
@@ -68,7 +68,7 @@ While App Lock is on, the snapshot SHALL write every chat title and thread title
 
 ### Requirement: When the app writes the snapshot
 
-While the app is in front and signed in, it SHALL write the snapshot after the chat list loads, when a reply ends (completed, failed or stopped), when an open request appears, is answered, expires or is withdrawn, and when the app moves to the background. Changes in the open profile's chats SHALL be applied without an extra server request and written within a few seconds. The other profiles' chats, Kanban and schedules SHALL be read from the server at most once every five minutes while in front, and on every move to the background. A snapshot equal to the stored one SHALL NOT be written again. After each write, the app SHALL ask the system to reload the widgets that read it.
+While the app is in front and signed in, it SHALL write the snapshot after the chat list loads, when a chat is deleted or archived, when a reply ends (completed, failed or stopped), when an open request appears, is answered, expires or is withdrawn, and when the app moves to the background. Changes in the open profile's chats SHALL be applied without an extra server request and written within a few seconds. The other profiles' chats, Kanban and schedules SHALL be read from the server at most once every five minutes while in front, and on every move to the background. A snapshot equal to the stored one SHALL NOT be written again. After each write, the app SHALL ask the system to reload the widgets that read it.
 
 #### Scenario: Reply finished
 
@@ -100,7 +100,7 @@ When the user signs out, the session expires, or the user changes the server, th
 
 ### Requirement: Telemetry without content
 
-Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
+Building the snapshot SHALL record a span `surface.snapshot.build` with the trigger, the number of failed sources and the connection's server attributes. A failed write to shared storage SHALL be logged as `surface.snapshot.write_failed` with the error type, and a failed widget reload after a successful write as `surface.snapshot.reload_failed`. Neither SHALL contain titles, snippets, ids or profile names, and a failed write SHALL NOT affect the app.
 
 #### Scenario: Write fails
 

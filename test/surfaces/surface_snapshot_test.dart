@@ -169,6 +169,31 @@ void main() {
     expect(SurfaceSnapshot.fromJson(null), isNull);
   });
 
+  test('data of the wrong type reads as null', () {
+    final good = full().toJson();
+    for (final broken in <Map<String, Object?>>[
+      {...good, 'profiles': 'default'},
+      {...good, 'profile': 5},
+      {...good, 'signedIn': 'yes'},
+      {
+        ...good,
+        'recentChats': {'a': 1},
+      },
+      {...good, 'pending': 'none'},
+      {
+        ...good,
+        'schedules': {'nextRunAt': 7, 'nextJobName': 3},
+      },
+      {...good, 'updatedAt': 12},
+    ]) {
+      expect(
+        SurfaceSnapshot.fromJson(jsonEncode(broken)),
+        isNull,
+        reason: '$broken',
+      );
+    }
+  });
+
   test('a row it cannot read is skipped', () {
     final json = full().toJson()
       ..['recentChats'] = [

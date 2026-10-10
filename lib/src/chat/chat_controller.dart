@@ -787,6 +787,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
     _announcedTurns.remove(thread);
+    _touched.remove(thread);
+    _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);

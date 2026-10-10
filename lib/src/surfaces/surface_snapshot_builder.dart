@@ -8,6 +8,10 @@ import 'surface_snapshot.dart';
 /// A built snapshot and how many of its sources could not be read.
 typedef SnapshotBuild = ({SurfaceSnapshot snapshot, int sourcesFailed});
 
+/// What a job without a name of its own is called: its prompt is never used,
+/// since the snapshot must not carry what the user asked for.
+const kUnnamedJobLabel = 'Scheduled task';
+
 /// How one source answered: [value] when [ok], nothing when it failed or
 /// took too long.
 class _Read<T> {
@@ -32,12 +36,14 @@ class SurfaceSnapshotBuilder {
   final Duration timeout;
   final DateTime Function() _now;
 
+  /// [signedIn] is the caller's to say, since repositories outlive a session.
   /// [hints] are what the chat screen knows of the open profile: they stand
   /// in for a request for its chats and its open requests. Sources are read
   /// from the server only with [refreshRemote]; without it everything but the
   /// hints comes from [previous]. With [redact] chat titles, snippets and job
   /// names are left out.
   Future<SnapshotBuild> build({
+    required bool signedIn,
     SurfaceSnapshot? previous,
     ChatHints? hints,
     bool refreshRemote = false,
@@ -120,6 +126,7 @@ class SurfaceSnapshotBuilder {
 
     final snapshot = SurfaceSnapshot(
       updatedAt: now,
+      signedIn: signedIn,
       profile: openProfile,
       profiles: profiles,
       recentChats: chats,
@@ -167,6 +174,9 @@ class SurfaceSnapshotBuilder {
     return KanbanSummary(blocked: count('blocked'), review: count('review'));
   }
 
+  String _jobName(CronJob job) =>
+      job.name.trim().isEmpty ? kUnnamedJobLabel : job.name.trim();
+
   Future<ScheduleSummary?> _schedules(DateTime now, String openProfile) async {
     if (!await _repositories.cron.isAvailable()) return null;
     final jobs = await _repositories.cron.listJobs(profile: 'all');
@@ -190,13 +200,13 @@ class SurfaceSnapshotBuilder {
     }
     return ScheduleSummary(
       nextRunAt: next?.nextRunAt,
-      nextJobName: next?.title,
+      nextJobName: next == null ? null : _jobName(next),
       lastFailed: lastFailed == null
           ? null
           : FailedJob(
               profile: lastFailed.profile ?? openProfile,
               jobId: lastFailed.id,
-              name: lastFailed.title,
+              name: _jobName(lastFailed),
               at: lastFailed.lastRunAt!,
             ),
     );

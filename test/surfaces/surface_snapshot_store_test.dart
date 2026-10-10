@@ -138,6 +138,34 @@ void main() {
       expect(storage.saved, hasLength(1));
     });
 
+    test('a failing widget reload is not a failed write', () async {
+      storage.reloadFailure = StateError('no widgets');
+
+      await store.write(snapshot());
+      await store.write(snapshot(hour: 13));
+
+      expect(storage.saved, hasLength(1));
+      expect(events.named('surface.snapshot.write_failed'), isEmpty);
+      expect(events.named('surface.snapshot.reload_failed'), [
+        {'error.type': 'StateError'},
+      ]);
+    });
+
+    test('content already stored is not written again after a start', () async {
+      await store.write(snapshot());
+      final restarted = SurfaceSnapshotStore(
+        storage: storage,
+        widgetKinds: const ['Recent'],
+      );
+      addTearDown(restarted.dispose);
+
+      await restarted.write(snapshot(hour: 13));
+      await restarted.write(snapshot(profile: 'work'));
+
+      expect(storage.saved, hasLength(2));
+      expect(storage.reloads, 2);
+    });
+
     test('clear writes the signed-out form', () async {
       await store.write(snapshot());
 

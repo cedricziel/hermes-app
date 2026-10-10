@@ -89,6 +89,55 @@ void main() {
     expect(hints.threads.first.snippet, isNull);
   });
 
+  group('removing a chat', () {
+    late FakeHermesServer server;
+
+    setUp(() {
+      server = FakeHermesServer()
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([
+            sessionRow(id: 's1', title: 'Trip plan', lastActive: 1780000600),
+            sessionRow(id: 's2', title: 'Notes', lastActive: 1780000100),
+          ]),
+        )
+        ..on('DELETE', '/api/sessions/s1', {'ok': true})
+        ..on('PATCH', '/api/sessions/s2', sessionPatchBody());
+      chat = build(repository: HermesChatRepository(server.client().raw));
+    });
+
+    test('deleting one is reported without it', () async {
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.delete(chat.threads.first);
+
+      expect(triggers(), [SurfaceTrigger.threads]);
+      expect(reports.single.$2.threads.map((t) => t.id), ['s2']);
+    });
+
+    test('archiving one is reported without it', () async {
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.archive(chat.threads.last);
+
+      expect(triggers(), [SurfaceTrigger.threads]);
+      expect(reports.single.$2.threads.map((t) => t.id), ['s1']);
+    });
+
+    test('a failed delete reports nothing', () async {
+      server.on('DELETE', '/api/sessions/s1', {'detail': 'no'}, status: 500);
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.delete(chat.threads.first);
+
+      expect(reports, isEmpty);
+    });
+  });
+
   test('a finished reply is reported with its start as the snippet', () async {
     final send = await sendHello();
     reports.clear();

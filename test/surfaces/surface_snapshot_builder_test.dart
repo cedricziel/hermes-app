@@ -62,6 +62,7 @@ void main() {
     bool refreshRemote = true,
     bool redact = false,
   }) async => (await builder.build(
+    signedIn: true,
     previous: previous,
     hints: hints,
     refreshRemote: refreshRemote,
@@ -137,6 +138,7 @@ void main() {
       );
 
       final result = await builder.build(
+        signedIn: true,
         previous: previous,
         refreshRemote: true,
       );
@@ -171,6 +173,24 @@ void main() {
   });
 
   group('schedules', () {
+    test('a job without a name shows a fixed label, not its prompt', () async {
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(
+          id: 'unnamed',
+          name: '',
+          prompt: 'Email the board the secret quarterly numbers',
+          nextRunAt: '2026-10-11T08:00:00Z',
+          lastRunAt: '2026-10-09T03:00:00Z',
+          lastStatus: 'error',
+        ),
+      ]);
+
+      final schedules = (await build()).schedules!;
+
+      expect(schedules.nextJobName, 'Scheduled task');
+      expect(schedules.lastFailed!.name, 'Scheduled task');
+    });
+
     test('finds the next run and the last failed job', () async {
       server.on('GET', '/api/cron/jobs', [
         cronJobRow(
@@ -281,6 +301,7 @@ void main() {
       );
 
       final result = await builder.build(
+        signedIn: true,
         previous: previous,
         refreshRemote: true,
       );

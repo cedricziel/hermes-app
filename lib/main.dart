@@ -225,21 +225,25 @@ Future<void> main([List<String> args = const []]) async {
               : null,
           dispose: (_, store) => store?.dispose(),
         ),
-        ProxyProvider2<
+        ProxyProvider3<
           HermesRepositories?,
           SurfaceSnapshotStore?,
+          AuthController,
           SurfaceSnapshots?
         >(
           lazy: false,
-          update: (context, repositories, store, previous) {
+          update: (context, repositories, store, auth, previous) {
             if (store == null) return null;
+            // The repositories outlive a session, so the connection state
+            // says whether anyone is signed in.
             return (previous ??
                   SurfaceSnapshots(
                     store: store,
-                    signedOut: context.read<AuthController>().signedOut,
+                    signedOut: auth.signedOut,
                     appLock: context.read<AppLockController>(),
                   ))
-              ..repositories = repositories;
+              ..repositories = repositories
+              ..signedIn = auth.state == HermesConnectionState.ready;
           },
           dispose: (_, snapshots) => snapshots?.dispose(),
         ),
