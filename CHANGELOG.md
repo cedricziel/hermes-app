@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.57](https://github.com/cedricziel/hermes-app/compare/v0.1.56...v0.1.57) (2026-10-10)
+
+
+### Features
+
+* **chat:** paste images and files into the composer on iOS and Android ([#564](https://github.com/cedricziel/hermes-app/issues/564)) ([71010b3](https://github.com/cedricziel/hermes-app/commit/71010b3103db0b6f13804815952379969a5aefb7))
+* **voice:** dictate into the field, with send beside the waveform ([#566](https://github.com/cedricziel/hermes-app/issues/566)) ([29238b8](https://github.com/cedricziel/hermes-app/commit/29238b8993782ee6ee4d3f6f52efe3c8f27468e6))
+* **voice:** dictate on the device by default ([#563](https://github.com/cedricziel/hermes-app/issues/563)) ([c84bddc](https://github.com/cedricziel/hermes-app/commit/c84bddc9c1c2c6a8052d750725517e7aa2345d3f))
+
+
+### Bug Fixes
+
+* **auth:** keep the session when a refresh answer is lost ([#568](https://github.com/cedricziel/hermes-app/issues/568)) ([3762442](https://github.com/cedricziel/hermes-app/commit/376244210cdbf943abab62558af09013f21521da))
+* **design:** fix the design-sync grading defects ([#555](https://github.com/cedricziel/hermes-app/issues/555)) ([2aa45af](https://github.com/cedricziel/hermes-app/commit/2aa45af9ddf95c6c7473071107912a4511d3c0e1))
+* **design:** key grouped rows by id and confirm destructive bot actions ([#559](https://github.com/cedricziel/hermes-app/issues/559)) ([1d10632](https://github.com/cedricziel/hermes-app/commit/1d106327eeb7139351a4ecca1bc5670b076be700))
+* **settings:** restore lost details and fix search on the restyled screens ([#562](https://github.com/cedricziel/hermes-app/issues/562)) ([2aca7c8](https://github.com/cedricziel/hermes-app/commit/2aca7c89aa131fa9d10cfbcb443d895bf382c132))
+* **voice:** send only a finished dictation, and let other edits win ([#567](https://github.com/cedricziel/hermes-app/issues/567)) ([14ccab7](https://github.com/cedricziel/hermes-app/commit/14ccab798648e2c2456258ff52d41ab6d371a864))
+* **widgets:** announce choice and checkbox state, and stop cutting off error text ([#560](https://github.com/cedricziel/hermes-app/issues/560)) ([ba8fd3f](https://github.com/cedricziel/hermes-app/commit/ba8fd3fe222b48f46e035b040393f54a8532789d))
+
+
+### Documentation
+
+* **openspec:** ask every change for fitting observability ([#565](https://github.com/cedricziel/hermes-app/issues/565)) ([35c9877](https://github.com/cedricziel/hermes-app/commit/35c9877757229ee36de675e4c37612a4090f2178))
+* **skills:** treat the PR body as shared in parallel rollouts ([#558](https://github.com/cedricziel/hermes-app/issues/558)) ([8bc4f4e](https://github.com/cedricziel/hermes-app/commit/8bc4f4e3bbc59ff083a3f8632d7227345c9ad51b))
+
 ## [0.1.56](https://github.com/cedricziel/hermes-app/compare/v0.1.55...v0.1.56) (2026-10-09)
 
 
