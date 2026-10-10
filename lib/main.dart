@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,7 @@ import 'src/chat/media/media_store.dart';
 import 'src/macos/mac_window.dart';
 import 'src/network/network_signals.dart';
 import 'src/live_activities/live_activities.dart';
+import 'src/notifications/attention_notifier.dart' show appLockHidesRequests;
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
 import 'src/notifications/notification_settings.dart';
@@ -30,6 +32,7 @@ import 'src/update/github_release_store.dart';
 import 'src/voice/dictation_settings.dart';
 import 'src/voice/on_device_speech.dart';
 import 'src/watch/watch_bridge.dart';
+import 'src/watch/watch_complication.dart';
 import 'src/windows/conversation_window_app.dart';
 import 'src/windows/conversation_windows.dart';
 import 'src/windows/desktop_conversation_windows.dart';
@@ -146,6 +149,22 @@ Future<void> main([List<String> args = const []]) async {
           create: (_) => LocalNotificationService(),
           dispose: (_, service) => service.dispose(),
         ),
+        Provider<WatchComplicationStatus?>(
+          lazy: false,
+          create: (context) {
+            if (defaultTargetPlatform != TargetPlatform.iOS) return null;
+            final status = WatchComplicationStatus.overChannel(
+              const MethodChannel(WatchBridge.channelName),
+              appLock: () =>
+                  appLockHidesRequests(context.read<AppLockController>()),
+              breadcrumbs: context.read<Breadcrumbs>(),
+            );
+            context.read<AuthController>().signedOut.listen(
+              (_) => status.clear(),
+            );
+            return status;
+          },
+        ),
         // Read after the notification providers above: a provider only sees
         // the ones declared before it.
         Provider<WatchBridge?>(
@@ -158,6 +177,7 @@ Future<void> main([List<String> args = const []]) async {
             appLock: context.read<AppLockController>(),
             speech: context.read<OnDeviceSpeech>(),
             dictation: context.read<DictationSettings>(),
+            complication: context.read<WatchComplicationStatus?>(),
           )?..start(),
           dispose: (_, bridge) => bridge?.dispose(),
         ),

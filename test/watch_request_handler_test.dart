@@ -7,6 +7,7 @@ import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/chat_transport.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/notifications/attention_policy.dart';
+import 'package:hermes_app/src/watch/watch_complication.dart';
 import 'package:hermes_app/src/watch/watch_request_handler.dart';
 
 import 'support/fake_chat_transport.dart';
@@ -1383,6 +1384,143 @@ void main() {
 
       expect(reply.values.join(), isNot(contains('rm -rf')));
       expect(reply.values.join(), isNot(contains('delete files')));
+    });
+  });
+  group('complication status', () {
+    late List<Map<String, Object>> statuses;
+
+    setUp(() {
+      statuses = [];
+      handler = WatchRequestHandler(
+        repository: () => HermesChatRepository(server.client().raw),
+        transport: () => transport,
+        activeProfile: () async => profile,
+        announce: announce,
+        appLock: () => appLocked,
+        complication: WatchComplicationStatus(
+          send: (payload) async {
+            statuses.add(payload);
+            return 'complication';
+          },
+          appLock: () => appLocked,
+        ),
+      );
+    });
+
+    const approval = ApprovalRequested(
+      ApprovalRequest(
+        requestId: 'r1',
+        command: 'rm -rf build',
+        description: 'delete files',
+        choices: ['once', 'deny'],
+      ),
+    );
+
+    Future<Map<String, Object?>> send({bool waits = false}) => handler.handle({
+      'op': 'send',
+      'text': 'Hello',
+      'sendId': 'a',
+      'waits': waits,
+    });
+
+    test('a turn sent from the watch works, then has a reply ready', () async {
+      final pending = send();
+      await pumpEventQueue();
+      expect(statuses.single['state'], 'working');
+      expect(statuses.single.containsKey('threadId'), isFalse);
+
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ThreadTitled('Backup'))
+        ..emit(const ReplyDelta('Hi'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+      await pending;
+
+      expect(statuses.last, containsPair('state', 'ready'));
+      expect(statuses.last, containsPair('title', 'Backup'));
+      expect(statuses.last, containsPair('threadId', '/new-1'));
+    });
+
+    test('a chat nobody has titled is left to the watch to name', () async {
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+      await pending;
+
+      expect(statuses.last.containsKey('title'), isFalse);
+      expect(statuses.last['threadId'], '/new-1');
+    });
+
+    test('a turn that waits for an approval says so, and goes on', () async {
+      final pending = send(waits: true);
+      await pumpEventQueue();
+      final turn = transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+      await pending;
+
+      expect(statuses.last['state'], 'waiting');
+
+      turn.emit(const ReplyDelta('Deleting'));
+      await pumpEventQueue();
+      expect(statuses.last['state'], 'working');
+      expect(
+        statuses.map((s) => s.toString()).join(),
+        isNot(contains('rm -rf')),
+      );
+    });
+
+    test('a request the watch cannot answer leaves nothing to show', () async {
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(approval);
+      await pending;
+
+      final states = statuses.map((status) => status['state']);
+      expect(states, isNot(contains('waiting')));
+      expect(states.last, 'none');
+    });
+
+    test('a broken connection is a failed reply', () async {
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..fail();
+      await pending;
+
+      expect(statuses.last['state'], 'failed');
+    });
+
+    test('a stream that ends without a reply is a failed reply', () async {
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single.finish();
+      await pending;
+
+      expect(statuses.last['state'], 'failed');
+    });
+
+    test('App Lock keeps the chat off the watch', () async {
+      appLocked = true;
+      final pending = send();
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ThreadTitled('Backup'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+      await pending;
+
+      for (final status in statuses) {
+        expect(status.keys, unorderedEquals(['v', 'state', 'updatedAt']));
+      }
     });
   });
 }

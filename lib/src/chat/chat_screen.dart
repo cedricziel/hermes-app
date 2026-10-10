@@ -57,6 +57,7 @@ import '../voice/dictation_settings.dart';
 import '../voice/on_device_speech.dart';
 import '../voice/voice_recorder.dart';
 import '../voice/voice_support.dart';
+import '../watch/watch_complication.dart';
 import 'slash_command.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
 import 'starter_context_loader.dart';
@@ -258,6 +259,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           : null,
       attention: _attention,
       liveActivities: liveActivities,
+      watchStatus: _maybeRead<WatchComplicationStatus?>(),
       report: _showMessage,
       onShowChat: () => widget.onShowChat?.call(),
       onOpenJob: (target) => widget.onOpenJob?.call(target),
