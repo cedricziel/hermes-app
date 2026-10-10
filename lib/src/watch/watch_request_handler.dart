@@ -15,8 +15,8 @@ import '../notifications/attention_policy.dart';
 ///
 /// A thread id the watch sees is tied to the profile it was listed under
 /// (`<encoded profile>/<session id>`), because the same session id can exist in
-/// two profiles. The watch treats it as opaque and hands it back; a request
-/// whose profile is no longer the active one is refused as `bad_request`.
+/// two profiles. The watch treats it as opaque and hands it back, and the
+/// thread is read and continued in that profile, even after a switch.
 class WatchRequestHandler {
   WatchRequestHandler({
     required this.repository,
@@ -140,12 +140,10 @@ class WatchRequestHandler {
     if (thread == null) return _error('bad_request');
     final repo = repository();
     if (repo == null) return _noSession();
-    final profile = await activeProfile();
-    if (!thread.isIn(profile)) return _error('bad_request');
     final messages = [
       for (final message in await repo.loadMessages(
         thread.id,
-        profile: profile,
+        profile: thread.profile,
       ))
         if (_text(message) case final text when text.isNotEmpty)
           (message: message, text: text),
@@ -291,8 +289,7 @@ class WatchRequestHandler {
     }
 
     try {
-      profile = await activeProfile();
-      if (thread != null && !thread.isIn(profile)) return _error('bad_request');
+      profile = thread != null ? thread.profile : await activeProfile();
       boundId = thread?.id;
       attempt
         ?..profile = profile
@@ -362,8 +359,9 @@ class WatchRequestHandler {
     final slash = threadId.indexOf('/');
     if (slash < 0 || slash == threadId.length - 1) return null;
     try {
+      final profile = Uri.decodeComponent(threadId.substring(0, slash));
       return _Thread(
-        Uri.decodeComponent(threadId.substring(0, slash)),
+        profile.isEmpty ? null : profile,
         threadId.substring(slash + 1),
       );
     } on FormatException {
@@ -405,8 +403,7 @@ class _SendAttempt {
 class _Thread {
   const _Thread(this.profile, this.id);
 
-  final String profile;
+  /// Null for a thread listed by a server without profiles.
+  final String? profile;
   final String id;
-
-  bool isIn(String? active) => profile == (active ?? '');
 }
