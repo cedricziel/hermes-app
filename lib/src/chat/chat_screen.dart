@@ -173,9 +173,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   late final AttachmentSource _attachmentSource;
   late final ShareController _share;
 
-  /// A quote came in while the threads were loading; its new chat opens when
-  /// they are there.
-  bool _quoteChatPending = false;
+  /// A quote that waits for the threads to load.
+  ({SharedQuote quote, bool held})? _pendingQuote;
   late final AttentionNotifier _attention;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
@@ -409,10 +408,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     if (_voiceProfile?.profile != _chat.profile) _refreshVoice();
     widget.chatProfiles?.showing(_chat.profile);
     setState(() {});
-    if (_quoteChatPending && !_chat.loadingThreads) {
-      _quoteChatPending = false;
-      _startQuoteChat();
-    }
+    if (_pendingQuote != null && !_chat.loadingThreads) _deliverQuote();
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
@@ -539,23 +535,29 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }
 
   /// Puts text selected in another app, quoted, into the composer of a new
-  /// chat. Sends nothing.
+  /// chat. Sends nothing. While the threads load the quote waits, and a later
+  /// one replaces it: loading swaps the thread list, which would drop a new
+  /// chat made earlier.
   void _openQuote(SharedQuote quote, {required bool held}) {
-    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('chat.share.quote', {
-      'held': held,
-    });
-    _appendToComposer(quote.asBlockQuote, separator: '\n\n');
-    if (_chat.loadingThreads) {
-      // Loading the threads replaces them, and the new chat with them.
-      _quoteChatPending = true;
-    } else {
-      _startQuoteChat();
-    }
+    _pendingQuote = (quote: quote, held: held);
+    if (!_chat.loadingThreads) _deliverQuote();
   }
 
-  void _startQuoteChat() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _newThread();
+  void _deliverQuote() {
+    final pending = _pendingQuote;
+    if (pending == null) return;
+    _pendingQuote = null;
+    (_maybeRead<Breadcrumbs>() ?? Breadcrumbs.none)('chat.share.quote', {
+      'held': pending.held,
+    });
+    _appendToComposer(pending.quote.asBlockQuote, separator: '\n\n');
+    _handoff?.cancel();
+    // After a frame: a chat opened from a launch or a tap is set up by then.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _chat.newThreadWhenOpened();
+      if (!mounted) return;
+      _closeDrawerIfNarrow();
+      _composerFocus.requestFocus();
     });
   }
 

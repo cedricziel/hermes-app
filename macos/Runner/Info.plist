@@ -57,7 +57,9 @@
 	<string>MainMenu</string>
 	<!-- "Ask Hermes" in the Services menu: selected text opens a new chat with
 	     it quoted. No NSReturnTypes, so it also shows for read-only text, and
-	     no shortcut; users can assign one in System Settings. -->
+	     no shortcut; users can assign one in System Settings. The empty
+	     NSRequiredContext turns the service on by default; without the key
+	     macOS lists it switched off. -->
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -70,6 +72,8 @@
 			<string>askHermes</string>
 			<key>NSPortName</key>
 			<string>$(PRODUCT_NAME)</string>
+			<key>NSRequiredContext</key>
+			<dict/>
 			<key>NSSendTypes</key>
 			<array>
 				<string>NSStringPboardType</string>

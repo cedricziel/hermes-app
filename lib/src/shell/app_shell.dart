@@ -230,10 +230,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// Puts Chat in front. The chat asks for this when a notification tap or
   /// shared content lands there while another page is on screen. Screens
   /// pushed over that page (a task, board management, a job) are dismissed
-  /// too, or the user would stay on them.
+  /// too, or the user would stay on them; so are pages pushed over Chat
+  /// itself (Skills, Plugins), which would hide the new content.
   void _showChat() {
-    if (_current == _Destination.chat) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
+    if (_current == _Destination.chat) return;
     _select(_Destination.chat, cancelHandoff: false);
   }
 

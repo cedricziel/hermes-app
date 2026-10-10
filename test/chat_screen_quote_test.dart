@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
 import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/chat_open_requests.dart';
 import 'package:hermes_app/src/chat/chat_screen.dart';
 import 'package:hermes_app/src/chat/hermes_chat_repository.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
+import 'package:hermes_app/src/notifications/notification_service.dart';
 import 'package:hermes_app/src/share/share_controller.dart';
 import 'package:hermes_app/src/share/shared_item.dart';
 import 'package:hermes_app/src/telemetry/breadcrumbs.dart';
@@ -28,10 +32,12 @@ void main() {
   late FakeHermesServer server;
   late FakeChatTransport transport;
   late BreadcrumbTrail trail;
+  ChatOpenRequests? requests;
 
   setUp(() {
     SharedPreferencesAsyncPlatform.instance =
         InMemorySharedPreferencesAsync.empty();
+    requests = null;
     trail = BreadcrumbTrail(capacity: 50);
     transport = FakeChatTransport();
     server = FakeHermesServer()
@@ -45,12 +51,14 @@ void main() {
   Widget screen() => ChatScreen(
     repository: HermesChatRepository(server.client().raw),
     transport: transport,
+    openRequests: requests,
   );
 
   Future<void> pump(
     WidgetTester tester,
     ShareController share, {
     bool locked = false,
+    bool settle = true,
     List<SingleChildWidget> extra = const [],
   }) async {
     tester.view.physicalSize = const Size(1400, 900);
@@ -75,7 +83,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    if (settle) await tester.pumpAndSettle();
   }
 
   String composerText(WidgetTester tester) =>
@@ -155,6 +163,16 @@ void main() {
     await pump(tester, share);
 
     expect(composerText(tester), '> one\n>\n> two\n\n');
+  });
+
+  testWidgets('the indentation of a selection is kept', (tester) async {
+    final share = await sharing(
+      FakeShareInbox([const SharedQuote('    if (x) {\n      y();\n    }')]),
+    );
+
+    await pump(tester, share);
+
+    expect(composerText(tester), '>     if (x) {\n>       y();\n>     }\n\n');
   });
 
   testWidgets('a shortened selection ends with a line saying so', (
@@ -237,5 +255,121 @@ void main() {
     for (final crumb in trail.recent) {
       expect(crumb.toString(), isNot(contains('secret')));
     }
+  });
+
+  group('while the threads load', () {
+    /// Holds back the thread list until the returned completer is completed.
+    /// Made in the test body: a completer made in a setUp is not driven by
+    /// the test's clock.
+    Completer<void> holdThreads() {
+      final release = Completer<void>();
+      server.onRequest('GET', '/api/sessions', (_) async {
+        await release.future;
+        return (
+          status: 200,
+          body: sessionListBody([
+            sessionRow(id: 'recent', title: 'Recent chat'),
+          ]),
+        );
+      });
+      return release;
+    }
+
+    testWidgets('a second quote replaces the first', (tester) async {
+      final release = holdThreads();
+      final inbox = FakeShareInbox([const SharedQuote('first')]);
+      final share = await sharing(inbox);
+      await pump(tester, share, settle: false);
+      inbox.emit([const SharedQuote('second')]);
+      await tester.pump();
+
+      release.complete();
+      await tester.pumpAndSettle();
+
+      expect(composerText(tester), '> second\n\n');
+      expect(newChatRows(), findsNWidgets(2));
+    });
+
+    testWidgets('a chat that had to be fetched opens before the quote chat', (
+      tester,
+    ) async {
+      final release = holdThreads();
+      final fetched = Completer<void>();
+      server
+        ..onRequest('GET', '/api/sessions/old', (_) async {
+          await fetched.future;
+          return (status: 200, body: sessionRow(id: 'old', title: 'Old chat'));
+        })
+        ..on(
+          'GET',
+          '/api/sessions/old/messages',
+          messageListBody('old', [
+            messageRow(id: 1, role: 'user', content: 'from long ago'),
+          ]),
+        );
+      requests = ChatOpenRequests();
+      addTearDown(requests!.dispose);
+      final share = await sharing(
+        FakeShareInbox([const SharedQuote('selected')]),
+      );
+      requests!.request(const NotificationTarget(threadId: 'old'));
+      await pump(tester, share, settle: false);
+
+      release.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      // The chat is still being fetched: the quote chat waits for it.
+      expect(newChatRows(), findsOneWidget);
+
+      fetched.complete();
+      await tester.pumpAndSettle();
+
+      expect(sidebarRow('Old chat'), findsOneWidget);
+      expect(
+        tester.widget<ThreadSidebar>(find.byType(ThreadSidebar)).selectedId,
+        isNot('old'),
+      );
+      expect(newChatRows(), findsNWidgets(2));
+      expect(composerText(tester), '> selected\n\n');
+    });
+  });
+
+  testWidgets('a second quote reuses a new chat nothing was written in', (
+    tester,
+  ) async {
+    final inbox = FakeShareInbox();
+    final share = await sharing(inbox);
+    await pump(tester, share);
+    inbox.emit([const SharedQuote('one')]);
+    await tester.pumpAndSettle();
+
+    inbox.emit([const SharedQuote('two')]);
+    await tester.pumpAndSettle();
+
+    expect(newChatRows(), findsNWidgets(2));
+    expect(composerText(tester), '> one\n\n\n\n> two\n\n');
+  });
+
+  testWidgets('a quote after a message was sent opens another new chat', (
+    tester,
+  ) async {
+    final inbox = FakeShareInbox();
+    final share = await sharing(inbox);
+    await pump(tester, share);
+    inbox.emit([const SharedQuote('one')]);
+    await tester.pumpAndSettle();
+    await tester.enterText(composerField, 'a question');
+    await tester.tap(find.byIcon(Icons.arrow_upward));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
+
+    inbox.emit([const SharedQuote('two')]);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(composerText(tester), '> two\n\n');
+    expect(sidebarRow('a question'), findsOneWidget);
+    expect(newChatRows(), findsNWidgets(2));
+    await tester.pump(const Duration(seconds: 5));
   });
 }

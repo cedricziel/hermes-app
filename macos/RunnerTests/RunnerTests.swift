@@ -66,14 +66,15 @@ class RunnerTests: XCTestCase {
     var notified = 0
     service.notify = { notified += 1 }
 
-    XCTAssertNil(service.enqueue(from: pasteboard("  an error\nin a terminal \n")))
+    XCTAssertNil(service.enqueue(from: pasteboard("\n  \n    indented()\n  more\n \n\n")))
 
     XCTAssertEqual(notified, 1)
     let entries = service.takeQueued()
     XCTAssertEqual(entries.count, 1)
     XCTAssertEqual(entries[0]["type"] as? String, "text")
     XCTAssertEqual(entries[0]["intent"] as? String, "ask")
-    XCTAssertEqual(entries[0]["text"] as? String, "an error\nin a terminal")
+    // Only blank lines around the selection go; its indentation stays.
+    XCTAssertEqual(entries[0]["text"] as? String, "    indented()\n  more")
     XCTAssertEqual(entries[0]["truncated"] as? Bool, false)
     XCTAssertTrue(service.takeQueued().isEmpty)
   }

@@ -43,10 +43,18 @@ final class AskHermesService: NSObject {
         guard let selection = pasteboard.string(forType: .string) else {
             return drop("no_text", "Hermes needs selected text.")
         }
-        let text = selection.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty {
+        // Only blank lines at either end go; leading spaces of the first
+        // line stay, or an indented selection would be misaligned.
+        var lines = selection.components(separatedBy: .newlines)
+        let isBlank = { (line: String) in
+            line.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        while let first = lines.first, isBlank(first) { lines.removeFirst() }
+        while let last = lines.last, isBlank(last) { lines.removeLast() }
+        if lines.isEmpty {
             return drop("empty", "The selection is empty.")
         }
+        let text = lines.joined(separator: "\n")
         let truncated = text.count > Self.characterLimit
         queue.append([
             "type": "text",
