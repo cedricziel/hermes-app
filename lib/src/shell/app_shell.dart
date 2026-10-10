@@ -7,6 +7,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../handoff/handoff_controller.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
@@ -20,6 +21,8 @@ import '../chat/gateway/hermes_gateway_transport.dart';
 
 import '../chat/chat_open_requests.dart';
 import '../chat/chat_screen.dart';
+import '../deep_links/deep_link_listener.dart';
+import '../deep_links/deep_link_target.dart';
 import '../kanban/hermes_plugins_repository.dart';
 import '../macos/mac_app.dart';
 import '../macos/mac_commands.dart';
@@ -118,6 +121,19 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// A tap on a scheduled task's notification that came before the cron
   /// check was done.
   NotificationTarget? _pendingJob;
+
+  /// Whether a check has answered, one way or the other, for each tab. A
+  /// check that could not reach the server answers neither.
+  var _kanbanKnown = false;
+  var _schedulesKnown = false;
+
+  /// A link to Kanban or Schedules that came before that answer.
+  PendingDeepLink? _waitingLink;
+  DeepLinks? _deepLinks;
+  AppLockController? _appLock;
+
+  /// Whether the link being opened was kept back by App Lock.
+  var _lockHeld = false;
   StreamSubscription<void>? _showInMain;
   ConversationWindows? _windows;
 
@@ -172,6 +188,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       _windowlessChanges = MacApp.windowlessChanges.listen(_onWindowless);
     }
     _detect();
+    _deepLinks = _maybeRead<DeepLinks?>()?..addListener(_takeDeepLink);
+    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
+    // A link that came before this shell existed waited for sign-in.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _takeDeepLink(held: true),
+    );
     final windows = _windows = _maybeRead<ConversationWindows?>();
     if (windows != null) {
       windows.currentProfile = () => _chatProfiles?.current;
@@ -196,6 +218,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _deepLinks?.removeListener(_takeDeepLink);
+    _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
     _windowlessChanges?.cancel();
     _windows?.currentProfile = null;
@@ -265,24 +289,49 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _detect() async {
     final detection = ++_detection;
-    final (kanban, schedules) = await (
-      _plugins?.isKanbanEnabled() ?? Future.value(false),
-      _cron?.isAvailable() ?? Future.value(false),
-    ).wait;
+    final bool? kanban;
+    final bool? schedules;
+    try {
+      (kanban, schedules) = await (
+        _plugins?.kanbanStatus() ?? Future<bool?>.value(false),
+        _cron?.availability() ?? Future<bool?>.value(false),
+      ).wait;
+    } on Object {
+      // Neither answered; links for a tab keep waiting for the next check.
+      return;
+    }
     if (!mounted || detection != _detection) return;
-    if (kanban == _kanban && schedules == _schedules) return;
-    setState(() {
-      _kanban = kanban;
-      _schedules = schedules;
-      if (!kanban) _drop(_Destination.kanban);
-      if (!schedules) _drop(_Destination.schedules);
-    });
-    _watcher?.available = schedules;
-    _syncSchedules();
-    final pending = _pendingJob;
-    if (schedules && pending != null) {
-      _pendingJob = null;
-      _openJob(pending);
+    _kanbanKnown = kanban != null;
+    _schedulesKnown = schedules != null;
+    _applyDetection(kanban ?? false, schedules ?? false);
+  }
+
+  void _applyDetection(bool kanban, bool schedules) {
+    if (kanban != _kanban || schedules != _schedules) {
+      setState(() {
+        _kanban = kanban;
+        _schedules = schedules;
+        if (!kanban) _drop(_Destination.kanban);
+        if (!schedules) _drop(_Destination.schedules);
+      });
+      _watcher?.available = schedules;
+      _syncSchedules();
+      final pending = _pendingJob;
+      if (schedules && pending != null) {
+        _pendingJob = null;
+        _openJob(pending);
+      }
+    }
+    _releaseWaitingLink();
+  }
+
+  /// Opens the link that waited for a check, unless App Lock covers the app;
+  /// the lock's own change brings it back here.
+  void _releaseWaitingLink() {
+    if (_appLock?.covered ?? false) return;
+    if (_waitingLink case final waiting?) {
+      _waitingLink = null;
+      _openDeepLink(waiting, waited: true);
     }
   }
 
@@ -346,6 +395,86 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       target.jobId ?? '',
       profile: target.profile,
     );
+  }
+
+  /// Takes the waiting link, unless App Lock covers the app: the shell stays
+  /// mounted under the lock screen, and a link must not start anything (a
+  /// chat, the microphone) before the user is back.
+  void _takeDeepLink({bool held = false}) {
+    final deepLinks = _deepLinks;
+    if (deepLinks == null) return;
+    if (_appLock?.covered ?? false) {
+      _lockHeld = _lockHeld || deepLinks.pending != null;
+      return;
+    }
+    final waited = held || _lockHeld;
+    if (deepLinks.take() case final link?) {
+      _lockHeld = false;
+      _openDeepLink(link, waited: waited);
+    }
+    _releaseWaitingLink();
+  }
+
+  /// Shows what a `hermes://` link names. Screens pushed over the page are
+  /// closed first. Kanban and Schedules links wait for the server check that
+  /// concerns them, and are ignored by a server that answered it lacks the
+  /// tab. The breadcrumbs hold the kind and flags only, never the link.
+  void _openDeepLink(PendingDeepLink link, {required bool waited}) {
+    _waitingLink = null;
+    final target = link.target;
+    void opened() => _breadcrumbs('deeplink.opened', {
+      'kind': target.kind,
+      'cold': link.cold,
+      'waited': waited,
+    });
+    bool available({required bool known, required bool offered}) {
+      if (!known) {
+        _waitingLink = link;
+        return false;
+      }
+      if (!offered) {
+        _breadcrumbs('deeplink.ignored', {'reason': 'unavailable'});
+        return false;
+      }
+      return true;
+    }
+
+    switch (target) {
+      case OpenChat(:final profile, :final threadId, :final prompt):
+        opened();
+        _openRequests.request(
+          NotificationTarget(threadId: threadId, profile: profile),
+          prompt: prompt,
+          fromLink: true,
+        );
+        _showChat();
+      case NewChat(:final profile, :final dictate, :final prompt):
+        opened();
+        _openRequests.requestNew(
+          profile: profile,
+          prompt: prompt,
+          dictate: dictate,
+        );
+        _showChat();
+      case OpenRequests():
+        opened();
+        _openRequests.requestOldestPending();
+        _showChat();
+      case OpenKanban():
+        if (!available(known: _kanbanKnown, offered: _kanban)) return;
+        opened();
+        Navigator.of(context).popUntil((route) => route.isFirst);
+        _select(_Destination.kanban);
+      case OpenSchedules(:final profile, :final jobId):
+        if (!available(known: _schedulesKnown, offered: _schedules)) return;
+        opened();
+        if (jobId != null) {
+          _openJob(NotificationTarget.job(jobId: jobId, profile: profile));
+        } else {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          _select(_Destination.schedules);
+        }
+    }
   }
 
   void _openRun(CronRun run, CronJob job) {

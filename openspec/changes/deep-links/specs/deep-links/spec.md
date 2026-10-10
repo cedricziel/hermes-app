@@ -35,7 +35,7 @@ The existing `hermes-activity` and `hermes-share` schemes SHALL keep their behav
 
 ### Requirement: Opening a chat
 
-A `chat` link SHALL open that chat the same way opening a run of a scheduled task does: it SHALL switch to the link's profile when it differs, SHALL fetch the chat when the loaded pages do not hold it, and SHALL show "Could not open that chat." when the chat cannot be found or the profile cannot be loaded. A `prompt` SHALL be put into that chat's composer, cut to 4000 characters, and SHALL NOT be sent; when the chat cannot be opened the prompt SHALL be dropped.
+A `chat` link SHALL open that chat the same way opening a run of a scheduled task does: it SHALL switch to the link's profile when it differs, SHALL fetch the chat when the loaded pages do not hold it, and SHALL show "Could not open that chat." when the chat cannot be found or the profile cannot be loaded. A `prompt` SHALL be added to that chat's composer under any draft already there, cut to 4000 characters, and SHALL NOT be sent; when the chat cannot be opened the prompt SHALL be dropped.
 
 #### Scenario: Older chat
 
@@ -54,7 +54,7 @@ A `chat` link SHALL open that chat the same way opening a run of a scheduled tas
 
 ### Requirement: Starting a new chat
 
-A `new` link SHALL start a new chat, in the link's profile when given. A `prompt` SHALL be put into the composer and SHALL NOT be sent; text longer than 4000 characters SHALL be cut to 4000. `dictate=1` (or `true`) SHALL start dictation when the composer offers the microphone for that profile and SHALL be ignored otherwise.
+A `new` link SHALL start a new chat, in the link's profile when given. A `prompt` SHALL be added to the composer under any draft already there and SHALL NOT be sent; text longer than 4000 characters SHALL be cut to 4000. `dictate=1` (or `true`) SHALL start dictation when the composer offers the microphone for that profile and SHALL be ignored otherwise.
 
 #### Scenario: Prompt prefilled, not sent
 
@@ -73,7 +73,7 @@ A `new` link SHALL start a new chat, in the link's profile when given. A `prompt
 
 ### Requirement: Opening the oldest request
 
-A `requests` link SHALL open the chat holding the open approval, question or input request that was raised first among the chats the app has loaded. When the app knows of no open request it SHALL show the chat list without opening a chat.
+A `requests` link SHALL open the chat holding the open approval, question or input request that was raised first among the chats the app has loaded, judged by when the reply holding the request began. When the app knows of no open request it SHALL show the chat list without opening a chat: on a phone it SHALL close the open chat and open the chat drawer, and where the list is always on screen it SHALL leave things as they are.
 
 #### Scenario: Two chats waiting
 
@@ -87,7 +87,7 @@ A `requests` link SHALL open the chat holding the open approval, question or inp
 
 ### Requirement: Links wait for sign-in and feature checks
 
-A link that arrives while nobody is signed in SHALL be kept and applied after sign-in completes; only the latest such link SHALL be kept, and signing out SHALL drop it. A `kanban` or `schedules` link that arrives before the app has learned whether the server offers that tab SHALL be applied once it knows. A link SHALL NOT bypass App Lock: its target SHALL be shown once the app is unlocked.
+A link that arrives while nobody is signed in SHALL be kept and applied after sign-in completes; only the latest such link SHALL be kept, and signing out SHALL drop it. A `kanban` or `schedules` link that arrives before the app has learned whether the server offers that tab SHALL be applied once it knows. A link SHALL NOT bypass App Lock: nothing it asks for (a chat, the microphone) SHALL start until the app is unlocked. A `kanban` or `schedules` link SHALL also keep waiting when the check could not reach the server.
 
 #### Scenario: Link on the sign-in screen
 
@@ -101,7 +101,7 @@ A link that arrives while nobody is signed in SHALL be kept and applied after si
 
 ### Requirement: Ignored links
 
-The app SHALL ignore, without any message to the user, a link with an unknown host, a `chat` link without `id`, a link of another scheme reaching the handler, and a `kanban` or `schedules` link when the server does not offer that tab. Unknown query parameters SHALL be ignored and SHALL NOT make a link invalid.
+The app SHALL ignore, without any message to the user, a link with an unknown host, a `chat` link without `id`, a link of another scheme reaching the handler (without a breadcrumb), a link with an invalid percent escape, and a `kanban` or `schedules` link when the server does not offer that tab. Unknown query parameters SHALL be ignored and SHALL NOT make a link invalid.
 
 #### Scenario: Unknown target
 
@@ -135,3 +135,21 @@ Deep links SHALL use only routes the app already calls to open their targets (`G
 
 - **WHEN** the app is connected to the oldest Hermes it supports
 - **THEN** every link kind works as described
+
+### Requirement: Links only reach profiles that exist
+
+A `chat` or `new` link whose `profile` is not one of the server's profiles SHALL be treated as having no profile, so it uses the current one; the app SHALL NOT switch to, or create a session in, a profile that does not exist.
+
+#### Scenario: Unknown profile
+
+- **WHEN** the user opens `hermes://new?profile=ghost&prompt=Hi` and the server has no profile `ghost`
+- **THEN** a new chat opens in the current profile with "Hi" in the composer
+
+### Requirement: Links bring the right window forward on macOS
+
+A `chat` link SHALL focus the conversation window that shows the chat when there is one; otherwise, and for `new` and `requests`, the main window SHALL come back if it was hidden.
+
+#### Scenario: Chat with a window
+
+- **WHEN** the chat has a conversation window and the user opens its `chat` link
+- **THEN** that window comes to the front and the main window stays as it was

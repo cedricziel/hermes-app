@@ -871,3 +871,23 @@ it on the real window; a widget test only reaches the fake.
   the next double-click still opens it.
 - Relaunch after leaving a file in the cache for more than a day (set its mtime
   back with `touch -t`): it is gone after launch.
+
+## Verify a `hermes://` link
+
+Open the link the way another app would, with the app running and with it
+quit (a cold start), against an isolated backend:
+
+- macOS: `open 'hermes://chat?profile=default&id=<threadId>'`. A dev build is
+  registered by launching it once; `lsregister -dump | grep -i hermes://` shows
+  which build owns the scheme when several are installed.
+- iOS simulator: `xcrun simctl openurl booted 'hermes://new?prompt=Hello%20there'`.
+
+Check each kind from `openspec/specs/deep-links`: `chat` (also an id older
+than the first page, and one that is gone: "Could not open that chat."),
+`new` with `prompt` (composer filled, nothing sent) and with `dictate=1`,
+`requests` (the chat of the oldest open request, else the chat list),
+`kanban` and `schedules` (with `job=<id>`), and a malformed link such as
+`hermes://memory` (nothing happens). A link opened on the sign-in screen is
+applied after sign-in. With App Lock on, the chat is open behind the lock
+screen. With telemetry on, the breadcrumbs `deeplink.opened` and
+`deeplink.ignored` appear in a crash record and hold no URL, id or prompt.

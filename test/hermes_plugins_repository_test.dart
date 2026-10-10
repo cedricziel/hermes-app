@@ -47,4 +47,24 @@ void main() {
 
     expect(await repository.isKanbanEnabled(), isFalse);
   });
+
+  group('kanbanStatus', () {
+    test(
+      'tells a plugin that is off from a server that could not answer',
+      () async {
+        server.on('GET', '/api/dashboard/plugins', [plugin('achievements')]);
+        expect(await repository.kanbanStatus(), isFalse);
+
+        server.on('GET', '/api/dashboard/plugins', {
+          'detail': 'x',
+        }, status: 404);
+        expect(await repository.kanbanStatus(), isFalse);
+
+        server.on('GET', '/api/dashboard/plugins', {
+          'detail': 'x',
+        }, status: 500);
+        expect(await repository.kanbanStatus(), isNull);
+      },
+    );
+  });
 }

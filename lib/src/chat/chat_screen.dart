@@ -270,6 +270,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         text: draft,
         selection: TextSelection.collapsed(offset: draft.length),
       ),
+      onDraft: _draftFromLink,
     )..addListener(_changed);
     if (_chat.repository case final repository?) {
       final auth = _maybeRead<AuthController>();
@@ -482,6 +483,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _syncDock();
     setState(() {});
     if (_pendingQuote != null && !_chat.loadingThreads) _deliverQuote();
+    if (_whenLoaded != null && !_chat.loadingThreads) _runWhenLoaded();
     WidgetsBinding.instance.addPostFrameCallback((_) => _advertise());
     _onComposerText();
     if (!_chat.loadingThreads && _showsWelcome) _refreshStarter();
@@ -569,17 +571,132 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _chat.open(target, fetchMissing: false);
   }
 
-  /// Another destination asked for a session. Unlike a notification tap, it
-  /// is fetched when the loaded threads do not hold it, on its own profile.
+  /// Another destination asked for something. Unlike a notification tap, a
+  /// session is fetched when the loaded threads do not hold it, on its own
+  /// profile.
   void _onOpenRequest() {
     final request = widget.openRequests?.takeRequest();
     if (request == null) return;
     _handoff?.cancel();
-    if (request.bot case final bot?) {
-      unawaited(_chat.openBot(bot));
-    } else {
-      _chat.open(request.target, fetchMissing: true);
+    // The latest request wins over any earlier one still waiting or running.
+    final link = ++_linkSeq;
+    _whenLoaded = null;
+    switch (request) {
+      case OpenSessionRequest(:final bot?):
+        unawaited(_chat.openBot(bot));
+      case OpenSessionRequest(:final target, :final prompt, fromLink: true):
+        unawaited(_openLinkedChat(target, prompt, link));
+      case OpenSessionRequest(:final target, :final prompt):
+        _chat.open(target, fetchMissing: true, prompt: prompt);
+      case NewChatRequest():
+        _afterThreadsLoad(() => _openNewChat(request, link));
+      case OldestPendingRequest():
+        _afterThreadsLoad(_openOldestRequest);
     }
+  }
+
+  /// Counts the requests taken, so work for an earlier one can tell it was
+  /// overtaken.
+  var _linkSeq = 0;
+
+  /// Work a link asked for on the thread list. Loading replaces that list and
+  /// would drop a new chat made meanwhile, so it waits for the load to end.
+  Future<void> Function()? _whenLoaded;
+
+  void _afterThreadsLoad(Future<void> Function() work) {
+    _whenLoaded = work;
+    if (!_chat.loadingThreads) _runWhenLoaded();
+  }
+
+  void _runWhenLoaded() {
+    final work = _whenLoaded;
+    _whenLoaded = null;
+    if (work != null) unawaited(work());
+  }
+
+  /// A chat from a link. A profile the server lacks is ignored. A chat that
+  /// has a window of its own is shown there; otherwise the main window comes
+  /// back if it was hidden, and the chat opens in it.
+  Future<void> _openLinkedChat(
+    NotificationTarget target,
+    String? prompt,
+    int link,
+  ) async {
+    final profile = await _chat.knownProfile(target.profile);
+    if (!mounted || link != _linkSeq) return;
+    final windows = _windows;
+    if (windows?.windowFor(target.threadId, profile ?? _chat.profile)
+        case final window?) {
+      if (await windows!.focus(window.windowId)) return;
+      if (!mounted || link != _linkSeq) return;
+    }
+    unawaited(windows?.showMainWindow());
+    _chat.open(
+      NotificationTarget(threadId: target.threadId, profile: profile),
+      fetchMissing: true,
+      prompt: prompt,
+    );
+  }
+
+  /// A new chat from a link: in its profile if the server has it, with its
+  /// text in the composer, sending nothing, and with dictation running when
+  /// asked for and offered.
+  Future<void> _openNewChat(NewChatRequest request, int link) async {
+    bool overtaken() => !mounted || link != _linkSeq;
+    unawaited(_windows?.showMainWindow());
+    widget.onShowChat?.call();
+    final profile = await _chat.knownProfile(request.profile);
+    if (overtaken()) return;
+    if (profile != null &&
+        _chat.repository != null &&
+        profile != _chat.profile) {
+      await _chat.loadThreads(profile);
+      if (overtaken()) return;
+      if (_chat.profile != profile) {
+        _showMessage('Could not switch profile');
+        return;
+      }
+    }
+    await _chat.newThreadWhenOpened();
+    if (overtaken()) return;
+    _closeDrawerIfNarrow();
+    if (request.prompt case final prompt?) _appendToComposer(prompt);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _composerFocus.requestFocus();
+    });
+    final dictation = _dictation;
+    if (!request.dictate || dictation == null) return;
+    await dictation.refresh();
+    // The lock may have come on during the waits above.
+    final covered = _maybeRead<AppLockController>()?.covered ?? false;
+    if (!overtaken() && !covered && dictation.controller.available) {
+      unawaited(dictation.controller.start());
+    }
+  }
+
+  /// The chat holding the request that has waited longest, else the chat
+  /// list: the drawer on a phone, the sidebar that is already there when wide.
+  Future<void> _openOldestRequest() async {
+    unawaited(_windows?.showMainWindow());
+    if (_chat.openOldestRequest()) return;
+    widget.onShowChat?.call();
+    if (hasMacSidebar(context)) {
+      final sidebar = MacSidebarScope.read(context);
+      if (isMacCompact(context) && sidebar != null && !sidebar.overlayOpen) {
+        sidebar.toggle(compact: true);
+      }
+    } else if (!isWideLayout(context)) {
+      _chat.clearSelection();
+      _scaffoldKey.currentState?.openDrawer();
+    }
+  }
+
+  /// Text from a link goes under what is typed, so a draft is not lost.
+  void _draftFromLink(String text) {
+    _appendToComposer(text);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _composerFocus.requestFocus();
+    });
   }
 
   /// The menu bar item asks for a chat; opening it puts the chat screen in

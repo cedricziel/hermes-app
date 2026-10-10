@@ -61,6 +61,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     this.onOpened,
     this.onPrefill,
     this.onSurfaceChange,
+    this.onDraft,
     this.breadcrumbs = Breadcrumbs.none,
   }) {
     final repository = this.repository;
@@ -123,6 +124,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// Told when the chat list loaded, a reply ended or an input request
   /// opened, closed or expired, with what the system surfaces show of it.
   final void Function(SurfaceTrigger trigger, ChatHints hints)? onSurfaceChange;
+
+  /// Adds text from a link to the composer, under what is typed there. It is
+  /// never sent.
+  final ValueChanged<String>? onDraft;
 
   /// Notes what the user did, for a crash report. It is never given text,
   /// titles, profile names or ids.
@@ -215,6 +220,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   /// session the loaded threads do not hold, unlike a notification tap.
   bool _pendingFetch = false;
 
+  /// The text a link brought with the held tap, for its composer once the
+  /// chat is open.
+  String? _pendingTapPrompt;
+
   ChatThread? get selectedThread {
     for (final thread in _threads) {
       if (thread.id == _selectedId) return thread;
@@ -252,8 +261,10 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       final held = _pendingTap;
       final fetchHeld = held != null && _pendingFetch;
       final launch = held ?? launched;
+      final heldPrompt = _pendingTapPrompt;
       _pendingTap = null;
       _pendingFetch = false;
+      _pendingTapPrompt = null;
       final threads = housekeeping!.begin(first);
       // Another profile can hold a different session under the same id.
       _stopFollowing();
@@ -298,10 +309,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
         if (held == null) onShowChat?.call();
         if (_selectedId != launch.threadId) {
           if (fetchHeld) {
-            _opening = _openMissing(launch);
+            _opening = _openMissing(launch, prompt: heldPrompt);
           } else {
             _failOpen();
           }
+        } else if (heldPrompt != null) {
+          onDraft?.call(heldPrompt);
         }
       }
       if (_selectedId != null) {
@@ -539,20 +552,27 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       target != null && (target.profile == null || target.profile == profile);
 
   /// Opens the chat [target] names. With [fetchMissing] one the loaded
-  /// threads do not hold is fetched, on its own profile.
-  void open(NotificationTarget target, {required bool fetchMissing}) {
+  /// threads do not hold is fetched, on its own profile. A [prompt] goes to
+  /// the composer once the chat is open, and is dropped when it cannot be.
+  void open(
+    NotificationTarget target, {
+    required bool fetchMissing,
+    String? prompt,
+  }) {
     final generation = ++_openGeneration;
     breadcrumbs('chat.open.requested', {'fetch_missing': fetchMissing});
     onShowChat?.call();
     if (_loadingThreads) {
       _pendingTap = target;
       _pendingFetch = fetchMissing;
+      _pendingTapPrompt = prompt;
     } else if (_isOnProfile(target, _profile) &&
         _threads.any((t) => t.id == target.threadId)) {
       select(target.threadId);
       onOpened?.call();
+      if (prompt != null) onDraft?.call(prompt);
     } else if (fetchMissing) {
-      _opening = _openMissing(target, generation: generation);
+      _opening = _openMissing(target, generation: generation, prompt: prompt);
     } else {
       _failOpen();
     }
@@ -563,6 +583,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
   Future<void> _openMissing(
     NotificationTarget target, {
     int? generation,
+    String? prompt,
   }) async {
     generation ??= _openGeneration;
     final repository = this.repository;
@@ -587,9 +608,50 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       }
       select(target.threadId);
       onOpened?.call();
+      if (prompt != null) onDraft?.call(prompt);
     } on Object {
       if (!disposed) _failOpen();
     }
+  }
+
+  /// [profile] if the server has it, else null (and a note), so a link never
+  /// moves the chat to a profile that does not exist. The current profile and
+  /// a chat with no profiles to ask are taken as they are; a profile list that
+  /// cannot be read counts as not knowing the profile.
+  Future<String?> knownProfile(String? profile) async {
+    final profiles = this.profiles;
+    if (profile == null || profile == _profile || profiles == null) {
+      return profile;
+    }
+    try {
+      if ((await profiles.list()).any((p) => p.name == profile)) return profile;
+    } on Object {
+      // Falls through: an unreadable list cannot vouch for the profile.
+    }
+    breadcrumbs('deeplink.ignored', {'reason': 'unknown_profile'});
+    return null;
+  }
+
+  /// Opens the chat whose open approval, question or input request was
+  /// raised first, judged by when its reply began, among the loaded chats.
+  /// False when no loaded chat holds one.
+  bool openOldestRequest() {
+    ChatThread? oldest;
+    DateTime? since;
+    for (final thread in _threads) {
+      for (final message in thread.messages) {
+        if (!message.awaitingInput) continue;
+        if (since == null || message.createdAt.isBefore(since)) {
+          oldest = thread;
+          since = message.createdAt;
+        }
+      }
+    }
+    if (oldest == null) return false;
+    onShowChat?.call();
+    select(oldest.id);
+    onOpened?.call();
+    return true;
   }
 
   Future<bool> restoreHandoff(
