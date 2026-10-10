@@ -85,12 +85,12 @@ final class ConversationModel {
         guard Date() < deadline else { throw HermesClientError.failed }
         waited = true
         threadId = result.threadId ?? threadId
-      handoff = result.handoff ?? handoff
+        handoff = result.handoff ?? handoff
         phase = waiting == .working ? .sending : .waiting(waiting)
         result = try await client.send(threadId: threadId, text: text, sendId: sendId, retry: true)
       }
       threadId = result.threadId ?? threadId
-        handoff = result.handoff ?? handoff
+      handoff = result.handoff ?? handoff
       if result.failed {
         guard currentSend == attempt else { return }
         let reason = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
