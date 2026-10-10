@@ -16,9 +16,9 @@ The watch target generates its Info.plist, which cannot express an array through
 
 ## Where the fields come from
 
-`WatchRequestHandler` gets a `serverUrl` callback (`HandoffActivity.server(auth.baseUrl)` in `handlerFor`). `threads` and `messages` already know the profile they used. When either is missing or blank the fields are omitted, so the watch advertises nothing rather than something the receiver would reject.
+`WatchRequestHandler` gets a `serverUrl` callback (`HandoffActivity.server(auth.baseUrl)` in `handlerFor`). `threads` already knows the profile it listed under. When either is missing or blank the fields are omitted, so the watch advertises nothing rather than something the receiver would reject.
 
-`threads` carries them per chat because the list is what the user picks from and the watch caches it (`ThreadSummary` is `Codable`; the new optional field decodes from old caches). `messages` carries them once per answer so a chat opened from a stale or partial cache gets them when the phone answers. The watch keeps the target on its conversation model, from the list row first and the messages answer after.
+They are per chat in the `threads` answer because the list is what the user picks from and the watch caches it (`ThreadSummary` is `Codable`; the new optional field decodes from old caches). The row's target travels with the navigation route into the conversation model, which only keeps it for an existing chat. The `messages` answer stays as it is: a second source would need the client protocol changed for no gain, since a chat is always opened from a listed row.
 
 ## Relation to open changes
 

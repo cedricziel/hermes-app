@@ -24,7 +24,7 @@ The system SHALL let the watch app read and send chats by asking the paired phon
 
 ### Requirement: Handoff from a watch chat
 
-The phone SHALL add `serverUrl` (the canonical server address), `profile` and `sessionId` (the raw session id, not the bound thread id) to each chat of a `threads` answer and once to a `messages` answer, and SHALL leave all three out when it has no server address or no profile. While a chat that has them is open, the watch SHALL advertise an activity of the Handoff type the apps declare (`HERMES_HANDOFF_TYPE`) whose user info is the apps' version 1 payload (`version`, `serverUrl`, `profile`, `threadId` = the session id), and SHALL withdraw it when the chat closes. The activity SHALL carry no title text beyond the generic one, no message text and no credentials. A chat without the fields SHALL NOT be advertised.
+The phone SHALL add `serverUrl` (the canonical server address), `profile` and `sessionId` (the raw session id, not the bound thread id) to each chat of a `threads` answer, and SHALL leave all three out when it has no server address or no profile. While a chat that has them is open, the watch SHALL advertise an activity of the Handoff type the apps declare (`HERMES_HANDOFF_TYPE`) whose user info is the apps' version 1 payload (`version`, `serverUrl`, `profile`, `threadId` = the session id), and SHALL withdraw it when the chat closes. The activity SHALL carry no title text beyond the generic one, no message text and no credentials. A chat without the fields SHALL NOT be advertised.
 
 #### Scenario: Open a listed chat
 
