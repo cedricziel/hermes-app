@@ -24,7 +24,10 @@ void main() {
     settings = SpotlightSettings();
   });
 
-  Future<void> openAccountMenu(WidgetTester tester) async {
+  Future<void> openAccountMenu(
+    WidgetTester tester, {
+    bool tooltip = true,
+  }) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -47,7 +50,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Account'));
+    if (tooltip) await tester.tap(find.byTooltip('Account'));
     await tester.pumpAndSettle();
   }
 
@@ -97,8 +100,18 @@ void main() {
     testWidgets('has no Spotlight entry on Android', (tester) async {
       await openAccountMenu(tester);
 
+      expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Spotlight'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
+
+    testWidgets('has no Spotlight entry on macOS', (tester) async {
+      await openAccountMenu(tester, tooltip: false);
+      await tester.tap(find.byKey(const Key('mac-account-footer')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings…'), findsOneWidget);
+      expect(find.text('Spotlight'), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
 
   group('the Settings dialog', () {
