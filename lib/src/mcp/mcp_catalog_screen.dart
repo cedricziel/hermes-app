@@ -273,10 +273,8 @@ class _CatalogRow extends StatelessWidget {
     ].join(' · ');
     return GroupedRow(
       title: entry.name,
-      leading: ExcludeSemantics(
-        child: GroupedTile(
-          child: Text(entry.name.characters.first.toUpperCase()),
-        ),
+      leading: GroupedTile(
+        child: Text(entry.name.characters.first.toUpperCase()),
       ),
       subtitle: entry.description.isEmpty ? null : entry.description,
       caption: facts.isEmpty ? null : facts,

@@ -294,6 +294,7 @@ class _ContextSection extends StatelessWidget {
             GroupedRow(
               title: options.isEmpty ? 'None' : options.first.name,
               subtitle: 'No other context engines are available on this server',
+              subtitleMaxLines: null,
             )
           else
             for (final option in options)

@@ -88,9 +88,12 @@ class InstallButton extends StatelessWidget {
       return FilledButton.tonal(
         onPressed: onPressed,
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 28),
+          // The density takes 4 pt off both, leaving a 28 pt pill that
+          // answers taps across 44 pt.
+          minimumSize: const Size(0, 32),
+          visualDensity: const VisualDensity(horizontal: -1, vertical: -1),
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          tapTargetSize: MaterialTapTargetSize.padded,
           shape: const StadiumBorder(),
           textStyle: text?.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
         ),
@@ -104,7 +107,10 @@ class InstallButton extends StatelessWidget {
         padding: mac
             ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)
             : const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        // Taps reach the 32 dp pill across 48 dp; a Mac takes clicks.
+        tapTargetSize: mac
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         visualDensity: mac ? VisualDensity.compact : null,
         shape: mac
             ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))

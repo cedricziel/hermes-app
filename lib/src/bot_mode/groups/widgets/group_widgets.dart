@@ -166,40 +166,34 @@ class _MemberRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = ExcludeSemantics(
-      child: apple
-          ? AppIcon(
-              AppIcons.check,
-              size: 17,
-              color: checked
-                  ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
-            )
-          : SizedBox.square(
-              dimension: _checkboxSize,
-              child: Checkbox(
-                value: checked,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-                onChanged: enabled
-                    ? (value) => onChanged(value ?? false)
-                    : null,
-              ),
+    final Widget mark = apple
+        ? AppIcon(
+            AppIcons.check,
+            size: 17,
+            color: checked
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+          )
+        : SizedBox.square(
+            dimension: _checkboxSize,
+            child: Checkbox(
+              value: checked,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              onChanged: enabled ? (value) => onChanged(value ?? false) : null,
             ),
-    );
-    return Semantics(
-      checked: checked,
-      enabled: enabled,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.45,
-        child: GroupedRow(
-          title: member.displayName ?? member.profile,
-          subtitle: '@${member.handle}',
-          leading: apple ? null : mark,
-          trailing: apple ? mark : null,
-          chevron: false,
-          onTap: enabled ? () => onChanged(!checked) : null,
-        ),
+          );
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GroupedRow(
+        title: member.displayName ?? member.profile,
+        subtitle: '@${member.handle}',
+        leading: apple ? null : mark,
+        trailing: apple ? mark : null,
+        chevron: false,
+        checked: checked,
+        enabled: enabled,
+        onTap: () => onChanged(!checked),
       ),
     );
   }

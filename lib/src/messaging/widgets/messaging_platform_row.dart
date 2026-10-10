@@ -64,7 +64,10 @@ class _SetUpButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        // Taps reach the pill across 48 dp; a Mac takes clicks.
+        tapTargetSize: mac
+            ? MaterialTapTargetSize.shrinkWrap
+            : MaterialTapTargetSize.padded,
         visualDensity: VisualDensity.standard,
         padding: mac
             ? const EdgeInsets.symmetric(horizontal: 10, vertical: 3)

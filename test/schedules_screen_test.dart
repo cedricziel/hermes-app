@@ -318,6 +318,13 @@ void main() {
       await tester.tap(find.text('Morning brief'));
       await tester.pumpAndSettle();
 
+      // The failure wraps in the status group, so the history is further
+      // down.
+      await tester.scrollUntilVisible(
+        find.textContaining('blocked this task'),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('No runs yet'), findsNothing);
       expect(find.textContaining('blocked this task'), findsOneWidget);
       expect(find.textContaining('[blocked_config'), findsNothing);

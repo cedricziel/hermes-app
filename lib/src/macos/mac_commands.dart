@@ -13,6 +13,7 @@ enum MacCommand {
   newChat,
   openInNewWindow,
   closeWindow,
+  back,
   toggleSidebar,
   toggleInspector,
   find,

@@ -43,6 +43,10 @@ WidgetbookNode settingsChromeNode() => WidgetbookFolder(
           'Tiles, captions and errors',
           (context) => _list(_tileSections(context)),
         ),
+        ...onEachPlatform(
+          'Long text and a disabled row',
+          (_) => _list(_longTextSections()),
+        ),
       ],
     ),
     WidgetbookComponent(
@@ -156,6 +160,60 @@ List<Widget> _tileSections(BuildContext context) => [
         leading: const GroupedTile(child: AppIcon(AppIcons.chat)),
         value: true,
         onChanged: (_) {},
+      ),
+    ],
+  ),
+];
+
+List<Widget> _longTextSections() => [
+  GroupedSection(
+    header: 'Wrapping',
+    children: [
+      GroupedSwitchRow(
+        title: 'Telegram',
+        subtitle: 'Talk to Hermes from Telegram',
+        error:
+            'Unauthorized: the bot token was revoked in BotFather, so '
+            'Hermes cannot sign in until you paste a new one',
+        leading: const GroupedTile(child: AppIcon(AppIcons.bot)),
+        value: true,
+        onChanged: (_) {},
+      ),
+      GroupedRow(
+        title: 'weather-lookup',
+        warning:
+            'Needs Hermes 0.9 or newer; the connected server runs 0.7.2, '
+            'so the plugin stays off until the server is updated',
+        value: 'Off',
+        onTap: () {},
+      ),
+      GroupedRow(
+        title: 'search_issues',
+        subtitle:
+            'Search issues and pull requests across every repository the '
+            'token can read, with GitHub search qualifiers',
+        subtitleMaxLines: null,
+        value: '1.2k',
+      ),
+    ],
+  ),
+  GroupedSection(
+    header: 'Shortened',
+    children: [
+      GroupedRow(
+        title: 'Platforms',
+        value: 'macOS, Linux, Windows, iOS, Android, FreeBSD',
+        onTap: () {},
+      ),
+      Opacity(
+        opacity: 0.45,
+        child: GroupedRow(
+          leading: const AppIcon(AppIcons.speed),
+          title: 'Estimate the work',
+          chevron: false,
+          enabled: false,
+          onTap: () {},
+        ),
       ),
     ],
   ),

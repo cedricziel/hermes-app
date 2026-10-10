@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_app/src/macos/mac_commands.dart';
 import 'package:hermes_app/src/macos/mac_menu_bar.dart';
 import 'package:hermes_app/src/macos/mac_window.dart';
+import 'package:hermes_app/src/widgets/settings_scaffold.dart';
 
 /// Answers the menu channel as the macOS engine does and keeps the last menu
 /// hierarchy the app set.
@@ -173,6 +176,68 @@ void main() {
     expect(channel.labels('Chat'), contains('Unpin'));
     await channel.select('File', 'New Chat');
     expect(created, 1);
+  }, variant: mac);
+
+  testWidgets('View > Back leaves a settings page', (tester) async {
+    final channel = await pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  const SettingsScaffold(title: 'Plugins', body: Text('body')),
+            ),
+          ),
+          child: const Text('Open'),
+        ),
+      ),
+    );
+    expect(channel.enabled('View', 'Back'), isFalse);
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(channel.enabled('View', 'Back'), isTrue);
+    expect(channel.item('View', 'Back')['shortcutTrigger'], isNotNull);
+
+    await channel.select('View', 'Back');
+    await tester.pumpAndSettle();
+    expect(find.text('body'), findsNothing);
+    expect(channel.enabled('View', 'Back'), isFalse);
+  }, variant: mac);
+
+  testWidgets('View > Back waits while a dialog covers the settings page', (
+    tester,
+  ) async {
+    final channel = await pump(
+      tester,
+      Builder(
+        builder: (context) => TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) =>
+                  const SettingsScaffold(title: 'Plugins', body: Text('body')),
+            ),
+          ),
+          child: const Text('Open'),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    unawaited(
+      showDialog<void>(
+        context: tester.element(find.text('body')),
+        builder: (_) => const AlertDialog(content: Text('dialog')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(channel.enabled('View', 'Back'), isFalse);
+
+    Navigator.of(tester.element(find.text('dialog'))).pop();
+    await tester.pumpAndSettle();
+    expect(channel.enabled('View', 'Back'), isTrue);
+    expect(find.text('body'), findsOneWidget);
   }, variant: mac);
 
   testWidgets('sets no menu bar off macOS', (tester) async {

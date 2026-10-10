@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../macos/mac_commands.dart';
 import '../macos/mac_toolbar.dart';
 import '../macos/mac_window.dart';
 import '../shell/shell_navigation.dart';
@@ -217,62 +218,71 @@ class SettingsScaffold extends StatelessWidget {
   Widget _mac(BuildContext context) {
     final tabs = this.tabs;
     final search = this.search;
-    return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          MacToolbar(
-            title: title,
-            subtitle: subtitle,
-            subtitleBuilder: subtitleMenu?._button,
-            // A page pushed over the whole window sits under the title bar.
-            clearTrafficLights:
-                MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
-            leading: Navigator.canPop(context)
-                ? MacToolbarButton(
-                    key: const Key('settings-back'),
-                    label: 'Back',
-                    shortcut: '⌘[',
-                    icon: AppIcons.chevronLeft,
-                    onPressed: () => Navigator.maybePop(context),
-                  )
-                : null,
-            actions: [
-              // Both shrink rather than overflow in a narrow window.
-              if (tabs != null)
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: MacToolbarTabs(
-                      controller: tabController,
-                      labels: tabs,
+    final canPop = Navigator.canPop(context);
+    void back() => Navigator.maybePop(context);
+    // With a dialog or sheet over the page, ⌘[ would close that instead.
+    final inFront = ModalRoute.of(context)?.isCurrent ?? true;
+    return MacCommandScope(
+      commands: {
+        if (canPop && inFront) MacCommand.back: MacCommandHandler(back),
+      },
+      child: Scaffold(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            MacToolbar(
+              title: title,
+              subtitle: subtitle,
+              subtitleBuilder: subtitleMenu?._button,
+              // A page pushed over the whole window sits under the title bar.
+              clearTrafficLights:
+                  MacWindow.enabled && MediaQuery.paddingOf(context).top > 0,
+              leading: canPop
+                  ? MacToolbarButton(
+                      key: const Key('settings-back'),
+                      label: 'Back',
+                      shortcut: '⌘[',
+                      icon: AppIcons.chevronLeft,
+                      onPressed: back,
+                    )
+                  : null,
+              actions: [
+                // Both shrink rather than overflow in a narrow window.
+                if (tabs != null)
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: MacToolbarTabs(
+                        controller: tabController,
+                        labels: tabs,
+                      ),
                     ),
                   ),
-                ),
-              if (search != null)
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: SettingsSearchField(search: search),
+                if (search != null)
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: SettingsSearchField(search: search),
+                    ),
                   ),
-                ),
-              if ((tabs != null || search != null) && actions.isNotEmpty)
-                const MacToolbarSeparator(),
-              for (final action in actions) _macAction(action),
-              if (formAction case final formAction?) ...[
-                const SizedBox(width: 4),
-                formAction._mac(context),
+                if ((tabs != null || search != null) && actions.isNotEmpty)
+                  const MacToolbarSeparator(),
+                for (final action in actions) _macAction(action),
+                if (formAction case final formAction?) ...[
+                  const SizedBox(width: 4),
+                  formAction._mac(context),
+                ],
               ],
-            ],
-          ),
-          Expanded(
-            child: MediaQuery.removePadding(
-              context: context,
-              removeTop: true,
-              child: body,
             ),
-          ),
-        ],
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: body,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

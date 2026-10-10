@@ -216,6 +216,13 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
       menus: [
         group([
           item(
+            MacCommand.back,
+            'Back',
+            shortcut: _meta(LogicalKeyboardKey.bracketLeft),
+          ),
+        ]),
+        group([
+          item(
             MacCommand.toggleSidebar,
             'Show Sidebar',
             shortcut: _meta(LogicalKeyboardKey.keyS, control: true),

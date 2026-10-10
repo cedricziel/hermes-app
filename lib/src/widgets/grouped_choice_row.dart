@@ -56,7 +56,10 @@ class GroupedChoiceRow<T> extends StatelessWidget {
       leading: apple ? null : radio,
       trailing: apple ? radio : null,
       chevron: false,
-      onTap: enabled && group != null ? () => group.onChanged(value) : null,
+      checked: group?.groupValue == value,
+      inMutuallyExclusiveGroup: true,
+      enabled: enabled,
+      onTap: group == null ? null : () => group.onChanged(value),
     );
   }
 }
