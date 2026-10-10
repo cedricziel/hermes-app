@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_otel/flutter_otel.dart' show BreadcrumbTrail;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_app/src/app_lock/app_lock_controller.dart';
+import 'package:hermes_app/src/app_lock/app_lock_gate.dart';
 import 'package:hermes_app/src/auth/auth_controller.dart';
+import 'package:hermes_app/src/chat/widgets/chat_composer.dart';
 import 'package:hermes_app/src/chat/widgets/thread_sidebar.dart';
 import 'package:hermes_app/src/deep_links/deep_link_listener.dart';
 import 'package:hermes_app/src/kanban/hermes_plugins_repository.dart';
@@ -17,6 +20,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 
 import '../support/cron_fixtures.dart';
+import '../support/fake_device_authenticator.dart';
 import '../support/fake_hermes_server.dart';
 import '../support/fake_share_inbox.dart';
 import '../support/pump_chat.dart';
@@ -82,6 +86,7 @@ void main() {
     WidgetTester tester, {
     bool settle = true,
     Size size = const Size(1400, 900),
+    AppLockController? lock,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -97,9 +102,14 @@ void main() {
           ),
           ChangeNotifierProvider<DeepLinks?>.value(value: startDeepLinks()),
           Provider<Breadcrumbs>.value(value: Breadcrumbs.of(trail)),
+          if (lock != null)
+            ChangeNotifierProvider<AppLockController>.value(value: lock),
         ],
         child: MaterialApp(
           theme: buildHermesLightTheme(),
+          builder: lock == null
+              ? null
+              : (context, child) => AppLockGate(child: child!),
           home: AppShell(
             plugins: HermesPluginsRepository(server.client().raw),
             cron: HermesCronRepository(server.client().raw),
@@ -357,6 +367,88 @@ void main() {
         [for (final c in trail.recent) '${c.name} ${c.attributes}'].join(),
         isNot(contains('secret')),
       );
+    });
+  });
+
+  group('app lock', () {
+    testWidgets('holds a link, dictation included, until the app is unlocked', (
+      tester,
+    ) async {
+      kanbanPlugin(on: false);
+      cronRoutes(on: false);
+      final device = FakeDeviceAuthenticator();
+      late AppLockController lock;
+      await tester.runAsync(() async {
+        final first = AppLockController(authenticator: device);
+        await first.load();
+        await first.setEnabled(true);
+        first.dispose();
+        device.succeeds = false;
+        lock = AppLockController(authenticator: device);
+        await lock.load();
+      });
+      addTearDown(lock.dispose);
+      await pumpShell(tester, lock: lock);
+      expect(lock.locked, isTrue);
+
+      await open(tester, 'hermes://new?dictate=1&prompt=Private');
+
+      expect(deepLinks?.pending, isNotNull);
+      expect(crumbs(), isEmpty);
+      final covered = find.descendant(
+        of: find.byKey(chatComposerFieldKey, skipOffstage: false),
+        matching: find.byType(EditableText, skipOffstage: false),
+      );
+      expect(tester.widget<EditableText>(covered).controller.text, isEmpty);
+
+      device.succeeds = true;
+      await tester.tap(find.text('Unlock'));
+      await tester.pumpAndSettle();
+
+      expect(deepLinks?.pending, isNull);
+      expect(composerText(tester), 'Private');
+      expect(crumbs(), [
+        'deeplink.opened {kind: new, cold: false, waited: true}',
+      ]);
+    });
+  });
+
+  group('a server that could not be asked', () {
+    testWidgets('keeps a Kanban link until a check answers', (tester) async {
+      server.on('GET', '/api/dashboard/plugins', {'detail': 'x'}, status: 503);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+
+      await open(tester, 'hermes://kanban');
+      expect(selectedTab(tester), 0);
+      expect(crumbs(), isEmpty);
+
+      kanbanPlugin(on: true);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 1);
+      expect(crumbs(), [
+        'deeplink.opened {kind: kanban, cold: false, waited: true}',
+      ]);
+    });
+
+    testWidgets('ignores a link once the server says it lacks the tab', (
+      tester,
+    ) async {
+      server.on('GET', '/api/dashboard/plugins', {'detail': 'x'}, status: 503);
+      cronRoutes(on: false);
+      await pumpShell(tester);
+      await open(tester, 'hermes://kanban');
+
+      kanbanPlugin(on: false);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(selectedTab(tester), 0);
+      expect(crumbs(), ['deeplink.ignored {reason: unavailable}']);
     });
   });
 }

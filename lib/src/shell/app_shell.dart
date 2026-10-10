@@ -7,6 +7,7 @@ import 'package:hermes_app/src/theme/breakpoints.dart';
 import 'package:provider/provider.dart';
 
 import '../api/hermes_repositories.dart';
+import '../app_lock/app_lock_controller.dart';
 import '../auth/auth_controller.dart';
 import '../handoff/handoff_controller.dart';
 import '../bot_mode/bot_mode_chat_repository.dart';
@@ -121,12 +122,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   /// check was done.
   NotificationTarget? _pendingJob;
 
-  /// Whether the first Kanban and Schedules check has answered.
-  var _detected = false;
+  /// Whether a check has answered, one way or the other, for each tab. A
+  /// check that could not reach the server answers neither.
+  var _kanbanKnown = false;
+  var _schedulesKnown = false;
 
   /// A link to Kanban or Schedules that came before that answer.
   PendingDeepLink? _waitingLink;
   DeepLinks? _deepLinks;
+  AppLockController? _appLock;
+
+  /// Whether the link being opened was kept back by App Lock.
+  var _lockHeld = false;
   StreamSubscription<void>? _showInMain;
   ConversationWindows? _windows;
 
@@ -182,6 +189,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
     _detect();
     _deepLinks = _maybeRead<DeepLinks?>()?..addListener(_takeDeepLink);
+    _appLock = _maybeRead<AppLockController>()?..addListener(_takeDeepLink);
     // A link that came before this shell existed waited for sign-in.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _takeDeepLink(held: true),
@@ -211,6 +219,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _deepLinks?.removeListener(_takeDeepLink);
+    _appLock?.removeListener(_takeDeepLink);
     _showInMain?.cancel();
     _windowlessChanges?.cancel();
     _windows?.currentProfile = null;
@@ -280,12 +289,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Future<void> _detect() async {
     final detection = ++_detection;
-    final (kanban, schedules) = await (
-      _plugins?.isKanbanEnabled() ?? Future.value(false),
-      _cron?.isAvailable() ?? Future.value(false),
-    ).wait;
+    final bool? kanban;
+    final bool? schedules;
+    try {
+      (kanban, schedules) = await (
+        _plugins?.kanbanStatus() ?? Future<bool?>.value(false),
+        _cron?.availability() ?? Future<bool?>.value(false),
+      ).wait;
+    } on Object {
+      // Neither answered; links for a tab keep waiting for the next check.
+      return;
+    }
     if (!mounted || detection != _detection) return;
-    _detected = true;
+    _kanbanKnown = kanban != null;
+    _schedulesKnown = schedules != null;
+    _applyDetection(kanban ?? false, schedules ?? false);
+  }
+
+  void _applyDetection(bool kanban, bool schedules) {
     if (kanban != _kanban || schedules != _schedules) {
       setState(() {
         _kanban = kanban;
@@ -369,15 +390,27 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     );
   }
 
+  /// Takes the waiting link, unless App Lock covers the app: the shell stays
+  /// mounted under the lock screen, and a link must not start anything (a
+  /// chat, the microphone) before the user is back.
   void _takeDeepLink({bool held = false}) {
-    if (_deepLinks?.take() case final link?) _openDeepLink(link, waited: held);
+    final deepLinks = _deepLinks;
+    if (deepLinks == null) return;
+    if (_appLock?.covered ?? false) {
+      _lockHeld = _lockHeld || deepLinks.pending != null;
+      return;
+    }
+    final waited = held || _lockHeld;
+    if (deepLinks.take() case final link?) {
+      _lockHeld = false;
+      _openDeepLink(link, waited: waited);
+    }
   }
 
   /// Shows what a `hermes://` link names. Screens pushed over the page are
-  /// closed first. App Lock sits above the shell, so a link never skips it.
-  /// Kanban and Schedules links wait for the server check, and are ignored
-  /// by a server that lacks the tab. The breadcrumbs hold the kind and flags
-  /// only, never the link.
+  /// closed first. Kanban and Schedules links wait for the server check that
+  /// concerns them, and are ignored by a server that answered it lacks the
+  /// tab. The breadcrumbs hold the kind and flags only, never the link.
   void _openDeepLink(PendingDeepLink link, {required bool waited}) {
     _waitingLink = null;
     final target = link.target;
@@ -386,8 +419,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       'cold': link.cold,
       'waited': waited,
     });
-    bool available(bool offered) {
-      if (!_detected) {
+    bool available({required bool known, required bool offered}) {
+      if (!known) {
         _waitingLink = link;
         return false;
       }
@@ -420,12 +453,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         _openRequests.requestOldestPending();
         _showChat();
       case OpenKanban():
-        if (!available(_kanban)) return;
+        if (!available(known: _kanbanKnown, offered: _kanban)) return;
         opened();
         Navigator.of(context).popUntil((route) => route.isFirst);
         _select(_Destination.kanban);
       case OpenSchedules(:final profile, :final jobId):
-        if (!available(_schedules)) return;
+        if (!available(known: _schedulesKnown, offered: _schedules)) return;
         opened();
         if (jobId != null) {
           _openJob(NotificationTarget.job(jobId: jobId, profile: profile));
