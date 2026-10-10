@@ -60,7 +60,13 @@ final class ConversationModel {
         return
       }
       messages.append(
-        ChatMessage(id: "local-\(UUID().uuidString)", role: .assistant, content: result.text, at: Date())
+        ChatMessage(
+          id: "local-\(UUID().uuidString)",
+          role: .assistant,
+          content: result.text,
+          at: Date(),
+          tools: result.tools
+        )
       )
       phase = .idle
     } catch {

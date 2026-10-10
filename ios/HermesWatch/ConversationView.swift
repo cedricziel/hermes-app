@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ConversationView: View {
   @State var model: ConversationModel
+  /// The chat's title; nil for a new chat.
+  var title: String?
   var startRecording = false
   @State private var draft = ""
   @State private var recorder = VoiceRecorder()
@@ -13,17 +15,17 @@ struct ConversationView: View {
         // long messages the jump to the composer lands past the content on a
         // blank screen.
         VStack(alignment: .leading, spacing: 8) {
-          if model.phase == .loading {
-            ProgressView()
+          if model.phase == .loading, model.messages.isEmpty {
+            ProgressView().frame(maxWidth: .infinity)
           }
           ForEach(model.messages) { message in
             MessageBubble(message: message).id(message.id)
           }
           if model.phase == .transcribing {
-            Text("Transcribing…").foregroundStyle(.secondary)
+            WorkingRow(text: "Transcribing…")
           }
           if model.phase == .sending {
-            Text("Hermes is thinking…").foregroundStyle(.secondary)
+            WorkingRow(text: "Hermes is thinking…")
           }
           if case .failed(let error) = model.phase {
             ErrorView(error: error) { Task { await retry() } }
@@ -35,7 +37,7 @@ struct ConversationView: View {
         withAnimation { proxy.scrollTo("composer") }
       }
     }
-    .navigationTitle("Chat")
+    .navigationTitle(title ?? "New Chat")
     .navigationBarTitleDisplayMode(.inline)
     .task {
       if startRecording { await recorder.start() }
@@ -108,16 +110,43 @@ struct ConversationView: View {
   }
 }
 
+/// The user's messages sit in a bubble on the right; Hermes' replies run
+/// across the screen as text, with the tools it used above them.
 private struct MessageBubble: View {
   let message: ChatMessage
 
   var body: some View {
-    Text(message.content)
-      .padding(8)
-      .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
-      .background(
-        message.role == .user ? Color.accentColor.opacity(0.35) : Color.gray.opacity(0.25),
-        in: RoundedRectangle(cornerRadius: 10)
-      )
+    switch message.role {
+    case .user:
+      HStack {
+        Spacer(minLength: 20)
+        Text(message.content)
+          .padding(.horizontal, 10)
+          .padding(.vertical, 6)
+          .background(Color.accentColor.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+      }
+    case .assistant:
+      VStack(alignment: .leading, spacing: 4) {
+        if !message.tools.isEmpty {
+          Label(message.tools.joined(separator: ", "), systemImage: "wrench.and.screwdriver")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+        }
+        Text(WatchMarkdown.attributed(message.content))
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+}
+
+private struct WorkingRow: View {
+  let text: String
+
+  var body: some View {
+    HStack(spacing: 6) {
+      ProgressView().frame(width: 18, height: 18)
+      Text(text).foregroundStyle(.secondary)
+    }
   }
 }

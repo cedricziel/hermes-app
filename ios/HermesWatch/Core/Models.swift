@@ -17,6 +17,8 @@ struct ChatMessage: Identifiable, Equatable {
   let role: Role
   let content: String
   let at: Date
+  /// The tools Hermes called since the text before this one.
+  var tools: [String] = []
 }
 
 struct SendResult: Equatable {
@@ -25,4 +27,5 @@ struct SendResult: Equatable {
   let text: String
   /// The turn ended in an error and [text] is the message.
   let failed: Bool
+  var tools: [String] = []
 }
