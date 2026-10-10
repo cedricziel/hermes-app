@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:hermes_app/src/drag_out/drag_out_item.dart';
+import 'package:hermes_app/src/drag_out/drag_out_source.dart';
 import 'package:hermes_app/src/chat/chat_models.dart';
 import 'package:hermes_app/src/chat/thread_search.dart';
 import 'package:hermes_app/src/chat/widgets/mac_chat_toolbar.dart';
@@ -16,6 +20,7 @@ import 'package:hermes_app/src/widgets/adaptive_popup_menu_button.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'catalog_auth.dart';
+import 'catalog_drag_out_source.dart';
 import 'fixtures.dart';
 import 'frame.dart';
 import 'host.dart';
@@ -151,6 +156,22 @@ WidgetbookNode macSidebarNode() => WidgetbookFolder(
         _case(
           'Selected and working',
           () => frame(_row(selected: true, busy: true), maxWidth: 260),
+        ),
+        _case(
+          'Draggable to Finder as a .md file (hover shows the name)',
+          () => withCatalogDragOut(
+            frame(
+              DragOut(
+                kind: DragOutKind.thread,
+                item: () => DragOutFile(
+                  name: 'Plan the release.md',
+                  read: () async => Uint8List(0),
+                ),
+                child: _row(selected: false),
+              ),
+              maxWidth: 260,
+            ),
+          ),
         ),
       ],
     ),

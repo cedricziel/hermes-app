@@ -755,3 +755,18 @@ hand when it does.
   `drag_out.completed` event with `outcome: failed` is logged (with telemetry
   on).
 - Clean up what you dropped on the Desktop.
+
+### Text and chats
+
+- Hover a finished reply and a sent message: a grip appears at the top end;
+  none on a reply that is still streaming. Drag the grip into a text app
+  (TextEdit, Notes): the Markdown source is inserted; drop it on a Finder
+  window: no file. Selecting text in the message still works.
+- Drag a chat row of the sidebar onto the Desktop: `<title>.md` holds
+  `# <title>` and the same Markdown as Copy transcript. Use a chat longer than
+  100 messages that was never opened, so the unloaded pages are read, and
+  compare with Copy transcript. A chat with a title like `../x: y` lands as a
+  safe name. Select, double-click, right-click and the hover buttons of the row
+  still work.
+- Stop the backend and drag a chat: no file appears, and with telemetry on a
+  `drag_out.completed` event says `kind: thread`, `failure: history`.

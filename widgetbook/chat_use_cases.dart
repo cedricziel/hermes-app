@@ -20,6 +20,7 @@ import 'package:hermes_app/src/chat/widgets/chat_header.dart';
 import 'package:hermes_app/src/chat/widgets/clarify_card.dart';
 import 'package:hermes_app/src/chat/chat_reply.dart' show kReplyFailedMessage;
 import 'package:hermes_app/src/chat/widgets/message_actions.dart';
+import 'package:hermes_app/src/chat/widgets/message_drag_grip.dart';
 import 'package:hermes_app/src/chat/widgets/reply_error_note.dart';
 import 'package:hermes_app/src/chat/widgets/queued_prompts.dart';
 import 'package:hermes_app/src/chat/widgets/reasoning_block.dart';
@@ -453,6 +454,52 @@ WidgetbookNode chatNode() => WidgetbookFolder(
               ),
             ),
             onPick: (_) {},
+          ),
+        ),
+      ],
+    ),
+    WidgetbookComponent(
+      name: 'MessageDragGrip',
+      useCases: [
+        _tool(
+          'Finished reply (hover for the grip)',
+          withCatalogDragOut(
+            const MessageDragGrip(
+              text: 'The build finished.\n\n- 42 tests passed',
+              child: SizedBox(
+                width: double.infinity,
+                height: 72,
+                child: Text('The build finished.\n\n- 42 tests passed'),
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Sent message (hover for the grip)',
+          withCatalogDragOut(
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              color: Colors.black12,
+              child: const MessageDragGrip(
+                text: 'Run the tests again',
+                child: Text('Run the tests again'),
+              ),
+            ),
+          ),
+        ),
+        _tool(
+          'Streaming reply, no grip',
+          const SizedBox(
+            width: double.infinity,
+            height: 72,
+            child: Text('The build is still runn'),
+          ),
+        ),
+        _tool(
+          'Where drag-out does not exist, no grip',
+          const MessageDragGrip(
+            text: 'The build finished.',
+            child: Text('The build finished.'),
           ),
         ),
       ],

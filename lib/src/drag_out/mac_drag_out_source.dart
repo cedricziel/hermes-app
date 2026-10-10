@@ -140,7 +140,7 @@ class MacDragOutSource implements DragOutSource {
       telemetry.completed(
         drag.kind,
         DragOutOutcome.failed,
-        failure: DragOutFailure.fetch,
+        failure: file.failure,
       );
       throw PlatformException(code: 'fetch');
     }
@@ -154,7 +154,7 @@ class MacDragOutSource implements DragOutSource {
     telemetry.completed(
       drag.kind,
       DragOutOutcome.failed,
-      failure: DragOutFailure.fetch,
+      failure: drag.file?.failure ?? DragOutFailure.fetch,
     );
   }
 
