@@ -54,7 +54,7 @@ The snapshot SHALL list the server's profile names in `profiles`, read with the 
 
 ### Requirement: App Lock omits titles and snippets
 
-While App Lock is on, the snapshot SHALL write every chat title and thread title empty and SHALL leave out every snippet and job name. Counts, kinds, times, ids, profile names and links SHALL stay, so surfaces can still show how many chats and requests there are and open them through the app. When App Lock is turned off, the next write SHALL include titles and snippets again.
+While App Lock is on, the snapshot SHALL write every chat title and thread title empty and SHALL leave out every snippet and job name. Counts, kinds, times, ids, profile names and links SHALL stay, so surfaces can still show how many chats and requests there are and open them through the app. When App Lock is turned on or off, the app SHALL rewrite the snapshot at once, without waiting for the next change, so that titles and snippets appear or disappear. When App Lock is turned off, that write SHALL include titles and snippets again.
 
 #### Scenario: App Lock on
 
