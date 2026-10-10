@@ -28,6 +28,7 @@ import '../support/fake_media_actions.dart';
 import '../support/screenshot_recorder.dart';
 import '../support/workflow_app.dart';
 import '../support/pump_chat.dart';
+import '../support/wait_until.dart';
 
 const _unbrokenWord =
     'Supercalifragilisticexpialidocious_Supercalifragilisticexpialidocious_'
@@ -501,10 +502,7 @@ void main() {
       await shots.capture(tester, 'file-downloading');
 
       gate.complete();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 200)),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
+      await waitUntil(tester, () => actions.opened.isNotEmpty);
       expect(actions.opened, hasLength(1));
 
       await tester.runAsync(() async {
