@@ -14,6 +14,7 @@ import '../network/network_signals.dart';
 import '../telemetry/telemetry.dart';
 import 'connect_failure.dart';
 import 'native_login_flow.dart';
+import 'page_token.dart';
 import 'token_store.dart';
 
 enum HermesConnectionState {
@@ -40,14 +41,13 @@ enum HermesConnectionState {
   connectionError,
 }
 
-const _prefsBaseUrlKey = 'hermes.server_base_url';
+/// The shared-preferences key the connected server's address is saved under.
+const kSavedServerUrlKey = 'hermes.server_base_url';
 
 const _unexpectedResponseMessage = 'Unexpected response from the server';
 
-const _sessionTokenHeader = 'X-Hermes-Session-Token';
-
 /// Dev/test override: `flutter run --dart-define=HERMES_SERVER_URL=<url>`.
-const _devServerUrlDefine = String.fromEnvironment('HERMES_SERVER_URL');
+const kDevServerUrlDefine = String.fromEnvironment('HERMES_SERVER_URL');
 
 /// App-wide auth/connection state machine. Owns the authenticated [Dio]
 /// client (token attach + transparent refresh via
@@ -68,7 +68,7 @@ class AuthController extends ChangeNotifier {
        _tokenStore =
            tokenStore ?? TokenStore(events: telemetry(const {}).events),
        _prefs = prefs ?? SharedPreferencesAsync(),
-       _devServerUrl = devServerUrl ?? _devServerUrlDefine,
+       _devServerUrl = devServerUrl ?? kDevServerUrlDefine,
        _network = networkSignals {
     _networkChanges = _network.changes.listen((_) => _retryUnreachable());
   }
@@ -123,7 +123,7 @@ class AuthController extends ChangeNotifier {
   Dio? _tokenDio;
 
   /// The page's session token of a dashboard without the auth gate.
-  _PageToken? _pageToken;
+  PageToken? _pageToken;
   HermesApiClient? _api;
   Future<HermesSession>? _refreshInFlight;
   Completer<void>? _signInCancel;
@@ -169,7 +169,7 @@ class AuthController extends ChangeNotifier {
       await connect(_devServerUrl, remember: false, restoring: true);
       return;
     }
-    final savedUrl = await _prefs.getString(_prefsBaseUrlKey);
+    final savedUrl = await _prefs.getString(kSavedServerUrlKey);
     if (savedUrl == null || savedUrl.isEmpty) {
       _setState(HermesConnectionState.needsServerUrl);
       return;
@@ -189,7 +189,7 @@ class AuthController extends ChangeNotifier {
   }) async {
     final generation = ++_connectGeneration;
     bool stale() => generation != _connectGeneration;
-    final typed = _normalizeUrl(rawUrl);
+    final typed = normalizeServerUrl(rawUrl);
     if (typed == null) {
       _errorMessage =
           'Enter a valid http(s) URL, e.g. http://192.168.1.20:9119';
@@ -242,7 +242,7 @@ class AuthController extends ChangeNotifier {
       await _writeSavedServer(() async {
         if (stale()) return;
         _savedServerUrl = normalized;
-        await _prefs.setString(_prefsBaseUrlKey, normalized);
+        await _prefs.setString(kSavedServerUrlKey, normalized);
       });
       if (stale()) return;
     }
@@ -482,7 +482,7 @@ class AuthController extends ChangeNotifier {
     _savedServerUrl = null;
     _session = null;
     await _tokenStore.clear();
-    await _writeSavedServer(() => _prefs.remove(_prefsBaseUrlKey));
+    await _writeSavedServer(() => _prefs.remove(kSavedServerUrlKey));
     _baseUrl = null;
     _status = null;
     _connection = _telemetry(const {});
@@ -496,38 +496,12 @@ class AuthController extends ChangeNotifier {
     _setState(HermesConnectionState.needsServerUrl);
   }
 
-  /// A dashboard without the auth gate still guards every route but
-  /// `/api/status` with the session token its page embeds. The token dies with
-  /// the server process, so a 401 re-reads it once and retries.
-  Interceptor _pageTokenInterceptor(Dio dio, _PageToken page) =>
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          final value = await page.get();
-          if (value != null) options.headers[_sessionTokenHeader] = value;
-          handler.next(options);
-        },
-        onError: (error, handler) async {
-          final options = error.requestOptions;
-          if (error.response?.statusCode != 401 ||
-              options.extra['hermes_token_retried'] == true) {
-            return handler.next(error);
-          }
-          page.forget();
-          options.extra['hermes_token_retried'] = true;
-          try {
-            handler.resolve(await dio.fetch<dynamic>(options));
-          } on DioException catch (e) {
-            handler.next(e);
-          }
-        },
-      );
-
   Dio _buildAuthenticatedDio(String baseUrl, {required bool gated}) {
     _pageToken = null;
     final dio = _plainDio(baseUrl);
     if (!gated) {
-      final page = _pageToken = _PageToken(HermesApiClient(_plainDio(baseUrl)));
-      dio.interceptors.add(_pageTokenInterceptor(dio, page));
+      final page = _pageToken = PageToken(HermesApiClient(_plainDio(baseUrl)));
+      dio.interceptors.add(pageTokenInterceptor(dio, page));
     }
     dio.interceptors.add(
       InterceptorsWrapper(
@@ -599,11 +573,11 @@ class AuthController extends ChangeNotifier {
     final page = _pageToken;
     if (page != null) {
       final current = await page.get();
-      if (current != null && rejected?[_sessionTokenHeader] == current) {
+      if (current != null && rejected?[kSessionTokenHeader] == current) {
         page.forget();
       }
       final token = await page.get();
-      return {_sessionTokenHeader: ?token};
+      return {kSessionTokenHeader: ?token};
     }
     final session = _session;
     if (session == null) return const {};
@@ -816,19 +790,6 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? _normalizeUrl(String raw) {
-    var value = raw.trim();
-    if (value.isEmpty) return null;
-    if (!value.contains('://')) {
-      value = 'http://$value';
-    }
-    final uri = Uri.tryParse(value);
-    if (uri == null || uri.host.isEmpty) return null;
-    if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-    final path = uri.path.replaceAll(RegExp(r'/+$'), '');
-    return uri.replace(path: path).toString();
-  }
-
   String _describeDioError(DioException e, {required String fallback}) {
     final data = e.response?.data;
     if (data is Map && data['detail'] is String) {
@@ -843,23 +804,17 @@ class AuthController extends ChangeNotifier {
   }
 }
 
-/// The session token a dashboard without the auth gate embeds in its page,
-/// read once and kept until a request is rejected with it.
-class _PageToken {
-  _PageToken(this._page);
-
-  final HermesApiClient _page;
-  Future<String?>? _cached;
-
-  Future<String?> get() async {
-    final pending = _cached ??= _page.fetchSessionToken();
-    try {
-      return await pending;
-    } on Object {
-      _cached = null;
-      return null;
-    }
+/// [raw] as a dashboard base URL (a scheme added when missing, no trailing
+/// slash), or null when it is not an http(s) address.
+String? normalizeServerUrl(String raw) {
+  var value = raw.trim();
+  if (value.isEmpty) return null;
+  if (!value.contains('://')) {
+    value = 'http://$value';
   }
-
-  void forget() => _cached = null;
+  final uri = Uri.tryParse(value);
+  if (uri == null || uri.host.isEmpty) return null;
+  if (uri.scheme != 'http' && uri.scheme != 'https') return null;
+  final path = uri.path.replaceAll(RegExp(r'/+$'), '');
+  return uri.replace(path: path).toString();
 }
