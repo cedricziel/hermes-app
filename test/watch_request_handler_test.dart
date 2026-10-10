@@ -493,6 +493,170 @@ void main() {
     });
   });
 
+  group('send retried with the same id', () {
+    test('joins the send still running instead of sending again', () async {
+      final first = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      final retry = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+
+      final expected = {
+        'ok': true,
+        'threadId': '/new-1',
+        'text': 'Hi there',
+        'failed': false,
+      };
+      expect(await first, expected);
+      expect(await retry, expected);
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('answers again with a reply the watch never got', () async {
+      final first = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi there'))
+        ..finish();
+      await first;
+
+      final retry = await handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+
+      expect(retry['text'], 'Hi there');
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('reads the chat instead of sending again once Hermes had the '
+        'prompt', () async {
+      server.on(
+        'GET',
+        '/api/sessions/new-1/messages',
+        messageListBody('new-1', [
+          messageRow(id: 1, role: 'user', content: 'Hello'),
+          messageRow(id: 2, role: 'assistant', content: 'Hi there'),
+        ]),
+      );
+      final first = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..fail();
+      expect(await first, {'ok': false, 'error': 'failed'});
+
+      final retry = await handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+
+      expect(retry, {
+        'ok': true,
+        'threadId': '/new-1',
+        'text': 'Hi there',
+        'failed': false,
+      });
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('says Hermes is still replying when the chat has no answer '
+        'yet', () async {
+      server.on(
+        'GET',
+        '/api/sessions/new-1/messages',
+        messageListBody('new-1', [
+          messageRow(id: 1, role: 'user', content: 'Hello'),
+        ]),
+      );
+      final first = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single
+        ..emit(const ThreadBound('new-1'))
+        ..fail();
+      await first;
+
+      final retry = await handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+
+      expect(retry['text'], WatchRequestHandler.stillReplyingText);
+      expect(retry['threadId'], '/new-1');
+      expect(transport.sends, hasLength(1));
+    });
+
+    test('sends again when the first try never reached Hermes', () async {
+      final first = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+      transport.sends.single.fail();
+      expect(await first, {'ok': false, 'error': 'failed'});
+
+      final retry = handler.handle({
+        'op': 'send',
+        'text': 'Hello',
+        'sendId': 'a',
+      });
+      await pumpEventQueue();
+
+      expect(transport.sends, hasLength(2));
+      transport.sends.last
+        ..emit(const ThreadBound('new-1'))
+        ..emit(const ReplyCompleted('Hi'))
+        ..finish();
+      expect((await retry)['text'], 'Hi');
+    });
+
+    test('sends a message with another id again', () async {
+      for (final id in ['a', 'b']) {
+        final pending = handler.handle({
+          'op': 'send',
+          'text': 'Hello',
+          'sendId': id,
+        });
+        await pumpEventQueue();
+        transport.sends.last
+          ..emit(const ThreadBound('new-1'))
+          ..emit(const ReplyCompleted('Hi'))
+          ..finish();
+        await pending;
+      }
+
+      expect(transport.sends, hasLength(2));
+    });
+  });
+
   group('send', () {
     test('starts a thread and returns the final reply', () async {
       final pending = handler.handle({'op': 'send', 'text': 'Hello'});
