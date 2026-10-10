@@ -6,6 +6,7 @@ import '../settings/about_dialog.dart';
 import '../theme/platform_chrome.dart';
 import 'mac_commands.dart';
 import 'mac_window.dart';
+import 'menu_layout.dart';
 
 final _helpUrl = Uri.parse('https://github.com/cedricziel/hermes-app#readme');
 
@@ -96,15 +97,26 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
     MacCommand command,
     String label, {
     MenuSerializableShortcut? shortcut,
+    VoidCallback? run,
   }) {
     final handler = registry.handlerFor(command);
-    final enabled = handler?.enabled ?? false;
     return PlatformMenuItem(
       label: handler?.title ?? label,
       shortcut: shortcut,
-      onSelected: enabled ? () => registry.invoke(command) : null,
+      onSelected: handler?.enabled ?? false
+          ? run ?? () => registry.invoke(command)
+          : null,
     );
   }
+
+  PlatformMenuItem entryItem(MenuEntry entry) => item(
+    entry.command,
+    entry.label,
+    shortcut: entry.shortcutOn(MenuPlatform.mac),
+    run: entry.command == MacCommand.deleteThread
+        ? _deleteThreadOrLine(registry)
+        : null,
+  );
 
   PlatformMenuItem edit(
     String label,
@@ -122,23 +134,26 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
   PlatformMenuItemGroup group(List<PlatformMenuItem> members) =>
       PlatformMenuItemGroup(members: members);
 
+  PlatformMenu section(
+    String id, {
+    List<PlatformMenuItemGroup> after = const [],
+  }) {
+    final section = menuLayout.firstWhere((s) => s.id == id);
+    return PlatformMenu(
+      label: section.label,
+      menus: [
+        for (final entries in section.groupsOn(MenuPlatform.mac))
+          group([for (final entry in entries) entryItem(entry)]),
+        ...after,
+      ],
+    );
+  }
+
   const cause = SelectionChangedCause.keyboard;
   return [
-    PlatformMenu(
-      label: 'Hermes',
-      menus: [
-        group([item(MacCommand.about, 'About Hermes')]),
-        group([
-          item(
-            MacCommand.settings,
-            'Settings…',
-            shortcut: _meta(LogicalKeyboardKey.comma),
-          ),
-        ]),
-        group([
-          item(MacCommand.connectionDetails, 'Connection Details'),
-          item(MacCommand.signOut, 'Sign Out…'),
-        ]),
+    section(
+      'hermes',
+      after: [
         group([provided(PlatformProvidedMenuItemType.servicesSubmenu)]),
         group([
           provided(PlatformProvidedMenuItemType.hide),
@@ -148,30 +163,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
         group([provided(PlatformProvidedMenuItemType.quit)]),
       ],
     ),
-    PlatformMenu(
-      label: 'File',
-      menus: [
-        group([
-          item(
-            MacCommand.newChat,
-            'New Chat',
-            shortcut: _meta(LogicalKeyboardKey.keyN),
-          ),
-          item(
-            MacCommand.openInNewWindow,
-            'Open in New Window',
-            shortcut: _meta(LogicalKeyboardKey.keyO, alt: true),
-          ),
-        ]),
-        group([
-          item(
-            MacCommand.closeWindow,
-            'Close Window',
-            shortcut: _meta(LogicalKeyboardKey.keyW),
-          ),
-        ]),
-      ],
-    ),
+    section('file'),
     PlatformMenu(
       label: 'Edit',
       menus: [
@@ -179,95 +171,45 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
           edit(
             'Undo',
             const UndoTextIntent(cause),
-            _meta(LogicalKeyboardKey.keyZ),
+            metaActivator(LogicalKeyboardKey.keyZ),
           ),
           edit(
             'Redo',
             const RedoTextIntent(cause),
-            _meta(LogicalKeyboardKey.keyZ, shift: true),
+            metaActivator(LogicalKeyboardKey.keyZ, shift: true),
           ),
         ]),
         group([
           edit(
             'Cut',
             const CopySelectionTextIntent.cut(cause),
-            _meta(LogicalKeyboardKey.keyX),
+            metaActivator(LogicalKeyboardKey.keyX),
           ),
           edit(
             'Copy',
             CopySelectionTextIntent.copy,
-            _meta(LogicalKeyboardKey.keyC),
+            metaActivator(LogicalKeyboardKey.keyC),
           ),
           edit(
             'Paste',
             const PasteTextIntent(cause),
-            _meta(LogicalKeyboardKey.keyV),
+            metaActivator(LogicalKeyboardKey.keyV),
           ),
           edit(
             'Select All',
             const SelectAllTextIntent(cause),
-            _meta(LogicalKeyboardKey.keyA),
+            metaActivator(LogicalKeyboardKey.keyA),
           ),
         ]),
       ],
     ),
-    PlatformMenu(
-      label: 'View',
-      menus: [
-        group([
-          item(
-            MacCommand.back,
-            'Back',
-            shortcut: _meta(LogicalKeyboardKey.bracketLeft),
-          ),
-        ]),
-        group([
-          item(
-            MacCommand.toggleSidebar,
-            'Show Sidebar',
-            shortcut: _meta(LogicalKeyboardKey.keyS, control: true),
-          ),
-          item(
-            MacCommand.toggleInspector,
-            'Show Inspector',
-            shortcut: _meta(LogicalKeyboardKey.keyI, alt: true),
-          ),
-        ]),
+    section(
+      'view',
+      after: [
         group([provided(PlatformProvidedMenuItemType.toggleFullScreen)]),
       ],
     ),
-    PlatformMenu(
-      label: 'Chat',
-      menus: [
-        group([
-          item(
-            MacCommand.find,
-            'Find…',
-            shortcut: _meta(LogicalKeyboardKey.keyF),
-          ),
-        ]),
-        group([
-          item(
-            MacCommand.pinThread,
-            'Pin',
-            shortcut: _meta(LogicalKeyboardKey.keyP, shift: true),
-          ),
-          item(MacCommand.renameThread, 'Rename…'),
-          item(MacCommand.copyTranscript, 'Copy Transcript'),
-        ]),
-        group([
-          item(MacCommand.archiveThread, 'Archive'),
-          PlatformMenuItem(
-            label: 'Delete…',
-            shortcut: _meta(LogicalKeyboardKey.backspace),
-            onSelected:
-                registry.handlerFor(MacCommand.deleteThread)?.enabled ?? false
-                ? _deleteThreadOrLine(registry)
-                : null,
-          ),
-        ]),
-      ],
-    ),
+    section('chat'),
     PlatformMenu(
       label: 'Window',
       menus: [
@@ -279,7 +221,7 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
           item(
             MacCommand.showMainWindow,
             'Hermes',
-            shortcut: _meta(LogicalKeyboardKey.digit0),
+            shortcut: metaActivator(LogicalKeyboardKey.digit0),
           ),
           for (final window in registry.windows)
             PlatformMenuItem(
@@ -290,17 +232,9 @@ List<PlatformMenuItem> macMenus(MacCommandRegistry registry) {
         group([provided(PlatformProvidedMenuItemType.arrangeWindowsInFront)]),
       ],
     ),
-    PlatformMenu(label: 'Help', menus: [item(MacCommand.help, 'Hermes Help')]),
+    section('help'),
   ];
 }
-
-SingleActivator _meta(
-  LogicalKeyboardKey key, {
-  bool shift = false,
-  bool alt = false,
-  bool control = false,
-}) =>
-    SingleActivator(key, meta: true, shift: shift, alt: alt, control: control);
 
 // The entry's callback is read when it is picked, not when the menu was set,
 // so a window that changed its callback since still gets the newest one.
