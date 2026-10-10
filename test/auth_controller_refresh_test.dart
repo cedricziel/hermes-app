@@ -429,14 +429,17 @@ void main() {
 
   test('a proactive refresh never sends a refresh token another isolate '
       'spent', () async {
-    // Fresh at start, due for a refresh a second later.
+    // Fresh at start, however slow it is, and due for a refresh after.
     final soon =
         DateTime.now()
-            .add(const Duration(seconds: 61))
+            .add(const Duration(seconds: 63))
             .millisecondsSinceEpoch ~/
         1000;
     await bootstrapWith(_session(expiresAt: soon));
-    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    final due = DateTime.fromMillisecondsSinceEpoch((soon - 60) * 1000);
+    await Future<void>.delayed(
+      due.difference(DateTime.now()) + const Duration(milliseconds: 200),
+    );
     store.session = _session(
       access: 'access-2',
       refresh: 'refresh-2',
