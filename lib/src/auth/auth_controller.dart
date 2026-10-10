@@ -62,6 +62,7 @@ class AuthController extends ChangeNotifier {
     ConnectionTelemetryFactory telemetry = ConnectionTelemetry.off,
     this._login = runNativeLogin,
     NetworkSignals networkSignals = const NoNetworkSignals(),
+    this._rejectionRecheck = const Duration(seconds: 1),
   }) : _telemetry = telemetry,
        _connection = telemetry(const {}),
        _tokenStore =
@@ -73,6 +74,10 @@ class AuthController extends ChangeNotifier {
   }
 
   final TokenStore _tokenStore;
+
+  /// How long a rejected refresh waits for another isolate's write to land
+  /// in the store before it gives up on the session.
+  final Duration _rejectionRecheck;
   final SharedPreferencesAsync _prefs;
 
   /// Set only in dev/test runs. Wins over the saved address and is never
@@ -274,12 +279,14 @@ class AuthController extends ChangeNotifier {
 
     final storedSession = await _tokenStore.read();
     if (stale()) return;
-    if (storedSession == null) {
+    // A session another dashboard minted is no use here.
+    if (storedSession == null ||
+        (storedSession.serverUrl ?? normalized) != normalized) {
       _setState(HermesConnectionState.needsLogin);
       return;
     }
 
-    _session = storedSession;
+    _session = storedSession.boundTo(normalized);
     try {
       final identity = await _api!.fetchMe();
       if (stale()) return;
@@ -366,12 +373,12 @@ class AuthController extends ChangeNotifier {
     }
 
     try {
-      final session = await _login(
+      final session = (await _login(
         url,
         provider: provider.name,
         httpClient: _tokenDio,
         cancelled: cancel.future,
-      );
+      )).boundTo(url);
       if (abandoned()) return;
       // The session is neither in use nor stored until the server has
       // accepted its token, so a failure leaves nothing behind.
@@ -629,11 +636,13 @@ class AuthController extends ChangeNotifier {
     try {
       final refreshed = await _refreshSession(session, trigger: 'proactive');
       return refreshed.accessToken;
-    } on NativeLoginException {
-      // Already reported as auth.session.refresh_failed. Fall through with the
-      // (possibly stale) token; the server will 401 and the response
-      // interceptor drives re-login.
-      return session.accessToken;
+    } on NativeLoginException catch (e) {
+      // Already reported as auth.session.refresh_failed. A spent refresh
+      // token is not sent again: the store may hold the pair that replaced
+      // it. Otherwise the (possibly stale) token goes out; the server will
+      // 401 and the response interceptor drives re-login.
+      if (!e.rejected) return session.accessToken;
+      return (await _refreshRejected(session))?.accessToken;
     } on FormatException {
       // The server answered the refresh with a token set that does not parse.
       return session.accessToken;
@@ -657,65 +666,99 @@ class AuthController extends ChangeNotifier {
       return Future.error(StateError('No server configured'));
     }
 
-    final future =
-        refreshNativeSession(
-              url,
-              current,
-              httpClient: _tokenDio,
-              onRetry: () =>
-                  _events('auth.session.refresh_retried', {'trigger': trigger}),
-            )
-            .then((refreshed) async {
-              // Signing out or switching server must not bring the old session
-              // back; the same session read again keeps the rotated tokens, as
-              // its refresh token is spent.
-              if (_session?.refreshToken != current.refreshToken) {
-                throw StateError('The session changed during the refresh');
-              }
-              _session = refreshed;
-              try {
-                await _tokenStore.write(refreshed);
-              } on Object catch (error) {
-                _events('auth.session.store_failed', {
-                  'error.type': error.runtimeType.toString(),
-                });
-              }
-              _events('auth.session.refreshed', {'trigger': trigger});
-              return refreshed;
-            })
-            .onError<NativeLoginException>((e, stack) {
-              _events('auth.session.refresh_failed', {
-                'trigger': trigger,
-                'rejected': e.rejected,
-                'http.response.status_code': ?e.statusCode,
-              });
-              Error.throwWithStackTrace(e, stack);
-            })
-            .whenComplete(() {
-              _refreshInFlight = null;
+    // Another isolate may already have rotated the pair; its refresh token
+    // would be spent, so the stored pair is taken over without a request.
+    final future = _adoptStored(current)
+        .then(
+          (adopted) async =>
+              adopted ??
+              (await refreshNativeSession(
+                url,
+                current,
+                httpClient: _tokenDio,
+                onRetry: () => _events('auth.session.refresh_retried', {
+                  'trigger': trigger,
+                }),
+              )).boundTo(current.serverUrl),
+        )
+        .then((refreshed) async {
+          if (identical(refreshed, _session)) return refreshed;
+          // Signing out or switching server must not bring the old session
+          // back; the same session read again keeps the rotated tokens, as
+          // its refresh token is spent.
+          if (_session?.refreshToken != current.refreshToken) {
+            throw StateError('The session changed during the refresh');
+          }
+          _session = refreshed;
+          try {
+            await _tokenStore.write(refreshed);
+          } on Object catch (error) {
+            _events('auth.session.store_failed', {
+              'error.type': error.runtimeType.toString(),
             });
+          }
+          _events('auth.session.refreshed', {'trigger': trigger});
+          return refreshed;
+        })
+        .onError<NativeLoginException>((e, stack) {
+          _events('auth.session.refresh_failed', {
+            'trigger': trigger,
+            'rejected': e.rejected,
+            'http.response.status_code': ?e.statusCode,
+          });
+          Error.throwWithStackTrace(e, stack);
+        })
+        .whenComplete(() {
+          _refreshInFlight = null;
+        });
     _refreshInFlight = future;
     return future;
   }
 
   /// The server refused [sent]'s refresh token. Another isolate on the same
   /// keychain, such as the one that answers notification buttons, may have
-  /// rotated it already: a newer pair in the store is taken over instead of
-  /// signing the user out. Returns it, or null once signed out.
+  /// rotated it already: a newer pair of the same user on the same dashboard
+  /// in the store is taken over instead of signing the user out. Its write
+  /// may still be under way, so the store is read again a moment later.
+  /// Returns the session to go on with, or null once it is gone.
   Future<HermesSession?> _refreshRejected(HermesSession sent) async {
-    final stored = await _tokenStore.read();
-    final current = _session;
-    // Another caller rejected with the same token got here first and took
-    // over a newer pair, or the session changed meanwhile.
-    if (current == null) return null;
-    if (current.refreshToken != sent.refreshToken) return current;
-    if (stored != null && stored.refreshToken != sent.refreshToken) {
-      _session = stored;
-      _events('auth.session.adopted', const {});
-      return stored;
+    for (final wait in [Duration.zero, _rejectionRecheck]) {
+      if (wait > Duration.zero) await Future<void>.delayed(wait);
+      final current = _session;
+      // Signed out, or now someone else's session: not this refresh's to end.
+      if (current == null || !current.sameOwner(sent)) return null;
+      // A caller rejected with the same token already took over a pair.
+      if (current.refreshToken != sent.refreshToken) return current;
+      final adopted = await _adoptStored(sent);
+      if (adopted != null) return adopted;
     }
+    final current = _session;
+    if (current == null || !current.sameOwner(sent)) return null;
+    if (current.refreshToken != sent.refreshToken) return current;
     await _handleSessionExpired('refresh_rejected');
     return null;
+  }
+
+  /// Takes over the stored pair when it replaced [sent]: the same user on the
+  /// same dashboard as this controller, with another refresh token, while
+  /// this controller still holds [sent]. Null otherwise.
+  Future<HermesSession?> _adoptStored(HermesSession sent) async {
+    final HermesSession? stored;
+    try {
+      stored = await _tokenStore.read();
+    } on Object {
+      return null;
+    }
+    if (stored == null ||
+        !stored.sameOwner(sent) ||
+        stored.serverUrl != _baseUrl ||
+        stored.refreshToken == sent.refreshToken ||
+        _session?.refreshToken != sent.refreshToken) {
+      return null;
+    }
+    _session = stored;
+    _events('auth.session.adopted', const {});
+    return stored;
   }
 
   Future<void> _handleSessionExpired(String cause) async {

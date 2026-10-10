@@ -10,6 +10,7 @@ class HermesSession {
     required this.expiresAt,
     required this.provider,
     required this.userId,
+    this.serverUrl,
   });
 
   factory HermesSession.fromTokenResponse(Map<String, dynamic> json) {
@@ -33,6 +34,7 @@ class HermesSession {
       expiresAt: _expiry(json['expiresAt']),
       provider: json['provider'] as String? ?? '',
       userId: json['userId'] as String? ?? '',
+      serverUrl: json['serverUrl'] as String?,
     );
   }
 
@@ -52,12 +54,35 @@ class HermesSession {
   final String provider;
   final String userId;
 
+  /// The dashboard the tokens were minted by. Null for a session stored
+  /// before it was recorded.
+  final String? serverUrl;
+
+  /// The same tokens, recorded as minted by [serverUrl].
+  HermesSession boundTo(String? serverUrl) => HermesSession(
+    accessToken: accessToken,
+    refreshToken: refreshToken,
+    expiresAt: expiresAt,
+    provider: provider,
+    userId: userId,
+    serverUrl: serverUrl,
+  );
+
+  /// Whether [other] holds tokens of the same user on the same dashboard, so
+  /// one may stand in for the other.
+  bool sameOwner(HermesSession other) =>
+      serverUrl != null &&
+      serverUrl == other.serverUrl &&
+      userId == other.userId &&
+      provider == other.provider;
+
   Map<String, dynamic> toStorageJson() => {
     'accessToken': accessToken,
     'refreshToken': refreshToken,
     'expiresAt': expiresAt,
     'provider': provider,
     'userId': userId,
+    'serverUrl': ?serverUrl,
   };
 
   /// True when the access token is at or near expiry and should be refreshed
