@@ -37,6 +37,7 @@ import '../share/shared_item.dart';
 import '../macos/dock/dock_menu_controller.dart';
 import '../macos/mac_commands.dart';
 import '../macos/mac_sidebar.dart';
+import '../macos/menu_bar_extra/menu_bar_extra_link.dart';
 import '../shell/shell_navigation.dart';
 import '../skills/hermes_skills_repository.dart';
 import '../skills/skills_screen.dart';
@@ -183,6 +184,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _searchFocus = FocusNode();
   Timer? _activeRefreshTimer;
+  MenuBarExtraLink? _menuBar;
   bool _activeRefreshInFlight = false;
   bool _foreground = true;
 
@@ -318,6 +320,12 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     _share = context.read<ShareController>()..addListener(_onShared);
     _absorbShared(held: true);
     _windows = _maybeRead<ConversationWindows?>()?..addListener(_advertise);
+    _menuBar = _maybeRead<MenuBarExtraLink?>()
+      ?..connect(
+        chat: _chat,
+        openChat: _openFromMenuBar,
+        newChat: _newFromMenuBar,
+      );
     _mainFocused = _windows?.mainFocused.listen((_) => _refreshFromWindows());
   }
 
@@ -570,6 +578,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// The menu bar item asks for a chat; opening it puts the chat screen in
+  /// front.
+  void _openFromMenuBar(NotificationTarget target) {
+    _handoff?.cancel();
+    _chat.open(target, fetchMissing: true);
+  }
+
+  void _newFromMenuBar() {
+    widget.onShowChat?.call();
+    _newThread();
+  }
+
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
@@ -653,6 +673,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _menuBar?.disconnect(_chat);
     _handoff?.bind(null);
     _handoff?.advertise(null);
     _dock

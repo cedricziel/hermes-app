@@ -32,6 +32,7 @@ import 'skills_messaging_use_cases.dart';
 import 'skills_use_cases.dart';
 import 'state_message_use_cases.dart';
 import 'busy_bar_use_cases.dart';
+import 'menu_bar_extra_use_cases.dart';
 import 'bot_mode_roster_use_cases.dart';
 import 'bot_chat_use_cases.dart';
 import 'group_use_cases.dart';
@@ -49,6 +50,7 @@ final List<WidgetbookNode> directories = [
   settingsChromeNode(),
   groupedFormNode(),
   macToolbarNode(),
+  menuBarExtraNode(),
   appIconsNode(),
   appNode(),
   adaptiveNode(),

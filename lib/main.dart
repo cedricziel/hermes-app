@@ -19,6 +19,7 @@ import 'src/network/network_signals.dart';
 import 'src/live_activities/live_activities.dart';
 import 'src/notifications/local_notification_service.dart';
 import 'src/notifications/notification_service.dart';
+import 'src/macos/menu_bar_extra/menu_bar_extra_settings.dart';
 import 'src/notifications/notification_settings.dart';
 import 'src/notifications/request_answers.dart';
 import 'src/quick_panel/global_shortcut.dart';
@@ -121,6 +122,7 @@ Future<void> main([List<String> args = const []]) async {
         ChangeNotifierProvider(create: (_) => ThemeController()..load()),
         ChangeNotifierProvider(create: (_) => NotificationSettings()..load()),
         ChangeNotifierProvider(create: (_) => DictationSettings()..load()),
+        ChangeNotifierProvider(create: (_) => MenuBarExtraSettings()..load()),
         // One app-wide listener: the recognizer's event channel has a single
         // native sink.
         Provider<OnDeviceSpeech>(

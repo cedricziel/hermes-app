@@ -31,7 +31,7 @@ None. The changed notification and schedule timing appears as requirements of th
 
 - `macos/Runner/AppDelegate.swift`: stay-alive.
 - `lib/src/notifications/attention_notifier.dart`, `lib/src/schedules/schedule_alerts.dart`, `lib/src/shell/app_shell.dart`: what counts as "in front" on macOS.
-- New `lib/src/macos/menu_bar_extra/`, with `tray_manager` as a new dependency (macOS only in use).
+- New `lib/src/macos/menu_bar_extra/` and a small `NSStatusItem` in `macos/Runner/MainFlutterWindow.swift`. No new dependency: `tray_manager` 0.8.0 builds a C++ core for every platform (see design.md).
 - `lib/src/settings/settings_dialog.dart`: the new switch, backed by shared preferences.
 - Backend: none.
 
