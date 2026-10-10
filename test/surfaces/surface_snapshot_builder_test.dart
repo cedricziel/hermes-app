@@ -62,6 +62,7 @@ void main() {
     bool refreshRemote = true,
     bool redact = false,
   }) async => (await builder.build(
+    signedIn: true,
     previous: previous,
     hints: hints,
     refreshRemote: refreshRemote,
@@ -80,6 +81,33 @@ void main() {
     ]);
     expect(snapshot.recentChats.first.url, 'hermes://chat?profile=work&id=w1');
     expect(snapshot.recentChats.first.title, 'Quarterly numbers');
+  });
+
+  test('a chat the server has not named shows a fixed title, not its '
+      'preview', () async {
+    server.on(
+      'GET',
+      '/api/sessions',
+      sessionListBody([
+        sessionRow(
+          id: 'w2',
+          preview: 'Email the board the secret numbers',
+          lastActive: epoch(DateTime.utc(2026, 10, 10, 11, 30)),
+        ),
+      ]),
+      query: {'profile': 'work'},
+    );
+
+    final snapshot = await build();
+
+    expect(
+      snapshot.recentChats.firstWhere((c) => c.id == 'w2').title,
+      'New chat',
+    );
+    expect(
+      snapshot.recentChats.firstWhere((c) => c.id == 'd1').title,
+      'Trip plan',
+    );
   });
 
   test('reads at most ten chats of a profile', () async {
@@ -137,6 +165,7 @@ void main() {
       );
 
       final result = await builder.build(
+        signedIn: true,
         previous: previous,
         refreshRemote: true,
       );
@@ -171,6 +200,24 @@ void main() {
   });
 
   group('schedules', () {
+    test('a job without a name shows a fixed label, not its prompt', () async {
+      server.on('GET', '/api/cron/jobs', [
+        cronJobRow(
+          id: 'unnamed',
+          name: '',
+          prompt: 'Email the board the secret quarterly numbers',
+          nextRunAt: '2026-10-11T08:00:00Z',
+          lastRunAt: '2026-10-09T03:00:00Z',
+          lastStatus: 'error',
+        ),
+      ]);
+
+      final schedules = (await build()).schedules!;
+
+      expect(schedules.nextJobName, 'Scheduled task');
+      expect(schedules.lastFailed!.name, 'Scheduled task');
+    });
+
     test('finds the next run and the last failed job', () async {
       server.on('GET', '/api/cron/jobs', [
         cronJobRow(
@@ -281,6 +328,7 @@ void main() {
       );
 
       final result = await builder.build(
+        signedIn: true,
         previous: previous,
         refreshRemote: true,
       );

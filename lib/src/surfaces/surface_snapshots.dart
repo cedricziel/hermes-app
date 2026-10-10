@@ -17,6 +17,23 @@ const kSurfaceDebounce = Duration(seconds: 2);
 /// while the app is in front.
 const kSurfaceRemoteInterval = Duration(minutes: 5);
 
+/// How long a move to the background waits for the server before it writes
+/// what is known; an answer within it makes the one write.
+const kSurfacePauseWindow = Duration(milliseconds: 800);
+
+/// What the connection says about the account, read whenever it matters.
+enum SurfaceSession {
+  /// A session is in place; snapshots are built.
+  signedIn,
+
+  /// The app settled on the login or setup screen.
+  signedOut,
+
+  /// Starting up, connecting or signing in, or the server is out of reach:
+  /// the stored snapshot stays as it is.
+  unknown,
+}
+
 class _Job {
   const _Job(this.trigger, {required this.remote});
 
@@ -32,10 +49,12 @@ class _Job {
 class SurfaceSnapshots with WidgetsBindingObserver {
   SurfaceSnapshots({
     required this.store,
+    required this.session,
     Stream<void>? signedOut,
     this.appLock,
     this.debounce = kSurfaceDebounce,
     this.remoteInterval = kSurfaceRemoteInterval,
+    this.pauseWindow = kSurfacePauseWindow,
     DateTime Function()? now,
     SurfaceSnapshotBuilder Function(HermesRepositories)? builderFor,
   }) : _now = now ?? DateTime.now,
@@ -47,13 +66,18 @@ class SurfaceSnapshots with WidgetsBindingObserver {
   }
 
   final SurfaceSnapshotStore store;
+
+  /// Read at every decision rather than copied, so a change is seen before
+  /// any provider has passed it on.
+  final SurfaceSession Function() session;
   final AppLockController? appLock;
   final Duration debounce;
   final Duration remoteInterval;
+  final Duration pauseWindow;
   final DateTime Function() _now;
   final SurfaceSnapshotBuilder Function(HermesRepositories) _builderFor;
 
-  /// The signed-in repositories; null while signed out, when nothing is built.
+  /// The repositories of the connection, which stay after a session ended.
   HermesRepositories? repositories;
 
   StreamSubscription<void>? _signedOut;
@@ -68,8 +92,13 @@ class SurfaceSnapshots with WidgetsBindingObserver {
   var _disposed = false;
   var _appLockWasOn = false;
 
-  /// Bumped on sign-out, so a build that was under way writes nothing.
+  /// Bumped on sign-out, so a build or a read that was under way leaves
+  /// nothing behind.
   var _generation = 0;
+
+  bool get _signedIn => session() == SurfaceSession.signedIn;
+
+  bool get _lockOn => appLock?.enabled ?? false;
 
   /// The chat screen's account of its profile after something changed.
   void chatChanged(SurfaceTrigger trigger, ChatHints hints) {
@@ -85,12 +114,54 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     _request(const _Job(SurfaceTrigger.pause, remote: true));
   }
 
+  /// Tells that the connection moved. Settling on the login or setup screen
+  /// replaces a stored snapshot that still says signed in, which a sign-out
+  /// that no event announced (the app was killed, a token was refused while
+  /// no screen was up) leaves behind.
+  void sessionChanged() {
+    if (session() != SurfaceSession.signedOut) return;
+    unawaited(_replaceStaleAccount());
+  }
+
+  Future<void> _replaceStaleAccount() async {
+    final generation = _generation;
+    try {
+      final stored = await store.read();
+      if (stored == null || !stored.signedIn) return;
+      if (generation != _generation || _disposed) return;
+      if (session() != SurfaceSession.signedOut) return;
+      await _clear();
+    } on Object {
+      // The next change of the connection tries again.
+    }
+  }
+
   void _onAppLock() {
-    final on = appLock?.enabled ?? false;
+    final on = _lockOn;
     if (on == _appLockWasOn) return;
     _appLockWasOn = on;
     _timer?.cancel();
-    _request(const _Job(SurfaceTrigger.appLock, remote: false));
+    if (on) {
+      // Titles must not stay in the App Group while the server is read.
+      unawaited(_hideStored());
+      _request(const _Job(SurfaceTrigger.appLock, remote: false));
+    } else {
+      // What was written meanwhile had no titles, so everything is read again.
+      _request(const _Job(SurfaceTrigger.appLock, remote: true));
+    }
+  }
+
+  Future<void> _hideStored() async {
+    final generation = _generation;
+    try {
+      final known = _previous ?? await store.read();
+      if (known == null || generation != _generation || _disposed) return;
+      if (!_lockOn) return;
+      final hidden = _previous = known.redacted();
+      await store.write(hidden);
+    } on Object {
+      // The job requested alongside writes it again.
+    }
   }
 
   void _request(_Job job) {
@@ -113,32 +184,54 @@ class SurfaceSnapshots with WidgetsBindingObserver {
 
   Future<void> _run(_Job job) async {
     final repositories = this.repositories;
-    if (repositories == null || _disposed) return;
+    if (repositories == null || !_signedIn || _disposed) return;
     final generation = _generation;
     try {
-      _previous ??= await store.read();
-      // Leaving the app is the last chance to write what is known, so that
-      // comes before the network does.
-      if (job.trigger == SurfaceTrigger.pause) {
-        await _build(repositories, generation, job.trigger, remote: false);
+      if (_previous == null) {
+        final stored = await store.read();
+        if (generation != _generation) return;
+        _previous = stored;
       }
       final stale =
           _lastRemote == null ||
           !_now().isBefore(_lastRemote!.add(remoteInterval));
-      await _build(
-        repositories,
-        generation,
-        job.trigger,
-        remote: job.remote || stale,
-      );
+      if (job.trigger == SurfaceTrigger.pause) {
+        await _pause(repositories, generation);
+      } else {
+        final remote = job.remote || stale;
+        await _publish(
+          await _compose(repositories, job.trigger, remote: remote),
+          generation,
+          remote: remote,
+        );
+      }
     } on Object {
       // A snapshot that could not be built leaves the last one in place.
     }
   }
 
-  Future<void> _build(
+  /// Leaving the app is the last chance to write what is known, so when the
+  /// server does not answer within [pauseWindow] that is written first.
+  Future<void> _pause(HermesRepositories repositories, int generation) async {
+    const trigger = SurfaceTrigger.pause;
+    final remote = _compose(repositories, trigger, remote: true);
+    final answer = remote.then<SnapshotBuild?>((r) => r, onError: (_) => null);
+    final early = await Future.any([
+      answer,
+      Future<SnapshotBuild?>.delayed(pauseWindow),
+    ]);
+    if (early == null) {
+      await _publish(
+        await _compose(repositories, trigger, remote: false),
+        generation,
+      );
+    }
+    final built = early ?? await answer;
+    if (built != null) await _publish(built, generation, remote: true);
+  }
+
+  Future<SnapshotBuild> _compose(
     HermesRepositories repositories,
-    int generation,
     SurfaceTrigger trigger, {
     required bool remote,
   }) async {
@@ -149,20 +242,32 @@ class SurfaceSnapshots with WidgetsBindingObserver {
     final span = _startSpan(repositories, trigger);
     try {
       final result = await _builder!.build(
+        signedIn: _signedIn,
         previous: _previous,
         hints: _hints,
         refreshRemote: remote,
-        redact: appLock?.enabled ?? false,
+        redact: _lockOn,
       );
       _endSpan(span, sourcesFailed: result.sourcesFailed);
-      if (generation != _generation || _disposed) return;
-      if (remote) _lastRemote = _now();
-      _previous = result.snapshot;
-      await store.write(result.snapshot);
+      return result;
     } on Object {
       _endSpan(span, failed: true);
       rethrow;
     }
+  }
+
+  Future<void> _publish(
+    SnapshotBuild result,
+    int generation, {
+    bool remote = false,
+  }) async {
+    if (generation != _generation || _disposed || !_signedIn) return;
+    if (remote) _lastRemote = _now();
+    // App Lock may have changed while the build was under way.
+    final snapshot = _previous = _lockOn
+        ? result.snapshot.redacted()
+        : result.snapshot;
+    await store.write(snapshot);
   }
 
   Future<void> _clear() async {

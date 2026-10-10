@@ -89,6 +89,77 @@ void main() {
     expect(hints.threads.first.snippet, isNull);
   });
 
+  group('removing a chat', () {
+    late FakeHermesServer server;
+
+    setUp(() {
+      server = FakeHermesServer()
+        ..on(
+          'GET',
+          '/api/sessions',
+          sessionListBody([
+            sessionRow(id: 's1', title: 'Trip plan', lastActive: 1780000600),
+            sessionRow(id: 's2', title: 'Notes', lastActive: 1780000100),
+          ]),
+        )
+        ..on('DELETE', '/api/sessions/s1', {'ok': true})
+        ..on('PATCH', '/api/sessions/s2', sessionPatchBody());
+      chat = build(repository: HermesChatRepository(server.client().raw));
+    });
+
+    test('deleting one is reported without it', () async {
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.delete(chat.threads.first);
+
+      expect(triggers(), [SurfaceTrigger.threads]);
+      expect(reports.single.$2.threads.map((t) => t.id), ['s2']);
+    });
+
+    test('archiving one is reported without it', () async {
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.archive(chat.threads.last);
+
+      expect(triggers(), [SurfaceTrigger.threads]);
+      expect(reports.single.$2.threads.map((t) => t.id), ['s1']);
+    });
+
+    test('a failed delete reports nothing', () async {
+      server.on('DELETE', '/api/sessions/s1', {'detail': 'no'}, status: 500);
+      await chat.loadThreads('work');
+      reports.clear();
+
+      await chat.housekeeping!.delete(chat.threads.first);
+
+      expect(reports, isEmpty);
+    });
+  });
+
+  test('a title made from the prompt never leaves the chat', () async {
+    final send = await sendHello();
+    reports.clear();
+
+    send.emit(const ApprovalRequested(approval));
+    await pumpEventQueue();
+
+    final (_, hints) = reports.single;
+    expect(hints.threads.single.title, 'New chat');
+    expect(hints.requests.single.threadTitle, 'New chat');
+  });
+
+  test('a title the dashboard gave is reported', () async {
+    final send = await sendHello();
+    send
+      ..emit(const ThreadTitled('Greeting'))
+      ..emit(const ReplyCompleted('Hi there'));
+    await pumpEventQueue();
+
+    expect(reports.last.$2.threads.single.title, 'Greeting');
+  });
+
   test('a finished reply is reported with its start as the snippet', () async {
     final send = await sendHello();
     reports.clear();
@@ -102,7 +173,7 @@ void main() {
     final thread = reports.single.$2.threads.single;
     expect(
       (thread.id, thread.title, thread.snippet),
-      ('s1', 'Hello', 'Hi there'),
+      ('s1', 'New chat', 'Hi there'),
     );
     expect(
       thread.updatedAt.isAfter(
@@ -155,7 +226,7 @@ void main() {
     final request = reports.single.$2.requests.single;
     expect(
       (request.threadId, request.threadTitle, request.kind, request.requestId),
-      ('s1', 'Hello', PendingKind.approval, 'r1'),
+      ('s1', 'New chat', PendingKind.approval, 'r1'),
     );
 
     reports.clear();

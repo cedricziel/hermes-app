@@ -347,16 +347,18 @@ class SurfaceSnapshot {
     return jsonEncode(mine) == jsonEncode(theirs);
   }
 
-  /// The snapshot in [source], or null when it is missing, unreadable or
-  /// from a newer version.
+  /// The snapshot in [source], or null when it is missing, malformed or from
+  /// a newer version.
   static SurfaceSnapshot? fromJson(String? source) {
     if (source == null) return null;
-    final Object? decoded;
     try {
-      decoded = jsonDecode(source);
-    } on FormatException {
+      return _read(jsonDecode(source));
+    } on Object {
       return null;
     }
+  }
+
+  static SurfaceSnapshot? _read(Object? decoded) {
     if (decoded is! Map || decoded['version'] != kSurfaceSnapshotVersion) {
       return null;
     }

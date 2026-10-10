@@ -16,6 +16,10 @@ enum SurfaceTrigger {
   };
 }
 
+/// What a chat is called until the dashboard or the gateway names it; the
+/// title made from the prompt is never shared.
+const kUnnamedChatLabel = 'New chat';
+
 /// A chat of the open profile, as the chat screen holds it.
 @immutable
 class ThreadHint {

@@ -787,6 +787,8 @@ class ChatController extends ChangeNotifier with SafeNotifier {
     liveActivities?.endChat(thread.id, _profile);
     watchStatus?.drop(thread);
     _announcedTurns.remove(thread);
+    _touched.remove(thread);
+    _reportSurface(SurfaceTrigger.threads);
     if (_selectedId != thread.id) return;
     _selectedId = _threads.firstOrNull?.id;
     if (_selectedId != null) _loadMessages(_selectedId!);
@@ -2124,10 +2126,12 @@ class ChatController extends ChangeNotifier with SafeNotifier {
       if (!thread.remote || thread.isCanonicalBotChat) continue;
       final touched = _touched[thread];
       final snippet = thread.messages.lastOrNull?.content;
+      // A title made from the prompt would put its words on widgets.
+      final title = thread.named ? thread.title : kUnnamedChatLabel;
       threads.add(
         ThreadHint(
           id: thread.id,
-          title: thread.title,
+          title: title,
           updatedAt: touched != null && touched.isAfter(thread.updatedAt)
               ? touched
               : thread.updatedAt,
@@ -2142,7 +2146,7 @@ class ChatController extends ChangeNotifier with SafeNotifier {
           requests.add(
             RequestHint(
               threadId: thread.id,
-              threadTitle: thread.title,
+              threadTitle: title,
               kind: switch (request) {
                 ApprovalRequest() => PendingKind.approval,
                 ClarifyRequest() => PendingKind.question,

@@ -65,6 +65,11 @@ class SurfaceSnapshotStore {
 
   final _writes = StreamController<SurfaceSnapshot>.broadcast();
   SurfaceSnapshot? _written;
+  var _seeded = false;
+
+  /// Writes run one after another, in the order they were asked for, so an
+  /// older snapshot is never stored over a newer one.
+  Future<void> _tail = Future.value();
 
   /// Each snapshot that changed what is stored, also when storing failed, so
   /// in-app readers stay current without the App Group.
@@ -81,24 +86,42 @@ class SurfaceSnapshotStore {
 
   /// Stores [snapshot] unless it says what the last one did, then reloads
   /// the widgets. A storage that fails is logged and never throws.
-  Future<void> write(SurfaceSnapshot snapshot) async {
+  Future<void> write(SurfaceSnapshot snapshot) {
+    final done = _tail.then((_) => _write(snapshot));
+    _tail = done.then((_) {}, onError: (Object _) {});
+    return done;
+  }
+
+  Future<void> _write(SurfaceSnapshot snapshot) async {
+    if (!_seeded) {
+      _seeded = true;
+      _written = await read();
+    }
     final written = _written;
     if (written != null && written.sameContent(snapshot)) return;
     try {
       await _storage.save(snapshot.encode());
       _written = snapshot;
-      await _storage.reload(widgetKinds);
     } on Object catch (error) {
       _written = null;
+      _log('surface.snapshot.write_failed', error);
+    }
+    if (_written != null) {
       try {
-        events('surface.snapshot.write_failed', {
-          'error.type': error.runtimeType.toString(),
-        });
-      } on Object {
-        // Telemetry must not break the app.
+        await _storage.reload(widgetKinds);
+      } on Object catch (error) {
+        _log('surface.snapshot.reload_failed', error);
       }
     }
     if (!_writes.isClosed) _writes.add(snapshot);
+  }
+
+  void _log(String name, Object error) {
+    try {
+      events(name, {'error.type': error.runtimeType.toString()});
+    } on Object {
+      // Telemetry must not break the app.
+    }
   }
 
   /// Stores the signed-out form.
